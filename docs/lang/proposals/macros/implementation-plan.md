@@ -26,8 +26,9 @@ it changes the internal projection. The gate is complete only when:
 * application kind is independent from freestanding grammar targets;
 * freestanding targets are projected from the macro return type;
 * attached targets are projected from exactly one typed `on` parameter;
-* parameter descriptors distinguish caller-supplied and compiler-supplied values
-  without category-specific role proliferation;
+* parameter descriptors distinguish parenthesized arguments, sequence input,
+  and compiler-supplied values without category-specific role
+  proliferation;
 * symbols, registry lookup, binding, lowering, diagnostics, and language services
   consume the same normalized descriptor;
 * expansion results are category-safe through validation rather than casts;
@@ -1112,13 +1113,10 @@ authors to declare a context they do not use.
 The future strongly typed layer also includes symbolic generic arguments.
 Explicit macro type arguments bind to `ITypeSymbol` values, participate in
 constraint validation before expansion, and remain distinct from CLR generic
-parameters on the provider implementation. A macro declaration may eventually
-declare a call-site semantic result type, while its implementation supplies
-syntax that the compiler binds and verifies against that result. Generic
-inference and overload resolution remain later layers. For freestanding macros,
-the return type declares grammar targets rather than a separate call-site
-semantic result type; the expanded ordinary syntax is subsequently bound and
-type-checked normally.
+parameters on the provider implementation. Generic inference and overload
+resolution remain later layers. For freestanding macros, the return type
+declares grammar targets rather than a separate call-site semantic result type;
+the expanded ordinary syntax is subsequently bound and type-checked normally.
 
 Validation record for this slice:
 
@@ -1556,9 +1554,12 @@ decides where resolution and completion offer that macro before expansion runs.
 The accepted attached syntax moves `on` into the parameter list:
 `on target: TargetSyntax`. The parameter type or union decides attachment
 targets, while `on target: SyntaxNode` is category-untyped. The parameter binder
-must normalize value, syntax-input, context, token-body, and attached-target
-roles before mapping positional or named arguments; compiler-supplied roles do
-not consume call-site arguments.
+must normalize value, syntax-input, list-input, context, token-body, and
+attached-target roles before mapping positional or named arguments. Only value
+and syntax-input roles consume `(...)` arguments; `MacroList<T>` consumes the
+`[...]` sequence, and compiler-supplied roles consume neither. The descriptor
+keeps sequence and token-body roles independent so `Name![...] { ... }` can be
+added without another ABI redesign.
 
 ### Expansion driver and isolation
 

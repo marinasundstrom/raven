@@ -193,15 +193,19 @@ one large macro-kind enumeration:
 | Dimension | Examples |
 | --- | --- |
 | Attachment | freestanding, attached to type/property/method |
-| Input | constants, `ExpressionSyntax`, raw token body, symbolic types |
+| Input | constants, `ExpressionSyntax`, `MacroList<T>`, raw token body, symbolic types |
 | Output | expression, statement, member, declaration, type, pattern |
 | Contribution | replace, introduce members, introduce peers |
 | Capabilities | tokens, fragments, completion, hover, navigation |
 
-The current `macro` direction remains a plausible concise source form:
+The canonical declaration syntax is specified by the
+[macro application model](application-model.md#canonical-source-syntax). In
+particular, `MacroList<T>` selects the `[...]` envelope, a token body
+selects `{...}`, and the return annotation always declares a syntax output
+category:
 
 ```raven
-macro Html(body: IMacroTokenBody) -> RenderFragment {
+macro Html(body: IMacroTokenStream) -> ExpressionSyntax {
     expand LowerHtml(body)
 }
 
@@ -214,8 +218,8 @@ The declaration should lower to the same normalized compiler contract as a C#
 or Raven class-authored plugin. The source syntax must not freeze the binary
 adapter ABI.
 
-The complete placement and output contract is specified in the
-[macro application model](application-model.md). Application position,
+The complete placement and output contract is specified in that application
+model. Application position,
 token-body input, and tooling capabilities are independent. A macro supporting
 both expression and statement positions declares a closed output set and
 receives the actual carrier position through compiler-owned context.
@@ -322,9 +326,11 @@ is the category-untyped attached form. Ordinary syntax parameters without `on`
 remain caller-supplied inputs.
 
 The normalized parameter schema records a binding role for every parameter:
-value, syntax input, context, token body/stream, or attached target. Positional
-and named arguments bind only value and syntax-input roles. The compiler
-injects all other roles after argument binding, and completion, signature help,
+value, syntax input, list input, context, token body/stream, or attached target.
+Positional and named arguments inside `(...)` bind only ordinary value and
+syntax-input roles. `MacroList<T>` instead binds the `[...]` payload,
+with `T` deciding value conversion versus syntax capture. The compiler injects
+the remaining roles after argument binding, and completion, signature help,
 and execution consume this same schema.
 
 Context is opt-in. A Raven-authored macro with only ordinary inputs and an

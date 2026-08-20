@@ -151,7 +151,10 @@ macro implementations.
 ### Macro declaration syntax
 
 A compact declaration can encode invocation inputs, attachment, and the
-call-site semantic type in a callable signature. `macro` contextually starts
+produced syntax category in a callable signature. The
+[canonical source syntax](application-model.md#canonical-source-syntax) is
+owned by the application model; this section explains its authoring experience.
+`macro` contextually starts
 this dedicated declaration grammar at compilation-unit and namespace-member
 boundaries:
 
@@ -208,18 +211,19 @@ The declaration model has four independent axes:
 
 | Axis | Examples | What it controls |
 | --- | --- | --- |
-| Input role | typed value, `ExpressionSyntax`, `IMacroTokenStream` | invocation arguments, delimiter/body shape, and the context projection visible to the body |
+| Input role | typed value, `ExpressionSyntax`, `MacroList<T>`, `IMacroTokenStream` | invocation arguments, delimiter/body shape, and the context projection visible to the body |
 | Attachment | absent or `on target: BaseTypeDeclarationSyntax` | freestanding versus attached invocation and the allowed target syntax |
 | Result syntax | omitted/`ExpressionSyntax`, `StatementSyntax`, `SyntaxNode` | grammar positions where the macro can be invoked |
 | Contributions | `expand`, `replace`, `introduce` | final expansion return, replacement, and accumulated members |
 
-The initial executable slice makes expansion output explicit in the body rather
-than treating an ordinary return type as provider plumbing. `expand`,
+The initial executable slice makes expansion output explicit in the body.
+`expand`,
 `replace`, and `introduce` are contextual macro statements. `replace` and
 `introduce` update compiler-provided result state and execution continues. A
-later replacement wins, while introduced members append in order. `expand`
-supplies the final expansion and returns that accumulated state from the
-current execution path. Reaching the end of the body returns it automatically.
+later replacement wins, while introduced members append in order. For a
+freestanding macro, `expand` supplies the final syntax and terminates the
+current execution path. For an attached macro, reaching the end of the body
+finalizes its accumulated replacement and introductions.
 Consequently normal control flow can select or combine parts of an expansion
 without constructing `MacroExpansionResult` manually.
 
@@ -237,9 +241,9 @@ Those axes cover every MVP macro kind without a separate `kind` annotation:
 
 | Declaration shape | Lowered contract |
 | --- | --- |
-| `macro Foo(argument: ExpressionSyntax) -> int` containing `expand` | `IMacroDefinition.Expand(argument: ExpressionSyntax, context: FreestandingMacroContext)` |
-| `macro Query(body: IMacroTokenStream) -> QueryResult` containing `expand` | `IMacroDefinition.Expand(body: IMacroTokenStream, context: TokenTreeMacroContext)` |
-| `macro Query(dialect: string, body: IMacroTokenStream) -> QueryResult` containing `expand` | The same method shape with value and token-tree parameters |
+| `macro Foo(argument: ExpressionSyntax) -> ExpressionSyntax` containing `expand` | A freestanding `Expand` signature with one syntax input and expression output |
+| `macro Query(body: IMacroTokenStream) -> ExpressionSyntax` containing `expand` | A freestanding `Expand` signature with one token-body input and expression output |
+| `macro Query(dialect: string, body: IMacroTokenStream) -> ExpressionSyntax` containing `expand` | The same signature shape with value and token-body inputs |
 | `macro AddEquatable(on target: BaseTypeDeclarationSyntax)` containing `introduce` | `IMacroDefinition.Expand(target: BaseTypeDeclarationSyntax, context: AttachedMacroContext)` |
 | `macro Observable(on property: PropertyDeclarationSyntax)` containing `replace` | The attached method shape returning a replacement result |
 
@@ -269,7 +273,7 @@ their compiler-owned binding sources. Named-argument completion, signature
 help, binding, and execution therefore share parameter symbols and ordinals
 rather than reflecting over constructor parameters and writable properties.
 
-### Generic macro declarations and semantic result types
+### Generic macro declarations and symbolic type inputs
 
 Generic macro parameters need a stronger model than preserving
 `GenericNameSyntax` at the invocation. They are compile-time symbolic types
@@ -288,7 +292,7 @@ symbolic type-argument value to the implementation.
 The intended direction can be illustrated by `compile!`:
 
 ```raven
-macro compile<TDelegate>(body: ExpressionSyntax) -> TDelegate
+macro Compile<TDelegate>(body: ExpressionSyntax) -> ExpressionSyntax
     where TDelegate: Delegate
 {
     expand quote! {
@@ -302,16 +306,15 @@ invocation and executable generic adapter lowering remain design work:
 
 * `body` is parsed as Raven expression syntax;
 * `TDelegate` is bound symbolically and checked against `Delegate`;
-* `-> TDelegate` describes the type observed at the macro call site;
+* `-> ExpressionSyntax` declares an expression-position expansion;
 * the macro implementation produces expression syntax; and
-* the compiler binds the expansion and verifies that it converts to
-  `TDelegate`.
+* Raven binds the returned expression normally at the call site. A future
+  typed syntax facade may additionally require conversion to `TDelegate`.
 
-The distinction between the call-site result type and the syntax returned by
-the expansion implementation is essential if macros are to behave like
-functions in semantic tooling. The contextual `expand` statement makes that
-distinction explicit for the initial non-generic slice. `#type` remains design
-notation for a future symbolic type splice rather than accepted syntax.
+The return annotation is deliberately not a call-site runtime type. Semantic
+tooling reports the type of the bound expanded expression, while the macro
+signature reports its syntax output category. `#type` remains design notation
+for a future symbolic type splice rather than accepted syntax.
 
 Generic inference and macro overload resolution can follow after explicit type
 arguments, constraints, and expansion-result validation are stable. Initially,
@@ -418,11 +421,6 @@ their requirements:
   more explicit spelling such as `syntax Expression`;
 * how a macro that needs to return diagnostics alongside syntax spells its
   advanced result type;
-* whether expansion syntax needs a contextual `expand` construct or can reuse
-  an existing return/final-expression form without obscuring the call-site
-  result type;
-* whether delimiter choice is inferred from input roles or declared
-  explicitly; and
 * how overloads and generic macro declarations participate in lookup.
 
 These are surface-language decisions. They should preserve the shared context,

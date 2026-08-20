@@ -34,7 +34,7 @@ Every macro has one nominal definition type and exactly one designated
 `Expand` method. A declaration such as:
 
 ```raven
-macro Awesome<T>(value: T) -> T {
+macro TypeName<T>(context: FreestandingMacroContext) -> ExpressionSyntax {
     // ...
 }
 ```
@@ -42,8 +42,8 @@ macro Awesome<T>(value: T) -> T {
 has the canonical semantic shape:
 
 ```raven
-class AwesomeMacro<T> {
-    func Expand(value: T) -> T
+class TypeNameMacro<T> {
+    func Expand(context: FreestandingMacroContext) -> ExpressionSyntax
 }
 ```
 
@@ -83,12 +83,14 @@ Macro generic parameters belong to `DefinitionType`. Parameter and return
 types refer to those same symbols. Constructing a macro uses ordinary named
 type substitution and obtains the correspondingly substituted `ExpandMethod`.
 
-For example:
+For example, constructing the macro substitutes its symbolic type argument
+through the definition and any signature types that refer to it, while its
+syntax-category return remains unchanged:
 
 ```text
-AwesomeMacro<T>.Expand(T) -> T
-             construct T = int
-AwesomeMacro<int>.Expand(int) -> int
+TypeNameMacro<T>.Expand(FreestandingMacroContext) -> ExpressionSyntax
+              construct T = int
+TypeNameMacro<int>.Expand(FreestandingMacroContext) -> ExpressionSyntax
 ```
 
 Macro identity initially consists of canonical name and generic arity. Each
@@ -106,6 +108,7 @@ public enum MacroParameterSource
 {
     Value,
     SyntaxInput,
+    SequenceInput,
     Context,
     TokenBody,
     AttachedTarget,
@@ -126,9 +129,12 @@ public sealed class MacroParameterBinding
 }
 ```
 
-Caller-supplied value and syntax inputs have an invocation argument ordinal.
-Compiler-supplied context, token-body, and attached-target parameters do not.
-All parameters retain declaration order in `ExpandMethod.Parameters`.
+Caller-supplied value and syntax inputs in `(...)` have an invocation argument
+ordinal. A `MacroList<T>` parameter has the `SequenceInput` source and binds the
+items of one `[...]` envelope independently. List-input, context,
+token-body, and attached-target parameters do not consume parenthesized
+argument slots. All parameters retain declaration order in
+`ExpandMethod.Parameters`.
 
 For example:
 
@@ -138,7 +144,7 @@ macro Query<T>(
     source: ExpressionSyntax,
     body: IMacroTokenStream,
     context: TokenTreeMacroContext
-) -> T {
+) -> ExpressionSyntax {
     // ...
 }
 ```
@@ -150,14 +156,17 @@ canonical parameter bindings rather than reconstructing a second signature.
 Application kind and capabilities are derived from parameter sources:
 
 * an `AttachedTarget` parameter selects attached application;
+* a `SequenceInput` parameter selects the bracket-sequence envelope;
 * a `TokenBody` parameter selects a raw-body invocation envelope;
 * context parameters request compiler services without changing call syntax;
 * otherwise the macro is an argument-style invocation.
 
-Invalid combinations are declaration diagnostics. At most one attached target
-and one token body are allowed, an attached target cannot coexist with a token
-body, and at most one parameter may request a particular compiler-owned
-context capability.
+Invalid combinations are declaration diagnostics. At most one attached target,
+one list input, and one token body are allowed. Attached application cannot
+coexist with freestanding input envelopes. List input, ordinary caller input,
+and token body remain independent ABI roles; individual implementation slices
+may support only a subset of their ordered carrier combinations. At most one
+parameter may request a particular compiler-owned context capability.
 
 ## Execution ABI
 
@@ -221,8 +230,9 @@ bindings.
 
 The caller-facing signature is a projection, not a second symbol:
 
-* include parameters whose source is `Value` or `SyntaxInput`;
-* display token-body syntax separately from parenthesized arguments;
+* include parameters whose source is `Value` or `SyntaxInput` in `(...)`;
+* display list-input or token-body syntax separately from parenthesized
+  arguments;
 * omit injected context and attached-target parameters from invocation
   argument positions; and
 * preserve generic parameters, constraints, defaults, names, and documentation

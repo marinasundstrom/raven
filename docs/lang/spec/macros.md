@@ -25,13 +25,19 @@ contracts.
 > carrier](../proposals/macros/application-model.md#declaration-form-carrier-design-direction).
 
 > [!NOTE]
-> Freestanding macros may eventually select an invocation envelope:
-> `form1! [1, 2, 3]`, `form2! (a, b)`, `form3! { ... }`, or
-> `form4! (a, b) { ... }`. These are illustrative names, not proposed standard
-> macros. Each envelope projects its structured inputs into the same descriptor
-> and canonical `Expand` signature; it does not define a delimiter-specific
-> ABI. See [Freestanding invocation
-> envelopes](../proposals/macros/application-model.md#freestanding-invocation-envelopes-design-direction).
+> Freestanding macros may eventually select a sequence envelope
+> `Name![a, b, c]` or the parameter/region family `Name!(a, b)`,
+> `Name! { ... }`, and `Name!(a, b) { ... }`. Parentheses pass a fixed
+> parameter list, square brackets supply a variable number of homogeneous
+> values or captured expressions, and braces bound content for macro-owned
+> processing. `(...)` and `{...}` compose in function- and declaration-shaped
+> forms such as `Query!(dialect) { ... }` and
+> `component! Foo(x: int) { ... }`. The design does not permanently forbid
+> `Name![...] { ... }`, but assigns it no meaning without a comparably clear use
+> case. Each envelope projects its inputs into the same descriptor and
+> canonical `Expand` signature; it does not define a delimiter-specific
+> execution ABI. See [Freestanding invocation
+> envelopes](../proposals/macros/application-model.md#freestanding-invocation-envelopes).
 
 ## Choose a macro form
 

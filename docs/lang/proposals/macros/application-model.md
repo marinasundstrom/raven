@@ -49,6 +49,106 @@ several targets. `expand` must then produce syntax valid for the actual target.
 The normalized contract records these separately. A macro does not become a
 new kind merely because it uses a token body or supplies hover metadata.
 
+## Canonical source syntax
+
+This document owns the proposed source syntax used by the other macro design
+documents. Examples elsewhere should use these forms rather than infer a
+different call shape from a context type or reinterpret the return annotation.
+
+```raven
+macro Double(value: int) -> ExpressionSyntax {
+    expand ParseExpression((value * 2).ToString())
+}
+
+macro Query(
+    dialect: string = "raven",
+    body: IMacroTokenStream,
+    context: TokenTreeMacroContext
+) -> ExpressionSyntax {
+    expand LowerQuery(dialect, body, context)
+}
+
+macro Observable(enabled: bool = true,
+    on property: PropertyDeclarationSyntax) {
+    if enabled {
+        replace Rewrite(property)
+    }
+    introduce CreateBackingField(property)
+}
+
+macro AnyOf(items: MacroList<ExpressionSyntax>) -> ExpressionSyntax {
+    expand LowerDisjunction(items)
+}
+```
+
+The declaration rules are:
+
+* `macro Name<T>(...) -> OutputSyntax` reuses Raven's ordinary declaration
+  name, generic parameter, parameter, constraint, and block spellings.
+* Ordinary value and syntax-input parameters are candidates for `(...)` and
+  bind with normal positional, named, optional, and conversion rules. This
+  includes ordinary collection types such as `List<T>`; their type alone does
+  not select a different envelope.
+* A parameter of type `MacroList<T>` explicitly requests the alternative
+  `[...]` envelope. The compiler binds each comma-separated item independently
+  as `T`. An ordinary `T` receives a converted compile-time value, while a
+  syntax type such as `ExpressionSyntax` receives the authored item node.
+  `MacroList<T>` is an immutable compiler-owned sequence that retains item
+  locations.
+* A parameter of type `IMacroTokenStream` explicitly requests the lossless
+  `{ ... }` body after an optional `(...)` group. A macro context parameter
+  only requests compiler services; it never implies a body by itself.
+* Exactly one contextual `on` parameter selects attached application. An
+  attached declaration has no freestanding output annotation.
+* For a freestanding macro, the return annotation is always an ordinary Raven
+  syntax type or supported syntax list. It declares output category and
+  invocation positions, not the runtime type later inferred for an expanded
+  expression. Omitting it is shorthand for `-> ExpressionSyntax`.
+* `expand` terminates a freestanding expansion. `replace` and `introduce`
+  accumulate attached contributions, which are finalized on body fall-through.
+
+The delimiters communicate author intent:
+
+| Carrier | Reading | Binding model |
+| --- | --- | --- |
+| `Name!(...)` | “Pass these arguments into the macro.” | A fixed parameter signature with ordinary positional, named, optional, and conversion rules. |
+| `Name![...]` | “Process this variable number of items and produce a result.” | One homogeneous sequence whose element type decides value conversion versus syntax capture. |
+| `Name! { ... }` | “Process this bounded region of content.” | One lossless region that may be raw, tokenized, or privately structured by the macro. |
+
+The square-bracket form is therefore not an alternate spelling for passing one
+collection value. `Collect!([1, 2, 3])` passes one ordinary collection
+expression through a `(...)` parameter; `Collect![1, 2, 3]` supplies three
+independently bound macro items. Likewise, the brace form is not an object or
+block value passed as an argument. It establishes the source region owned by
+the macro's content processor.
+
+Those declarations correspond to these call-site carriers:
+
+| Declaration shape | Invocation shape |
+| --- | --- |
+| caller parameters only | `Double!(21)` |
+| one `MacroList<T>` | `AnyOf![ready, retries > 0]` |
+| `IMacroTokenStream` and no caller parameters | `Query! { ... }` |
+| caller parameters plus `IMacroTokenStream` | `Query!(dialect: "sql") { ... }` |
+| one `on` parameter | `#[Observable]` or `#[Observable(enabled: false)]` |
+
+The parameter envelope is `Name!(...)`, optionally followed by a region as
+`Name!(...) { ... }`; either group may be omitted when its role is absent. The
+initial sequence slice proposes `Name![...]` alone. The declaration and ABI
+model do not make it permanently exclusive, but `Name![...] { ... }` and
+`Name!(...)[...] { ... }` have no proposed meaning. They remain unassigned
+design space until a motivating case gives them a comparably clear reading.
+A `MacroList<T>` parameter may always
+request injected context services. The initial list grammar accepts only
+comma-separated Raven expressions with an optional trailing comma. Spreads,
+comprehensions, and dictionary entries remain ordinary expression features
+inside a parenthesized argument and are not list-envelope items.
+
+Macro identifiers are case-sensitive and an invocation uses the resolved
+declaration name exactly. A separately declared alias may provide another
+spelling, such as the standard library's lowercase `query` alias; casing is not
+implicitly rewritten by the macro grammar.
+
 ## Freestanding positions
 
 ### Expression
@@ -57,8 +157,9 @@ An expression macro occupies an expression slot and produces exactly one
 `ExpressionSyntax`:
 
 ```raven
-macro Sql(context: TokenTreeMacroContext) -> ExpressionSyntax {
-    expand LowerQuery(context)
+macro Sql(body: IMacroTokenStream,
+    context: TokenTreeMacroContext) -> ExpressionSyntax {
+    expand LowerQuery(body, context)
 }
 
 let rows = Sql! { select * from users }
@@ -73,8 +174,9 @@ A statement macro occupies one statement slot and produces one
 `StatementSyntax`. A block represents several runtime statements:
 
 ```raven
-macro Trace(context: TokenTreeMacroContext) -> StatementSyntax {
-    expand BuildTraceBlock(context)
+macro Trace(body: IMacroTokenStream,
+    context: TokenTreeMacroContext) -> StatementSyntax {
+    expand BuildTraceBlock(body, context)
 }
 
 func Run() {
@@ -87,7 +189,8 @@ func Run() {
 A multi-position macro declares its closed output set:
 
 ```raven
-macro Evaluate(context: TokenTreeMacroContext)
+macro Evaluate(body: IMacroTokenStream,
+    context: TokenTreeMacroContext)
     -> ExpressionSyntax | StatementSyntax {
     match context.Position {
         .Expression => expand BuildExpression(context)
@@ -106,8 +209,9 @@ it against the actual invocation carrier before insertion.
 every single-node freestanding position known to the compiler:
 
 ```raven
-macro Forward(context: TokenTreeMacroContext) -> SyntaxNode {
-    expand BuildFor(context.Position, context)
+macro Forward(body: IMacroTokenStream,
+    context: TokenTreeMacroContext) -> SyntaxNode {
+    expand BuildFor(context.Position, body, context)
 }
 ```
 
@@ -145,7 +249,8 @@ A member macro occupies a namespace-member or type-member list position:
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
-macro Properties(context: TokenTreeMacroContext)
+macro Properties(body: IMacroTokenStream,
+    context: TokenTreeMacroContext)
     -> SyntaxList<MemberDeclarationSyntax> {
     let properties = List<MemberDeclarationSyntax>([
         BuildIdProperty(context),
@@ -186,7 +291,13 @@ carrier for constructs that introduce declarations. This is an invocation form,
 not a third application kind:
 
 ```raven
-public component! Header {
+func Foo(x: int) {
+}
+
+component! Foo(x: int) {
+}
+
+public component! Header(title: string) {
 }
 
 Actor! OrderProcessor(mailbox: .bounded(100)) {
@@ -196,19 +307,40 @@ Actor! OrderProcessor(mailbox: .bounded(100)) {
 }
 ```
 
-The `!` preserves an explicit macro boundary while Raven retains ownership of
-the surrounding structural grammar. Modifiers occupy ordinary modifier
-positions, the name occupies a declaration-name position, arguments use Raven
-argument syntax, and the optional body is a structured macro input. The macro
-must not recover those parts by scanning preceding raw tokens.
+The first two declarations are intentionally parallel. `component!` occupies
+the declaration-introducer position that `func` occupies in an ordinary
+function declaration. `Foo` occupies the declaration-name position,
+`(x: int)` is a declaration parameter list rather than a macro argument list,
+and `{...}` is the declaration body. The `!` preserves an explicit macro
+boundary while Raven retains ownership of that surrounding structural grammar.
+
+Modifiers occupy ordinary modifier positions. The macro must not recover the
+modifiers, declared name, parameters, or body by scanning raw tokens. These are
+separate structured carrier inputs even when the macro chooses to expose the
+body itself as a token stream or private DSL region.
 
 The compiler should expose the carrier as structured inputs associated with the
 same canonical `Expand` method and descriptor used by every other freestanding
-macro. Conceptually the descriptor records the authored modifiers, optional
-declaration name, presence and contents of an argument list, body, and actual
-grammar position. Compact `macro` syntax may provide concise parameter forms
-for those roles; an ordinary `IMacroDefinition` class must be able to express
-the equivalent signature close to the ABI.
+macro. Conceptually the descriptor records the authored modifiers, declared
+name, declaration parameter list, body, and actual grammar position. A
+different declaration-oriented macro may deliberately choose an invocation-
+argument payload instead, as the `Actor!` sketch does; that carrier shape must
+be declared rather than guessed from parentheses. Compact `macro` syntax needs
+concise parameter roles for these structured declaration parts, and an ordinary
+`IMacroDefinition` class must be able to express the equivalent signature close
+to the ABI.
+
+This means parentheses have a carrier-relative interpretation:
+
+| Carrier | Parentheses contain |
+| --- | --- |
+| `Query!(dialect: "sql") { ... }` | macro invocation arguments |
+| `component! Foo(x: int) { ... }` | parameters of the declaration being introduced |
+
+The parser can distinguish these forms without loading a plugin because the
+declaration carrier has a declared name between `!` and `(` and occurs at a
+declaration boundary. Semantic resolution then verifies that the macro's
+descriptor accepts that declaration shape.
 
 Placement follows the existing output-compatibility rule. A declaration-form
 macro may appear only where its declared result is structurally compatible
@@ -228,53 +360,58 @@ The precise surface grammar and typed carrier facades remain future work. They
 must extend the current freestanding descriptor and expansion pipeline rather
 than create a parallel discovery, ABI, or execution path.
 
-### Freestanding invocation envelopes (design direction)
+### Freestanding invocation envelopes
 
-The same model should leave room for Freestanding macros to select from a small
-set of explicit invocation envelopes:
+Freestanding macros select one of two explicit invocation families:
 
 ```raven
-form1! [1, 2, 3]
+Values![1, 2, 3]
 
-form2! (a, b)
+Arguments!(a, b)
 
-form3! {
+Body! {
     // body
 }
 
-form4! (a, b) {
+Combined!(a, b) {
     // body
 }
 ```
 
 These names are illustrative; they do not propose built-in or standard macros.
-Square brackets carry a delimited sequence, parentheses carry method-like
-arguments, braces carry a structured or macro-owned body, and an argument list
-may be followed by a body. The declaration-form carrier composes the same ideas
+Method-like `(...)` arguments, a variable-cardinality `[...]` sequence, and a
+structured or macro-owned `{...}` region are separate input roles. The
+currently motivated composition is `(...)` plus `{...}`: at a call site it
+reads as configured processing of a trailing region, and in a declaration
+carrier `component! Foo(x: int) { ... }` mirrors ordinary declaration grammar.
+`Name![...] { ... }` has neither rationale today. The grammar and ABI avoid
+making it impossible, but the proposal does not assign it semantics merely for
+symmetry. The declaration-form carrier composes the parameter and region roles
 with declaration modifiers and a name instead of creating a separate macro
 kind.
 
-An envelope must not introduce a delimiter-specific ABI. Raven owns recognition
-and balancing of its delimiters, while the descriptor records the accepted
-carrier shape and the canonical `Expand` signature receives compiler-projected
-syntax or values for its declared parameters. Future typed syntax facades may
-express that an item is an expression of a particular type while still
-preserving its authored syntax; an untyped syntax parameter remains the escape
-hatch.
+An envelope does not introduce a delimiter-specific execution ABI. Raven owns
+recognition and balancing of its delimiters, while the descriptor records each
+parameter's binding role and the canonical `Expand` signature receives the
+projected syntax or values. `MacroList<T>` selects the list family. Future
+typed syntax facades may express that a list item is an expression of a
+particular type while still preserving its authored syntax;
+`MacroList<ExpressionSyntax>` remains the category-only form.
 
 The parser and language services must recognize the envelope without loading or
 executing the macro. Completion, signature help, diagnostics, navigation, and
 incremental invalidation then consume the same registered descriptor used by
-ordinary and declaration-form Freestanding invocations. The exact bracket
-grammar, envelope declaration mechanism, and parameter projection are
-exploratory and are not part of the current implementation plan.
+ordinary and declaration-form Freestanding invocations. The list envelope and
+`MacroList<T>` binding source are a breaking design direction and are not
+implemented yet.
 
 ### Type
 
 A type macro occupies a type slot and produces one `TypeSyntax`:
 
 ```raven
-macro QueryRow(context: TokenTreeMacroContext) -> TypeSyntax
+macro QueryRow(body: IMacroTokenStream,
+    context: TokenTreeMacroContext) -> TypeSyntax
 ```
 
 Type expansion affects signatures and incremental declaration binding. It is
@@ -286,7 +423,8 @@ support in implementation order.
 A pattern macro occupies a pattern slot and produces one `PatternSyntax`:
 
 ```raven
-macro MessageShape(context: TokenTreeMacroContext) -> PatternSyntax
+macro MessageShape(body: IMacroTokenStream,
+    context: TokenTreeMacroContext) -> PatternSyntax
 ```
 
 Expansion occurs before binding so introduced variables, exhaustiveness,
@@ -338,13 +476,15 @@ mapping invocation arguments:
 | --- | --- | --- |
 | Value | `mode: Mode` | positional or named invocation argument |
 | Syntax input | `expression: ExpressionSyntax` | authored invocation syntax |
+| List input | `items: MacroList<T>` | comma-separated `[...]` items |
 | Context | a recognized macro context type | compiler |
 | Token stream/body | a recognized token-body type | compiler |
 | Attached target | `on target: TargetSyntax` | compiler |
 
-Only value and syntax-input parameters participate in positional and named
-argument mapping. Compiler-supplied parameters never consume an argument slot
-and cannot be named by the caller.
+Only ordinary value and syntax-input parameters participate in positional and
+named `(...)` argument mapping. A list input consumes the `[...]` payload, and
+a token-body input consumes the `{...}` region. Compiler-supplied parameters
+never consume any of those inputs and cannot be named by the caller.
 
 ### Context is opt-in
 
@@ -363,7 +503,8 @@ The author declares a context parameter only when the implementation needs
 advanced compiler services:
 
 ```raven
-macro Query(context: TokenTreeMacroContext) -> ExpressionSyntax {
+macro Query(body: IMacroTokenStream,
+    context: TokenTreeMacroContext) -> ExpressionSyntax {
     let stream = context.CreateTokenStream()
     expand ParseAndLower(stream)
 }
@@ -630,6 +771,7 @@ public enum MacroParameterSource
 {
     Value,
     SyntaxInput,
+    SequenceInput,
     Context,
     TokenBody,
     AttachedTarget,
@@ -639,7 +781,8 @@ public enum MacroParameterSource
 For example, `ExpressionSyntax` and `TypeSyntax` parameters both have the
 `SyntaxInput` role; their bound types retain the category distinction. Likewise,
 recognized context types use the `Context` role rather than creating a new role
-for each context implementation.
+for each context implementation. `MacroList<T>` has the `SequenceInput` role; its
+element type applies the same value-versus-syntax distinction to each item.
 
 Every `Expand` parameter has one immutable binding:
 
@@ -654,16 +797,18 @@ public sealed class MacroParameterBinding
 ```
 
 `InvocationArgumentOrdinal` exists only for caller-supplied value and syntax
-inputs. Compiler-supplied roles retain declaration order for diagnostics and
-display, but do not create holes in positional argument binding. Consequently,
+inputs in `(...)`. List-input and compiler-supplied roles retain declaration
+order for diagnostics and display, but do not create holes in positional
+argument binding. Consequently,
 `AcceptsArguments` becomes a derived fact—whether any binding accepts a user
 argument—not a capability separately declared by a provider interface.
 
 Explicit syntax wins over type recognition. `on` always produces
 `AttachedTarget`; a recognized compiler context or token-body type produces its
-respective role; a syntax-node type produces `SyntaxInput`; every other type is
-`Value`. Invalid combinations receive declaration diagnostics and are not
-registered as executable macros.
+respective role; `MacroList<T>` produces `SequenceInput`; a syntax-node type
+produces `SyntaxInput`; every other type, including `List<T>`, is `Value`.
+Invalid combinations receive declaration diagnostics and are not registered as
+executable macros.
 
 ### Macro symbols
 
