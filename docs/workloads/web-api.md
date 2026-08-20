@@ -51,7 +51,7 @@ builder.Services.AddOpenApi()
 use app = builder.Build()
 app.MapOpenApi()
 
-app.MapGet("/", GetApiInfo)
+app.MapGet("/", func () => GetApiInfo())
 app.MapGet("/pets/{id}", FindPet)
 app.MapPost("/pets/find", LookupPet)
 app.MapGet("/pets/{id}/vaccinations", CheckVaccinations)

@@ -22,7 +22,7 @@ _layout: landing
     </div>
     <div class="raven-code-slide" id="raven-workload-web" role="tabpanel" aria-labelledby="raven-workload-web-tab" hidden>
       <div class="raven-code-titlebar"><span>Web API · Program.rvn</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
-      <pre><code class="lang-raven">import AspNetMinimalApi.Domain.*&#10;import Microsoft.AspNetCore.Builder.*&#10;&#10;let builder = WebApplication.CreateBuilder(args)&#10;builder.Services.AddOpenApi()&#10;&#10;use app = builder.Build()&#10;app.MapGet("/pets/{id}", FindPet)&#10;app.MapGet("/pets", StreamPets)&#10;app.MapPost("/pets/find", LookupPet)&#10;&#10;app.Run()</code></pre>
+      <pre><code class="lang-raven">import AspNetMinimalApi.Domain.*&#10;import Microsoft.AspNetCore.Builder.*&#10;&#10;let builder = WebApplication.CreateBuilder(args)&#10;builder.Services.AddOpenApi()&#10;&#10;use app = builder.Build()&#10;app.MapGet("/", func () =&gt; GetApiInfo())&#10;app.MapGet("/pets/{id}", FindPet)&#10;app.MapGet("/pets", StreamPets)&#10;app.MapPost("/pets/find", LookupPet)&#10;&#10;app.Run()</code></pre>
       <div class="raven-code-learn"><span>ASP.NET Core, handlers, records, and unions</span><a href="showcases/web-api.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
     <div class="raven-code-slide" id="raven-workload-embedded" role="tabpanel" aria-labelledby="raven-workload-embedded-tab" hidden>
@@ -32,7 +32,7 @@ _layout: landing
     </div>
     <div class="raven-code-slide" id="raven-sample-components" role="tabpanel" aria-labelledby="raven-sample-components-tab" hidden>
       <div class="raven-code-titlebar"><span>Blazor component macros · Greeting.rvn · experimental</span><span class="raven-code-dots" aria-hidden="true">● ● ●</span></div>
-      <pre><code class="lang-raven">component! Greeting(Name: string = &quot;&quot;) {&#10;&#32;&#32;&#32;&#32;markup! {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;section class=&quot;greeting&quot;&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;h1&gt;Hello {Name}&lt;/h1&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;/section&gt;&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
+      <pre><code class="lang-raven">import System.Console.*&#10;&#10;component! Greeting(Name: string = &quot;&quot;) {&#10;&#32;&#32;&#32;&#32;WriteLine(&quot;Rendering Greeting for ${Name}&quot;)&#10;&#10;&#32;&#32;&#32;&#32;markup! {&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;section class=&quot;greeting&quot;&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;h1&gt;Hello {Name}&lt;/h1&gt;&#10;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&#32;&lt;/section&gt;&#10;&#32;&#32;&#32;&#32;}&#10;}</code></pre>
       <div class="raven-code-learn"><span>Composable macros expressed through ordinary Blazor</span><a href="showcases/html-components.md">Learn more <span aria-hidden="true">→</span></a></div>
     </div>
     <div class="raven-carousel-controls" role="tablist" aria-label="Choose a Raven example">

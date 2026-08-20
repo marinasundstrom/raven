@@ -5,8 +5,10 @@ another way to express ordinary Blazor components while retaining Blazor's
 component model, renderer, events, CSS isolation, hosting, and .NET interop.
 
 ```raven
+import System.Console.*
+
 component! Greeting(Name: string = "") {
-    let x = 42
+    WriteLine("Rendering Greeting for ${Name}")
 
     markup! {
         <section class="greeting">
@@ -20,6 +22,8 @@ component! Greeting(Name: string = "") {
 
 - `component!` is a declaration-shaped macro that generates an ordinary Blazor
   `ComponentBase` class from its name, typed parameters, and Raven body.
+- Ordinary Raven statements can run before the final render expression; this
+  example logs through `System.Console` before evaluating `markup!`.
 - `markup!` is an ordinary token-tree macro supplied by the sample library, not
   markup syntax built into the Raven compiler.
 - The sample deliberately nests `markup!` inside input interpreted by

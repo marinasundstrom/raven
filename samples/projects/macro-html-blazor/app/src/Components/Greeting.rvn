@@ -1,5 +1,7 @@
+import System.Console.*
+
 component! Greeting(Name: string = "") {
-    let x = 42
+    WriteLine("Rendering Greeting for ${Name}")
 
     markup! {
         <section class="greeting">

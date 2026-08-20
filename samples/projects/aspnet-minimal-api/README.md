@@ -10,7 +10,8 @@ unions directly as responses, and describes their cases with `anyOf` in the
 generated OpenAPI document. JSON contains only the active case value; it does
 not need a discriminator.
 
-The sample also includes named async and streaming handlers:
+The sample registers its root handler with a Raven `func` lambda and also
+includes named async and streaming handlers:
 
 - `GET /pets/{id}` returns one of the `Pet` cases.
 - `POST /pets/find` accepts a `PetLookup` containing either an integer ID or a

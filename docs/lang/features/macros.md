@@ -40,8 +40,10 @@ over Blazor without changing Raven's lexer or adding a built-in `component`
 declaration:
 
 ```raven
+import System.Console.*
+
 public component! Greeting(Name: string = "") {
-    let x = 42
+    WriteLine("Rendering Greeting for ${Name}")
 
     markup! {
         <section class="greeting">

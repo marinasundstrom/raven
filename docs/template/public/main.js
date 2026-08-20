@@ -81,6 +81,14 @@ const raven = (hljs) => ({
       relevance: 0
     },
     {
+      // The static documentation renderer cannot resolve macro aliases. Keep
+      // the aliases used by the public showcase visually aligned with their
+      // contextual-keyword treatment in compiler-backed editors.
+      scope: 'keyword',
+      begin: /\b(?:component|markup)(?=\s*!)/,
+      relevance: 0
+    },
+    {
       scope: 'title.function.invoke',
       begin: /\b[A-Za-z_][A-Za-z0-9_]*(?=\s*(?:<[^\r\n{}]*>)?\s*!\s*(?:\(|\{))/,
       relevance: 0
@@ -103,7 +111,7 @@ const raven = (hljs) => ({
     },
     {
       scope: 'title.function',
-      begin: /\b(?!(?:if|while|for|match|catch|typeof|nameof|sizeof|default|let|val|var|is|as|return|throw|new|init|public|internal|protected|private|fileprivate)\b)[A-Za-z_][A-Za-z0-9_]*(?=\s*\()/,
+      begin: /\b(?!(?:if|while|for|match|catch|typeof|nameof|sizeof|default|func|let|val|var|is|as|return|throw|new|init|public|internal|protected|private|fileprivate)\b)[A-Za-z_][A-Za-z0-9_]*(?=\s*\()/,
       relevance: 0
     },
     {

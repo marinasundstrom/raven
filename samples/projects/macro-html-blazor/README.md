@@ -16,8 +16,10 @@ it shows a compact, React-like way to author Blazor components in Raven. The
 `Greeting` example now uses the declaration-shaped, function-style form:
 
 ```raven
+import System.Console.*
+
 component! Greeting(Name: string = "") {
-    let x = 42
+    WriteLine("Rendering Greeting for ${Name}")
 
     markup! {
         <section class="greeting">
@@ -30,7 +32,8 @@ component! Greeting(Name: string = "") {
 `FunctionComponent` is the function-style declaration macro's canonical name;
 `component` is its declaration-facing alias. This keeps it distinct from the
 existing attached `Component` macro. The `component!` body is ordinary Raven
-code rather than an HTML-only region;
+code rather than an HTML-only region: the `WriteLine` statement executes as
+part of rendering before the body reaches its final expression.
 `markup!` is a nested macro invocation that produces the final render fragment.
 The component macro turns the declared name and typed parameters into a normal
 Blazor `ComponentBase` class and a `Render()` method. The final expression in

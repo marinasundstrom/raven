@@ -79,6 +79,13 @@ if (!matchesMode('meta', '#[Component]')) {
 if (!matchesMode('keyword', 'on property: Property')) {
   throw new Error('Documentation lexer does not classify attached macro target clauses.')
 }
+if (!matchesMode('keyword', 'component! Greeting(Name: string) {') ||
+    !matchesMode('keyword', 'markup! { <h1>Hello</h1> }')) {
+  throw new Error('Documentation lexer does not present showcase macro aliases as contextual keywords.')
+}
+if (matchesMode('keyword', 'let component = value')) {
+  throw new Error('Documentation lexer classifies a showcase macro alias without an invocation marker.')
+}
 
 for (const keyword of ['macro', 'expand', 'replace', 'introduce', 'fragment', 'token']) {
   if (!docsKeywords.has(keyword)) {
@@ -98,8 +105,10 @@ if (unionCasePatternMode?.contains?.[0]?.scope !== 'type') {
 }
 
 const functionMode = raven.contains.find(candidate => candidate.scope === 'title.function')
-if (!functionMode?.begin || functionMode.begin.test('private (Value: int)')) {
-  throw new Error('Documentation lexer misclassifies a primary-constructor access modifier as a function.')
+if (!functionMode?.begin ||
+    functionMode.begin.test('private (Value: int)') ||
+    functionMode.begin.test('func () => 42')) {
+  throw new Error('Documentation lexer misclassifies a declaration keyword as a function.')
 }
 
 const freestandingRules = JSON.stringify(textMate.repository.freestandingMacros)

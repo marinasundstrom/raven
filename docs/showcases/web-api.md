@@ -12,6 +12,7 @@ let builder = WebApplication.CreateBuilder(args)
 builder.Services.AddOpenApi()
 
 use app = builder.Build()
+app.MapGet("/", func () => GetApiInfo())
 app.MapGet("/pets/{id}", FindPet)
 app.MapGet("/pets", StreamPets)
 app.MapPost("/pets/find", LookupPet)
@@ -24,6 +25,8 @@ app.Run()
 - Raven calls the normal ASP.NET Core builder, services, routing, and lifetime
   APIs directly.
 - `use` makes disposal of the built application explicit.
+- A `func` lambda can be passed directly where ASP.NET Core expects a route
+  handler delegate.
 - Namespace-level functions such as `FindPet` and `StreamPets` can be imported
   from `Domain.rvn` and passed directly as route handlers.
 - Application composition does not require a static container class for those

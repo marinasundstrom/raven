@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
 
 ## Unreleased
 
+- The public Web API showcase now demonstrates passing a Raven `func` lambda
+  directly as an ASP.NET Core route handler. The component-macro showcase now
+  mixes an ordinary Raven statement with its nested `markup!` expression, and
+  the static documentation highlighter presents the known `component!` and
+  `markup!` showcase aliases as contextual keywords.
 - Inferred local type inlays now work inside Raven macro fragments, including
   declaration-shaped block fragments such as `component! Greeting(...)` where
   `let x = 42` is presented as `let x: int = 42`.
