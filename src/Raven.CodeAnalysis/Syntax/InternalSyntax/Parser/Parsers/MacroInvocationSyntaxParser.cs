@@ -41,6 +41,30 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
         return isStart;
     }
 
+    public bool IsDeclarationInvocationStart()
+    {
+        if (!CanTokenBeIdentifier(PeekToken()))
+            return false;
+
+        var checkpoint = CreateCheckpoint("declaration-macro-lookahead");
+        var name = new NameSyntaxParser(this).ParseName();
+        var isStart = !name.IsMissing &&
+            !HasLineBreakBeforePeekToken() &&
+            ConsumeToken(SyntaxKind.ExclamationToken, out _) &&
+            !HasLineBreakBeforePeekToken() &&
+            CanTokenBeIdentifier(PeekToken());
+
+        if (isStart)
+        {
+            _ = ReadIdentifierToken();
+            isStart = PeekToken().IsKind(SyntaxKind.OpenParenToken) ||
+                PeekToken().IsKind(SyntaxKind.OpenBraceToken);
+        }
+
+        checkpoint.Rewind();
+        return isStart;
+    }
+
     public FreestandingMacroExpressionSyntax ParseExpression()
     {
         var invocation = ParseInvocation();
@@ -64,6 +88,59 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
             invocation.ExclamationToken,
             invocation.ArgumentList,
             invocation.TokenTree,
+            terminatorToken);
+    }
+
+    public FreestandingMacroDeclarationSyntax ParseDeclaration(
+        SyntaxList attributeLists,
+        SyntaxList modifiers)
+    {
+        var name = new NameSyntaxParser(this).ParseName();
+        ConsumeTokenOrMissing(SyntaxKind.ExclamationToken, out var exclamationToken);
+
+        SyntaxToken identifier;
+        if (CanTokenBeIdentifier(PeekToken()))
+        {
+            identifier = ReadIdentifierToken();
+        }
+        else
+        {
+            identifier = MissingToken(SyntaxKind.IdentifierToken);
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.IdentifierExpected,
+                GetEndOfLastToken()));
+        }
+
+        ParameterListSyntax? parameterList = null;
+        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
+            parameterList = new StatementSyntaxParser(this).ParseParameterList();
+
+        MacroTokenTreeSyntax tokenTree;
+        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+        {
+            tokenTree = ParseTokenTree();
+        }
+        else
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.CharacterExpected,
+                GetSpanOfLastToken(),
+                "{"));
+            tokenTree = MacroTokenTree(
+                MissingToken(SyntaxKind.OpenBraceToken),
+                MissingToken(SyntaxKind.MacroBodyToken),
+                MissingToken(SyntaxKind.CloseBraceToken));
+        }
+
+        TryConsumeTerminator(out var terminatorToken);
+        return FreestandingMacroDeclaration(
+            attributeLists,
+            modifiers,
+            name,
+            exclamationToken,
+            identifier,
+            parameterList,
+            tokenTree,
             terminatorToken);
     }
 

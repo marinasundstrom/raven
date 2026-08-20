@@ -202,6 +202,16 @@
     <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
+  <Node Name="FreestandingMacroDeclaration" Inherits="MemberDeclaration">
+    <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
+    <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
+    <Slot Name="Name" Type="Name" />
+    <Slot Name="ExclamationToken" Type="Token" DefaultToken="ExclamationToken" />
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" />
+    <Slot Name="TokenTree" Type="MacroTokenTree" />
+    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
+  </Node>
   <Node Name="MacroTokenTree" Inherits="Node">
     <Slot Name="OpenBraceToken" Type="Token" DefaultToken="OpenBraceToken" />
     <Slot Name="BodyToken" Type="Token" />

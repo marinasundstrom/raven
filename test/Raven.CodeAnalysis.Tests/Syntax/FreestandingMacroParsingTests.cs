@@ -93,6 +93,86 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
+    public void FreestandingMacroDeclaration_ParsesFunctionShapedCarrier()
+    {
+        var tree = SyntaxTree.ParseText("""
+            component! Foo(x: int) {
+                render x
+            }
+            """);
+
+        var declaration = Assert.IsType<FreestandingMacroDeclarationSyntax>(
+            tree.GetRoot().Members.Single());
+
+        Assert.Equal("component", declaration.Name.ToString());
+        Assert.Equal("Foo", declaration.Identifier.ValueText);
+        var parameter = Assert.Single(Assert.IsType<ParameterListSyntax>(declaration.ParameterList).Parameters);
+        Assert.Equal("x", parameter.Identifier.ValueText);
+        Assert.Equal("int", parameter.TypeAnnotation?.Type.ToString());
+        Assert.Contains("render x", declaration.TokenTree.BodyToken.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FreestandingMacroDeclaration_PreservesAttributesAndModifiersInTypeBody()
+    {
+        var tree = SyntaxTree.ParseText("""
+            class Container {
+                [Example]
+                public component! Header(title: string) {
+                    h1 title
+                }
+            }
+            """);
+
+        var type = Assert.IsType<ClassDeclarationSyntax>(tree.GetRoot().Members.Single());
+        var declaration = Assert.IsType<FreestandingMacroDeclarationSyntax>(type.Members.Single());
+
+        Assert.Single(declaration.AttributeLists);
+        Assert.Contains(declaration.Modifiers, static modifier => modifier.IsKind(SyntaxKind.PublicKeyword));
+        Assert.Equal("Header", declaration.Identifier.ValueText);
+        Assert.Contains("h1 title", declaration.TokenTree.BodyToken.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FreestandingMacroDeclaration_ParsesInNamespace()
+    {
+        var tree = SyntaxTree.ParseText("""
+            namespace Components {
+                component! Header() {
+                }
+            }
+            """);
+
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroDeclarationSyntax>()
+            .Single();
+
+        Assert.Equal("component", declaration.Name.ToString());
+        Assert.Equal("Header", declaration.Identifier.ValueText);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FreestandingMacroDeclaration_UnterminatedBodyReportsMissingBrace()
+    {
+        var tree = SyntaxTree.ParseText("""
+            component! Header(title: string) {
+                h1 title
+            """);
+
+        var declaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroDeclarationSyntax>()
+            .Single();
+
+        Assert.True(declaration.TokenTree.CloseBraceToken.IsMissing);
+        Assert.Contains(tree.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAV1003");
+    }
+
+    [Fact]
     public void FreestandingMacroMember_UnterminatedBodyReportsMissingBrace()
     {
         var tree = SyntaxTree.ParseText("""

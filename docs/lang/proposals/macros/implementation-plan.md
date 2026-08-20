@@ -1561,6 +1561,33 @@ and syntax-input roles consume `(...)` arguments; `MacroList<T>` consumes the
 keeps sequence and token-body roles independent so `Name![...] { ... }` can be
 added without another ABI redesign.
 
+### Active slice: declaration-shaped freestanding carriers
+
+Status: **parser foundation implemented**
+
+Declaration-shaped carriers let a macro occupy an ordinary declaration boundary
+while preserving Raven-owned structure:
+
+```raven
+component! Foo(x: int) {
+    // macro-owned component body
+}
+```
+
+* [x] add a dedicated `FreestandingMacroDeclarationSyntax` node;
+* [x] parse attributes/modifiers, macro name, declared name, declaration
+  parameters, and a lossless body at compilation-unit, namespace, and
+  type-member scope;
+* [x] cover successful parsing and unterminated-body recovery;
+* [ ] add normalized binding sources for declared name, declaration parameters,
+  modifiers, and body region;
+* [ ] resolve compatible Freestanding macro descriptors at declaration
+  positions and validate their output category atomically;
+* [ ] integrate expansion into declaration binding and incremental snapshots;
+* [ ] add completion, hover, navigation, semantic-token, and expanded-view
+  support; and
+* [ ] validate a representative component or actor DSL end to end.
+
 ### Expansion driver and isolation
 
 Move expansion scheduling, caching, recursion detection, source mapping, and

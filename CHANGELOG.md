@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- The parser now represents declaration-shaped freestanding macro carriers such
+  as `component! Foo(x: int) { ... }` with a dedicated syntax node, preserving
+  modifiers, the declared name, declaration parameters, and the lossless body
+  at compilation-unit, namespace, and type-member scope. Semantic macro
+  resolution and expansion for this carrier remain future work.
 - Lambda diagnostics now reject missing expression bodies, report incompatible
   explicit and tail returns at the returned expression, and publish actionable
   source ranges through the language server.

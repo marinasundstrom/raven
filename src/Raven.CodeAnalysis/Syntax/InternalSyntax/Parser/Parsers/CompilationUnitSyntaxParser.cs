@@ -213,6 +213,15 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             AddMemberDeclaration(memberDeclarations, macroDeclaration);
             order = MemberOrder.Members;
         }
+        else if (new MacroInvocationSyntaxParser(this).IsDeclarationInvocationStart())
+        {
+            var declaration = new MacroInvocationSyntaxParser(this).ParseDeclaration(
+                SyntaxList.Empty,
+                SyntaxList.Empty);
+
+            AddMemberDeclaration(memberDeclarations, declaration);
+            order = MemberOrder.Members;
+        }
         else if (nextToken.IsKind(SyntaxKind.ConstKeyword) ||
                  nextToken.IsKind(SyntaxKind.EnumKeyword) ||
                  nextToken.IsKind(SyntaxKind.UnionKeyword) ||
@@ -245,6 +254,16 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                 var macroDeclaration = macroParser.Parse(attributeLists, modifiers);
 
                 AddMemberDeclaration(memberDeclarations, macroDeclaration);
+                order = MemberOrder.Members;
+                return;
+            }
+
+            var declarationMacroParser = new MacroInvocationSyntaxParser(this);
+            if (declarationMacroParser.IsDeclarationInvocationStart())
+            {
+                var declaration = declarationMacroParser.ParseDeclaration(attributeLists, modifiers);
+
+                AddMemberDeclaration(memberDeclarations, declaration);
                 order = MemberOrder.Members;
                 return;
             }

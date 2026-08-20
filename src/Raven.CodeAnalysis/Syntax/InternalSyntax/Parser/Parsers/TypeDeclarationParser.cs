@@ -450,6 +450,9 @@ internal class TypeDeclarationParser : SyntaxParser
         var keywordOrIdentifier = PeekToken();
 
         var memberMacroParser = new MacroInvocationSyntaxParser(this);
+        if (memberMacroParser.IsDeclarationInvocationStart())
+            return memberMacroParser.ParseDeclaration(attributeLists, modifiers);
+
         if (memberMacroParser.IsBangInvocationStart())
             return memberMacroParser.ParseMember(attributeLists, modifiers);
 

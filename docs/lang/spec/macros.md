@@ -16,12 +16,14 @@ contracts.
 > integration may change as the design develops.
 
 > [!NOTE]
-> **Design direction, not current syntax:** freestanding macros are expected to
-> gain a declaration-oriented carrier such as `public component! Header { }`.
-> It remains a Freestanding procedural macro, uses the same canonical `Expand`
-> signature and descriptor, and must return syntax compatible with the authored
-> declaration position. Raven continues to parse modifiers, names, arguments,
-> and the invocation body as structured input. See [Declaration-form
+> **Parser foundation implemented; semantics remain design work:** Raven parses
+> declaration-oriented carriers such as
+> `public component! Header(title: string) { ... }` into a dedicated
+> `FreestandingMacroDeclarationSyntax`, preserving modifiers, the declared
+> name, declaration parameters, and lossless body. It remains a Freestanding
+> procedural macro and is intended to use the same canonical `Expand` signature
+> and descriptor, but semantic resolution and expansion are not implemented.
+> See [Declaration-form
 > carrier](../proposals/macros/application-model.md#declaration-form-carrier-design-direction).
 
 > [!NOTE]
