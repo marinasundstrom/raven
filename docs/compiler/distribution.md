@@ -116,6 +116,44 @@ manual process: neither a branch push nor a tag push starts the workflow. Start
 and provide the version explicitly. By default the run only produces retained
 workflow artifacts and does not publish anything externally.
 
+## Versioning unreleased local builds
+
+An unreleased build belongs to the **next** preview line, even before that
+preview is prepared or tagged. First increment the monotonically increasing
+preview counter, then append local provenance. For example, after
+`0.1.0-preview.10` has been published, a build from the current repository uses
+a version such as:
+
+```text
+0.1.0-preview.11-local.b99730bf6
+```
+
+Do not use `0.1.0-preview.10-local.<sha>` for later source. That spelling makes
+new work appear to be a rebuild of the already published preview.10 line and
+can mix incompatible compiler, macro, SDK, and editor artifacts under a
+misleading version family.
+
+Use the same complete version for every artifact built from one commit:
+
+```bash
+version="0.1.0-preview.11-local.$(git rev-parse --short HEAD)"
+scripts/package-sdk.sh osx-arm64 "$version"
+scripts/package-nuget.sh "$version"
+scripts/package-vscode.sh "$version"
+```
+
+The SDK archive, `Raven.Sdk`, `Raven.Core`, `Raven.Macros`,
+`Raven.CodeAnalysis`, templates, analyzers, and VSIX form one lockstep version
+family. Do not combine a locally built compiler with Core or Macros restored
+from the preceding published preview. When validating a newly packed family,
+use a fresh NuGet package cache or clear only that exact unpublished local
+version so a previous package with the same identity cannot be reused.
+
+The `local.<sha>` suffix identifies an unpublished build; it does not create a
+release tag and must not be used for publication. Formal release preparation
+later selects the plain next version, such as `0.1.0-preview.11`, and updates
+the tracked release references together.
+
 ## Release procedure
 
 A release is one immutable Git commit. That commit must contain the code,
