@@ -49,6 +49,22 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void LocalMacroTree_RecognizesExecutorClass()
+    {
+        var tree = SyntaxTree.ParseText("""
+            class AnswerMacro : IMacroExecutor {
+                val Name: string => "answer"
+                val ApplicationKind: MacroApplicationKind => MacroApplicationKind.Invocable
+
+                func Expand(context: MacroExecutionContext) -> MacroExecutionResult
+                    => MacroExecutionResult.Invocable(InvocableMacroExpansionResult.Empty)
+            }
+            """);
+
+        Assert.True(LocalMacroSyntaxClassifier.IsLocalMacroTree(tree));
+    }
+
+    [Fact]
     public void MacroReference_FromType_FindsDirectMacro()
     {
         var reference = new MacroReference(typeof(TestAttachedMacro));

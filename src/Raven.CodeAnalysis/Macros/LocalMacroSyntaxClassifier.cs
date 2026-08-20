@@ -15,6 +15,7 @@ internal static class LocalMacroSyntaxClassifier
     private const string CompilerPluginMarkerAttributeName = "RavenCompilerPluginAttribute";
     private static readonly HashSet<string> s_macroInterfaceNames =
     [
+        nameof(IMacroExecutor),
         nameof(IAttachedDeclarationMacro),
         nameof(IInvocableMacro),
         nameof(ITokenTreeMacro)

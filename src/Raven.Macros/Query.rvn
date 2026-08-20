@@ -22,11 +22,15 @@ import Raven.CodeAnalysis.Text.*
 ///     select value * 10
 /// }
 /// ```
-public class QueryMacro : ITokenTreeMacro, IMacroKeywordProvider, IMacroFragmentProvider, IMacroTokenClassifier {
+public class QueryMacro : IMacroExecutor, IMacroKeywordProvider, IMacroFragmentProvider, IMacroTokenClassifier {
     static val FromKeywordRawKind: int => 80005
     static val SelectKeywordRawKind: int => 80006
 
     val Name: string => "query"
+
+    val ApplicationKind: MacroApplicationKind => MacroApplicationKind.Invocable
+
+    val HasTokenBody: bool => true
 
     val Documentation: string? => "Expands a small LINQ-style query DSL into ordinary `Where` and `Select` calls. Each clause body remains an ordinary Raven expression, so normal binding and editor features apply within it."
 
@@ -123,7 +127,12 @@ public class QueryMacro : ITokenTreeMacro, IMacroKeywordProvider, IMacroFragment
             [rangeVariableLocal]))
     }
 
-    func Expand(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
+    func Expand(context: MacroExecutionContext) -> MacroExecutionResult {
+        MacroExecutionResult.Invocable(ExpandQuery(
+            context.GetContext<TokenTreeMacroContext>()))
+    }
+
+    func ExpandQuery(context: TokenTreeMacroContext) -> InvocableMacroExpansionResult {
         let stream = context.CreateTokenStream()
 
         if stream.IsEndOfFile {
