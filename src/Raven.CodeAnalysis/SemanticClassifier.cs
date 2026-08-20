@@ -1,3 +1,4 @@
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -71,19 +72,26 @@ public static class SemanticClassifier
             // Identifiers (with symbol resolution)
             else if (kind == SyntaxKind.IdentifierToken)
             {
-                var bindNode = GetBindableParent(descendant);
-                if (bindNode is not null)
+                if (model is not null && IsFreestandingMacroAlias(descendant, model))
                 {
-                    var symbol = ResolveSymbol(bindNode, model, allowBinding);
+                    tokenMap[descendant] = SemanticClassification.Keyword;
+                }
+                else
+                {
+                    var bindNode = GetBindableParent(descendant);
+                    if (bindNode is not null)
+                    {
+                        var symbol = ResolveSymbol(bindNode, model, allowBinding);
 
-                    var classification = IsAliasTarget(bindNode)
-                        ? SemanticClassification.Type
-                        : symbol is null
-                        ? ClassifyBySyntaxOrEventFallback(bindNode, model, allowBinding, declaredTypeNames, declaredValueNames)
-                        : ClassifySymbol(symbol, bindNode);
+                        var classification = IsAliasTarget(bindNode)
+                            ? SemanticClassification.Type
+                            : symbol is null
+                            ? ClassifyBySyntaxOrEventFallback(bindNode, model, allowBinding, declaredTypeNames, declaredValueNames)
+                            : ClassifySymbol(symbol, bindNode);
 
-                    classification = ClassifyDiscriminatedUnionCasePattern(descendant, bindNode, symbol, model, classification, allowBinding);
-                    tokenMap[descendant] = classification;
+                        classification = ClassifyDiscriminatedUnionCasePattern(descendant, bindNode, symbol, model, classification, allowBinding);
+                        tokenMap[descendant] = classification;
+                    }
                 }
             }
 
@@ -105,6 +113,29 @@ public static class SemanticClassifier
         }
 
         return new SemanticClassificationResult(tokenMap, triviaMap);
+    }
+
+    private static bool IsFreestandingMacroAlias(SyntaxToken token, SemanticModel model)
+    {
+        var carrier = token.Parent?.AncestorsAndSelf().FirstOrDefault(static node =>
+            node is FreestandingMacroExpressionSyntax or
+                FreestandingMacroMemberDeclarationSyntax or
+                FreestandingMacroDeclarationSyntax);
+        if (carrier is null ||
+            !FreestandingMacroInvocation.TryCreate(carrier, out var invocation) ||
+            !invocation.Name.Span.Contains(token.Span) ||
+            !invocation.TryGetMacroName(out var name) ||
+            !model.Compilation.GetMacroRegistry().TryResolveFreestandingMacro(
+                model.Compilation,
+                carrier,
+                name,
+                out var loaded,
+                out _))
+        {
+            return false;
+        }
+
+        return loaded.Aliases.Contains(name, StringComparer.Ordinal);
     }
 
     private static bool IsMacroContributionKeyword(SyntaxToken token)

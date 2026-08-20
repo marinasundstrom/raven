@@ -18,29 +18,43 @@ public partial class SemanticModel
         FreestandingMacroExpressionSyntax expression,
         int position,
         CancellationToken cancellationToken = default)
+        => GetMacroFragmentSemanticInfoCore(expression, position, cancellationToken);
+
+    /// <summary>
+    /// Gets ordinary Raven semantic information at an authored position inside
+    /// a declaration-shaped macro fragment.
+    /// </summary>
+    public MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfo(
+        FreestandingMacroDeclarationSyntax declaration,
+        int position,
+        CancellationToken cancellationToken = default)
+        => GetMacroFragmentSemanticInfoCore(declaration, position, cancellationToken);
+
+    internal MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfoCore(
+        SyntaxNode syntax,
+        int position,
+        CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(expression);
-        if (expression.SyntaxTree != SyntaxTree)
-            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+        ValidateMacroInvocationSyntax(syntax);
         if ((uint)position > (uint)SyntaxTree.GetRoot(cancellationToken).FullSpan.End)
             throw new ArgumentOutOfRangeException(nameof(position));
 
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
 
-        var region = GetMacroInputSnapshot(expression, cancellationToken).FindFragmentRegion(position);
+        var region = GetMacroInputSnapshotCore(syntax, cancellationToken).FindFragmentRegion(position);
         if (region is null)
             return null;
 
-        var parentBinder = GetBinder(expression);
+        var parentBinder = GetBinder(syntax);
         return GetMacroFragmentSemanticInfo(
-            expression,
+            syntax,
             region,
             position,
             parentBinder,
             MacroFragmentBinder.CreateVisibleSymbols(
-                GetVisibleValueSymbols(expression, allowBindingFallback: true)),
-            expression,
+                GetVisibleValueSymbols(syntax, allowBindingFallback: true)),
+            syntax,
             nestingDepth: 0,
             cancellationToken);
     }
@@ -51,21 +65,29 @@ public partial class SemanticModel
     public ImmutableArray<MacroFragmentInferredTypeAnnotation> GetMacroFragmentInferredTypeAnnotations(
         FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
+        => GetMacroFragmentInferredTypeAnnotationsCore(expression, cancellationToken);
+
+    public ImmutableArray<MacroFragmentInferredTypeAnnotation> GetMacroFragmentInferredTypeAnnotations(
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken = default)
+        => GetMacroFragmentInferredTypeAnnotationsCore(declaration, cancellationToken);
+
+    private ImmutableArray<MacroFragmentInferredTypeAnnotation> GetMacroFragmentInferredTypeAnnotationsCore(
+        SyntaxNode syntax,
+        CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(expression);
-        if (expression.SyntaxTree != SyntaxTree)
-            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+        ValidateMacroInvocationSyntax(syntax);
 
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
 
         var annotations = ImmutableArray.CreateBuilder<MacroFragmentInferredTypeAnnotation>();
-        var context = new TokenTreeMacroContext(Compilation, this, expression, cancellationToken);
-        var parentBinder = GetBinder(expression);
+        var context = CreateTokenTreeMacroContext(syntax, cancellationToken);
+        var parentBinder = GetBinder(syntax);
         var visibleSymbols = MacroFragmentBinder.CreateVisibleSymbols(
-            GetVisibleValueSymbols(expression, allowBindingFallback: true));
+            GetVisibleValueSymbols(syntax, allowBindingFallback: true));
 
-        foreach (var region in GetMacroInputSnapshot(expression, cancellationToken).FragmentRegions)
+        foreach (var region in GetMacroInputSnapshotCore(syntax, cancellationToken).FragmentRegions)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -73,6 +95,7 @@ public partial class SemanticModel
             {
                 MacroFragmentKind.Expression => context.ParseExpression(region.BodyRelativeSpan),
                 MacroFragmentKind.Statement => context.ParseStatement(region.BodyRelativeSpan),
+                MacroFragmentKind.Block => context.ParseBlock(),
                 _ => null
             };
             if (fragment is null)
@@ -102,25 +125,37 @@ public partial class SemanticModel
     /// Classifies the ordinary Raven syntax contained in all fragment regions
     /// reported by a token-tree macro.
     /// </summary>
-    internal SemanticClassificationResult GetMacroFragmentClassifications(
+    public SemanticClassificationResult GetMacroFragmentClassifications(
         FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
+        => GetMacroFragmentClassificationsCore(expression, cancellationToken);
+
+    /// <summary>
+    /// Classifies the ordinary Raven syntax contained in all fragment regions
+    /// reported by a declaration-shaped token-tree macro.
+    /// </summary>
+    public SemanticClassificationResult GetMacroFragmentClassifications(
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken = default)
+        => GetMacroFragmentClassificationsCore(declaration, cancellationToken);
+
+    private SemanticClassificationResult GetMacroFragmentClassificationsCore(
+        SyntaxNode syntax,
+        CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(expression);
-        if (expression.SyntaxTree != SyntaxTree)
-            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+        ValidateMacroInvocationSyntax(syntax);
 
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
 
         var tokenMap = new Dictionary<SyntaxToken, SemanticClassification>();
         var triviaMap = new Dictionary<SyntaxTrivia, SemanticClassification>();
-        var context = new TokenTreeMacroContext(Compilation, this, expression, cancellationToken);
-        var parentBinder = GetBinder(expression);
+        var context = CreateTokenTreeMacroContext(syntax, cancellationToken);
+        var parentBinder = GetBinder(syntax);
         var visibleSymbols = MacroFragmentBinder.CreateVisibleSymbols(
-            GetVisibleValueSymbols(expression, allowBindingFallback: true));
+            GetVisibleValueSymbols(syntax, allowBindingFallback: true));
 
-        foreach (var region in GetMacroInputSnapshot(expression, cancellationToken).FragmentRegions)
+        foreach (var region in GetMacroInputSnapshotCore(syntax, cancellationToken).FragmentRegions)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -128,6 +163,7 @@ public partial class SemanticModel
             {
                 MacroFragmentKind.Expression => context.ParseExpression(region.BodyRelativeSpan),
                 MacroFragmentKind.Statement => context.ParseStatement(region.BodyRelativeSpan),
+                MacroFragmentKind.Block => context.ParseBlock(),
                 _ => null
             };
             if (fragment is null)
@@ -170,24 +206,34 @@ public partial class SemanticModel
         FreestandingMacroExpressionSyntax expression,
         int position,
         CancellationToken cancellationToken = default)
+        => GetMacroTokenInfoCore(expression, position, cancellationToken);
+
+    public MacroTokenInfo? GetMacroTokenInfo(
+        FreestandingMacroDeclarationSyntax declaration,
+        int position,
+        CancellationToken cancellationToken = default)
+        => GetMacroTokenInfoCore(declaration, position, cancellationToken);
+
+    internal MacroTokenInfo? GetMacroTokenInfoCore(
+        SyntaxNode syntax,
+        int position,
+        CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(expression);
-        if (expression.SyntaxTree != SyntaxTree)
-            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+        ValidateMacroInvocationSyntax(syntax);
         if ((uint)position > (uint)SyntaxTree.GetRoot(cancellationToken).FullSpan.End)
             throw new ArgumentOutOfRangeException(nameof(position));
 
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
         return GetMacroTokenInfo(
-            expression,
+            syntax,
             position,
-            expression,
+            syntax,
             nestingDepth: 0,
             cancellationToken);
     }
 
     private MacroTokenInfo? GetMacroTokenInfo(
-        FreestandingMacroExpressionSyntax expression,
+        SyntaxNode syntax,
         int position,
         SyntaxNode resolutionContext,
         int nestingDepth,
@@ -195,13 +241,13 @@ public partial class SemanticModel
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var context = new TokenTreeMacroContext(Compilation, this, expression, cancellationToken);
+        var context = CreateTokenTreeMacroContext(syntax, cancellationToken);
         var snapshot = nestingDepth == 0
-            ? GetMacroInputSnapshot(expression, cancellationToken)
+            ? GetMacroInputSnapshotCore(syntax, cancellationToken)
             : new MacroInputSnapshot(
                 context.BodySpan,
-                MacroTokenInfoService.GetTokens(this, expression, resolutionContext, cancellationToken),
-                MacroFragmentRegionService.GetFragmentRegions(this, expression, resolutionContext, cancellationToken));
+                MacroTokenInfoService.GetTokens(this, syntax, resolutionContext, cancellationToken),
+                MacroFragmentRegionService.GetFragmentRegions(this, syntax, resolutionContext, cancellationToken));
 
         var region = snapshot.FindFragmentRegion(position);
         if (region is not null && nestingDepth < MaxMacroFragmentNestingDepth)
@@ -210,6 +256,7 @@ public partial class SemanticModel
             {
                 MacroFragmentKind.Expression => context.ParseExpression(region.BodyRelativeSpan),
                 MacroFragmentKind.Statement => context.ParseStatement(region.BodyRelativeSpan),
+                MacroFragmentKind.Block => context.ParseBlock(),
                 _ => null
             };
             if (fragment is not null)
@@ -240,18 +287,18 @@ public partial class SemanticModel
     }
 
     private MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfo(
-        FreestandingMacroExpressionSyntax expression,
+        SyntaxNode syntax,
         MacroFragmentRegion region,
         int position,
         Binder parentBinder,
         ImmutableArray<MacroFragmentVisibleSymbol> visibleSymbols,
-        FreestandingMacroExpressionSyntax resolutionContext,
+        SyntaxNode resolutionContext,
         int nestingDepth,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var context = new TokenTreeMacroContext(Compilation, this, expression, cancellationToken);
+        var context = CreateTokenTreeMacroContext(syntax, cancellationToken);
         SyntaxNode fragment;
         switch (region.Kind)
         {
@@ -260,6 +307,9 @@ public partial class SemanticModel
                 break;
             case MacroFragmentKind.Statement:
                 fragment = context.ParseStatement(region.BodyRelativeSpan);
+                break;
+            case MacroFragmentKind.Block:
+                fragment = context.ParseBlock();
                 break;
             default:
                 return null;
@@ -404,4 +454,14 @@ public partial class SemanticModel
 
         return best;
     }
+
+    private TokenTreeMacroContext CreateTokenTreeMacroContext(
+        SyntaxNode syntax,
+        CancellationToken cancellationToken)
+        => syntax switch
+        {
+            FreestandingMacroExpressionSyntax expression => new TokenTreeMacroContext(Compilation, this, expression, cancellationToken),
+            FreestandingMacroDeclarationSyntax declaration => new TokenTreeMacroContext(Compilation, this, declaration, cancellationToken),
+            _ => throw new ArgumentException("Syntax is not a supported token-tree macro carrier.", nameof(syntax))
+        };
 }

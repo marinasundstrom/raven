@@ -154,6 +154,15 @@ const completionKinds = {
   variable: monaco.languages.CompletionItemKind.Variable,
 };
 
+const semanticTokenTypes = [
+  "keyword",
+  "namespace",
+  "type",
+  "function",
+  "parameter",
+  "variable",
+];
+
 function toSnippetText(insertText, cursorOffset) {
   if (cursorOffset == null || cursorOffset >= insertText.length) return insertText;
 
@@ -258,6 +267,7 @@ export async function createEditor(element, value, commandTarget) {
     quickSuggestions: false,
     renderLineHighlight: "line",
     scrollBeyondLastLine: false,
+    "semanticHighlighting.enabled": true,
     suggestOnTriggerCharacters: true,
     tabSize: 4,
     theme: isDarkTheme() ? "raven-dark" : "raven-light",
@@ -320,6 +330,40 @@ export async function createEditor(element, value, commandTarget) {
       };
     },
   });
+  const semanticTokensProvider = monaco.languages.registerDocumentSemanticTokensProvider("raven", {
+    getLegend: () => ({ tokenTypes: semanticTokenTypes, tokenModifiers: [] }),
+    provideDocumentSemanticTokens: async (semanticModel, _lastResultId, cancellationToken) => {
+      const items = await commandTarget.invokeMethodAsync(
+        "GetSemanticTokens",
+        semanticModel.getValue(),
+      );
+      if (cancellationToken.isCancellationRequested) return { data: new Uint32Array() };
+
+      const data = [];
+      let previousLine = 0;
+      let previousCharacter = 0;
+      for (const item of items) {
+        const tokenType = semanticTokenTypes.indexOf(item.type);
+        if (tokenType < 0 || item.length <= 0) continue;
+
+        const position = semanticModel.getPositionAt(item.start);
+        const line = position.lineNumber - 1;
+        const character = position.column - 1;
+        data.push(
+          line - previousLine,
+          line === previousLine ? character - previousCharacter : character,
+          item.length,
+          tokenType,
+          0,
+        );
+        previousLine = line;
+        previousCharacter = character;
+      }
+
+      return { data: Uint32Array.from(data) };
+    },
+    releaseDocumentSemanticTokens: () => {},
+  });
   let completionTimer;
   const completionTrigger = editor.onDidType(text => {
     clearTimeout(completionTimer);
@@ -358,6 +402,7 @@ export async function createEditor(element, value, commandTarget) {
       completionTrigger.dispose();
       completionProvider.dispose();
       hoverProvider.dispose();
+      semanticTokensProvider.dispose();
       colorScheme.removeEventListener("change", applyTheme);
       window.removeEventListener("raven-theme-change", applyTheme);
       editor.dispose();

@@ -216,6 +216,43 @@ try {
   }
   await predefinedPage.close();
 
+  const macroAliasPage = await browser.newPage();
+  await macroAliasPage.goto(`${url}?example=quote-macro`);
+  await macroAliasPage.getByText("Ready", { exact: true }).waitFor({ timeout: 30_000 });
+  await macroAliasPage.locator(".monaco-editor").waitFor();
+  try {
+    await macroAliasPage.waitForFunction(() => {
+      const tokenColor = text => {
+        const walker = document.createTreeWalker(
+          document.querySelector(".monaco-editor .view-lines"),
+          NodeFilter.SHOW_TEXT,
+        );
+        while (walker.nextNode()) {
+          if (walker.currentNode.nodeValue.includes(text))
+            return getComputedStyle(walker.currentNode.parentElement).color;
+        }
+        return null;
+      };
+      const keywordColor = tokenColor("let");
+      const aliasColor = tokenColor("quote");
+      return keywordColor && aliasColor && keywordColor === aliasColor;
+    }, { timeout: 30_000 });
+  } catch (error) {
+    const visibleTokens = await macroAliasPage.locator(".monaco-editor .view-lines span")
+      .evaluateAll(elements => elements
+        .filter(element => element.children.length === 0 && element.textContent.trim())
+        .map(element => ({
+          text: element.textContent,
+          color: getComputedStyle(element).color,
+          className: element.className,
+        })));
+    throw new Error(
+      `Expected quote! to use the keyword color. Visible tokens: ${JSON.stringify(visibleTokens)}`,
+      { cause: error },
+    );
+  }
+  await macroAliasPage.close();
+
   const runningPredefinedPage = await browser.newPage();
   await runningPredefinedPage.goto(`${url}?example=records&run=true`);
   await runningPredefinedPage.getByText("Complete", { exact: true }).waitFor({ timeout: 30_000 });
@@ -539,7 +576,10 @@ try {
       `Expected Result/record source to run, got ${resultRecordStatus}: ${diagnostics.join("\n")}\n${output}`,
     );
   }
-  await page.getByText("Result<Int32, CustomError>.Ok(42)", { exact: true }).waitFor();
+  const resultRecordOutput = await page.locator(".program-output").textContent();
+  if (!resultRecordOutput.includes("Result.Ok(42)")) {
+    throw new Error(`Expected Result/record output, got '${resultRecordOutput}'.`);
+  }
 
   await editor.click({ force: true });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");

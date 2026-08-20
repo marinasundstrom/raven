@@ -16,14 +16,21 @@ internal static class MacroFragmentRegionService
 
     public static ImmutableArray<MacroFragmentRegion> GetFragmentRegions(
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax expression,
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken)
+        => GetFragmentRegions(semanticModel, declaration, declaration, cancellationToken);
+
+    public static ImmutableArray<MacroFragmentRegion> GetFragmentRegions(
+        SemanticModel semanticModel,
+        SyntaxNode syntax,
         SyntaxNode resolutionContext,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (expression.TokenTree is null ||
-            !expression.TryGetMacroName(out var name) ||
+        if (!FreestandingMacroInvocation.TryCreate(syntax, out var invocation) ||
+            invocation.TokenTree is null ||
+            !invocation.TryGetMacroName(out var name) ||
             !semanticModel.Compilation.GetMacroRegistry().TryResolveFreestandingMacro(
                 semanticModel.Compilation,
                 resolutionContext,
@@ -40,7 +47,7 @@ internal static class MacroFragmentRegionService
             var context = new TokenTreeMacroContext(
                 semanticModel.Compilation,
                 semanticModel,
-                expression,
+                invocation,
                 loaded.Macro,
                 cancellationToken);
             ImmutableArray<MacroFragmentRegion> regions;
@@ -50,7 +57,7 @@ internal static class MacroFragmentRegionService
             }
             else if (loaded.Macro is IMacroExpansionMetadataProvider)
             {
-                regions = semanticModel.GetMacroExpansion(expression, cancellationToken)?.FragmentRegions ??
+                regions = semanticModel.GetFreestandingMacroExpansion(syntax, cancellationToken)?.FragmentRegions ??
                     ImmutableArray<MacroFragmentRegion>.Empty;
             }
             else

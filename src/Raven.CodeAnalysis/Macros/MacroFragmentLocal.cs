@@ -11,12 +11,14 @@ public sealed class MacroFragmentLocal
         string name,
         ITypeSymbol type,
         TextSpan? bodyRelativeDeclarationSpan,
-        TextSpan? declarationSpan)
+        TextSpan? declarationSpan,
+        bool isParameter = false)
     {
         Name = name;
         Type = type;
         BodyRelativeDeclarationSpan = bodyRelativeDeclarationSpan;
         DeclarationSpan = declarationSpan;
+        IsParameter = isParameter;
     }
 
     /// <summary>Gets the local's Raven name.</summary>
@@ -34,4 +36,7 @@ public sealed class MacroFragmentLocal
     /// Gets the optional authored span that declares this local in the invocation.
     /// </summary>
     public TextSpan? DeclarationSpan { get; }
+
+    /// <summary>Gets whether the introduced value has parameter semantics.</summary>
+    public bool IsParameter { get; }
 }

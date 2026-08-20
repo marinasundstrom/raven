@@ -26,9 +26,9 @@ public partial class SemanticModel
     private readonly ConcurrentDictionary<AttributeSyntax, ImmutableArray<SyntaxNode>> _expandedDeclarationCache = new();
     private readonly ConcurrentDictionary<SyntaxNode, SyntaxNode> _macroReplacementSyntaxMap = new();
     private readonly ConcurrentDictionary<BaseTypeDeclarationSyntax, BaseTypeDeclarationSyntax> _macroContainingTypeSyntaxMap = new();
-    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, ImmutableArray<MacroFragmentRegion>> _macroFragmentRegionCache = new();
-    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, ImmutableArray<MacroTokenInfo>> _macroTokenInfoCache = new();
-    private readonly ConcurrentDictionary<FreestandingMacroExpressionSyntax, MacroInputSnapshot> _macroInputSnapshotCache = new();
+    private readonly ConcurrentDictionary<SyntaxNode, ImmutableArray<MacroFragmentRegion>> _macroFragmentRegionCache = new();
+    private readonly ConcurrentDictionary<SyntaxNode, ImmutableArray<MacroTokenInfo>> _macroTokenInfoCache = new();
+    private readonly ConcurrentDictionary<SyntaxNode, MacroInputSnapshot> _macroInputSnapshotCache = new();
 
     private readonly DeclaredSymbolLookup _declaredSymbolLookup;
     private readonly object _diagnosticsCollectionGate = new();
@@ -383,17 +383,30 @@ public partial class SemanticModel
     public ImmutableArray<MacroFragmentRegion> GetMacroFragmentRegions(
         FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
+        => GetMacroFragmentRegionsCore(expression, cancellationToken);
+
+    public ImmutableArray<MacroFragmentRegion> GetMacroFragmentRegions(
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken = default)
+        => GetMacroFragmentRegionsCore(declaration, cancellationToken);
+
+    internal ImmutableArray<MacroFragmentRegion> GetMacroFragmentRegionsCore(
+        SyntaxNode syntax,
+        CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(expression);
-        if (expression.SyntaxTree != SyntaxTree)
-            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+        ValidateMacroInvocationSyntax(syntax);
 
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
-        if (_macroFragmentRegionCache.TryGetValue(expression, out var cached))
+        if (_macroFragmentRegionCache.TryGetValue(syntax, out var cached))
             return cached;
 
-        var regions = MacroFragmentRegionService.GetFragmentRegions(this, expression, cancellationToken);
-        return _macroFragmentRegionCache.GetOrAdd(expression, regions);
+        var regions = syntax switch
+        {
+            FreestandingMacroExpressionSyntax expression => MacroFragmentRegionService.GetFragmentRegions(this, expression, cancellationToken),
+            FreestandingMacroDeclarationSyntax declaration => MacroFragmentRegionService.GetFragmentRegions(this, declaration, cancellationToken),
+            _ => ImmutableArray<MacroFragmentRegion>.Empty
+        };
+        return _macroFragmentRegionCache.GetOrAdd(syntax, regions);
     }
 
     /// <summary>
@@ -402,17 +415,30 @@ public partial class SemanticModel
     public ImmutableArray<MacroTokenInfo> GetMacroTokens(
         FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
+        => GetMacroTokensCore(expression, cancellationToken);
+
+    public ImmutableArray<MacroTokenInfo> GetMacroTokens(
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken = default)
+        => GetMacroTokensCore(declaration, cancellationToken);
+
+    internal ImmutableArray<MacroTokenInfo> GetMacroTokensCore(
+        SyntaxNode syntax,
+        CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(expression);
-        if (expression.SyntaxTree != SyntaxTree)
-            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+        ValidateMacroInvocationSyntax(syntax);
 
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
-        if (_macroTokenInfoCache.TryGetValue(expression, out var cached))
+        if (_macroTokenInfoCache.TryGetValue(syntax, out var cached))
             return cached;
 
-        var tokens = MacroTokenInfoService.GetTokens(this, expression, cancellationToken);
-        return _macroTokenInfoCache.GetOrAdd(expression, tokens);
+        var tokens = syntax switch
+        {
+            FreestandingMacroExpressionSyntax expression => MacroTokenInfoService.GetTokens(this, expression, cancellationToken),
+            FreestandingMacroDeclarationSyntax declaration => MacroTokenInfoService.GetTokens(this, declaration, cancellationToken),
+            _ => ImmutableArray<MacroTokenInfo>.Empty
+        };
+        return _macroTokenInfoCache.GetOrAdd(syntax, tokens);
     }
 
     /// <summary>
@@ -421,26 +447,45 @@ public partial class SemanticModel
     public MacroInputSnapshot GetMacroInputSnapshot(
         FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
+        => GetMacroInputSnapshotCore(expression, cancellationToken);
+
+    public MacroInputSnapshot GetMacroInputSnapshot(
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken = default)
+        => GetMacroInputSnapshotCore(declaration, cancellationToken);
+
+    internal MacroInputSnapshot GetMacroInputSnapshotCore(
+        SyntaxNode syntax,
+        CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(expression);
-        if (expression.SyntaxTree != SyntaxTree)
-            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(expression));
+        ValidateMacroInvocationSyntax(syntax);
 
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
-        if (_macroInputSnapshotCache.TryGetValue(expression, out var cached))
+        if (_macroInputSnapshotCache.TryGetValue(syntax, out var cached))
             return cached;
+
+        FreestandingMacroInvocation.TryCreate(syntax, out var invocation);
 
         var snapshot = new MacroInputSnapshot(
             TextSpan.FromBounds(
-                expression.TokenTree?.OpenBraceToken.Span.End ?? expression.Span.End,
-                expression.TokenTree is { } tokenTree
+                invocation.TokenTree?.OpenBraceToken.Span.End ?? syntax.Span.End,
+                invocation.TokenTree is { } tokenTree
                     ? tokenTree.CloseBraceToken.IsMissing
                         ? tokenTree.BodyToken.Span.End
                         : tokenTree.CloseBraceToken.SpanStart
-                    : expression.Span.End),
-            GetMacroTokens(expression, cancellationToken),
-            GetMacroFragmentRegions(expression, cancellationToken));
-        return _macroInputSnapshotCache.GetOrAdd(expression, snapshot);
+                    : syntax.Span.End),
+            GetMacroTokensCore(syntax, cancellationToken),
+            GetMacroFragmentRegionsCore(syntax, cancellationToken));
+        return _macroInputSnapshotCache.GetOrAdd(syntax, snapshot);
+    }
+
+    private void ValidateMacroInvocationSyntax(SyntaxNode syntax)
+    {
+        ArgumentNullException.ThrowIfNull(syntax);
+        if (syntax.SyntaxTree != SyntaxTree)
+            throw new ArgumentException("Macro invocation is not part of this semantic model's syntax tree.", nameof(syntax));
+        if (!FreestandingMacroInvocation.TryCreate(syntax, out _))
+            throw new ArgumentException("Syntax is not a freestanding macro carrier.", nameof(syntax));
     }
 
     /// <summary>
@@ -10004,7 +10049,7 @@ public partial class SemanticModel
         CancellationToken cancellationToken = default)
         => GetFreestandingMacroExpansion(declaration, cancellationToken);
 
-    private FreestandingMacroExpansionResult? GetFreestandingMacroExpansion(
+    internal FreestandingMacroExpansionResult? GetFreestandingMacroExpansion(
         SyntaxNode invocation,
         CancellationToken cancellationToken)
     {

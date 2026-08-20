@@ -587,35 +587,71 @@ public class CompletionService
         SemanticModel semanticModel,
         int position,
         out SyntaxToken fragmentToken,
-        out FreestandingMacroExpressionSyntax invocation,
+        out SyntaxNode invocation,
         out ImmutableArray<MacroFragmentLocal> fragmentLocals)
     {
         fragmentToken = default;
         fragmentLocals = ImmutableArray<MacroFragmentLocal>.Empty;
         invocation = token.Parent?.AncestorsAndSelf()
-            .OfType<FreestandingMacroExpressionSyntax>()
-            .FirstOrDefault()!;
-        if (invocation?.TokenTree is null)
+            .FirstOrDefault(static node =>
+                node is FreestandingMacroExpressionSyntax { TokenTree: not null } or
+                    FreestandingMacroDeclarationSyntax { TokenTree: not null })!;
+        if (invocation is null)
             return false;
 
-        var region = semanticModel.GetMacroInputSnapshot(invocation).FindFragmentRegion(position);
+        var region = semanticModel.GetMacroInputSnapshotCore(invocation, CancellationToken.None).FindFragmentRegion(position);
         if (region is null)
             return false;
         fragmentLocals = region.Locals;
 
-        var context = new TokenTreeMacroContext(
-            semanticModel.Compilation,
-            semanticModel,
-            invocation);
-        SyntaxNode fragment = region.Kind switch
+        var context = invocation switch
         {
-            MacroFragmentKind.Expression => context.ParseExpression(region.BodyRelativeSpan),
-            MacroFragmentKind.Statement => context.ParseStatement(region.BodyRelativeSpan),
-            MacroFragmentKind.Type => context.ParseType(region.BodyRelativeSpan),
-            MacroFragmentKind.Pattern => context.ParsePattern(region.BodyRelativeSpan),
-            MacroFragmentKind.MemberDeclaration => context.ParseMemberDeclaration(region.BodyRelativeSpan),
-            _ => throw new InvalidOperationException($"Unsupported macro fragment kind '{region.Kind}'.")
+            FreestandingMacroExpressionSyntax expression => new TokenTreeMacroContext(
+                semanticModel.Compilation,
+                semanticModel,
+                expression),
+            FreestandingMacroDeclarationSyntax declaration => new TokenTreeMacroContext(
+                semanticModel.Compilation,
+                semanticModel,
+                declaration),
+            _ => throw new InvalidOperationException("Unsupported macro fragment carrier.")
         };
+        SyntaxNode fragment = ParseMacroFragment(context, region);
+
+        for (var nestingDepth = 0; nestingDepth < 16; nestingDepth++)
+        {
+            var nestedSearchPosition = Math.Clamp(position - 1, fragment.FullSpan.Start, fragment.FullSpan.End);
+            var nestedToken = fragment.FindToken(nestedSearchPosition);
+            var nestedInvocation = nestedToken.Parent?.AncestorsAndSelf()
+                .OfType<FreestandingMacroExpressionSyntax>()
+                .FirstOrDefault(candidate => candidate.TokenTree?.Span.Contains(nestedSearchPosition) == true);
+            if (nestedInvocation is null)
+                break;
+
+            var nestedRegion = MacroFragmentRegionService.GetFragmentRegions(
+                    semanticModel,
+                    nestedInvocation,
+                    invocation,
+                    CancellationToken.None)
+                .Where(candidate => candidate.Span.Length == 0
+                    ? position == candidate.Span.Start
+                    : position >= candidate.Span.Start && position <= candidate.Span.End)
+                .OrderBy(static candidate => candidate.Span.Length)
+                .FirstOrDefault();
+            if (nestedRegion is null)
+                break;
+
+            fragmentLocals = fragmentLocals
+                .Concat(nestedRegion.Locals)
+                .GroupBy(static local => local.Name, StringComparer.Ordinal)
+                .Select(static group => group.Last())
+                .ToImmutableArray();
+            var nestedContext = new TokenTreeMacroContext(
+                semanticModel.Compilation,
+                semanticModel,
+                nestedInvocation);
+            fragment = ParseMacroFragment(nestedContext, nestedRegion);
+        }
 
         var searchPosition = Math.Clamp(position - 1, fragment.FullSpan.Start, fragment.FullSpan.End);
         fragmentToken = fragment.FindToken(searchPosition);
@@ -624,6 +660,20 @@ public class CompletionService
 
         return true;
     }
+
+    private static SyntaxNode ParseMacroFragment(
+        TokenTreeMacroContext context,
+        MacroFragmentRegion region)
+        => region.Kind switch
+        {
+            MacroFragmentKind.Expression => context.ParseExpression(region.BodyRelativeSpan),
+            MacroFragmentKind.Statement => context.ParseStatement(region.BodyRelativeSpan),
+            MacroFragmentKind.Type => context.ParseType(region.BodyRelativeSpan),
+            MacroFragmentKind.Pattern => context.ParsePattern(region.BodyRelativeSpan),
+            MacroFragmentKind.MemberDeclaration => context.ParseMemberDeclaration(region.BodyRelativeSpan),
+            MacroFragmentKind.Block => context.ParseBlock(),
+            _ => throw new InvalidOperationException($"Unsupported macro fragment kind '{region.Kind}'.")
+        };
 
     internal static IEnumerable<CompletionItem> GetBasicKeywordCompletions(SyntaxToken token, int position)
     {

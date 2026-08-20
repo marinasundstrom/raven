@@ -8,6 +8,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Macros;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
@@ -39,6 +40,29 @@ public sealed class LanguageServerSemanticTokensTests
         MacroTokenClassification classification)
     {
         SemanticTokensHandler.MapMacroTokenType(classification).ShouldBeNull();
+    }
+
+    [Fact]
+    public void SemanticTokens_MapMacroAliasIdentifierToKeyword()
+    {
+        var tokens = SyntaxTree.ParseText("component! Greeting() { }")
+            .GetRoot()
+            .DescendantTokens()
+            .ToArray();
+        var token = tokens.Single(static token => token.ValueText == "component");
+        var stringToken = SyntaxTree.ParseText("let value = \"text\"")
+            .GetRoot()
+            .DescendantTokens()
+            .Single(static token => token.Kind == SyntaxKind.StringLiteralToken);
+
+        SemanticTokensHandler.MapContextualKeywordTokenType(
+                SemanticClassification.Keyword,
+                token)
+            .ShouldBe(SemanticTokenType.Keyword);
+        SemanticTokensHandler.MapContextualKeywordTokenType(
+                SemanticClassification.StringLiteral,
+                stringToken)
+            .ShouldBeNull();
     }
 
     [Fact]

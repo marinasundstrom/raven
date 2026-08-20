@@ -10,4 +10,8 @@ public enum MacroFragmentKind
     Type = 2,
     Pattern = 3,
     MemberDeclaration = 4,
+    /// <summary>
+    /// A sequence of Raven statements sharing one lexical block scope.
+    /// </summary>
+    Block = 5,
 }

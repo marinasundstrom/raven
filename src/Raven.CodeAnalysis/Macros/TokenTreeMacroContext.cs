@@ -285,6 +285,29 @@ public class TokenTreeMacroContext : MacroContext
         => CreateFragmentLocalCore(name, type, declarationSpan: null);
 
     /// <summary>
+    /// Creates a parameter visible inside a Raven fragment and maps it to its
+    /// declaration in the macro carrier header.
+    /// </summary>
+    public MacroFragmentLocal CreateFragmentParameter(
+        string name,
+        ITypeSymbol type,
+        TextSpan declarationSpan)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Macro fragment parameter names cannot be empty.", nameof(name));
+        ArgumentNullException.ThrowIfNull(type);
+        if (!Syntax.FullSpan.Contains(declarationSpan))
+            throw new ArgumentOutOfRangeException(nameof(declarationSpan));
+
+        return new MacroFragmentLocal(
+            name,
+            type,
+            bodyRelativeDeclarationSpan: null,
+            declarationSpan,
+            isParameter: true);
+    }
+
+    /// <summary>
     /// Creates an explicitly typed local declared at a body-relative span in the macro DSL.
     /// </summary>
     public MacroFragmentLocal CreateFragmentLocal(
@@ -476,6 +499,28 @@ public class TokenTreeMacroContext : MacroContext
             bodyRelativeSpan,
             consumeFullText: true,
             static () => SyntaxFactory.ExpressionStatement(new ExpressionSyntax.Missing()));
+
+    /// <summary>
+    /// Parses the complete token-tree body as one Raven lexical block while
+    /// retaining the authored positions of its statements and expressions.
+    /// </summary>
+    public BlockStatementSyntax ParseBlock()
+    {
+        var blockStart = Math.Max(0, BodySpan.Start - 1);
+        var sourceText = SourceText.From(
+            new string(' ', blockStart) + "{" + GetBodyText() + "}");
+        var parser = new Syntax.InternalSyntax.Parser.LanguageParser(
+            Syntax.SyntaxTree?.FilePath,
+            Syntax.SyntaxTree?.Options ?? new ParseOptions());
+        var parseResult = parser.ParseSyntaxWithDiagnostics(
+            typeof(BlockStatementSyntax),
+            sourceText,
+            blockStart,
+            consumeFullText: true);
+        var block = parseResult?.Root.CreateRed(parent: null, position: blockStart) as BlockStatementSyntax
+            ?? (BlockStatementSyntax)SyntaxFactory.ParseStatement("{}");
+        return MacroSyntaxOrigin.AttachParsedOrigin(block, Syntax.SyntaxTree);
+    }
 
     /// <summary>
     /// Parses one Raven statement at the token stream's current position and

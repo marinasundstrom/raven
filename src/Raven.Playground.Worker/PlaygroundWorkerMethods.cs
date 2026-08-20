@@ -40,6 +40,19 @@ public static partial class PlaygroundWorkerMethods
     }
 
     [JSExport]
+    public static string GetSemanticTokens(string source)
+    {
+        try
+        {
+            return JsonSerializer.Serialize(s_languageService.Value.GetSemanticTokens(source));
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException(exception.ToString());
+        }
+    }
+
+    [JSExport]
     public static async Task<string> Compile(string source, bool run)
     {
         try

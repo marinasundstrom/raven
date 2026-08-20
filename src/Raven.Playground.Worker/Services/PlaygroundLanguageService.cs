@@ -72,6 +72,49 @@ public sealed class PlaygroundLanguageService
         }
     }
 
+    public IReadOnlyList<PlaygroundSemanticToken> GetSemanticTokens(string source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        lock (_gate)
+        {
+            UpdateSource(source);
+            var compilation = _workspace.GetCompilation(_projectId);
+            var syntaxTree = GetUserSyntaxTree(compilation);
+            var root = syntaxTree.GetRoot();
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var tokens = new Dictionary<TextSpan, SemanticClassification>();
+
+            AddClassifications(
+                SemanticClassifier.Classify(root, semanticModel, allowBinding: false),
+                tokens);
+
+            foreach (var invocation in root.DescendantNodesAndSelf())
+            {
+                var classifications = invocation switch
+                {
+                    FreestandingMacroExpressionSyntax { TokenTree: not null } expression =>
+                        semanticModel.GetMacroFragmentClassifications(expression),
+                    FreestandingMacroDeclarationSyntax { TokenTree: not null } declaration =>
+                        semanticModel.GetMacroFragmentClassifications(declaration),
+                    _ => null
+                };
+                if (classifications is not null)
+                    AddClassifications(classifications, tokens);
+            }
+
+            return tokens
+                .Select(static pair => (pair.Key, Type: GetSemanticTokenType(pair.Value)))
+                .Where(static item => item.Type is not null)
+                .OrderBy(static item => item.Key.Start)
+                .Select(static item => new PlaygroundSemanticToken(
+                    item.Key.Start,
+                    item.Key.Length,
+                    item.Type!))
+                .ToArray();
+        }
+    }
+
     public PlaygroundHoverItem? GetHover(string source, int position)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -178,6 +221,31 @@ public sealed class PlaygroundLanguageService
         => compilation.SyntaxTrees.Single(static tree =>
             string.Equals(tree.FilePath, "main.rav", StringComparison.Ordinal));
 
+    private static void AddClassifications(
+        SemanticClassificationResult classifications,
+        Dictionary<TextSpan, SemanticClassification> tokens)
+    {
+        foreach (var pair in classifications.Tokens)
+        {
+            if (pair.Key.Span.Length > 0)
+                tokens[pair.Key.Span] = pair.Value;
+        }
+    }
+
+    private static string? GetSemanticTokenType(SemanticClassification classification)
+        => classification switch
+        {
+            SemanticClassification.Keyword => "keyword",
+            SemanticClassification.Namespace => "namespace",
+            SemanticClassification.Type => "type",
+            SemanticClassification.Method or SemanticClassification.Macro => "function",
+            SemanticClassification.Parameter => "parameter",
+            SemanticClassification.Local or SemanticClassification.Label or
+                SemanticClassification.Property or SemanticClassification.Field or
+                SemanticClassification.Event => "variable",
+            _ => null
+        };
+
     private static string? GetAsyncEntryPointImplementationName(Compilation compilation)
     {
         var entryPoint = compilation.GetEntryPoint();
@@ -231,6 +299,11 @@ public sealed record PlaygroundHoverItem(
     string Signature,
     int Start,
     int Length);
+
+public sealed record PlaygroundSemanticToken(
+    int Start,
+    int Length,
+    string Type);
 
 public sealed record PlaygroundCompilationResult(
     bool Success,

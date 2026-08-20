@@ -185,12 +185,13 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             return null;
         }
 
-        var invocation = token.Parent?.AncestorsAndSelf()
-            .OfType<FreestandingMacroExpressionSyntax>()
-            .FirstOrDefault();
-        return invocation?.TokenTree is null
-            ? null
-            : semanticModel.GetMacroFragmentSemanticInfo(invocation, offset, cancellationToken);
+        var invocation = FindFreestandingMacroCarrier(token);
+        return invocation switch
+        {
+            FreestandingMacroExpressionSyntax expression => semanticModel.GetMacroFragmentSemanticInfo(expression, offset, cancellationToken),
+            FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroFragmentSemanticInfo(declaration, offset, cancellationToken),
+            _ => null
+        };
     }
 
     internal static MacroTokenInfo? TryResolveMacroTokenDefinition(
@@ -209,12 +210,13 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             return null;
         }
 
-        var invocation = token.Parent?.AncestorsAndSelf()
-            .OfType<FreestandingMacroExpressionSyntax>()
-            .FirstOrDefault();
-        return invocation?.TokenTree is null
-            ? null
-            : semanticModel.GetMacroTokenInfo(invocation, offset, cancellationToken);
+        var invocation = FindFreestandingMacroCarrier(token);
+        return invocation switch
+        {
+            FreestandingMacroExpressionSyntax expression => semanticModel.GetMacroTokenInfo(expression, offset, cancellationToken),
+            FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroTokenInfo(declaration, offset, cancellationToken),
+            _ => null
+        };
     }
 
     private static bool TryResolveMacroDefinition(
@@ -248,12 +250,24 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         }
         else
         {
-            var freestandingMacro = token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().FirstOrDefault();
-            if (freestandingMacro is null || !freestandingMacro.Name.Span.Contains(token.Span) || !freestandingMacro.TryGetMacroName(out var freestandingMacroName))
+            var freestandingMacro = token.Parent?.AncestorsAndSelf().FirstOrDefault(static node =>
+                node is FreestandingMacroExpressionSyntax or FreestandingMacroDeclarationSyntax);
+            var freestandingName = freestandingMacro switch
+            {
+                FreestandingMacroExpressionSyntax expression => expression.Name,
+                FreestandingMacroDeclarationSyntax declaration => declaration.Name,
+                _ => null
+            };
+            var hasMacroName = freestandingMacro switch
+            {
+                FreestandingMacroExpressionSyntax expression => expression.TryGetMacroName(out macroName),
+                FreestandingMacroDeclarationSyntax declaration => declaration.TryGetMacroName(out macroName),
+                _ => false
+            };
+            if (!hasMacroName || freestandingName is null || !freestandingName.Span.Contains(token.Span))
                 return false;
 
-            macroName = freestandingMacroName;
-            originSpan = freestandingMacro.Name.Span;
+            originSpan = freestandingName.Span;
         }
 
         var workspace = project.Solution.Workspace;
@@ -296,6 +310,11 @@ internal sealed class DefinitionHandler : IDefinitionHandler
 
         return false;
     }
+
+    private static SyntaxNode? FindFreestandingMacroCarrier(SyntaxToken token)
+        => token.Parent?.AncestorsAndSelf().FirstOrDefault(static node =>
+            node is FreestandingMacroExpressionSyntax { TokenTree: not null } or
+                FreestandingMacroDeclarationSyntax { TokenTree: not null });
 
     private static IEnumerable<IMacroDefinition> TryGetMacros(MacroReference macroReference, string macroName)
     {

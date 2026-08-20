@@ -1,5 +1,6 @@
 import System.Text.*
 import System.Collections.Immutable.*
+import Raven.CodeAnalysis.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
@@ -7,9 +8,35 @@ import Raven.CodeAnalysis.Text.*
 
 [assembly: RavenCompilerPlugin(typeof(ComponentDeclarationMacro))]
 
-class ComponentDeclarationMacro : IMacroDefinition {
+class ComponentDeclarationMacro : IMacroDefinition, IMacroFragmentProvider {
     val Name: string => "FunctionComponent"
     val Alias: string? => "component"
+
+    func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
+        let declaration: FreestandingMacroDeclarationSyntax = context.Syntax else {
+            return []
+        }
+        var parameters: ImmutableArray<MacroFragmentLocal> = []
+        if let parameterList: ParameterListSyntax = declaration.ParameterList {
+            for parameter in parameterList.Parameters {
+                let typeAnnotation: TypeAnnotationClauseSyntax = parameter.TypeAnnotation else {
+                    continue
+                }
+                let parameterType: ITypeSymbol = context.SemanticModel.GetTypeInfo(typeAnnotation.Type).ConvertedType else {
+                    continue
+                }
+                parameters = parameters.Add(context.CreateFragmentParameter(
+                    parameter.Identifier.ValueText,
+                    parameterType,
+                    parameter.Identifier.Span))
+            }
+        }
+
+        [context.CreateFragmentRegion(
+            MacroFragmentKind.Block,
+            TextSpan(0, context.BodySpan.Length),
+            parameters)]
+    }
 
     func Expand(
         declaration: FreestandingMacroDeclarationSyntax,

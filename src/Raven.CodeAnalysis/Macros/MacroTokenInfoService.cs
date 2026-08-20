@@ -17,14 +17,21 @@ internal static class MacroTokenInfoService
 
     public static ImmutableArray<MacroTokenInfo> GetTokens(
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax expression,
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken)
+        => GetTokens(semanticModel, declaration, declaration, cancellationToken);
+
+    public static ImmutableArray<MacroTokenInfo> GetTokens(
+        SemanticModel semanticModel,
+        SyntaxNode syntax,
         SyntaxNode resolutionContext,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (expression.TokenTree is null ||
-            !expression.TryGetMacroName(out var name) ||
+        if (!FreestandingMacroInvocation.TryCreate(syntax, out var invocation) ||
+            invocation.TokenTree is null ||
+            !invocation.TryGetMacroName(out var name) ||
             !semanticModel.Compilation.GetMacroRegistry().TryResolveFreestandingMacro(
                 semanticModel.Compilation,
                 resolutionContext,
@@ -41,12 +48,12 @@ internal static class MacroTokenInfoService
             var context = new TokenTreeMacroContext(
                 semanticModel.Compilation,
                 semanticModel,
-                expression,
+                invocation,
                 loaded.Macro,
                 cancellationToken);
             if (loaded.Macro is IMacroExpansionMetadataProvider)
             {
-                var contributed = semanticModel.GetMacroExpansion(expression, cancellationToken)?.TokenInfos ??
+                var contributed = semanticModel.GetFreestandingMacroExpansion(syntax, cancellationToken)?.TokenInfos ??
                     ImmutableArray<MacroTokenInfo>.Empty;
                 if (!contributed.IsDefaultOrEmpty)
                     return NormalizeContributedTokens(context, contributed);
@@ -55,11 +62,11 @@ internal static class MacroTokenInfoService
             var classifier = loaded.Macro as IMacroTokenClassifier;
             var kindProvider = loaded.Macro as IMacroTokenKindProvider;
             var symbolProvider = loaded.Macro as IMacroTokenSymbolProvider;
-            var fragmentRegions = ReferenceEquals(resolutionContext, expression)
-                ? semanticModel.GetMacroFragmentRegions(expression, cancellationToken)
+            var fragmentRegions = ReferenceEquals(resolutionContext, syntax)
+                ? semanticModel.GetMacroFragmentRegionsCore(syntax, cancellationToken)
                 : MacroFragmentRegionService.GetFragmentRegions(
                     semanticModel,
-                    expression,
+                    syntax,
                     resolutionContext,
                     cancellationToken);
             var stream = context.CreateTokenStream();
@@ -72,7 +79,7 @@ internal static class MacroTokenInfoService
                 var kindName = GetKindName(kindProvider, token);
                 var classification = GetClassification(classifier, context, token);
                 var symbol = GetSymbol(symbolProvider, context, token) ??
-                    GetDeclaredFragmentLocalSymbol(semanticModel, expression, fragmentRegions, token);
+                    GetDeclaredFragmentLocalSymbol(semanticModel, syntax, fragmentRegions, token);
 
                 builder.Add(context.CreateTokenInfo(token, kindName, classification, symbol));
             }
@@ -174,12 +181,14 @@ internal static class MacroTokenInfoService
 
     private static ISymbol? GetDeclaredFragmentLocalSymbol(
         SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax expression,
+        SyntaxNode syntax,
         ImmutableArray<MacroFragmentRegion> regions,
         SyntaxToken token)
     {
         var tokenSpan = new TextSpan(
-            expression.TokenTree!.OpenBraceToken.Span.End + token.Span.Start,
+            FreestandingMacroInvocation.TryCreate(syntax, out var invocation)
+                ? invocation.TokenTree!.OpenBraceToken.Span.End + token.Span.Start
+                : token.Span.Start,
             token.Span.Length);
         var local = regions
             .SelectMany(static region => region.Locals)
@@ -187,7 +196,7 @@ internal static class MacroTokenInfoService
         if (local is null)
             return null;
 
-        var binder = semanticModel.GetBinder(expression);
+        var binder = semanticModel.GetBinder(syntax);
         var containingSymbol = binder.ContainingSymbol ?? semanticModel.Compilation.GlobalNamespace;
         return new SourceLocalSymbol(
             local.Name,

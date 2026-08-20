@@ -13,6 +13,40 @@ namespace Raven.LanguageServer.Tests;
 public class LanguageServerDefinitionMappingTests
 {
     [Fact]
+    public void DeclarationMacroFragmentDefinition_MapsParameterBackToHeader()
+    {
+        const string code = """
+            public component! Greeting(Name: string = "") {
+                Name
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/component.rvn");
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(new MacroReference(new DeclarationFragmentMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var offset = code.LastIndexOf("Name", StringComparison.Ordinal) + 1;
+        var resolver = typeof(DefinitionHandler)
+            .GetMethod("TryResolveMacroFragmentDefinition", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+        var info = (MacroFragmentSemanticInfo?)resolver.Invoke(
+            null,
+            [semanticModel, syntaxTree.GetRoot(), offset, CancellationToken.None]);
+        var parameter = info?.SymbolInfo.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        var location = parameter!.Locations.ShouldHaveSingleItem();
+
+        location.SourceSpan.ShouldBe(
+            syntaxTree.GetRoot()
+                .DescendantNodes()
+                .OfType<ParameterSyntax>()
+                .Single()
+                .Identifier.Span);
+    }
+
+    [Fact]
     public void BuildLocationLinks_ForMethodSymbol_ProvidesOriginAndTargetRanges()
     {
         const string code = """

@@ -28,15 +28,24 @@ internal sealed class MacroFragmentBinder : BlockBinder
             var locations = local.DeclarationSpan is { } declarationSpan
                 ? new[] { Location.Create(syntaxTree, declarationSpan) }
                 : [];
-            var symbol = new SourceLocalSymbol(
-                local.Name,
-                local.Type,
-                isMutable: false,
-                ContainingSymbol,
-                ContainingSymbol.ContainingType,
-                ContainingSymbol as INamespaceSymbol ?? ContainingSymbol.ContainingNamespace,
-                locations,
-                declaringSyntaxReferences: []);
+            ISymbol symbol = local.IsParameter
+                ? new SourceParameterSymbol(
+                    local.Name,
+                    local.Type,
+                    ContainingSymbol,
+                    ContainingSymbol.ContainingType,
+                    ContainingSymbol as INamespaceSymbol ?? ContainingSymbol.ContainingNamespace,
+                    locations,
+                    declaringSyntaxReferences: [])
+                : new SourceLocalSymbol(
+                    local.Name,
+                    local.Type,
+                    isMutable: false,
+                    ContainingSymbol,
+                    ContainingSymbol.ContainingType,
+                    ContainingSymbol as INamespaceSymbol ?? ContainingSymbol.ContainingNamespace,
+                    locations,
+                    declaringSyntaxReferences: []);
             builder.Add(new MacroFragmentVisibleSymbol(local.Name, symbol));
         }
 
@@ -82,7 +91,34 @@ internal sealed class MacroFragmentBinder : BlockBinder
         }
     }
 
+    public override BoundBlockStatement BindBlockStatement(BlockStatementSyntax block)
+    {
+        if (TryGetCachedBoundNode(block) is BoundBlockStatement cached)
+        {
+            // Cached block binding belongs to an earlier fragment binder. Replay
+            // the statements so this binder reconstructs the position-sensitive
+            // local scope needed by nested macro tooling.
+            foreach (var statement in block.Statements)
+                BindStatement(statement);
+
+            return cached;
+        }
+
+        return base.BindBlockStatement(block);
+    }
+
+    public override BoundStatement BindStatement(StatementSyntax statement)
+    {
+        foreach (var nestedMacro in statement.DescendantNodesAndSelf().OfType<FreestandingMacroExpressionSyntax>())
+            CaptureNestedMacroVisibleSymbols(nestedMacro);
+
+        return base.BindStatement(statement);
+    }
+
     protected override void OnFreestandingMacroExpressionBinding(FreestandingMacroExpressionSyntax syntax)
+        => CaptureNestedMacroVisibleSymbols(syntax);
+
+    private void CaptureNestedMacroVisibleSymbols(FreestandingMacroExpressionSyntax syntax)
     {
         var builder = ImmutableArray.CreateBuilder<MacroFragmentVisibleSymbol>();
         var localSymbols = new HashSet<ISymbol>(ReferenceEqualityComparer.Instance);

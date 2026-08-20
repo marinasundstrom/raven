@@ -60,16 +60,25 @@ public static class CompletionProvider
         var binder = model.GetBinder(semanticContextNode);
         model.EnsurePrecedingGlobalStatementsBoundForSemanticQuery(semanticContextNode);
         var fragmentLocalSymbols = fragmentLocals.IsDefaultOrEmpty
-            ? ImmutableArray<ILocalSymbol>.Empty
-            : fragmentLocals.Select(local => (ILocalSymbol)new SourceLocalSymbol(
-                local.Name,
-                local.Type,
-                isMutable: false,
-                binder.ContainingSymbol ?? model.Compilation.GlobalNamespace,
-                binder.ContainingSymbol?.ContainingType,
-                binder.ContainingSymbol as INamespaceSymbol ?? binder.ContainingSymbol?.ContainingNamespace,
-                locations: [],
-                declaringSyntaxReferences: [])).ToImmutableArray();
+            ? ImmutableArray<ISymbol>.Empty
+            : fragmentLocals.Select(local => local.IsParameter
+                ? (ISymbol)new SourceParameterSymbol(
+                    local.Name,
+                    local.Type,
+                    binder.ContainingSymbol ?? model.Compilation.GlobalNamespace,
+                    binder.ContainingSymbol?.ContainingType,
+                    binder.ContainingSymbol as INamespaceSymbol ?? binder.ContainingSymbol?.ContainingNamespace,
+                    locations: [],
+                    declaringSyntaxReferences: [])
+                : new SourceLocalSymbol(
+                    local.Name,
+                    local.Type,
+                    isMutable: false,
+                    binder.ContainingSymbol ?? model.Compilation.GlobalNamespace,
+                    binder.ContainingSymbol?.ContainingType,
+                    binder.ContainingSymbol as INamespaceSymbol ?? binder.ContainingSymbol?.ContainingNamespace,
+                    locations: [],
+                    declaringSyntaxReferences: [])).ToImmutableArray();
 
         var completions = new List<CompletionItem>(macroParameterCompletions);
         var seen = new HashSet<string>(

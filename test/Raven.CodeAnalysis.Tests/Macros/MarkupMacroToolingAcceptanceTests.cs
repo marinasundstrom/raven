@@ -17,7 +17,7 @@ public sealed class MarkupMacroToolingAcceptanceTests
     {
         var macroReference = CreateCheckedInBlazorMacroReference();
         const string source = """
-            component! Greeting(Name: string = "") {
+            public component! Greeting(Name: string = "") {
                 let x = 42
 
                 markup! {
@@ -39,6 +39,61 @@ public sealed class MarkupMacroToolingAcceptanceTests
         Assert.DoesNotContain(
             compilation.GetDiagnostics(),
             static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void CheckedInFunctionComponent_ExposesBlockAndNestedMarkupTooling()
+    {
+        var macroReference = CreateCheckedInBlazorMacroReference();
+        const string source = """
+            component! Greeting(Name: string = "") {
+                let message = Name
+
+                markup! {
+                    <h1>Hello {Name.}</h1>
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "function-component-tooling.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference)
+            .AddReferences(CreateAspNetCoreComponentsReference());
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var declaration = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroDeclarationSyntax>()
+            .Single();
+
+        var snapshot = semanticModel.GetMacroInputSnapshot(declaration);
+        var block = Assert.Single(snapshot.FragmentRegions);
+        Assert.Equal(MacroFragmentKind.Block, block.Kind);
+        var rootClassifications = SemanticClassifier.Classify(
+            syntaxTree.GetRoot(),
+            semanticModel,
+            allowBinding: false);
+        Assert.Contains(
+            rootClassifications.Tokens,
+            static pair => pair.Key.ValueText == "component" && pair.Value == SemanticClassification.Keyword);
+        var fragmentClassifications = semanticModel.GetMacroFragmentClassifications(declaration);
+        Assert.Contains(
+            fragmentClassifications.Tokens,
+            static pair => pair.Key.ValueText == "markup" && pair.Value == SemanticClassification.Keyword);
+        var reportedParameter = Assert.Single(block.Locals);
+        Assert.True(reportedParameter.IsParameter);
+        Assert.Equal("Name", reportedParameter.Name);
+        var directNamePosition = source.IndexOf("= Name", StringComparison.Ordinal) + "= ".Length + 1;
+        var directInfo = semanticModel.GetMacroFragmentSemanticInfo(declaration, directNamePosition);
+        Assert.IsAssignableFrom<IParameterSymbol>(directInfo?.SymbolInfo.Symbol);
+        var namePosition = source.LastIndexOf("Name.", StringComparison.Ordinal) + 1;
+        var info = semanticModel.GetMacroFragmentSemanticInfo(declaration, namePosition);
+        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(info?.SymbolInfo.Symbol);
+        Assert.Equal("Name", parameter.Name);
+        Assert.Equal(SpecialType.System_String, parameter.Type.SpecialType);
+        Assert.Contains(parameter.Locations, static location => location.IsInSource);
+
+        var completionPosition = source.LastIndexOf("Name.", StringComparison.Ordinal) + "Name.".Length;
+        var completions = semanticModel.GetCompletions(completionPosition);
+        Assert.Contains(completions, static item => item.DisplayText == "Length");
+
     }
 
     [Fact]

@@ -173,6 +173,24 @@ macro FirstTokenLength(offset: int, tokens: IMacroTokenStream) {
 let length = FirstTokenLength!(1) { raven }
 ```
 
+A declaration-shaped macro can receive its complete header separately while
+retaining the same token-body convention:
+
+```raven
+macro FunctionComponent(
+    declaration: FreestandingMacroDeclarationSyntax,
+    body: IMacroTokenStream,
+    context: TokenTreeMacroContext
+) -> MemberDeclarationSyntax {
+    // component! Greeting(Name: string) { ... }
+}
+```
+
+The declaration carrier preserves modifiers, the macro name, declared name,
+parameter list, and body. This allows aliases such as `component` to read like
+declaration keywords in `public component! Greeting(...) { ... }`, while the
+body remains lossless input owned by the macro.
+
 The standard stream uses Raven's lexer. A mostly Raven-shaped DSL should start
 there and add body-scoped keyword overlays. Implement a custom token stream
 only when the DSL has a genuinely different lexical grammar.
@@ -507,6 +525,26 @@ parses the reported category at its authored position and uses the invocation's
 caller scope, so locals, parameters, fields, types, and member access behave as
 they do outside the DSL. Macro authors do not implement a second completion
 provider for embedded Raven syntax.
+
+Use `MacroFragmentKind.Block` when the entire body is a sequence of ordinary
+Raven statements sharing one lexical scope. `TokenTreeMacroContext.ParseBlock`
+parses that body with authored positions. For declaration-shaped macros,
+`CreateFragmentParameter(name, type, declarationSpan)` projects a typed header
+parameter into the block as an `IParameterSymbol` and maps navigation back to
+the parameter declaration:
+
+```raven
+let name = context.CreateFragmentParameter("Name", stringType, nameToken.Span)
+let body = context.CreateFragmentRegion(
+    MacroFragmentKind.Block,
+    TextSpan(0, context.BodySpan.Length),
+    [name])
+```
+
+Nested macros inherit the symbols visible at their authored position. A
+`markup!` fragment inside a component block can therefore provide hover and
+member completion for `Name` without either macro sharing a private syntax
+tree.
 
 For a query-like DSL, attach an introduced range variable only to the fragments
 where it is visible:

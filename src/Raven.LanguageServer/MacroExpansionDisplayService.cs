@@ -35,10 +35,12 @@ internal static class MacroExpansionDisplayService
             return TryCreateDisplay(semanticModel, attribute, out display);
 
         var macroExpression = FindFreestandingMacroExpression(root, offset);
-        if (macroExpression is null)
-            return false;
+        if (macroExpression is not null)
+            return TryCreateDisplay(semanticModel, macroExpression, out display);
 
-        return TryCreateDisplay(semanticModel, macroExpression, out display);
+        var macroDeclaration = FindFreestandingMacroDeclaration(root, offset);
+        return macroDeclaration is not null &&
+            TryCreateDisplay(semanticModel, macroDeclaration, out display);
     }
 
     public static bool TryCreateForRange(
@@ -77,10 +79,20 @@ internal static class MacroExpansionDisplayService
                 .FirstOrDefault(expressionSyntax =>
                     Intersects(GetInvocationHeadSpan(expressionSyntax), start, end));
 
-        if (macroExpression is null)
-            return false;
+        if (macroExpression is not null)
+            return TryCreateDisplay(semanticModel, macroExpression, out display);
 
-        return TryCreateDisplay(semanticModel, macroExpression, out display);
+        var macroDeclaration = FindFreestandingMacroDeclaration(root, start)
+            ?? FindFreestandingMacroDeclaration(root, start + ((end - start) / 2))
+            ?? FindFreestandingMacroDeclaration(root, end)
+            ?? FindFreestandingMacroDeclaration(root, end > start ? end - 1 : end)
+            ?? root.DescendantNodes()
+                .OfType<FreestandingMacroDeclarationSyntax>()
+                .FirstOrDefault(declarationSyntax =>
+                    Intersects(declarationSyntax.Name.Span, start, end));
+
+        return macroDeclaration is not null &&
+            TryCreateDisplay(semanticModel, macroDeclaration, out display);
     }
 
     private static bool TryCreateDisplay(
@@ -134,6 +146,37 @@ internal static class MacroExpansionDisplayService
             macroName,
             CreateInvocationDisplay(macroExpression, macroName),
             macroExpression.Span,
+            CreatePreview(fullText),
+            fullText);
+        return true;
+    }
+
+    private static bool TryCreateDisplay(
+        SemanticModel semanticModel,
+        FreestandingMacroDeclarationSyntax macroDeclaration,
+        out MacroExpansionDisplay display)
+    {
+        display = default;
+
+        var expansion = semanticModel.GetMacroExpansion(macroDeclaration);
+        var nodes = expansion?.HasMemberExpansion == true
+            ? expansion.Members.Cast<SyntaxNode>()
+            : expansion?.Node is { } node
+                ? [node]
+                : [];
+        var fullText = string.Join("\n\n", nodes.Select(FormatNode));
+        if (string.IsNullOrWhiteSpace(fullText))
+            return false;
+
+        if (!macroDeclaration.TryGetMacroName(out var macroName))
+            macroName = macroDeclaration.Name.ToString();
+
+        var parameters = macroDeclaration.ParameterList is null ? string.Empty : "(...)";
+        var body = macroDeclaration.TokenTree is null ? string.Empty : " { ... }";
+        display = new MacroExpansionDisplay(
+            macroName,
+            $"{macroName}! {macroDeclaration.Identifier.ValueText}{parameters}{body}",
+            macroDeclaration.Name.Span,
             CreatePreview(fullText),
             fullText);
         return true;
@@ -206,6 +249,30 @@ internal static class MacroExpansionDisplayService
 
             if (expression is not null)
                 return expression;
+        }
+
+        return null;
+    }
+
+    private static FreestandingMacroDeclarationSyntax? FindFreestandingMacroDeclaration(SyntaxNode root, int offset)
+    {
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var declaration = token.Parent?.AncestorsAndSelf()
+                .OfType<FreestandingMacroDeclarationSyntax>()
+                .FirstOrDefault();
+            if (declaration is not null && declaration.Name.Span.Contains(candidateOffset))
+                return declaration;
         }
 
         return null;

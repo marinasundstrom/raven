@@ -55,6 +55,16 @@ public partial class Compilation
         return GetSemanticModel(syntaxTree).GetMacroFragmentRegions(expression, cancellationToken);
     }
 
+    public ImmutableArray<MacroFragmentRegion> GetMacroFragmentRegions(
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(declaration);
+        var syntaxTree = declaration.SyntaxTree
+            ?? throw new ArgumentException("Macro invocation is not attached to a syntax tree.", nameof(declaration));
+        return GetSemanticModel(syntaxTree).GetMacroFragmentRegions(declaration, cancellationToken);
+    }
+
     /// <summary>
     /// Gets ordinary Raven semantic information at an authored position inside a
     /// fragment reported by a token-tree macro.
@@ -70,6 +80,17 @@ public partial class Compilation
         return GetSemanticModel(syntaxTree).GetMacroFragmentSemanticInfo(expression, position, cancellationToken);
     }
 
+    public MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfo(
+        FreestandingMacroDeclarationSyntax declaration,
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(declaration);
+        var syntaxTree = declaration.SyntaxTree
+            ?? throw new ArgumentException("Macro invocation is not attached to a syntax tree.", nameof(declaration));
+        return GetSemanticModel(syntaxTree).GetMacroFragmentSemanticInfo(declaration, position, cancellationToken);
+    }
+
     /// <summary>
     /// Gets the token stream and optional classifications for a token-tree macro invocation.
     /// </summary>
@@ -83,6 +104,16 @@ public partial class Compilation
         return GetSemanticModel(syntaxTree).GetMacroTokens(expression, cancellationToken);
     }
 
+    public ImmutableArray<MacroTokenInfo> GetMacroTokens(
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(declaration);
+        var syntaxTree = declaration.SyntaxTree
+            ?? throw new ArgumentException("Macro invocation is not attached to a syntax tree.", nameof(declaration));
+        return GetSemanticModel(syntaxTree).GetMacroTokens(declaration, cancellationToken);
+    }
+
     /// <summary>
     /// Gets the compiler-owned token-and-fragment snapshot for a token-tree macro invocation.
     /// </summary>
@@ -94,6 +125,16 @@ public partial class Compilation
         var syntaxTree = expression.SyntaxTree
             ?? throw new ArgumentException("Macro invocation is not attached to a syntax tree.", nameof(expression));
         return GetSemanticModel(syntaxTree).GetMacroInputSnapshot(expression, cancellationToken);
+    }
+
+    public MacroInputSnapshot GetMacroInputSnapshot(
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(declaration);
+        var syntaxTree = declaration.SyntaxTree
+            ?? throw new ArgumentException("Macro invocation is not attached to a syntax tree.", nameof(declaration));
+        return GetSemanticModel(syntaxTree).GetMacroInputSnapshot(declaration, cancellationToken);
     }
 
     /// <summary>

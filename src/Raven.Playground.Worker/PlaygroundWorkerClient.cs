@@ -43,6 +43,19 @@ public sealed class PlaygroundWorkerClient(IJSRuntime jsRuntime) : IAsyncDisposa
         return JsonSerializer.Deserialize<PlaygroundHoverItem?>(json);
     }
 
+    public async Task<IReadOnlyList<PlaygroundSemanticToken>> GetSemanticTokensAsync(
+        string source,
+        CancellationToken cancellationToken = default)
+    {
+        var worker = await GetWorkerAsync(cancellationToken);
+        var json = await worker.InvokeAsync<string>(
+            $"{WorkerMethods}.GetSemanticTokens",
+            [source],
+            cancellationToken: cancellationToken);
+
+        return JsonSerializer.Deserialize<PlaygroundSemanticToken[]>(json) ?? [];
+    }
+
     public async Task<PlaygroundWorkerResult> CompileAsync(
         string source,
         bool run,

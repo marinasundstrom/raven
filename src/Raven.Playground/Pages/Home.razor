@@ -275,6 +275,10 @@
     public Task<PlaygroundHoverItem?> GetHover(string source, int position) =>
         Worker.GetHoverAsync(source, position);
 
+    [JSInvokable]
+    public Task<IReadOnlyList<PlaygroundSemanticToken>> GetSemanticTokens(string source) =>
+        Worker.GetSemanticTokensAsync(source);
+
     private Task CompileAsync() => CompileCoreAsync(run: false);
 
     private Task CompileAndRunAsync() => CompileCoreAsync(run: true);

@@ -625,10 +625,14 @@ internal sealed class HoverHandler : IHoverHandler
             return null;
         }
 
-        var invocation = token.Parent?.AncestorsAndSelf()
-            .OfType<FreestandingMacroExpressionSyntax>()
-            .FirstOrDefault();
-        if (invocation is null || !invocation.Name.Span.Contains(token.Span))
+        var invocation = FindFreestandingMacroCarrier(token);
+        var invocationName = invocation switch
+        {
+            FreestandingMacroExpressionSyntax expression => expression.Name,
+            FreestandingMacroDeclarationSyntax declaration => declaration.Name,
+            _ => null
+        };
+        if (invocationName is null || !invocationName.Span.Contains(token.Span))
             return null;
 
         if (!MacroExpansionDisplayService.TryCreateForOffset(sourceText, semanticModel, root, offset, out var display))
@@ -639,10 +643,8 @@ internal sealed class HoverHandler : IHoverHandler
         if (TryGetMacroHint(semanticModel.Compilation, display.MacroName, out var macroHint))
             parts.Add(macroHint);
 
-        var macroSymbol = invocation is null
-            ? null
-            : semanticModel.GetSymbolInfo(invocation.Name).Symbol as IMacroSymbol
-                ?? semanticModel.GetSymbolInfo(invocation).Symbol as IMacroSymbol;
+        var macroSymbol = semanticModel.GetSymbolInfo(invocationName).Symbol as IMacroSymbol
+            ?? semanticModel.GetSymbolInfo(invocation).Symbol as IMacroSymbol;
         var documentation = FormatDocumentation(macroSymbol?.GetDocumentationComment());
         if (!string.IsNullOrWhiteSpace(documentation))
             parts.Add($"---\n\n{documentation}");
@@ -729,9 +731,17 @@ internal sealed class HoverHandler : IHoverHandler
             return false;
         }
 
-        foreach (var invocation in token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>() ?? [])
+        foreach (var invocation in token.Parent?.AncestorsAndSelf()
+                     .Where(static node =>
+                         node is FreestandingMacroExpressionSyntax or FreestandingMacroDeclarationSyntax) ?? [])
         {
-            if (invocation.TokenTree is not { } tokenTree)
+            var tokenTree = invocation switch
+            {
+                FreestandingMacroExpressionSyntax expression => expression.TokenTree,
+                FreestandingMacroDeclarationSyntax declaration => declaration.TokenTree,
+                _ => null
+            };
+            if (tokenTree is null)
                 continue;
 
             var bodyStart = tokenTree.OpenBraceToken.Span.End;
@@ -773,16 +783,16 @@ internal sealed class HoverHandler : IHoverHandler
                 continue;
             }
 
-            var invocation = token.Parent?.AncestorsAndSelf()
-                .OfType<FreestandingMacroExpressionSyntax>()
-                .FirstOrDefault();
-            if (invocation?.TokenTree is null)
+            var invocation = FindFreestandingMacroCarrier(token);
+            if (invocation is null)
                 continue;
 
-            var info = semanticModel.GetMacroFragmentSemanticInfo(
-                invocation,
-                candidateOffset,
-                cancellationToken);
+            var info = invocation switch
+            {
+                FreestandingMacroExpressionSyntax expression => semanticModel.GetMacroFragmentSemanticInfo(expression, candidateOffset, cancellationToken),
+                FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroFragmentSemanticInfo(declaration, candidateOffset, cancellationToken),
+                _ => null
+            };
             var symbol = info?.SymbolInfo.Symbol ?? info?.SymbolInfo.CandidateSymbols.FirstOrDefault();
             if (info is null || symbol is null)
                 continue;
@@ -816,13 +826,16 @@ internal sealed class HoverHandler : IHoverHandler
                 continue;
             }
 
-            var invocation = token.Parent?.AncestorsAndSelf()
-                .OfType<FreestandingMacroExpressionSyntax>()
-                .FirstOrDefault();
-            if (invocation?.TokenTree is null)
+            var invocation = FindFreestandingMacroCarrier(token);
+            if (invocation is null)
                 continue;
 
-            var tokenInfo = semanticModel.GetMacroTokenInfo(invocation, candidateOffset, cancellationToken);
+            var tokenInfo = invocation switch
+            {
+                FreestandingMacroExpressionSyntax expression => semanticModel.GetMacroTokenInfo(expression, candidateOffset, cancellationToken),
+                FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroTokenInfo(declaration, candidateOffset, cancellationToken),
+                _ => null
+            };
             if (tokenInfo?.Symbol is not { } symbol)
                 continue;
 
@@ -835,6 +848,11 @@ internal sealed class HoverHandler : IHoverHandler
 
         return null;
     }
+
+    private static SyntaxNode? FindFreestandingMacroCarrier(SyntaxToken token)
+        => token.Parent?.AncestorsAndSelf().FirstOrDefault(static node =>
+            node is FreestandingMacroExpressionSyntax { TokenTree: not null } or
+                FreestandingMacroDeclarationSyntax { TokenTree: not null });
 
     private static bool TryGetMacroHint(Compilation compilation, string macroName, out string hint)
     {

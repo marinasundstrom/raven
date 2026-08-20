@@ -151,8 +151,10 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
             stageStopwatch.Restart();
             var useSemanticModel = identifier is SemanticTokensRangeParams ||
-                root.DescendantNodesAndSelf().OfType<FreestandingMacroExpressionSyntax>()
-                    .Any(static expression => expression.TokenTree is not null);
+                root.DescendantNodesAndSelf().Any(static node =>
+                    node is FreestandingMacroExpressionSyntax or
+                        FreestandingMacroMemberDeclarationSyntax or
+                        FreestandingMacroDeclarationSyntax);
             DocumentStore.DocumentSemanticAccess? semanticModelAccess = null;
             SemanticModel? semanticModel = null;
             if (useSemanticModel)
@@ -449,12 +451,19 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
     {
         var builder = ImmutableArray.CreateBuilder<SemanticTokenEntry>();
         var declaredTypeTokenTypes = CollectDeclaredTypeTokenTypes(root);
-        foreach (var expression in root.DescendantNodesAndSelf()
-                     .OfType<FreestandingMacroExpressionSyntax>()
-                     .Where(static expression => expression.TokenTree is not null))
+        var invocations = root.DescendantNodesAndSelf()
+            .Where(static node =>
+                node is FreestandingMacroExpressionSyntax { TokenTree: not null } or
+                    FreestandingMacroDeclarationSyntax { TokenTree: not null });
+        foreach (var invocation in invocations)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var snapshot = semanticModel.GetMacroInputSnapshot(expression, cancellationToken);
+            var snapshot = invocation switch
+            {
+                FreestandingMacroExpressionSyntax expression => semanticModel.GetMacroInputSnapshot(expression, cancellationToken),
+                FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroInputSnapshot(declaration, cancellationToken),
+                _ => throw new InvalidOperationException("Unsupported macro carrier.")
+            };
             foreach (var token in snapshot.Tokens)
             {
                 if (snapshot.FragmentRegions.Any(region =>
@@ -473,9 +482,12 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                 }
             }
 
-            var fragmentClassifications = semanticModel.GetMacroFragmentClassifications(
-                expression,
-                cancellationToken);
+            var fragmentClassifications = invocation switch
+            {
+                FreestandingMacroExpressionSyntax expression => semanticModel.GetMacroFragmentClassifications(expression, cancellationToken),
+                FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroFragmentClassifications(declaration, cancellationToken),
+                _ => throw new InvalidOperationException("Unsupported macro carrier.")
+            };
             foreach (var pair in fragmentClassifications.Tokens)
             {
                 var entry = CreateEntry(
@@ -511,6 +523,10 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         IReadOnlyDictionary<string, SemanticTokenType> declaredTypeTokenTypes,
         bool allowBinding)
     {
+        var contextualKeywordType = MapContextualKeywordTokenType(classification, token);
+        if (contextualKeywordType is not null)
+            return contextualKeywordType;
+
         if (classification == SemanticClassification.Type)
         {
             if (allowBinding)
@@ -563,6 +579,13 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
 
         return MapTokenType(classification);
     }
+
+    internal static SemanticTokenType? MapContextualKeywordTokenType(
+        SemanticClassification classification,
+        SyntaxToken token)
+        => classification == SemanticClassification.Keyword && token.Kind == SyntaxKind.IdentifierToken
+            ? SemanticTokenType.Keyword
+            : (SemanticTokenType?)null;
 
     private static IReadOnlyDictionary<string, SemanticTokenType> CollectDeclaredTypeTokenTypes(SyntaxNode root)
     {

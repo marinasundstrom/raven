@@ -22,6 +22,64 @@ namespace Raven.LanguageServer.Tests;
 public class LanguageServerHoverPresentationTests
 {
     [Fact]
+    public void DeclarationMacroHover_ResolvesHeaderParameterInsideBlockFragment()
+    {
+        const string code = """
+            public component! Greeting(Name: string = "") {
+                let message = Name
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/component.rvn");
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(new MacroReference(new DeclarationFragmentMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var offset = code.LastIndexOf("Name", StringComparison.Ordinal) + 1;
+        var tryResolve = typeof(HoverHandler)
+            .GetMethod("TryResolveMacroFragmentHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var resolution = (SymbolResolutionResult?)tryResolve.Invoke(
+            null,
+            [semanticModel, root, offset, CancellationToken.None]);
+
+        resolution.ShouldNotBeNull();
+        resolution.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>().Name.ShouldBe("Name");
+    }
+
+    [Fact]
+    public void DeclarationMacroInvocationHover_UsesAliasAndDeclarationShape()
+    {
+        const string code = """
+            public component! Greeting(Name: string = "") {
+                Name
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/component.rvn");
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(new MacroReference(new DeclarationFragmentMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var offset = code.IndexOf("component", StringComparison.Ordinal) + 1;
+        var buildHover = typeof(HoverHandler)
+            .GetMethod("TryBuildMacroInvocationHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var hover = (Hover?)buildHover.Invoke(
+            null,
+            [syntaxTree.GetText(), semanticModel, root, offset]);
+
+        hover.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("component! Greeting(...) { ... }");
+    }
+
+    [Fact]
     public void EnumMemberHover_ShowsUnderlyingConstantValue()
     {
         const string code = """
