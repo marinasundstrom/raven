@@ -3,6 +3,7 @@ using System.IO;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
+using Raven.MetadataFixtures.Pins;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -121,6 +122,47 @@ class Program {
         var type = loaded.Assembly.GetType("Program", throwOnError: true)!;
         var run = type.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
         var value = (bool)run.Invoke(null, Array.Empty<object>())!;
+
+        Assert.True(value);
+    }
+
+    [Fact]
+    public void CustomMetadataEnumConstantPattern_OnPropertyResult_MatchesQualifiedMember()
+    {
+        const string code = """
+import Raven.MetadataFixtures.Pins.*
+
+class Program {
+    public static func Run(args: PinEventArgs) -> bool {
+        if args.ChangeType is PinEventTypes.Rising {
+            return true
+        }
+
+        return false
+    }
+}
+""";
+
+        var fixtureReference = MetadataReference.CreateFromFile(typeof(PinEventTypes).Assembly.Location);
+        var references = TestMetadataReferences.Default.Append(fixtureReference).ToArray();
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("custom_metadata_enum_property_constant_pattern", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var run = type.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+        var parameterType = Assert.Single(run.GetParameters()).ParameterType;
+        var enumType = parameterType.GetProperty(nameof(PinEventArgs.ChangeType))!.PropertyType;
+        var rising = Enum.Parse(enumType, nameof(PinEventTypes.Rising));
+        var args = Activator.CreateInstance(parameterType, rising)!;
+        var value = (bool)run.Invoke(null, [args])!;
 
         Assert.True(value);
     }
