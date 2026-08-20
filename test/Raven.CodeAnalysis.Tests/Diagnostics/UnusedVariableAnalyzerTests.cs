@@ -470,36 +470,14 @@ class C {
     }
 
     [Fact]
-    public void BareIdentifierValuePatternInMatch_DoesNotReportDiagnostic()
-    {
-        const string code = """
-class C {
-    public func M() -> string {
-        let expected = 1
-        let actual = 1
-
-        let result = match actual {
-            expected => "ok"
-            _ => "no"
-        }
-
-        return result
-    }
-}
-""";
-
-        Assert.Empty(Analyze(code));
-    }
-
-    [Fact]
-    public void BareIdentifierValuePatternInIsExpression_DoesNotReportDiagnostic()
+    public void ExplicitValuePatternInIsExpression_DoesNotReportDiagnostic()
     {
         const string code = """
 class C {
     public func M() -> unit {
         let expected = 1
         let actual = 1
-        let matches = actual is expected
+        let matches = actual is == expected
 
         Print(matches)
     }

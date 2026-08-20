@@ -550,13 +550,15 @@ internal partial class BlockBinder
             // Try bind as a value expression first.
             var valueExpr = BindExpression(identifierType);
 
-            // If it resolved to a value symbol, reinterpret as a value/constant pattern.
-            // Type expressions must stay declaration patterns.
+            // If it resolved to a value symbol, reinterpret it as a constant pattern. Runtime
+            // values receive a diagnostic below; type expressions must stay declaration patterns.
             if (valueExpr is not BoundTypeExpression &&
                 valueExpr.Symbol is not null &&
                 valueExpr.Type is not null &&
                 valueExpr.Type.TypeKind != TypeKind.Error)
             {
+                ReportImplicitRuntimeValuePattern(valueExpr, identifierType);
+
                 var expected = inputType ?? Compilation.GetSpecialType(SpecialType.System_Object);
 
                 var conversion = Compilation.ClassifyConversion(valueExpr.Type, expected);
@@ -861,6 +863,8 @@ internal partial class BlockBinder
         ITypeSymbol inputType,
         BoundDesignator? designator = null)
     {
+        ReportImplicitRuntimeValuePattern(expression, expressionSyntax);
+
         // null literal stays a literal-backed constant pattern.
         // NOTE: `null` may be represented either as a null literal expression OR as a `NullType` type-expression
         // depending on how the parser produced the syntax (e.g. `null => ...` in a match arm).
@@ -871,8 +875,7 @@ internal partial class BlockBinder
             return new BoundConstantPattern(nullLiteral, designator);
         }
 
-        // Runtime "value pattern" (identifier/member access/etc.)
-        // Ensure the RHS can convert to the input type so codegen can compare meaningfully.
+        // Ensure the pattern expression can convert to the input type so codegen can compare meaningfully.
         if (expression.Type is null)
         {
             _diagnostics.ReportMatchExpressionArmPatternInvalid(
@@ -901,6 +904,14 @@ internal partial class BlockBinder
         // expression = BindConversion(expression, inputType, expressionSyntax.GetLocation());
 
         return new BoundConstantPattern(expression, designator);
+    }
+
+    private void ReportImplicitRuntimeValuePattern(BoundExpression expression, ExpressionSyntax syntax)
+    {
+        if (expression.Symbol is not (ILocalSymbol or IParameterSymbol or IPropertySymbol or IFieldSymbol { IsConst: false }))
+            return;
+
+        _diagnostics.ReportImplicitRuntimeValuePatternNotAllowed(syntax.ToString(), syntax.GetLocation());
     }
 
     private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax, ITypeSymbol? inputType)

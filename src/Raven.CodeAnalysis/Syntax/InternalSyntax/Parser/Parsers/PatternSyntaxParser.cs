@@ -14,6 +14,8 @@ internal class PatternSyntaxParser : SyntaxParser
     private readonly bool _allowPatternGuards;
     private readonly bool _allowTypeSyntaxConstantPatterns;
 
+    private bool StopsOnOpenBrace => Parent is ExpressionSyntaxParser { StopsOnOpenBrace: true };
+
     public PatternSyntaxParser(
         ParseContext parent,
         bool allowImplicitDeconstructionElementBindings = false,
@@ -144,9 +146,8 @@ internal class PatternSyntaxParser : SyntaxParser
         if (TryParseImplicitBindingPattern(out var implicitBindingPattern))
             return implicitBindingPattern;
 
-        // Constant pattern (expression pattern): allow matching against an in-scope value
-        // e.g. `{ Product: discountedProduct, Quantity: > 10 }`
-        // We parse it as an expression pattern here and let binding decide if it is a type-name or a value.
+        // Constant pattern (expression pattern). Binding decides whether the expression is a type,
+        // a compile-time constant, or a runtime value that requires an explicit comparison pattern.
         if (CanStartConstantPatternExpression(PeekToken()))
         {
             if (TryParseConstantPattern(out var constantPattern))
@@ -234,12 +235,12 @@ internal class PatternSyntaxParser : SyntaxParser
         return true;
     }
 
-    private bool IsPropertyPatternClauseStart()
+    private bool IsPropertyPatternClauseStart(int openBraceOffset = 0)
     {
-        if (!PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+        if (!PeekToken(openBraceOffset).IsKind(SyntaxKind.OpenBraceToken))
             return false;
 
-        var offset = 1;
+        var offset = openBraceOffset + 1;
         var token = PeekToken(offset);
 
         if (token.IsKind(SyntaxKind.CloseBraceToken))
@@ -903,7 +904,9 @@ internal class PatternSyntaxParser : SyntaxParser
 
         // Parse RHS as an EXPRESSION (not a pattern)
         // This allows: > 30, > x + 1, > Foo(3), etc.
-        var expression = new ExpressionSyntaxParser(this).ParseExpression();
+        var expression = new ExpressionSyntaxParser(
+            this,
+            stopOnOpenBrace: StopsOnOpenBrace).ParseExpression();
 
         var kind = GetComparisonPatternKind(operatorToken.Kind);
         return ComparisonPattern(kind, operatorToken, expression);
@@ -1022,7 +1025,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         // Parse as expression (NOT a pattern). This enables: `x`, `x.y`, `SomeType.StaticField`, etc.
         // NOTE: The expression parser will also consume `lo..hi` as a RangeExpression.
-        var expr = new ExpressionSyntaxParser(this).ParseExpression();
+        var expr = new ExpressionSyntaxParser(this, stopOnOpenBrace: StopsOnOpenBrace).ParseExpression();
 
         // If the expression is a range expression, convert it to a RangePatternSyntax.
         if (expr is RangeExpressionSyntax rangeExpr)
@@ -1095,8 +1098,14 @@ internal class PatternSyntaxParser : SyntaxParser
             return false;
 
         var next = PeekToken(1);
-        return next.IsKind(SyntaxKind.OpenParenToken) ||
-            next.IsKind(SyntaxKind.OpenBraceToken);
+        if (next.IsKind(SyntaxKind.OpenParenToken))
+            return true;
+
+        if (!next.IsKind(SyntaxKind.OpenBraceToken))
+            return false;
+
+        return !StopsOnOpenBrace ||
+            !PeekToken(2).IsKind(SyntaxKind.CloseBraceToken) && IsPropertyPatternClauseStart(openBraceOffset: 1);
     }
 
     private static bool IsValidConstantPatternExpression(ExpressionSyntax expression)

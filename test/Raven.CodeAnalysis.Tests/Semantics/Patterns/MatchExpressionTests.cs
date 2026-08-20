@@ -3948,36 +3948,89 @@ let result = match pair {
     }
 
     [Fact]
-    public void MatchExpression_WithPositionalPattern_WithoutBindingKeyword_TreatsIdentifierAsValuePattern()
+    public void MatchExpression_WithBareRuntimeValuePattern_ReportsExplicitComparisonDiagnostic()
     {
         const string code = """
-let a = 1
-let existingValue = 2
-let pair: (int, int) = (1, 2)
+class C {
+    func Classify(no: int) -> int {
+        return match no {
+            no when < 5 => 1
+            _ => 2
+        }
+    }
 
-let result = match pair {
-    (a, == existingValue) => 1
-    _ => 0
+    func ClassifyRelational(no: int) -> int {
+        return match no {
+            < 5 => 1
+            _ => 2
+        }
+    }
+
+    func ClassifyTyped(no: int) -> int {
+        return match no {
+            int no when < 5 => 1
+            _ => 2
+        }
+    }
 }
 """;
 
         var tree = SyntaxTree.ParseText(code);
         var compilation = Compilation.Create(
-            "tuple_match_value_pattern",
+            "bare_runtime_value_pattern",
             [tree],
             TestMetadataReferences.Default,
-            new CompilationOptions(OutputKind.ConsoleApplication));
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        Assert.Equal("RAV1617", diagnostic.Descriptor.Id);
+        Assert.Equal("no", diagnostic.Location.SourceTree!.GetText().ToString(diagnostic.Location.SourceSpan));
+        Assert.Contains("use '== no'", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NestedRuntimeComparisonAndGuardPatterns_ComposeGenerally()
+    {
+        const string code = """
+func Direct(pair: (string, int), discountedProduct: string) -> int {
+    return match pair {
+        (== discountedProduct, _) => 1
+        _ => 0
+    }
+}
+
+func ShorthandGuard(pair: (string, int), discountedProduct: string) -> string {
+    return match pair {
+        (let productName when == discountedProduct, _) => productName
+        _ => ""
+    }
+}
+
+func ExpressionGuard(pair: (string, int), discountedProduct: string) -> string {
+    return match pair {
+        (let productName when productName == discountedProduct, _) => productName
+        _ => ""
+    }
+}
+
+func TypedExpressionGuard(pair: (string, int), discountedProduct: string) -> string {
+    return match pair {
+        (let productName: string when productName == discountedProduct, _) => productName
+        _ => ""
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "general_nested_runtime_value_patterns",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        compilation.EnsureSetup();
 
         Assert.Empty(compilation.GetDiagnostics());
-
-        var model = compilation.GetSemanticModel(tree);
-        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
-        var boundMatch = Assert.IsType<BoundMatchExpression>(model.GetBoundNode(match));
-        var tuplePattern = Assert.IsType<BoundPositionalPattern>(boundMatch.Arms[0].Pattern);
-
-        Assert.IsType<BoundConstantPattern>(tuplePattern.Elements[0]);
-        var second = Assert.IsType<BoundComparisonPattern>(tuplePattern.Elements[1]);
-        Assert.Equal(BoundComparisonPatternOperator.Equals, second.Operator);
     }
 
     [Fact]

@@ -42,13 +42,14 @@ also give the matched value a name for use in that branch.
 
 * **Explicit binding keyword required.** In pattern position, introducing a new
   binding always requires an explicit binding keyword (`let`, `var`, or `val`).
-  A bare identifier never introduces a binding; it is interpreted as a *value
-  pattern* (constant) or, if applicable, as a type name.
+  A bare identifier never introduces a binding. It may name a type or a
+  compile-time constant, but runtime values require an explicit `== value`
+  comparison pattern.
 
   For example:
 
   * `Ok(42)` matches the literal value `42`.
-  * `Ok(discountedProduct)` matches the runtime value of the in-scope symbol
+  * `Ok(== discountedProduct)` matches the runtime value of the in-scope symbol
     `discountedProduct`.
   * `Ok(let n)` binds the payload to a new immutable local `n`.
 
@@ -69,12 +70,10 @@ also give the matched value a name for use in that branch.
 * `literal` — **constant pattern**. Matches when the scrutinee equals the literal
   value (`true`, `"on"`, `42`, or `null`).
 
-* `identifier` — **value pattern**. When a bare identifier appears in pattern
-  position and resolves to an in-scope value (local, parameter, field, or property),
-  the pattern matches when the scrutinee equals the runtime value of that identifier.
-
-  Value patterns are *not* bindings. To introduce a new binding, an explicit
-  binding keyword (`let`, `var`, or `val`) is required.
+* `identifier` — **type or compile-time constant pattern**. A bare identifier
+  may name a type or a compile-time constant. A local, parameter, property, or
+  non-constant field is rejected here; write `== identifier` to compare with
+  its runtime value, or use `let`/`var`/`val` to introduce a binding.
 
 * `Type.Member` — **qualified constant/value pattern**. When the qualified name
   resolves to a static constant-like value, such as `Math.PI` or an enum member
@@ -89,9 +88,8 @@ also give the matched value a name for use in that branch.
   `value == .Member` is equivalent to `value == EnumType.Member` when `value`
   has the enum/member-bearing type.
 
-A bare identifier in pattern position is context-sensitive. If it names an
-in-scope value, it is a value pattern. Otherwise Raven interprets it as a type
-name for a type or declaration pattern.
+A bare identifier in pattern position is context-sensitive only between a type
+and a compile-time constant. Runtime value comparisons are always explicit.
 
 ## Comparison patterns
 
@@ -102,6 +100,13 @@ name for a type or declaration pattern.
   The operand must be a side-effect-free expression (for example, literals,
   constants, or other stable values), ensuring comparison patterns remain predictable
   and optimizable.
+
+  Explicit runtime-value comparisons and guarded bindings work uniformly in
+  nested patterns. For example, all of these case payloads use the general
+  pattern rules: `Ok(== discountedProduct)`,
+  `Ok(let productName when == discountedProduct)`,
+  `Ok(let productName when productName == discountedProduct)`, and
+  `Ok(let productName: string when productName == discountedProduct)`.
 
   The operand type must match the scrutinee type after nullable/plain-type
   unwrapping. Ordinary implicit numeric widening is not applied inside
@@ -164,11 +169,11 @@ Range patterns participate in exhaustiveness and subsumption analysis alongside 
   * ✅ `(int a, string b)` (type-pattern + capture)
   * ✅ `(a: int, _)`
   * ✅ `(let a, == existingValue)` (explicit capture + value pattern)
-  * ✅ `(existingA, == existingValue)` (existing-value comparison)
+  * ✅ `(== existingA, == existingValue)` (existing-value comparisons)
 
   In freestanding and inline positional patterns, captured variables must use an
-  explicit binding keyword (`let`, `var`, or `val`). A bare identifier is
-  treated as a value pattern against an existing in-scope value. In assignment
+  explicit binding keyword (`let`, `var`, or `val`). Comparing against an
+  existing runtime value uses `== existingValue`. In assignment
   and declaration deconstruction (`let (a, b) = expr`, `(a, b) = expr`), bare
   identifiers continue to act as deconstruction targets.
   To constrain by type and capture a value in an element, both forms are valid:

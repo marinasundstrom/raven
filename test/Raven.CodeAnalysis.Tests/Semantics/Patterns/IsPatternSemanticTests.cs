@@ -189,14 +189,14 @@ class C {
     }
 
     [Fact]
-    public void IsPropertyPattern_WithBareIdentifier_UsesExistingLocal()
+    public void IsPropertyPattern_WithExplicitComparison_UsesExistingLocal()
     {
         var code = """
 record class Person(Name: string)
 
 class C {
     func Test(person: Person, name: string) {
-        if person is { Name: name } {
+        if person is { Name: == name } {
             name.Length
         }
     }
@@ -223,11 +223,99 @@ class C {
         var bound = Assert.IsType<BoundIsPatternExpression>(model.GetBoundNode(isPattern));
         var propertyPattern = Assert.IsType<BoundPropertyPattern>(bound.Pattern);
         var property = Assert.Single(propertyPattern.Properties);
-        var constantPattern = Assert.IsType<BoundConstantPattern>(property.Pattern);
-        var parameterAccess = Assert.IsType<BoundParameterAccess>(constantPattern.Expression);
+        var comparisonPattern = Assert.IsType<BoundComparisonPattern>(property.Pattern);
+        Assert.Equal(BoundComparisonPatternOperator.Equals, comparisonPattern.Operator);
+        var parameterAccess = Assert.IsType<BoundParameterAccess>(comparisonPattern.Value);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(parameterSymbol, parameterAccess.Parameter));
         Assert.Equal(SpecialType.System_String, parameterAccess.Type.SpecialType);
+    }
+
+    [Fact]
+    public void IsPattern_WithBareRuntimeValue_RequiresExplicitComparison()
+    {
+        const string code = """
+class C {
+    func Test(x: int, b: int) {
+        if x is b {
+            return
+        }
+    }
+}
+
+func Main() { }
+""";
+
+        var verifier = CreateVerifier(code);
+        var diagnostics = verifier.GetResult().Compilation.GetDiagnostics()
+            .Where(diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ToArray();
+
+        var diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("RAV1617", diagnostic.Descriptor.Id);
+        Assert.Equal("b", diagnostic.Location.SourceTree!.GetText().ToString(diagnostic.Location.SourceSpan));
+        Assert.Contains("use '== b'", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IfStatement_WithExplicitRuntimeComparisonPattern_Binds()
+    {
+        const string code = """
+class C {
+    func Test(x: int, b: int) {
+        if x is == b {
+            return
+        }
+    }
+}
+
+func Main() { }
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+        Assert.DoesNotContain(
+            result.Compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error);
+
+        var tree = result.Compilation.SyntaxTrees.Single();
+        var model = result.Compilation.GetSemanticModel(tree);
+        var isPattern = tree.GetRoot().DescendantNodes().OfType<IsPatternExpressionSyntax>().Single();
+        var bound = Assert.IsType<BoundIsPatternExpression>(model.GetBoundNode(isPattern));
+        var comparison = Assert.IsType<BoundComparisonPattern>(bound.Pattern);
+
+        Assert.Equal(BoundComparisonPatternOperator.Equals, comparison.Operator);
+        Assert.IsType<BoundParameterAccess>(comparison.Value);
+    }
+
+    [Fact]
+    public void IfStatement_WithBareCompileTimeConstantPattern_Binds()
+    {
+        const string code = """
+const MY_CONST: int = 42
+
+func Test(x: int) -> bool {
+    if x is MY_CONST {
+        return true
+    }
+
+    return false
+}
+
+func Main() { }
+""";
+
+        var verifier = CreateVerifier(code);
+        var result = verifier.GetResult();
+
+        Assert.Empty(result.UnexpectedDiagnostics);
+        Assert.Empty(result.MissingDiagnostics);
+        Assert.DoesNotContain(
+            result.Compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error);
     }
 
     [Fact]

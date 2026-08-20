@@ -70,14 +70,10 @@ if let Person { Name: "Ada", Age: age } = obj {
 
 An `is` expression produces `bool` and has no outer binding keyword. A capture
 must therefore be written at its exact extraction point with `let`, `val`, or
-`var`. A bare identifier compares against an existing value:
+`var`. Comparing against an existing runtime value uses `==`:
 
 ```raven
-if person is { Name: name } {       // compare with existing name
-    Console.WriteLine("same name")
-}
-
-if person is { Name: == name } {    // the same comparison, explicitly
+if person is { Name: == name } {
     Console.WriteLine("same name")
 }
 
@@ -135,9 +131,8 @@ if let x: int = input {
 ```
 
 In a binding-oriented construct, the leading keyword supplies the mode for bare
-captures and for an optional whole-pattern designation. Use `== name` when a
-bare identifier should compare with an existing value instead of capturing a
-new one.
+captures and for an optional whole-pattern designation. Use `== name` to compare
+with an existing runtime value instead of capturing a new one.
 
 A capture may include a `when` guard. The local is introduced first, then the
 guard constrains that captured sub-value:

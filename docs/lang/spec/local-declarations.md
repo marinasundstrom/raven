@@ -223,8 +223,9 @@ Nested sequence/positional patterns can also be combined:
 let [(first, second), [head, ..tail]] = value
 ```
 
-In freestanding and inline patterns, plain identifiers are value patterns, not
-new bindings. Use `let`/`var`/`val` to capture a value. In assignment and
+In freestanding and inline patterns, plain identifiers do not implicitly refer
+to runtime values or introduce new bindings. Use `== existingValue` to compare,
+or `let`/`var`/`val` to capture a value. In assignment and
 declaration deconstruction, plain identifiers remain binding targets by
 default. To match against an existing runtime value in a positional pattern,
 you can still use an explicit value pattern:

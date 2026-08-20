@@ -45,10 +45,10 @@ casts, and property accesses.
   * Payload arity must match the declared parameters.
   * Each nested subpattern is typed to the corresponding member parameter.
   * A payload element introduces a new binding **only** when it uses
-    `let`/`var` (`val` is also accepted). A bare identifier is a value pattern that matches an
-    existing in-scope symbol.
+    `let`/`var` (`val` is also accepted). Comparing with an existing in-scope
+    runtime value requires `== value`.
 
-    * Example: `.Case(let a, b)` binds `a` and matches the second payload against
+    * Example: `.Case(let a, == b)` binds `a` and matches the second payload against
       the runtime value of in-scope `b`.
   * A trailing whole-pattern designation may capture the matched member/case
     value: `.Case(...) caseValue`.

@@ -26,8 +26,8 @@ about without unpacking the value step by step.
   * Fixed-size segments may appear multiple times because their widths are fully
     determined by the syntax.
   * In freestanding and inline sequence
-    patterns, captures must use `let`/`var`/`val`; bare identifiers are treated
-    as value patterns against existing values. Type-constrained captures may be
+    patterns, captures must use `let`/`var`/`val`; comparisons against existing
+    values use `== value`. Type-constrained captures may be
     written as `let x: T` or `T x`. The same rule applies inside segment forms,
     for example `..2 let start` and `...let rest`. Bare `...` and bare `..N`
     are the non-capturing exceptions.

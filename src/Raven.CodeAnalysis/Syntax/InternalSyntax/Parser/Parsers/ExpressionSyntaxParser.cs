@@ -47,6 +47,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
     public ExpressionSyntaxParser ParentExpression => (ExpressionSyntaxParser)Parent!;
 
+    internal bool StopsOnOpenBrace => _stopOnOpenBrace;
+
     public ExpressionSyntax ParseExpression()
     {
         return ParseNullCoalesceExpression() ?? new ExpressionSyntax.Missing();

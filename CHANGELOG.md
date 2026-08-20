@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- Bare locals, parameters, properties, and non-constant fields are no longer
+  accepted as implicit runtime value patterns; use `== value` for an explicit
+  comparison or a binding keyword to capture the matched value.
 - Inferred type inlays now include collection-comprehension targets authored in
   Raven macro fragments reported through the current fragment-provider API.
 - Extern constants now retain `extern` in symbol signatures and hover text, and
