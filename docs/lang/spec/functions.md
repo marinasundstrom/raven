@@ -109,7 +109,20 @@ parameters must appear after required parameters.
 Default expressions must be compile-time constants and must be implicitly
 convertible to the parameter type. This includes literals such as numbers,
 strings, and `null`, parenthesized literals, and unary `+` or `-` applied to
-numeric literals.
+numeric literals. As a deliberately narrow union exception, an `Option<T>`
+parameter may default to `.None`:
+
+```raven
+func find(name: string, fallback: Option<int> = .None) -> Option<int> {
+    // ...
+}
+```
+
+Raven records this default with Raven-specific parameter metadata so callers
+compiled from another assembly reconstruct the active `None` case rather than
+the inactive CLR default state of the union carrier. Payload-bearing `.Some`
+defaults and defaults for other union types are not compile-time parameter
+constants.
 
 Raven also recognizes optional parameters from imported .NET methods. Metadata
 defaults, including those represented by

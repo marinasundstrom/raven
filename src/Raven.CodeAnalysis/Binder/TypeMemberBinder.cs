@@ -4333,6 +4333,13 @@ internal partial class TypeMemberBinder : Binder
                 ParameterDefaultEvaluationFailure.None);
 
         var defaultExpression = defaultClause.Value;
+        if (TryEvaluateOptionNoneDefault(defaultExpression, parameterType, out var optionNoneDefault))
+            return new ParameterDefaultEvaluationResult(
+                true,
+                success: true,
+                optionNoneDefault,
+                ParameterDefaultEvaluationFailure.None);
+
         if (TryEvaluateTargetTypedEnumDefault(defaultExpression, parameterType, out var enumDefaultValue))
             return new ParameterDefaultEvaluationResult(
                 true,
@@ -4347,6 +4354,26 @@ internal partial class TypeMemberBinder : Binder
             return new ParameterDefaultEvaluationResult(true, success: false, value: null, ParameterDefaultEvaluationFailure.NotConvertible);
 
         return new ParameterDefaultEvaluationResult(true, success: true, defaultValue, ParameterDefaultEvaluationFailure.None);
+    }
+
+    private static bool TryEvaluateOptionNoneDefault(
+        ExpressionSyntax expression,
+        ITypeSymbol parameterType,
+        out object? value)
+    {
+        value = null;
+
+        parameterType = UnwrapParameterDefaultType(parameterType);
+        if (parameterType is not INamedTypeSymbol { Name: "Option", Arity: 1 } optionType ||
+            optionType.ContainingNamespace?.ToMetadataName() != "System" ||
+            optionType.TryGetUnion() is null ||
+            expression is not MemberBindingExpressionSyntax { Name.Identifier.ValueText: "None" })
+        {
+            return false;
+        }
+
+        value = OptionNoneParameterDefaultValue.Instance;
+        return true;
     }
 
     private static bool TryEvaluateTargetTypedEnumDefault(

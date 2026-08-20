@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
 
 ## Unreleased
 
+- `Option<T>` parameters may now use `.None` as their default argument. Raven
+  emits a dedicated parameter-metadata marker and reconstructs the active
+  `None` case for omitted arguments, including calls across assembly references,
+  without treating the union carrier's CLR default state as `None`.
 - The Greenhouse Monitor sample can now read live CO2, temperature, and
   humidity telemetry from an SCD40/SCD41 sensor connected to a Raspberry Pi
   over I2C, while retaining simulated telemetry as its default mock source.

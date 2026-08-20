@@ -1430,6 +1430,9 @@ public static partial class SymbolExtensions
 
     private static string FormatParameterDefaultValue(IParameterSymbol parameter, SymbolDisplayFormat format)
     {
+        if (parameter.ExplicitDefaultValue is OptionNoneParameterDefaultValue)
+            return ".None";
+
         if (parameter is PEParameterSymbol { ExplicitDefaultValueIsTypeDefault: true } ||
             HasDefaultExpressionSyntax(parameter))
             return "default";

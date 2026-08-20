@@ -293,6 +293,7 @@ internal class CodeGenerator
     public Type? UnionInterfaceType { get; private set; }
     public Type? RavenUnionCaseAttributeType { get; private set; }
     public Type? RavenUnionCompanionAttributeType { get; private set; }
+    public Type? RavenOptionNoneDefaultValueAttributeType { get; private set; }
     public Type? ExtensionAttributeType { get; private set; }
     public Type? UnitType { get; private set; }
     public Type? ClosedHierarchyAttributeType { get; private set; }
@@ -304,6 +305,7 @@ internal class CodeGenerator
     ConstructorInfo? _discriminatedUnionCtor;
     ConstructorInfo? _ravenUnionCaseCtor;
     ConstructorInfo? _ravenUnionCompanionCtor;
+    ConstructorInfo? _ravenOptionNoneDefaultValueCtor;
     ConstructorInfo? _extensionMarkerNameCtor;
     ConstructorInfo? _fixedLengthArrayCtor;
     ConstructorInfo? _extensionAttributeCtor;
@@ -674,6 +676,12 @@ internal class CodeGenerator
 
         EnsureRavenUnionCompanionAttributeType();
         return new CustomAttributeBuilder(_ravenUnionCompanionCtor!, [unionTypeMetadataName]);
+    }
+
+    internal CustomAttributeBuilder CreateRavenOptionNoneDefaultValueAttribute()
+    {
+        EnsureRavenOptionNoneDefaultValueAttributeType();
+        return new CustomAttributeBuilder(_ravenOptionNoneDefaultValueCtor!, []);
     }
 
     internal void ApplyClosedHierarchyAttribute(
@@ -1086,6 +1094,62 @@ internal class CodeGenerator
         RavenUnionCompanionAttributeType = attrBuilder.CreateType();
         _ravenUnionCompanionCtor = RavenUnionCompanionAttributeType.GetConstructor([stringType])
             ?? throw new InvalidOperationException("Missing RavenUnionCompanionAttribute(string) constructor.");
+    }
+
+    void EnsureRavenOptionNoneDefaultValueAttributeType()
+    {
+        if (RavenOptionNoneDefaultValueAttributeType is not null)
+            return;
+
+        const string metadataName =
+            "Raven.Runtime.CompilerServices.RavenOptionNoneDefaultValueAttribute";
+        RavenOptionNoneDefaultValueAttributeType = Compilation.ResolveRuntimeType(metadataName);
+        if (RavenOptionNoneDefaultValueAttributeType is not null)
+        {
+            _ravenOptionNoneDefaultValueCtor =
+                RavenOptionNoneDefaultValueAttributeType.GetConstructor(Type.EmptyTypes);
+            if (_ravenOptionNoneDefaultValueCtor is not null)
+                return;
+        }
+
+        var attributeType = TypeSymbolExtensionsForCodeGen.GetClrType(
+            Compilation.GetTypeByMetadataName("System.Attribute"),
+            this);
+        var attrBuilder = ModuleBuilder.DefineType(
+            metadataName,
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed,
+            attributeType);
+
+        var attrUsageCtor = typeof(AttributeUsageAttribute).GetConstructor([typeof(AttributeTargets)])
+            ?? throw new InvalidOperationException("Missing AttributeUsageAttribute(AttributeTargets) constructor.");
+        var inheritedProperty = typeof(AttributeUsageAttribute).GetProperty(nameof(AttributeUsageAttribute.Inherited))
+            ?? throw new InvalidOperationException("Missing AttributeUsageAttribute.Inherited property.");
+        attrBuilder.SetCustomAttribute(new CustomAttributeBuilder(
+            attrUsageCtor,
+            [AttributeTargets.Parameter],
+            [inheritedProperty],
+            [false]));
+
+        var ctorBuilder = attrBuilder.DefineConstructor(
+            MethodAttributes.Public,
+            CallingConventions.Standard,
+            Type.EmptyTypes);
+        var il = ctorBuilder.GetILGenerator();
+        var baseCtor = attributeType.GetConstructor(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            types: Type.EmptyTypes,
+            modifiers: null)
+            ?? throw new InvalidOperationException("Missing Attribute base constructor.");
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Call, baseCtor);
+        il.Emit(OpCodes.Ret);
+
+        RavenOptionNoneDefaultValueAttributeType = attrBuilder.CreateType();
+        _ravenOptionNoneDefaultValueCtor =
+            RavenOptionNoneDefaultValueAttributeType.GetConstructor(Type.EmptyTypes)
+            ?? throw new InvalidOperationException(
+                "Missing RavenOptionNoneDefaultValueAttribute() constructor.");
     }
 
     private static FieldBuilder DefineReadOnlyBackingField(TypeBuilder typeBuilder, string propertyName, Type propertyType)

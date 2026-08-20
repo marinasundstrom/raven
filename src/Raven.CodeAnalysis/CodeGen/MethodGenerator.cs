@@ -282,7 +282,11 @@ internal class MethodGenerator
             else if (parameterSymbol.RefKind == RefKind.In)
                 attrs |= ParameterAttributes.In;
             if (parameterSymbol.HasExplicitDefaultValue)
-                attrs |= ParameterAttributes.Optional | ParameterAttributes.HasDefault;
+            {
+                attrs |= ParameterAttributes.Optional;
+                if (parameterSymbol.ExplicitDefaultValue is not OptionNoneParameterDefaultValue)
+                    attrs |= ParameterAttributes.HasDefault;
+            }
 
             ParameterBuilder parameterBuilder;
             if (MethodBase is MethodBuilder mb)
@@ -905,7 +909,7 @@ internal class MethodGenerator
 
     public override string ToString() => this.MethodSymbol.ToDisplayString();
 
-    private static void ApplyParameterDefaultValueIfAny(ParameterBuilder parameterBuilder, IParameterSymbol parameterSymbol)
+    private void ApplyParameterDefaultValueIfAny(ParameterBuilder parameterBuilder, IParameterSymbol parameterSymbol)
     {
         if (parameterBuilder is null)
             throw new ArgumentNullException(nameof(parameterBuilder));
@@ -916,6 +920,13 @@ internal class MethodGenerator
             return;
 
         var defaultValue = parameterSymbol.ExplicitDefaultValue;
+
+        if (defaultValue is OptionNoneParameterDefaultValue)
+        {
+            parameterBuilder.SetCustomAttribute(
+                TypeGenerator.CodeGen.CreateRavenOptionNoneDefaultValueAttribute());
+            return;
+        }
 
         // Mark as optional and attach default constant.
 

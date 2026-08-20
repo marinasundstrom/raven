@@ -18,6 +18,132 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class OptionalParameterSemanticTests : CompilationTestBase
 {
     [Fact]
+    public void Invocation_OmitsOptionArgument_UsesNoneCase()
+    {
+        const string source = """
+import System.*
+
+func Identity(value: Option<int> = .None) -> Option<int> {
+    value
+}
+
+let result = Identity()
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is IdentifierNameSyntax { Identifier.ValueText: "Identity" });
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
+        var defaultArgument = Assert.IsType<BoundUnionCaseExpression>(Assert.Single(boundInvocation.Arguments));
+
+        Assert.Equal("Option", defaultArgument.UnionType.Name);
+        Assert.Equal("None", defaultArgument.CaseType.Name);
+        Assert.Empty(defaultArgument.Arguments);
+
+        var parameter = Assert.Single(boundInvocation.Method.Parameters);
+        Assert.True(parameter.HasExplicitDefaultValue);
+        Assert.Equal(
+            "value: Option<int> = .None",
+            parameter.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
+    }
+
+    [Theory]
+    [InlineData("Option<int>", ".Some(1)")]
+    [InlineData("Mailbox", ".Bounded(100)")]
+    public void UnionCaseDefaults_OtherThanOptionNone_AreRejected(string parameterType, string defaultValue)
+    {
+        var source = $$"""
+import System.*
+
+union Mailbox {
+    case Bounded(maxCount: int)
+}
+
+class Processor {
+    static func Process(value: {{parameterType}} = {{defaultValue}}) { }
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            references: TestMetadataReferences.DefaultWithRavenCore);
+        compilation.EnsureSetup();
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+
+        Assert.Equal(CompilerDiagnostics.ParameterDefaultValueMustBeConstant.Id, diagnostic.Id);
+    }
+
+    [Fact]
+    public void OptionNoneDefault_RoundTripsThroughMetadata()
+    {
+        var producerTree = SyntaxTree.ParseText(
+            """
+import System.*
+
+public class Provider {
+    static func Identity(value: Option<int> = .None) -> Option<int> {
+        value
+    }
+}
+""");
+        var producer = Compilation.Create(
+                "option-default-provider",
+                [producerTree],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.DefaultWithRavenCore);
+
+        using var peStream = new MemoryStream();
+        var emitResult = producer.Emit(peStream);
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        var image = peStream.ToArray();
+        using (var loaded = TestAssemblyLoader.LoadFromStream(
+                   new MemoryStream(image),
+                   TestMetadataReferences.DefaultWithRavenCore))
+        {
+            var parameter = loaded.Assembly.GetType("Provider")!
+                .GetMethod("Identity", BindingFlags.Public | BindingFlags.Static)!
+                .GetParameters()
+                .Single();
+            Assert.True(parameter.IsOptional);
+            Assert.False(parameter.HasDefaultValue);
+            Assert.Contains(
+                parameter.CustomAttributes,
+                attribute => attribute.AttributeType.FullName ==
+                    "Raven.Runtime.CompilerServices.RavenOptionNoneDefaultValueAttribute");
+        }
+
+        var consumerTree = SyntaxTree.ParseText("let result = Provider.Identity()");
+        var consumer = Compilation.Create(
+                "option-default-consumer",
+                [consumerTree],
+                new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddReferences([
+                .. TestMetadataReferences.DefaultWithRavenCore,
+                MetadataReference.CreateFromImage(image),
+            ]);
+
+        var diagnostics = consumer.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var invocation = consumerTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(
+            consumer.GetSemanticModel(consumerTree).GetBoundNode(invocation));
+        var defaultArgument = Assert.IsType<BoundUnionCaseExpression>(Assert.Single(boundInvocation.Arguments));
+        Assert.Equal("None", defaultArgument.CaseType.Name);
+    }
+
+    [Fact]
     public void Invocation_OmitsOptionalArgument_UsesDefaultValue()
     {
         const string source = """

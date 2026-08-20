@@ -13247,6 +13247,12 @@ partial class BlockBinder : Binder
 
         var value = parameter.ExplicitDefaultValue;
 
+        if (value is OptionNoneParameterDefaultValue)
+        {
+            return TryBindDiscriminatedUnionCase(parameterType, "None", parameter.Locations.FirstOrDefault() ?? Location.None)
+                ?? new BoundErrorExpression(parameterType, null, BoundExpressionReason.ArgumentBindingFailed);
+        }
+
         if (value is null)
         {
             if (parameterType.TryGetUnion() is { TypeKind: TypeKind.Struct })

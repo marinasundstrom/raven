@@ -142,6 +142,16 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
         if (_defaultValueComputed)
             return;
 
+        if (_parameterInfo.GetCustomAttributesData().Any(static attribute =>
+                attribute.AttributeType.FullName ==
+                "Raven.Runtime.CompilerServices.RavenOptionNoneDefaultValueAttribute"))
+        {
+            _hasExplicitDefaultValue = true;
+            _explicitDefaultValue = OptionNoneParameterDefaultValue.Instance;
+            _defaultValueComputed = true;
+            return;
+        }
+
         var rawDefaultValue = _parameterInfo.RawDefaultValue;
         if (rawDefaultValue != DBNull.Value && rawDefaultValue != System.Type.Missing)
         {
