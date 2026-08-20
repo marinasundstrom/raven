@@ -13069,6 +13069,8 @@ partial class BlockBinder : Binder
             {
                 // First: if the parameter itself is a concrete delegate type, replay the lambda against it.
                 expression = BindLambdaToDelegateIfNeeded(expression, parameter.Type);
+                if (ReferenceEquals(expression, lambda))
+                    ReportSelectedLambdaReturnDiagnostics(lambda, parameter.Type);
 
                 // Second: if the parameter is `System.Delegate` / `System.MulticastDelegate`,
                 // keep the lambda's inferred delegate type and rely on implicit reference conversion.

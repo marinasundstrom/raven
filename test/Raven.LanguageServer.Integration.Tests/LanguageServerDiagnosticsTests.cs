@@ -126,6 +126,48 @@ func Main() -> () {
     }
 
     [Fact]
+    public async Task GetDiagnosticsAsync_GenericFallbackLambdaPublishesReturnTypeErrorsWithRangesAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var documentPath = Path.Combine(_tempRoot, "lambda-return.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        const string code = """
+import System.*
+
+func parse(input: string) -> int {
+    let value = int.Parse(input).UnwrapOrElse(() => {
+        return ""
+    })
+    return value
+}
+""";
+        await store.UpsertDocumentAsync(uri, code);
+
+        var diagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        var diagnostic = diagnostics
+            .Where(item => string.Equals(item.Code?.String, "RAV1503", StringComparison.Ordinal))
+            .ShouldHaveSingleItem();
+
+        diagnostic.Range.Start.Line.ShouldBe(4);
+        diagnostic.Range.Start.Character.ShouldBe(15);
+        diagnostic.Range.End.Line.ShouldBe(4);
+        diagnostic.Range.End.Character.ShouldBe(17);
+    }
+
+    [Fact]
     public async Task TryGetDiagnosticsAsync_MacroBodyPublishesMatchExhaustivenessImmediatelyAsync()
     {
         Directory.CreateDirectory(_tempRoot);

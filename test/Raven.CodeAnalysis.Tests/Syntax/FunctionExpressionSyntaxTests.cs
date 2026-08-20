@@ -126,6 +126,20 @@ public class FunctionExpressionSyntaxTests
     }
 
     [Fact]
+    public void ParenthesizedLambda_WithoutExpressionBody_ReportsExpressionExpected()
+    {
+        const string code = "let result = fallback(() => )";
+        var tree = SyntaxTree.ParseText(code);
+
+        var diagnostic = Assert.Single(
+            tree.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.ExpressionExpected);
+
+        var closeParen = code.LastIndexOf(')');
+        Assert.Equal(new Raven.CodeAnalysis.Text.TextSpan(closeParen, 1), diagnostic.Location.SourceSpan);
+    }
+
+    [Fact]
     public void SimpleLambda_WithFuncKeyword_Parses()
     {
         var tree = SyntaxTree.ParseText("let f = func x => x");

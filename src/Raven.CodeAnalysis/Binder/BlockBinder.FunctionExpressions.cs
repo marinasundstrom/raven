@@ -10,6 +10,26 @@ namespace Raven.CodeAnalysis;
 
 partial class BlockBinder
 {
+    private sealed class LambdaReturnExpressionCollector : BoundTreeWalker
+    {
+        private readonly List<BoundExpression> _expressions = [];
+
+        public IReadOnlyList<BoundExpression> Expressions => _expressions;
+
+        public override void VisitReturnStatement(BoundReturnStatement node)
+        {
+            if (node.Expression is not null)
+                _expressions.Add(node.Expression);
+
+            base.VisitReturnStatement(node);
+        }
+
+        public override void VisitFunctionExpression(BoundFunctionExpression node)
+        {
+            // Returns in nested lambdas belong to the nested function.
+        }
+    }
+
     private sealed class IteratorYieldCollector : BoundTreeWalker
     {
         private readonly List<ITypeSymbol> _yieldTypes = [];
@@ -813,7 +833,7 @@ partial class BlockBinder
                 ReportCannotConvertFromTypeToType(
                     inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                     expectedBodyType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    lambdaBodySyntaxNode.GetLocation());
+                    GetLambdaBodyConversionDiagnosticLocation(syntax, lambdaBodySyntaxNode));
             }
             else
             {
@@ -989,6 +1009,60 @@ partial class BlockBinder
     {
         foreach (var diagnostic in lambdaBinder.Diagnostics.AsEnumerable())
             _diagnostics.Report(diagnostic);
+    }
+
+    private void ReportSelectedLambdaReturnDiagnostics(BoundFunctionExpression lambda, ITypeSymbol targetType)
+    {
+        if (targetType is NullableTypeSymbol nullableTargetType)
+            targetType = nullableTargetType.UnderlyingType;
+
+        if (targetType is not INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType ||
+            delegateType.GetDelegateInvokeMethod() is not { } invoke ||
+            GetLambdaSyntax(lambda) is not { } lambdaSyntax)
+        {
+            return;
+        }
+
+        var expectedReturnType = invoke.ReturnType;
+        if (lambda.Symbol is IMethodSymbol { IsAsync: true })
+        {
+            expectedReturnType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, expectedReturnType)
+                ?? expectedReturnType;
+        }
+
+        if (expectedReturnType.TypeKind == TypeKind.Error || expectedReturnType is ITypeParameterSymbol)
+            return;
+
+        var boundReturns = new LambdaReturnExpressionCollector();
+        boundReturns.Visit(lambda.Body);
+
+        var syntaxReturns = lambdaSyntax.DescendantNodes()
+            .OfType<ReturnStatementSyntax>()
+            .Where(returnStatement => returnStatement.Expression is not null &&
+                ReferenceEquals(
+                    returnStatement.Ancestors().OfType<FunctionExpressionSyntax>().FirstOrDefault(),
+                    lambdaSyntax))
+            .ToArray();
+
+        var count = Math.Min(boundReturns.Expressions.Count, syntaxReturns.Length);
+        for (var index = 0; index < count; index++)
+        {
+            var expression = boundReturns.Expressions[index];
+            var expressionSyntax = syntaxReturns[index].Expression!;
+            if (!ShouldAttemptConversion(expression) ||
+                IsAssignable(expectedReturnType, expression.Type, out _))
+            {
+                continue;
+            }
+
+            var location = expressionSyntax.GetLocation();
+            var alreadyReported = _diagnostics.AsEnumerable().Any(diagnostic =>
+                diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType &&
+                diagnostic.Location.SourceTree == location.SourceTree &&
+                diagnostic.Location.SourceSpan == location.SourceSpan);
+            if (!alreadyReported)
+                ReportCannotConvertExpressionToType(expression, expectedReturnType, location);
+        }
     }
 
     private ImmutableArray<INamedTypeSymbol> GetLambdaDelegateTargets(FunctionExpressionSyntax syntax)
@@ -2202,6 +2276,22 @@ partial class BlockBinder
 
     private static SyntaxNode GetLambdaBodySyntaxNode(FunctionExpressionSyntax syntax)
         => (SyntaxNode?)syntax.Body ?? (SyntaxNode?)syntax.ExpressionBody ?? syntax;
+
+    private static Location GetLambdaBodyConversionDiagnosticLocation(
+        FunctionExpressionSyntax syntax,
+        SyntaxNode fallback)
+    {
+        var body = GetLambdaBodyExpression(syntax);
+        if (body is not BlockSyntax block)
+            return body.GetLocation();
+
+        return block.Statements.LastOrDefault() switch
+        {
+            ReturnStatementSyntax { Expression: { } expression } => expression.GetLocation(),
+            ExpressionStatementSyntax expressionStatement => expressionStatement.Expression.GetLocation(),
+            _ => fallback.GetLocation(),
+        };
+    }
 
     private static bool LambdaReturnContainsTypeParameter(ITypeSymbol type)
     {

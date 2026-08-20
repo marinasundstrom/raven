@@ -1198,7 +1198,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 ? new ExpressionSyntaxParser(
                     this,
                     parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax()
-                : new ExpressionSyntaxParser(this).ParseExpression();
+                : ParseRequiredLambdaExpressionBody();
             blockBody = null;
             expressionBody = ArrowExpressionClause(fatArrowToken, body);
         }
@@ -1300,7 +1300,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             ? new ExpressionSyntaxParser(
                 this,
                 parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax()
-            : new ExpressionSyntaxParser(this).ParseExpression();
+            : ParseRequiredLambdaExpressionBody();
         BlockSyntax? body;
         ArrowExpressionClauseSyntax? expressionBody;
         if (parsedBody is BlockSyntax block)
@@ -1454,7 +1454,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 ? new ExpressionSyntaxParser(
                     this,
                     parseAbruptTransfersInBlocksAsExpressions: false).ParseBlockSyntax()
-                : new ExpressionSyntaxParser(this).ParseExpression();
+                : ParseRequiredLambdaExpressionBody();
             blockBody = null;
             expressionBody = ArrowExpressionClause(fatArrowToken, body);
         }
@@ -1478,6 +1478,20 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             expressionBody);
 
         return true;
+    }
+
+    private ExpressionSyntax ParseRequiredLambdaExpressionBody()
+    {
+        var body = new ExpressionSyntaxParser(this).ParseExpression();
+        if (body is ExpressionSyntax.Missing)
+        {
+            AddDiagnostic(
+                DiagnosticInfo.Create(
+                    CompilerDiagnostics.ExpressionExpected,
+                    GetSpanOfPeekedToken()));
+        }
+
+        return body;
     }
 
     private static bool IsSimpleLambdaParameterStart(SyntaxToken token)

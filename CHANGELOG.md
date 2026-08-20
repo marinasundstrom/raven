@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- Lambda diagnostics now reject missing expression bodies, report incompatible
+  explicit and tail returns at the returned expression, and publish actionable
+  source ranges through the language server.
 - Language-server project reloads now preserve the last successfully loaded
   solution when a transient project edit or restore failure prevents the
   replacement project from opening, and retry on the next relevant file event.

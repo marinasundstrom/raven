@@ -5,6 +5,7 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Semantics.Tests;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 using Raven.CodeAnalysis.Testing;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -2023,5 +2024,94 @@ class Container {
             ]);
 
         verifier.Verify();
+    }
+
+    [Fact]
+    public void GenericFallbackLambda_WithIncompatibleExplicitReturn_ReportsReturnedExpression()
+    {
+        const string code = """
+import System.*
+
+func parse(input: string) -> int {
+    let value = int.Parse(input).UnwrapOrElse(() => {
+        return ""
+    })
+    return value
+}
+""";
+
+        var compilation = Compilation.Create(
+            "invalid_explicit_lambda_return",
+            [SyntaxTree.ParseText(code)],
+            TestMetadataReferences.DefaultWithRavenCore,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var literalStart = code.IndexOf("\"\"", StringComparison.Ordinal);
+        var literalSpan = new Raven.CodeAnalysis.Text.TextSpan(literalStart, 2);
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType &&
+                diagnostic.Location.SourceSpan == literalSpan);
+
+        Assert.Equal(literalSpan, diagnostic.Location.SourceSpan);
+        Assert.Contains("string", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("int", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenericFallbackLambda_WithEmptyBlock_ReportsVisibleBodyDiagnostic()
+    {
+        const string code = """
+import System.*
+
+func parse(input: string) -> int {
+    let value = int.Parse(input).UnwrapOrElse(() => {
+    })
+    return value
+}
+""";
+
+        var compilation = Compilation.Create(
+            "empty_lambda_block",
+            [SyntaxTree.ParseText(code)],
+            TestMetadataReferences.DefaultWithRavenCore,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType);
+
+        Assert.True(diagnostic.Location.SourceSpan.Length > 0);
+        Assert.Contains("()", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("int", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenericFallbackLambda_WithIncompatibleTailReturn_ReportsTailExpression()
+    {
+        const string code = """
+import System.*
+
+func parse(input: string) -> int {
+    let value = int.Parse(input).UnwrapOrElse(() => {
+        ""
+    })
+    return value
+}
+""";
+
+        var compilation = Compilation.Create(
+            "invalid_tail_lambda_return",
+            [SyntaxTree.ParseText(code)],
+            TestMetadataReferences.DefaultWithRavenCore,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var literalStart = code.IndexOf("\"\"", StringComparison.Ordinal);
+        var literalSpan = new Raven.CodeAnalysis.Text.TextSpan(literalStart, 2);
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CannotConvertFromTypeToType &&
+                diagnostic.Location.SourceSpan == literalSpan);
+
+        Assert.Equal(literalSpan, diagnostic.Location.SourceSpan);
+        Assert.Contains("string", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("int", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 }
