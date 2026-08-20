@@ -1,8 +1,10 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
+Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
 
 ## Unreleased
+
+## 0.1.0-preview.11 - 2026-08-20
 
 - Identifier-bearing declaration macro carriers now appear once under their
   authored name in the VS Code outline, while identifier-less member macro

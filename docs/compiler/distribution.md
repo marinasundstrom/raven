@@ -56,12 +56,12 @@ both `VERSION` and `sdk/build/Raven.Language.targets`.
 Release builds can be installed directly with the platform installer:
 
 ```bash
-curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.10/install-raven.sh \
-  | sh -s -- 0.1.0-preview.10
+curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.11/install-raven.sh \
+  | sh -s -- 0.1.0-preview.11
 ```
 
 ```powershell
-$version = "0.1.0-preview.10"
+$version = "0.1.0-preview.11"
 Invoke-WebRequest "https://github.com/marinasundstrom/raven/releases/download/v$version/install-raven.ps1" -OutFile install-raven.ps1
 ./install-raven.ps1 -Version $version
 ```
@@ -121,22 +121,22 @@ workflow artifacts and does not publish anything externally.
 An unreleased build belongs to the **next** preview line, even before that
 preview is prepared or tagged. First increment the monotonically increasing
 preview counter, then append local provenance. For example, after
-`0.1.0-preview.10` has been published, a build from the current repository uses
+`0.1.0-preview.11` has been published, a build from the current repository uses
 a version such as:
 
 ```text
-0.1.0-preview.11-local.b99730bf6
+0.1.0-preview.12-local.<sha>
 ```
 
-Do not use `0.1.0-preview.10-local.<sha>` for later source. That spelling makes
-new work appear to be a rebuild of the already published preview.10 line and
+Do not use `0.1.0-preview.11-local.<sha>` for later source. That spelling makes
+new work appear to be a rebuild of the already published preview.11 line and
 can mix incompatible compiler, macro, SDK, and editor artifacts under a
 misleading version family.
 
 Use the same complete version for every artifact built from one commit:
 
 ```bash
-version="0.1.0-preview.11-local.$(git rev-parse --short HEAD)"
+version="0.1.0-preview.12-local.$(git rev-parse --short HEAD)"
 scripts/package-sdk.sh osx-arm64 "$version"
 scripts/package-nuget.sh "$version"
 scripts/package-vscode.sh "$version"
@@ -151,7 +151,7 @@ version so a previous package with the same identity cannot be reused.
 
 The `local.<sha>` suffix identifies an unpublished build; it does not create a
 release tag and must not be used for publication. Formal release preparation
-later selects the plain next version, such as `0.1.0-preview.11`, and updates
+later selects the plain next version, such as `0.1.0-preview.12`, and updates
 the tracked release references together.
 
 ## Release procedure
@@ -170,7 +170,7 @@ Raven uses one monotonically increasing prerelease counter:
 `0.1.0-preview.N`. Release preparation derives the next counter from
 `global.json`; for example, both `preview.8` and the historical `preview.8.1`
 advance to `preview.9`. Do not add another nested patch counter. An optional
-argument such as `scripts/prepare-release.sh 0.1.0-preview.10` asserts the
+argument such as `scripts/prepare-release.sh 0.1.0-preview.11` asserts the
 expected derived version but cannot override it. Moving to `1.0.0` or another
 release line is an explicit project decision and requires updating this policy.
 
@@ -441,7 +441,7 @@ scripts/package-vscode.sh 0.1.0
 Install the published preview directly from GitHub Releases:
 
 ```bash
-curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.10/raven-vscode.vsix
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.11/raven-vscode.vsix
 code --install-extension raven-vscode.vsix --force
 ```
 
