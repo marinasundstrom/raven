@@ -22,6 +22,37 @@ namespace Raven.LanguageServer.Tests;
 public class LanguageServerHoverPresentationTests
 {
     [Fact]
+    public void EnumMemberHover_ShowsUnderlyingConstantValue()
+    {
+        const string code = """
+enum PinEventTypes {
+    Falling
+    Rising
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var enumDeclaration = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<EnumDeclarationSyntax>()
+            .Single();
+        var member = enumDeclaration.Members.Single(declaration => declaration.Identifier.ValueText == "Rising");
+        var enumType = semanticModel.GetDeclaredSymbol(enumDeclaration).ShouldBeAssignableTo<INamedTypeSymbol>();
+        var symbol = enumType.GetMembers("Rising").OfType<IFieldSymbol>().ShouldHaveSingleItem();
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var signature = (string)buildSignature.Invoke(null, [symbol, member, semanticModel])!;
+
+        signature.ShouldBe("const field Rising: PinEventTypes = 1");
+    }
+
+    [Fact]
     public void MacroFragmentHover_TargetTypesLambdaParameterFromProvider()
     {
         const string code = """

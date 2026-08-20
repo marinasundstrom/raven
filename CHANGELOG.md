@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-16**.
 
 ## Unreleased
 
+- Enum-member signatures and hover text now show the member's underlying
+  constant value, while enum-valued parameter defaults retain target-typed
+  displays such as `= .Rising`.
 - The language server now reloads projects when an external `dotnet restore` or
   `dotnet build` updates `obj/project.assets.json`, allowing newly added package
   references to recover after a failed or racing editor-side project reload.

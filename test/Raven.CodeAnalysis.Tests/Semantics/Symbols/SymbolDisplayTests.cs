@@ -46,6 +46,29 @@ class C {
     }
 
     [Fact]
+    public void EnumField_ToDisplayString_ShowsUnderlyingConstantValue()
+    {
+        const string source = """
+enum PinEventTypes {
+    Falling
+    Rising
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var enumDeclaration = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<EnumDeclarationSyntax>()
+            .Single();
+        var enumType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
+        var field = Assert.Single(enumType.GetMembers("Rising").OfType<IFieldSymbol>());
+
+        field.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
+            .ShouldBe("const field Rising: PinEventTypes = 1");
+    }
+
+    [Fact]
     public void Property_ToDisplayString_IncludesAccessorAccessibility()
     {
         const string source = """

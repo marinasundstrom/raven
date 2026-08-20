@@ -743,7 +743,11 @@ public static partial class SymbolExtensions
             if (fieldSymbol.IsConst)
             {
                 result.Append(" = ");
-                result.Append(FormatConstant(fieldSymbol.GetConstantValue(), fieldSymbol.Type, format));
+                result.Append(FormatConstant(
+                    fieldSymbol.GetConstantValue(),
+                    fieldSymbol.Type,
+                    format,
+                    formatEnumMember: fieldSymbol.ContainingType?.TypeKind != TypeKind.Enum));
             }
         }
         else if (symbol is IEventSymbol eventSymbol)
@@ -1457,7 +1461,11 @@ public static partial class SymbolExtensions
         };
     }
 
-    private static string FormatConstant(object? value, ITypeSymbol type, SymbolDisplayFormat format)
+    private static string FormatConstant(
+        object? value,
+        ITypeSymbol type,
+        SymbolDisplayFormat format,
+        bool formatEnumMember = true)
     {
         if (type.IsValueType && value is null)
             return "default";
@@ -1465,7 +1473,7 @@ public static partial class SymbolExtensions
         if (value is null)
             return "null";
 
-        if (TryFormatEnumConstant(value, type, format, out var enumConstant))
+        if (formatEnumMember && TryFormatEnumConstant(value, type, format, out var enumConstant))
             return enumConstant;
 
         // Strings
@@ -1491,9 +1499,14 @@ public static partial class SymbolExtensions
         if (value is bool b)
             return b ? "true" : "false";
 
-        // Enums: use the enum member name if possible
+        // Runtime enum values can reach metadata symbols as boxed Enum instances.
         if (value is Enum e)
-            return e.ToString();
+        {
+            if (formatEnumMember)
+                return e.ToString();
+
+            value = Convert.ChangeType(e, e.GetTypeCode(), CultureInfo.InvariantCulture);
+        }
 
         // Numeric and other IFormattable values
         if (value is IFormattable f)

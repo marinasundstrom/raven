@@ -67,6 +67,8 @@ non-nullable integral primitive type (`byte`, `sbyte`, `short`, `ushort`, `int`,
 ### Enum members
 
 Each enum member introduces a public constant whose type is the enclosing enum.
+Symbol signatures display that declaration with its underlying constant value,
+for example `const field Rising: PinEventTypes = 1`.
 
 Enum members carry no associated payload or structure beyond their constant
 value. They cannot declare fields, parameters, or additional data.
