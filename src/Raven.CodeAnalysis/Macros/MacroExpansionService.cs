@@ -74,6 +74,17 @@ internal static class MacroExpansionService
                     targetDeclaration,
                     currentDeclaration,
                     cancellationToken);
+                if (!MacroParameterBinder.ValidateArguments(
+                        loaded.Macro.Name,
+                        attribute.Name.GetLocation(),
+                        loaded.Descriptor.Parameters,
+                        context.Arguments,
+                        diagnostics))
+                {
+                    builder[attribute] = MacroExpansionResult.Empty;
+                    continue;
+                }
+
                 var result = loaded.Executor.Expand(new MacroExecutionContext(
                         loaded.Executor,
                         context,
@@ -164,6 +175,7 @@ internal static class MacroExpansionService
                     cancellationToken);
                 result = ExecuteInvocable(
                     loaded.Executor,
+                    loaded.Descriptor,
                     context,
                     context.Arguments,
                     semanticModel,
@@ -183,6 +195,7 @@ internal static class MacroExpansionService
                     cancellationToken);
                 result = ExecuteInvocable(
                     loaded.Executor,
+                    loaded.Descriptor,
                     context,
                     context.Arguments,
                     semanticModel,
@@ -222,12 +235,24 @@ internal static class MacroExpansionService
 
     private static FreestandingMacroExpansionResult ExecuteInvocable(
         IMacroExecutor executor,
+        MacroDefinitionDescriptor descriptor,
         MacroContext context,
         ImmutableArray<MacroArgument> arguments,
         SemanticModel semanticModel,
         TypeSyntax name,
         DiagnosticBag diagnostics)
-        => executor.Expand(new MacroExecutionContext(
+    {
+        if (!MacroParameterBinder.ValidateArguments(
+                executor.Name,
+                name.GetLocation(),
+                descriptor.Parameters,
+                arguments,
+                diagnostics))
+        {
+            return FreestandingMacroExpansionResult.Empty;
+        }
+
+        return executor.Expand(new MacroExecutionContext(
                 executor,
                 context,
                 GetTypeArguments(semanticModel, name),
@@ -235,6 +260,7 @@ internal static class MacroExpansionService
                 diagnostics))
             .InvocableResult ?? throw new InvalidOperationException(
                 $"Macro '{executor.Name}' returned an attached result for an invocable invocation.");
+    }
 
     private static ImmutableArray<ITypeSymbol> GetTypeArguments(
         SemanticModel semanticModel,
@@ -272,140 +298,6 @@ internal static class MacroExpansionService
         return string.IsNullOrWhiteSpace(exception.Message)
             ? exception.GetType().Name
             : exception.Message;
-    }
-
-    internal static MacroExpansionResult? ExpandWithTypedParametersIfAvailable(
-        IAttachedDeclarationMacro macro,
-        AttachedMacroContext context,
-        DiagnosticBag diagnostics)
-    {
-        var typedMacroInterface = macro.GetType()
-            .GetInterfaces()
-            .FirstOrDefault(static i =>
-                i.IsGenericType &&
-                i.GetGenericTypeDefinition() == typeof(IAttachedDeclarationMacro<>));
-
-        if (typedMacroInterface is null)
-            return null;
-
-        var parametersType = typedMacroInterface.GetGenericArguments()[0];
-        if (!MacroParameterBinder.TryBind(macro.Name, parametersType, context, diagnostics, out var parameters))
-            return MacroExpansionResult.Empty;
-
-        var typedContextType = typeof(AttachedMacroContext<>).MakeGenericType(parametersType);
-        var typedContext = Activator.CreateInstance(
-            typedContextType,
-            context.Compilation,
-            context.SemanticModel,
-            context.Syntax,
-            context.TargetDeclaration,
-            context.CurrentDeclaration,
-            parameters!,
-            context.CancellationToken);
-
-        var expandMethod = typedMacroInterface.GetMethod(
-            nameof(IAttachedDeclarationMacro.Expand),
-            BindingFlags.Public | BindingFlags.Instance,
-            binder: null,
-            [typedContextType],
-            modifiers: null);
-
-        var result = (MacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
-        context.AddReportedDiagnostics((AttachedMacroContext)typedContext!);
-        return result;
-    }
-
-    internal static FreestandingMacroExpansionResult? ExpandWithTypedParametersIfAvailable(
-        IInvocableMacro macro,
-        FreestandingMacroContext context,
-        DiagnosticBag diagnostics)
-    {
-        var typedMacroInterface = macro.GetType()
-            .GetInterfaces()
-            .FirstOrDefault(static i =>
-                i.IsGenericType &&
-                i.GetGenericTypeDefinition() == typeof(IInvocableMacro<>));
-
-        if (typedMacroInterface is null)
-            return null;
-
-        var parametersType = typedMacroInterface.GetGenericArguments()[0];
-        if (!MacroParameterBinder.TryBind(macro.Name, parametersType, context, diagnostics, out var parameters))
-            return FreestandingMacroExpansionResult.Empty;
-
-        var typedContextType = typeof(FreestandingMacroContext<>).MakeGenericType(parametersType);
-        var typedContext = Activator.CreateInstance(
-            typedContextType,
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-            binder: null,
-            [
-                context.Compilation,
-                context.SemanticModel,
-                context.Invocation,
-                parameters!,
-                context.CancellationToken
-            ],
-            culture: null);
-
-        var expandMethod = typedMacroInterface.GetMethod(
-            nameof(IInvocableMacro.Expand),
-            BindingFlags.Public | BindingFlags.Instance,
-            binder: null,
-            [typedContextType],
-            modifiers: null);
-
-        var result = (FreestandingMacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
-        context.AddReportedDiagnostics((FreestandingMacroContext)typedContext!);
-        context.AddFileDependencies(
-            ((FreestandingMacroContext)typedContext!).GetFileDependencies());
-        return result;
-    }
-
-    internal static FreestandingMacroExpansionResult? ExpandWithTypedParametersIfAvailable(
-        ITokenTreeMacro macro,
-        TokenTreeMacroContext context,
-        DiagnosticBag diagnostics)
-    {
-        var typedMacroInterface = macro.GetType()
-            .GetInterfaces()
-            .FirstOrDefault(static i =>
-                i.IsGenericType &&
-                i.GetGenericTypeDefinition() == typeof(ITokenTreeMacro<>));
-
-        if (typedMacroInterface is null)
-            return null;
-
-        var parametersType = typedMacroInterface.GetGenericArguments()[0];
-        if (!MacroParameterBinder.TryBind(macro.Name, parametersType, context, diagnostics, out var parameters))
-            return FreestandingMacroExpansionResult.Empty;
-
-        var typedContextType = typeof(TokenTreeMacroContext<>).MakeGenericType(parametersType);
-        var typedContext = Activator.CreateInstance(
-            typedContextType,
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-            binder: null,
-            [
-                context.Compilation,
-                context.SemanticModel,
-                context.Invocation,
-                macro,
-                parameters!,
-                context.CancellationToken
-            ],
-            culture: null);
-
-        var expandMethod = typedMacroInterface.GetMethod(
-            nameof(ITokenTreeMacro.Expand),
-            BindingFlags.Public | BindingFlags.Instance,
-            binder: null,
-            [typedContextType],
-            modifiers: null);
-
-        var result = (FreestandingMacroExpansionResult?)expandMethod?.Invoke(macro, [typedContext!]);
-        context.AddReportedDiagnostics((TokenTreeMacroContext)typedContext!);
-        context.AddFileDependencies(
-            ((TokenTreeMacroContext)typedContext!).GetFileDependencies());
-        return result;
     }
 
     private static MacroExpansionResult AddReportedDiagnostics(

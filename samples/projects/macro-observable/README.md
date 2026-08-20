@@ -38,7 +38,7 @@ Files:
 - `app/MacroObservable.rvnproj`: Raven application using `#[Observable]`
 - `app/src/Program.rvn`: `ObservableBase` plus `MyViewModel`
 - `macros/ObservableMacros.rvnproj`: Raven macro plugin project
-- `macros/ObservableMacro.rvn`: directly exported `IAttachedDeclarationMacro` implementation
+- `macros/ObservableMacro.rvn`: directly exported `IMacroDefinition` implementation
 
 Build the macro plugin first:
 

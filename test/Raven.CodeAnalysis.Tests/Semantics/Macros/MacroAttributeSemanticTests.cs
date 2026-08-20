@@ -494,7 +494,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAVM020");
     }
 
-    public sealed class TestAttachedMacro : IAttachedDeclarationMacro
+    public sealed class TestAttachedMacro : IMacroDefinition
     {
         public string Name => "AddEquatable";
 
@@ -502,7 +502,9 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
 
         public MacroTarget Targets => MacroTarget.Type;
 
-        public MacroExpansionResult Expand(AttachedMacroContext context) => MacroExpansionResult.Empty;
+        public MacroExpansionResult Expand(
+            BaseTypeDeclarationSyntax target,
+            AttachedMacroContext context) => MacroExpansionResult.Empty;
     }
 
     private sealed class AttachedSnapshotExecutor : IMacroExecutor
@@ -522,7 +524,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class CaseTrackingAttachedMacro : IAttachedDeclarationMacro
+    public sealed class CaseTrackingAttachedMacro : IMacroDefinition
     {
         public static string? LastTargetCaseName { get; set; }
 
@@ -540,7 +542,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class ConstantReadingAttachedMacro : IAttachedDeclarationMacro
+    public sealed class ConstantReadingAttachedMacro : IMacroDefinition
     {
         public static object? LastCapturedValue { get; set; }
 
@@ -550,11 +552,9 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
 
         public MacroTarget Targets => MacroTarget.Type;
 
-        public bool AcceptsArguments => true;
-
-        public MacroExpansionResult Expand(AttachedMacroContext context)
+        public MacroExpansionResult Expand(string value, AttachedMacroContext context)
         {
-            LastCapturedValue = context.Arguments[0].Constant.Value;
+            LastCapturedValue = value;
             return MacroExpansionResult.Empty;
         }
     }
@@ -571,7 +571,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         public bool Notify { get; set; } = true;
     }
 
-    public sealed class TypedParameterAttachedMacro : IAttachedDeclarationMacro<ObservableMacroParameters>
+    public sealed class TypedParameterAttachedMacro : IMacroDefinition
     {
         public static ObservableMacroParameters? LastCapturedParameters { get; set; }
 
@@ -581,14 +581,17 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
 
         public MacroTarget Targets => MacroTarget.Type;
 
-        public MacroExpansionResult Expand(AttachedMacroContext<ObservableMacroParameters> context)
+        public MacroExpansionResult Expand(
+            string name,
+            bool Notify,
+            AttachedMacroContext context)
         {
-            LastCapturedParameters = context.Parameters;
+            LastCapturedParameters = new ObservableMacroParameters(name) { Notify = Notify };
             return MacroExpansionResult.Empty;
         }
     }
 
-    public sealed class ExpandingAttachedMacro : IAttachedDeclarationMacro
+    public sealed class ExpandingAttachedMacro : IMacroDefinition
     {
         public string Name => "AddEquatable";
 
@@ -614,7 +617,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class DiagnosticAttachedMacro : IAttachedDeclarationMacro
+    public sealed class DiagnosticAttachedMacro : IMacroDefinition
     {
         private static readonly DiagnosticDescriptor s_macroDiagnostic = DiagnosticDescriptor.Create(
             "RAVTEST001",
@@ -639,7 +642,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
             };
     }
 
-    public sealed class ThrowingAttachedMacro : IAttachedDeclarationMacro
+    public sealed class ThrowingAttachedMacro : IMacroDefinition
     {
         public string Name => "AddEquatable";
 
@@ -653,17 +656,17 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
 
     public sealed class ThrowingTypedMacroParameters;
 
-    public sealed class ThrowingTypedAttachedMacro : IAttachedDeclarationMacro<ThrowingTypedMacroParameters>
+    public sealed class ThrowingTypedAttachedMacro : IMacroDefinition
     {
         public string Name => "TypedBoom";
 
         public MacroTarget Targets => MacroTarget.Type;
 
-        public MacroExpansionResult Expand(AttachedMacroContext<ThrowingTypedMacroParameters> context)
+        public MacroExpansionResult Expand(AttachedMacroContext context)
             => throw new InvalidOperationException("typed plugin boom");
     }
 
-    public sealed class CancellingAttachedMacro : IAttachedDeclarationMacro
+    public sealed class CancellingAttachedMacro : IMacroDefinition
     {
         public static CancellationTokenSource? CancellationSource { get; set; }
 
@@ -680,14 +683,14 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
 
     public sealed class CancellingTypedAttachedMacroParameters;
 
-    public sealed class CancellingTypedAttachedMacro : IAttachedDeclarationMacro<CancellingTypedAttachedMacroParameters>
+    public sealed class CancellingTypedAttachedMacro : IMacroDefinition
     {
         public static CancellationTokenSource? CancellationSource { get; set; }
 
         public string Name => "CancelTyped";
         public MacroTarget Targets => MacroTarget.Type;
 
-        public MacroExpansionResult Expand(AttachedMacroContext<CancellingTypedAttachedMacroParameters> context)
+        public MacroExpansionResult Expand(AttachedMacroContext context)
         {
             CancellationSource?.Cancel();
             context.CancellationToken.ThrowIfCancellationRequested();
@@ -700,7 +703,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         public string Name { get; } = name;
     }
 
-    public sealed class InspectMembersMacro : IAttachedDeclarationMacro
+    public sealed class InspectMembersMacro : IMacroDefinition
     {
         public string Name => "InspectMembers";
 
@@ -725,7 +728,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class RenameMemberMacro : IAttachedDeclarationMacro
+    public sealed class RenameMemberMacro : IMacroDefinition
     {
         public string Name => "RenameMember";
 
@@ -761,7 +764,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class TrackingFirstMacro : IAttachedDeclarationMacro
+    public sealed class TrackingFirstMacro : IMacroDefinition
     {
         public string Name => "First";
 
@@ -785,7 +788,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class TrackingSecondMacro : IAttachedDeclarationMacro
+    public sealed class TrackingSecondMacro : IMacroDefinition
     {
         public string Name => "Second";
 
@@ -805,7 +808,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class ValidationAttachedMacro : IAttachedDeclarationMacro<ValidationAttachedMacroParameters>
+    public sealed class ValidationAttachedMacro : IMacroDefinition
     {
         public string Name => "ValidateName";
 
@@ -813,9 +816,9 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
 
         public MacroTarget Targets => MacroTarget.Type;
 
-        public MacroExpansionResult Expand(AttachedMacroContext<ValidationAttachedMacroParameters> context)
+        public MacroExpansionResult Expand(string name, AttachedMacroContext context)
         {
-            if (string.IsNullOrEmpty(context.Parameters.Name))
+            if (string.IsNullOrEmpty(name))
             {
                 return new MacroExpansionResult
                 {
@@ -833,7 +836,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class ArgumentCapturingAttachedMacro : IAttachedDeclarationMacro
+    public sealed class ArgumentCapturingAttachedMacro : IMacroDefinition
     {
         public static ArgumentListSyntax? LastCapturedArguments { get; set; }
         public static ImmutableArray<MacroArgument> LastParsedArguments { get; set; }
@@ -844,9 +847,10 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
 
         public MacroTarget Targets => MacroTarget.Type;
 
-        public bool AcceptsArguments => true;
-
-        public MacroExpansionResult Expand(AttachedMacroContext context)
+        public MacroExpansionResult Expand(
+            string name,
+            bool Notify,
+            AttachedMacroContext context)
         {
             LastCapturedArguments = context.ArgumentList;
             LastParsedArguments = context.Arguments;
@@ -854,7 +858,7 @@ public sealed class MacroAttributeSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class ReplacingAttachedMacro : IAttachedDeclarationMacro
+    public sealed class ReplacingAttachedMacro : IMacroDefinition
     {
         public string Name => "Observable";
 

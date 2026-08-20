@@ -38,7 +38,7 @@ Files:
 - `app/MacroReactive.rvnproj`: Raven application using `#[Observable]` and `subscribe!(...)`
 - `app/src/Program.rvn`: executable sample plus a tiny `Signal<T>` runtime
 - `macros/ReactiveMacros.rvnproj`: Raven macro plugin project
-- `macros/ReactiveMacros.rvn`: related exported `IAttachedDeclarationMacro` and `IInvocableMacro` implementations
+- `macros/ReactiveMacros.rvn`: related exported `IMacroDefinition` and `IMacroDefinition` implementations
 
 Build the macro plugin first:
 

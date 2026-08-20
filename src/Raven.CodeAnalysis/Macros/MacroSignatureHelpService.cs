@@ -130,7 +130,6 @@ internal static class MacroSignatureHelpService
         return new MacroSignatureParameter(
             parameter.Name,
             parameter.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-            MacroParameterKind.Positional,
             parameter.MacroRole,
             binding.Source,
             binding.InvocationArgumentOrdinal!.Value,
@@ -145,7 +144,6 @@ internal static class MacroSignatureHelpService
         => new(
             parameter.Name,
             GetConstructedTypeDisplay(parameter.TypeDisplayName, executor, nameSyntax),
-            parameter.Kind,
             parameter.Role,
             GetSource(parameter.Role),
             parameter.Ordinal,

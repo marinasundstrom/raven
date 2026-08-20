@@ -68,6 +68,9 @@ internal static class MacroLowering
                     Syntax: syntax,
                     Parameter: parameter,
                     Role: role,
+                    ContextKind: parameter is null
+                        ? MacroContextKind.None
+                        : MacroParameterRoleFacts.GetContextKind(parameter.Type),
                     Source: role switch
                     {
                         MacroParameterRole.SyntaxInput => MacroParameterSource.SyntaxInput,
@@ -77,6 +80,11 @@ internal static class MacroLowering
                     });
             })
             .ToArray();
+        var isAttached = parameters.Any(static parameter => parameter.ContextKind == MacroContextKind.Attached) ||
+            methodSymbol?.ReturnType.Name == nameof(MacroExpansionResult);
+        var hasTokenTreeBody = parameters.Any(static parameter =>
+            parameter.Source == MacroParameterSource.TokenBody ||
+            parameter.ContextKind == MacroContextKind.TokenTree);
         var invocationOrdinal = 0;
         var parameterMetadata = parameters
             .Select((parameter, declarationOrdinal) => (
@@ -136,10 +144,11 @@ internal static class MacroLowering
             builder.AppendLine($"    val Namespace: string => \"{EscapeString(namespaceName)}\"");
         if (!HasDeclaredMember(declaration, nameof(IMacroDefinition.Name)))
             builder.AppendLine($"    val Name: string => \"{EscapeString(declaredName)}\"");
-        builder.AppendLine("    val ApplicationKind: Raven.CodeAnalysis.Macros.MacroApplicationKind => Raven.CodeAnalysis.Macros.MacroApplicationKind.Freestanding");
+        builder.AppendLine(
+            $"    val ApplicationKind: Raven.CodeAnalysis.Macros.MacroApplicationKind => Raven.CodeAnalysis.Macros.MacroApplicationKind.{(isAttached ? "Attached" : "Freestanding")}");
         if (parameterMetadata.Any(static parameter => parameter.InvocationOrdinal >= 0))
             builder.AppendLine("    val AcceptsArguments: bool => true");
-        if (parameterMetadata.Any(static parameter => parameter.Source == MacroParameterSource.TokenBody))
+        if (hasTokenTreeBody)
             builder.AppendLine("    val HasTokenBody: bool => true");
 
         builder.AppendLine($"    func Expand({executionName}: Raven.CodeAnalysis.Macros.MacroExecutionContext) -> Raven.CodeAnalysis.Macros.MacroExecutionResult {{");

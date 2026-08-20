@@ -156,13 +156,10 @@ class Logger : ILogger {
         const string source = """
 import Raven.CodeAnalysis.Macros.*
 
-class Parameters {
-}
-
-class TypedMacro : ITokenTreeMacro<Parameters> {
+class TypedMacro : IMacroDefinition {
     val Name: string => "typed"
 
-    func Expand(context: TokenTreeMacroContext<Parameters>) -> FreestandingMacroExpansionResult {
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
         FreestandingMacroExpansionResult.Empty
     }
 }
@@ -171,7 +168,7 @@ class TypedMacro : ITokenTreeMacro<Parameters> {
         var verifier = CreateVerifier(source);
         verifier.Test.State.AdditionalReferences =
         [
-            MetadataReference.CreateFromFile(typeof(ITokenTreeMacro<>).Assembly.Location)
+            MetadataReference.CreateFromFile(typeof(IMacroDefinition).Assembly.Location)
         ];
         verifier.Verify();
     }

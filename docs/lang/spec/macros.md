@@ -106,18 +106,16 @@ Non-public compact declarations remain usable inside their own project and are
 not discovered from a referenced bare-marker plugin assembly.
 
 `MacroKind` is compiler-owned classification metadata. Concrete macro classes
-do not implement a `Kind` property. `MacroFacts.GetKind` derives it from the
-single category-specific interface implemented by the definition:
+do not implement a `Kind` property. The compiler classifies the canonical
+`Expand` method from its injected parameters and result type. An attached
+target parameter implies `Attached`; otherwise the definition is
+`Freestanding`. Token-tree input is a freestanding input shape, not a distinct
+macro category.
 
-* `IAttachedDeclarationMacro` implies `AttachedDeclaration`
-* `IInvocableMacro` implies `Invocable`
-* `ITokenTreeMacro` implies `Invocable`
-
-Target applicability belongs to `IAttachedDeclarationMacro`. Attached
-definitions expose `Targets`; freestanding and token-tree definitions do not
-declare a redundant `MacroTarget.None` property. Code that handles the common
-`IMacroDefinition` surface can use `MacroFacts.GetTargets`, which returns
-`MacroTarget.None` for non-attached definitions.
+Target applicability is derived from the attached target parameter's syntax
+type. Code that handles the common `IMacroDefinition` surface can use
+`MacroFacts.GetTargets`, which returns `MacroTarget.None` for freestanding
+definitions.
 
 Freestanding applicability is expressed separately through
 `IMacroDefinition.InvocationTargets`. Class-authored providers default to
@@ -411,9 +409,10 @@ Attached declaration results use the corresponding
 members and peer declarations. `MacroExpansionResult.Empty` represents no
 declaration change.
 
-Token-tree expression macros implement `ITokenTreeMacro`. They may
-accept a typed argument list before the body by implementing
-`ITokenTreeMacro<TParameters>`:
+Token-tree expression macros implement `IMacroDefinition` and declare a
+canonical `Expand` method with an `IMacroTokenStream` or
+`TokenTreeMacroContext` parameter. Ordinary value parameters on that method
+form the typed argument list before the body:
 
 ```raven
 let result = query!(Dialect: "sql") {
@@ -836,28 +835,28 @@ Each parsed `MacroArgument` exposes a richer constant representation through `Co
 
 For argument and usage validation inside the macro itself, plugins may also report macro-owned expansion diagnostics through `MacroExpansionResult.MacroDiagnostics` / `FreestandingMacroExpansionResult.MacroDiagnostics`. The helper methods `CreateDiagnostic(...)` and `CreateArgumentDiagnostic(...)` on both macro contexts create these diagnostics at either the macro site or a specific argument site.
 
-This raw-argument model remains available for unrestricted macro implementations. Typed macro parameter objects allow macro signatures to be validated and later presented like normal attributes in completion and signature help. The public contract includes `IMacroDefinition<TParameters>`, `IAttachedDeclarationMacro<TParameters>`, `IInvocableMacro<TParameters>`, and `ITokenTreeMacro<TParameters>` for that bound-parameter model.
+This raw-argument model remains available through injected contexts. The
+canonical `Expand` method parameters define the invocation signature used for
+validation, completion, and signature help.
 
 Example direction:
 
 ```raven
-class ObservableMacroParameters {
-    var Notify: bool = true
-    var Name: string?
-}
-
-class ObservableMacro :
-    IAttachedDeclarationMacro<ObservableMacroParameters> {
-    ...
+class ObservableMacro: IMacroDefinition {
+    func Expand(
+        name: string?,
+        notify: bool = true,
+        property: PropertyDeclarationSyntax,
+        context: AttachedMacroContext
+    ) -> MacroExpansionResult {
+        ...
+    }
 }
 ```
 
-The current typed-parameter binding slice supports:
-
-* one public constructor for positional arguments
-* public writable properties for named arguments
-* constant conversion into common CLR primitive/reference types
-* typed arguments combined with an unrestricted token-tree body
+The current method-parameter binding supports positional and named arguments,
+optional defaults, constant conversion into common CLR primitive/reference
+types, and typed arguments combined with an unrestricted token-tree body.
 
 Typed value parameters are limited to values representable by the compiler's
 constant model and conversions explicitly supported by the macro binder. The
@@ -867,19 +866,16 @@ boundary are rejected with a diagnostic. Syntax-node and token-stream inputs
 remain explicit, type-directed projections so the macro contract makes access
 to authored code visible.
 
-`MacroFacts.GetParametersType(...)` and `MacroFacts.GetParameters(...)` expose
-the compiler-normalized parameter schema without requiring tooling to inspect
-the macro implementation itself. Each `MacroParameterDescriptor` identifies
-the CLR type, positional or named role, ordinal, required state, and optional
-constructor default. `SemanticModel.GetMacroSignatureHelp(...)` resolves that
+`MacroFacts.GetParameters(...)` exposes the compiler-normalized parameter
+schema. Each `MacroParameterDescriptor` identifies the CLR type, ordinal,
+required state, and optional method default.
+`SemanticModel.GetMacroSignatureHelp(...)` resolves that
 schema at an attached, argument-style, or token-tree invocation and identifies
 the active parameter for compiler hosts and editor tooling.
 
-Completion uses that schema inside typed attached, argument-style, and
-token-tree macro argument lists. It offers unused writable properties with
-their Raven-facing type and inserts the named-argument form, such as
-`Optimize: `. Constructor parameters remain positional and participate in the
-same signature help.
+Completion uses that schema inside attached, argument-style, and token-tree
+macro argument lists. It offers unused parameters with their Raven-facing type
+and inserts the named-argument form, such as `Optimize: `.
 
 String-valued parameters may later preserve
 `System.Diagnostics.CodeAnalysis.StringSyntaxAttribute` as optional tooling
@@ -976,7 +972,7 @@ import Raven.CodeAnalysis.Macros.*
 
 [assembly: RavenCompilerPlugin(typeof(QueryMacro))]
 
-class QueryMacro: ITokenTreeMacro {
+class QueryMacro: IMacroDefinition {
     // ...
 }
 ```
@@ -1036,7 +1032,7 @@ macro declarations:
 ```raven
 import Raven.CodeAnalysis.Macros.*
 
-class QueryMacro: ITokenTreeMacro {
+class QueryMacro: IMacroDefinition {
     // ...
 }
 ```
@@ -1081,7 +1077,7 @@ A mixed source file uses `[LocalMacro]` instead:
 import Raven.CodeAnalysis.Macros.*
 
 [LocalMacro]
-class AnswerMacro: ITokenTreeMacro {
+class AnswerMacro: IMacroDefinition {
     // ...
 }
 

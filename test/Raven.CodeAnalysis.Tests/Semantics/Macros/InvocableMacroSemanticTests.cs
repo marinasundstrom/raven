@@ -181,6 +181,27 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
 
         public MacroApplicationKind ApplicationKind => MacroApplicationKind.Freestanding;
 
+        public ImmutableArray<MacroExecutorParameter> Parameters =>
+            MacroExecutorMetadata.CreateParameters(
+                new MacroExecutorParameter(
+                    "left",
+                    typeof(int),
+                    "int",
+                    MacroParameterSource.Value,
+                    0,
+                    0,
+                    true,
+                    string.Empty),
+                new MacroExecutorParameter(
+                    "right",
+                    typeof(int),
+                    "int",
+                    MacroParameterSource.Value,
+                    1,
+                    1,
+                    true,
+                    string.Empty));
+
         public ImmutableArray<ITypeSymbol> TypeArguments { get; private set; } = [];
 
         public ImmutableArray<MacroExecutionArgument> Arguments { get; private set; } = [];
@@ -730,7 +751,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
             import Raven.CodeAnalysis.Macros.*
             import Raven.Macros.*
 
-            class AnswerMacro : ITokenTreeMacro {
+            class AnswerMacro : IMacroDefinition {
                 val Name: string => "answer"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -859,7 +880,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
         var macroTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Macros.*
 
-            class BrokenMacro : ITokenTreeMacro {
+            class BrokenMacro : IMacroDefinition {
                 val Name: string => "broken"
                 val Kind: MacroKind => MacroKind.Invocable
                 val Missing: MissingMacro
@@ -1124,7 +1145,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
                 static val Answer: int => 42
             }
 
-            class AnswerMacro : ITokenTreeMacro {
+            class AnswerMacro : IMacroDefinition {
                 val Name: string => "answer"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -1165,7 +1186,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
             """
             import Raven.CodeAnalysis.Macros.*
 
-            class AnswerMacro : ITokenTreeMacro {
+            class AnswerMacro : IMacroDefinition {
                 val Name: string => "answer"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -1319,7 +1340,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
             import Raven.CodeAnalysis.Macros.*
             import Raven.Macros.*
 
-            class LocalAnswerMacro : ITokenTreeMacro {
+            class LocalAnswerMacro : IMacroDefinition {
                 val Name: string => "localAnswer"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -1762,7 +1783,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
         Assert.Contains("does not accept arguments", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
-    public sealed class RavenBodyMacro : ITokenTreeMacro
+    public sealed class RavenBodyMacro : IMacroDefinition
     {
         public string Name => "raven";
 
@@ -1774,7 +1795,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
     }
 
     [MacroAlias("answerAlias")]
-    public sealed class NamespacedAnswerMacro : ITokenTreeMacro
+    public sealed class NamespacedAnswerMacro : IMacroDefinition
     {
         public string Namespace => "Example.Macros";
 
@@ -1784,7 +1805,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
             => FreestandingMacroExpansionResult.FromExpression(ParseExpression("42"));
     }
 
-    public sealed class CapturingTokenTreeMacro : ITokenTreeMacro<RepeatMacroParameters>
+    public sealed class CapturingTokenTreeMacro : IMacroDefinition
     {
         public static RepeatMacroParameters? LastParameters { get; set; }
 
@@ -1792,15 +1813,18 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
 
         public string Name => "typedBody";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext<RepeatMacroParameters> context)
+        public FreestandingMacroExpansionResult Expand(
+            int Count,
+            string? Label,
+            TokenTreeMacroContext context)
         {
-            LastParameters = context.Parameters;
+            LastParameters = new RepeatMacroParameters(Count) { Label = Label };
             LastBody = context.GetBodyText();
             return FreestandingMacroExpansionResult.FromExpression(ParseExpression("42"));
         }
     }
 
-    public sealed class SelectBodyMacro : ITokenTreeMacro
+    public sealed class SelectBodyMacro : IMacroDefinition
     {
         public string Name => "select";
 
@@ -1818,7 +1842,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class StatementBodyMacro : ITokenTreeMacro
+    public sealed class StatementBodyMacro : IMacroDefinition
     {
         public string Name => "statement";
 
@@ -1832,7 +1856,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class StatementSelectBodyMacro : ITokenTreeMacro
+    public sealed class StatementSelectBodyMacro : IMacroDefinition
     {
         public string Name => "statementSelect";
 
@@ -1851,7 +1875,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class StatementResultBodyMacro : ITokenTreeMacro
+    public sealed class StatementResultBodyMacro : IMacroDefinition
     {
         public string Name => "statementResult";
 
@@ -1866,7 +1890,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class RejectBodyMacro : ITokenTreeMacro
+    public sealed class RejectBodyMacro : IMacroDefinition
     {
         public string Name => "reject";
 
@@ -1888,7 +1912,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class KeywordStreamMacro : ITokenTreeMacro, IMacroKeywordProvider
+    public sealed class KeywordStreamMacro : IMacroDefinition, IMacroKeywordProvider
     {
         private const int SelectKeywordRawKind = 80_001;
 
@@ -1920,7 +1944,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class CustomStreamMacro : ITokenTreeMacro, IMacroTokenStreamProvider
+    public sealed class CustomStreamMacro : IMacroDefinition, IMacroTokenStreamProvider
     {
         private const int CustomValueRawKind = 80_002;
 
@@ -1979,7 +2003,7 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class AnswerMacro : IInvocableMacro
+    public sealed class AnswerMacro : IMacroDefinition
     {
         public string Name => "answer";
         public MacroKind Kind => MacroKind.Invocable;
@@ -1991,19 +2015,22 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
             };
     }
 
-    public sealed class CapturingInvocableMacro : IInvocableMacro<RepeatMacroParameters>
+    public sealed class CapturingInvocableMacro : IMacroDefinition
     {
         public static RepeatMacroParameters? LastParameters { get; set; }
 
         public string Name => "repeat";
         public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<RepeatMacroParameters> context)
+        public FreestandingMacroExpansionResult Expand(
+            int Count,
+            string? Label,
+            FreestandingMacroContext context)
         {
-            LastParameters = context.Parameters;
+            LastParameters = new RepeatMacroParameters(Count) { Label = Label };
             return new FreestandingMacroExpansionResult
             {
-                Expression = ParseExpression(context.Parameters.Count.ToString())
+                Expression = ParseExpression(Count.ToString())
             };
         }
     }
@@ -2017,16 +2044,15 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
 
     public sealed class ThrowingTypedInvocableMacroParameters;
 
-    public sealed class ThrowingTypedInvocableMacro : IInvocableMacro<ThrowingTypedInvocableMacroParameters>
+    public sealed class ThrowingTypedInvocableMacro : IMacroDefinition
     {
         public string Name => "typedBoom";
 
-        public FreestandingMacroExpansionResult Expand(
-            FreestandingMacroContext<ThrowingTypedInvocableMacroParameters> context)
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
             => throw new InvalidOperationException("typed plugin boom");
     }
 
-    public sealed class CancellingInvocableMacro : IInvocableMacro
+    public sealed class CancellingInvocableMacro : IMacroDefinition
     {
         public static CancellationTokenSource? CancellationSource { get; set; }
 
@@ -2042,14 +2068,13 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
 
     public sealed class CancellingTypedInvocableMacroParameters;
 
-    public sealed class CancellingTypedInvocableMacro : IInvocableMacro<CancellingTypedInvocableMacroParameters>
+    public sealed class CancellingTypedInvocableMacro : IMacroDefinition
     {
         public static CancellationTokenSource? CancellationSource { get; set; }
 
         public string Name => "cancelTyped";
 
-        public FreestandingMacroExpansionResult Expand(
-            FreestandingMacroContext<CancellingTypedInvocableMacroParameters> context)
+        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
         {
             CancellationSource?.Cancel();
             context.CancellationToken.ThrowIfCancellationRequested();
@@ -2062,14 +2087,14 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
         public int Count { get; } = count;
     }
 
-    public sealed class ValidatingInvocableMacro : IInvocableMacro<ValidatingInvocableMacroParameters>
+    public sealed class ValidatingInvocableMacro : IMacroDefinition
     {
         public string Name => "repeat";
         public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<ValidatingInvocableMacroParameters> context)
+        public FreestandingMacroExpansionResult Expand(int count, FreestandingMacroContext context)
         {
-            if (context.Parameters.Count <= 0)
+            if (count <= 0)
             {
                 return new FreestandingMacroExpansionResult
                 {
@@ -2090,16 +2115,15 @@ public sealed class InvocableMacroSemanticTests : CompilationTestBase
         }
     }
 
-    public sealed class SubscribeMacro : IInvocableMacro
+    public sealed class SubscribeMacro : IMacroDefinition
     {
         public string Name => "subscribe";
         public MacroKind Kind => MacroKind.Invocable;
-        public bool AcceptsArguments => true;
-
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        public FreestandingMacroExpansionResult Expand(
+            MemberAccessExpressionSyntax propertyAccess,
+            ExpressionSyntax callback,
+            FreestandingMacroContext context)
         {
-            var propertyAccess = Assert.IsType<MemberAccessExpressionSyntax>(context.Arguments[0].Expression);
-            var callback = context.Arguments[1].Expression;
             var propertyName = Assert.IsType<IdentifierNameSyntax>(propertyAccess.Name);
             var signalName = propertyName.Identifier.ValueText + "Changed";
 

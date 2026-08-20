@@ -1256,7 +1256,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             File.WriteAllText(Path.Combine(sourceDirectory, "macros.rvn"), """
                 import Raven.CodeAnalysis.Macros.*
 
-                class LocalAnswerMacro : ITokenTreeMacro {
+                class LocalAnswerMacro : IMacroDefinition {
                     val Name: string => "localAnswer"
 
                     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {

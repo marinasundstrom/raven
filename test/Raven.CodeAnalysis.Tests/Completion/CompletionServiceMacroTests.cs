@@ -261,7 +261,7 @@ class MacroHost {
             import Raven.CodeAnalysis.Macros.*
             import Raven.Macros.*
 
-            class LocalAnswerMacro : ITokenTreeMacro {
+            class LocalAnswerMacro : IMacroDefinition {
                 val Name: string => "localAnswer"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -466,7 +466,7 @@ class MacroHost {
         var subscribe = Assert.Single(items.Where(static item => item.DisplayText == "subscribe"));
         Assert.Equal("subscribe", subscribe.InsertionText);
         Assert.Null(subscribe.CursorOffset);
-        Assert.Contains("invocable macro", subscribe.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("freestanding procedural macro", subscribe.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("accepts arguments", subscribe.Description, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -672,7 +672,7 @@ class MacroHost {
         Assert.Equal("macro argument: string", mode.Description);
     }
 
-    private sealed class ObservableMacro : IAttachedDeclarationMacro
+    private sealed class ObservableMacro : IMacroDefinition
     {
         public string Namespace => string.Empty;
 
@@ -684,7 +684,7 @@ class MacroHost {
             => MacroExpansionResult.Empty;
     }
 
-    private sealed class FragmentMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class FragmentMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Namespace => string.Empty;
 
@@ -702,7 +702,7 @@ class MacroHost {
             ];
     }
 
-    private sealed class EmptyFragmentMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class EmptyFragmentMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Namespace => string.Empty;
 
@@ -721,7 +721,7 @@ class MacroHost {
     }
 
     private sealed class CategorizedFragmentMacro(MacroFragmentKind kind) :
-        ITokenTreeMacro,
+        IMacroDefinition,
         IMacroFragmentProvider
     {
         public string Namespace => string.Empty;
@@ -740,7 +740,7 @@ class MacroHost {
             ];
     }
 
-    private sealed class SubscribeMacro : IInvocableMacro
+    private sealed class SubscribeMacro : IMacroDefinition
     {
         public string Namespace => string.Empty;
 
@@ -752,7 +752,7 @@ class MacroHost {
             => FreestandingMacroExpansionResult.Empty;
     }
 
-    private sealed class DescriptorSnapshotMacro : IInvocableMacro
+    private sealed class DescriptorSnapshotMacro : IMacroDefinition
     {
         public string Namespace => string.Empty;
 
@@ -773,7 +773,7 @@ class MacroHost {
             => FreestandingMacroExpansionResult.Empty;
     }
 
-    private sealed class QueryMacro : ITokenTreeMacro
+    private sealed class QueryMacro : IMacroDefinition
     {
         public string Namespace => string.Empty;
 
@@ -790,13 +790,16 @@ class MacroHost {
         public bool Optimize { get; set; }
     }
 
-    private sealed class TypedQueryMacro : ITokenTreeMacro<TypedQueryParameters>
+    private sealed class TypedQueryMacro : IMacroDefinition
     {
         public string Namespace => string.Empty;
 
         public string Name => "typedQuery";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
+        public FreestandingMacroExpansionResult Expand(
+            string Dialect,
+            bool Optimize,
+            TokenTreeMacroContext context)
             => FreestandingMacroExpansionResult.Empty;
     }
 
@@ -805,7 +808,7 @@ class MacroHost {
         public bool Notify { get; set; }
     }
 
-    private sealed class TypedObservableMacro : IAttachedDeclarationMacro<TypedObservableParameters>
+    private sealed class TypedObservableMacro : IMacroDefinition
     {
         public string Namespace => string.Empty;
 
@@ -813,7 +816,7 @@ class MacroHost {
 
         public MacroTarget Targets => MacroTarget.Property;
 
-        public MacroExpansionResult Expand(AttachedMacroContext<TypedObservableParameters> context)
+        public MacroExpansionResult Expand(bool Notify, AttachedMacroContext context)
             => MacroExpansionResult.Empty;
     }
 
@@ -822,13 +825,13 @@ class MacroHost {
         public string Mode { get; set; } = string.Empty;
     }
 
-    private sealed class TypedCallMacro : IInvocableMacro<TypedCallParameters>
+    private sealed class TypedCallMacro : IMacroDefinition
     {
         public string Namespace => string.Empty;
 
         public string Name => "typedCall";
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<TypedCallParameters> context)
+        public FreestandingMacroExpansionResult Expand(string Mode, FreestandingMacroContext context)
             => FreestandingMacroExpansionResult.Empty;
     }
 }

@@ -238,11 +238,11 @@ Those axes cover every MVP macro kind without a separate `kind` annotation:
 
 | Declaration shape | Lowered contract |
 | --- | --- |
-| `macro Foo(argument: ExpressionSyntax) -> int` containing `expand` | `IInvocableMacro` with `FreestandingMacroContext` |
-| `macro Query(body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeMacro` with `TokenTreeMacroContext` |
-| `macro Query(dialect: string, body: IMacroTokenStream) -> QueryResult` containing `expand` | `ITokenTreeMacro<TParameters>` with `TokenTreeMacroContext<TParameters>` |
-| `macro AddEquatable(on target: BaseTypeDeclarationSyntax)` containing `introduce` | `IAttachedDeclarationMacro` with `AttachedMacroContext` |
-| `macro Observable(on property: PropertyDeclarationSyntax)` containing `replace` | `IAttachedDeclarationMacro` returning a replacement declaration |
+| `macro Foo(argument: ExpressionSyntax) -> int` containing `expand` | `IMacroDefinition.Expand(argument: ExpressionSyntax, context: FreestandingMacroContext)` |
+| `macro Query(body: IMacroTokenStream) -> QueryResult` containing `expand` | `IMacroDefinition.Expand(body: IMacroTokenStream, context: TokenTreeMacroContext)` |
+| `macro Query(dialect: string, body: IMacroTokenStream) -> QueryResult` containing `expand` | The same method shape with value and token-tree parameters |
+| `macro AddEquatable(on target: BaseTypeDeclarationSyntax)` containing `introduce` | `IMacroDefinition.Expand(target: BaseTypeDeclarationSyntax, context: AttachedMacroContext)` |
+| `macro Observable(on property: PropertyDeclarationSyntax)` containing `replace` | The attached method shape returning a replacement result |
 
 Optional capability interfaces require an intentional source-syntax
 projection. `IMacroFragmentProvider` is projected through reached `fragment`
@@ -389,12 +389,10 @@ infrastructure may use asynchronous APIs internally, but that is an
 implementation concern and must not change the authored macro signature,
 expansion ordering, or call-site semantics.
 
-Likewise, target applicability belongs only to the attached-macro contract.
-The source declaration derives it from one typed `on` parameter;
-`IAttachedDeclarationMacro.Targets` is the legacy class-provider projection
-used by the current adapter. Freestanding and token-tree macro classes do not
-implement a meaningless `Targets = None` member. Common tooling can query the
-normalized value through `MacroFacts.GetTargets`.
+Likewise, target applicability belongs only to attached macros. The compiler
+derives it from one typed attached-target parameter. Freestanding and
+token-tree method shapes do not declare meaningless target metadata. Common
+tooling can query the normalized value through `MacroFacts.GetTargets`.
 
 This syntax must lower to the shared macro infrastructure. The current compiler
 synthesizes parameter-object and category-specific adapter plumbing. The target
@@ -938,7 +936,7 @@ For the dedicated-file MVP, the compiler recognizes direct macro declarations:
 ```raven
 import Raven.CodeAnalysis.Macros.*
 
-class AnswerMacro: ITokenTreeMacro {
+class AnswerMacro: IMacroDefinition {
     // ...
 }
 ```
@@ -963,7 +961,7 @@ compile-time declarations:
 import Raven.CodeAnalysis.Macros.*
 
 [LocalMacro]
-class AnswerMacro: ITokenTreeMacro {
+class AnswerMacro: IMacroDefinition {
     // ...
 }
 

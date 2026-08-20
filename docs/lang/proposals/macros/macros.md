@@ -142,7 +142,7 @@ class ObservableMacroParameters {
 }
 
 class ObservableMacro :
-    IAttachedDeclarationMacro<ObservableMacroParameters> {
+    IMacroDefinition {
     ...
 }
 ```

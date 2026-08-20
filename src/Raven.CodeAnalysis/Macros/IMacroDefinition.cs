@@ -53,11 +53,3 @@ public interface IMacroDefinition
 
     bool AcceptsArguments => false;
 }
-
-public interface IMacroDefinition<TParameters> : IMacroDefinition
-    where TParameters : class
-{
-    Type ParametersType => typeof(TParameters);
-
-    bool IMacroDefinition.AcceptsArguments => true;
-}

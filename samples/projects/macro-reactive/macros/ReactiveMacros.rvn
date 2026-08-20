@@ -5,7 +5,7 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 [assembly: RavenCompilerPlugin(typeof(SubscribeMacro))]
 
-class ObservableMacro : IAttachedDeclarationMacro {
+class ObservableMacro : IMacroDefinition {
     val Name: string => "Observable"
     val Targets: MacroTarget => MacroTarget.Property
 
@@ -180,7 +180,7 @@ class ObservableMacro : IAttachedDeclarationMacro {
     }
 }
 
-class SubscribeMacro : IInvocableMacro {
+class SubscribeMacro : IMacroDefinition {
     val Name: string => "subscribe"
     val AcceptsArguments: bool => true
 

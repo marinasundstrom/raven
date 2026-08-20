@@ -3,32 +3,13 @@ using System;
 namespace Raven.CodeAnalysis.Macros;
 
 /// <summary>
-/// Identifies how a typed macro parameter appears at its invocation site.
-/// </summary>
-public enum MacroParameterKind
-{
-    /// <summary>
-    /// The parameter is supplied by position and originates from the parameter
-    /// object's public constructor.
-    /// </summary>
-    Positional,
-
-    /// <summary>
-    /// The parameter is supplied by name and originates from a public writable
-    /// property on the parameter object.
-    /// </summary>
-    Named
-}
-
-/// <summary>
-/// Describes one compiler-normalized input in a typed macro parameter object.
+/// Describes one compiler-normalized invocation-facing macro parameter.
 /// </summary>
 public sealed class MacroParameterDescriptor
 {
     internal MacroParameterDescriptor(
         string name,
         Type parameterType,
-        MacroParameterKind kind,
         MacroParameterRole role,
         int ordinal,
         bool isRequired,
@@ -38,7 +19,6 @@ public sealed class MacroParameterDescriptor
     {
         Name = name;
         ParameterType = parameterType;
-        Kind = kind;
         Role = role;
         Ordinal = ordinal;
         IsRequired = isRequired;
@@ -63,18 +43,12 @@ public sealed class MacroParameterDescriptor
     public string TypeDisplayName { get; }
 
     /// <summary>
-    /// Gets whether the parameter is positional or named.
-    /// </summary>
-    public MacroParameterKind Kind { get; }
-
-    /// <summary>
     /// Gets how the macro invocation supplies the parameter.
     /// </summary>
     public MacroParameterRole Role { get; }
 
     /// <summary>
-    /// Gets the zero-based constructor position, or <c>-1</c> for a named
-    /// property parameter.
+    /// Gets the zero-based invocation argument position.
     /// </summary>
     public int Ordinal { get; }
 
@@ -84,7 +58,7 @@ public sealed class MacroParameterDescriptor
     public bool IsRequired { get; }
 
     /// <summary>
-    /// Gets the optional constructor default value when one is declared.
+    /// Gets the optional method parameter default value when one is declared.
     /// </summary>
     public object? DefaultValue { get; }
 

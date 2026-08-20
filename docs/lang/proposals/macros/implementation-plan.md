@@ -436,7 +436,7 @@ This applies the existing parameter-object model where it matters without
 constraining DSL content:
 
 * [x] parse a parenthesized argument list followed by a token-tree body
-* [x] add `ITokenTreeMacro<TParameters>` and
+* [x] prototype typed token-tree parameters and
   `TokenTreeMacroContext<TParameters>`
 * [x] expose raw `ArgumentList` and parsed `Arguments` on token-tree contexts
 * [x] bind positional and named constant arguments through the shared
@@ -544,7 +544,7 @@ Current implementation work:
 
 * [x] add raw token-tree body syntax to `InvocableMacroExpressionSyntax`
 * [x] add a compiler-owned raw delimited-body scanner
-* [x] add `ITokenTreeMacro`
+* [x] add token-tree macro execution
 * [x] add `TokenTreeMacroContext` with raw text, body span, Raven-expression
   parsing, and body-relative diagnostics
 * [x] integrate token-tree macro discovery, validation, and expansion

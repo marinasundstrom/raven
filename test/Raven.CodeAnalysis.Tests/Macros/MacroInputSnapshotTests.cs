@@ -70,7 +70,7 @@ public sealed class MacroInputSnapshotTests
     }
 
     private sealed class SnapshotMacro :
-        ITokenTreeMacro,
+        IMacroDefinition,
         IMacroTokenClassifier,
         IMacroFragmentProvider
     {
@@ -93,7 +93,7 @@ public sealed class MacroInputSnapshotTests
             ];
     }
 
-    private sealed class RegionLookupMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class RegionLookupMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Name => "regions";
 

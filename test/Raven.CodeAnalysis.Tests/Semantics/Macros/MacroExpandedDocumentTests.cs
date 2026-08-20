@@ -414,7 +414,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         return index;
     }
 
-    private sealed class ObservableMacro : IAttachedDeclarationMacro
+    private sealed class ObservableMacro : IMacroDefinition
     {
         public string Name => "Observable";
 
@@ -454,16 +454,14 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         }
     }
 
-    private sealed class WrapMacro : IInvocableMacro
+    private sealed class WrapMacro : IMacroDefinition
     {
         public string Name => "wrap";
 
-        public bool AcceptsArguments => true;
-
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        public FreestandingMacroExpansionResult Expand(
+            ExpressionSyntax callback,
+            FreestandingMacroContext context)
         {
-            var callback = context.Arguments.Single().Expression;
-
             return new FreestandingMacroExpansionResult
             {
                 Expression = SyntaxFactory.InvocationExpression(
@@ -477,7 +475,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         }
     }
 
-    private sealed class GenerateMembersMacro : ITokenTreeMacro
+    private sealed class GenerateMembersMacro : IMacroDefinition
     {
         public string Name => "GenerateMembers";
 
@@ -490,7 +488,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                 """));
     }
 
-    private sealed class GenerateNamespaceMembersMacro : ITokenTreeMacro
+    private sealed class GenerateNamespaceMembersMacro : IMacroDefinition
     {
         public string Name => "GenerateNamespaceMembers";
 
@@ -501,7 +499,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                 """));
     }
 
-    private sealed class RemoveMemberMacro : ITokenTreeMacro
+    private sealed class RemoveMemberMacro : IMacroDefinition
     {
         public string Name => "RemoveMember";
 
@@ -510,7 +508,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                 ImmutableArray<MemberDeclarationSyntax>.Empty);
     }
 
-    private sealed class GenerateSingleMemberMacro : ITokenTreeMacro
+    private sealed class GenerateSingleMemberMacro : IMacroDefinition
     {
         public string Name => "GenerateSingleMember";
 
@@ -522,7 +520,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                 """).Single());
     }
 
-    private sealed class GenerateExpressionMacro : ITokenTreeMacro
+    private sealed class GenerateExpressionMacro : IMacroDefinition
     {
         public string Name => "GenerateExpression";
 
@@ -533,7 +531,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                     SyntaxFactory.Literal(1)));
     }
 
-    private sealed class FirstMacro : IAttachedDeclarationMacro
+    private sealed class FirstMacro : IMacroDefinition
     {
         public string Name => "First";
 
@@ -560,7 +558,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         }
     }
 
-    private sealed class SecondMacro : IAttachedDeclarationMacro
+    private sealed class SecondMacro : IMacroDefinition
     {
         public string Name => "Second";
 
@@ -587,7 +585,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         }
     }
 
-    private sealed class ComponentBoundaryMacro : IAttachedDeclarationMacro
+    private sealed class ComponentBoundaryMacro : IMacroDefinition
     {
         public string Name => "ComponentBoundary";
 

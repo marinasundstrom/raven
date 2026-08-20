@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -10,26 +10,6 @@ namespace Raven.CodeAnalysis.Macros;
 
 internal static class MacroParameterBinder
 {
-    private static readonly DiagnosticDescriptor s_invalidParameterObjectType = DiagnosticDescriptor.Create(
-        "RAVM030",
-        "Invalid macro parameter object",
-        "",
-        "",
-        "Macro '{0}' parameter type '{1}' is not supported. Use a reference type with a single public constructor and writable properties.",
-        "compiler",
-        DiagnosticSeverity.Error,
-        true);
-
-    private static readonly DiagnosticDescriptor s_noSuitableConstructor = DiagnosticDescriptor.Create(
-        "RAVM031",
-        "Invalid macro constructor shape",
-        "",
-        "",
-        "Macro '{0}' parameter type '{1}' must declare at most one public instance constructor.",
-        "compiler",
-        DiagnosticSeverity.Error,
-        true);
-
     private static readonly DiagnosticDescriptor s_unknownNamedArgument = DiagnosticDescriptor.Create(
         "RAVM032",
         "Unknown macro argument",
@@ -80,181 +60,38 @@ internal static class MacroParameterBinder
         DiagnosticSeverity.Error,
         true);
 
-    public static bool TryBind(
+    public static bool ValidateArguments(
         string macroName,
-        Type parametersType,
-        AttachedMacroContext context,
-        DiagnosticBag diagnostics,
-        out object? parameters)
-        => TryBindCore(
-            macroName,
-            parametersType,
-            context.Syntax.Name.GetLocation(),
-            context.Arguments,
-            diagnostics,
-            out parameters);
-
-    public static bool TryBind(
-        string macroName,
-        Type parametersType,
-        FreestandingMacroContext context,
-        DiagnosticBag diagnostics,
-        out object? parameters)
-        => TryBindCore(
-            macroName,
-            parametersType,
-            context.Name.GetLocation(),
-            context.Arguments,
-            diagnostics,
-            out parameters);
-
-    public static bool TryBind(
-        string macroName,
-        Type parametersType,
-        TokenTreeMacroContext context,
-        DiagnosticBag diagnostics,
-        out object? parameters)
-        => TryBindCore(
-            macroName,
-            parametersType,
-            context.Name.GetLocation(),
-            context.Arguments,
-            diagnostics,
-            out parameters);
-
-    private static bool TryBindCore(
-        string macroName,
-        Type parametersType,
         Location macroNameLocation,
+        ImmutableArray<MacroParameterDescriptor> parameters,
         IReadOnlyList<MacroArgument> arguments,
-        DiagnosticBag diagnostics,
-        out object? parameters)
+        DiagnosticBag diagnostics)
     {
-        parameters = null;
-
-        if (!parametersType.IsClass || parametersType.IsAbstract)
-        {
-            diagnostics.Report(Diagnostic.Create(
-                s_invalidParameterObjectType,
-                macroNameLocation,
-                macroName,
-                parametersType.FullName ?? parametersType.Name));
-            return false;
-        }
-
-        var constructors = parametersType
-            .GetConstructors(BindingFlags.Public | BindingFlags.Instance)
-            .OrderByDescending(static ctor => ctor.GetParameters().Length)
-            .ToArray();
-
-        if (constructors.Length > 1)
-        {
-            diagnostics.Report(Diagnostic.Create(
-                s_noSuitableConstructor,
-                macroNameLocation,
-                macroName,
-                parametersType.FullName ?? parametersType.Name));
-            return false;
-        }
-
-        var constructor = constructors.SingleOrDefault();
         var positionalArguments = arguments.Where(static argument => !argument.IsNamed).ToArray();
-        var namedArguments = arguments.Where(static argument => argument.IsNamed).ToArray();
-
-        if (constructor is null)
+        if (positionalArguments.Length > parameters.Length)
         {
-            if (positionalArguments.Length > 0)
-            {
-                diagnostics.Report(Diagnostic.Create(
-                    s_tooManyPositionalArguments,
-                    positionalArguments[0].Syntax.GetLocation(),
-                    macroName,
-                    1));
-                return false;
-            }
-
-            try
-            {
-                parameters = Activator.CreateInstance(parametersType);
-            }
-            catch
-            {
-                diagnostics.Report(Diagnostic.Create(
-                    s_invalidParameterObjectType,
-                    macroNameLocation,
-                    macroName,
-                    parametersType.FullName ?? parametersType.Name));
-                return false;
-            }
-        }
-        else
-        {
-            var ctorParameters = constructor.GetParameters();
-            var ctorArguments = new object?[ctorParameters.Length];
-
-            if (positionalArguments.Length > ctorParameters.Length)
-            {
-                diagnostics.Report(Diagnostic.Create(
-                    s_tooManyPositionalArguments,
-                    positionalArguments[ctorParameters.Length].Syntax.GetLocation(),
-                    macroName,
-                    ctorParameters.Length + 1));
-                return false;
-            }
-
-            for (var index = 0; index < ctorParameters.Length; index++)
-            {
-                var ctorParameter = ctorParameters[index];
-                if (index < positionalArguments.Length)
-                {
-                    if (!TryConvertValue(positionalArguments[index], ctorParameter.ParameterType, out var converted))
-                    {
-                        diagnostics.Report(Diagnostic.Create(
-                            s_invalidArgumentConversion,
-                            positionalArguments[index].Syntax.GetLocation(),
-                            macroName,
-                            ctorParameter.Name ?? $"arg{index}",
-                            GetTypeDisplay(ctorParameter.ParameterType)));
-                        return false;
-                    }
-
-                    ctorArguments[index] = converted;
-                    continue;
-                }
-
-                if (ctorParameter.HasDefaultValue)
-                {
-                    ctorArguments[index] = ctorParameter.DefaultValue;
-                    continue;
-                }
-
-                diagnostics.Report(Diagnostic.Create(
-                    s_missingRequiredArgument,
-                    macroNameLocation,
-                    macroName,
-                    ctorParameter.Name ?? $"arg{index}"));
-                return false;
-            }
-
-            parameters = constructor.Invoke(ctorArguments);
+            diagnostics.Report(Diagnostic.Create(
+                s_tooManyPositionalArguments,
+                positionalArguments[parameters.Length].Syntax.GetLocation(),
+                macroName,
+                parameters.Length + 1));
+            return false;
         }
 
-        var seenNamedArguments = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var argument in namedArguments)
+        var assigned = new HashSet<int>();
+        for (var index = 0; index < positionalArguments.Length; index++)
+        {
+            var parameter = parameters[index];
+            if (!ValidateConversion(macroName, parameter, positionalArguments[index], diagnostics))
+                return false;
+            assigned.Add(index);
+        }
+
+        foreach (var argument in arguments.Where(static argument => argument.IsNamed))
         {
             var name = argument.Name!;
-            if (!seenNamedArguments.Add(name))
-            {
-                diagnostics.Report(Diagnostic.Create(
-                    s_duplicateNamedArgument,
-                    argument.Syntax.GetLocation(),
-                    macroName,
-                    name));
-                return false;
-            }
-
-            var property = parametersType.GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
-            if (property is null || property.SetMethod is null)
+            var index = FindParameterIndex(parameters, name);
+            if (index < 0)
             {
                 diagnostics.Report(Diagnostic.Create(
                     s_unknownNamedArgument,
@@ -264,21 +101,65 @@ internal static class MacroParameterBinder
                 return false;
             }
 
-            if (!TryConvertValue(argument, property.PropertyType, out var converted))
+            if (!assigned.Add(index))
             {
                 diagnostics.Report(Diagnostic.Create(
-                    s_invalidArgumentConversion,
+                    s_duplicateNamedArgument,
                     argument.Syntax.GetLocation(),
                     macroName,
-                    name,
-                    GetTypeDisplay(property.PropertyType)));
+                    name));
                 return false;
             }
 
-            property.SetValue(parameters, converted);
+            if (!ValidateConversion(macroName, parameters[index], argument, diagnostics))
+                return false;
+        }
+
+        for (var index = 0; index < parameters.Length; index++)
+        {
+            if (!assigned.Contains(index) && parameters[index].IsRequired)
+            {
+                diagnostics.Report(Diagnostic.Create(
+                    s_missingRequiredArgument,
+                    macroNameLocation,
+                    macroName,
+                    parameters[index].Name));
+                return false;
+            }
         }
 
         return true;
+    }
+
+    private static int FindParameterIndex(
+        ImmutableArray<MacroParameterDescriptor> parameters,
+        string name)
+    {
+        for (var index = 0; index < parameters.Length; index++)
+        {
+            if (string.Equals(parameters[index].Name, name, StringComparison.Ordinal))
+                return index;
+        }
+
+        return -1;
+    }
+
+    private static bool ValidateConversion(
+        string macroName,
+        MacroParameterDescriptor parameter,
+        MacroArgument argument,
+        DiagnosticBag diagnostics)
+    {
+        if (TryConvertValue(argument, parameter.ParameterType, out _))
+            return true;
+
+        diagnostics.Report(Diagnostic.Create(
+            s_invalidArgumentConversion,
+            argument.Syntax.GetLocation(),
+            macroName,
+            parameter.Name,
+            GetTypeDisplay(parameter.ParameterType)));
+        return false;
     }
 
     internal static bool TryConvertValue(MacroArgument argument, Type targetType, out object? converted)

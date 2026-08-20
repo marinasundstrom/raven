@@ -3131,8 +3131,7 @@ public static class CompletionProvider
 
         foreach (var parameter in descriptor.Parameters)
         {
-            if (parameter.Kind != MacroParameterKind.Named ||
-                usedNames.Contains(parameter.Name) ||
+            if (usedNames.Contains(parameter.Name) ||
                 !parameter.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 continue;

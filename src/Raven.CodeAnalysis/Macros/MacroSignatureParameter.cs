@@ -8,7 +8,6 @@ public sealed class MacroSignatureParameter
     internal MacroSignatureParameter(
         string name,
         string typeDisplayName,
-        MacroParameterKind kind,
         MacroParameterRole role,
         MacroParameterSource source,
         int ordinal,
@@ -18,7 +17,6 @@ public sealed class MacroSignatureParameter
     {
         Name = name;
         TypeDisplayName = typeDisplayName;
-        Kind = kind;
         Role = role;
         Source = source;
         Ordinal = ordinal;
@@ -30,8 +28,6 @@ public sealed class MacroSignatureParameter
     public string Name { get; }
 
     public string TypeDisplayName { get; }
-
-    public MacroParameterKind Kind { get; }
 
     public MacroParameterRole Role { get; }
 

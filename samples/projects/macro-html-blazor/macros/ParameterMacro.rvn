@@ -4,7 +4,7 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
 [assembly: RavenCompilerPlugin(typeof(ParameterMacro))]
 
-class ParameterMacro : IAttachedDeclarationMacro {
+class ParameterMacro : IMacroDefinition {
     val Name: string => "Parameter"
     val Targets: MacroTarget => MacroTarget.Property
 

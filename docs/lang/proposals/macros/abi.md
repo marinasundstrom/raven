@@ -251,7 +251,7 @@ generic syntax-node hierarchy is implied by this requirement.
 
 ## Migration direction
 
-The redesign may remove or replace:
+The redesign removes:
 
 * `IAttachedDeclarationMacro<TParameters>`;
 * `IInvocableMacro<TParameters>`;
@@ -270,4 +270,4 @@ Migration should proceed from compiler-owned semantic facts outward:
 6. migrate compiler-provided macros and class-authored providers; and
 7. remove category-specific and parameter-object compatibility APIs.
 
-The current implementation remains authoritative until these slices land.
+The method-shaped definition and descriptor model is authoritative.

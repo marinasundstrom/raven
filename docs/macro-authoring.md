@@ -555,9 +555,10 @@ macro Observable(
 ```
 
 `replace` sets the current declaration replacement. `introduce` appends members
-in execution order. The class-authored equivalent is
-`IAttachedDeclarationMacro`; its context exposes the original
-`TargetDeclaration` and composed `CurrentDeclaration`.
+in execution order. The class-authored equivalent implements
+`IMacroDefinition` and exposes one canonical `Expand` method; an injected
+`AttachedMacroContext` exposes the original `TargetDeclaration` and composed
+`CurrentDeclaration`.
 
 A convenience macro should expand to the ordinary framework model rather than
 create a parallel one. For example, the HTML/Blazor sample's `#[Parameter]`

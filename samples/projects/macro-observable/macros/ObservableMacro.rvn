@@ -4,7 +4,7 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
 [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
-class ObservableMacro : IAttachedDeclarationMacro {
+class ObservableMacro : IMacroDefinition {
     val Name: string => "Observable"
     val Targets: MacroTarget => MacroTarget.Property
 

@@ -256,7 +256,7 @@ let maybe: int? = default
         return (semanticModel, token, defaultExpression);
     }
 
-    private sealed class ObservableMacro : IAttachedDeclarationMacro
+    private sealed class ObservableMacro : IMacroDefinition
     {
         public string Name => "Observable";
         public MacroKind Kind => MacroKind.AttachedDeclaration;

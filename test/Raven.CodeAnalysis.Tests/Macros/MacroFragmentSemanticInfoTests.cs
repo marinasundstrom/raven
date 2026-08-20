@@ -244,7 +244,7 @@ public sealed class MacroFragmentSemanticInfoTests
         Assert.Null(declaration.DeclarationNode.SyntaxTree);
     }
 
-    private sealed class FragmentHoverMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class FragmentHoverMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Name => "fragmentHover";
 
@@ -260,7 +260,7 @@ public sealed class MacroFragmentSemanticInfoTests
             ];
     }
 
-    private sealed class FragmentLocalHoverMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class FragmentLocalHoverMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Name => "fragmentLocalHover";
 
@@ -281,7 +281,7 @@ public sealed class MacroFragmentSemanticInfoTests
         }
     }
 
-    private sealed class TargetTypedFragmentMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class TargetTypedFragmentMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Name => "targetTypedFragment";
 

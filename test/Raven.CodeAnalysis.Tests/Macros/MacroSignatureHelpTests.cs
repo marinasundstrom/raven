@@ -91,25 +91,15 @@ class Host {
             signature.Parameters,
             parameter =>
             {
-                Assert.Equal("count", parameter.Name);
-                Assert.Equal("int", parameter.TypeDisplayName);
-                Assert.Equal(MacroParameterKind.Positional, parameter.Kind);
-                Assert.False(parameter.IsRequired);
-                Assert.Equal(1, parameter.DefaultValue);
-            },
-            parameter =>
-            {
                 Assert.Equal("Dialect", parameter.Name);
                 Assert.Equal("string", parameter.TypeDisplayName);
-                Assert.Equal(MacroParameterKind.Named, parameter.Kind);
             },
             parameter =>
             {
                 Assert.Equal("Optimize", parameter.Name);
                 Assert.Equal("bool", parameter.TypeDisplayName);
-                Assert.Equal(MacroParameterKind.Named, parameter.Kind);
             });
-        Assert.Equal(2, signature.ActiveParameter);
+        Assert.Equal(1, signature.ActiveParameter);
     }
 
     [Fact]
@@ -211,11 +201,14 @@ class Host {
             => MacroExecutionResult.Invocable(FreestandingMacroExpansionResult.Empty);
     }
 
-    private sealed class TypedQueryMacro : ITokenTreeMacro<TypedQueryParameters>
+    private sealed class TypedQueryMacro : IMacroDefinition
     {
         public string Name => "typedQuery";
 
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext<TypedQueryParameters> context)
+        public FreestandingMacroExpansionResult Expand(
+            string Dialect,
+            bool Optimize,
+            TokenTreeMacroContext context)
             => FreestandingMacroExpansionResult.Empty;
     }
 
@@ -224,13 +217,13 @@ class Host {
         public bool Notify { get; set; }
     }
 
-    private sealed class TypedObservableMacro : IAttachedDeclarationMacro<TypedObservableParameters>
+    private sealed class TypedObservableMacro : IMacroDefinition
     {
         public string Name => "typedObservable";
 
         public MacroTarget Targets => MacroTarget.Property;
 
-        public MacroExpansionResult Expand(AttachedMacroContext<TypedObservableParameters> context)
+        public MacroExpansionResult Expand(bool Notify, AttachedMacroContext context)
             => MacroExpansionResult.Empty;
     }
 
@@ -244,13 +237,11 @@ class Host {
         public ExpressionSyntax Expression { get; }
     }
 
-    private sealed class ExpressionProjectionMacro :
-        IInvocableMacro<ExpressionProjectionParameters>
+    private sealed class ExpressionProjectionMacro : IMacroDefinition
     {
         public string Name => "project";
 
-        public FreestandingMacroExpansionResult Expand(
-            FreestandingMacroContext<ExpressionProjectionParameters> context)
+        public FreestandingMacroExpansionResult Expand(ExpressionSyntax expression)
             => FreestandingMacroExpansionResult.Empty;
     }
 }

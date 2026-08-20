@@ -11,11 +11,10 @@ let answer = customToken!(Value: 42) {
 }
 ```
 
-The Raven-authored macro provider implements
-`ITokenTreeMacro<CustomTokenParameters>` together with
-`IMacroTokenStreamProvider`. Raven binds the named `Value` argument into the
-strongly typed parameter object while preserving the brace body as unrestricted
-raw content. The custom stream emits a `SyntaxToken` with an
+The Raven-authored macro provider implements `IMacroDefinition` together with
+`IMacroTokenStreamProvider`. Its canonical `Expand` method declares the
+`Value` argument directly while preserving the brace body as unrestricted raw
+content. The custom stream emits a `SyntaxToken` with an
 application-defined `RawKind`, while `SyntaxKind.None` makes clear that the
 token is not part of Raven's normal lexer. The macro consumes that token and
 lowers the DSL directly to the ordinary Raven expression supplied by `Value`.

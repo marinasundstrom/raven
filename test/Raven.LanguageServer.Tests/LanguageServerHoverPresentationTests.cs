@@ -438,7 +438,7 @@ func Test(item: Foo) -> bool {
         }
     }
 
-    private sealed class FragmentHoverMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class FragmentHoverMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Name => "fragmentHover";
 
@@ -462,7 +462,7 @@ func Test(item: Foo) -> bool {
         return (metadataReference, MacroReference.CreateFromFile(path));
     }
 
-    private sealed class TargetTypedHoverMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class TargetTypedHoverMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Name => "targetTypedHover";
 
@@ -482,7 +482,7 @@ func Test(item: Foo) -> bool {
         }
     }
 
-    private sealed class ThrowingFragmentMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class ThrowingFragmentMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Name => "throwingFragment";
 
@@ -493,7 +493,7 @@ func Test(item: Foo) -> bool {
             => throw new InvalidOperationException("Synthetic optional tooling failure.");
     }
 
-    private sealed class SymbolTokenMacro : ITokenTreeMacro, IMacroTokenSymbolProvider
+    private sealed class SymbolTokenMacro : IMacroDefinition, IMacroTokenSymbolProvider
     {
         public string Name => "symbolToken";
 
@@ -508,7 +508,7 @@ func Test(item: Foo) -> bool {
     }
 
     private sealed class ConflictingSymbolMacro :
-        ITokenTreeMacro,
+        IMacroDefinition,
         IMacroFragmentProvider,
         IMacroTokenSymbolProvider
     {

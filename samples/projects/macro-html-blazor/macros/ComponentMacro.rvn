@@ -5,7 +5,7 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
 [assembly: RavenCompilerPlugin(typeof(ComponentMacro))]
 
-class ComponentMacro : IAttachedDeclarationMacro {
+class ComponentMacro : IMacroDefinition {
     val Name: string => "Component"
     val Targets: MacroTarget => MacroTarget.Type
 

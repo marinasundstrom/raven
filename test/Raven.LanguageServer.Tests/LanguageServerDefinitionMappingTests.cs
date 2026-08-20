@@ -164,7 +164,7 @@ import Raven.CodeAnalysis.Macros.*
 
 [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
-class ObservableMacro : IAttachedDeclarationMacro {
+class ObservableMacro : IMacroDefinition {
     val Name: string => "Observable"
     val Targets: MacroTarget => MacroTarget.Property
 
@@ -230,7 +230,7 @@ import Raven.CodeAnalysis.Syntax.*
 
 [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
-class AnswerMacro : IInvocableMacro {
+class AnswerMacro : IMacroDefinition {
     val Name: string => "answer"
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
@@ -293,7 +293,7 @@ import Raven.CodeAnalysis.Text.*
 
 [assembly: RavenCompilerPlugin(typeof(FragmentMacro))]
 
-class FragmentMacro : ITokenTreeMacro, IMacroFragmentProvider {
+class FragmentMacro : IMacroDefinition, IMacroFragmentProvider {
     val Name: string => "fragment"
 
     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
@@ -403,7 +403,7 @@ func Main() {
         }
     }
 
-    private sealed class SymbolTokenMacro : ITokenTreeMacro, IMacroTokenSymbolProvider
+    private sealed class SymbolTokenMacro : IMacroDefinition, IMacroTokenSymbolProvider
     {
         public string Name => "symbolToken";
 

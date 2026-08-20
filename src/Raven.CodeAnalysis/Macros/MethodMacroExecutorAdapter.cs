@@ -31,10 +31,10 @@ internal sealed class MethodMacroExecutorAdapter : IMacroExecutor
     public ImmutableArray<string> TypeParameters => [];
     public ImmutableArray<MacroExecutorParameter> Parameters { get; }
     public MacroApplicationKind ApplicationKind { get; }
-    public bool HasTokenBody => Parameters.Any(static parameter => parameter.Source == MacroParameterSource.TokenBody);
-    public MacroTarget Targets => ApplicationKind == MacroApplicationKind.Attached
-        ? MethodMacroFacts.AllTargets
-        : MacroTarget.None;
+    public bool HasTokenBody => Parameters.Any(static parameter =>
+        parameter.Source == MacroParameterSource.TokenBody ||
+        typeof(TokenTreeMacroContext).IsAssignableFrom(parameter.RuntimeType));
+    public MacroTarget Targets => MethodMacroFacts.GetTargets(_expandMethod);
 
     public MacroExecutionResult Expand(MacroExecutionContext context)
     {

@@ -405,7 +405,7 @@ public sealed class MacroCodeGenTests
         Assert.NotNull(generatedModel.GetBoundNode(setSyntax.Body!, BoundTreeView.Lowered));
     }
 
-    public sealed class IntroducedMethodMacro : IAttachedDeclarationMacro
+    public sealed class IntroducedMethodMacro : IMacroDefinition
     {
         public string Name => "AddEquatable";
 
@@ -430,7 +430,7 @@ public sealed class MacroCodeGenTests
         }
     }
 
-    public sealed class EquatableContractMacro : IAttachedDeclarationMacro
+    public sealed class EquatableContractMacro : IMacroDefinition
     {
         public string Name => "AddEquatableContract";
 
@@ -458,7 +458,7 @@ public sealed class MacroCodeGenTests
         }
     }
 
-    public sealed class ErrorLikeUnionMacro : IAttachedDeclarationMacro
+    public sealed class ErrorLikeUnionMacro : IMacroDefinition
     {
         public string Name => "ErrorLike";
 
@@ -484,7 +484,7 @@ public sealed class MacroCodeGenTests
         }
     }
 
-    public sealed class ObservablePropertyMacro : IAttachedDeclarationMacro
+    public sealed class ObservablePropertyMacro : IMacroDefinition
     {
         public string Name => "Observable";
 
@@ -527,7 +527,7 @@ public sealed class MacroCodeGenTests
         }
     }
 
-    private sealed class SampleLikeObservablePropertyMacro : IAttachedDeclarationMacro
+    private sealed class SampleLikeObservablePropertyMacro : IMacroDefinition
     {
         public string Name => "Observable";
 
@@ -566,7 +566,7 @@ public sealed class MacroCodeGenTests
         }
     }
 
-    private sealed class DetachedSyntaxFactoryObservablePropertyMacro : IAttachedDeclarationMacro
+    private sealed class DetachedSyntaxFactoryObservablePropertyMacro : IMacroDefinition
     {
         public string Name => "Observable";
 
@@ -650,7 +650,7 @@ public sealed class MacroCodeGenTests
         }
     }
 
-    private sealed class GenericInitializerReactivePropertyMacro : IAttachedDeclarationMacro
+    private sealed class GenericInitializerReactivePropertyMacro : IMacroDefinition
     {
         public string Name => "Reactive";
 

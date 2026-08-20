@@ -39,7 +39,7 @@ public sealed class MacroFragmentLocalTests
         Assert.Contains(completions, static item => item.DisplayText == "Length");
     }
 
-    private sealed class ScopedMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class ScopedMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Namespace => string.Empty;
 

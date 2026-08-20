@@ -434,7 +434,7 @@ class Program {
         propertySymbol.ContainingType?.Name.ShouldBe("MyViewModel");
     }
 
-    public sealed class ObservableMacro : IAttachedDeclarationMacro
+    public sealed class ObservableMacro : IMacroDefinition
     {
         public string Name => "Observable";
 
@@ -466,7 +466,7 @@ class Program {
         }
     }
 
-    public sealed class DetachedObservableMacro : IAttachedDeclarationMacro
+    public sealed class DetachedObservableMacro : IMacroDefinition
     {
         public string Name => "Observable";
 
@@ -549,7 +549,7 @@ class Program {
         }
     }
 
-    public sealed class AnswerMacro : IInvocableMacro
+    public sealed class AnswerMacro : IMacroDefinition
     {
         public string Name => "answer";
         public MacroKind Kind => MacroKind.Invocable;
@@ -561,7 +561,7 @@ class Program {
             };
     }
 
-    public sealed class RavenBodyMacro : ITokenTreeMacro
+    public sealed class RavenBodyMacro : IMacroDefinition
     {
         public string Name => "raven";
 
@@ -572,7 +572,7 @@ class Program {
             };
     }
 
-    public sealed class SubscribeMacro : IInvocableMacro
+    public sealed class SubscribeMacro : IMacroDefinition
     {
         public string Name => "subscribe";
         public MacroKind Kind => MacroKind.Invocable;
@@ -606,7 +606,7 @@ class Program {
         }
     }
 
-    public sealed class ReactiveSubscribeMacro : IInvocableMacro
+    public sealed class ReactiveSubscribeMacro : IMacroDefinition
     {
         public string Name => "subscribe";
         public MacroKind Kind => MacroKind.Invocable;
@@ -640,7 +640,7 @@ class Program {
         }
     }
 
-    public sealed class FirstStackingMacro : IAttachedDeclarationMacro
+    public sealed class FirstStackingMacro : IMacroDefinition
     {
         public string Name => "First";
         public MacroKind Kind => MacroKind.AttachedDeclaration;
@@ -664,7 +664,7 @@ class Program {
         }
     }
 
-    public sealed class SecondStackingMacro : IAttachedDeclarationMacro
+    public sealed class SecondStackingMacro : IMacroDefinition
     {
         public string Name => "Second";
         public MacroKind Kind => MacroKind.AttachedDeclaration;

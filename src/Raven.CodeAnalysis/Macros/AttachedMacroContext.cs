@@ -71,22 +71,3 @@ public class AttachedMacroContext : MacroContext
         return builder.MoveToImmutable();
     }
 }
-
-public sealed class AttachedMacroContext<TParameters> : AttachedMacroContext
-    where TParameters : class
-{
-    public AttachedMacroContext(
-        Compilation compilation,
-        SemanticModel semanticModel,
-        AttributeSyntax syntax,
-        SyntaxNode targetDeclaration,
-        SyntaxNode currentDeclaration,
-        TParameters parameters,
-        CancellationToken cancellationToken = default)
-        : base(compilation, semanticModel, syntax, targetDeclaration, currentDeclaration, cancellationToken)
-    {
-        Parameters = parameters ?? throw new ArgumentNullException(nameof(parameters));
-    }
-
-    public TParameters Parameters { get; }
-}

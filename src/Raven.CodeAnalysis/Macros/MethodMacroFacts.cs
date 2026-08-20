@@ -19,10 +19,7 @@ internal static class MethodMacroFacts
 
     public static bool TryGetExpandMethod(Type type, out MethodInfo method)
     {
-        if (typeof(IMacroExecutor).IsAssignableFrom(type) ||
-            typeof(IAttachedDeclarationMacro).IsAssignableFrom(type) ||
-            typeof(IInvocableMacro).IsAssignableFrom(type) ||
-            typeof(ITokenTreeMacro).IsAssignableFrom(type))
+        if (typeof(IMacroExecutor).IsAssignableFrom(type))
         {
             method = null!;
             return false;
@@ -49,6 +46,43 @@ internal static class MethodMacroFacts
                 typeof(AttachedMacroContext).IsAssignableFrom(parameter.ParameterType))
             ? MacroApplicationKind.Attached
             : MacroApplicationKind.Freestanding;
+
+    public static MacroTarget GetTargets(MethodInfo method)
+    {
+        if (GetApplicationKind(method) != MacroApplicationKind.Attached)
+            return MacroTarget.None;
+
+        var targetParameter = method.GetParameters()
+            .FirstOrDefault(parameter => GetSource(parameter.ParameterType, MacroApplicationKind.Attached) ==
+                MacroParameterSource.AttachedTarget);
+        return targetParameter is null ? AllTargets : GetTarget(targetParameter.ParameterType);
+    }
+
+    private static MacroTarget GetTarget(Type type)
+    {
+        if (typeof(BaseTypeDeclarationSyntax).IsAssignableFrom(type) ||
+            typeof(CaseDeclarationSyntax).IsAssignableFrom(type))
+            return MacroTarget.Type;
+        if (typeof(MethodDeclarationSyntax).IsAssignableFrom(type) ||
+            typeof(FunctionStatementSyntax).IsAssignableFrom(type))
+            return MacroTarget.Method;
+        if (typeof(PropertyDeclarationSyntax).IsAssignableFrom(type) ||
+            typeof(IndexerDeclarationSyntax).IsAssignableFrom(type))
+            return MacroTarget.Property;
+        if (typeof(FieldDeclarationSyntax).IsAssignableFrom(type) ||
+            typeof(ConstDeclarationSyntax).IsAssignableFrom(type))
+            return MacroTarget.Field;
+        if (typeof(EventDeclarationSyntax).IsAssignableFrom(type))
+            return MacroTarget.Event;
+        if (typeof(ParameterSyntax).IsAssignableFrom(type))
+            return MacroTarget.Parameter;
+        if (typeof(AccessorDeclarationSyntax).IsAssignableFrom(type))
+            return MacroTarget.Accessor;
+        if (typeof(ConstructorDeclarationSyntax).IsAssignableFrom(type) ||
+            typeof(ParameterlessConstructorDeclarationSyntax).IsAssignableFrom(type))
+            return MacroTarget.Constructor;
+        return AllTargets;
+    }
 
     public static ImmutableArray<MacroExecutorParameter> GetParameters(MethodInfo method)
     {

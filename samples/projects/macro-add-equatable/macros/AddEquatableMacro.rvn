@@ -5,7 +5,7 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
 [assembly: RavenCompilerPlugin(typeof(AddEquatableMacro))]
 
-class AddEquatableMacro : IAttachedDeclarationMacro {
+class AddEquatableMacro : IMacroDefinition {
     val Name: string => "AddEquatable"
     val Targets: MacroTarget => MacroTarget.Type
 

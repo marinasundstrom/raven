@@ -10,7 +10,7 @@ import Raven.CodeAnalysis.Text.*
 
 [assembly: RavenCompilerPlugin(typeof(HtmlMacro))]
 
-class HtmlMacro : ITokenTreeMacro, IMacroFragmentProvider, IMacroTokenClassifier, IMacroTokenSymbolProvider {
+class HtmlMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifier, IMacroTokenSymbolProvider {
     val Name: string => "Html"
 
     func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> ISymbol? {

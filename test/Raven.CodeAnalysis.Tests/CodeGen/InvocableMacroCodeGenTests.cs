@@ -238,7 +238,7 @@ public sealed class InvocableMacroCodeGenTests
             import Raven.CodeAnalysis.Macros.*
             import Raven.Macros.*
 
-            class LocalAnswerMacro : ITokenTreeMacro {
+            class LocalAnswerMacro : IMacroDefinition {
                 val Name: string => "localAnswer"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -491,19 +491,19 @@ public sealed class InvocableMacroCodeGenTests
         Assert.Equal("then", syntaxTree.GetText().ToString(diagnostic.Location.SourceSpan));
     }
 
-    public sealed class AddMacro : IInvocableMacro<AddMacroParameters>
+    public sealed class AddMacro : IMacroDefinition
     {
         public string Name => "add";
         public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext<AddMacroParameters> context)
+        public FreestandingMacroExpansionResult Expand(int left, int Right)
             => new()
             {
-                Expression = ParseExpression($"{context.Parameters.Left} + {context.Parameters.Right}")
+                Expression = ParseExpression($"{left} + {Right}")
             };
     }
 
-    public sealed class SetAnswerMacro : ITokenTreeMacro
+    public sealed class SetAnswerMacro : IMacroDefinition
     {
         public string Name => "setAnswer";
         public MacroKind Kind => MacroKind.Invocable;
@@ -520,19 +520,18 @@ public sealed class InvocableMacroCodeGenTests
         public int Right { get; set; }
     }
 
-    public sealed class EmbedTextMacro : IInvocableMacro<EmbedTextMacroParameters>
+    public sealed class EmbedTextMacro : IMacroDefinition
     {
         public string Name => "embedText";
         public MacroKind Kind => MacroKind.Invocable;
 
-        public FreestandingMacroExpansionResult Expand(
-            FreestandingMacroContext<EmbedTextMacroParameters> context)
+        public FreestandingMacroExpansionResult Expand(string path, FreestandingMacroContext context)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
 
             try
             {
-                var content = File.ReadAllText(context.Parameters.Path);
+                var content = File.ReadAllText(path);
                 return new FreestandingMacroExpansionResult
                 {
                     Expression = SyntaxFactory.LiteralExpression(
@@ -551,7 +550,7 @@ public sealed class InvocableMacroCodeGenTests
                     [
                         context.CreateArgumentDiagnostic(
                             context.Arguments[0],
-                            $"Could not read '{context.Parameters.Path}': {exception.Message}",
+                            $"Could not read '{path}': {exception.Message}",
                             code: "EMBED001")
                     ]
                 };
@@ -564,7 +563,7 @@ public sealed class InvocableMacroCodeGenTests
         public string Path { get; } = path;
     }
 
-    public sealed class RavenBodyMacro : ITokenTreeMacro
+    public sealed class RavenBodyMacro : IMacroDefinition
     {
         public string Name => "raven";
 
@@ -575,7 +574,7 @@ public sealed class InvocableMacroCodeGenTests
             };
     }
 
-    public sealed class MemberListMacro : ITokenTreeMacro
+    public sealed class MemberListMacro : IMacroDefinition
     {
         public string Name => "members";
 
@@ -587,7 +586,7 @@ public sealed class InvocableMacroCodeGenTests
         }
     }
 
-    public sealed class GeneratedMembersMacro : ITokenTreeMacro
+    public sealed class GeneratedMembersMacro : IMacroDefinition
     {
         public string Name => "generatedMembers";
         public MacroInvocationTargets InvocationTargets => MacroInvocationTargets.TypeMember;
@@ -604,7 +603,7 @@ public sealed class InvocableMacroCodeGenTests
         }
     }
 
-    public sealed class GeneratedNamespaceMembersMacro : ITokenTreeMacro
+    public sealed class GeneratedNamespaceMembersMacro : IMacroDefinition
     {
         public string Name => "generatedNamespaceMembers";
         public MacroInvocationTargets InvocationTargets => MacroInvocationTargets.NamespaceMember;
@@ -621,7 +620,7 @@ public sealed class InvocableMacroCodeGenTests
         }
     }
 
-    public sealed class GuardMacro : ITokenTreeMacro, IMacroKeywordProvider
+    public sealed class GuardMacro : IMacroDefinition, IMacroKeywordProvider
     {
         private const int UnlessKeywordRawKind = 80_001;
 
@@ -670,7 +669,7 @@ public sealed class InvocableMacroCodeGenTests
             };
     }
 
-    public sealed class ChooseMacro : ITokenTreeMacro, IMacroKeywordProvider
+    public sealed class ChooseMacro : IMacroDefinition, IMacroKeywordProvider
     {
         private const int TestKeywordRawKind = 80_002;
         private const int ThenKeywordRawKind = 80_003;

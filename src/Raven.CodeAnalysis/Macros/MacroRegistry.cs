@@ -97,9 +97,11 @@ internal sealed class MacroRegistry
 
             var descriptor = MacroFacts.GetDescriptor(macro);
             var executor = macro as IMacroExecutor ??
-                (MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var expandMethod)
-                    ? new MethodMacroExecutorAdapter(macro, expandMethod)
-                    : new LegacyMacroExecutorAdapter(macro, descriptor));
+                new MethodMacroExecutorAdapter(
+                    macro,
+                    MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var expandMethod)
+                        ? expandMethod
+                        : throw new InvalidOperationException("Registered macro has no Expand entry point."));
             var canonicalName = GetCanonicalName(macro);
             var aliases = GetAliases(macro);
 

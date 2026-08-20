@@ -131,7 +131,7 @@ public sealed class MacroFragmentRegionTests
         return (compilation, expression);
     }
 
-    private sealed class QueryMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class QueryMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Name => "query";
 
@@ -154,7 +154,7 @@ public sealed class MacroFragmentRegionTests
         }
     }
 
-    private sealed class InvalidRegionMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class InvalidRegionMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Name => "invalidRegions";
 
@@ -165,7 +165,7 @@ public sealed class MacroFragmentRegionTests
             => [context.CreateFragmentRegion(MacroFragmentKind.Expression, new TextSpan(0, context.BodySpan.Length + 1))];
     }
 
-    private sealed class TargetTypedMacro : ITokenTreeMacro, IMacroFragmentProvider
+    private sealed class TargetTypedMacro : IMacroDefinition, IMacroFragmentProvider
     {
         public string Name => "targetTyped";
 

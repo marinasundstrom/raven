@@ -1946,7 +1946,7 @@ import Raven.CodeAnalysis.Syntax.*
 
 [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
-class ObservableMacro: IAttachedDeclarationMacro {
+class ObservableMacro: IMacroDefinition {
     val Name: string => "Observable"
     val Targets: MacroTarget => MacroTarget.Property
 
@@ -1998,7 +1998,7 @@ import Raven.CodeAnalysis.Macros.*
 
 [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
-class AnswerMacro: IInvocableMacro {
+class AnswerMacro: IMacroDefinition {
     val Name: string => "answer"
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
@@ -2056,7 +2056,7 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
 [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
-class AnswerMacro: IInvocableMacro {
+class AnswerMacro: IMacroDefinition {
     val Name: string => "answer"
 
     func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {

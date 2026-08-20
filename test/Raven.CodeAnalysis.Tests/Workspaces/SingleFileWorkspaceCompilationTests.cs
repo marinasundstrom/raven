@@ -322,7 +322,7 @@ public sealed class SingleFileWorkspaceCompilationTests
                 import Raven.CodeAnalysis.Macros.*
                 import Raven.Macros.*
 
-                class LocalAnswerMacro : ITokenTreeMacro {
+                class LocalAnswerMacro : IMacroDefinition {
                     val Name: string => "localAnswer"
                     val Kind: MacroKind => MacroKind.Invocable
 
@@ -394,7 +394,7 @@ public sealed class SingleFileWorkspaceCompilationTests
             import Raven.CodeAnalysis.Macros.*
             import Raven.Macros.*
 
-            class LocalAnswerMacro : ITokenTreeMacro {
+            class LocalAnswerMacro : IMacroDefinition {
                 val Name: string => "localAnswer"
                 val Kind: MacroKind => MacroKind.Invocable
 

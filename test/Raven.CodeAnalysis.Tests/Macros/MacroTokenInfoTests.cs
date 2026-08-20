@@ -167,7 +167,7 @@ public sealed class MacroTokenInfoTests
     }
 
     private sealed class QueryMacro :
-        ITokenTreeMacro,
+        IMacroDefinition,
         IMacroKeywordProvider,
         IMacroTokenKindProvider,
         IMacroTokenClassifier
@@ -193,7 +193,7 @@ public sealed class MacroTokenInfoTests
                 : MacroTokenClassification.Default;
     }
 
-    private sealed class BrokenTokenMacro : ITokenTreeMacro, IMacroTokenStreamProvider
+    private sealed class BrokenTokenMacro : IMacroDefinition, IMacroTokenStreamProvider
     {
         public string Name => "broken";
 
@@ -205,7 +205,7 @@ public sealed class MacroTokenInfoTests
     }
 
     private sealed class ResilientMacro :
-        ITokenTreeMacro,
+        IMacroDefinition,
         IMacroKeywordProvider,
         IMacroTokenKindProvider,
         IMacroTokenClassifier,
@@ -233,7 +233,7 @@ public sealed class MacroTokenInfoTests
             => throw new InvalidOperationException("broken symbol provider");
     }
 
-    private sealed class SymbolMacro : ITokenTreeMacro, IMacroTokenSymbolProvider
+    private sealed class SymbolMacro : IMacroDefinition, IMacroTokenSymbolProvider
     {
         public string Name => "symbols";
 
@@ -244,7 +244,7 @@ public sealed class MacroTokenInfoTests
             => context.Compilation.GetTypeByMetadataName(token.ValueText);
     }
 
-    private sealed class ExpansionFailingMacro : ITokenTreeMacro
+    private sealed class ExpansionFailingMacro : IMacroDefinition
     {
         public string Name => "plain";
 

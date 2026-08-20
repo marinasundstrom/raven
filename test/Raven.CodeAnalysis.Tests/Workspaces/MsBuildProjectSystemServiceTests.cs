@@ -817,7 +817,7 @@ func Main() {
 
                 [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
-                class ObservableMacro : IAttachedDeclarationMacro {
+                class ObservableMacro : IMacroDefinition {
                     val Name: string => "Observable"
                     val Kind: MacroKind => MacroKind.AttachedDeclaration
                     val Targets: MacroTarget => MacroTarget.Property
@@ -965,7 +965,7 @@ func Main() {
 
                 [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
-                public sealed class AnswerMacro : ITokenTreeMacro
+                public sealed class AnswerMacro : IMacroDefinition
                 {
                     public string Name => "answer";
                     public MacroKind Kind => MacroKind.Invocable;
@@ -1051,7 +1051,7 @@ func Main() {
 
                 [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
-                class ObservableMacro : IAttachedDeclarationMacro {
+                class ObservableMacro : IMacroDefinition {
                     val Name: string => "Observable"
                     val Kind: MacroKind => MacroKind.AttachedDeclaration
                     val Targets: MacroTarget => MacroTarget.Property
@@ -1196,7 +1196,7 @@ func Main() {
 
                 [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
-                class ObservableMacro : IAttachedDeclarationMacro {
+                class ObservableMacro : IMacroDefinition {
                     val Name: string => "Observable"
                     val Kind: MacroKind => MacroKind.AttachedDeclaration
                     val Targets: MacroTarget => MacroTarget.Property

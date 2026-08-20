@@ -42,7 +42,7 @@ public sealed class MacroToolingSnapshotCacheTests
     }
 
     private sealed class CachedToolingMacro :
-        ITokenTreeMacro,
+        IMacroDefinition,
         IMacroTokenClassifier,
         IMacroFragmentProvider
     {

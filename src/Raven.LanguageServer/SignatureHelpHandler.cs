@@ -265,8 +265,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
     private static string FormatMacroParameter(MacroSignatureParameter parameter)
     {
         var label = $"{parameter.Name}: {parameter.TypeDisplayName}";
-        if (parameter.Kind == MacroParameterKind.Positional &&
-            !parameter.IsRequired)
+        if (!parameter.IsRequired)
         {
             label += $" = {parameter.DefaultValueDisplay ?? FormatMacroDefaultValue(parameter.DefaultValue)}";
         }

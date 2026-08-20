@@ -2246,7 +2246,7 @@ public sealed class ProjectFileNuGetReferenceTests
 
             [assembly: RavenCompilerPlugin(typeof(PackageAnswerMacro))]
 
-            class PackageAnswerMacro : ITokenTreeMacro {
+            class PackageAnswerMacro : IMacroDefinition {
                 val Name: string => "packageAnswer"
                 val Kind: MacroKind => MacroKind.Invocable
 

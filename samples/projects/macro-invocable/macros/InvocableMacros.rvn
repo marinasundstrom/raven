@@ -9,7 +9,7 @@ import Raven.Macros.*
 [assembly: RavenCompilerPlugin(typeof(GuardMacro))]
 [assembly: RavenCompilerPlugin(typeof(ChooseMacro))]
 
-class AddMacro : IInvocableMacro {
+class AddMacro : IMacroDefinition {
     val Name: string => "add"
     val AcceptsArguments: bool => true
 
@@ -26,7 +26,7 @@ class AddMacro : IInvocableMacro {
     }
 }
 
-class GuardMacro : ITokenTreeMacro, IMacroKeywordProvider {
+class GuardMacro : IMacroDefinition, IMacroKeywordProvider {
     static val UnlessKeywordRawKind: int => 80001
 
     val Name: string => "guard"
@@ -74,7 +74,7 @@ class GuardMacro : ITokenTreeMacro, IMacroKeywordProvider {
     }
 }
 
-class ChooseMacro : ITokenTreeMacro, IMacroKeywordProvider {
+class ChooseMacro : IMacroDefinition, IMacroKeywordProvider {
     static val TestKeywordRawKind: int => 80002
     static val ThenKeywordRawKind: int => 80003
     static val OtherwiseKeywordRawKind: int => 80004

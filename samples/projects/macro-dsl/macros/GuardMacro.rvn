@@ -6,7 +6,7 @@ import Raven.CodeAnalysis.Text.*
 
 [assembly: RavenCompilerPlugin(typeof(GuardMacro))]
 
-class GuardMacro : ITokenTreeMacro, IMacroKeywordProvider, IMacroFragmentProvider {
+class GuardMacro : IMacroDefinition, IMacroKeywordProvider, IMacroFragmentProvider {
     static val UnlessKeywordRawKind: int => 81001
 
     val Name: string => "guard"

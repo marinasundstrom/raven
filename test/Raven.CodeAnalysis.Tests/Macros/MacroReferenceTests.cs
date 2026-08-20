@@ -284,7 +284,7 @@ public sealed class MacroReferenceTests
 
             [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
-            class AnswerMacro : ITokenTreeMacro {
+            class AnswerMacro : IMacroDefinition {
                 val Name: string => "answer"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -295,7 +295,7 @@ public sealed class MacroReferenceTests
                 }
             }
 
-            class UnselectedMacro : ITokenTreeMacro {
+            class UnselectedMacro : IMacroDefinition {
                 val Name: string => "unselected"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -331,7 +331,7 @@ public sealed class MacroReferenceTests
 
             [assembly: RavenCompilerPlugin]
 
-            public class FirstMacro : ITokenTreeMacro {
+            public class FirstMacro : IMacroDefinition {
                 val Name: string => "first"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -339,7 +339,7 @@ public sealed class MacroReferenceTests
                     => FreestandingMacroExpansionResult.Empty
             }
 
-            public class SecondMacro : ITokenTreeMacro {
+            public class SecondMacro : IMacroDefinition {
                 val Name: string => "second"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -347,7 +347,7 @@ public sealed class MacroReferenceTests
                     => FreestandingMacroExpansionResult.Empty
             }
 
-            class HiddenMacro : ITokenTreeMacro {
+            class HiddenMacro : IMacroDefinition {
                 val Name: string => "hidden"
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
@@ -449,7 +449,7 @@ public sealed class MacroReferenceTests
             [assembly: RavenCompilerPlugin(typeof(FirstMacro))]
             [assembly: RavenCompilerPlugin(typeof(SecondMacro))]
 
-            class FirstMacro : ITokenTreeMacro {
+            class FirstMacro : IMacroDefinition {
                 val Name: string => "first"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -457,7 +457,7 @@ public sealed class MacroReferenceTests
                     => FreestandingMacroExpansionResult.Empty
             }
 
-            class UnselectedMacro : ITokenTreeMacro {
+            class UnselectedMacro : IMacroDefinition {
                 val Name: string => "unselected"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -465,7 +465,7 @@ public sealed class MacroReferenceTests
                     => FreestandingMacroExpansionResult.Empty
             }
 
-            class SecondMacro : ITokenTreeMacro {
+            class SecondMacro : IMacroDefinition {
                 val Name: string => "second"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -490,7 +490,7 @@ public sealed class MacroReferenceTests
 
             [assembly: RavenCompilerPlugin(typeof(SelectedMacro))]
 
-            class SelectedMacro : ITokenTreeMacro {
+            class SelectedMacro : IMacroDefinition {
                 val Name: string => "selected"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -498,7 +498,7 @@ public sealed class MacroReferenceTests
                     => FreestandingMacroExpansionResult.Empty
             }
 
-            class UnselectedMacro : ITokenTreeMacro {
+            class UnselectedMacro : IMacroDefinition {
                 val Name: string => "unselected"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -532,7 +532,7 @@ public sealed class MacroReferenceTests
 
             [assembly: RavenCompilerPlugin(typeof(AnswerMacro))]
 
-            class AnswerMacro : ITokenTreeMacro {
+            class AnswerMacro : IMacroDefinition {
                 val Name: string => "answer"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -578,7 +578,7 @@ public sealed class MacroReferenceTests
         var macroImage = EmitMacroAssembly("""
             import Raven.CodeAnalysis.Macros.*
 
-            class PrivateAnswerMacro : ITokenTreeMacro {
+            class PrivateAnswerMacro : IMacroDefinition {
                 val Name: string => "privateAnswer"
                 val Kind: MacroKind => MacroKind.Invocable
 
@@ -649,7 +649,7 @@ public sealed class MacroReferenceTests
 
             [assembly: RavenCompilerPlugin(typeof(ThrowingMacro))]
 
-            class ThrowingMacro : IAttachedDeclarationMacro {
+            class ThrowingMacro : IMacroDefinition {
                 init() {
                     throw InvalidOperationException("provider construction failed")
                 }
@@ -697,11 +697,14 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
-    public void GenericMacroDefinition_ExposesTypedParameterObject()
+    public void MethodShapedMacroDefinition_DoesNotExposeParameterObjectContract()
     {
         var macro = new TypedParameterAttachedMacro();
 
-        Assert.Equal(typeof(ObservableMacroParameters), ((IMacroDefinition<ObservableMacroParameters>)macro).ParametersType);
+        Assert.DoesNotContain(
+            macro.GetType().GetInterfaces(),
+            static contract => contract.IsGenericType &&
+                contract.GetGenericTypeDefinition().Name == "IMacroDefinition`1");
     }
 
     [Fact]
@@ -709,14 +712,12 @@ public sealed class MacroReferenceTests
     {
         var macro = new TypedParameterAttachedMacro();
 
-        Assert.Equal(typeof(ObservableMacroParameters), MacroFacts.GetParametersType(macro));
         Assert.Collection(
             MacroFacts.GetParameters(macro),
             parameter =>
             {
                 Assert.Equal("name", parameter.Name);
                 Assert.Equal(typeof(string), parameter.ParameterType);
-                Assert.Equal(MacroParameterKind.Positional, parameter.Kind);
                 Assert.Equal(MacroParameterRole.Value, parameter.Role);
                 Assert.Equal(0, parameter.Ordinal);
                 Assert.True(parameter.IsRequired);
@@ -725,7 +726,6 @@ public sealed class MacroReferenceTests
             {
                 Assert.Equal("count", parameter.Name);
                 Assert.Equal(typeof(int), parameter.ParameterType);
-                Assert.Equal(MacroParameterKind.Positional, parameter.Kind);
                 Assert.Equal(MacroParameterRole.Value, parameter.Role);
                 Assert.Equal(1, parameter.Ordinal);
                 Assert.False(parameter.IsRequired);
@@ -735,9 +735,8 @@ public sealed class MacroReferenceTests
             {
                 Assert.Equal("Notify", parameter.Name);
                 Assert.Equal(typeof(bool), parameter.ParameterType);
-                Assert.Equal(MacroParameterKind.Named, parameter.Kind);
                 Assert.Equal(MacroParameterRole.Value, parameter.Role);
-                Assert.Equal(-1, parameter.Ordinal);
+                Assert.Equal(2, parameter.Ordinal);
                 Assert.False(parameter.IsRequired);
             });
     }
@@ -791,7 +790,7 @@ public sealed class MacroReferenceTests
         Assert.Equal(expected, MacroFacts.GetDescriptor(macro).InvocationTargets);
     }
 
-    public sealed class TestAttachedMacro : IAttachedDeclarationMacro
+    public sealed class TestAttachedMacro : IMacroDefinition
     {
         public string Name => "AddEquatable";
 
@@ -803,22 +802,7 @@ public sealed class MacroReferenceTests
             => MacroExpansionResult.Empty;
     }
 
-    public sealed class ObservableMacroParameters
-    {
-        public ObservableMacroParameters(string name, int count = 1)
-        {
-            Name = name;
-            Count = count;
-        }
-
-        public string Name { get; }
-
-        public int Count { get; }
-
-        public bool Notify { get; init; } = true;
-    }
-
-    public sealed class TypedParameterAttachedMacro : IAttachedDeclarationMacro, IMacroDefinition<ObservableMacroParameters>
+    public sealed class TypedParameterAttachedMacro : IMacroDefinition
     {
         public string Name => "Observable";
 
@@ -826,26 +810,19 @@ public sealed class MacroReferenceTests
 
         public MacroTarget Targets => MacroTarget.Property;
 
-        public MacroExpansionResult Expand(AttachedMacroContext context)
+        public MacroExpansionResult Expand(
+            string name,
+            AttachedMacroContext context,
+            int count = 1,
+            bool Notify = true)
             => MacroExpansionResult.Empty;
     }
 
-    public sealed class ExpressionMacroParameters
-    {
-        public ExpressionMacroParameters(ExpressionSyntax expression)
-        {
-            Expression = expression;
-        }
-
-        public ExpressionSyntax Expression { get; }
-    }
-
-    public sealed class ExpressionParameterMacro : IInvocableMacro<ExpressionMacroParameters>
+    public sealed class ExpressionParameterMacro : IMacroDefinition
     {
         public string Name => "expression";
 
-        public FreestandingMacroExpansionResult Expand(
-            FreestandingMacroContext<ExpressionMacroParameters> context)
+        public FreestandingMacroExpansionResult Expand(ExpressionSyntax expression)
             => FreestandingMacroExpansionResult.Empty;
     }
 
@@ -871,7 +848,7 @@ public sealed class MacroReferenceTests
         }
     }
 
-    public sealed class TestTokenTreeMacro : ITokenTreeMacro
+    public sealed class TestTokenTreeMacro : IMacroDefinition
     {
         public string Name => "tokenTree";
 
@@ -879,7 +856,7 @@ public sealed class MacroReferenceTests
             => FreestandingMacroExpansionResult.Empty;
     }
 
-    public sealed class MemberTargetMacro : ITokenTreeMacro
+    public sealed class MemberTargetMacro : IMacroDefinition
     {
         public string Name => "members";
         public MacroInvocationTargets InvocationTargets =>
@@ -890,7 +867,7 @@ public sealed class MacroReferenceTests
                 SyntaxFactory.List<MemberDeclarationSyntax>());
     }
 
-    public sealed class AmbiguousMacro : IAttachedDeclarationMacro, ITokenTreeMacro
+    public sealed class AmbiguousMacro : IMacroDefinition
     {
         public string Name => "ambiguous";
         public MacroTarget Targets => MacroTarget.Type;
@@ -902,7 +879,7 @@ public sealed class MacroReferenceTests
             => FreestandingMacroExpansionResult.Empty;
     }
 
-    public sealed class MisleadingKindMacro : IAttachedDeclarationMacro
+    public sealed class MisleadingKindMacro : IMacroDefinition
     {
         public string Name => "misleading";
         public MacroKind Kind => MacroKind.Invocable;

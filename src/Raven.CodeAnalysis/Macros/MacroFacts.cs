@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Reflection;
 
 namespace Raven.CodeAnalysis.Macros;
 
@@ -29,10 +28,11 @@ public static class MacroFacts
             GetTargets(macro),
             parameters,
             acceptsDeclaredArguments || macro.AcceptsArguments,
-            macro is ITokenTreeMacro ||
             macro is IMacroExecutor { HasTokenBody: true } ||
             hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand)
-                .Any(static parameter => parameter.Source == MacroParameterSource.TokenBody));
+                .Any(static parameter =>
+                    parameter.Source == MacroParameterSource.TokenBody ||
+                    typeof(TokenTreeMacroContext).IsAssignableFrom(parameter.RuntimeType)));
     }
 
     public static bool AcceptsArguments(IMacroDefinition macro)
@@ -144,19 +144,8 @@ public static class MacroFacts
             return true;
         }
 
-        var isAttached = macro is IAttachedDeclarationMacro;
-        var isInvocable = macro is IInvocableMacro;
-        var isTokenTree = macro is ITokenTreeMacro;
-        if ((isAttached ? 1 : 0) + (isInvocable ? 1 : 0) + (isTokenTree ? 1 : 0) != 1)
-        {
-            kind = default;
-            return false;
-        }
-
-        kind = isAttached
-            ? MacroKind.AttachedDeclaration
-            : MacroKind.Invocable;
-        return true;
+        kind = default;
+        return false;
     }
 
     /// <summary>
@@ -169,37 +158,15 @@ public static class MacroFacts
         if (MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var expandMethod) &&
             MethodMacroFacts.GetApplicationKind(expandMethod) == MacroApplicationKind.Attached)
         {
-            return MethodMacroFacts.AllTargets;
+            return MethodMacroFacts.GetTargets(expandMethod);
         }
 
         return macro switch
         {
             IMacroExecutor executor when executor.ApplicationKind == MacroApplicationKind.Attached =>
                 executor.Targets,
-            IAttachedDeclarationMacro attached => attached.Targets,
             _ => MacroTarget.None,
         };
-    }
-
-    /// <summary>
-    /// Gets the parameter-object type declared by a typed macro definition, or
-    /// <see langword="null"/> for an untyped definition.
-    /// </summary>
-    public static Type? GetParametersType(IMacroDefinition macro)
-    {
-        ArgumentNullException.ThrowIfNull(macro);
-
-        var parameterTypes = macro.GetType()
-            .GetInterfaces()
-            .Where(static candidate =>
-                candidate.IsGenericType &&
-                candidate.GetGenericTypeDefinition() == typeof(IMacroDefinition<>))
-            .Select(static candidate => candidate.GetGenericArguments()[0])
-            .Distinct()
-            .Take(2)
-            .ToArray();
-
-        return parameterTypes.Length == 1 ? parameterTypes[0] : null;
     }
 
     /// <summary>
@@ -218,7 +185,6 @@ public static class MacroFacts
                 .Select(static parameter => new MacroParameterDescriptor(
                     parameter.Name,
                     parameter.RuntimeType,
-                    MacroParameterKind.Positional,
                     GetRole(parameter.Source),
                     parameter.InvocationArgumentOrdinal!.Value,
                     parameter.IsRequired,
@@ -230,63 +196,26 @@ public static class MacroFacts
 
         if (MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var expandMethod))
         {
+            var reflectedParameters = expandMethod.GetParameters();
             return MethodMacroFacts.GetParameters(expandMethod)
                 .Where(static parameter => parameter.InvocationArgumentOrdinal is not null)
-                .Select(static parameter => new MacroParameterDescriptor(
-                    parameter.Name,
-                    parameter.RuntimeType,
-                    MacroParameterKind.Positional,
-                    GetRole(parameter.Source),
-                    parameter.InvocationArgumentOrdinal!.Value,
-                    parameter.IsRequired,
-                    null,
-                    parameter.TypeDisplayName,
-                    parameter.DefaultValueDisplay))
+                .Select(parameter =>
+                {
+                    var reflectedParameter = reflectedParameters[parameter.DeclarationOrdinal];
+                    return new MacroParameterDescriptor(
+                        parameter.Name,
+                        parameter.RuntimeType,
+                        GetRole(parameter.Source),
+                        parameter.InvocationArgumentOrdinal!.Value,
+                        parameter.IsRequired,
+                        reflectedParameter.HasDefaultValue ? reflectedParameter.DefaultValue : null,
+                        parameter.TypeDisplayName,
+                        parameter.DefaultValueDisplay);
+                })
                 .ToImmutableArray();
         }
 
-        var parametersType = GetParametersType(macro);
-        if (parametersType is null || !parametersType.IsClass || parametersType.IsAbstract)
-            return ImmutableArray<MacroParameterDescriptor>.Empty;
-
-        var constructors = parametersType
-            .GetConstructors(BindingFlags.Public | BindingFlags.Instance)
-            .OrderByDescending(static constructor => constructor.GetParameters().Length)
-            .ToArray();
-        if (constructors.Length != 1)
-            return ImmutableArray<MacroParameterDescriptor>.Empty;
-
-        var builder = ImmutableArray.CreateBuilder<MacroParameterDescriptor>();
-        var constructorParameters = constructors[0].GetParameters();
-        for (var ordinal = 0; ordinal < constructorParameters.Length; ordinal++)
-        {
-            var parameter = constructorParameters[ordinal];
-            builder.Add(new MacroParameterDescriptor(
-                parameter.Name ?? $"arg{ordinal}",
-                parameter.ParameterType,
-                MacroParameterKind.Positional,
-                MacroParameterRoleFacts.GetRole(parameter.ParameterType),
-                ordinal,
-                isRequired: !parameter.HasDefaultValue,
-                defaultValue: parameter.HasDefaultValue ? parameter.DefaultValue : null));
-        }
-
-        foreach (var property in parametersType
-                     .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                     .Where(static property => property.SetMethod is not null)
-                     .OrderBy(static property => property.Name, StringComparer.Ordinal))
-        {
-            builder.Add(new MacroParameterDescriptor(
-                property.Name,
-                property.PropertyType,
-                MacroParameterKind.Named,
-                MacroParameterRoleFacts.GetRole(property.PropertyType),
-                ordinal: -1,
-                isRequired: false,
-                defaultValue: null));
-        }
-
-        return builder.ToImmutable();
+        return ImmutableArray<MacroParameterDescriptor>.Empty;
     }
 
     private static MacroParameterRole GetRole(MacroParameterSource source)
