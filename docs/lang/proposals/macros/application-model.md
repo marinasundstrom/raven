@@ -228,6 +228,47 @@ The precise surface grammar and typed carrier facades remain future work. They
 must extend the current freestanding descriptor and expansion pipeline rather
 than create a parallel discovery, ABI, or execution path.
 
+### Freestanding invocation envelopes (design direction)
+
+The same model should leave room for Freestanding macros to select from a small
+set of explicit invocation envelopes:
+
+```raven
+form1! [1, 2, 3]
+
+form2! (a, b)
+
+form3! {
+    // body
+}
+
+form4! (a, b) {
+    // body
+}
+```
+
+These names are illustrative; they do not propose built-in or standard macros.
+Square brackets carry a delimited sequence, parentheses carry method-like
+arguments, braces carry a structured or macro-owned body, and an argument list
+may be followed by a body. The declaration-form carrier composes the same ideas
+with declaration modifiers and a name instead of creating a separate macro
+kind.
+
+An envelope must not introduce a delimiter-specific ABI. Raven owns recognition
+and balancing of its delimiters, while the descriptor records the accepted
+carrier shape and the canonical `Expand` signature receives compiler-projected
+syntax or values for its declared parameters. Future typed syntax facades may
+express that an item is an expression of a particular type while still
+preserving its authored syntax; an untyped syntax parameter remains the escape
+hatch.
+
+The parser and language services must recognize the envelope without loading or
+executing the macro. Completion, signature help, diagnostics, navigation, and
+incremental invalidation then consume the same registered descriptor used by
+ordinary and declaration-form Freestanding invocations. The exact bracket
+grammar, envelope declaration mechanism, and parameter projection are
+exploratory and are not part of the current implementation plan.
+
 ### Type
 
 A type macro occupies a type slot and produces one `TypeSyntax`:

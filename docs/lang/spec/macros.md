@@ -24,6 +24,15 @@ contracts.
 > and the invocation body as structured input. See [Declaration-form
 > carrier](../proposals/macros/application-model.md#declaration-form-carrier-design-direction).
 
+> [!NOTE]
+> Freestanding macros may eventually select an invocation envelope:
+> `form1! [1, 2, 3]`, `form2! (a, b)`, `form3! { ... }`, or
+> `form4! (a, b) { ... }`. These are illustrative names, not proposed standard
+> macros. Each envelope projects its structured inputs into the same descriptor
+> and canonical `Expand` signature; it does not define a delimiter-specific
+> ABI. See [Freestanding invocation
+> envelopes](../proposals/macros/application-model.md#freestanding-invocation-envelopes-design-direction).
+
 ## Choose a macro form
 
 | Form | Syntax | Use it to |
