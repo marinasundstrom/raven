@@ -11,9 +11,17 @@ internal static class MacroLowering
         SyntaxTree syntaxTree,
         SemanticModel semanticModel)
     {
-        var declarations = syntaxTree.GetRoot()
+        var macroDeclarations = syntaxTree.GetRoot()
             .DescendantNodes()
             .OfType<MacroDeclarationSyntax>()
+            .Cast<SyntaxNode>();
+        var methodShapedClasses = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<ClassDeclarationSyntax>()
+            .Where(LocalMacroSyntaxClassifier.IsMethodShapedMacroClass)
+            .Cast<SyntaxNode>();
+        var declarations = macroDeclarations
+            .Concat(methodShapedClasses)
             .OrderByDescending(static declaration => declaration.Span.Start)
             .ToArray();
         if (declarations.Length == 0)
@@ -26,13 +34,158 @@ internal static class MacroLowering
             lowered.Remove(declaration.Span.Start, declaration.Span.Length);
             lowered.Insert(
                 declaration.Span.Start,
-                LowerDeclaration(source, declaration, semanticModel));
+                declaration switch
+                {
+                    MacroDeclarationSyntax macro => LowerDeclaration(source, macro, semanticModel),
+                    ClassDeclarationSyntax methodClass => LowerMethodShapedClass(source, methodClass, semanticModel),
+                    _ => throw new InvalidOperationException(),
+                });
         }
 
         return SyntaxTree.ParseText(
             SourceText.From(lowered.ToString(), syntaxTree.Encoding),
             syntaxTree.Options,
             syntaxTree.FilePath);
+    }
+
+    private static string LowerMethodShapedClass(
+        string source,
+        ClassDeclarationSyntax declaration,
+        SemanticModel semanticModel)
+    {
+        var expand = declaration.Members
+            .OfType<MethodDeclarationSyntax>()
+            .Single(static method => method.Identifier.ValueText == "Expand");
+        var methodSymbol = semanticModel.GetDeclaredSymbol(expand) as IMethodSymbol;
+        var parameters = expand.ParameterList.Parameters
+            .Select((syntax, index) =>
+            {
+                var parameter = methodSymbol?.Parameters[index];
+                var role = parameter is null
+                    ? MacroParameterRole.Value
+                    : MacroParameterRoleFacts.GetRole(parameter.Type);
+                return (
+                    Syntax: syntax,
+                    Parameter: parameter,
+                    Role: role,
+                    Source: role switch
+                    {
+                        MacroParameterRole.SyntaxInput => MacroParameterSource.SyntaxInput,
+                        MacroParameterRole.Context => MacroParameterSource.Context,
+                        MacroParameterRole.TokenBody => MacroParameterSource.TokenBody,
+                        _ => MacroParameterSource.Value,
+                    });
+            })
+            .ToArray();
+        var invocationOrdinal = 0;
+        var parameterMetadata = parameters
+            .Select((parameter, declarationOrdinal) => (
+                parameter.Syntax,
+                parameter.Parameter,
+                parameter.Role,
+                parameter.Source,
+                DeclarationOrdinal: declarationOrdinal,
+                InvocationOrdinal: parameter.Source is MacroParameterSource.Value or MacroParameterSource.SyntaxInput
+                    ? invocationOrdinal++
+                    : -1))
+            .ToArray();
+        var usedNames = declaration.DescendantTokens()
+            .Where(static token => token.Kind == SyntaxKind.IdentifierToken)
+            .Select(static token => token.ValueText)
+            .ToHashSet(StringComparer.Ordinal);
+        var executionName = AllocateGeneratedName(usedNames, "__macroExecution");
+        var resultName = AllocateGeneratedName(usedNames, "__macroResult");
+        var helperName = AllocateGeneratedName(usedNames, "__ExpandAuthored");
+        var declaredName = declaration.Identifier.ValueText.EndsWith("Macro", StringComparison.Ordinal)
+            ? declaration.Identifier.ValueText[..^"Macro".Length]
+            : declaration.Identifier.ValueText;
+        var namespaceName = GetDeclaredNamespace(declaration);
+        var builder = new StringBuilder();
+
+        foreach (var typeParameter in (declaration.TypeParameterList?.Parameters ?? []).Select((syntax, ordinal) => (syntax, ordinal)))
+        {
+            builder.AppendLine(
+                $"[Raven.CodeAnalysis.Macros.MacroExecutorTypeParameter(\"{EscapeString(typeParameter.syntax.Identifier.ValueText)}\", {typeParameter.ordinal})]");
+        }
+        foreach (var parameter in parameterMetadata)
+        {
+            var runtimeType = parameter.Parameter?.Type.TypeKind == TypeKind.TypeParameter
+                ? "object"
+                : MacroParameterRoleFacts.GetLoweredTypeName(parameter.Syntax, parameter.Role);
+            var typeDisplay = parameter.Syntax.TypeAnnotation?.Type.ToString() ?? "object";
+            var isRequired = parameter.InvocationOrdinal >= 0 && parameter.Syntax.DefaultValue is null;
+            var defaultDisplay = parameter.Syntax.DefaultValue?.Value.ToString() ?? string.Empty;
+            builder.AppendLine(
+                $"[Raven.CodeAnalysis.Macros.MacroExecutorParameter(\"{EscapeString(parameter.Syntax.Identifier.ValueText)}\", typeof({runtimeType}), \"{EscapeString(typeDisplay)}\", Raven.CodeAnalysis.Macros.MacroParameterSource.{parameter.Source}, {parameter.DeclarationOrdinal}, {parameter.InvocationOrdinal}, {isRequired.ToString().ToLowerInvariant()}, \"{EscapeString(defaultDisplay)}\")]");
+        }
+
+        var visibility = declaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.PublicKeyword)
+            ? "public "
+            : string.Empty;
+        builder.AppendLine($"{visibility}class {declaration.Identifier.ValueText} : Raven.CodeAnalysis.Macros.IMacroExecutor {{");
+        builder.AppendLine($"    val Namespace: string => \"{EscapeString(namespaceName)}\"");
+        builder.AppendLine($"    val Name: string => \"{EscapeString(declaredName)}\"");
+        builder.AppendLine("    val ApplicationKind: Raven.CodeAnalysis.Macros.MacroApplicationKind => Raven.CodeAnalysis.Macros.MacroApplicationKind.Invocable");
+        if (parameterMetadata.Any(static parameter => parameter.InvocationOrdinal >= 0))
+            builder.AppendLine("    val AcceptsArguments: bool => true");
+        if (parameterMetadata.Any(static parameter => parameter.Source == MacroParameterSource.TokenBody))
+            builder.AppendLine("    val HasTokenBody: bool => true");
+
+        builder.AppendLine($"    func Expand({executionName}: Raven.CodeAnalysis.Macros.MacroExecutionContext) -> Raven.CodeAnalysis.Macros.MacroExecutionResult {{");
+        foreach (var parameter in parameterMetadata)
+        {
+            var runtimeType = parameter.Parameter?.Type.TypeKind == TypeKind.TypeParameter
+                ? "object"
+                : MacroParameterRoleFacts.GetLoweredTypeName(parameter.Syntax, parameter.Role);
+            var value = parameter.Source switch
+            {
+                MacroParameterSource.Context => $"{executionName}.GetContext<{runtimeType}>()",
+                MacroParameterSource.TokenBody => $"{executionName}.GetContext<Raven.CodeAnalysis.Macros.TokenTreeMacroContext>().CreateTokenStream()",
+                _ when parameter.Syntax.DefaultValue is { } defaultValue =>
+                    $"{executionName}.GetArgumentOrDefault<{runtimeType}>({parameter.InvocationOrdinal}, \"{EscapeString(parameter.Syntax.Identifier.ValueText)}\", {defaultValue.Value})",
+                _ => $"{executionName}.GetArgument<{runtimeType}>({parameter.InvocationOrdinal}, \"{EscapeString(parameter.Syntax.Identifier.ValueText)}\")",
+            };
+            builder.AppendLine($"        let {parameter.Syntax.Identifier.ValueText}: {runtimeType} = {value}");
+        }
+        builder.AppendLine($"        let {resultName} = {helperName}({string.Join(", ", parameterMetadata.Select(static parameter => parameter.Syntax.Identifier.ValueText))})");
+        AppendMethodResult(builder, methodSymbol?.ReturnType, expand.ReturnType?.Type, resultName);
+        builder.AppendLine("    }");
+
+        var helperParameters = string.Join(", ", parameterMetadata.Select(parameter =>
+        {
+            var runtimeType = parameter.Parameter?.Type.TypeKind == TypeKind.TypeParameter
+                ? "object"
+                : MacroParameterRoleFacts.GetLoweredTypeName(parameter.Syntax, parameter.Role);
+            return $"{parameter.Syntax.Identifier.ValueText}: {runtimeType}";
+        }));
+        var helperReturnType = methodSymbol?.ReturnType.TypeKind == TypeKind.TypeParameter
+            ? "object"
+            : expand.ReturnType?.Type.ToString() ?? "object";
+        if (expand.Body is { } body)
+        {
+            builder.AppendLine($"    func {helperName}({helperParameters}) -> {helperReturnType} {source.Substring(body.Span.Start, body.Span.Length)}");
+        }
+        else if (expand.ExpressionBody is { } expressionBody)
+        {
+            builder.AppendLine($"    func {helperName}({helperParameters}) -> {helperReturnType} => {expressionBody.Expression}");
+        }
+        builder.AppendLine("}");
+        return builder.ToString();
+    }
+
+    private static void AppendMethodResult(
+        StringBuilder builder,
+        ITypeSymbol? returnType,
+        TypeSyntax? returnTypeSyntax,
+        string resultName)
+    {
+        var returnTypeName = returnType?.ToDisplayString() ?? returnTypeSyntax?.ToString() ?? "object";
+        if (returnTypeName.EndsWith(nameof(MacroExecutionResult), StringComparison.Ordinal))
+            builder.AppendLine($"        return {resultName}");
+        else if (returnTypeName.EndsWith(nameof(InvocableMacroExpansionResult), StringComparison.Ordinal))
+            builder.AppendLine($"        return Raven.CodeAnalysis.Macros.MacroExecutionResult.Invocable({resultName})");
+        else
+            builder.AppendLine($"        return Raven.CodeAnalysis.Macros.MacroExecutionResult.Invocable(Raven.CodeAnalysis.Macros.InvocableMacroExpansionResult.FromNode({resultName}))");
     }
 
     private static string LowerDeclaration(
@@ -432,7 +585,7 @@ internal static class MacroLowering
         return null;
     }
 
-    private static string GetDeclaredNamespace(MacroDeclarationSyntax declaration)
+    private static string GetDeclaredNamespace(SyntaxNode declaration)
         => string.Join(
             ".",
             declaration.Ancestors()

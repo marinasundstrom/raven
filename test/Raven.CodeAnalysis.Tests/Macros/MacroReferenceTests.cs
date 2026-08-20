@@ -176,9 +176,9 @@ public sealed class MacroReferenceTests
             import Raven.CodeAnalysis.Macros.*
             import Raven.CodeAnalysis.Syntax.*
 
-            [assembly: RavenCompilerPlugin(typeof(IdentityMacro))]
+            [assembly: RavenCompilerPlugin]
 
-            class IdentityMacro : IMacroDefinition {
+            public class IdentityMacro : IMacroDefinition {
                 func Expand(count: int, value: ExpressionSyntax, context: InvocableMacroContext) -> ExpressionSyntax
                     => value
             }
@@ -187,12 +187,60 @@ public sealed class MacroReferenceTests
         var macro = Assert.Single(reference.Macros);
 
         Assert.Equal("Identity", macro.Name);
+        Assert.IsAssignableFrom<IMacroExecutor>(macro);
         Assert.Equal(
             ["count", "value"],
             MacroFacts.GetDescriptor(macro).Parameters.Select(static parameter => parameter.Name));
 
         var consumerTree = SyntaxTree.ParseText("""
             let answer = Identity!(1, 42)
+            """);
+        var consumerCompilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(consumerTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(reference);
+
+        Assert.Contains(
+            "let answer = 42",
+            consumerCompilation.GetSemanticModel(consumerTree).GetExpandedRoot().ToFullString(),
+            System.StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MacroReference_FromGenericMethodShapedClass_PreservesCanonicalSignature()
+    {
+        const string source = """
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
+
+            [assembly: RavenCompilerPlugin]
+
+            public class IdentityMacro<T> : IMacroDefinition {
+                func Expand(value: T, syntax: ExpressionSyntax, context: InvocableMacroContext) -> ExpressionSyntax
+                    => syntax
+            }
+            """;
+        var sourceTree = SyntaxTree.ParseText(source);
+        var sourceClass = sourceTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        Assert.True(LocalMacroSyntaxClassifier.IsMethodShapedMacroClass(sourceClass));
+
+        var macroImage = EmitMacroAssembly(source);
+        var reference = MacroReference.CreateFromImage(macroImage);
+        var macro = Assert.Single(reference.Macros);
+        var executor = Assert.IsAssignableFrom<IMacroExecutor>(macro);
+
+        Assert.Equal("Identity", macro.Name);
+        Assert.Equal(["T"], executor.TypeParameters.ToArray());
+        Assert.Equal(["T", "ExpressionSyntax", "InvocableMacroContext"],
+            executor.Parameters.Select(static parameter => parameter.TypeDisplayName));
+        Assert.Equal(
+            [MacroParameterSource.Value, MacroParameterSource.SyntaxInput, MacroParameterSource.Context],
+            executor.Parameters.Select(static parameter => parameter.Source));
+
+        var consumerTree = SyntaxTree.ParseText("""
+            let answer = Identity<int>!(1, 42)
             """);
         var consumerCompilation = Compilation.Create(
                 "Consumer",
@@ -858,7 +906,7 @@ public sealed class MacroReferenceTests
         var macroCompilation = Compilation.Create(
                 $"InMemoryMacros_{System.Guid.NewGuid():N}",
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddSyntaxTrees(macroTree)
+            .AddSyntaxTreesWithLocalMacros(macroTree)
             .AddReferences([
                 .. TestMetadataReferences.DefaultWithRavenMacros,
                 codeAnalysisReference

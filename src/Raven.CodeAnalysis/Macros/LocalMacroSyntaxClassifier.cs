@@ -60,8 +60,10 @@ internal static class LocalMacroSyntaxClassifier
         if (IsCompilerPluginTree(syntaxTree))
         {
             var macroDeclarations = GetTopLevelMacroDeclarations(syntaxTree)
-                .OfType<MacroDeclarationSyntax>()
-                .Cast<MemberDeclarationSyntax>()
+                .Where(static declaration =>
+                    declaration is MacroDeclarationSyntax ||
+                    declaration is ClassDeclarationSyntax methodClass &&
+                    IsMethodShapedMacroClass(methodClass))
                 .ToArray();
             if (macroDeclarations.Length == 0)
                 return new LocalMacroSyntaxPartition(syntaxTree, null);
@@ -149,6 +151,12 @@ internal static class LocalMacroSyntaxClassifier
                 DeclarationMarkerAttributeName) ||
             ImplementsMacroInterface(declaration);
 
+    internal static bool IsMethodShapedMacroClass(ClassDeclarationSyntax declaration)
+        => ImplementsInterface(declaration, nameof(IMacroDefinition)) &&
+            declaration.Members
+                .OfType<MethodDeclarationSyntax>()
+                .Count(static method => method.Identifier.ValueText == "Expand") == 1;
+
     private static bool ImplementsMacroInterface(TypeDeclarationSyntax declaration)
     {
         var baseList = declaration switch
@@ -168,6 +176,24 @@ internal static class LocalMacroSyntaxClassifier
                 .LastOrDefault(static token => token.Kind == SyntaxKind.IdentifierToken);
             return s_macroInterfaceNames.Contains(identifier.ValueText);
         });
+    }
+
+    private static bool ImplementsInterface(TypeDeclarationSyntax declaration, string interfaceName)
+    {
+        var baseList = declaration switch
+        {
+            ClassDeclarationSyntax classDeclaration => classDeclaration.BaseList,
+            RecordDeclarationSyntax recordDeclaration => recordDeclaration.BaseList,
+            StructDeclarationSyntax structDeclaration => structDeclaration.BaseList,
+            _ => null
+        };
+        return baseList?.Types.Any(baseType =>
+        {
+            var identifier = baseType.Type
+                .DescendantTokens()
+                .LastOrDefault(static token => token.Kind == SyntaxKind.IdentifierToken);
+            return string.Equals(identifier.ValueText, interfaceName, StringComparison.Ordinal);
+        }) == true;
     }
 
     private static bool IsMarkerAttribute(
