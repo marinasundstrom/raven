@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq.Expressions;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Syntax;
@@ -9,11 +10,13 @@ internal sealed class MethodMacroExecutorAdapter : IMacroExecutor
 {
     private readonly IMacroDefinition _definition;
     private readonly MethodInfo _expandMethod;
+    private readonly Func<object?[], object?> _invoke;
 
     public MethodMacroExecutorAdapter(IMacroDefinition definition, MethodInfo expandMethod)
     {
         _definition = definition;
         _expandMethod = expandMethod;
+        _invoke = CreateInvoker(definition, expandMethod);
         Parameters = MethodMacroFacts.GetParameters(expandMethod);
         ApplicationKind = MethodMacroFacts.GetApplicationKind(expandMethod);
     }
@@ -48,17 +51,28 @@ internal sealed class MethodMacroExecutorAdapter : IMacroExecutor
             };
         }
 
-        object? result;
-        try
-        {
-            result = _expandMethod.Invoke(_definition, arguments);
-        }
-        catch (TargetInvocationException exception) when (exception.InnerException is not null)
-        {
-            throw exception.InnerException;
-        }
+        return NormalizeResult(_invoke(arguments));
+    }
 
-        return NormalizeResult(result);
+    private static Func<object?[], object?> CreateInvoker(
+        IMacroDefinition definition,
+        MethodInfo expandMethod)
+    {
+        var arguments = Expression.Parameter(typeof(object[]), "arguments");
+        var parameters = expandMethod.GetParameters();
+        var callArguments = parameters
+            .Select(parameter => Expression.Convert(
+                Expression.ArrayIndex(arguments, Expression.Constant(parameter.Position)),
+                parameter.ParameterType))
+            .ToArray();
+        var instance = expandMethod.IsStatic
+            ? null
+            : Expression.Convert(Expression.Constant(definition), expandMethod.DeclaringType!);
+        var call = Expression.Call(instance, expandMethod, callArguments);
+        Expression body = expandMethod.ReturnType == typeof(void)
+            ? Expression.Block(call, Expression.Constant(null, typeof(object)))
+            : Expression.Convert(call, typeof(object));
+        return Expression.Lambda<Func<object?[], object?>>(body, arguments).Compile();
     }
 
     private object? GetArgument(MacroExecutionContext context, MacroExecutorParameter parameter)
