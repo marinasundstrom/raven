@@ -243,13 +243,17 @@ that restore `Raven.Sdk`, and the template checks restore `Raven.Templates`, so
 dispatching during that propagation window produces restore failures even when
 the downloaded SDK archives themselves are valid.
 
-Once `Raven.Core`, `Raven.Macros`, `Raven.CodeAnalysis`, `Raven.Analyzers`,
-`Raven.Sdk`, and `Raven.Templates` all list the published version on NuGet.org,
-manually run the `Installation verification` workflow with that version. It
-downloads the public release rather than reusing workflow artifacts, installs
-and exercises the SDK on Windows, Linux, and macOS across the published
-architectures, and installs the checksum-verified VSIX into clean portable VS
-Code instances on all three operating systems.
+Do not treat appearance in the flat-container version index alone as sufficient:
+that can precede package availability to normal restore clients. From outside
+the repository and its local package feed, use an empty package cache to install
+the published `Raven.Templates`, create a Raven project, and build it. Dispatch
+`Installation verification` only after that public-only probe restores both the
+template and its selected `Raven.Sdk` successfully.
+
+The workflow downloads the public release rather than reusing workflow
+artifacts, installs and exercises the SDK on Windows, Linux, and macOS across
+the published architectures, and installs the checksum-verified VSIX into clean
+portable VS Code instances on all three operating systems.
 
 ## NuGet packages
 

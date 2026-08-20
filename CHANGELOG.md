@@ -5,9 +5,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
 ## Unreleased
 
 - The release procedure and installation-workflow dispatch form now state that
-  public installation verification must wait until every lockstep Raven package
-  is visible on NuGet.org, because its project and template checks restore the
-  published `Raven.Sdk` and `Raven.Templates` packages.
+  public installation verification must wait until the published packages are
+  restorable from a fresh NuGet.org-only cache, because its project and template
+  checks restore `Raven.Sdk` and `Raven.Templates`. Merely seeing the version in
+  NuGet's flat-container index is not treated as sufficient propagation.
 
 ## 0.1.0-preview.11 - 2026-08-20
 
