@@ -134,33 +134,33 @@ internal static class MacroSemanticValidator
         return true;
     }
 
-    public static bool TryResolveInvocableMacro(
+    public static bool TryResolveFreestandingMacro(
         Compilation compilation,
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         DiagnosticBag? diagnostics,
-        out LoadedInvocableMacro loaded)
-        => TryResolveInvocableMacro(
+        out LoadedFreestandingMacro loaded)
+        => TryResolveFreestandingMacro(
             compilation,
-            InvocableMacroInvocation.Create(expression),
+            FreestandingMacroInvocation.Create(expression),
             diagnostics,
             out loaded);
 
-    public static bool TryResolveInvocableMacro(
+    public static bool TryResolveFreestandingMacro(
         Compilation compilation,
-        InvocableMacroMemberDeclarationSyntax member,
+        FreestandingMacroMemberDeclarationSyntax member,
         DiagnosticBag? diagnostics,
-        out LoadedInvocableMacro loaded)
-        => TryResolveInvocableMacro(
+        out LoadedFreestandingMacro loaded)
+        => TryResolveFreestandingMacro(
             compilation,
-            InvocableMacroInvocation.Create(member),
+            FreestandingMacroInvocation.Create(member),
             diagnostics,
             out loaded);
 
-    internal static bool TryResolveInvocableMacro(
+    internal static bool TryResolveFreestandingMacro(
         Compilation compilation,
-        InvocableMacroInvocation invocation,
+        FreestandingMacroInvocation invocation,
         DiagnosticBag? diagnostics,
-        out LoadedInvocableMacro loaded)
+        out LoadedFreestandingMacro loaded)
     {
         if (!invocation.TryGetMacroName(out var macroName))
         {
@@ -169,7 +169,7 @@ internal static class MacroSemanticValidator
         }
 
         var registry = compilation.GetMacroRegistry();
-        if (!registry.TryResolveInvocableMacro(
+        if (!registry.TryResolveFreestandingMacro(
                 compilation,
                 invocation.Syntax,
                 macroName,
@@ -182,7 +182,7 @@ internal static class MacroSemanticValidator
                     invocation.Name.GetMacroArity(),
                     out var localMacro,
                     out var localIsAmbiguous) &&
-                localMacro.MacroKind == MacroKind.Invocable)
+                localMacro.MacroKind == MacroKind.Freestanding)
             {
                 return false;
             }

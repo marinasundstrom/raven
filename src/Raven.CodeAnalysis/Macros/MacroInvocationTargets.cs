@@ -3,7 +3,7 @@ using System;
 namespace Raven.CodeAnalysis.Macros;
 
 /// <summary>
-/// Identifies the single-node grammar positions in which an invocable macro
+/// Identifies the single-node grammar positions in which a freestanding macro
 /// can appear.
 /// </summary>
 [Flags]
@@ -18,7 +18,7 @@ public enum MacroInvocationTargets
     Pattern = 1 << 5,
 
     /// <summary>
-    /// Includes every supported single-node invocable grammar position.
+    /// Includes every supported single-node freestanding grammar position.
     /// </summary>
     AllSingleNode = Expression | Statement | NamespaceMember | TypeMember | Type | Pattern,
 }

@@ -133,32 +133,25 @@ For attached declaration macros, the raw parsed arguments are exposed directly o
 
 For macro-authored validation errors, the expansion result can also carry `MacroExpansionDiagnostic` entries. `AttachedMacroContext.CreateDiagnostic(...)` and `AttachedMacroContext.CreateArgumentDiagnostic(...)` provide the intended convenience path for reporting a custom message at either the macro site or a specific argument.
 
-The next contract direction is typed parameter objects, exposed through generic macro definitions:
+Class-authored macros declare the same method-shaped signature directly:
 
 ```raven
-class ObservableMacroParameters {
-    var Notify: bool = true
-    var Name: string?
-}
-
-class ObservableMacro :
-    IMacroDefinition {
-    ...
+class ObservableMacro: IMacroDefinition {
+    func Expand(name: string?, notify: bool = true,
+        property: PropertyDeclarationSyntax,
+        context: AttachedMacroContext) -> MacroExpansionResult { ... }
 }
 ```
 
-The initial binding slice for this direction supports:
-
-* one public constructor for positional arguments
-* public writable properties for named arguments
-* constant conversion into common CLR primitive/reference types
+The method binding supports positional and named arguments, optional method
+defaults, and constant conversion into common CLR primitive/reference types.
 
 This is intended to let the compiler eventually bind macro arguments the same way it binds normal attribute arguments:
 
 * positional/named parameter validation before expansion
 * constant conversion diagnostics before expansion
-* editor completion and signature help based on the declared parameter object
-* strongly typed access to parameters in the plugin
+* editor completion and signature help based on the declared `Expand` method
+* strongly typed parameters in the plugin
 
 Current validation diagnostics reported by the macro itself are surfaced through a shared compiler-owned diagnostic ID, with the specific macro name and message carried in the formatted text rather than through plugin-defined descriptor IDs.
 

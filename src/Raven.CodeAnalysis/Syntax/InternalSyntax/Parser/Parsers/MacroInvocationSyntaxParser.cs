@@ -15,7 +15,7 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
         if (!CanTokenBeIdentifier(PeekToken()))
             return false;
 
-        var checkpoint = CreateCheckpoint("invocable-macro-lookahead");
+        var checkpoint = CreateCheckpoint("freestanding-macro-lookahead");
         var name = new NameSyntaxParser(this).ParseName();
         var isStart = !name.IsMissing &&
             !HasLineBreakBeforePeekToken() &&
@@ -41,23 +41,23 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
         return isStart;
     }
 
-    public InvocableMacroExpressionSyntax ParseExpression()
+    public FreestandingMacroExpressionSyntax ParseExpression()
     {
         var invocation = ParseInvocation();
-        return InvocableMacroExpression(
+        return FreestandingMacroExpression(
             invocation.Name,
             invocation.ExclamationToken,
             invocation.ArgumentList,
             invocation.TokenTree);
     }
 
-    public InvocableMacroMemberDeclarationSyntax ParseMember(
+    public FreestandingMacroMemberDeclarationSyntax ParseMember(
         SyntaxList attributeLists,
         SyntaxList modifiers)
     {
         var invocation = ParseInvocation();
         TryConsumeTerminator(out var terminatorToken);
-        return InvocableMacroMemberDeclaration(
+        return FreestandingMacroMemberDeclaration(
             attributeLists,
             modifiers,
             invocation.Name,

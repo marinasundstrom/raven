@@ -37,6 +37,12 @@ public sealed class MacroExecutionContext
         => Context as TContext ?? throw new InvalidOperationException(
             $"Macro '{Executor.Name}' does not have a {typeof(TContext).Name} context.");
 
+    public TSyntax GetAttachedTarget<TSyntax>() where TSyntax : SyntaxNode
+        => Context is AttachedMacroContext { TargetDeclaration: TSyntax target }
+            ? target
+            : throw new InvalidOperationException(
+                $"Macro '{Executor.Name}' cannot use the attached declaration as {typeof(TSyntax).Name}.");
+
     public T GetArgument<T>(int ordinal, string name)
     {
         var argument = FindArgument(ordinal, name) ?? throw new InvalidOperationException(

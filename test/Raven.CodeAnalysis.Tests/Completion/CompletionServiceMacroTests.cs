@@ -171,7 +171,7 @@ class MacroHost {
     }
 
     [Fact]
-    public void GetCompletions_InInvocableMacroName_ReturnsOnlyInvocableMacros()
+    public void GetCompletions_InFreestandingMacroName_ReturnsOnlyFreestandingMacros()
     {
         const string code = """
 class MacroHost {
@@ -248,7 +248,7 @@ class CounterViewModel {
     }
 
     [Fact]
-    public void GetCompletions_InInvocableMacroName_ReturnsLocalMacro()
+    public void GetCompletions_InFreestandingMacroName_ReturnsLocalMacro()
     {
         const string code = """
 class MacroHost {
@@ -263,7 +263,7 @@ class MacroHost {
 
             class LocalAnswerMacro : IMacroDefinition {
                 val Name: string => "localAnswer"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
@@ -290,7 +290,7 @@ class MacroHost {
     }
 
     [Fact]
-    public void GetCompletions_InInvocableMacroName_ReturnsIntrinsicQuote()
+    public void GetCompletions_InFreestandingMacroName_ReturnsIntrinsicQuote()
     {
         const string code = """
 import Raven.Macros.*
@@ -350,7 +350,7 @@ class MacroHost {
     }
 
     [Fact]
-    public void GetCompletions_InInvocableMacroName_PreservesInvocationSuffix()
+    public void GetCompletions_InFreestandingMacroName_PreservesInvocationSuffix()
     {
         const string code = """
 import Raven.Macros.*
@@ -380,7 +380,7 @@ class MacroHost {
     }
 
     [Fact]
-    public void GetCompletions_InInvocableMacroName_ReturnsIntrinsicCompile()
+    public void GetCompletions_InFreestandingMacroName_ReturnsIntrinsicCompile()
     {
         const string code = """
 import Raven.Macros.*
@@ -437,7 +437,7 @@ class CounterViewModel {
     }
 
     [Fact]
-    public void GetCompletions_InInvocableMacroName_ReturnsInvocableMacros()
+    public void GetCompletions_InFreestandingMacroName_ReturnsFreestandingMacros()
     {
         const string code = """
 class MacroHost {
@@ -495,7 +495,7 @@ class MacroHost {
     }
 
     [Fact]
-    public void GetCompletions_InInvocableMacroName_UsesTokenTreeInsertion()
+    public void GetCompletions_InFreestandingMacroName_UsesTokenTreeInsertion()
     {
         const string code = """
 class MacroHost {
@@ -649,7 +649,7 @@ class ViewModel {
     }
 
     [Fact]
-    public void GetCompletions_InTypedInvocableMacroArguments_ReturnsNamedParameters()
+    public void GetCompletions_InTypedFreestandingMacroArguments_ReturnsNamedParameters()
     {
         const string code = """
 class MacroHost {

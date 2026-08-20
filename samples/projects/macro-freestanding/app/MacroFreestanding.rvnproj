@@ -1,10 +1,10 @@
 <Project Sdk="Raven.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>MacroInvocable</AssemblyName>
+    <AssemblyName>MacroFreestanding</AssemblyName>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../macros/InvocableMacros.rvnproj" />
+    <ProjectReference Include="../macros/FreestandingMacros.rvnproj" />
   </ItemGroup>
 </Project>

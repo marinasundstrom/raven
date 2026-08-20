@@ -55,23 +55,7 @@ internal static class LocalMacroSyntaxClassifier
         ArgumentNullException.ThrowIfNull(syntaxTree);
 
         if (IsCompilerPluginTree(syntaxTree))
-        {
-            var macroDeclarations = GetTopLevelMacroDeclarations(syntaxTree)
-                .Where(static declaration =>
-                    declaration is MacroDeclarationSyntax ||
-                    declaration is ClassDeclarationSyntax methodClass &&
-                    IsMethodShapedMacroClass(methodClass))
-                .ToArray();
-            if (macroDeclarations.Length == 0)
-                return new LocalMacroSyntaxPartition(syntaxTree, null);
-
-            return new LocalMacroSyntaxPartition(
-                CreateConsumerProjection(syntaxTree, macroDeclarations),
-                CreateMacroProjection(
-                    syntaxTree,
-                    macroDeclarations,
-                    copyRootAttributes: false));
-        }
+            return new LocalMacroSyntaxPartition(ConsumerTree: null, syntaxTree);
 
         if (IsLocalMacroTree(syntaxTree))
             return new LocalMacroSyntaxPartition(null, syntaxTree);

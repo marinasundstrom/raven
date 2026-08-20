@@ -477,7 +477,7 @@ but the separation and invariants are design requirements.
 ### Application kind
 
 `MacroKind` must stop encoding both application and output grammar. Replace its
-current `AttachedDeclaration` and `Invocable` cases with the
+current `AttachedDeclaration` and `Freestanding` cases with the
 application-only distinction:
 
 ```csharp

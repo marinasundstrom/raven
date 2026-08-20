@@ -12,10 +12,10 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public sealed class InvocableMacroCodeGenTests
+public sealed class FreestandingMacroCodeGenTests
 {
     [Fact]
-    public void InvocableMacro_ExpandedStatement_IsEmitted()
+    public void FreestandingMacro_ExpandedStatement_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -46,7 +46,7 @@ public sealed class InvocableMacroCodeGenTests
     }
 
     [Fact]
-    public void InvocableMacro_WrongExpansionCategory_ReportsDiagnostic()
+    public void FreestandingMacro_WrongExpansionCategory_ReportsDiagnostic()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -68,7 +68,7 @@ public sealed class InvocableMacroCodeGenTests
     }
 
     [Fact]
-    public void InvocableMacro_MemberListInExpressionPosition_ReportsDiagnostic()
+    public void FreestandingMacro_MemberListInExpressionPosition_ReportsDiagnostic()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -90,7 +90,7 @@ public sealed class InvocableMacroCodeGenTests
     }
 
     [Fact]
-    public void InvocableMacro_TypeMemberExpansion_IsEmitted()
+    public void FreestandingMacro_TypeMemberExpansion_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -117,7 +117,7 @@ public sealed class InvocableMacroCodeGenTests
     }
 
     [Fact]
-    public void InvocableMacro_FileMemberExpansion_IsEmitted()
+    public void FreestandingMacro_FileMemberExpansion_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -146,7 +146,7 @@ public sealed class InvocableMacroCodeGenTests
     }
 
     [Fact]
-    public void InvocableMacro_NamespaceMemberExpansion_IsEmitted()
+    public void FreestandingMacro_NamespaceMemberExpansion_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -214,7 +214,7 @@ public sealed class InvocableMacroCodeGenTests
             .AddSyntaxTreesWithLocalMacros(sourceTree);
 
         var macro = Assert.Single(
-            compilation.GetMacroRegistry().GetMacros(MacroKind.Invocable),
+            compilation.GetMacroRegistry().GetMacros(MacroKind.Freestanding),
             static macro => macro.Name == "Generate");
         Assert.Equal(
             MacroInvocationTargets.NamespaceMember | MacroInvocationTargets.TypeMember,
@@ -240,7 +240,7 @@ public sealed class InvocableMacroCodeGenTests
 
             class LocalAnswerMacro : IMacroDefinition {
                 val Name: string => "localAnswer"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
@@ -275,7 +275,7 @@ public sealed class InvocableMacroCodeGenTests
     }
 
     [Fact]
-    public void InvocableMacro_ExpandedExpression_IsEmitted()
+    public void FreestandingMacro_ExpandedExpression_IsEmitted()
     {
         var syntaxTree = SyntaxTree.ParseText("""
             import Raven.CodeAnalysis.Tests.*
@@ -304,7 +304,7 @@ public sealed class InvocableMacroCodeGenTests
     }
 
     [Fact]
-    public void InvocableMacro_LoadsFileContentDuringExpansion()
+    public void FreestandingMacro_LoadsFileContentDuringExpansion()
     {
         var path = Path.GetTempFileName();
         try
@@ -344,7 +344,7 @@ public sealed class InvocableMacroCodeGenTests
     }
 
     [Fact]
-    public void InvocableMacro_MissingFileReportsArgumentDiagnostic()
+    public void FreestandingMacro_MissingFileReportsArgumentDiagnostic()
     {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".txt");
         var syntaxTree = SyntaxTree.ParseText($$"""
@@ -494,7 +494,7 @@ public sealed class InvocableMacroCodeGenTests
     public sealed class AddMacro : IMacroDefinition
     {
         public string Name => "add";
-        public MacroKind Kind => MacroKind.Invocable;
+        public MacroKind Kind => MacroKind.Freestanding;
 
         public FreestandingMacroExpansionResult Expand(int left, int Right)
             => new()
@@ -506,7 +506,7 @@ public sealed class InvocableMacroCodeGenTests
     public sealed class SetAnswerMacro : IMacroDefinition
     {
         public string Name => "setAnswer";
-        public MacroKind Kind => MacroKind.Invocable;
+        public MacroKind Kind => MacroKind.Freestanding;
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => FreestandingMacroExpansionResult.FromStatement(
@@ -523,7 +523,7 @@ public sealed class InvocableMacroCodeGenTests
     public sealed class EmbedTextMacro : IMacroDefinition
     {
         public string Name => "embedText";
-        public MacroKind Kind => MacroKind.Invocable;
+        public MacroKind Kind => MacroKind.Freestanding;
 
         public FreestandingMacroExpansionResult Expand(string path, FreestandingMacroContext context)
         {

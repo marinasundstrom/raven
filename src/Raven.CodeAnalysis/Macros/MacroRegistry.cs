@@ -41,15 +41,15 @@ internal sealed class MacroRegistry
         true);
 
     private readonly ImmutableDictionary<string, LoadedAttachedMacro> _attachedMacros;
-    private readonly ImmutableDictionary<string, LoadedInvocableMacro> _invocableMacros;
+    private readonly ImmutableDictionary<string, LoadedFreestandingMacro> _freestandingMacros;
 
     private MacroRegistry(
         ImmutableDictionary<string, LoadedAttachedMacro> attachedMacros,
-        ImmutableDictionary<string, LoadedInvocableMacro> invocableMacros,
+        ImmutableDictionary<string, LoadedFreestandingMacro> freestandingMacros,
         ImmutableArray<Diagnostic> diagnostics)
     {
         _attachedMacros = attachedMacros;
-        _invocableMacros = invocableMacros;
+        _freestandingMacros = freestandingMacros;
         Diagnostics = diagnostics;
     }
 
@@ -58,7 +58,7 @@ internal sealed class MacroRegistry
     public IEnumerable<string> Namespaces =>
         _attachedMacros.Values
             .Select(static macro => GetNamespace(macro.CanonicalName))
-            .Concat(_invocableMacros.Values.Select(static macro => GetNamespace(macro.CanonicalName)))
+            .Concat(_freestandingMacros.Values.Select(static macro => GetNamespace(macro.CanonicalName)))
             .Where(static macroNamespace => !string.IsNullOrEmpty(macroNamespace))
             .Distinct(StringComparer.Ordinal);
 
@@ -66,7 +66,7 @@ internal sealed class MacroRegistry
     {
         var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
         var attachedMacros = ImmutableDictionary.CreateBuilder<string, LoadedAttachedMacro>(StringComparer.Ordinal);
-        var invocableMacros = ImmutableDictionary.CreateBuilder<string, LoadedInvocableMacro>(StringComparer.Ordinal);
+        var freestandingMacros = ImmutableDictionary.CreateBuilder<string, LoadedFreestandingMacro>(StringComparer.Ordinal);
 
         foreach (var reference in references)
         {
@@ -81,7 +81,7 @@ internal sealed class MacroRegistry
             }
         }
 
-        return new MacroRegistry(attachedMacros.ToImmutable(), invocableMacros.ToImmutable(), diagnostics.ToImmutable());
+        return new MacroRegistry(attachedMacros.ToImmutable(), freestandingMacros.ToImmutable(), diagnostics.ToImmutable());
 
         void RegisterMacro(IMacroDefinition macro, string origin)
         {
@@ -130,20 +130,20 @@ internal sealed class MacroRegistry
                     break;
 
                 case MacroApplicationKind.Freestanding:
-                    if (invocableMacros.TryGetValue(canonicalName, out var existingInvocable))
+                    if (freestandingMacros.TryGetValue(canonicalName, out var existingFreestanding))
                     {
                         diagnostics.Add(Diagnostic.Create(
                             s_duplicateMacroName,
                             Location.None,
                             canonicalName,
-                            existingInvocable.Origin,
+                            existingFreestanding.Origin,
                             origin));
                         return;
                     }
 
-                    invocableMacros.Add(
+                    freestandingMacros.Add(
                         canonicalName,
-                        new LoadedInvocableMacro(
+                        new LoadedFreestandingMacro(
                             origin,
                             descriptor,
                             executor,
@@ -170,17 +170,17 @@ internal sealed class MacroRegistry
             out macro,
             out isAmbiguous);
 
-    public bool TryResolveInvocableMacro(
+    public bool TryResolveFreestandingMacro(
         Compilation compilation,
         SyntaxNode context,
         string macroName,
-        out LoadedInvocableMacro macro,
+        out LoadedFreestandingMacro macro,
         out bool isAmbiguous)
         => TryResolveMacro(
             compilation,
             context,
             macroName,
-            _invocableMacros,
+            _freestandingMacros,
             static loaded => loaded.CanonicalName,
             static loaded => loaded.Aliases,
             out macro,
@@ -190,7 +190,7 @@ internal sealed class MacroRegistry
         => kind switch
         {
             MacroKind.AttachedDeclaration => _attachedMacros.Values.Select(static loaded => (IMacroDefinition)loaded.Macro),
-            MacroKind.Invocable => _invocableMacros.Values.Select(static loaded => loaded.Macro),
+            MacroKind.Freestanding => _freestandingMacros.Values.Select(static loaded => loaded.Macro),
             _ => []
         };
 
@@ -207,15 +207,15 @@ internal sealed class MacroRegistry
             macroName,
             out var attached,
             out var attachedAmbiguous);
-        var hasInvocable = TryResolveInvocableMacro(
+        var hasFreestanding = TryResolveFreestandingMacro(
             compilation,
             context,
             macroName,
-            out var invocable,
-            out var invocableAmbiguous);
+            out var freestanding,
+            out var freestandingAmbiguous);
 
-        isAmbiguous = attachedAmbiguous || invocableAmbiguous || (hasAttached && hasInvocable);
-        if (isAmbiguous || (!hasAttached && !hasInvocable))
+        isAmbiguous = attachedAmbiguous || freestandingAmbiguous || (hasAttached && hasFreestanding);
+        if (isAmbiguous || (!hasAttached && !hasFreestanding))
         {
             symbol = null!;
             return false;
@@ -223,13 +223,13 @@ internal sealed class MacroRegistry
 
         var canonicalName = hasAttached
             ? attached.CanonicalName
-            : invocable.CanonicalName;
+            : freestanding.CanonicalName;
         var aliases = hasAttached
             ? attached.Aliases
-            : invocable.Aliases;
+            : freestanding.Aliases;
         var descriptor = hasAttached
             ? attached.Descriptor
-            : invocable.Descriptor;
+            : freestanding.Descriptor;
         var resolvedName = IsQualifiedName(macroName)
             ? GetSimpleName(canonicalName)
             : macroName;
@@ -267,10 +267,10 @@ internal sealed class MacroRegistry
                 static loaded => loaded.Descriptor,
                 static loaded => loaded.CanonicalName,
                 static loaded => loaded.Aliases),
-            MacroKind.Invocable => GetVisibleMacros(
+            MacroKind.Freestanding => GetVisibleMacros(
                 compilation,
                 context,
-                _invocableMacros.Values,
+                _freestandingMacros.Values,
                 static loaded => loaded.Descriptor,
                 static loaded => loaded.CanonicalName,
                 static loaded => loaded.Aliases),
@@ -443,7 +443,7 @@ internal readonly record struct LoadedAttachedMacro(
     public IMacroDefinition Macro => Descriptor.Definition;
 }
 
-internal readonly record struct LoadedInvocableMacro(
+internal readonly record struct LoadedFreestandingMacro(
     string Origin,
     MacroDefinitionDescriptor Descriptor,
     IMacroExecutor Executor,

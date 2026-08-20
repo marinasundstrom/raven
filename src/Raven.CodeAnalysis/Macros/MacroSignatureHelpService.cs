@@ -27,10 +27,10 @@ internal static class MacroSignatureHelpService
                 expectedKind = MacroKind.AttachedDeclaration;
                 break;
 
-            case InvocableMacroExpressionSyntax expression when expression.TryGetMacroName(out name):
+            case FreestandingMacroExpressionSyntax expression when expression.TryGetMacroName(out name):
                 nameSyntax = expression.Name;
                 invocation = expression;
-                expectedKind = MacroKind.Invocable;
+                expectedKind = MacroKind.Freestanding;
                 break;
 
             default:
@@ -107,16 +107,16 @@ internal static class MacroSignatureHelpService
             return true;
         }
 
-        if (expectedKind == MacroKind.Invocable &&
-            invocation is InvocableMacroExpressionSyntax expression &&
-            registry.TryResolveInvocableMacro(
+        if (expectedKind == MacroKind.Freestanding &&
+            invocation is FreestandingMacroExpressionSyntax expression &&
+            registry.TryResolveFreestandingMacro(
                 semanticModel.Compilation,
                 expression,
                 name,
-                out var invocable,
+                out var freestanding,
                 out _))
         {
-            descriptor = invocable.Descriptor;
+            descriptor = freestanding.Descriptor;
             return true;
         }
 

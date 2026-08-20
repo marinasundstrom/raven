@@ -2256,8 +2256,8 @@ partial class BlockBinder : Binder
         SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
         using var _ = EnterExecutionScope();
 
-        if (syntax is InvocableMacroExpressionSyntax macroExpressionForScope)
-            OnInvocableMacroExpressionBinding(macroExpressionForScope);
+        if (syntax is FreestandingMacroExpressionSyntax macroExpressionForScope)
+            OnFreestandingMacroExpressionBinding(macroExpressionForScope);
 
         var activeTargetType = GetScopedTargetType(syntax);
         var useContextualCache = activeTargetType is not null;
@@ -2326,7 +2326,7 @@ partial class BlockBinder : Binder
             BaseExpressionSyntax baseExpression => BindBaseExpression(baseExpression),
             ReceiverBindingExpressionSyntax receiverBindingExpression => BindReceiverBindingExpression(receiverBindingExpression),
             DiscardExpressionSyntax discardExpression => BindDiscardExpression(discardExpression),
-            InvocableMacroExpressionSyntax invocableMacroExpression => BindInvocableMacroExpression(invocableMacroExpression),
+            FreestandingMacroExpressionSyntax freestandingMacroExpression => BindFreestandingMacroExpression(freestandingMacroExpression),
             UnitExpressionSyntax unitExpression => BindUnitExpression(unitExpression),
             ExpressionSyntax.Missing missing => BindMissingExpression(missing),
             _ => throw new NotSupportedException($"Unsupported expression: {syntax.Kind}")
@@ -2340,7 +2340,7 @@ partial class BlockBinder : Binder
         return boundNode;
     }
 
-    protected virtual void OnInvocableMacroExpressionBinding(InvocableMacroExpressionSyntax syntax)
+    protected virtual void OnFreestandingMacroExpressionBinding(FreestandingMacroExpressionSyntax syntax)
     {
     }
 
@@ -2494,7 +2494,7 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
-    private BoundExpression BindInvocableMacroExpression(InvocableMacroExpressionSyntax syntax)
+    private BoundExpression BindFreestandingMacroExpression(FreestandingMacroExpressionSyntax syntax)
     {
         if (syntax.Name is SimpleNameSyntax simpleName &&
             LookupSymbol(simpleName.Identifier.ValueText) is ILocalSymbol or IParameterSymbol)

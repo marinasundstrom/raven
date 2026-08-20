@@ -7,19 +7,19 @@ public sealed class MacroExecutionResult
 {
     private MacroExecutionResult(
         MacroExpansionResult? attachedResult,
-        FreestandingMacroExpansionResult? invocableResult)
+        FreestandingMacroExpansionResult? freestandingResult)
     {
         AttachedResult = attachedResult;
-        InvocableResult = invocableResult;
+        FreestandingResult = freestandingResult;
     }
 
     public MacroExpansionResult? AttachedResult { get; }
 
-    public FreestandingMacroExpansionResult? InvocableResult { get; }
+    public FreestandingMacroExpansionResult? FreestandingResult { get; }
 
     public static MacroExecutionResult Attached(MacroExpansionResult? result)
-        => new(result ?? MacroExpansionResult.Empty, invocableResult: null);
+        => new(result ?? MacroExpansionResult.Empty, freestandingResult: null);
 
-    public static MacroExecutionResult Invocable(FreestandingMacroExpansionResult? result)
+    public static MacroExecutionResult Freestanding(FreestandingMacroExpansionResult? result)
         => new(attachedResult: null, result ?? FreestandingMacroExpansionResult.Empty);
 }

@@ -38,7 +38,7 @@ public partial class Compilation
         }
 
         if (_macroSyntaxTrees.Length > 0 &&
-            _syntaxTrees.Any(LocalMacroSyntaxClassifier.IsCompilerPluginTree))
+            _syntaxTrees.Concat(_macroSyntaxTrees).Any(LocalMacroSyntaxClassifier.IsCompilerPluginTree))
         {
             var pluginCompilation = CreateMacroPluginCompilation();
             var pluginDiagnostics = pluginCompilation.GetDiagnostics();

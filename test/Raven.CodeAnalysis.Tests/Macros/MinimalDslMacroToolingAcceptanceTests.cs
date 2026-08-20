@@ -24,7 +24,7 @@ public sealed class MinimalDslMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
@@ -58,7 +58,7 @@ public sealed class MinimalDslMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         Assert.Single(semanticModel

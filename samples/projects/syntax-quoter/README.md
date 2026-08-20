@@ -24,5 +24,5 @@ rvn dev quote path/to/source.rvn
 ```
 
 Once Raven supports macros that can quote syntax directly, this API is a
-natural foundation for an invocable quoter macro. This sample intentionally
+natural foundation for a freestanding quoter macro. This sample intentionally
 uses the runtime API until that macro model exists.

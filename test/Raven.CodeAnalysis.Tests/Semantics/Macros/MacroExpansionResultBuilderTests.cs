@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 public class MacroExpansionResultBuilderTests
 {
     [Fact]
-    public void ExpandCompleteInvocableResult_MergesContributionsAndUsesLatestExpression()
+    public void ExpandCompleteFreestandingResult_MergesContributionsAndUsesLatestExpression()
     {
         var builder = new MacroExpansionResultBuilder();
         var diagnostic = new MacroExpansionDiagnostic(
@@ -20,7 +20,7 @@ public class MacroExpansionResultBuilderTests
         });
         builder.Expand(SyntaxFactory.ParseExpression("2"));
 
-        var result = builder.BuildInvocable();
+        var result = builder.BuildFreestanding();
 
         Assert.Equal("2", result.Expression!.ToString());
         Assert.Same(diagnostic, Assert.Single(result.MacroDiagnostics));
@@ -57,20 +57,20 @@ public class MacroExpansionResultBuilderTests
     }
 
     [Fact]
-    public void LatestInvocableExpansionSelectsOneCardinality()
+    public void LatestFreestandingExpansionSelectsOneCardinality()
     {
         var builder = new MacroExpansionResultBuilder();
         var member = SyntaxFactory.ParseSyntaxTree("class Generated {}").GetRoot().Members.Single();
 
         builder.Expand(SyntaxFactory.List([member]));
         builder.Expand(SyntaxFactory.ParseExpression("42"));
-        var expressionResult = builder.BuildInvocable();
+        var expressionResult = builder.BuildFreestanding();
 
         Assert.False(expressionResult.HasMemberExpansion);
         Assert.NotNull(expressionResult.Expression);
 
         builder.Expand(SyntaxFactory.List([member]));
-        var memberResult = builder.BuildInvocable();
+        var memberResult = builder.BuildFreestanding();
 
         Assert.True(memberResult.HasMemberExpansion);
         Assert.Null(memberResult.Node);

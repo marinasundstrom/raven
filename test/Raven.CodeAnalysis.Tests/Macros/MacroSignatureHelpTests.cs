@@ -85,7 +85,7 @@ class Host {
 
         Assert.NotNull(signature);
         Assert.Equal("typedQuery", signature.Name);
-        Assert.Equal(MacroKind.Invocable, signature.Kind);
+        Assert.Equal(MacroKind.Freestanding, signature.Kind);
         Assert.True(signature.HasTokenTreeBody);
         Assert.Collection(
             signature.Parameters,
@@ -198,7 +198,7 @@ class Host {
                     string.Empty));
 
         public MacroExecutionResult Expand(MacroExecutionContext context)
-            => MacroExecutionResult.Invocable(FreestandingMacroExpansionResult.Empty);
+            => MacroExecutionResult.Freestanding(FreestandingMacroExpansionResult.Empty);
     }
 
     private sealed class TypedQueryMacro : IMacroDefinition

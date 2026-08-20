@@ -35,7 +35,7 @@ public sealed class MacroFragmentSemanticInfoTests
             .AddMacroReferences(new MacroReference(new FragmentHoverMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var customerPosition = code.LastIndexOf("customer.Name", StringComparison.Ordinal) + 1;
         var namePosition = code.LastIndexOf("Name", StringComparison.Ordinal) + 1;
@@ -77,7 +77,7 @@ public sealed class MacroFragmentSemanticInfoTests
             .AddMacroReferences(new MacroReference(new FragmentLocalHoverMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var itemPosition = code.LastIndexOf("item.Name", StringComparison.Ordinal) + 1;
         var namePosition = code.LastIndexOf("Name", StringComparison.Ordinal) + 1;
@@ -121,7 +121,7 @@ public sealed class MacroFragmentSemanticInfoTests
             .AddMacroReferences(new MacroReference(new FragmentHoverMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var sourcePosition = code.LastIndexOf("customers if", StringComparison.Ordinal) + 1;
         var localPosition = code.LastIndexOf("customer.Name", StringComparison.Ordinal) + 1;
@@ -170,7 +170,7 @@ public sealed class MacroFragmentSemanticInfoTests
             .AddMacroReferences(new MacroReference(new FragmentHoverMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .First();
         var customerPosition = code.LastIndexOf("customer.Name", StringComparison.Ordinal) + 1;
         var namePosition = code.LastIndexOf("Name", StringComparison.Ordinal) + 1;
@@ -206,7 +206,7 @@ public sealed class MacroFragmentSemanticInfoTests
             .AddMacroReferences(new MacroReference(new TargetTypedFragmentMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var parameterPosition = code.LastIndexOf("(value)", StringComparison.Ordinal) + 2;
         var referencePosition = code.LastIndexOf("value.ToString", StringComparison.Ordinal) + 2;

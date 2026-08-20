@@ -92,7 +92,7 @@ internal static class MacroExpansionService
                         context.Arguments,
                         diagnostics))
                     .AttachedResult ?? throw new InvalidOperationException(
-                        $"Macro '{loaded.Executor.Name}' returned an invocable result for an attached invocation.");
+                        $"Macro '{loaded.Executor.Name}' returned a freestanding result for an attached invocation.");
                 result = AddReportedDiagnostics(result, context);
                 result = ContextualizeExpansionResult(targetDeclaration, result);
                 RegisterGeneratedSyntaxTrees(compilation, semanticModel, result);
@@ -123,43 +123,43 @@ internal static class MacroExpansionService
         return builder.ToImmutable();
     }
 
-    public static FreestandingMacroExpansionResult? ExpandInvocableMacro(
+    public static FreestandingMacroExpansionResult? ExpandFreestandingMacro(
         Compilation compilation,
         SemanticModel semanticModel,
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken = default)
-        => ExpandInvocableMacro(
+        => ExpandFreestandingMacro(
             compilation,
             semanticModel,
-            InvocableMacroInvocation.Create(expression),
+            FreestandingMacroInvocation.Create(expression),
             diagnostics,
             cancellationToken);
 
-    public static FreestandingMacroExpansionResult? ExpandInvocableMacro(
+    public static FreestandingMacroExpansionResult? ExpandFreestandingMacro(
         Compilation compilation,
         SemanticModel semanticModel,
-        InvocableMacroMemberDeclarationSyntax member,
+        FreestandingMacroMemberDeclarationSyntax member,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken = default)
-        => ExpandInvocableMacro(
+        => ExpandFreestandingMacro(
             compilation,
             semanticModel,
-            InvocableMacroInvocation.Create(member),
+            FreestandingMacroInvocation.Create(member),
             diagnostics,
             cancellationToken);
 
-    private static FreestandingMacroExpansionResult? ExpandInvocableMacro(
+    private static FreestandingMacroExpansionResult? ExpandFreestandingMacro(
         Compilation compilation,
         SemanticModel semanticModel,
-        InvocableMacroInvocation invocation,
+        FreestandingMacroInvocation invocation,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        compilation.PerformanceInstrumentation.Macros.RecordInvocableExpansionInvocation();
+        compilation.PerformanceInstrumentation.Macros.RecordFreestandingExpansionInvocation();
 
-        if (!MacroSemanticValidator.TryResolveInvocableMacro(compilation, invocation, diagnostics, out var loaded))
+        if (!MacroSemanticValidator.TryResolveFreestandingMacro(compilation, invocation, diagnostics, out var loaded))
             return null;
 
         try
@@ -173,7 +173,7 @@ internal static class MacroExpansionService
                     invocation,
                     loaded.Macro,
                     cancellationToken);
-                result = ExecuteInvocable(
+                result = ExecuteFreestanding(
                     loaded.Executor,
                     loaded.Descriptor,
                     context,
@@ -193,7 +193,7 @@ internal static class MacroExpansionService
                     semanticModel,
                     invocation,
                     cancellationToken);
-                result = ExecuteInvocable(
+                result = ExecuteFreestanding(
                     loaded.Executor,
                     loaded.Descriptor,
                     context,
@@ -233,7 +233,7 @@ internal static class MacroExpansionService
         }
     }
 
-    private static FreestandingMacroExpansionResult ExecuteInvocable(
+    private static FreestandingMacroExpansionResult ExecuteFreestanding(
         IMacroExecutor executor,
         MacroDefinitionDescriptor descriptor,
         MacroContext context,
@@ -258,8 +258,8 @@ internal static class MacroExpansionService
                 GetTypeArguments(semanticModel, name),
                 arguments,
                 diagnostics))
-            .InvocableResult ?? throw new InvalidOperationException(
-                $"Macro '{executor.Name}' returned an attached result for an invocable invocation.");
+            .FreestandingResult ?? throw new InvalidOperationException(
+                $"Macro '{executor.Name}' returned an attached result for a freestanding invocation.");
     }
 
     private static ImmutableArray<ITypeSymbol> GetTypeArguments(
@@ -528,7 +528,7 @@ internal static class MacroExpansionService
     }
 
     private static FreestandingMacroExpansionResult ContextualizeExpansionResult(
-        InvocableMacroInvocation invocation,
+        FreestandingMacroInvocation invocation,
         FreestandingMacroExpansionResult result)
     {
         if (result.HasMemberExpansion)
@@ -552,7 +552,7 @@ internal static class MacroExpansionService
         var expansionNode = MacroSyntaxOrigin.MarkGeneratedSyntaxHidden(
             result.Node,
             invocation.Syntax);
-        var isStatementPosition = invocation.Syntax is InvocableMacroExpressionSyntax expression &&
+        var isStatementPosition = invocation.Syntax is FreestandingMacroExpressionSyntax expression &&
             IsStatementPosition(expression);
         var isMemberResult = result.Node is MemberDeclarationSyntax;
         var parent = isMemberResult
@@ -574,11 +574,11 @@ internal static class MacroExpansionService
 
     private static FreestandingMacroExpansionResult ValidateExpansionCategory(
         string macroName,
-        InvocableMacroInvocation invocation,
+        FreestandingMacroInvocation invocation,
         FreestandingMacroExpansionResult result,
         DiagnosticBag diagnostics)
     {
-        if (invocation.Syntax is InvocableMacroMemberDeclarationSyntax)
+        if (invocation.Syntax is FreestandingMacroMemberDeclarationSyntax)
         {
             if (result.HasMemberExpansion || result.Node is null or MemberDeclarationSyntax)
                 return result;
@@ -593,7 +593,7 @@ internal static class MacroExpansionService
             return WithoutExpansion(result);
         }
 
-        var macroExpression = (InvocableMacroExpressionSyntax)invocation.Syntax;
+        var macroExpression = (FreestandingMacroExpressionSyntax)invocation.Syntax;
         if (result.HasMemberExpansion)
         {
             if (IsNamespaceMemberPosition(macroExpression))
@@ -664,16 +664,16 @@ internal static class MacroExpansionService
             FileDependencies = result.FileDependencies
         };
 
-    private static bool IsStatementPosition(InvocableMacroExpressionSyntax expression)
+    private static bool IsStatementPosition(FreestandingMacroExpressionSyntax expression)
         => expression.TokenTree is not null &&
            expression.Parent is ExpressionStatementSyntax statement &&
            ReferenceEquals(statement.Expression, expression);
 
-    private static bool IsNamespaceMemberPosition(InvocableMacroExpressionSyntax expression)
+    private static bool IsNamespaceMemberPosition(FreestandingMacroExpressionSyntax expression)
         => GetNamespaceMemberCarrier(expression) is not null;
 
     private static GlobalStatementSyntax? GetNamespaceMemberCarrier(
-        InvocableMacroExpressionSyntax expression)
+        FreestandingMacroExpressionSyntax expression)
         => expression.Parent is ExpressionStatementSyntax statement &&
            ReferenceEquals(statement.Expression, expression) &&
            statement.Parent is GlobalStatementSyntax globalStatement &&
@@ -681,16 +681,16 @@ internal static class MacroExpansionService
             ? globalStatement
             : null;
 
-    private static SyntaxNode? GetMemberExpansionParent(InvocableMacroInvocation invocation)
+    private static SyntaxNode? GetMemberExpansionParent(FreestandingMacroInvocation invocation)
         => invocation.Syntax switch
         {
-            InvocableMacroMemberDeclarationSyntax member => member.Parent,
-            InvocableMacroExpressionSyntax expression => GetNamespaceMemberCarrier(expression)?.Parent,
+            FreestandingMacroMemberDeclarationSyntax member => member.Parent,
+            FreestandingMacroExpressionSyntax expression => GetNamespaceMemberCarrier(expression)?.Parent,
             _ => null
         };
 
-    private static int GetMemberExpansionPosition(InvocableMacroInvocation invocation)
-        => invocation.Syntax is InvocableMacroExpressionSyntax expression &&
+    private static int GetMemberExpansionPosition(FreestandingMacroInvocation invocation)
+        => invocation.Syntax is FreestandingMacroExpressionSyntax expression &&
            GetNamespaceMemberCarrier(expression) is { } globalStatement
             ? globalStatement.Position
             : invocation.Syntax.Position;

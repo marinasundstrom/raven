@@ -6,13 +6,8 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
 class ObservableMacro : IMacroDefinition {
     val Name: string => "Observable"
-    val Targets: MacroTarget => MacroTarget.Property
 
-    func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-        let property: PropertyDeclarationSyntax = context.CurrentDeclaration else {
-            return MacroExpansionResult.Empty
-        }
-
+    func Expand(property: PropertyDeclarationSyntax, context: AttachedMacroContext) -> MacroExpansionResult {
         if !IsStorageProperty(property) {
             return MacroExpansionResult {
                 MacroDiagnostics = [

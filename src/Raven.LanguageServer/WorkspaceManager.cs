@@ -492,7 +492,8 @@ internal sealed class WorkspaceManager
     private void EnsureRavenMacrosReference(ProjectId projectId)
     {
         var project = _workspace.CurrentSolution.GetProject(projectId);
-        if (project is null || project.CompilationOptions?.EmbedCoreTypes == true)
+        if (project is null ||
+            project.TargetFramework?.StartsWith("netnano", StringComparison.OrdinalIgnoreCase) == true)
             return;
 
         var preferredTfm = project.TargetFramework ??
@@ -507,7 +508,7 @@ internal sealed class WorkspaceManager
         }
 
         var solution = _workspace.CurrentSolution;
-        solution = AddMetadataReferenceIfMissing(
+        solution = ReplaceMetadataReferenceByFileName(
             solution,
             projectId,
             ravenMacrosReferencePath);
@@ -515,6 +516,10 @@ internal sealed class WorkspaceManager
             solution,
             projectId,
             typeof(Compilation).Assembly.Location);
+        solution = ReplaceMacroReferenceByFileName(
+            solution,
+            projectId,
+            ravenMacrosReferencePath);
         _workspace.TryApplyChanges(solution);
         _logger.LogDebug(
             "Added Raven.Macros and its compiler contract reference for opened project '{ProjectName}'.",
@@ -2228,6 +2233,45 @@ internal sealed class WorkspaceManager
         return solution.AddMetadataReference(
             projectId,
             MetadataReference.CreateFromFile(referencePath));
+    }
+
+    private static Solution ReplaceMetadataReferenceByFileName(
+        Solution solution,
+        ProjectId projectId,
+        string referencePath)
+    {
+        var project = solution.GetProject(projectId);
+        if (project is null)
+            return solution;
+
+        var fileName = Path.GetFileName(referencePath);
+        var references = project.MetadataReferences
+            .Where(reference => reference is not PortableExecutableReference portable ||
+                !string.Equals(
+                    Path.GetFileName(portable.FilePath),
+                    fileName,
+                    StringComparison.OrdinalIgnoreCase))
+            .Append(MetadataReference.CreateFromFile(referencePath));
+        return solution.WithMetadataReferences(projectId, references);
+    }
+
+    private static Solution ReplaceMacroReferenceByFileName(
+        Solution solution,
+        ProjectId projectId,
+        string referencePath)
+    {
+        var project = solution.GetProject(projectId);
+        if (project is null)
+            return solution;
+
+        var fileName = Path.GetFileName(referencePath);
+        var references = project.MacroReferences
+            .Where(reference => !string.Equals(
+                Path.GetFileName(reference.Display),
+                fileName,
+                StringComparison.OrdinalIgnoreCase))
+            .Append(MacroReference.CreateFromFile(referencePath));
+        return solution.WithMacroReferences(projectId, references);
     }
 
     private static string? TryFindRepositoryRoot(string startPath)

@@ -43,11 +43,11 @@ public interface IMacroDefinition
     DocumentationFormat DocumentationFormat => DocumentationFormat.Markdown;
 
     /// <summary>
-    /// Gets the grammar positions in which an invocable macro can appear.
+    /// Gets the grammar positions in which a freestanding macro can appear.
     /// </summary>
     /// <remarks>
     /// Attached macros ignore this value. Expression position remains the
-    /// compatibility default for class-authored invocable macros.
+    /// compatibility default for class-authored freestanding macros.
     /// </remarks>
     MacroInvocationTargets InvocationTargets => MacroInvocationTargets.Expression;
 

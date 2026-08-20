@@ -845,7 +845,7 @@ public sealed class MacroInstrumentation
 {
     private readonly bool _isEnabled;
     private long _attachedExpansionInvocations;
-    private long _invocableExpansionInvocations;
+    private long _freestandingExpansionInvocations;
     private long _shadowOutputCacheHits;
     private long _shadowOutputCacheMisses;
     private long _consumerRefreshRuns;
@@ -860,7 +860,7 @@ public sealed class MacroInstrumentation
 
     public long AttachedExpansionInvocations => Volatile.Read(ref _attachedExpansionInvocations);
 
-    public long InvocableExpansionInvocations => Volatile.Read(ref _invocableExpansionInvocations);
+    public long FreestandingExpansionInvocations => Volatile.Read(ref _freestandingExpansionInvocations);
 
     public long ShadowOutputCacheHits => Volatile.Read(ref _shadowOutputCacheHits);
 
@@ -881,7 +881,7 @@ public sealed class MacroInstrumentation
             return;
 
         Interlocked.Exchange(ref _attachedExpansionInvocations, 0);
-        Interlocked.Exchange(ref _invocableExpansionInvocations, 0);
+        Interlocked.Exchange(ref _freestandingExpansionInvocations, 0);
         Interlocked.Exchange(ref _shadowOutputCacheHits, 0);
         Interlocked.Exchange(ref _shadowOutputCacheMisses, 0);
         Interlocked.Exchange(ref _consumerRefreshRuns, 0);
@@ -900,12 +900,12 @@ public sealed class MacroInstrumentation
     }
 
     [Conditional("RAVEN_INSTRUMENTATION")]
-    internal void RecordInvocableExpansionInvocation()
+    internal void RecordFreestandingExpansionInvocation()
     {
         if (!_isEnabled)
             return;
 
-        Interlocked.Increment(ref _invocableExpansionInvocations);
+        Interlocked.Increment(ref _freestandingExpansionInvocations);
     }
 
     [Conditional("RAVEN_INSTRUMENTATION")]
@@ -960,7 +960,7 @@ public sealed class MacroInstrumentation
         var builder = new StringBuilder();
         builder.AppendLine("# Macro instrumentation");
         builder.AppendLine($"Attached expansion invocations: {AttachedExpansionInvocations}");
-        builder.AppendLine($"Invocable expansion invocations: {InvocableExpansionInvocations}");
+        builder.AppendLine($"Freestanding expansion invocations: {FreestandingExpansionInvocations}");
         builder.AppendLine($"Shadow output cache hits: {ShadowOutputCacheHits}");
         builder.AppendLine($"Shadow output cache misses: {ShadowOutputCacheMisses}");
         builder.AppendLine($"Consumer refresh runs: {ConsumerRefreshRuns}");

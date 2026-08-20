@@ -58,7 +58,7 @@ internal static class MethodMacroFacts
         return targetParameter is null ? AllTargets : GetTarget(targetParameter.ParameterType);
     }
 
-    private static MacroTarget GetTarget(Type type)
+    internal static MacroTarget GetTarget(Type type)
     {
         if (typeof(BaseTypeDeclarationSyntax).IsAssignableFrom(type) ||
             typeof(CaseDeclarationSyntax).IsAssignableFrom(type))

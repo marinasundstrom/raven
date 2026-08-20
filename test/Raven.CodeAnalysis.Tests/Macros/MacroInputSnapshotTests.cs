@@ -24,7 +24,7 @@ public sealed class MacroInputSnapshotTests
             .AddMacroReferences(new MacroReference(new SnapshotMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
 
         var snapshot = compilation.GetMacroInputSnapshot(expression);
@@ -50,7 +50,7 @@ public sealed class MacroInputSnapshotTests
             .AddMacroReferences(new MacroReference(new RegionLookupMacro()));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var snapshot = compilation.GetMacroInputSnapshot(expression);
         var innerPosition = code.IndexOf("inner", StringComparison.Ordinal) + 2;

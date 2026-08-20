@@ -2248,7 +2248,7 @@ public sealed class ProjectFileNuGetReferenceTests
 
             class PackageAnswerMacro : IMacroDefinition {
                 val Name: string => "packageAnswer"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.FromExpression(

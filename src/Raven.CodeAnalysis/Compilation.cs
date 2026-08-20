@@ -1762,11 +1762,11 @@ public partial class Compilation
     {
         if (global.Statement is not ExpressionStatementSyntax
             {
-                Expression: InvocableMacroExpressionSyntax expression
+                Expression: FreestandingMacroExpressionSyntax expression
             } ||
-            !InvocableMacroInvocation.TryCreate(expression, out var invocation) ||
+            !FreestandingMacroInvocation.TryCreate(expression, out var invocation) ||
             !invocation.TryGetMacroName(out var macroName) ||
-            !GetMacroRegistry().TryResolveInvocableMacro(
+            !GetMacroRegistry().TryResolveFreestandingMacro(
                 this,
                 expression,
                 macroName,
@@ -3461,6 +3461,16 @@ public partial class Compilation
             {
                 _metadataTypeCache.TryAdd(metadataName, sourceType);
                 return sourceType;
+            }
+        }
+
+        if (_macroSyntaxTrees.Length > 0)
+        {
+            EnsureMacroSignatureCompilation();
+            if (_macroSignatureCompilation?.GetTypeByMetadataName(metadataName) is { } macroType)
+            {
+                _metadataTypeCache.TryAdd(metadataName, macroType);
+                return macroType;
             }
         }
 

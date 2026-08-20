@@ -73,7 +73,7 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
     public MacroKind MacroKind =>
         _isAttached
             ? MacroKind.AttachedDeclaration
-            : MacroKind.Invocable;
+            : MacroKind.Freestanding;
 
     public MacroTarget Targets => _targets;
 

@@ -462,6 +462,34 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
                     compilerSupportReferencePaths: _compilerSupportReferencePaths));
 
             var macroProjectId = macroWorkspace.OpenProject(projectFilePath);
+            var macroProject = macroWorkspace.CurrentSolution.GetProject(macroProjectId)!;
+            var loadableMacroReferences = ProjectContainsMacroApplications(macroProject)
+                ? macroProject.MacroReferences.Where(IsLoadableMacroReference).ToArray()
+                : [];
+            if (loadableMacroReferences.Length != macroProject.MacroReferences.Count)
+            {
+                var retainedDisplays = loadableMacroReferences
+                    .Select(static reference => reference.Display)
+                    .Where(Path.IsPathFullyQualified)
+                    .Select(Path.GetFullPath)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var excludedDisplays = macroProject.MacroReferences
+                    .Select(static reference => reference.Display)
+                    .Where(Path.IsPathFullyQualified)
+                    .Select(Path.GetFullPath)
+                    .Where(path => !retainedDisplays.Contains(path))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var metadataReferences = macroProject.MetadataReferences
+                    .Where(reference => reference is not PortableExecutableReference portable ||
+                        portable.FilePath is null ||
+                        !excludedDisplays.Contains(Path.GetFullPath(portable.FilePath)))
+                    .ToArray();
+                var updatedSolution = macroWorkspace.CurrentSolution
+                    .WithMacroReferences(macroProjectId, loadableMacroReferences)
+                    .WithMetadataReferences(macroProjectId, metadataReferences);
+                macroWorkspace.TryApplyChanges(
+                    updatedSolution);
+            }
             var macroCompilation = macroWorkspace.GetCompilation(macroProjectId);
             var pdbPath = Path.ChangeExtension(outputPath, ".pdb");
             var tempPePath = outputPath + ".tmp";
@@ -490,6 +518,35 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         }
 
         return outputPath;
+    }
+
+    private static bool IsLoadableMacroReference(MacroReference reference)
+    {
+        try
+        {
+            _ = reference.Macros;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool ProjectContainsMacroApplications(Project project)
+    {
+        foreach (var document in project.Documents)
+        {
+            var tree = document.GetSyntaxTreeAsync().GetAwaiter().GetResult();
+            if (tree?.GetRoot().DescendantNodes().Any(static node =>
+                    node is FreestandingMacroExpressionSyntax or FreestandingMacroMemberDeclarationSyntax ||
+                    node is AttributeSyntax { HashToken.Kind: not SyntaxKind.None }) == true)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string BuildManagedMacroProject(

@@ -14,25 +14,25 @@ public class FreestandingMacroContext : MacroContext
     public FreestandingMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        InvocableMacroExpressionSyntax syntax,
+        FreestandingMacroExpressionSyntax syntax,
         CancellationToken cancellationToken = default)
-        : this(compilation, semanticModel, InvocableMacroInvocation.Create(syntax), cancellationToken)
+        : this(compilation, semanticModel, FreestandingMacroInvocation.Create(syntax), cancellationToken)
     {
     }
 
     public FreestandingMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        InvocableMacroMemberDeclarationSyntax syntax,
+        FreestandingMacroMemberDeclarationSyntax syntax,
         CancellationToken cancellationToken = default)
-        : this(compilation, semanticModel, InvocableMacroInvocation.Create(syntax), cancellationToken)
+        : this(compilation, semanticModel, FreestandingMacroInvocation.Create(syntax), cancellationToken)
     {
     }
 
     internal FreestandingMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        InvocableMacroInvocation invocation,
+        FreestandingMacroInvocation invocation,
         CancellationToken cancellationToken = default)
         : base(invocation.Syntax)
     {
@@ -66,7 +66,7 @@ public class FreestandingMacroContext : MacroContext
 
     public CancellationToken CancellationToken { get; }
 
-    internal InvocableMacroInvocation Invocation { get; }
+    internal FreestandingMacroInvocation Invocation { get; }
 
     public override MacroExpansionDiagnostic CreateDiagnostic(
         string message,

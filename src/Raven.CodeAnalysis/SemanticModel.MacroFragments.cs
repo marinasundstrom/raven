@@ -15,7 +15,7 @@ public partial class SemanticModel
     /// fragment reported by a token-tree macro.
     /// </summary>
     public MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfo(
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         int position,
         CancellationToken cancellationToken = default)
     {
@@ -50,7 +50,7 @@ public partial class SemanticModel
     /// reported by a token-tree macro.
     /// </summary>
     internal SemanticClassificationResult GetMacroFragmentClassifications(
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);
@@ -114,7 +114,7 @@ public partial class SemanticModel
     /// including token-tree macros nested in reported Raven fragments.
     /// </summary>
     public MacroTokenInfo? GetMacroTokenInfo(
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         int position,
         CancellationToken cancellationToken = default)
     {
@@ -134,7 +134,7 @@ public partial class SemanticModel
     }
 
     private MacroTokenInfo? GetMacroTokenInfo(
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         int position,
         SyntaxNode resolutionContext,
         int nestingDepth,
@@ -166,7 +166,7 @@ public partial class SemanticModel
                     searchPosition--;
                 var token = fragment.FindToken(searchPosition);
                 foreach (var nestedInvocation in token.Parent?.AncestorsAndSelf()
-                    .OfType<InvocableMacroExpressionSyntax>() ?? [])
+                    .OfType<FreestandingMacroExpressionSyntax>() ?? [])
                 {
                     if (nestedInvocation.TokenTree?.Span.Contains(searchPosition) != true)
                         continue;
@@ -187,12 +187,12 @@ public partial class SemanticModel
     }
 
     private MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfo(
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         MacroFragmentRegion region,
         int position,
         Binder parentBinder,
         ImmutableArray<MacroFragmentVisibleSymbol> visibleSymbols,
-        InvocableMacroExpressionSyntax resolutionContext,
+        FreestandingMacroExpressionSyntax resolutionContext,
         int nestingDepth,
         CancellationToken cancellationToken)
     {
@@ -239,7 +239,7 @@ public partial class SemanticModel
 
         if (nestingDepth < MaxMacroFragmentNestingDepth)
         {
-            foreach (var nestedInvocation in token.Parent.AncestorsAndSelf().OfType<InvocableMacroExpressionSyntax>())
+            foreach (var nestedInvocation in token.Parent.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>())
             {
                 if (nestedInvocation.TokenTree?.Span.Contains(searchPosition) != true ||
                     !binder.TryGetNestedMacroVisibleSymbols(nestedInvocation, out var nestedVisibleSymbols))
@@ -276,7 +276,7 @@ public partial class SemanticModel
             if (!fragment.FullSpan.Contains(candidate.Span))
                 break;
 
-            if (candidate is InvocableMacroExpressionSyntax nestedInvocation &&
+            if (candidate is FreestandingMacroExpressionSyntax nestedInvocation &&
                 nestedInvocation.TokenTree?.Span.Contains(searchPosition) == true)
             {
                 continue;

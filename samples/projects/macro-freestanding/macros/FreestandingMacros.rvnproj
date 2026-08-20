@@ -1,7 +1,7 @@
 <Project Sdk="Raven.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>InvocableMacros</AssemblyName>
+    <AssemblyName>FreestandingMacros</AssemblyName>
     <OutputType>Library</OutputType>
   </PropertyGroup>
 </Project>

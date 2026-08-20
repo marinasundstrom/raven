@@ -10,7 +10,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public sealed class MacroCodeGenTests
+public sealed class AttachedMacroCodeGenTests
 {
     [Fact]
     public void AttachedTypeMacro_IntroducedMethod_IsEmitted()

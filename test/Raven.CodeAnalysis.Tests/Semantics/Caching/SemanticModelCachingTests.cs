@@ -2171,7 +2171,7 @@ class Box<T> {
         var instrumentation = new PerformanceInstrumentation();
         var macros = instrumentation.Macros;
         typeof(MacroInstrumentation).GetMethod("RecordAttachedExpansionInvocation", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(macros, []);
-        typeof(MacroInstrumentation).GetMethod("RecordInvocableExpansionInvocation", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(macros, []);
+        typeof(MacroInstrumentation).GetMethod("RecordFreestandingExpansionInvocation", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(macros, []);
         typeof(MacroInstrumentation).GetMethod("RecordShadowOutputCacheHit", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(macros, []);
         typeof(MacroInstrumentation).GetMethod("RecordShadowOutputCacheMiss", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(macros, []);
         typeof(MacroInstrumentation).GetMethod("RecordConsumerRefreshRun", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(macros, [2]);
@@ -2181,7 +2181,7 @@ class Box<T> {
         instrumentation.Macros.Reset();
 
         Assert.Equal(0, instrumentation.Macros.AttachedExpansionInvocations);
-        Assert.Equal(0, instrumentation.Macros.InvocableExpansionInvocations);
+        Assert.Equal(0, instrumentation.Macros.FreestandingExpansionInvocations);
         Assert.Equal(0, instrumentation.Macros.ShadowOutputCacheHits);
         Assert.Equal(0, instrumentation.Macros.ShadowOutputCacheMisses);
         Assert.Equal(0, instrumentation.Macros.ConsumerRefreshRuns);

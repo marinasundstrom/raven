@@ -497,7 +497,7 @@ public partial class SemanticModel
             {
                 MacroContextKind.Attached => targetParameters.Length > 0,
                 MacroContextKind.TokenTree => targetParameters.Length == 0,
-                MacroContextKind.Invocable => targetParameters.Length == 0 &&
+                MacroContextKind.Freestanding => targetParameters.Length == 0 &&
                     tokenStreamParameters.Length == 0 &&
                     parameters.All(static parameter =>
                         MacroParameterRoleFacts.GetContextKind(parameter.Symbol.Type) != MacroContextKind.TokenTree),
@@ -653,7 +653,7 @@ public partial class SemanticModel
             var instruction = contribution.Keyword.ValueText;
             var valid = symbol.MacroKind switch
             {
-                MacroKind.Invocable => instruction == "expand" ||
+                MacroKind.Freestanding => instruction == "expand" ||
                     (instruction is "fragment" or "token") && symbol.Parameters.Any(static parameter =>
                         parameter.MacroRole is MacroParameterRole.TokenBody or MacroParameterRole.Context),
                 MacroKind.AttachedDeclaration => instruction is "expand" or "replace" or "introduce",
@@ -664,8 +664,8 @@ public partial class SemanticModel
             {
                 _declarationDiagnostics.ReportInvalidMacroContribution(
                     instruction,
-                    symbol.MacroKind == MacroKind.Invocable
-                        ? "invocable"
+                    symbol.MacroKind == MacroKind.Freestanding
+                        ? "freestanding"
                         : "attached",
                     contribution.Keyword.GetLocation());
             }
@@ -1253,7 +1253,7 @@ public partial class SemanticModel
         ImmutableArray<EffectiveMemberDeclaration>.Builder builder,
         MemberDeclarationSyntax member)
     {
-        if (member is InvocableMacroMemberDeclarationSyntax invocation)
+        if (member is FreestandingMacroMemberDeclarationSyntax invocation)
         {
             var expansion = GetMacroExpansion(invocation);
             if (expansion is null || (!expansion.HasMemberExpansion && expansion.Node is null))

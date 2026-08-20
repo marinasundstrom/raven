@@ -10,7 +10,7 @@ using Xunit;
 
 namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 
-public sealed class MacroAttributeSemanticTests : CompilationTestBase
+public sealed class AttachedMacroSemanticTests : CompilationTestBase
 {
     private new (Compilation Compilation, SyntaxTree Tree) CreateCompilation(
         string source,

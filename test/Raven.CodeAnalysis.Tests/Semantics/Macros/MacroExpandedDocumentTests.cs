@@ -31,7 +31,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
-    public void GetExpandedRoot_RewritesAttachedAndInvocableMacros()
+    public void GetExpandedRoot_RewritesAttachedAndFreestandingMacros()
     {
         var (compilation, tree) = CreateCompilation("""
             class Harness {
@@ -45,9 +45,9 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             """);
 
         compilation = compilation.AddMacroReferences(
-            new MacroReference(new MacroCodeGenTests.IntroducedMethodMacro()),
-            new MacroReference(new MacroCodeGenTests.ObservablePropertyMacro()),
-            new MacroReference(typeof(InvocableMacroCodeGenTests.AddMacro)));
+            new MacroReference(new AttachedMacroCodeGenTests.IntroducedMethodMacro()),
+            new MacroReference(new AttachedMacroCodeGenTests.ObservablePropertyMacro()),
+            new MacroReference(typeof(FreestandingMacroCodeGenTests.AddMacro)));
 
         var model = compilation.GetSemanticModel(tree);
         var expandedRoot = model.GetExpandedRoot();
@@ -68,7 +68,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
-    public void GetExpandedRoot_PreservesBlankLinesAndFormatsInvocableLambdaBodies()
+    public void GetExpandedRoot_PreservesBlankLinesAndFormatsFreestandingLambdaBodies()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() {
@@ -102,7 +102,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
-    public void GetExpandedRoot_RewritesEveryInvocableMacroInSameMember()
+    public void GetExpandedRoot_RewritesEveryFreestandingMacroInSameMember()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() {
@@ -111,7 +111,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             }
             """);
         compilation = compilation.AddMacroReferences(
-            new MacroReference(typeof(InvocableMacroCodeGenTests.AddMacro)));
+            new MacroReference(typeof(FreestandingMacroCodeGenTests.AddMacro)));
 
         var expandedText = compilation.GetSemanticModel(tree)
             .GetExpandedRoot()
@@ -123,7 +123,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
     }
 
     [Fact]
-    public void GetExpandedRoot_PreservesLineBreakAfterInvocableMacro()
+    public void GetExpandedRoot_PreservesLineBreakAfterFreestandingMacro()
     {
         var (compilation, tree) = CreateCompilation("""
             func Main() {
@@ -134,7 +134,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             }
             """);
         compilation = compilation.AddMacroReferences(
-            new MacroReference(typeof(InvocableMacroSemanticTests.RavenBodyMacro)));
+            new MacroReference(typeof(FreestandingMacroSemanticTests.RavenBodyMacro)));
 
         var expandedText = compilation.GetSemanticModel(tree)
             .GetExpandedRoot()
@@ -159,7 +159,7 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroMemberDeclarationSyntax>()
+            .OfType<FreestandingMacroMemberDeclarationSyntax>()
             .Single();
         var expansion = model.GetMacroExpansion(invocation);
         var expandedText = model.GetExpandedRoot().ToFullString();
@@ -343,8 +343,8 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             """);
 
         compilation = compilation.AddMacroReferences(
-            new MacroReference(new MacroCodeGenTests.IntroducedMethodMacro()),
-            new MacroReference(new MacroCodeGenTests.ObservablePropertyMacro()));
+            new MacroReference(new AttachedMacroCodeGenTests.IntroducedMethodMacro()),
+            new MacroReference(new AttachedMacroCodeGenTests.ObservablePropertyMacro()));
 
         var model = compilation.GetSemanticModel(tree);
 
@@ -365,8 +365,8 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
             """);
 
         compilation = compilation.AddMacroReferences(
-            new MacroReference(new MacroCodeGenTests.IntroducedMethodMacro()),
-            new MacroReference(new MacroCodeGenTests.ObservablePropertyMacro()));
+            new MacroReference(new AttachedMacroCodeGenTests.IntroducedMethodMacro()),
+            new MacroReference(new AttachedMacroCodeGenTests.ObservablePropertyMacro()));
 
         var model = compilation.GetSemanticModel(tree);
         var attribute = tree.GetRoot()
@@ -398,12 +398,12 @@ public sealed class MacroExpandedDocumentTests : CompilationTestBase
                 new MacroReference(new WrapMacro()));
 
         var model = compilation.GetSemanticModel(tree);
-        var expression = tree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
+        var expression = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
 
         _ = model.GetMacroExpansion(expression);
         _ = model.GetMacroExpansion(expression);
 
-        Assert.Equal(1, instrumentation.Macros.InvocableExpansionInvocations);
+        Assert.Equal(1, instrumentation.Macros.FreestandingExpansionInvocations);
         Assert.Equal(0, instrumentation.Macros.AttachedExpansionInvocations);
     }
 

@@ -189,7 +189,7 @@ class Harness {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
         var root = syntaxTree.GetRoot();
-        var expression = root.DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
+        var expression = root.DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
 
         var success = MacroExpansionDisplayService.TryCreateForOffset(
             sourceText,
@@ -225,7 +225,7 @@ class Harness {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
         var root = syntaxTree.GetRoot();
-        var expression = root.DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
+        var expression = root.DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
 
         var success = MacroExpansionDisplayService.TryCreateForOffset(
             sourceText,
@@ -261,7 +261,7 @@ class Harness {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var sourceText = SourceText.From(code);
         var root = syntaxTree.GetRoot();
-        var expression = root.DescendantNodes().OfType<InvocableMacroExpressionSyntax>().Single();
+        var expression = root.DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
 
         var success = MacroExpansionDisplayService.TryCreateForOffset(
             sourceText,
@@ -277,7 +277,7 @@ class Harness {
     }
 
     [Fact]
-    public void MacroExpansionDisplayService_DoesNotBuildPreviewInsideInvocableMacroArguments()
+    public void MacroExpansionDisplayService_DoesNotBuildPreviewInsideFreestandingMacroArguments()
     {
         const string code = """
 import Raven.LanguageServer.Tests.*
@@ -342,7 +342,7 @@ class MyViewModel {
     }
 
     [Fact]
-    public void SymbolResolver_InvocableMacroLambdaArgument_ResolvesLambdaParameter()
+    public void SymbolResolver_FreestandingMacroLambdaArgument_ResolvesLambdaParameter()
     {
         const string code = """
 import System.*
@@ -442,7 +442,7 @@ class Program {
 
         public MacroTarget Targets => MacroTarget.Property;
 
-        public MacroExpansionResult Expand(AttachedMacroContext context)
+        public MacroExpansionResult Expand(PropertyDeclarationSyntax property, AttachedMacroContext context)
         {
             var tree = SyntaxFactory.ParseSyntaxTree("""
                 class __GeneratedContainer {
@@ -474,7 +474,7 @@ class Program {
 
         public MacroTarget Targets => MacroTarget.Property;
 
-        public MacroExpansionResult Expand(AttachedMacroContext context)
+        public MacroExpansionResult Expand(PropertyDeclarationSyntax target, AttachedMacroContext context)
         {
             var property = (PropertyDeclarationSyntax)context.TargetDeclaration;
             var propertyName = property.Identifier.ValueText;
@@ -552,7 +552,7 @@ class Program {
     public sealed class AnswerMacro : IMacroDefinition
     {
         public string Name => "answer";
-        public MacroKind Kind => MacroKind.Invocable;
+        public MacroKind Kind => MacroKind.Freestanding;
 
         public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
             => new()
@@ -575,13 +575,15 @@ class Program {
     public sealed class SubscribeMacro : IMacroDefinition
     {
         public string Name => "subscribe";
-        public MacroKind Kind => MacroKind.Invocable;
+        public MacroKind Kind => MacroKind.Freestanding;
         public bool AcceptsArguments => true;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        public FreestandingMacroExpansionResult Expand(
+            ExpressionSyntax propertyExpression,
+            ExpressionSyntax callback,
+            FreestandingMacroContext context)
         {
-            var propertyAccess = (MemberAccessExpressionSyntax)context.Arguments[0].Expression;
-            var callback = context.Arguments[1].Expression;
+            var propertyAccess = (MemberAccessExpressionSyntax)propertyExpression;
             var propertyIdentifier = (IdentifierNameSyntax)propertyAccess.Name;
             var signalName = propertyIdentifier.Identifier.ValueText + "Changed";
 
@@ -609,13 +611,15 @@ class Program {
     public sealed class ReactiveSubscribeMacro : IMacroDefinition
     {
         public string Name => "subscribe";
-        public MacroKind Kind => MacroKind.Invocable;
+        public MacroKind Kind => MacroKind.Freestanding;
         public bool AcceptsArguments => true;
 
-        public FreestandingMacroExpansionResult Expand(FreestandingMacroContext context)
+        public FreestandingMacroExpansionResult Expand(
+            ExpressionSyntax propertyExpression,
+            ExpressionSyntax callback,
+            FreestandingMacroContext context)
         {
-            var propertyAccess = (MemberAccessExpressionSyntax)context.Arguments[0].Expression;
-            var callback = context.Arguments[1].Expression;
+            var propertyAccess = (MemberAccessExpressionSyntax)propertyExpression;
             var propertyIdentifier = (IdentifierNameSyntax)propertyAccess.Name;
             var signalName = propertyIdentifier.Identifier.ValueText + "Changed";
 
@@ -646,7 +650,7 @@ class Program {
         public MacroKind Kind => MacroKind.AttachedDeclaration;
         public MacroTarget Targets => MacroTarget.Property;
 
-        public MacroExpansionResult Expand(AttachedMacroContext context)
+        public MacroExpansionResult Expand(PropertyDeclarationSyntax target, AttachedMacroContext context)
         {
             var property = (PropertyDeclarationSyntax)context.TargetDeclaration;
             var members = ParseMembers($$"""
@@ -670,7 +674,7 @@ class Program {
         public MacroKind Kind => MacroKind.AttachedDeclaration;
         public MacroTarget Targets => MacroTarget.Property;
 
-        public MacroExpansionResult Expand(AttachedMacroContext context)
+        public MacroExpansionResult Expand(PropertyDeclarationSyntax target, AttachedMacroContext context)
         {
             var property = (PropertyDeclarationSyntax)context.CurrentDeclaration;
             var members = ParseMembers($$"""

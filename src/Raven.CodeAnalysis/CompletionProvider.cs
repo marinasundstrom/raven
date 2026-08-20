@@ -3018,16 +3018,16 @@ public static class CompletionProvider
             return true;
         }
 
-        var invocableMacro = token.Parent?.AncestorsAndSelf().OfType<InvocableMacroExpressionSyntax>().FirstOrDefault();
-        var invocableNameStart = invocableMacro?.Name.Span.Start ?? int.MaxValue;
-        var invocableNameEnd = invocableMacro?.ExclamationToken.SpanStart ?? int.MinValue;
-        if (invocableMacro is not null &&
-            position >= invocableNameStart &&
-            position <= invocableNameEnd)
+        var freestandingMacro = token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().FirstOrDefault();
+        var freestandingNameStart = freestandingMacro?.Name.Span.Start ?? int.MaxValue;
+        var freestandingNameEnd = freestandingMacro?.ExclamationToken.SpanStart ?? int.MinValue;
+        if (freestandingMacro is not null &&
+            position >= freestandingNameStart &&
+            position <= freestandingNameEnd)
         {
             CreateMacroCompletionContext(
-                invocableMacro.Name,
-                MacroKind.Invocable,
+                freestandingMacro.Name,
+                MacroKind.Freestanding,
                 sourceText,
                 position,
                 out context,
@@ -3081,9 +3081,9 @@ public static class CompletionProvider
                     out var loaded,
                     out _) =>
                 loaded.Descriptor,
-            InvocableMacroExpressionSyntax expression when
+            FreestandingMacroExpressionSyntax expression when
                 expression.TryGetMacroName(out var name) &&
-                compilation.GetMacroRegistry().TryResolveInvocableMacro(
+                compilation.GetMacroRegistry().TryResolveFreestandingMacro(
                     compilation,
                     expression,
                     name,
@@ -3198,7 +3198,7 @@ public static class CompletionProvider
                     { HasTokenBody: true } => name + " { }",
                     { AcceptsArguments: true } when context.WrapAttachedAttribute => $"[{name}()]",
                     _ when context.WrapAttachedAttribute => $"[{name}]",
-                    _ when context.Kind == MacroKind.Invocable => name + "()",
+                    _ when context.Kind == MacroKind.Freestanding => name + "()",
                     _ => name
                 };
             var cursorOffset = context.PreserveInvocationSuffix
@@ -3208,7 +3208,7 @@ public static class CompletionProvider
                     { HasTokenBody: true, AcceptsArguments: true } => name.Length + 1,
                     { HasTokenBody: true } => insertionText.Length - 1,
                     { AcceptsArguments: true } when context.WrapAttachedAttribute => name.Length + 2,
-                    { AcceptsArguments: true } when context.Kind == MacroKind.Invocable => insertionText.Length - 1,
+                    { AcceptsArguments: true } when context.Kind == MacroKind.Freestanding => insertionText.Length - 1,
                     _ => (int?)null
                 };
 

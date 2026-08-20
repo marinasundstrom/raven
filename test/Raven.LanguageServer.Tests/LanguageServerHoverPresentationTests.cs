@@ -359,7 +359,7 @@ func Main() {
             .ShouldBeOfType<Hover>();
 
         hover.Contents.MarkupContent.ShouldNotBeNull();
-        hover.Contents.MarkupContent!.Value.ShouldContain("Invocable macro");
+        hover.Contents.MarkupContent!.Value.ShouldContain("Freestanding macro");
         hover.Contents.MarkupContent.Value.ShouldContain("Expands a small LINQ-style query DSL");
         hover.Contents.MarkupContent.Value.ShouldContain("Use `Show macro expansion`");
     }

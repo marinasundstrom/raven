@@ -70,32 +70,39 @@ internal static class MacroLowering
                     Role: role,
                     ContextKind: parameter is null
                         ? MacroContextKind.None
-                        : MacroParameterRoleFacts.GetContextKind(parameter.Type),
-                    Source: role switch
-                    {
-                        MacroParameterRole.SyntaxInput => MacroParameterSource.SyntaxInput,
-                        MacroParameterRole.Context => MacroParameterSource.Context,
-                        MacroParameterRole.TokenBody => MacroParameterSource.TokenBody,
-                        _ => MacroParameterSource.Value,
-                    });
+                        : MacroParameterRoleFacts.GetContextKind(parameter.Type));
             })
             .ToArray();
         var isAttached = parameters.Any(static parameter => parameter.ContextKind == MacroContextKind.Attached) ||
             methodSymbol?.ReturnType.Name == nameof(MacroExpansionResult);
         var hasTokenTreeBody = parameters.Any(static parameter =>
-            parameter.Source == MacroParameterSource.TokenBody ||
+            parameter.Role == MacroParameterRole.TokenBody ||
             parameter.ContextKind == MacroContextKind.TokenTree);
         var invocationOrdinal = 0;
         var parameterMetadata = parameters
-            .Select((parameter, declarationOrdinal) => (
-                parameter.Syntax,
-                parameter.Parameter,
-                parameter.Role,
-                parameter.Source,
-                DeclarationOrdinal: declarationOrdinal,
-                InvocationOrdinal: parameter.Source is MacroParameterSource.Value or MacroParameterSource.SyntaxInput
-                    ? invocationOrdinal++
-                    : -1))
+            .Select((parameter, declarationOrdinal) =>
+            {
+                var source = isAttached &&
+                    parameter.Parameter is not null &&
+                    MacroParameterRoleFacts.IsAttachedTargetType(parameter.Parameter.Type)
+                        ? MacroParameterSource.AttachedTarget
+                        : parameter.Role switch
+                        {
+                            MacroParameterRole.SyntaxInput => MacroParameterSource.SyntaxInput,
+                            MacroParameterRole.Context => MacroParameterSource.Context,
+                            MacroParameterRole.TokenBody => MacroParameterSource.TokenBody,
+                            _ => MacroParameterSource.Value,
+                        };
+                return (
+                    parameter.Syntax,
+                    parameter.Parameter,
+                    parameter.Role,
+                    Source: source,
+                    DeclarationOrdinal: declarationOrdinal,
+                    InvocationOrdinal: source is MacroParameterSource.Value or MacroParameterSource.SyntaxInput
+                        ? invocationOrdinal++
+                        : -1);
+            })
             .ToArray();
         var usedNames = declaration.DescendantTokens()
             .Where(static token => token.Kind == SyntaxKind.IdentifierToken)
@@ -161,6 +168,7 @@ internal static class MacroLowering
             {
                 MacroParameterSource.Context => $"{executionName}.GetContext<{runtimeType}>()",
                 MacroParameterSource.TokenBody => $"{executionName}.GetContext<Raven.CodeAnalysis.Macros.TokenTreeMacroContext>().CreateTokenStream()",
+                MacroParameterSource.AttachedTarget => $"{executionName}.GetAttachedTarget<{runtimeType}>()",
                 _ when parameter.Syntax.DefaultValue is { } defaultValue =>
                     $"{executionName}.GetArgumentOrDefault<{runtimeType}>({parameter.InvocationOrdinal}, \"{EscapeString(parameter.Syntax.Identifier.ValueText)}\", {defaultValue.Value})",
                 _ => $"{executionName}.GetArgument<{runtimeType}>({parameter.InvocationOrdinal}, \"{EscapeString(parameter.Syntax.Identifier.ValueText)}\")",
@@ -168,7 +176,7 @@ internal static class MacroLowering
             builder.AppendLine($"        let {parameter.Syntax.Identifier.ValueText}: {runtimeType} = {value}");
         }
         builder.AppendLine($"        let {resultName} = {helperName}({string.Join(", ", parameterMetadata.Select(static parameter => parameter.Syntax.Identifier.ValueText))})");
-        AppendMethodResult(builder, methodSymbol?.ReturnType, expand.ReturnType?.Type, resultName);
+        AppendMethodResult(builder, methodSymbol?.ReturnType, expand.ReturnType?.Type, resultName, isAttached);
         builder.AppendLine("    }");
 
         var helperParameters = string.Join(", ", parameterMetadata.Select(parameter =>
@@ -239,15 +247,20 @@ internal static class MacroLowering
         StringBuilder builder,
         ITypeSymbol? returnType,
         TypeSyntax? returnTypeSyntax,
-        string resultName)
+        string resultName,
+        bool isAttached)
     {
         var returnTypeName = returnType?.ToDisplayString() ?? returnTypeSyntax?.ToString() ?? "object";
         if (returnTypeName.EndsWith(nameof(MacroExecutionResult), StringComparison.Ordinal))
             builder.AppendLine($"        return {resultName}");
         else if (returnTypeName.EndsWith(nameof(FreestandingMacroExpansionResult), StringComparison.Ordinal))
-            builder.AppendLine($"        return Raven.CodeAnalysis.Macros.MacroExecutionResult.Invocable({resultName})");
+            builder.AppendLine($"        return Raven.CodeAnalysis.Macros.MacroExecutionResult.Freestanding({resultName})");
+        else if (returnTypeName.EndsWith(nameof(MacroExpansionResult), StringComparison.Ordinal))
+            builder.AppendLine($"        return Raven.CodeAnalysis.Macros.MacroExecutionResult.Attached({resultName})");
+        else if (isAttached)
+            builder.AppendLine($"        return Raven.CodeAnalysis.Macros.MacroExecutionResult.Attached(Raven.CodeAnalysis.Macros.MacroExpansionResult.FromReplacement({resultName}))");
         else
-            builder.AppendLine($"        return Raven.CodeAnalysis.Macros.MacroExecutionResult.Invocable(Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult.FromNode({resultName}))");
+            builder.AppendLine($"        return Raven.CodeAnalysis.Macros.MacroExecutionResult.Freestanding(Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult.FromNode({resultName}))");
     }
 
     private static string LowerDeclaration(
@@ -282,9 +295,9 @@ internal static class MacroLowering
             .Where(static parameter =>
                 parameter.ContextKind == MacroContextKind.TokenTree)
             .ToArray();
-        var invocableContextParameters = parameters
+        var freestandingContextParameters = parameters
             .Where(static parameter =>
-                parameter.ContextKind == MacroContextKind.Invocable)
+                parameter.ContextKind == MacroContextKind.Freestanding)
             .ToArray();
         var attachedContextParameters = parameters
             .Where(static parameter =>
@@ -320,8 +333,8 @@ internal static class MacroLowering
             : isAttached
             ? "Raven.CodeAnalysis.Macros.MacroExpansionResult"
             : "Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult";
-        var buildMethod = isAttached && !hasTokenTreeBody ? "BuildAttached" : "BuildInvocable";
-        var resultFactory = isAttached && !hasTokenTreeBody ? "Attached" : "Invocable";
+        var buildMethod = isAttached && !hasTokenTreeBody ? "BuildAttached" : "BuildFreestanding";
+        var resultFactory = isAttached && !hasTokenTreeBody ? "Attached" : "Freestanding";
         if (hasEditorMetadataContributions)
             interfaceName += ", Raven.CodeAnalysis.Macros.IMacroExpansionMetadataProvider";
 
@@ -414,7 +427,7 @@ internal static class MacroLowering
             builder.AppendLine(
                 $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.TokenTreeMacroContext = {contextVariableName}");
         }
-        foreach (var contextParameter in invocableContextParameters)
+        foreach (var contextParameter in freestandingContextParameters)
         {
             builder.AppendLine(
                 $"        let {contextParameter.Syntax.Identifier.ValueText}: Raven.CodeAnalysis.Macros.FreestandingMacroContext = {contextVariableName}");

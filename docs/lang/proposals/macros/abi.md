@@ -251,14 +251,9 @@ generic syntax-node hierarchy is implied by this requirement.
 
 ## Migration direction
 
-The redesign removes:
-
-* `IAttachedDeclarationMacro<TParameters>`;
-* `IInvocableMacro<TParameters>`;
-* `ITokenTreeMacro<TParameters>`;
-* `IMacroDefinition<TParameters>` and generated parameter objects;
-* category-specific `Expand` bridge methods; and
-* macro-owned copies of generic parameters, parameters, and return types.
+The redesign removes category-specific provider interfaces, generated
+parameter objects, category-specific `Expand` bridge methods, and macro-owned
+copies of generic parameters, parameters, and return types.
 
 Migration should proceed from compiler-owned semantic facts outward:
 

@@ -382,7 +382,7 @@ macros continue to follow ordinary expression-statement rules. A category mismat
 reports `RAVM022` and discards the invalid node rather than casting it into the
 requested position. Expression factories may also forward native parser diagnostics.
 In a type body, `SemanticModel.GetMacroExpansion` accepts the
-`InvocableMacroMemberDeclarationSyntax` carrier. `GetExpandedRoot()` replaces
+`FreestandingMacroMemberDeclarationSyntax` carrier. `GetExpandedRoot()` replaces
 that carrier with the returned members in source order. A single
 `MemberDeclarationSyntax` returned through `FromNode(...)` is also accepted;
 an explicit empty member list removes the carrier, while no expansion or an
@@ -431,11 +431,11 @@ let result = query!(Dialect: "sql") {
 ```
 
 The syntax tree represents expression, statement, file-scope, and namespace-scope
-invocations with the concrete `InvocableMacroExpressionSyntax` node. File and namespace scope deliberately
+invocations with the concrete `FreestandingMacroExpressionSyntax` node. File and namespace scope deliberately
 retain the existing global-statement envelope: the macro's resolved output
 target, rather than parser lookahead, decides whether expansion supplies a
 statement or declarations. Inside a type body, where a statement is not a valid
-member, the parser uses `InvocableMacroMemberDeclarationSyntax`.
+member, the parser uses `FreestandingMacroMemberDeclarationSyntax`.
 
 An invocation may supply an argument list, a brace-delimited token-tree body,
 or both. There must be no line break between the macro name and `!`, or between
@@ -557,7 +557,7 @@ uses it to forward its Raven-authored declarations to the transitional
 `StandardMacroExpansions` implementations.
 
 An argument-style macro may instead declare an `FreestandingMacroContext`
-parameter. It has the compiler-supplied `InvocableContext` role and exposes
+parameter. It has the compiler-supplied `FreestandingContext` role and exposes
 the invocation, arguments, semantic model, diagnostics, and other
 freestanding-expansion services without changing the call site into a
 token-tree macro. It therefore does not require a `{ ... }` body. For example,

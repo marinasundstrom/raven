@@ -968,7 +968,7 @@ func Main() {
                 public sealed class AnswerMacro : IMacroDefinition
                 {
                     public string Name => "answer";
-                    public MacroKind Kind => MacroKind.Invocable;
+                    public MacroKind Kind => MacroKind.Freestanding;
 
                     public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
                         => FreestandingMacroExpansionResult.FromExpression(

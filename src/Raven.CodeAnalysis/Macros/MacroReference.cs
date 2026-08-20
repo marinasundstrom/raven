@@ -182,7 +182,7 @@ public sealed class MacroReference
     {
         try
         {
-            return (IMacroDefinition)Activator.CreateInstance(macroType)!;
+            return (IMacroDefinition)Activator.CreateInstance(macroType, nonPublic: true)!;
         }
         catch (Exception exception)
         {
@@ -261,7 +261,11 @@ public sealed class MacroReference
             && HasExactlyOneMacroRole(type)
             && !type.IsAbstract
             && !type.ContainsGenericParameters
-            && type.GetConstructor(Type.EmptyTypes) is not null;
+            && type.GetConstructor(
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+                binder: null,
+                Type.EmptyTypes,
+                modifiers: null) is not null;
 
     private static bool HasExactlyOneMacroRole(Type type)
         => typeof(IMacroExecutor).IsAssignableFrom(type) ||

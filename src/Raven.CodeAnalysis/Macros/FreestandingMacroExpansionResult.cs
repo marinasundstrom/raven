@@ -194,7 +194,7 @@ public sealed class FreestandingMacroExpansionResult
         => values.IsDefault ? ImmutableArray<T>.Empty : values;
 }
 
-internal sealed record InvocableMacroExpansionCacheEntry(
+internal sealed record FreestandingMacroExpansionCacheEntry(
     FreestandingMacroExpansionResult? Result)
 {
     public bool IsCurrent()

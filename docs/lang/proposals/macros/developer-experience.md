@@ -107,9 +107,9 @@ ecosystem, even if the adapter ABI changes.
 
 The target underlying contract is now specified by [Macro ABI](abi.md): one
 nominal macro definition type with one designated, free-form `Expand` method,
-plus an erased executor boundary for compiled providers. The category-specific
-interfaces and parameter-object adapters described below are current
-implementation context rather than compatibility requirements.
+plus an erased executor boundary for compiled providers. Former
+category-specific interfaces and parameter-object adapters are not part of
+this model.
 
 That contract is directly authorable without dedicated syntax: an ordinary
 class implements the marker `IMacroDefinition`, owns any generic parameters,
@@ -129,9 +129,8 @@ and cancellation. It interprets those inputs itself. This is the unrestricted
 foundation and remains necessary for macros whose grammar or argument meaning
 cannot be expressed by a fixed signature.
 
-A strongly typed implementation currently builds on that same context through
-a generated or author-provided parameter-object type. In the target ABI, the
-designated `Expand` method itself is the signature: it may declare multiple
+A strongly typed implementation uses the designated `Expand` method itself as
+the signature. It may declare multiple
 caller-supplied values or syntax inputs together with compiler-supplied context,
 token-body, and attached-target parameters. Canonical parameter bindings state
 which parameters consume invocation arguments. No parameter-object property is
@@ -377,7 +376,7 @@ following raw token-tree body.
 the complete low-level provider context for advanced library macros; it does
 not consume a caller argument.
 `FreestandingMacroContext` similarly has the compiler-supplied
-`InvocableContext` role for argument-style macros. It exposes the complete
+`FreestandingContext` role for argument-style macros. It exposes the complete
 freestanding provider context without requiring or consuming a raw token-tree
 body.
 `IParameterSymbol.MacroRole` exposes that distinction without adding a second
@@ -394,9 +393,8 @@ derives it from one typed attached-target parameter. Freestanding and
 token-tree method shapes do not declare meaningless target metadata. Common
 tooling can query the normalized value through `MacroFacts.GetTargets`.
 
-This syntax must lower to the shared macro infrastructure. The current compiler
-synthesizes parameter-object and category-specific adapter plumbing. The target
-semantic identity is the ABI's nominal definition type plus its designated
+This syntax lowers to the shared macro infrastructure. The compiler synthesizes
+a direct executor adapter. The semantic identity is the ABI's nominal definition type plus its designated
 `Expand` method; lowering erases that signature into an immutable execution
 snapshot and one executor entry point. Transitional adapter shapes are not a
 compatibility contract.
@@ -437,8 +435,8 @@ adapter interfaces may change as the macro model develops.
 
 The Raven syntax tree contains compiler-known carrier nodes at valid grammar
 positions. Expression carriers share the abstract
-`InvocableMacroExpressionSyntax` base. The preferred invocation-like
-spelling uses `InvocableMacroExpressionSyntax`:
+`FreestandingMacroExpressionSyntax` base. The preferred invocation-like
+spelling uses `FreestandingMacroExpressionSyntax`:
 
 ```raven
 let result = query! {
@@ -451,7 +449,7 @@ This spelling reads as an invocation that owns a region of code instead of
 visually resembling a preprocessor directive. Macros are parsed expression
 carriers and do not select source text for compilation. Directive styling is
 reserved for facilities closer to preprocessing, such as `#if`. Freestanding
-macros have one syntax carrier: `InvocableMacroExpressionSyntax`.
+macros have one syntax carrier: `FreestandingMacroExpressionSyntax`.
 
 Future carriers may represent statement and member/declaration positions. A
 carrier preserves the macro name, delimiters, and lossless raw body. It means

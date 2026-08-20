@@ -117,7 +117,7 @@ public sealed class MacroTokenInfoTests
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var expression = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
 
         var tokens = compilation.GetMacroTokens(expression);
@@ -149,7 +149,7 @@ public sealed class MacroTokenInfoTests
         Assert.Equal("value", Assert.Single(tokens).Text);
     }
 
-    private static (Compilation Compilation, InvocableMacroExpressionSyntax Expression) CreateCompilation(
+    private static (Compilation Compilation, FreestandingMacroExpressionSyntax Expression) CreateCompilation(
         string code,
         IMacroDefinition macro)
     {
@@ -161,7 +161,7 @@ public sealed class MacroTokenInfoTests
             .AddMacroReferences(new MacroReference(macro));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         return (compilation, expression);
     }

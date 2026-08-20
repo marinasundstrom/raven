@@ -91,7 +91,7 @@ public sealed class EmbedFileContentMacroTests
             var model = compilation.GetSemanticModel(syntaxTree);
             var invocation = syntaxTree.GetRoot()
                 .DescendantNodes()
-                .OfType<InvocableMacroExpressionSyntax>()
+                .OfType<FreestandingMacroExpressionSyntax>()
                 .Single();
 
             var initial = model.GetMacroExpansion(invocation);

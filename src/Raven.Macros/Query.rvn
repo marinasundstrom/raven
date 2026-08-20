@@ -128,7 +128,7 @@ public class QueryMacro : IMacroExecutor, IMacroKeywordProvider, IMacroFragmentP
     }
 
     func Expand(context: MacroExecutionContext) -> MacroExecutionResult {
-        MacroExecutionResult.Invocable(ExpandQuery(
+        MacroExecutionResult.Freestanding(ExpandQuery(
             context.GetContext<TokenTreeMacroContext>()))
     }
 

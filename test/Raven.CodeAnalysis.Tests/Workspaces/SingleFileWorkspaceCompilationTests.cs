@@ -228,7 +228,7 @@ public sealed class SingleFileWorkspaceCompilationTests
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocations = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .ToArray();
         var inspectInvocation = Assert.Single(
             invocations,
@@ -324,7 +324,7 @@ public sealed class SingleFileWorkspaceCompilationTests
 
                 class LocalAnswerMacro : IMacroDefinition {
                     val Name: string => "localAnswer"
-                    val Kind: MacroKind => MacroKind.Invocable
+                    val Kind: MacroKind => MacroKind.Freestanding
 
                     func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                         FreestandingMacroExpansionResult {
@@ -353,7 +353,7 @@ public sealed class SingleFileWorkspaceCompilationTests
 
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var expansion = compilation.GetSemanticModel(consumerTree).GetMacroExpansion(invocation);
         Assert.Equal("42", expansion!.Expression!.ToString());
@@ -396,7 +396,7 @@ public sealed class SingleFileWorkspaceCompilationTests
 
             class LocalAnswerMacro : IMacroDefinition {
                 val Name: string => "localAnswer"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
@@ -423,7 +423,7 @@ public sealed class SingleFileWorkspaceCompilationTests
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var invocation = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         return compilation.GetSemanticModel(consumerTree)
             .GetMacroExpansion(invocation)!

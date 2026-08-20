@@ -98,6 +98,16 @@ internal static class MacroParameterRoleFacts
             _ => parameter.TypeAnnotation?.Type.ToString() ?? "object"
         };
 
+    public static bool IsAttachedTargetType(ITypeSymbol parameterType)
+        => IsOrDerivesFrom(
+                parameterType,
+                "Raven.CodeAnalysis.Syntax",
+                nameof(SyntaxNode)) &&
+            !IsOrDerivesFrom(
+                parameterType,
+                "Raven.CodeAnalysis.Syntax",
+                nameof(ExpressionSyntax));
+
     public static MacroContextKind GetContextKind(ITypeSymbol parameterType)
     {
         if (IsOrDerivesFrom(
@@ -113,7 +123,7 @@ internal static class MacroParameterRoleFacts
             "Raven.CodeAnalysis.Macros",
             nameof(FreestandingMacroContext)))
         {
-            return MacroContextKind.Invocable;
+            return MacroContextKind.Freestanding;
         }
 
         if (IsOrDerivesFrom(
@@ -133,7 +143,7 @@ internal static class MacroParameterRoleFacts
             return MacroContextKind.Attached;
 
         if (typeof(FreestandingMacroContext).IsAssignableFrom(parameterType))
-            return MacroContextKind.Invocable;
+            return MacroContextKind.Freestanding;
 
         if (typeof(TokenTreeMacroContext).IsAssignableFrom(parameterType))
             return MacroContextKind.TokenTree;
@@ -196,6 +206,6 @@ internal enum MacroContextKind
 {
     None,
     TokenTree,
-    Invocable,
+    Freestanding,
     Attached,
 }

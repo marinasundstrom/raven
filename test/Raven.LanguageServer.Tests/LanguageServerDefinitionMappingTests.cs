@@ -161,14 +161,13 @@ func Main() -> () {
         var macroPath = Path.Combine(fixture.Root, "macros", "main.rvn");
         fixture.WriteRavenFile(macroPath, """
 import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
 
 [assembly: RavenCompilerPlugin(typeof(ObservableMacro))]
 
 class ObservableMacro : IMacroDefinition {
     val Name: string => "Observable"
-    val Targets: MacroTarget => MacroTarget.Property
-
-    func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
+    func Expand(property: PropertyDeclarationSyntax, context: AttachedMacroContext) -> MacroExpansionResult {
         MacroExpansionResult.Empty
     }
 }
@@ -203,7 +202,7 @@ class MyViewModel {
     }
 
     [Fact]
-    public async Task DefinitionHandler_InvocableMacro_ResolvesToMacroDeclarationProject()
+    public async Task DefinitionHandler_FreestandingMacro_ResolvesToMacroDeclarationProject()
     {
         using var fixture = new DefinitionWorkspaceFixture();
         var ravenCodeAnalysisPath = typeof(RavenWorkspace).Assembly.Location;

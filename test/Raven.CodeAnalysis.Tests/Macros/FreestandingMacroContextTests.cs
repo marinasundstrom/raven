@@ -43,7 +43,7 @@ public sealed class FreestandingMacroContextTests
     private static (
         Compilation Compilation,
         SemanticModel SemanticModel,
-        InvocableMacroMemberDeclarationSyntax Invocation) CreateMemberInvocation(string source)
+        FreestandingMacroMemberDeclarationSyntax Invocation) CreateMemberInvocation(string source)
     {
         var tree = SyntaxTree.ParseText($$"""
             class Model {
@@ -57,7 +57,7 @@ public sealed class FreestandingMacroContextTests
             .AddSyntaxTrees(tree);
         var invocation = tree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroMemberDeclarationSyntax>()
+            .OfType<FreestandingMacroMemberDeclarationSyntax>()
             .Single();
 
         return (compilation, compilation.GetSemanticModel(tree), invocation);

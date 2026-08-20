@@ -87,7 +87,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             {
                 var signature = CreateMacroSignatureInformation(
                     macroSignature,
-                    IsInvocableMacroInvocationAtPosition(root, offset));
+                    IsFreestandingMacroInvocationAtPosition(root, offset));
                 resolutionMs = stageStopwatch.Elapsed.TotalMilliseconds;
                 resultCount = 1;
 
@@ -242,12 +242,12 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                     ? "Token-tree expression macro."
                     : signature.Kind == MacroKind.AttachedDeclaration
                         ? "Attached declaration macro."
-                        : "Invocable macro."
+                        : "Freestanding macro."
             }
         };
     }
 
-    private static bool IsInvocableMacroInvocationAtPosition(SyntaxNode root, int position)
+    private static bool IsFreestandingMacroInvocationAtPosition(SyntaxNode root, int position)
     {
         foreach (var candidatePosition in new[] { position, position - 1 })
         {
@@ -255,7 +255,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 continue;
 
             var token = root.FindToken(candidatePosition);
-            if (token.Parent?.AncestorsAndSelf().OfType<InvocableMacroExpressionSyntax>().Any() == true)
+            if (token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().Any() == true)
                 return true;
         }
 

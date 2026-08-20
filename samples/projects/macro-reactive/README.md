@@ -1,6 +1,6 @@
 # Macro Reactive (`.rvnproj`)
 
-This sample shows attached and invocable macros working together in a Raven-authored macro plugin.
+This sample shows attached and freestanding macros working together in a Raven-authored macro plugin.
 
 The sample shape is:
 

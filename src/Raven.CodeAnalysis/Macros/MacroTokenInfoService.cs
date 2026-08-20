@@ -11,13 +11,13 @@ internal static class MacroTokenInfoService
 {
     public static ImmutableArray<MacroTokenInfo> GetTokens(
         SemanticModel semanticModel,
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken)
         => GetTokens(semanticModel, expression, expression, cancellationToken);
 
     public static ImmutableArray<MacroTokenInfo> GetTokens(
         SemanticModel semanticModel,
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         SyntaxNode resolutionContext,
         CancellationToken cancellationToken)
     {
@@ -25,7 +25,7 @@ internal static class MacroTokenInfoService
 
         if (expression.TokenTree is null ||
             !expression.TryGetMacroName(out var name) ||
-            !semanticModel.Compilation.GetMacroRegistry().TryResolveInvocableMacro(
+            !semanticModel.Compilation.GetMacroRegistry().TryResolveFreestandingMacro(
                 semanticModel.Compilation,
                 resolutionContext,
                 name,
@@ -174,7 +174,7 @@ internal static class MacroTokenInfoService
 
     private static ISymbol? GetDeclaredFragmentLocalSymbol(
         SemanticModel semanticModel,
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         ImmutableArray<MacroFragmentRegion> regions,
         SyntaxToken token)
     {

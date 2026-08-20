@@ -153,7 +153,7 @@ public sealed class MacroExpansionResultBuilder
         _tokenInfos.AddRange(tokenInfos);
     }
 
-    public FreestandingMacroExpansionResult BuildInvocable()
+    public FreestandingMacroExpansionResult BuildFreestanding()
     {
         if (_node is null &&
             _members.IsDefault &&

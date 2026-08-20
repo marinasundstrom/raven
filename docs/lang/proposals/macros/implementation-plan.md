@@ -542,7 +542,7 @@ The first slice is intentionally expression-only. It must:
 
 Current implementation work:
 
-* [x] add raw token-tree body syntax to `InvocableMacroExpressionSyntax`
+* [x] add raw token-tree body syntax to `FreestandingMacroExpressionSyntax`
 * [x] add a compiler-owned raw delimited-body scanner
 * [x] add token-tree macro execution
 * [x] add `TokenTreeMacroContext` with raw text, body span, Raven-expression
@@ -621,7 +621,7 @@ Validation record for this slice:
 
 * Raven-authored macro project build: passed
 * sample application runtime output: `42`, `False`
-* focused `InvocableMacroCodeGenTests`: 3 passed
+* focused `FreestandingMacroCodeGenTests`: 3 passed
 * `scripts/test-feature-suite.sh macros`: 41 passed
 * `scripts/test-feature-suite.sh macros --runtime`: 15 passed after the
   attached-property accessor identity hardening slice below
@@ -663,7 +663,7 @@ Validation record for this slice:
 
 * Raven-authored macro project build: passed
 * sample application runtime output: `42`, `False`, `correct`
-* focused `InvocableMacroCodeGenTests`: 5 passed
+* focused `FreestandingMacroCodeGenTests`: 5 passed
 * `scripts/test-feature-suite.sh macros`: 41 passed
 
 This remains intentionally structure-free. It establishes the clause and
@@ -1413,7 +1413,7 @@ The macro lowers a custom tree through a typed expression, statement, member,
 or declaration expansion boundary into ordinary Raven syntax.
 
 Raven may define special host-language invocation carrier variants for those
-typed positions. `InvocableMacroExpressionSyntax` is the expression carrier;
+typed positions. `FreestandingMacroExpressionSyntax` is the expression carrier;
 future statement and member/declaration carriers can occupy those Raven grammar
 slots while preserving the macro name and raw body. These compiler-known
 carriers mean "expand here" and are distinct from macro-defined DSL wrapper

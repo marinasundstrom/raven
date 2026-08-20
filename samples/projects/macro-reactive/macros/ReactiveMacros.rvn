@@ -7,13 +7,8 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 
 class ObservableMacro : IMacroDefinition {
     val Name: string => "Observable"
-    val Targets: MacroTarget => MacroTarget.Property
 
-    func Expand(context: AttachedMacroContext) -> MacroExpansionResult {
-        let property: PropertyDeclarationSyntax = context.CurrentDeclaration else {
-            return MacroExpansionResult.Empty
-        }
-
+    func Expand(property: PropertyDeclarationSyntax, context: AttachedMacroContext) -> MacroExpansionResult {
         if !IsStorageProperty(property) {
             return MacroExpansionResult {
                 MacroDiagnostics = [
@@ -182,40 +177,31 @@ class ObservableMacro : IMacroDefinition {
 
 class SubscribeMacro : IMacroDefinition {
     val Name: string => "subscribe"
-    val AcceptsArguments: bool => true
 
-    func Expand(context: FreestandingMacroContext) -> FreestandingMacroExpansionResult {
-        if context.Arguments.Length != 2 {
-            return FreestandingMacroExpansionResult.Empty
+    func Expand(propertyExpression: ExpressionSyntax, callback: ExpressionSyntax) -> ExpressionSyntax {
+        let propertyAccess: MemberAccessExpressionSyntax = propertyExpression else {
+            return propertyExpression
         }
-
-        let propertyAccess: MemberAccessExpressionSyntax = context.Arguments[0].Expression else {
-            return FreestandingMacroExpansionResult.Empty
-        }
-
-        let callback = context.Arguments[1].Expression
 
         let propertyIdentifier: IdentifierNameSyntax = propertyAccess.Name else {
-            return FreestandingMacroExpansionResult.Empty
+            return propertyExpression
         }
 
         let signalName = "${propertyIdentifier.Identifier.ValueText}Changed"
 
-        FreestandingMacroExpansionResult {
-            Expression = InvocationExpression(
+        InvocationExpression(
+            MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
                 MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
-                    MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        propertyAccess.Expression,
-                        DotToken,
-                        IdentifierName(signalName)),
+                    propertyAccess.Expression,
                     DotToken,
-                    IdentifierName("Subscribe")),
-                ArgumentList(
-                    SeparatedList<ArgumentSyntax>([
-                        SyntaxNodeOrToken(Argument(callback))
-                    ])))
-        }
+                    IdentifierName(signalName)),
+                DotToken,
+                IdentifierName("Subscribe")),
+            ArgumentList(
+                SeparatedList<ArgumentSyntax>([
+                    SyntaxNodeOrToken(Argument(callback))
+                ])))
     }
 }

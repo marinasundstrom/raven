@@ -95,7 +95,7 @@ public sealed class MacroFragmentRegionTests
         var consumerTree = Assert.Single(compilation.SyntaxTrees);
         var expression = consumerTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
 
         var diagnostics = compilation.GetDiagnostics();
@@ -113,7 +113,7 @@ public sealed class MacroFragmentRegionTests
         Assert.Equal(SpecialType.System_String, local.Type.SpecialType);
     }
 
-    private static (Compilation Compilation, InvocableMacroExpressionSyntax Expression) CreateCompilation(
+    private static (Compilation Compilation, FreestandingMacroExpressionSyntax Expression) CreateCompilation(
         string code,
         IMacroDefinition macro)
     {
@@ -126,7 +126,7 @@ public sealed class MacroFragmentRegionTests
             .AddMacroReferences(new MacroReference(macro));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         return (compilation, expression);
     }

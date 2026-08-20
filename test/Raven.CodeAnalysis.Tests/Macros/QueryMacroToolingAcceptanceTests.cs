@@ -27,7 +27,7 @@ public sealed class QueryMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
 
         var regions = compilation.GetSemanticModel(syntaxTree)
@@ -68,7 +68,7 @@ public sealed class QueryMacroToolingAcceptanceTests
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
 
         var snapshot = semanticModel.GetMacroInputSnapshot(invocation);
@@ -127,7 +127,7 @@ public sealed class QueryMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var snapshot = compilation.GetMacroInputSnapshot(invocation);
 
@@ -194,7 +194,7 @@ public sealed class QueryMacroToolingAcceptanceTests
         var position = source.LastIndexOf("customer.", StringComparison.Ordinal) + "customer.".Length;
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var region = compilation.GetSemanticModel(syntaxTree)
             .GetMacroInputSnapshot(invocation)
@@ -236,7 +236,7 @@ public sealed class QueryMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var customerPosition = source.IndexOf("customer.Name", StringComparison.Ordinal) + 1;
         var namePosition = source.IndexOf("Name.Length", StringComparison.Ordinal) + 1;

@@ -27,12 +27,12 @@ public class TokenTreeMacroContext : MacroContext
     public TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        InvocableMacroExpressionSyntax syntax,
+        FreestandingMacroExpressionSyntax syntax,
         CancellationToken cancellationToken = default)
         : this(
             compilation,
             semanticModel,
-            InvocableMacroInvocation.Create(syntax),
+            FreestandingMacroInvocation.Create(syntax),
             tokenStreamProvider: null,
             keywords: ImmutableArray<MacroKeyword>.Empty,
             cancellationToken)
@@ -42,12 +42,12 @@ public class TokenTreeMacroContext : MacroContext
     public TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        InvocableMacroMemberDeclarationSyntax syntax,
+        FreestandingMacroMemberDeclarationSyntax syntax,
         CancellationToken cancellationToken = default)
         : this(
             compilation,
             semanticModel,
-            InvocableMacroInvocation.Create(syntax),
+            FreestandingMacroInvocation.Create(syntax),
             tokenStreamProvider: null,
             keywords: ImmutableArray<MacroKeyword>.Empty,
             cancellationToken)
@@ -57,13 +57,13 @@ public class TokenTreeMacroContext : MacroContext
     internal TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        InvocableMacroExpressionSyntax syntax,
+        FreestandingMacroExpressionSyntax syntax,
         IMacroDefinition macro,
         CancellationToken cancellationToken = default)
         : this(
             compilation,
             semanticModel,
-            InvocableMacroInvocation.Create(syntax),
+            FreestandingMacroInvocation.Create(syntax),
             macro as IMacroTokenStreamProvider,
             macro is IMacroKeywordProvider keywordProvider
                 ? keywordProvider.Keywords
@@ -76,7 +76,7 @@ public class TokenTreeMacroContext : MacroContext
     internal TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        InvocableMacroInvocation invocation,
+        FreestandingMacroInvocation invocation,
         IMacroDefinition macro,
         CancellationToken cancellationToken = default)
         : this(
@@ -95,7 +95,7 @@ public class TokenTreeMacroContext : MacroContext
     private TokenTreeMacroContext(
         Compilation compilation,
         SemanticModel semanticModel,
-        InvocableMacroInvocation invocation,
+        FreestandingMacroInvocation invocation,
         IMacroTokenStreamProvider? tokenStreamProvider,
         ImmutableArray<MacroKeyword> keywords,
         CancellationToken cancellationToken)
@@ -135,7 +135,7 @@ public class TokenTreeMacroContext : MacroContext
 
     public CancellationToken CancellationToken { get; }
 
-    internal InvocableMacroInvocation Invocation { get; }
+    internal FreestandingMacroInvocation Invocation { get; }
 
     public TextSpan BodySpan => TextSpan.FromBounds(
         TokenTree.OpenBraceToken.Span.End,

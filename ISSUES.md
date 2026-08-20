@@ -92,7 +92,7 @@ metadata helpers can stay thin wrappers over ASP.NET Core.
 - **Fixed:** The developer syntax and macro commands now obtain expanded roots
   through the workspace document, which reconciles authored documents with
   their consumer and macro compilation projections.
-- **Also fixed:** Expanded roots replace every sibling invocable macro in a
+- **Also fixed:** Expanded roots replace every sibling freestanding macro in a
   member and preserve the line break after multiline token-tree invocations.
 - **Coverage:** The macro expanded-document suite covers multiple invocations
   in one function and multiline `name! { ... }` expansion; the VS Code command

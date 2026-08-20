@@ -86,7 +86,7 @@ public static class MacroFacts
     }
 
     /// <summary>
-    /// Gets the grammar positions supported by an invocable macro.
+    /// Gets the grammar positions supported by a freestanding macro.
     /// </summary>
     public static MacroInvocationTargets GetInvocationTargets(IMacroDefinition macro)
     {
@@ -132,7 +132,7 @@ public static class MacroFacts
         {
             kind = executor.ApplicationKind == MacroApplicationKind.Attached
                 ? MacroKind.AttachedDeclaration
-                : MacroKind.Invocable;
+                : MacroKind.Freestanding;
             return true;
         }
 
@@ -140,7 +140,7 @@ public static class MacroFacts
         {
             kind = MethodMacroFacts.GetApplicationKind(expandMethod) == MacroApplicationKind.Attached
                 ? MacroKind.AttachedDeclaration
-                : MacroKind.Invocable;
+                : MacroKind.Freestanding;
             return true;
         }
 
@@ -150,7 +150,7 @@ public static class MacroFacts
 
     /// <summary>
     /// Gets the declaration targets supported by an attached macro, or
-    /// <see cref="MacroTarget.None"/> for an invocable macro.
+    /// <see cref="MacroTarget.None"/> for a freestanding macro.
     /// </summary>
     public static MacroTarget GetTargets(IMacroDefinition macro)
     {
@@ -164,7 +164,12 @@ public static class MacroFacts
         return macro switch
         {
             IMacroExecutor executor when executor.ApplicationKind == MacroApplicationKind.Attached =>
-                executor.Targets,
+                executor.Targets != MacroTarget.None
+                    ? executor.Targets
+                    : executor.Parameters
+                        .Where(static parameter => parameter.Source == MacroParameterSource.AttachedTarget)
+                        .Select(static parameter => MethodMacroFacts.GetTarget(parameter.RuntimeType))
+                        .FirstOrDefault(MethodMacroFacts.AllTargets),
             _ => MacroTarget.None,
         };
     }

@@ -46,7 +46,7 @@ public partial class Compilation
     /// Gets ordinary Raven fragment regions reported for a token-tree macro invocation.
     /// </summary>
     public ImmutableArray<MacroFragmentRegion> GetMacroFragmentRegions(
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);
@@ -60,7 +60,7 @@ public partial class Compilation
     /// fragment reported by a token-tree macro.
     /// </summary>
     public MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfo(
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         int position,
         CancellationToken cancellationToken = default)
     {
@@ -74,7 +74,7 @@ public partial class Compilation
     /// Gets the token stream and optional classifications for a token-tree macro invocation.
     /// </summary>
     public ImmutableArray<MacroTokenInfo> GetMacroTokens(
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);
@@ -87,7 +87,7 @@ public partial class Compilation
     /// Gets the compiler-owned token-and-fragment snapshot for a token-tree macro invocation.
     /// </summary>
     public MacroInputSnapshot GetMacroInputSnapshot(
-        InvocableMacroExpressionSyntax expression,
+        FreestandingMacroExpressionSyntax expression,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expression);
@@ -326,7 +326,7 @@ public partial class Compilation
                 {
                     Statement: ExpressionStatementSyntax
                     {
-                        Expression: InvocableMacroExpressionSyntax invocation
+                        Expression: FreestandingMacroExpressionSyntax invocation
                     }
                 })
             {

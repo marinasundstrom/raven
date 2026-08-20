@@ -24,7 +24,7 @@ public sealed class MacroFragmentLocalTests
             .AddMacroReferences(new MacroReference(new ScopedMacro()));
         var invocation = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var position = code.IndexOf("row.", StringComparison.Ordinal) + "row.".Length;
 

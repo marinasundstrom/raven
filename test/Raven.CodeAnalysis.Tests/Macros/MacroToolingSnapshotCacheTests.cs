@@ -24,7 +24,7 @@ public sealed class MacroToolingSnapshotCacheTests
             .AddMacroReferences(new MacroReference(macro));
         var expression = syntaxTree.GetRoot()
             .DescendantNodes()
-            .OfType<InvocableMacroExpressionSyntax>()
+            .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
 

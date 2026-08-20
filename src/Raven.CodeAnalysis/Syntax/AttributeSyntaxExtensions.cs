@@ -61,7 +61,7 @@ public static class AttributeSyntaxExtensions
         }
     }
 
-    public static bool TryGetMacroName(this InvocableMacroExpressionSyntax macroExpression, out string macroName)
+    public static bool TryGetMacroName(this FreestandingMacroExpressionSyntax macroExpression, out string macroName)
     {
         if (macroExpression is null)
             throw new ArgumentNullException(nameof(macroExpression));
@@ -70,7 +70,7 @@ public static class AttributeSyntaxExtensions
         return !string.IsNullOrWhiteSpace(macroName);
     }
 
-    public static bool TryGetMacroName(this InvocableMacroMemberDeclarationSyntax macroInvocation, out string macroName)
+    public static bool TryGetMacroName(this FreestandingMacroMemberDeclarationSyntax macroInvocation, out string macroName)
     {
         if (macroInvocation is null)
             throw new ArgumentNullException(nameof(macroInvocation));

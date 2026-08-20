@@ -58,7 +58,7 @@ public sealed class FreestandingMacroExpansionResultTests
         var builder = new MacroExpansionResultBuilder();
 
         builder.Expand((SyntaxNode)statement);
-        var result = builder.BuildInvocable();
+        var result = builder.BuildFreestanding();
 
         result.Node.ShouldBeSameAs(statement);
         result.Statement.ShouldBeSameAs(statement);
@@ -128,7 +128,7 @@ public sealed class FreestandingMacroExpansionResultTests
         var builder = new MacroExpansionResultBuilder();
 
         builder.Expand(SyntaxFactory.List<MemberDeclarationSyntax>());
-        var result = builder.BuildInvocable();
+        var result = builder.BuildFreestanding();
 
         result.HasMemberExpansion.ShouldBeTrue();
         result.Members.ShouldBeEmpty();

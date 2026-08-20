@@ -2,33 +2,33 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Macros;
 
-internal readonly record struct InvocableMacroInvocation(
+internal readonly record struct FreestandingMacroInvocation(
     SyntaxNode Syntax,
     NameSyntax Name,
     SyntaxToken ExclamationToken,
     ArgumentListSyntax ArgumentList,
     MacroTokenTreeSyntax? TokenTree)
 {
-    public static InvocableMacroInvocation Create(InvocableMacroExpressionSyntax syntax)
+    public static FreestandingMacroInvocation Create(FreestandingMacroExpressionSyntax syntax)
     {
         ArgumentNullException.ThrowIfNull(syntax);
         return new(syntax, syntax.Name, syntax.ExclamationToken, syntax.ArgumentList, syntax.TokenTree);
     }
 
-    public static InvocableMacroInvocation Create(InvocableMacroMemberDeclarationSyntax syntax)
+    public static FreestandingMacroInvocation Create(FreestandingMacroMemberDeclarationSyntax syntax)
     {
         ArgumentNullException.ThrowIfNull(syntax);
         return new(syntax, syntax.Name, syntax.ExclamationToken, syntax.ArgumentList, syntax.TokenTree);
     }
 
-    public static bool TryCreate(SyntaxNode syntax, out InvocableMacroInvocation invocation)
+    public static bool TryCreate(SyntaxNode syntax, out FreestandingMacroInvocation invocation)
     {
         switch (syntax)
         {
-            case InvocableMacroExpressionSyntax expression:
+            case FreestandingMacroExpressionSyntax expression:
                 invocation = Create(expression);
                 return true;
-            case InvocableMacroMemberDeclarationSyntax member:
+            case FreestandingMacroMemberDeclarationSyntax member:
                 invocation = Create(member);
                 return true;
             default:
@@ -40,8 +40,8 @@ internal readonly record struct InvocableMacroInvocation(
     public bool TryGetMacroName(out string macroName)
         => Syntax switch
         {
-            InvocableMacroExpressionSyntax expression => expression.TryGetMacroName(out macroName),
-            InvocableMacroMemberDeclarationSyntax member => member.TryGetMacroName(out macroName),
+            FreestandingMacroExpressionSyntax expression => expression.TryGetMacroName(out macroName),
+            FreestandingMacroMemberDeclarationSyntax member => member.TryGetMacroName(out macroName),
             _ => Fail(out macroName)
         };
 

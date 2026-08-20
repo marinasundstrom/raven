@@ -57,7 +57,7 @@ public sealed class MacroReferenceTests
                 val ApplicationKind: MacroApplicationKind => MacroApplicationKind.Freestanding
 
                 func Expand(context: MacroExecutionContext) -> MacroExecutionResult
-                    => MacroExecutionResult.Invocable(FreestandingMacroExpansionResult.Empty)
+                    => MacroExecutionResult.Freestanding(FreestandingMacroExpansionResult.Empty)
             }
             """);
 
@@ -116,7 +116,7 @@ public sealed class MacroReferenceTests
             .AddReferences(TestMetadataReferences.Default)
             .AddMacroReferences(new MacroReference(macro));
 
-        Assert.True(compilation.GetMacroRegistry().TryResolveInvocableMacro(
+        Assert.True(compilation.GetMacroRegistry().TryResolveFreestandingMacro(
             compilation,
             syntaxTree.GetRoot(),
             macro.Name,
@@ -152,7 +152,7 @@ public sealed class MacroReferenceTests
             [MacroParameterRole.Value, MacroParameterRole.SyntaxInput],
             descriptor.Parameters.Select(static parameter => parameter.Role));
 
-        Assert.True(compilation.GetMacroRegistry().TryResolveInvocableMacro(
+        Assert.True(compilation.GetMacroRegistry().TryResolveFreestandingMacro(
             compilation,
             syntaxTree.GetRoot(),
             ((IMacroDefinition)macro).Name,
@@ -286,7 +286,7 @@ public sealed class MacroReferenceTests
 
             class AnswerMacro : IMacroDefinition {
                 val Name: string => "answer"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
                     FreestandingMacroExpansionResult {
@@ -297,7 +297,7 @@ public sealed class MacroReferenceTests
 
             class UnselectedMacro : IMacroDefinition {
                 val Name: string => "unselected"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -333,7 +333,7 @@ public sealed class MacroReferenceTests
 
             public class FirstMacro : IMacroDefinition {
                 val Name: string => "first"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -341,7 +341,7 @@ public sealed class MacroReferenceTests
 
             public class SecondMacro : IMacroDefinition {
                 val Name: string => "second"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -431,7 +431,7 @@ public sealed class MacroReferenceTests
 
         var consumerTree = Assert.Single(consumer.SyntaxTrees);
         var invocation = Assert.Single(
-            consumerTree.GetRoot().DescendantNodes().OfType<InvocableMacroExpressionSyntax>());
+            consumerTree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
         var macroSymbol = Assert.IsAssignableFrom<IMacroSymbol>(
             consumer.GetSemanticModel(consumerTree).GetSymbolInfo(invocation).Symbol);
         var documentation = macroSymbol.GetDocumentationComment();
@@ -451,7 +451,7 @@ public sealed class MacroReferenceTests
 
             class FirstMacro : IMacroDefinition {
                 val Name: string => "first"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -459,7 +459,7 @@ public sealed class MacroReferenceTests
 
             class UnselectedMacro : IMacroDefinition {
                 val Name: string => "unselected"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -467,7 +467,7 @@ public sealed class MacroReferenceTests
 
             class SecondMacro : IMacroDefinition {
                 val Name: string => "second"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -492,7 +492,7 @@ public sealed class MacroReferenceTests
 
             class SelectedMacro : IMacroDefinition {
                 val Name: string => "selected"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -500,7 +500,7 @@ public sealed class MacroReferenceTests
 
             class UnselectedMacro : IMacroDefinition {
                 val Name: string => "unselected"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.Empty
@@ -534,7 +534,7 @@ public sealed class MacroReferenceTests
 
             class AnswerMacro : IMacroDefinition {
                 val Name: string => "answer"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.FromExpression(
@@ -580,7 +580,7 @@ public sealed class MacroReferenceTests
 
             class PrivateAnswerMacro : IMacroDefinition {
                 val Name: string => "privateAnswer"
-                val Kind: MacroKind => MacroKind.Invocable
+                val Kind: MacroKind => MacroKind.Freestanding
 
                 func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
                     => FreestandingMacroExpansionResult.FromExpression(
@@ -646,6 +646,7 @@ public sealed class MacroReferenceTests
         var macroImage = EmitMacroAssembly("""
             import System.*
             import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
 
             [assembly: RavenCompilerPlugin(typeof(ThrowingMacro))]
 
@@ -655,9 +656,7 @@ public sealed class MacroReferenceTests
                 }
 
                 val Name: string => "Throwing"
-                val Targets: MacroTarget => MacroTarget.Type
-
-                func Expand(context: AttachedMacroContext) -> MacroExpansionResult
+                func Expand(target: BaseTypeDeclarationSyntax, context: AttachedMacroContext) -> MacroExpansionResult
                     => MacroExpansionResult.Empty
             }
             """);
@@ -763,7 +762,7 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
-    public void MacroFacts_ReturnsNoDeclarationTargetsForInvocableMacro()
+    public void MacroFacts_ReturnsNoDeclarationTargetsForFreestandingMacro()
     {
         var macro = new TestTokenTreeMacro();
 
@@ -781,7 +780,7 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
-    public void MacroFacts_PreservesDeclaredInvocableTargets()
+    public void MacroFacts_PreservesDeclaredFreestandingTargets()
     {
         var macro = new MemberTargetMacro();
         var expected = MacroInvocationTargets.NamespaceMember | MacroInvocationTargets.TypeMember;
@@ -794,11 +793,9 @@ public sealed class MacroReferenceTests
     {
         public string Name => "AddEquatable";
 
-        public MacroKind Kind => MacroKind.AttachedDeclaration;
-
-        public MacroTarget Targets => MacroTarget.Type;
-
-        public MacroExpansionResult Expand(AttachedMacroContext context)
+        public MacroExpansionResult Expand(
+            BaseTypeDeclarationSyntax target,
+            AttachedMacroContext context)
             => MacroExpansionResult.Empty;
     }
 
@@ -806,11 +803,8 @@ public sealed class MacroReferenceTests
     {
         public string Name => "Observable";
 
-        public MacroKind Kind => MacroKind.AttachedDeclaration;
-
-        public MacroTarget Targets => MacroTarget.Property;
-
         public MacroExpansionResult Expand(
+            PropertyDeclarationSyntax target,
             string name,
             AttachedMacroContext context,
             int count = 1,
@@ -882,7 +876,7 @@ public sealed class MacroReferenceTests
     public sealed class MisleadingKindMacro : IMacroDefinition
     {
         public string Name => "misleading";
-        public MacroKind Kind => MacroKind.Invocable;
+        public MacroKind Kind => MacroKind.Freestanding;
         public MacroTarget Targets => MacroTarget.Type;
 
         public MacroExpansionResult Expand(AttachedMacroContext context)

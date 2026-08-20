@@ -319,7 +319,7 @@ internal class MethodBodyGenerator
 
     private SyntaxNode ResolveMacroSequencePointSyntax(SyntaxNode syntax)
     {
-        if (syntax is not InvocableMacroExpressionSyntax || syntax.SyntaxTree is null)
+        if (syntax is not FreestandingMacroExpressionSyntax || syntax.SyntaxTree is null)
             return syntax;
 
         var semanticModel = Compilation.GetSemanticModel(syntax.SyntaxTree);

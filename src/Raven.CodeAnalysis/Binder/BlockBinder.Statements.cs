@@ -25,7 +25,7 @@ partial class BlockBinder
         ExpressionStatementSyntax expressionStmt,
         ITypeSymbol? contextualTargetType = null)
     {
-        if (expressionStmt.Expression is InvocableMacroExpressionSyntax { TokenTree: not null } macroExpression)
+        if (expressionStmt.Expression is FreestandingMacroExpressionSyntax { TokenTree: not null } macroExpression)
         {
             var expansion = SemanticModel.GetMacroExpansion(macroExpression);
             if (expansion?.Statement is not { } expansionStatement)
