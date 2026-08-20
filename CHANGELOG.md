@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
 
 ## Unreleased
 
+- Unary `+`, `-`, and `~` now apply .NET-style integral promotion to `sbyte`,
+  `byte`, `short`, `ushort`, and `char` operands, producing an `int` result.
 - The release procedure and installation-workflow dispatch form now state that
   public installation verification must wait until the published packages are
   restorable from a fresh NuGet.org-only cache, because its project and template

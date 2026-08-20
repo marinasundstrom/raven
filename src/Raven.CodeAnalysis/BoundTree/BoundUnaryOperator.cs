@@ -38,6 +38,28 @@ internal partial class BoundUnaryOperator
         var int64 = compilation.GetSpecialType(SpecialType.System_Int64);
         var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
 
+        if (operandType.SpecialType is
+            SpecialType.System_SByte or
+            SpecialType.System_Byte or
+            SpecialType.System_Int16 or
+            SpecialType.System_UInt16 or
+            SpecialType.System_Char)
+        {
+            var promotedKind = kind switch
+            {
+                SyntaxKind.PlusToken => BoundUnaryOperatorKind.UnaryPlus,
+                SyntaxKind.MinusToken => BoundUnaryOperatorKind.UnaryMinus,
+                SyntaxKind.TildeToken => BoundUnaryOperatorKind.BitwiseNot,
+                _ => (BoundUnaryOperatorKind?)null,
+            };
+
+            if (promotedKind is { } operatorKind)
+            {
+                op = new BoundUnaryOperator(operatorKind, operandType, intType);
+                return true;
+            }
+        }
+
         var candidates = new[]
         {
             new BoundUnaryOperator(BoundUnaryOperatorKind.UnaryPlus, intType, intType),

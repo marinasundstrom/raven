@@ -26,4 +26,28 @@ public class BoundUnaryOperatorTests : CompilationTestBase
         Assert.Equal(BoundUnaryOperatorKind.BitwiseNot, longOperator.OperatorKind);
         Assert.Equal(longType, longOperator.ResultType);
     }
+
+    [Theory]
+    [InlineData(SpecialType.System_SByte)]
+    [InlineData(SpecialType.System_Byte)]
+    [InlineData(SpecialType.System_Int16)]
+    [InlineData(SpecialType.System_UInt16)]
+    [InlineData(SpecialType.System_Char)]
+    public void TryLookup_BitwiseNotOnSmallIntegralType_PromotesResultToInt32(SpecialType operandSpecialType)
+    {
+        var compilation = CreateCompilation();
+        var operandType = compilation.GetSpecialType(operandSpecialType);
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+
+        var success = BoundUnaryOperator.TryLookup(
+            compilation,
+            SyntaxKind.TildeToken,
+            operandType,
+            out var unaryOperator);
+
+        Assert.True(success);
+        Assert.Equal(BoundUnaryOperatorKind.BitwiseNot, unaryOperator.OperatorKind);
+        Assert.Equal(operandType, unaryOperator.OperandType);
+        Assert.Equal(intType, unaryOperator.ResultType);
+    }
 }

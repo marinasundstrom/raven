@@ -148,6 +148,31 @@ let b = -a
         Assert.Equal("op_UnaryNegation", symbol.Name);
     }
 
+    [Theory]
+    [InlineData("sbyte")]
+    [InlineData("byte")]
+    [InlineData("short")]
+    [InlineData("ushort")]
+    [InlineData("char")]
+    public void OperatorUsage_BitwiseNotPromotesSmallIntegralOperandToInt(string typeName)
+    {
+        var source = $$"""
+func Invert(value: {{typeName}}) -> int {
+    return ~value
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<PrefixOperatorExpressionSyntax>().Single();
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(expression).Type?.SpecialType);
+    }
+
     [Fact]
     public void OperatorDeclaration_BitwiseOperatorsBindExpectedMetadataNames()
     {
