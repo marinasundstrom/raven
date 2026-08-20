@@ -96,118 +96,54 @@ internal sealed class MacroRegistry
             }
 
             var descriptor = MacroFacts.GetDescriptor(macro);
+            var executor = macro as IMacroExecutor ?? new LegacyMacroExecutorAdapter(macro, descriptor);
+            var canonicalName = GetCanonicalName(macro);
+            var aliases = GetAliases(macro);
 
-            switch (macro)
+            switch (descriptor.ApplicationKind)
             {
-                case IMacroExecutor executor when
-                    executor.ApplicationKind == MacroApplicationKind.Attached:
-                    var executorAttachedName = GetCanonicalName(executor);
-                    if (attachedMacros.TryGetValue(executorAttachedName, out var existingExecutorAttached))
+                case MacroApplicationKind.Attached:
+                    if (attachedMacros.TryGetValue(canonicalName, out var existingAttached))
                     {
                         diagnostics.Add(Diagnostic.Create(
                             s_duplicateMacroName,
                             Location.None,
-                            executorAttachedName,
-                            existingExecutorAttached.Origin,
-                            origin));
-                        return;
-                    }
-
-                    attachedMacros.Add(
-                        executorAttachedName,
-                        new LoadedAttachedMacro(
-                            origin,
-                            descriptor,
-                            executorAttachedName,
-                            GetAliases(executor)));
-                    break;
-
-                case IMacroExecutor executor:
-                    var executorInvocableName = GetCanonicalName(executor);
-                    if (invocableMacros.TryGetValue(executorInvocableName, out var existingExecutorInvocable))
-                    {
-                        diagnostics.Add(Diagnostic.Create(
-                            s_duplicateMacroName,
-                            Location.None,
-                            executorInvocableName,
-                            existingExecutorInvocable.Origin,
-                            origin));
-                        return;
-                    }
-
-                    invocableMacros.Add(
-                        executorInvocableName,
-                        new LoadedInvocableMacro(
-                            origin,
-                            descriptor,
-                            executorInvocableName,
-                            GetAliases(executor)));
-                    break;
-
-                case IAttachedDeclarationMacro attached:
-                    var attachedName = GetCanonicalName(attached);
-                    if (attachedMacros.TryGetValue(attachedName, out var existingAttached))
-                    {
-                        diagnostics.Add(Diagnostic.Create(
-                            s_duplicateMacroName,
-                            Location.None,
-                            attachedName,
+                            canonicalName,
                             existingAttached.Origin,
                             origin));
                         return;
                     }
 
                     attachedMacros.Add(
-                        attachedName,
+                        canonicalName,
                         new LoadedAttachedMacro(
                             origin,
                             descriptor,
-                            attachedName,
-                            GetAliases(attached)));
+                            executor,
+                            canonicalName,
+                            aliases));
                     break;
 
-                case IInvocableMacro invocable:
-                    var invocableName = GetCanonicalName(invocable);
-                    if (invocableMacros.TryGetValue(invocableName, out var existingInvocable))
+                case MacroApplicationKind.Invocable:
+                    if (invocableMacros.TryGetValue(canonicalName, out var existingInvocable))
                     {
                         diagnostics.Add(Diagnostic.Create(
                             s_duplicateMacroName,
                             Location.None,
-                            invocableName,
+                            canonicalName,
                             existingInvocable.Origin,
                             origin));
                         return;
                     }
 
                     invocableMacros.Add(
-                        invocableName,
+                        canonicalName,
                         new LoadedInvocableMacro(
                             origin,
                             descriptor,
-                            invocableName,
-                            GetAliases(invocable)));
-                    break;
-
-                case ITokenTreeMacro tokenTree:
-                    var tokenTreeName = GetCanonicalName(tokenTree);
-                    if (invocableMacros.TryGetValue(tokenTreeName, out var existingTokenTree))
-                    {
-                        diagnostics.Add(Diagnostic.Create(
-                            s_duplicateMacroName,
-                            Location.None,
-                            tokenTreeName,
-                            existingTokenTree.Origin,
-                            origin));
-                        return;
-                    }
-
-                    invocableMacros.Add(
-                        tokenTreeName,
-                        new LoadedInvocableMacro(
-                            origin,
-                            descriptor,
-                            tokenTreeName,
-                            GetAliases(tokenTree)));
+                            executor,
+                            canonicalName,
+                            aliases));
                     break;
             }
         }
@@ -495,6 +431,7 @@ internal sealed class MacroRegistry
 internal readonly record struct LoadedAttachedMacro(
     string Origin,
     MacroDefinitionDescriptor Descriptor,
+    IMacroExecutor Executor,
     string CanonicalName,
     ImmutableArray<string> Aliases)
 {
@@ -504,6 +441,7 @@ internal readonly record struct LoadedAttachedMacro(
 internal readonly record struct LoadedInvocableMacro(
     string Origin,
     MacroDefinitionDescriptor Descriptor,
+    IMacroExecutor Executor,
     string CanonicalName,
     ImmutableArray<string> Aliases)
 {

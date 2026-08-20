@@ -72,6 +72,35 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void MacroRegistry_NormalizesLegacyProviderToExecutor()
+    {
+        var macro = new TestTokenTreeMacro();
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            let value = tokenTree! { }
+            """);
+        var compilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(macro));
+
+        Assert.True(compilation.GetMacroRegistry().TryResolveInvocableMacro(
+            compilation,
+            syntaxTree.GetRoot(),
+            macro.Name,
+            out var loaded,
+            out var isAmbiguous));
+        Assert.False(isAmbiguous);
+        Assert.Same(macro, loaded.Macro);
+        Assert.NotSame(macro, loaded.Executor);
+        Assert.True(loaded.Executor.HasTokenBody);
+        Assert.Equal(MacroApplicationKind.Invocable, loaded.Executor.ApplicationKind);
+    }
+
+    [Fact]
     public void MacroReference_FromType_RejectsNonMacroExportTypes()
     {
         var ex = Assert.Throws<System.ArgumentException>(() => new MacroReference(typeof(MacroReferenceTests)));

@@ -11,7 +11,8 @@ public sealed class MacroExecutionContext
         IMacroExecutor executor,
         MacroContext context,
         ImmutableArray<ITypeSymbol> typeArguments,
-        ImmutableArray<MacroArgument> arguments)
+        ImmutableArray<MacroArgument> arguments,
+        DiagnosticBag diagnostics)
     {
         Executor = executor;
         Context = context;
@@ -19,6 +20,7 @@ public sealed class MacroExecutionContext
         Arguments = arguments
             .Select(static (argument, ordinal) => new MacroExecutionArgument(ordinal, argument))
             .ToImmutableArray();
+        Diagnostics = diagnostics;
     }
 
     public IMacroExecutor Executor { get; }
@@ -28,6 +30,8 @@ public sealed class MacroExecutionContext
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
 
     public ImmutableArray<MacroExecutionArgument> Arguments { get; }
+
+    internal DiagnosticBag Diagnostics { get; }
 
     public TContext GetContext<TContext>() where TContext : MacroContext
         => Context as TContext ?? throw new InvalidOperationException(

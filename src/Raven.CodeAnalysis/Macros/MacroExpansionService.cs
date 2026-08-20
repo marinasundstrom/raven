@@ -74,21 +74,14 @@ internal static class MacroExpansionService
                     targetDeclaration,
                     currentDeclaration,
                     cancellationToken);
-                var result = loaded.Macro switch
-                {
-                    IMacroExecutor executor => executor.Expand(new MacroExecutionContext(
-                            executor,
-                            context,
-                            GetTypeArguments(semanticModel, attribute.Name),
-                            context.Arguments))
-                        .AttachedResult ?? throw new InvalidOperationException(
-                            $"Macro '{executor.Name}' returned an invocable result for an attached invocation."),
-                    IAttachedDeclarationMacro attached =>
-                        ExpandWithTypedParametersIfAvailable(attached, context, diagnostics)
-                        ?? attached.Expand(context)
-                        ?? MacroExpansionResult.Empty,
-                    _ => MacroExpansionResult.Empty,
-                };
+                var result = loaded.Executor.Expand(new MacroExecutionContext(
+                        loaded.Executor,
+                        context,
+                        GetTypeArguments(semanticModel, attribute.Name),
+                        context.Arguments,
+                        diagnostics))
+                    .AttachedResult ?? throw new InvalidOperationException(
+                        $"Macro '{loaded.Executor.Name}' returned an invocable result for an attached invocation.");
                 result = AddReportedDiagnostics(result, context);
                 result = ContextualizeExpansionResult(targetDeclaration, result);
                 RegisterGeneratedSyntaxTrees(compilation, semanticModel, result);
@@ -169,20 +162,13 @@ internal static class MacroExpansionService
                     invocation,
                     loaded.Macro,
                     cancellationToken);
-                result = loaded.Macro switch
-                {
-                    IMacroExecutor executor => ExecuteInvocable(
-                        executor,
-                        context,
-                        context.Arguments,
-                        semanticModel,
-                        invocation.Name),
-                    ITokenTreeMacro tokenTreeMacro =>
-                        ExpandWithTypedParametersIfAvailable(tokenTreeMacro, context, diagnostics)
-                        ?? tokenTreeMacro.Expand(context)
-                        ?? InvocableMacroExpansionResult.Empty,
-                    _ => InvocableMacroExpansionResult.Empty,
-                };
+                result = ExecuteInvocable(
+                    loaded.Executor,
+                    context,
+                    context.Arguments,
+                    semanticModel,
+                    invocation.Name,
+                    diagnostics);
                 result = AddReportedDiagnostics(result, context);
                 result.FileDependencies = MergeFileDependencies(
                     result.FileDependencies,
@@ -195,20 +181,13 @@ internal static class MacroExpansionService
                     semanticModel,
                     invocation,
                     cancellationToken);
-                result = loaded.Macro switch
-                {
-                    IMacroExecutor executor => ExecuteInvocable(
-                        executor,
-                        context,
-                        context.Arguments,
-                        semanticModel,
-                        invocation.Name),
-                    IInvocableMacro invocableMacro =>
-                        ExpandWithTypedParametersIfAvailable(invocableMacro, context, diagnostics)
-                        ?? invocableMacro.Expand(context)
-                        ?? InvocableMacroExpansionResult.Empty,
-                    _ => InvocableMacroExpansionResult.Empty,
-                };
+                result = ExecuteInvocable(
+                    loaded.Executor,
+                    context,
+                    context.Arguments,
+                    semanticModel,
+                    invocation.Name,
+                    diagnostics);
                 result = AddReportedDiagnostics(result, context);
                 result.FileDependencies = MergeFileDependencies(
                     result.FileDependencies,
@@ -246,12 +225,14 @@ internal static class MacroExpansionService
         MacroContext context,
         ImmutableArray<MacroArgument> arguments,
         SemanticModel semanticModel,
-        TypeSyntax name)
+        TypeSyntax name,
+        DiagnosticBag diagnostics)
         => executor.Expand(new MacroExecutionContext(
                 executor,
                 context,
                 GetTypeArguments(semanticModel, name),
-                arguments))
+                arguments,
+                diagnostics))
             .InvocableResult ?? throw new InvalidOperationException(
                 $"Macro '{executor.Name}' returned an attached result for an invocable invocation.");
 
@@ -293,7 +274,7 @@ internal static class MacroExpansionService
             : exception.Message;
     }
 
-    private static MacroExpansionResult? ExpandWithTypedParametersIfAvailable(
+    internal static MacroExpansionResult? ExpandWithTypedParametersIfAvailable(
         IAttachedDeclarationMacro macro,
         AttachedMacroContext context,
         DiagnosticBag diagnostics)
@@ -334,7 +315,7 @@ internal static class MacroExpansionService
         return result;
     }
 
-    private static InvocableMacroExpansionResult? ExpandWithTypedParametersIfAvailable(
+    internal static InvocableMacroExpansionResult? ExpandWithTypedParametersIfAvailable(
         IInvocableMacro macro,
         InvocableMacroContext context,
         DiagnosticBag diagnostics)
@@ -380,7 +361,7 @@ internal static class MacroExpansionService
         return result;
     }
 
-    private static InvocableMacroExpansionResult? ExpandWithTypedParametersIfAvailable(
+    internal static InvocableMacroExpansionResult? ExpandWithTypedParametersIfAvailable(
         ITokenTreeMacro macro,
         TokenTreeMacroContext context,
         DiagnosticBag diagnostics)
