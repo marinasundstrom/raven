@@ -110,6 +110,78 @@ public sealed class SingleFileWorkspaceCompilationTests
         Assert.Equal(1, instrumentation.Macros.LocalPartitionReuses);
     }
 
+    [Fact]
+    public void WorkspaceCompilation_MacroSignatureEditRefreshesDescriptorForUnchangedInvocation()
+    {
+        const string initialMacroSource = """
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
+
+            class ProjectMacro : IMacroDefinition {
+                func Expand(value: ExpressionSyntax) -> ExpressionSyntax => value
+            }
+            """;
+        const string updatedMacroSource = """
+            import Raven.CodeAnalysis.Macros.*
+            import Raven.CodeAnalysis.Syntax.*
+
+            class ProjectMacro : IMacroDefinition {
+                func Expand(label: string, value: ExpressionSyntax) -> ExpressionSyntax => value
+            }
+            """;
+        const string consumerSource = "func Main() -> int => Project!(42)";
+        var instrumentation = new PerformanceInstrumentation();
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "macro-signature-edit",
+            compilationOptions: new CompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                performanceInstrumentation: instrumentation),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.DefaultWithRavenMacros)
+            project = project.AddMetadataReference(reference);
+
+        var macroDocument = project.AddDocument(
+            "macros.rvn",
+            SourceText.From(initialMacroSource),
+            "/tmp/macros.rvn");
+        var consumerDocument = macroDocument.Project.AddDocument(
+            "main.rvn",
+            SourceText.From(consumerSource),
+            "/tmp/main.rvn");
+        workspace.TryApplyChanges(consumerDocument.Project.Solution);
+
+        var initialCompilation = workspace.GetCompilation(projectId);
+        var initialConsumerTree = Assert.Single(
+            initialCompilation.SyntaxTrees,
+            static tree => tree.FilePath == "/tmp/main.rvn");
+        var initialSignature = initialCompilation.GetMacroSignatureHelp(
+            initialConsumerTree,
+            consumerSource.IndexOf("42", StringComparison.Ordinal));
+        Assert.Equal(["value"], initialSignature!.Parameters.Select(static parameter => parameter.Name));
+        Assert.Equal(1, instrumentation.Macros.LocalPartitionCompilations);
+
+        workspace.TryApplyChanges(
+            workspace.CurrentSolution.WithDocumentText(
+                macroDocument.Id,
+                SourceText.From(updatedMacroSource)));
+
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedConsumerTree = Assert.Single(
+            updatedCompilation.SyntaxTrees,
+            static tree => tree.FilePath == "/tmp/main.rvn");
+        var updatedSignature = updatedCompilation.GetMacroSignatureHelp(
+            updatedConsumerTree,
+            consumerSource.IndexOf("42", StringComparison.Ordinal));
+
+        Assert.Equal(
+            ["label", "value"],
+            updatedSignature!.Parameters.Select(static parameter => parameter.Name));
+        Assert.Equal(2, instrumentation.Macros.LocalPartitionCompilations);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
