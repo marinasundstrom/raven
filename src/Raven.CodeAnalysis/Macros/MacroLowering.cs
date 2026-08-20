@@ -102,6 +102,9 @@ internal static class MacroLowering
         var namespaceName = GetDeclaredNamespace(declaration);
         var builder = new StringBuilder();
 
+        foreach (var attributeList in declaration.AttributeLists)
+            builder.AppendLine(source.Substring(attributeList.Span.Start, attributeList.Span.Length));
+
         foreach (var typeParameter in (declaration.TypeParameterList?.Parameters ?? []).Select((syntax, ordinal) => (syntax, ordinal)))
         {
             builder.AppendLine(
@@ -122,9 +125,17 @@ internal static class MacroLowering
         var visibility = declaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.PublicKeyword)
             ? "public "
             : string.Empty;
-        builder.AppendLine($"{visibility}class {declaration.Identifier.ValueText} : Raven.CodeAnalysis.Macros.IMacroExecutor {{");
-        builder.AppendLine($"    val Namespace: string => \"{EscapeString(namespaceName)}\"");
-        builder.AppendLine($"    val Name: string => \"{EscapeString(declaredName)}\"");
+        var capabilityInterfaces = declaration.BaseList?.Types
+            .Where(static baseType => !IsInterfaceNamed(baseType.Type, nameof(IMacroDefinition)))
+            .Select(static baseType => baseType.Type.ToString()) ?? [];
+        var executorInterfaces = string.Join(
+            ", ",
+            new[] { "Raven.CodeAnalysis.Macros.IMacroExecutor" }.Concat(capabilityInterfaces));
+        builder.AppendLine($"{visibility}class {declaration.Identifier.ValueText} : {executorInterfaces} {{");
+        if (!HasDeclaredMember(declaration, nameof(IMacroDefinition.Namespace)))
+            builder.AppendLine($"    val Namespace: string => \"{EscapeString(namespaceName)}\"");
+        if (!HasDeclaredMember(declaration, nameof(IMacroDefinition.Name)))
+            builder.AppendLine($"    val Name: string => \"{EscapeString(declaredName)}\"");
         builder.AppendLine("    val ApplicationKind: Raven.CodeAnalysis.Macros.MacroApplicationKind => Raven.CodeAnalysis.Macros.MacroApplicationKind.Invocable");
         if (parameterMetadata.Any(static parameter => parameter.InvocationOrdinal >= 0))
             builder.AppendLine("    val AcceptsArguments: bool => true");
@@ -169,8 +180,50 @@ internal static class MacroLowering
         {
             builder.AppendLine($"    func {helperName}({helperParameters}) -> {helperReturnType} => {expressionBody.Expression}");
         }
+
+        var typeParameterNames = declaration.TypeParameterList?.Parameters
+            .Select(static parameter => parameter.Identifier.ValueText)
+            .ToHashSet(StringComparer.Ordinal) ?? [];
+        foreach (var member in declaration.Members.Where(member => !ReferenceEquals(member, expand)))
+        {
+            builder.AppendLine(EraseTypeParameters(source, member, typeParameterNames));
+        }
         builder.AppendLine("}");
         return builder.ToString();
+    }
+
+    private static bool IsInterfaceNamed(TypeSyntax type, string name)
+        => string.Equals(
+            type.DescendantTokens()
+                .LastOrDefault(static token => token.Kind == SyntaxKind.IdentifierToken)
+                .ValueText,
+            name,
+            StringComparison.Ordinal);
+
+    private static bool HasDeclaredMember(ClassDeclarationSyntax declaration, string name)
+        => declaration.Members.Any(member => member switch
+        {
+            PropertyDeclarationSyntax property => property.Identifier.ValueText == name,
+            MethodDeclarationSyntax method => method.Identifier.ValueText == name,
+            _ => false,
+        });
+
+    private static string EraseTypeParameters(
+        string source,
+        MemberDeclarationSyntax member,
+        ISet<string> typeParameterNames)
+    {
+        var text = new StringBuilder(source.Substring(member.Span.Start, member.Span.Length));
+        foreach (var token in member.DescendantTokens()
+            .Where(static token => token.Kind == SyntaxKind.IdentifierToken)
+            .Where(token => typeParameterNames.Contains(token.ValueText))
+            .OrderByDescending(static token => token.Span.Start))
+        {
+            text.Remove(token.Span.Start - member.Span.Start, token.Span.Length);
+            text.Insert(token.Span.Start - member.Span.Start, "object");
+        }
+
+        return text.ToString();
     }
 
     private static void AppendMethodResult(

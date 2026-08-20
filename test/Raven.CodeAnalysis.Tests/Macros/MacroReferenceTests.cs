@@ -212,14 +212,22 @@ public sealed class MacroReferenceTests
     public void MacroReference_FromGenericMethodShapedClass_PreservesCanonicalSignature()
     {
         const string source = """
+            import System.Collections.Immutable.*
             import Raven.CodeAnalysis.Macros.*
             import Raven.CodeAnalysis.Syntax.*
 
             [assembly: RavenCompilerPlugin]
 
-            public class IdentityMacro<T> : IMacroDefinition {
+            [MacroAlias("alternate")]
+            public class IdentityMacro<T> : IMacroDefinition, IMacroKeywordProvider {
+                val Name: string => "customIdentity"
+                val Alias: string? => "identity"
+                val Keywords: ImmutableArray<MacroKeyword> => []
+
                 func Expand(value: T, syntax: ExpressionSyntax, context: InvocableMacroContext) -> ExpressionSyntax
-                    => syntax
+                    => Select(syntax)
+
+                func Select(syntax: ExpressionSyntax) -> ExpressionSyntax => syntax
             }
             """;
         var sourceTree = SyntaxTree.ParseText(source);
@@ -231,7 +239,12 @@ public sealed class MacroReferenceTests
         var macro = Assert.Single(reference.Macros);
         var executor = Assert.IsAssignableFrom<IMacroExecutor>(macro);
 
-        Assert.Equal("Identity", macro.Name);
+        Assert.Equal("customIdentity", macro.Name);
+        Assert.Equal("identity", macro.Alias);
+        Assert.IsAssignableFrom<IMacroKeywordProvider>(macro);
+        Assert.Contains(
+            macro.GetType().GetCustomAttributes(inherit: false),
+            static attribute => attribute is MacroAliasAttribute { Alias: "alternate" });
         Assert.Equal(["T"], executor.TypeParameters.ToArray());
         Assert.Equal(["T", "ExpressionSyntax", "InvocableMacroContext"],
             executor.Parameters.Select(static parameter => parameter.TypeDisplayName));
@@ -240,7 +253,7 @@ public sealed class MacroReferenceTests
             executor.Parameters.Select(static parameter => parameter.Source));
 
         var consumerTree = SyntaxTree.ParseText("""
-            let answer = Identity<int>!(1, 42)
+            let answer = alternate<int>!(1, 42)
             """);
         var consumerCompilation = Compilation.Create(
                 "Consumer",
