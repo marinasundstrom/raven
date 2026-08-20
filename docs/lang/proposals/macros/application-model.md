@@ -486,6 +486,55 @@ named `(...)` argument mapping. A list input consumes the `[...]` payload, and
 a token-body input consumes the `{...}` region. Compiler-supplied parameters
 never consume any of those inputs and cannot be named by the caller.
 
+### Carrier shape versus input projection
+
+The carrier determines which authored regions exist; the resolved macro
+signature determines how each region is projected. Parsing does not decide
+whether an argument is a value or syntax, and it does not load a macro provider.
+
+For example, one invocation can mix projections deliberately:
+
+```raven
+macro Repeat(count: int, value: ExpressionSyntax) -> ExpressionSyntax {
+    // count is a converted compile-time value.
+    // value is the source-backed expression node authored by the caller.
+}
+
+Repeat!(3, CalculateValue())
+```
+
+Binding `count` performs the supported compile-time evaluation and conversion
+to `int`. Binding `value` preserves the `ExpressionSyntax`, its trivia,
+location, and source identity without evaluating it. A different candidate may
+declare a different projection for the same argument position; overload or
+candidate selection must validate the complete signature before executing any
+macro.
+
+The same rule applies to sequence items. `MacroList<int>` converts every
+`[...]` item to an `int`, while `MacroList<ExpressionSyntax>` preserves every
+item as authored expression syntax. A conversion or syntax-category failure is
+diagnosed at the responsible item and prevents execution with a partial input.
+
+Future typed syntax facades extend the syntax projection rather than replace
+it:
+
+```raven
+ExpressionSyntax<T>
+LiteralExpressionSyntax<T>
+```
+
+`ExpressionSyntax<T>` preserves the ordinary source-backed expression while
+also carrying a compiler-verified semantic constraint that its bound result is
+compatible with `T`. `LiteralExpressionSyntax<T>` additionally constrains the
+syntax shape. These are macro input facades over ordinary immutable syntax,
+not new nodes inserted into Raven's syntax tree and not evaluated runtime
+values.
+
+A dynamic context remains the escape hatch when a macro deliberately wants to
+interpret raw argument syntax itself. The normal strongly typed path should be
+signature-directed so binding, diagnostics, signature help, hover, caching,
+and execution all agree on the chosen projection.
+
 ### Context is opt-in
 
 A macro context is not mandatory syntax and is not implicitly bound into every

@@ -136,11 +136,21 @@ token-body, and attached-target parameters. Canonical parameter bindings state
 which parameters consume invocation arguments. No parameter-object property is
 part of the stable contract.
 
+The authored carrier and the typed projection are separate decisions. The
+parser preserves arguments and regions without choosing their meaning. During
+macro binding, an ordinary parameter type requests compile-time value
+conversion, a syntax-node type requests the source-backed authored node, and a
+future typed syntax facade such as `ExpressionSyntax<T>` requests that same
+node together with a compiler-verified semantic constraint. One macro
+signature may mix all of these projections.
+
 Future strongly typed inputs should extend this layering rather than create a
 parallel model. A normalized typed input frame can eventually contain:
 
 * constant values converted to declared Raven-facing types;
 * parsed syntax values with an explicit syntax role;
+* typed syntax facades that retain the authored node and verified semantic
+  information;
 * symbolic generic type arguments and their constraints; and
 * a token-tree or other unrestricted body projection when declared.
 
