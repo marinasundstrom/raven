@@ -53,7 +53,7 @@ by the extension manifest.
 
 ## Configuration
 The extension exposes settings to control language-server resolution and debug compilation:
-- `raven.sdkPath` (string): Override the Raven SDK root directory. When this is unset, the extension runs `rvn sdk path` to discover an installed SDK. The extension looks in that root for bundled tools such as `Raven.LanguageServer.dll`, `rvn.dll`, `rvnc.dll`, and `Raven.Core.dll`.
+- `raven.sdkPath` (string): Override the Raven SDK root directory. An explicit path selects that SDK's language server and command-line tools. When this is unset, the extension runs `rvn sdk path` to discover an installed SDK for build, run, and debug commands, but keeps using its matching bundled language server for editor features.
 - `raven.languageServerPath` (string): Override the resolved `Raven.LanguageServer.dll` path. Use this when working with custom build outputs or packaged bits.
 - `raven.autoBuildLanguageServerOnActivate` (boolean): Opt-in source-development setting that builds `src/Raven.LanguageServer/Raven.LanguageServer.csproj` before activation if it can find the project in the current workspace or extension ancestors. It can substantially delay startup and is ignored when `raven.languageServerPath` is set.
 - `raven.compilerProjectPath` (string): Override the path used to locate a prebuilt `rvnc.dll` under `src/Raven.Compiler/bin/Debug/<tfm>` when no bundled compiler driver is available.
@@ -89,7 +89,7 @@ items receives an isolated file-application context even when a project file
 exists elsewhere in the workspace.
 
 ## Packaging
-`scripts/package-vscode.sh` publishes a framework-dependent language server into a `server/` directory next to `package.json` and creates the VSIX. The compiler remains in the separately installed Raven SDK. The client searches an explicit SDK path first, an SDK reported by `rvn sdk path`, workspace build outputs, the packaged server, and finally any user-provided direct assembly overrides.
+`scripts/package-vscode.sh` publishes a framework-dependent language server into a `server/` directory next to `package.json` and creates the VSIX. The compiler remains in the separately installed Raven SDK. A direct `raven.languageServerPath` override has highest precedence, followed by an explicit `raven.sdkPath`, workspace development builds, and the server packaged with the extension. A server from an automatically discovered SDK is only a final fallback when no matching packaged or workspace server is available. This prevents a newly installed extension from silently running an older SDK's language server.
 
 When no SDK is discovered, the bundled server still provides editor features
 and the extension offers a link to the SDK installation instructions. The

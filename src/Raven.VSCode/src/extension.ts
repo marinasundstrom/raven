@@ -735,24 +735,10 @@ function parseDocumentationUriArgument(value: unknown): vscode.Uri | undefined {
   return undefined;
 }
 
-function resolveConfiguredSdkPath(): string | undefined {
+function resolveExplicitSdkPath(): string | undefined {
   const configuration = vscode.workspace.getConfiguration('raven');
   const configuredPath = configuration.get<string>('sdkPath')?.trim();
   if (!configuredPath) {
-    try {
-      const discoveredPath = execFileSync('rvn', ['sdk', 'path'], {
-        encoding: 'utf8',
-        timeout: 5000,
-        windowsHide: true
-      }).trim();
-
-      if (discoveredPath && fs.existsSync(discoveredPath)) {
-        return discoveredPath;
-      }
-    } catch {
-      // The SDK is optional for syntax-only extension use with a bundled server.
-    }
-
     return undefined;
   }
 
@@ -761,6 +747,29 @@ function resolveConfiguredSdkPath(): string | undefined {
     : path.resolve(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? extensionInstallPath, configuredPath);
 
   return fs.existsSync(absolutePath) ? absolutePath : undefined;
+}
+
+function resolveConfiguredSdkPath(): string | undefined {
+  const explicitPath = resolveExplicitSdkPath();
+  if (explicitPath) {
+    return explicitPath;
+  }
+
+  try {
+    const discoveredPath = execFileSync('rvn', ['sdk', 'path'], {
+      encoding: 'utf8',
+      timeout: 5000,
+      windowsHide: true
+    }).trim();
+
+    if (discoveredPath && fs.existsSync(discoveredPath)) {
+      return discoveredPath;
+    }
+  } catch {
+    // The SDK is optional for syntax-only extension use with a bundled server.
+  }
+
+  return undefined;
 }
 
 async function offerSdkInstallationIfMissing(context: vscode.ExtensionContext): Promise<void> {
@@ -796,7 +805,7 @@ function resolveServerPath(context: vscode.ExtensionContext, output: vscode.Outp
     }
   }
 
-  const sdkPath = resolveConfiguredSdkPath();
+  const sdkPath = resolveExplicitSdkPath();
   if (sdkPath) {
     const sdkCandidates = [
       path.join(sdkPath, 'Raven.LanguageServer.dll'),
@@ -824,7 +833,7 @@ function resolveServerPath(context: vscode.ExtensionContext, output: vscode.Outp
   ];
 
   const configurations = ['Debug', 'Release'];
-  const tfms = ['net10.0', 'net8.0', 'net7.0'];
+  const tfms = ['net11.0', 'net10.0', 'net8.0', 'net7.0'];
 
   for (const root of repoCandidateRoots) {
     for (const cfg of configurations) {
@@ -843,6 +852,29 @@ function resolveServerPath(context: vscode.ExtensionContext, output: vscode.Outp
   attempts.push(packagedPath);
   if (fs.existsSync(packagedPath)) {
     return packagedPath;
+  }
+
+  // An automatically discovered SDK can be older than the installed extension.
+  // Use its server only as a final fallback when this extension has no matching
+  // packaged or workspace-built server. An explicit raven.sdkPath still takes
+  // precedence above for users intentionally selecting an SDK toolchain.
+  const discoveredSdkPath = resolveConfiguredSdkPath();
+  if (discoveredSdkPath) {
+    const discoveredSdkCandidates = [
+      path.join(discoveredSdkPath, 'Raven.LanguageServer.dll'),
+      path.join(discoveredSdkPath, 'tools', 'language-server', 'Raven.LanguageServer.dll'),
+      path.join(discoveredSdkPath, 'server', 'Raven.LanguageServer.dll'),
+      path.join(discoveredSdkPath, 'net10.0', 'Raven.LanguageServer.dll'),
+      path.join(discoveredSdkPath, 'net11.0', 'Raven.LanguageServer.dll')
+    ];
+
+    for (const candidate of discoveredSdkCandidates) {
+      attempts.push(candidate);
+      if (fs.existsSync(candidate)) {
+        output.appendLine(`Bundled language server unavailable; falling back to discovered SDK server: ${candidate}`);
+        return candidate;
+      }
+    }
   }
 
   output.appendLine('Failed to locate Raven.LanguageServer.dll. Tried:');

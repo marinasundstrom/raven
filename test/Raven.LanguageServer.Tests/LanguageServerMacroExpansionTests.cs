@@ -1,5 +1,10 @@
 using System.Collections.Immutable;
+using System.IO;
 using System.Reflection;
+
+using Microsoft.Extensions.Logging.Abstractions;
+
+using OmniSharp.Extensions.LanguageServer.Protocol;
 
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
@@ -15,6 +20,43 @@ using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 
 public sealed class LanguageServerMacroExpansionTests
 {
+    [Fact]
+    public async Task ComponentMacro_RemainsExpandableAfterAppendingBlankLinesInLoadedSampleAsync()
+    {
+        var repositoryRoot = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var sampleRoot = Path.Combine(repositoryRoot, "samples", "projects", "macro-html-blazor", "app");
+        var documentPath = Path.Combine(sampleRoot, "src", "Components", "Greeting.rvn");
+        var code = await File.ReadAllTextAsync(documentPath);
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "component-macros",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+
+        await store.UpsertDocumentAsync(uri, code);
+        store.TryGetCompilation(uri, out var initialCompilation).ShouldBeTrue();
+        initialCompilation.ShouldNotBeNull();
+        initialCompilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+
+        await store.UpsertDocumentAsync(uri, code + "\n\n", deferMacroConsumerRefresh: true);
+        await manager.FlushPendingMacroConsumerRefreshesAsync();
+        store.TryGetCompilation(uri, out var updatedCompilation).ShouldBeTrue();
+        updatedCompilation.ShouldNotBeNull();
+        updatedCompilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+    }
+
     [Fact]
     public void MacroExpansionDisplayService_BuildsPreviewAtAttributePosition()
     {

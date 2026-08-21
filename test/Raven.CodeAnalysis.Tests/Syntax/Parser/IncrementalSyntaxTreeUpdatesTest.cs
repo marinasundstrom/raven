@@ -192,6 +192,35 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
     }
 
     [Fact]
+    public void AppendingBlankLinesAfterDeclarationMacro_MatchesFullParseAtEveryStep()
+    {
+        var text = SourceText.From(
+            """
+            import System.Console.*
+
+            component! Greeting(Name: string = "") {
+                WriteLine("Rendering Greeting for ${Name}")
+
+                markup! {
+                    <section class="greeting">
+                        <h1>Hello {Name}</h1>
+                    </section>
+                }
+            }
+            """ + "\n");
+        var tree = SyntaxTree.ParseText(text);
+
+        for (var index = 0; index < 3; index++)
+        {
+            text = text.Replace(text.Length, 0, "\n");
+            AssertIncrementalStepMatchesFullParse(tree, text, $"blank line {index + 1}", out tree);
+
+            Assert.Empty(tree.GetDiagnostics());
+            Assert.Single(tree.GetRoot().Members.OfType<FreestandingMacroDeclarationSyntax>());
+        }
+    }
+
+    [Fact]
     public void EditingTypedConditionalBindingThroughMissingType_MatchesFullParse()
     {
         var original = SourceText.From(

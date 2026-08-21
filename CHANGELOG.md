@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
 
 ## Unreleased
 
+- Fixed VS Code language-server resolution so a packaged extension does not
+  silently use an older automatically discovered SDK server, which could
+  invalidate macro expansion diagnostics after otherwise harmless edits.
 - Statement- and expression-form `if`, including pattern conditionals, now
   accept an optional contextual `then` keyword. It clearly separates the
   condition from an unbraced branch and permits statement bodies on the same

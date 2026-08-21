@@ -5,6 +5,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Text;
 
 using Xunit;
 
@@ -39,6 +40,65 @@ public sealed class MarkupMacroToolingAcceptanceTests
         Assert.DoesNotContain(
             compilation.GetDiagnostics(),
             static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void CheckedInFunctionComponent_RemainsValidWhenBlankLinesAreAppended()
+    {
+        var macroReference = CreateCheckedInBlazorMacroReference();
+        var source = """
+            import System.Console.*
+
+            component! Greeting(Name: string = "") {
+                WriteLine("Rendering Greeting for ${Name}")
+
+                markup! {
+                    <section class="greeting">
+                        <h1>Hello {Name}</h1>
+                    </section>
+                }
+            }
+            """ + "\n";
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "function-component-edit",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        project = project
+            .AddMetadataReference(CreateAspNetCoreComponentsReference())
+            .AddMacroReference(macroReference);
+        var document = project.AddDocument(
+            "Greeting.rvn",
+            SourceText.From(source),
+            "/tmp/Greeting.rvn");
+        workspace.TryApplyChanges(document.Project.Solution);
+
+        var compilation = workspace.GetCompilation(projectId);
+        var syntaxTree = Assert.Single(compilation.SyntaxTrees);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        for (var index = 0; index < 3; index++)
+        {
+            var currentText = syntaxTree.GetText();
+            var updatedText = currentText.Replace(currentText.Length, 0, "\n");
+            workspace.TryApplyChanges(
+                workspace.CurrentSolution.WithDocumentText(document.Id, updatedText));
+            compilation = workspace.GetCompilation(projectId);
+            syntaxTree = Assert.Single(compilation.SyntaxTrees);
+
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var declaration = Assert.Single(
+                syntaxTree.GetRoot().Members.OfType<FreestandingMacroDeclarationSyntax>());
+            Assert.NotNull(semanticModel.GetMacroInputSnapshot(declaration));
+            Assert.DoesNotContain(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        }
     }
 
     [Fact]
