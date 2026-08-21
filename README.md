@@ -246,6 +246,11 @@ The template pins the matching NuGet-resolved `Raven.Sdk`; no compiler or
 MSBuild paths need to be configured. The installed `rvn init`, `rvn build`,
 and `rvn run` commands remain available for the standalone SDK workflow.
 
+For a framework-free browser app compiled to .NET WebAssembly, install the
+standard `wasm-tools` workload and use `dotnet new raven-browser` or
+`rvn init browser`. See the
+[browser WebAssembly sample](samples/projects/browser-wasm/README.md).
+
 For a small program or learning exercise, run one source file without creating
 a project:
 

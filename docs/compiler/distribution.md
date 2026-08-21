@@ -311,9 +311,10 @@ from the local package directory. The Raven consumer resolves Core and Macros
 implicitly through `Raven.Sdk`, executes a packaged macro, and asserts that a
 packaged analyzer reports its expected diagnostic.
 It also installs `Raven.Templates` into an isolated .NET CLI home and
-materializes all four template variants without changing the operator's
-machine-wide template registrations. Console, class-library, and Web projects
-are built; the console result is also executed. The nanoFramework template is
+materializes all five template variants without changing the operator's
+machine-wide template registrations. Console, class-library, ASP.NET Core, and
+browser WebAssembly projects are built; the console result is also executed,
+and the browser build must contain the generated runtime bundle. The nanoFramework template is
 validated structurally but is not compiled as part of package validation,
 because its metadata processor requires a separate Mono toolchain on Unix.
 The class-library check creates a second Raven application with a normal
@@ -329,6 +330,7 @@ cd HelloRaven
 dotnet run
 dotnet new raven-classlib -n MyLibrary
 dotnet new raven-web -n RavenWeb
+dotnet new raven-browser -n RavenBrowser
 dotnet new raven-nano -n RavenBlinky
 ```
 

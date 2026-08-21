@@ -157,10 +157,14 @@ fi
 
 assert_archive_entry "$template_package" "README.md"
 assert_archive_entry "$template_package" "LICENSE"
-for template_name in console classlib web nano; do
+for template_name in console classlib web browser nano; do
   assert_archive_entry "$template_package" "content/$template_name/.template.config/template.json"
   assert_archive_entry "$template_package" "content/$template_name/RavenApp.rvnproj"
 done
+assert_archive_entry "$template_package" "content/browser/runtimeconfig.template.json"
+assert_archive_entry "$template_package" "content/browser/wwwroot/index.html"
+assert_archive_entry "$template_package" "content/browser/wwwroot/main.js"
+assert_archive_entry "$template_package" "content/browser/wwwroot/styles.css"
 
 template_nuspec="$(unzip -p "$template_package" Raven.Templates.nuspec)"
 if ! grep -Fq "<version>$VERSION</version>" <<<"$template_nuspec"; then
@@ -199,11 +203,12 @@ mkdir -p "$template_cli_home" "$template_packages" "$TEMP_DIR/templates"
 DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
   dotnet new install "Raven.Templates@$VERSION" --add-source "$PACKAGE_DIR" --force >/dev/null
 
-for template_name in console classlib web nano; do
+for template_name in console classlib web browser nano; do
   case "$template_name" in
     console) project_name="TemplateConsole" ;;
     classlib) project_name="TemplateClasslib" ;;
     web) project_name="TemplateWeb" ;;
+    browser) project_name="TemplateBrowser" ;;
     nano) project_name="TemplateNano" ;;
   esac
   output_dir="$TEMP_DIR/templates/$template_name"
@@ -219,11 +224,12 @@ for template_name in console classlib web nano; do
     echo "raven-$template_name did not create the expected project file." >&2
     exit 1
   fi
-  if grep -R -Fq -e RavenApp -e RavenTargetFramework -e RavenSdkVersion "$output_dir"; then
+  if grep -R -Fq -e RavenApp -e RavenTargetFramework -e RavenSdkVersion \
+      -e RavenHttpPort -e RavenHttpsPort "$output_dir"; then
     echo "raven-$template_name left an unsubstituted template token." >&2
     exit 1
   fi
-  if ! grep -Fq "<Project Sdk=\"Raven.Sdk/$VERSION\">" "$output_dir/$project_name.rvnproj"; then
+  if ! grep -Fq "<Project Sdk=\"Raven.Sdk/$VERSION" "$output_dir/$project_name.rvnproj"; then
     echo "raven-$template_name did not select the matching Raven.Sdk version." >&2
     exit 1
   fi
@@ -238,6 +244,7 @@ for template_name in console classlib web; do
     console) project_name="TemplateConsole" ;;
     classlib) project_name="TemplateClasslib" ;;
     web) project_name="TemplateWeb" ;;
+    browser) project_name="TemplateBrowser" ;;
   esac
   if ! grep -Fq '<TargetFramework>net11.0</TargetFramework>' \
     "$TEMP_DIR/templates/$template_name/$project_name.rvnproj"; then
@@ -245,6 +252,11 @@ for template_name in console classlib web; do
     exit 1
   fi
 done
+if ! grep -Fq '<TargetFramework>net10.0</TargetFramework>' \
+  "$TEMP_DIR/templates/browser/TemplateBrowser.rvnproj"; then
+  echo "raven-browser did not use the net10.0 default target framework." >&2
+  exit 1
+fi
 if ! grep -Fq '<TargetFramework>netnano1.0</TargetFramework>' "$TEMP_DIR/templates/nano/TemplateNano.rvnproj"; then
   echo "raven-nano did not use the netnano1.0 default target framework." >&2
   exit 1
@@ -261,7 +273,7 @@ cat > "$TEMP_DIR/NuGet.Config" <<EOF
 </configuration>
 EOF
 
-for template_name in console classlib web; do
+for template_name in console classlib web browser; do
   project_file="$(find "$TEMP_DIR/templates/$template_name" -maxdepth 1 -name '*.rvnproj' -print -quit)"
   template_build_log="$TEMP_DIR/template-$template_name-build.log"
   if ! DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \
@@ -271,6 +283,13 @@ for template_name in console classlib web; do
     exit 1
   fi
 done
+
+browser_framework_dir="$TEMP_DIR/templates/browser/bin/Debug/net10.0/wwwroot/_framework"
+if [[ ! -f "$browser_framework_dir/dotnet.js" ]] ||
+   ! find "$browser_framework_dir" -maxdepth 1 -name 'TemplateBrowser*.wasm' -print -quit | grep -q .; then
+  echo "Packaged raven-browser template did not produce a browser WebAssembly app bundle." >&2
+  exit 1
+fi
 
 web_log="$TEMP_DIR/template-web-run.log"
 DOTNET_CLI_HOME="$template_cli_home" NUGET_PACKAGES="$template_packages" \

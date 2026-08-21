@@ -599,17 +599,21 @@ Options:
 
 - `--name <project-name>`: set explicit project/assembly name.
 - `--framework <tfm>`: set `TargetFramework` in the generated `.rvnproj`.
-- `console|classlib|web|nano`: select the scaffold type (`console` default).
+- `console|classlib|web|browser|nano`: select the scaffold type (`console` default).
 - `--type <template>`: compatibility alias for selecting the scaffold type.
 - `--list`: list the available scaffold types.
 - `--force`: overwrite scaffold files when they already exist.
 
-The `web` scaffold references the shared ASP.NET Core framework. The `nano`
+The `web` scaffold references the shared ASP.NET Core framework. The `browser`
+scaffold composes `Raven.Sdk` with `Microsoft.NET.Sdk.WebAssembly` and supplies
+a framework-free browser host plus generator-free `JSHost`/`JSObject` interop.
+See [Browser WebAssembly applications](browser-wasm.md). The `nano`
 scaffold targets `netnano1.0`, references the nanoFramework GPIO package, and
 contains a board-specific blinky starting point whose LED pin may need to be
 changed.
-The web template currently defaults to `net10.0`, the validated ASP.NET target;
-`--framework` can override it explicitly.
+Console, class-library, and ASP.NET Core templates default to `net11.0`; the
+browser template targets the stable `net10.0` WebAssembly toolchain.
+`--framework` can override the target explicitly.
 
 The same canonical files are available to the standard .NET template engine
 through the `Raven.Templates` NuGet package:
@@ -623,4 +627,5 @@ dotnet run
 
 Replace `VERSION` with the Raven prerelease version to install.
 
-The other short names are `raven-classlib`, `raven-web`, and `raven-nano`.
+The other short names are `raven-classlib`, `raven-web`, `raven-browser`, and
+`raven-nano`.

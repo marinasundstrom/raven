@@ -10,6 +10,8 @@ artifact. A target does not define a separate Raven language dialect.
 | Platform or deployment model | Level | What works | Important limitations |
 | --- | --- | --- | --- |
 | Managed .NET | Supported | Raven projects compile and run through the .NET SDK using the selected target framework. | The referenced target framework determines the available API surface. |
+| Browser WebAssembly | Experimental | A framework-free Raven application composes `Raven.Sdk` with `Microsoft.NET.Sdk.WebAssembly`, starts the .NET runtime in a browser, and uses low-level JavaScript interop without Blazor. | Requires the .NET WebAssembly build tools. Typed Raven interop macros and broader browser API projections remain future work. |
+| WASI WebAssembly | Investigation | The .NET runtime provides an experimental `wasi-wasm` path that can inform a host-neutral Raven target. | Raven has no WASI template yet. Host capabilities, .NET API mapping, WIT/component interfaces, diagnostics, and a host test matrix must be designed first. |
 | OCI containers | Supported | The .NET SDK can publish a Raven executable as a container image without a Dockerfile, load it into a local runtime, save it as an archive, or push it to a registry. | The selected base image and container runtime must support the application's target framework and architecture. |
 | .NET Native AOT | Experimental | The greenhouse-monitor sample reproducibly publishes and runs without trim-analysis or AOT-analysis warnings on macOS Arm64, with a Linux x64 CI smoke test and a defined `linux-arm64` path for Linux-based Raspberry Pi devices. | Linux Arm64 execution has not yet been validated on Raspberry Pi hardware, and broader Raven.Core and generated-helper coverage remains. |
 | .NET nanoFramework | Experimental | A standard SDK-style Raven project can select the `netnano1.0` target framework moniker, restore normal `PackageReference` items, compile against Raven's nanoFramework target profile, and package a compact `NFMRK2` image. The Blinky probe has also been loaded on a Pico WH running matching preview firmware. | The Raven target profile is provisional pending an official SDK-style nanoFramework target. A nanoFramework Raven.Core build, broader runtime coverage, and visible hardware validation remain. |
@@ -20,6 +22,9 @@ validated integration boundary, not user-ready target support.
 
 For Dockerfile-free OCI image publishing, see [Containerize a Raven
 application](../workloads/containerization.md).
+
+For the distinction between browser, WASI, and browser-hosted WASI deployment
+models, see [WebAssembly targets](webassembly.md).
 
 ## An IoT spectrum
 

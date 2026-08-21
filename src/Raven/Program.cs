@@ -839,7 +839,7 @@ static int RunInitCommand(string[] args)
                 var typeValue = args[++i];
                 if (!TryGetInitProjectTemplate(typeValue, out template))
                 {
-                    Console.Error.WriteLine($"Invalid --type '{typeValue}'. Use console, classlib, web, or nano.");
+                    Console.Error.WriteLine($"Invalid --type '{typeValue}'. Use console, classlib, web, browser, or nano.");
                     PrintInitHelp();
                     return 1;
                 }
@@ -965,7 +965,7 @@ static void PrintDevHelp()
 
 static void PrintInitHelp()
 {
-    Console.WriteLine("Usage: rvn init [console|classlib|web|nano] [--name <project-name>] [--framework <tfm>] [--type <template>] [--force]");
+    Console.WriteLine("Usage: rvn init [console|classlib|web|browser|nano] [--name <project-name>] [--framework <tfm>] [--type <template>] [--force]");
     Console.WriteLine();
     Console.WriteLine("Creates a Raven project scaffold in the current directory:");
     Console.WriteLine("  - <project-name>.rvnproj");
@@ -973,9 +973,9 @@ static void PrintInitHelp()
     Console.WriteLine("  - bin/.gitkeep");
     Console.WriteLine();
     Console.WriteLine("Options:");
-    Console.WriteLine("  console|classlib|web|nano  Select the scaffold type (default: console).");
+    Console.WriteLine("  console|classlib|web|browser|nano  Select the scaffold type (default: console).");
     Console.WriteLine("  --name <project-name>      Override generated project/assembly name.");
-    Console.WriteLine("  --framework <tfm>          Set TargetFramework (defaults: latest installed; netnano1.0 nano).");
+    Console.WriteLine("  --framework <tfm>          Set TargetFramework (defaults: latest installed; net10.0 browser; netnano1.0 nano).");
     Console.WriteLine("  --type <template>          Compatibility alias for selecting the scaffold type.");
     Console.WriteLine("  --list                     List available scaffold types.");
     Console.WriteLine("  --force                    Overwrite scaffold files.");
@@ -1081,6 +1081,14 @@ sealed record InitProjectTemplate(
             [new("src/Library.rvn", "src/Library.rvn")]),
         new("web", "ASP.NET Core application", "Minimal ASP.NET Core application", null, true, ["aspnet"],
             [new("src/Main.rvn", "src/Main.rvn")]),
+        new("browser", "WebAssembly browser application", "Framework-free browser application on .NET WebAssembly", "net10.0", true, ["wasm", "webassembly"],
+            [
+                new("src/Main.rvn", "src/Main.rvn"),
+                new("runtimeconfig.template.json", "runtimeconfig.template.json"),
+                new("wwwroot/index.html", "wwwroot/index.html"),
+                new("wwwroot/main.js", "wwwroot/main.js"),
+                new("wwwroot/styles.css", "wwwroot/styles.css")
+            ]),
         new("nano", ".NET nanoFramework application", "GPIO blinky application for .NET nanoFramework", "netnano1.0", false, ["nanoframework", "iot"],
             [new("src/Main.rvn", "src/Main.rvn")])
     ];

@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-21**.
 
 ## Unreleased
 
+- Added a framework-free browser application type to `rvn init` and
+  `Raven.Templates` as `browser`/`raven-browser`. It composes Raven with
+  `Microsoft.NET.Sdk.WebAssembly`, publishes a normal static browser bundle,
+  demonstrates generator-free `JSHost`/`JSObject` DOM interop, and includes a
+  runnable sample plus a documented macro-based direction for typed JavaScript
+  imports and exports. The WebAssembly direction now tracks browser and WASI as
+  sibling host stories, including future WIT mappings and browser-hosted WASI
+  experiments for server-shaped applications.
 - Macro-fragment editor queries no longer publish speculative nested expansion
   diagnostics or register their synthetic expansion trees as authored document
   state. Declaration-shaped component macros therefore remain valid while

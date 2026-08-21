@@ -6,6 +6,10 @@
   href: target-platforms.md
 - name: .NET nanoFramework
   href: nanoframework.md
+- name: WebAssembly targets
+  href: webassembly.md
+- name: Browser WebAssembly
+  href: browser-wasm.md
 - name: Project system
   href: project-system.md
 - name: Extend a project

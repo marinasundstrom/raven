@@ -21,7 +21,7 @@ rvn run [project-file.rvnproj] [dotnet-run-options] [-- application-args]
 rvn clean [project-file.rvnproj] [dotnet-clean-options]
 rvn doctor
 rvn dev <syntax|dump|macros|binders|bound-tree|symbols|quote> [options] <source-files|project-file.rvnproj>
-rvn init [console|classlib|web|nano] [--name <project-name>] [--framework <tfm>] [--type <template>] [--force]
+rvn init [console|classlib|web|browser|nano] [--name <project-name>] [--framework <tfm>] [--type <template>] [--force]
 rvn --version
 rvnc --version
 ```
@@ -224,20 +224,23 @@ Useful init options:
 
 - `--name <project-name>` &ndash; override generated project and assembly name
 - `--framework <tfm>` &ndash; set `TargetFramework` in the generated project file
-- `console|classlib|web|nano` &ndash; select the scaffold type (`console` default)
+- `console|classlib|web|browser|nano` &ndash; select the scaffold type (`console` default)
 - `--type <template>` &ndash; compatibility alias for selecting the scaffold type
 - `--list` &ndash; list all available scaffold types
 - `--force` &ndash; overwrite scaffold files if they already exist
 
 When no framework is specified the compiler defaults to the newest installed
-framework.
-The web scaffold defaults to the currently validated ASP.NET target, `net10.0`,
-and the nanoFramework scaffold defaults to `netnano1.0` instead.
+framework. The browser scaffold uses the stable `net10.0` WebAssembly
+toolchain, and the nanoFramework scaffold defaults to `netnano1.0`. The browser
+scaffold also creates `wwwroot` and the WebAssembly runtime
+configuration; the `dotnet new` template adds browser launch settings. See
+[Browser WebAssembly applications](browser-wasm.md).
 
 The canonical scaffold files are also shipped in the `Raven.Templates` NuGet
-package for `dotnet new raven-console`, `raven-classlib`, `raven-web`, and
-`raven-nano`. Both template channels pin the matching `Raven.Sdk` package in
-the generated project so it builds directly through the normal .NET CLI.
+package for `dotnet new raven-console`, `raven-classlib`, `raven-web`,
+`raven-browser`, and `raven-nano`. Both template channels pin the matching
+`Raven.Sdk` package in the generated project so it builds directly through the
+normal .NET CLI.
 
 ## .NET 11 runtime-async
 

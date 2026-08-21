@@ -1,0 +1,8 @@
+<Project Sdk="Raven.Sdk/RavenSdkVersion;Microsoft.NET.Sdk.WebAssembly">
+  <PropertyGroup>
+    <TargetFramework>RavenTargetFramework</TargetFramework>
+    <AssemblyName>RavenApp</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+</Project>

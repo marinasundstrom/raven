@@ -21,6 +21,12 @@
     <EmbeddedResource Include="..\..\templates\Raven.Templates\content\classlib\src\Library.rvn" LogicalName="Raven.ProjectTemplates.classlib.src.Library.rvn" />
     <EmbeddedResource Include="..\..\templates\Raven.Templates\content\web\RavenApp.rvnproj" LogicalName="Raven.ProjectTemplates.web.RavenApp.rvnproj" />
     <EmbeddedResource Include="..\..\templates\Raven.Templates\content\web\src\Main.rvn" LogicalName="Raven.ProjectTemplates.web.src.Main.rvn" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\browser\RavenApp.rvnproj" LogicalName="Raven.ProjectTemplates.browser.RavenApp.rvnproj" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\browser\src\Main.rvn" LogicalName="Raven.ProjectTemplates.browser.src.Main.rvn" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\browser\runtimeconfig.template.json" LogicalName="Raven.ProjectTemplates.browser.runtimeconfig.template.json" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\browser\wwwroot\index.html" LogicalName="Raven.ProjectTemplates.browser.wwwroot.index.html" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\browser\wwwroot\main.js" LogicalName="Raven.ProjectTemplates.browser.wwwroot.main.js" />
+    <EmbeddedResource Include="..\..\templates\Raven.Templates\content\browser\wwwroot\styles.css" LogicalName="Raven.ProjectTemplates.browser.wwwroot.styles.css" />
     <EmbeddedResource Include="..\..\templates\Raven.Templates\content\nano\RavenApp.rvnproj" LogicalName="Raven.ProjectTemplates.nano.RavenApp.rvnproj" />
     <EmbeddedResource Include="..\..\templates\Raven.Templates\content\nano\src\Main.rvn" LogicalName="Raven.ProjectTemplates.nano.src.Main.rvn" />
   </ItemGroup>

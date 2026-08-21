@@ -10,6 +10,21 @@ Neither goal depends on the other. A playground may integrate both, but compiler
 hosting and executable targeting have separate compatibility contracts and
 tests.
 
+For executable targeting, WebAssembly is an umbrella deployment story rather
+than one host. Browser WebAssembly and WASI are sibling targets because they
+expose different capabilities even when both use the .NET Mono runtime.
+
+| Target | Status | Host contract |
+| --- | --- | --- |
+| `browser-wasm` | Experimental | Browser JavaScript, the DOM, and web APIs through .NET JavaScript interop. |
+| `wasi-wasm` | Investigation | Capabilities supplied by a WASI runtime or component host; no DOM or implicit browser JavaScript. |
+
+The first application slice is the framework-free [Browser WebAssembly
+application](browser-wasm.md). It produces the normal .NET browser bundle: a
+WebAssembly-hosted runtime plus managed Raven assemblies and static assets. It
+is not yet a direct Raven-to-Wasm backend or a single native Wasm component.
+Those are separate future compilation and AOT questions.
+
 ## Compiler hosting
 
 The compiler must not assume that loaded runtime assemblies have physical file
@@ -123,6 +138,72 @@ through normal target-framework reference surfaces and compiler diagnostics.
 Direct emission of native WebAssembly, if pursued, is a separate backend and is
 not implied by the managed WebAssembly target.
 
+## WASI as a host story
+
+WASI is principally a contract between a module and its host. Selecting the
+`wasi-wasm` runtime identifier does not make the entire .NET API surface
+portable. Files, sockets, clocks, randomness, environment variables, processes,
+threads, and other platform services need an implementation from the host or a
+clear unavailable-operation diagnostic.
+
+A Raven WASI design therefore needs to settle:
+
+- how a project selects a WASI world, runtime, and required capabilities;
+- which .NET APIs are supported, adapted, or rejected for each host profile;
+- how packages and Raven.Core avoid assumptions about an operating system,
+  browser, or server;
+- how resources, ownership, errors, cancellation, and asynchronous operations
+  cross the host boundary;
+- whether WIT and the WebAssembly Component Model are the canonical interface
+  description, and how their types map to Raven types; and
+- how conformance tests exercise the same component against representative
+  hosts rather than treating one runtime as the specification.
+
+Macros are a promising implementation layer for typed imports and exports.
+They could consume or produce WIT and generate marshalling, adapters, and
+capability declarations without exposing source-generator-specific APIs in
+application code. That possibility does not remove the need to define the
+semantic mapping and diagnostics first.
+
+The upstream .NET WASI workload remains experimental, so Raven should initially
+treat this as investigation work rather than offer a project template. The
+first useful probe should be deliberately small: a console or component
+application with explicit clock, file, or HTTP capabilities, followed by a
+host-matrix test.
+
+## Server-shaped applications inside a browser
+
+A third deployment mode is worth tracking without conflating it with the normal
+browser target: run a WASI application under a browser-provided WASI-like host.
+Steve Sanderson's archived experimental .NET WASI SDK demonstrated that whole
+ASP.NET Core applications could become standalone WASI modules and run under
+standard or custom hosts. A browser host can translate the application's
+server-style connection and platform operations into browser facilities, for
+example from a worker or service worker.
+
+This is not a reason to make ASP.NET Core the browser application model, but it
+could enable useful self-contained experiences:
+
+- interactive Web API and framework demos with no deployed server;
+- local sandboxes, tutorials, or test fixtures that expose an HTTP-shaped API;
+- offline applications that reuse server routing or middleware; and
+- disposable development environments with a virtual file system and network.
+
+The tradeoffs need measuring. An HTTP abstraction inside one browser tab can
+add size and indirection compared with direct function calls; browser security,
+storage, worker lifecycle, streaming, and networking constraints still apply;
+and compatibility depends on the WASI host implementation. Treat this as a
+host-adapter experiment after the basic `wasi-wasm` capability model exists,
+not as part of the initial `raven-browser` template.
+
+## References
+
+- [.NET WebAssembly runtime targets](https://github.com/dotnet/runtime/blob/main/docs/workflow/wasm-documentation.md)
+- [Experimental .NET WASI runtime](https://github.com/dotnet/runtime/blob/main/src/mono/wasi/README.md)
+- [Archived experimental .NET WASI SDK](https://github.com/SteveSandersonMS/dotnet-wasi-sdk)
+- [WebAssembly Component Model concepts](https://component-model.bytecodealliance.org/design/component-model-concepts.html)
+- [WIT interfaces and worlds](https://component-model.bytecodealliance.org/design/wit.html)
+
 ## Next slices
 
 1. Define browser and WASI target profiles, including supported runtime APIs,
@@ -133,3 +214,7 @@ not implied by the managed WebAssembly target.
    fallback.
 4. Reduce and cache the framework metadata payload without reintroducing an
    incomplete reference closure.
+5. Prototype a small WIT-described Raven component against more than one WASI
+   host before introducing a project template.
+6. Evaluate a browser WASI host adapter with a server-shaped Web API demo after
+   the underlying capability model is explicit.

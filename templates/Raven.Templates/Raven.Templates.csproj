@@ -10,8 +10,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <PackageId>Raven.Templates</PackageId>
     <Title>Raven Project Templates</Title>
-    <Description>Project templates for Raven console, class library, ASP.NET Core, and .NET nanoFramework applications.</Description>
-    <PackageTags>$(PackageTags);templates;dotnet-new;aspnet;nanoFramework</PackageTags>
+    <Description>Project templates for Raven console, class library, ASP.NET Core, browser WebAssembly, and .NET nanoFramework applications.</Description>
+    <PackageTags>$(PackageTags);templates;dotnet-new;aspnet;webassembly;browser;nanoFramework</PackageTags>
     <PackageType>Template</PackageType>
     <IncludeContentInPack>true</IncludeContentInPack>
     <IncludeBuildOutput>false</IncludeBuildOutput>

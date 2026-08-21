@@ -453,11 +453,14 @@ Web and .NET nanoFramework starting points are also available:
 
 ```bash
 rvn init web --name RavenWeb
+rvn init browser --name RavenBrowser
 rvn init nano --name RavenBlinky
 ```
 
-Run `rvn init --list` to see every built-in scaffold. The nanoFramework
-template targets `netnano1.0`; adjust its GPIO pin for the selected board.
+Run `rvn init --list` to see every built-in scaffold. The browser scaffold is a
+framework-free .NET WebAssembly app; install `wasm-tools` before building it.
+The nanoFramework template targets `netnano1.0`; adjust its GPIO pin for the
+selected board.
 
 The same projects can be created through the normal .NET CLI after installing
 the versioned template package:
@@ -475,10 +478,10 @@ The generated `.rvnproj` pins the matching `Raven.Sdk` version. The .NET CLI
 restores the Raven compiler, Core, and standard macros automatically; no
 `RavenSdkRoot`, `LanguageTargets`, or compiler path needs to be configured.
 
-Use `raven-classlib`, `raven-web`, or `raven-nano` for the other variants.
-Console, class-library, and Web templates default to `net11.0` in this release;
-pass `--framework net10.0` when you intentionally target .NET 10. The Nano
-template remains on `netnano1.0`.
+Use `raven-classlib`, `raven-web`, `raven-browser`, or `raven-nano` for the
+other variants. Console, class-library, and ASP.NET Core templates default to
+`net11.0` in this release. The browser template targets the stable `net10.0`
+WebAssembly toolchain, and the Nano template remains on `netnano1.0`.
 
 The installed `rvn` commands select Raven's packaged MSBuild targets before
 delegating to the .NET SDK. A source checkout configures those targets through

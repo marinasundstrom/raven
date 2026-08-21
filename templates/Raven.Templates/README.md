@@ -9,10 +9,22 @@ dotnet new raven-console -n HelloRaven
 
 Replace `VERSION` with the Raven prerelease version to install.
 
-Available short names are `raven-console`, `raven-classlib`, `raven-web`, and
-`raven-nano`. Console, class-library, and Web templates default to `net11.0`;
-Nano targets `netnano1.0`. Override a desktop target with the standard option:
+Available short names are `raven-console`, `raven-classlib`, `raven-web`,
+`raven-browser`, and `raven-nano`. Console, class-library, and ASP.NET Core
+templates default to `net11.0`; the browser template uses the stable `net10.0`
+WebAssembly toolchain, and Nano targets `netnano1.0`. Override a desktop target
+with the standard option:
 
 ```bash
 dotnet new raven-web -n RavenWeb --framework net10.0
+```
+
+The browser template is a framework-free .NET WebAssembly application rather
+than a Blazor application. Install the standard WebAssembly build tools before
+building it:
+
+```bash
+dotnet workload install wasm-tools
+dotnet new raven-browser -n RavenBrowser
+dotnet run --project RavenBrowser/RavenBrowser.rvnproj
 ```

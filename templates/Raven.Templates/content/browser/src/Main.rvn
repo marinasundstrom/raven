@@ -1,0 +1,12 @@
+import System.Runtime.InteropServices.JavaScript.*
+
+func Main() {
+    match JSHost.GlobalThis.GetPropertyAsJSObject("ravenApp") {
+        null => Console.Error.WriteLine("JavaScript did not provide the Raven app element.")
+        JSObject element => {
+            use app = element
+            let href = JSHost.GlobalThis.GetPropertyAsString("ravenLocation")
+            app.SetProperty("textContent", "Hello from Raven WebAssembly at $href")
+        }
+    }
+}
