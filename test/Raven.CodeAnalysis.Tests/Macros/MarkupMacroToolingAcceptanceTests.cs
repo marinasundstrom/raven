@@ -96,11 +96,37 @@ public sealed class MarkupMacroToolingAcceptanceTests
                 syntaxTree.GetRoot().Members.OfType<FreestandingMacroDeclarationSyntax>());
             Assert.IsType<CompilationUnitSyntax>(declaration.Parent);
             Assert.NotNull(semanticModel.GetMacroInputSnapshot(declaration));
+            Assert.DoesNotContain(
+                compilation.GetDiagnostics(),
+                static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
             _ = semanticModel.GetMacroFragmentInferredTypeAnnotations(declaration);
             Assert.DoesNotContain(
                 compilation.GetDiagnostics(),
                 static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         }
+
+        var validText = syntaxTree.GetText();
+        var closingBrace = validText.ToString().LastIndexOf('}');
+        var incompleteText = validText.Replace(closingBrace, 1, string.Empty);
+        workspace.TryApplyChanges(
+            workspace.CurrentSolution.WithDocumentText(document.Id, incompleteText));
+        var incompleteCompilation = workspace.GetCompilation(projectId);
+        Assert.Contains(
+            incompleteCompilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        workspace.TryApplyChanges(
+            workspace.CurrentSolution.WithDocumentText(document.Id, validText));
+        compilation = workspace.GetCompilation(projectId);
+        syntaxTree = Assert.Single(compilation.SyntaxTrees);
+        var recoveredModel = compilation.GetSemanticModel(syntaxTree);
+        var recoveredDeclaration = Assert.Single(
+            syntaxTree.GetRoot().Members.OfType<FreestandingMacroDeclarationSyntax>());
+
+        _ = recoveredModel.GetMacroFragmentInferredTypeAnnotations(recoveredDeclaration);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]

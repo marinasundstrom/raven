@@ -220,6 +220,94 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
         }
     }
 
+    [Theory]
+    [InlineData("declaration", "component! Greeting() {\n}\n", "component")]
+    [InlineData("expression", "func Run() {\n    let value = answer!()\n}\n", "answer")]
+    [InlineData("statement", "func Run() {\n    trace! { }\n}\n", "trace")]
+    [InlineData("top-level-statement", "trace! { }\nclass Existing { }\n", "trace")]
+    [InlineData("file-scoped-statement", "namespace App;\n\ntrace! { }\nclass Existing { }\n", "trace")]
+    [InlineData("member", "class Model {\n    members! { }\n}\n", "members")]
+    public void EditingTriviaAroundMacroCarrier_PreservesInvocationForm(
+        string carrierKind,
+        string source,
+        string alias)
+    {
+        var originalText = SourceText.From(source);
+        var originalTree = SyntaxTree.ParseText(originalText);
+        var originalCarrier = AssertMacroCarrier(originalTree, carrierKind, alias);
+
+        foreach (var (label, position, insertion) in new[]
+                 {
+                     ("before", originalCarrier.Span.Start, "\n// edit before\n"),
+                     ("after", originalCarrier.Span.End, "\n// edit after\n")
+                 })
+        {
+            var updatedText = originalText.Replace(position, 0, insertion);
+            var updatedTree = originalTree.WithChangedText(updatedText);
+            var fullTree = SyntaxTree.ParseText(updatedText);
+
+            output.WriteLine($"==== {carrierKind} {label} source ====");
+            output.WriteLine(updatedText.ToString());
+
+            Assert.Equal(updatedText.ToString(), updatedTree.GetRoot().ToFullString());
+            Assert.Empty(updatedTree.GetDiagnostics());
+            Assert.Empty(fullTree.GetDiagnostics());
+            _ = AssertMacroCarrier(updatedTree, carrierKind, alias);
+            _ = AssertMacroCarrier(fullTree, carrierKind, alias);
+        }
+    }
+
+    private static SyntaxNode AssertMacroCarrier(
+        SyntaxTree tree,
+        string carrierKind,
+        string alias)
+    {
+        var root = tree.GetRoot();
+        return carrierKind switch
+        {
+            "declaration" => Assert.Single(
+                root.DescendantNodesAndSelf().OfType<FreestandingMacroDeclarationSyntax>(),
+                declaration => declaration.Name.ToString() == alias),
+            "member" => Assert.Single(
+                root.DescendantNodesAndSelf().OfType<FreestandingMacroMemberDeclarationSyntax>(),
+                member => member.Name.ToString() == alias),
+            "expression" => AssertExpressionCarrier(
+                root,
+                alias,
+                expectStatement: false,
+                expectGlobalStatement: false),
+            "statement" => AssertExpressionCarrier(
+                root,
+                alias,
+                expectStatement: true,
+                expectGlobalStatement: false),
+            "top-level-statement" or "file-scoped-statement" => AssertExpressionCarrier(
+                root,
+                alias,
+                expectStatement: true,
+                expectGlobalStatement: true),
+            _ => throw new ArgumentOutOfRangeException(nameof(carrierKind))
+        };
+    }
+
+    private static FreestandingMacroExpressionSyntax AssertExpressionCarrier(
+        SyntaxNode root,
+        string alias,
+        bool expectStatement,
+        bool expectGlobalStatement)
+    {
+        var expression = Assert.Single(
+            root.DescendantNodesAndSelf().OfType<FreestandingMacroExpressionSyntax>(),
+            candidate => candidate.Name.ToString() == alias);
+        var statement = expression.Parent as ExpressionStatementSyntax;
+
+        Assert.Equal(expectStatement, statement is not null);
+        Assert.Equal(
+            expectGlobalStatement,
+            statement?.Parent is GlobalStatementSyntax);
+        return expression;
+    }
+
     [Fact]
     public void EditingTypedConditionalBindingThroughMissingType_MatchesFullParse()
     {
