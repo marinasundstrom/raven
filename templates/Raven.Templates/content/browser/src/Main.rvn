@@ -6,6 +6,10 @@ partial class BrowserInterop {
         message: string,
         [JSMarshalAs<JSType.Function<JSType.String>>] onRendered: Action<string>
     );
+
+    [JSExport]
+    static func FormatGreeting(name: string) -> string
+        => "JavaScript invoked Raven: Hello, $name!"
 }
 
 func Main() {

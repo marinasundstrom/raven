@@ -24,8 +24,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-21**.
 - Added a framework-free browser application type to `rvn init` and
   `Raven.Templates` as `browser`/`raven-browser`. It composes Raven with
   `Microsoft.NET.Sdk.WebAssembly`, publishes a normal static browser bundle,
-  demonstrates a typed JavaScript method call and a JavaScript-to-Raven delegate
-  callback through a built-in Raven `[JSImport]` source generator, and includes
+  demonstrates a typed JavaScript method call, a JavaScript-to-Raven delegate
+  callback, and a named Raven method discovered through `getAssemblyExports`
+  via a built-in Raven `[JSImport]`/`[JSExport]` source generator, and includes
   a runnable sample plus a documented macro-based direction for evolving typed
   Raven imports and exports. Mutable value-type receiver calls now preserve
   mutations required by the low-level WebAssembly marshalling API. The

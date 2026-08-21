@@ -6,13 +6,14 @@ assembly, the .NET WebAssembly SDK publishes the runtime and application into an
 
 The sample demonstrates both interop directions. Raven calls the JavaScript
 `setGreeting` method, passing a Raven lambda as a managed delegate. JavaScript
-updates the DOM and invokes that delegate to call back into Raven, which updates
-a second element.
+updates the DOM and invokes that delegate to call back into Raven. JavaScript
+also discovers and calls Raven's named `[JSExport]` method through
+`getAssemblyExports`.
 
-The Raven source declares the import with the same `[JSImport]` partial-method
-shape used by C#. Raven's built-in interop source generator supplies the
-low-level .NET marshalling stub, so the application needs no C# companion and
-remains independent of Blazor.
+The Raven source declares the same `[JSImport]` partial-method and `[JSExport]`
+method shapes used by C#. Raven's built-in interop source generator supplies
+the low-level .NET marshalling and registration stubs, so the application needs
+no C# companion and remains independent of Blazor.
 
 Install the .NET WebAssembly build tools once, then run the project:
 

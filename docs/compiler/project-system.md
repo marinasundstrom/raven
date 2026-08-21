@@ -606,8 +606,9 @@ Options:
 
 The `web` scaffold references the shared ASP.NET Core framework. The `browser`
 scaffold composes `Raven.Sdk` with `Microsoft.NET.Sdk.WebAssembly` and supplies
-a framework-free browser host plus Raven's built-in `[JSImport]` source
-generator for calling JavaScript and receiving a managed callback.
+a framework-free browser host plus Raven's built-in `[JSImport]`/`[JSExport]`
+source generator for calling JavaScript, receiving a managed callback, and
+exposing named Raven methods to JavaScript.
 See [Browser WebAssembly applications](browser-wasm.md). The `nano`
 scaffold targets `netnano1.0`, references the nanoFramework GPIO package, and
 contains a board-specific blinky starting point whose LED pin may need to be

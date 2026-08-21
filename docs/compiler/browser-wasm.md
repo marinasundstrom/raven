@@ -45,10 +45,11 @@ the optimized static deployment output.
 
 ## JavaScript interoperability
 
-The initial application demonstrates both directions across the boundary.
-Raven calls a typed JavaScript method and supplies a Raven lambda as a managed
-delegate. JavaScript updates the DOM and invokes the delegate to call Raven
-back:
+The initial application demonstrates both directions across the boundary in
+the two forms supported by .NET's browser runtime. Raven calls a typed
+JavaScript method and supplies a Raven lambda as a managed delegate. It also
+exports a named Raven method that JavaScript discovers through the application
+assembly's export object:
 
 ```raven
 import System.Runtime.InteropServices.JavaScript.*
@@ -59,6 +60,10 @@ partial class BrowserInterop {
         message: string,
         [JSMarshalAs<JSType.Function<JSType.String>>] onRendered: Action<string>
     );
+
+    [JSExport]
+    static func FormatGreeting(name: string) -> string
+        => "JavaScript invoked Raven: Hello, $name!"
 }
 
 func Main() {
@@ -77,8 +82,8 @@ func Main() {
 }
 ```
 
-`wwwroot/main.js` registers the imported method before running the managed entry
-point:
+`wwwroot/main.js` registers the imported method and resolves the named Raven
+export before running the managed entry point:
 
 ```javascript
 setModuleImports('raven', {
@@ -87,13 +92,21 @@ setModuleImports('raven', {
         onRendered('JavaScript called back into Raven.');
     }
 });
+
+const config = getConfig();
+const exports = await getAssemblyExports(config.mainAssemblyName);
+document.querySelector('#export').textContent =
+    exports.BrowserInterop.FormatGreeting('from the browser');
 ```
 
 Raven's built-in JavaScript interop source generator recognizes the same
-`[JSImport]` declaration shape used by C# and supplies the partial method body
-before binding and emit. The first supported marshalling slice is deliberately
-small: static partial methods returning `unit`, with `string` and
-`Action<string>` parameters. Unsupported declarations report `RVNJS001`.
+`[JSImport]` and `[JSExport]` declaration shapes used by C#. It supplies import
+partial method bodies and export registration/marshalling wrappers before
+binding and emit. The first supported marshalling slice is deliberately small:
+imports are static partial methods returning `unit`, with `string` and
+`Action<string>` parameters; exports are static methods with bodies returning
+`string` and accepting `string` parameters. Unsupported imports report
+`RVNJS001`, and unsupported exports report `RVNJS002`.
 `JSHost` and `JSObject` remain available for direct property-oriented interop.
 
 A later interop macro layer can replace or build on this generator. Typed Raven
@@ -116,5 +129,5 @@ inside a browser.
 
 See the runnable [`browser-wasm` sample](https://github.com/marinasundstrom/raven/tree/main/samples/projects/browser-wasm)
 and Microsoft's
-[JavaScript interop with a WebAssembly Browser App](https://learn.microsoft.com/aspnet/core/client-side/dotnet-interop/wasm-browser-app)
+[JavaScript `[JSImport]`/`[JSExport]` interop with a WebAssembly Browser App](https://learn.microsoft.com/aspnet/core/client-side/dotnet-interop/wasm-browser-app?view=aspnetcore-10.0)
 documentation for the underlying runtime model.

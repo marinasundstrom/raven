@@ -69,7 +69,7 @@ project references, and subsequent analyzer execution.
 ## Built-in JavaScript interop generator
 
 Browser WebAssembly projects do not need to register a generator assembly.
-When a Raven compilation contains a method marked `[JSImport]`, the workspace
+When a Raven compilation contains a method marked `[JSImport]` or `[JSExport]`, the workspace
 automatically runs `JavaScriptInteropGenerator`. The authored API mirrors C#:
 
 ```raven
@@ -81,15 +81,20 @@ partial class BrowserInterop {
         message: string,
         [JSMarshalAs<JSType.Function<JSType.String>>] onRendered: Action<string>
     );
+
+    [JSExport]
+    static func FormatGreeting(name: string) -> string
+        => "Hello, $name!"
 }
 ```
 
-The generator supplies the matching partial implementation using .NET's
-low-level `JSFunctionBinding` contract. The MVP accepts static, non-generic
-partial methods returning `unit`, with `string` and `Action<string>` parameters.
-Other signatures report `RVNJS001`. This narrow slice gives Raven applications
-a complete typed import and callback path while a future macro design is
-evaluated.
+The generator supplies the matching import implementation and export wrapper
+using .NET's low-level `JSFunctionBinding` contract. The MVP accepts static,
+non-generic imports returning `unit`, with `string` and `Action<string>`
+parameters, and static exports returning `string`, with `string` parameters.
+Other import signatures report `RVNJS001`; other export signatures report
+`RVNJS002`. This narrow slice gives Raven applications typed imports, delegate
+callbacks, and named exports while a future macro design is evaluated.
 
 `GeneratorDriver` can also be used directly by compiler hosts. Its run result
 contains each generated source, generator diagnostic, and generator exception.

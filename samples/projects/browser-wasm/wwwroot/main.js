@@ -4,7 +4,7 @@ globalThis.ravenCallback = document.querySelector('#callback');
 globalThis.ravenLocation = globalThis.location.href;
 
 try {
-    const { setModuleImports, runMain } = await dotnet
+    const { setModuleImports, getAssemblyExports, getConfig, runMain } = await dotnet
         .withDiagnosticTracing(false)
         .withApplicationArgumentsFromQuery()
         .create();
@@ -15,6 +15,11 @@ try {
             onRendered('JavaScript called back into Raven.');
         }
     });
+
+    const config = getConfig();
+    const exports = await getAssemblyExports(config.mainAssemblyName);
+    document.querySelector('#export').textContent =
+        exports.BrowserInterop.FormatGreeting('from the browser');
 
     await runMain();
 } catch (error) {
