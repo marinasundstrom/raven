@@ -95,7 +95,7 @@ public partial class SemanticModel
             {
                 MacroFragmentKind.Expression => context.ParseExpression(region.BodyRelativeSpan),
                 MacroFragmentKind.Statement => context.ParseStatement(region.BodyRelativeSpan),
-                MacroFragmentKind.Block => context.ParseBlock(),
+                MacroFragmentKind.Block => context.ParseBlock(region.BodyRelativeSpan),
                 _ => null
             };
             if (fragment is null)
@@ -163,7 +163,7 @@ public partial class SemanticModel
             {
                 MacroFragmentKind.Expression => context.ParseExpression(region.BodyRelativeSpan),
                 MacroFragmentKind.Statement => context.ParseStatement(region.BodyRelativeSpan),
-                MacroFragmentKind.Block => context.ParseBlock(),
+                MacroFragmentKind.Block => context.ParseBlock(region.BodyRelativeSpan),
                 _ => null
             };
             if (fragment is null)
@@ -256,7 +256,7 @@ public partial class SemanticModel
             {
                 MacroFragmentKind.Expression => context.ParseExpression(region.BodyRelativeSpan),
                 MacroFragmentKind.Statement => context.ParseStatement(region.BodyRelativeSpan),
-                MacroFragmentKind.Block => context.ParseBlock(),
+                MacroFragmentKind.Block => context.ParseBlock(region.BodyRelativeSpan),
                 _ => null
             };
             if (fragment is not null)
@@ -309,7 +309,7 @@ public partial class SemanticModel
                 fragment = context.ParseStatement(region.BodyRelativeSpan);
                 break;
             case MacroFragmentKind.Block:
-                fragment = context.ParseBlock();
+                fragment = context.ParseBlock(region.BodyRelativeSpan);
                 break;
             default:
                 return null;

@@ -212,6 +212,42 @@ public sealed class MacroFragmentSemanticInfoTests
     }
 
     [Fact]
+    public void GetMacroFragmentSemanticInfo_ResolvesIndependentDeclarationBlockRegions()
+    {
+        const string code = """
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            class Customer {
+                val Name: string => "Ada"
+            }
+
+            structured! Greeting(customer: Customer) {
+                started { customer.Name }
+                stopping { customer.Name }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "IndependentDeclarationBlockFragments",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new StructuredBlockFragmentMacro()));
+        var declaration = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroDeclarationSyntax>()
+            .Single();
+        var firstNamePosition = code.IndexOf("customer.Name", StringComparison.Ordinal) + "customer.".Length + 1;
+        var secondNamePosition = code.LastIndexOf("customer.Name", StringComparison.Ordinal) + "customer.".Length + 1;
+
+        var firstInfo = compilation.GetMacroFragmentSemanticInfo(declaration, firstNamePosition);
+        var secondInfo = compilation.GetMacroFragmentSemanticInfo(declaration, secondNamePosition);
+
+        Assert.Equal("Name", Assert.IsAssignableFrom<IPropertySymbol>(firstInfo?.SymbolInfo.Symbol).Name);
+        Assert.Equal("Name", Assert.IsAssignableFrom<IPropertySymbol>(secondInfo?.SymbolInfo.Symbol).Name);
+    }
+
+    [Fact]
     public void GetMacroFragmentSemanticInfo_ResolvesNestedMacroFragmentSymbols()
     {
         const string code = """
@@ -385,6 +421,44 @@ public sealed class MacroFragmentSemanticInfoTests
                     MacroFragmentKind.Block,
                     new TextSpan(0, context.BodySpan.Length))
             ];
+
+        public MemberDeclarationSyntax Expand(
+            FreestandingMacroDeclarationSyntax declaration,
+            TokenTreeMacroContext context)
+            => SyntaxFactory.ParseMemberDeclaration($"class {declaration.Identifier.ValueText} {{ }}")!;
+    }
+
+    private sealed class StructuredBlockFragmentMacro : IMacroDefinition, IMacroFragmentProvider
+    {
+        public string Name => "structured";
+
+        public MacroInvocationTargets InvocationTargets => MacroInvocationTargets.NamespaceMember;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+        {
+            var declaration = (FreestandingMacroDeclarationSyntax)context.Syntax;
+            var parameter = declaration.ParameterList!.Parameters[0];
+            var parameterType = context.SemanticModel.GetTypeInfo(parameter.TypeAnnotation!.Type).ConvertedType!;
+            var local = context.CreateFragmentParameter(
+                parameter.Identifier.ValueText,
+                parameterType,
+                parameter.Identifier.Span);
+            var body = context.GetBodyText();
+            var firstStart = body.IndexOf("customer.Name", StringComparison.Ordinal);
+            var secondStart = body.LastIndexOf("customer.Name", StringComparison.Ordinal);
+
+            return
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Block,
+                    new TextSpan(firstStart, "customer.Name".Length),
+                    [local]),
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Block,
+                    new TextSpan(secondStart, "customer.Name".Length),
+                    [local])
+            ];
+        }
 
         public MemberDeclarationSyntax Expand(
             FreestandingMacroDeclarationSyntax declaration,

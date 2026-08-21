@@ -296,6 +296,8 @@ Macro bodies use contextual contribution constructs:
   permits execution to continue;
 - `introduce memberOrMembers` appends attached members in execution order;
 - `fragment region` contributes an ordinary Raven fragment for editor tooling;
+  providers may contribute multiple independent expression, statement, or block
+  regions within one structured DSL body;
 - `token info` contributes classified or symbol-bearing DSL token metadata.
 
 These constructs also have expression forms where their control-flow behavior

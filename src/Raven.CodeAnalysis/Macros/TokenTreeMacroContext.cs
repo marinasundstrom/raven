@@ -505,10 +505,21 @@ public class TokenTreeMacroContext : MacroContext
     /// retaining the authored positions of its statements and expressions.
     /// </summary>
     public BlockStatementSyntax ParseBlock()
+        => ParseBlock(new TextSpan(0, BodySpan.Length));
+
+    /// <summary>
+    /// Parses a region of the token-tree body as one Raven lexical block while
+    /// retaining the authored positions of its statements and expressions.
+    /// </summary>
+    public BlockStatementSyntax ParseBlock(TextSpan bodyRelativeSpan)
     {
-        var blockStart = Math.Max(0, BodySpan.Start - 1);
+        if (bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length)
+            throw new ArgumentOutOfRangeException(nameof(bodyRelativeSpan));
+
+        var blockStart = Math.Max(0, BodySpan.Start + bodyRelativeSpan.Start - 1);
+        var bodyText = GetBodyText().Substring(bodyRelativeSpan.Start, bodyRelativeSpan.Length);
         var sourceText = SourceText.From(
-            new string(' ', blockStart) + "{" + GetBodyText() + "}");
+            new string(' ', blockStart) + "{" + bodyText + "}");
         var parser = new Syntax.InternalSyntax.Parser.LanguageParser(
             Syntax.SyntaxTree?.FilePath,
             Syntax.SyntaxTree?.Options ?? new ParseOptions());

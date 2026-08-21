@@ -230,6 +230,22 @@ semantic system per DSL. It is a structured declaration carrier, a small
 provider-owned grammar, ordinary Raven fragments, explicit diagnostics, and a
 well-mapped lowering to normal Raven code.
 
+That integration is part of the feature's value, not optional polish. A macro
+provider identifies which regions are ordinary Raven and supplies any
+macro-introduced locals or target types. Raven then provides its normal binding,
+hover, completion, navigation, diagnostics, semantic classification, and source
+mapping for those regions. The actor macro describes three independent blocks;
+it does not implement an actor-specific language server.
+
+Building this sample exposed and closed a platform gap: block-fragment tooling
+previously reparsed the complete macro body even when a provider reported a
+smaller span. That worked for a single all-Raven body but made a structured DSL
+such as `started { ... } receive { ... } stopping { ... }` a tooling dead zone.
+Block parsing is now span-aware, so each lifecycle body retains a first-class
+Raven editing experience. This is one purpose of the DSL samples: pressure-test
+the reusable macro contracts and improve them instead of hiding gaps in sample
+code.
+
 ## POC boundaries and design questions
 
 The prototype intentionally proves one narrow path. Before treating this as a

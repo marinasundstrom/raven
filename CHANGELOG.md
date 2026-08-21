@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-21**.
 
 ## Unreleased
 
+- Macro block fragments now honor their reported body-relative spans instead of
+  reparsing the complete token-tree body. Structured declaration DSLs can expose
+  multiple independent Raven blocks and receive native hover, completion,
+  classifications, inferred-type inlays, and semantic binding in each region.
 - Added a framework-free browser application type to `rvn init` and
   `Raven.Templates` as `browser`/`raven-browser`. It composes Raven with
   `Microsoft.NET.Sdk.WebAssembly`, publishes a normal static browser bundle,

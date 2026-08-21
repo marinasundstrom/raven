@@ -563,9 +563,13 @@ caller scope, so locals, parameters, fields, types, and member access behave as
 they do outside the DSL. Macro authors do not implement a second completion
 provider for embedded Raven syntax.
 
-Use `MacroFragmentKind.Block` when the entire body is a sequence of ordinary
-Raven statements sharing one lexical scope. `TokenTreeMacroContext.ParseBlock`
-parses that body with authored positions. For declaration-shaped macros,
+Use `MacroFragmentKind.Block` when a reported region is a sequence of ordinary
+Raven statements sharing one lexical scope. A DSL may report the entire body or
+several independent block regions separated by its own structural keywords.
+`TokenTreeMacroContext.ParseBlock(span)` parses that region with authored
+positions; the parameterless overload parses the complete body. Hover,
+completion, classifications, and inferred-type inlays use the same span-aware
+block model. For declaration-shaped macros,
 `CreateFragmentParameter(name, type, declarationSpan)` projects a typed header
 parameter into the block as an `IParameterSymbol` and maps navigation back to
 the parameter declaration:

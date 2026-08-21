@@ -671,7 +671,7 @@ public class CompletionService
             MacroFragmentKind.Type => context.ParseType(region.BodyRelativeSpan),
             MacroFragmentKind.Pattern => context.ParsePattern(region.BodyRelativeSpan),
             MacroFragmentKind.MemberDeclaration => context.ParseMemberDeclaration(region.BodyRelativeSpan),
-            MacroFragmentKind.Block => context.ParseBlock(),
+            MacroFragmentKind.Block => context.ParseBlock(region.BodyRelativeSpan),
             _ => throw new InvalidOperationException($"Unsupported macro fragment kind '{region.Kind}'.")
         };
 
