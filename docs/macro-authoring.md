@@ -595,11 +595,31 @@ class RouteMacro : IMacroDefinition, IMacroCompletionProvider {
 
 `markup!` uses this capability for compiler-backed Blazor component tags and
 component properties, including incomplete input. Ordinary HTML elements and
-attributes are a separate editor-integration concern: a future virtual HTML
-projection can reuse an editor's existing HTML language service without
-duplicating the HTML catalog in the macro or compiler. The Markup parser remains
-the structural authority for validation, expansion, source mapping, and routing
-between HTML-owned positions, component semantics, and embedded Raven regions.
+attributes are a separate editor-integration concern. The optional
+`IMacroEmbeddedLanguageProvider` capability now lets a macro expose one
+position-preserving virtual document without exposing its private parser tree:
+
+```raven
+class MarkupMacro : IMacroDefinition, IMacroEmbeddedLanguageProvider {
+    func GetEmbeddedLanguageProjection(
+        context: TokenTreeMacroContext
+    ) -> MacroEmbeddedLanguageProjection? {
+        let html = /* retain markup and mask embedded Raven */
+        context.CreateEmbeddedLanguageProjection("html", html)
+    }
+}
+```
+
+The projected text must have the same length and line breaks as the authored
+macro body. `SemanticModel.GetMacroEmbeddedLanguageProjection` returns the
+normalized, cached projection with its authored body span; provider failures
+remain isolated to the optional tooling query. The checked-in Markup macro
+retains its HTML envelope and masks embedded Raven expression text. A future
+editor bridge can pass that document to an existing HTML language service and
+map results directly by offset, without duplicating the HTML catalog in Raven.
+The Markup parser remains the structural authority for validation, expansion,
+source mapping, and routing between HTML-owned positions, component semantics,
+and embedded Raven regions.
 
 Editor classification for a macro invocation is semantic rather than a
 best-effort lexical overlay. On each document snapshot, Raven resolves the

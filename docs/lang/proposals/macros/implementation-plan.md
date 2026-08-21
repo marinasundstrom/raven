@@ -306,8 +306,13 @@ accepted only when the preceding use case demonstrates its value.
    `IMacroCompletionProvider` returns body-relative, editor-neutral items that
    the compiler maps to ordinary completion results. The Markup fixture uses it
    for Blazor component tags and properties while leaving standard HTML catalog
-   completion to a future virtual-HTML editor integration. Custom hover,
-   navigation, trigger metadata, and richer ordering remain future work.
+   completion to virtual-HTML editor integration. The compiler-side projection
+   primitive is also implemented: `IMacroEmbeddedLanguageProvider` returns a
+   language-identified body projection, and Raven validates identical length
+   and line breaks before caching it. Markup retains the HTML envelope while
+   masking embedded Raven expressions. Mounting that projection in an editor's
+   HTML language service, custom hover, navigation, trigger metadata, and richer
+   ordering remain future work.
 7. **Retain private structure snapshots when measurement justifies it.** Permit
    a provider-owned immutable snapshot shared between expansion and tooling if
    repeated parsing is materially expensive. Do not standardize or expose its

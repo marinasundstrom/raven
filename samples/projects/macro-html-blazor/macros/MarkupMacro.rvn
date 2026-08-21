@@ -11,9 +11,30 @@ import Raven.CodeAnalysis.Text.*
 [assembly: RavenCompilerPlugin(typeof(MarkupMacro))]
 
 [MacroAlias("Html")]
-class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifier, IMacroTokenSymbolProvider, IMacroCompletionProvider {
+class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifier, IMacroTokenSymbolProvider, IMacroCompletionProvider, IMacroEmbeddedLanguageProvider {
     val Name: string => "Markup"
     val Alias: string? => "markup"
+
+    func GetEmbeddedLanguageProjection(
+        context: TokenTreeMacroContext
+    ) -> MacroEmbeddedLanguageProjection? {
+        let body = context.GetBodyText()
+        let expansion = HtmlDslParser(body, context.Compilation, context).Parse()
+        let projection = StringBuilder(body)
+
+        for span in expansion.EmbeddedExpressionSpans {
+            context.CancellationToken.ThrowIfCancellationRequested()
+            var position = span.Start
+            while position < span.End {
+                if body[position] != '\r' && body[position] != '\n' {
+                    projection[position] = ' '
+                }
+                position = position + 1
+            }
+        }
+
+        context.CreateEmbeddedLanguageProjection("html", projection.ToString())
+    }
 
     func GetCompletions(
         context: TokenTreeMacroContext,

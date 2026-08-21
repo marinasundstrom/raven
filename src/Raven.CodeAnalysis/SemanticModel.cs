@@ -29,6 +29,7 @@ public partial class SemanticModel
     private readonly ConcurrentDictionary<SyntaxNode, ImmutableArray<MacroFragmentRegion>> _macroFragmentRegionCache = new();
     private readonly ConcurrentDictionary<SyntaxNode, ImmutableArray<MacroTokenInfo>> _macroTokenInfoCache = new();
     private readonly ConcurrentDictionary<SyntaxNode, MacroInputSnapshot> _macroInputSnapshotCache = new();
+    private readonly ConcurrentDictionary<SyntaxNode, MacroEmbeddedLanguageProjection> _macroEmbeddedLanguageProjectionCache = new();
 
     private readonly DeclaredSymbolLookup _declaredSymbolLookup;
     private readonly object _diagnosticsCollectionGate = new();
@@ -453,6 +454,40 @@ public partial class SemanticModel
         FreestandingMacroDeclarationSyntax declaration,
         CancellationToken cancellationToken = default)
         => GetMacroInputSnapshotCore(declaration, cancellationToken);
+
+    /// <summary>
+    /// Gets a position-preserving embedded-language projection for a token-tree macro invocation.
+    /// </summary>
+    public MacroEmbeddedLanguageProjection? GetMacroEmbeddedLanguageProjection(
+        FreestandingMacroExpressionSyntax expression,
+        CancellationToken cancellationToken = default)
+        => GetMacroEmbeddedLanguageProjectionCore(expression, cancellationToken);
+
+    public MacroEmbeddedLanguageProjection? GetMacroEmbeddedLanguageProjection(
+        FreestandingMacroMemberDeclarationSyntax member,
+        CancellationToken cancellationToken = default)
+        => GetMacroEmbeddedLanguageProjectionCore(member, cancellationToken);
+
+    public MacroEmbeddedLanguageProjection? GetMacroEmbeddedLanguageProjection(
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken = default)
+        => GetMacroEmbeddedLanguageProjectionCore(declaration, cancellationToken);
+
+    internal MacroEmbeddedLanguageProjection? GetMacroEmbeddedLanguageProjectionCore(
+        SyntaxNode syntax,
+        CancellationToken cancellationToken)
+    {
+        ValidateMacroInvocationSyntax(syntax);
+
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+        if (_macroEmbeddedLanguageProjectionCache.TryGetValue(syntax, out var cached))
+            return cached;
+
+        var projection = MacroEmbeddedLanguageProjectionService.GetProjection(this, syntax, cancellationToken);
+        return projection is null
+            ? null
+            : _macroEmbeddedLanguageProjectionCache.GetOrAdd(syntax, projection);
+    }
 
     internal MacroInputSnapshot GetMacroInputSnapshotCore(
         SyntaxNode syntax,

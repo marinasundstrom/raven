@@ -323,6 +323,54 @@ public sealed class MarkupMacroToolingAcceptanceTests
     }
 
     [Fact]
+    public void CheckedInMarkupMacro_ProjectsPositionPreservingHtmlWithoutEmbeddedRaven()
+    {
+        var macroReference = CreateCheckedInMarkupMacroReference();
+        const string source = """
+            let increment = 1
+            let count = 2
+            let view = Markup! {
+                <button onClick={increment} title="Counter">
+                    Count: {count}
+                </button>
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "html-projection.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference);
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var invocation = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        var projection = Assert.IsType<MacroEmbeddedLanguageProjection>(
+            semanticModel.GetMacroEmbeddedLanguageProjection(invocation));
+
+        Assert.Same(projection, semanticModel.GetMacroEmbeddedLanguageProjection(invocation));
+        Assert.Same(projection, compilation.GetMacroEmbeddedLanguageProjection(invocation));
+        Assert.Equal("html", projection.LanguageId);
+        Assert.Equal(
+            TextSpan.FromBounds(
+                invocation.TokenTree!.OpenBraceToken.Span.End,
+                invocation.TokenTree.CloseBraceToken.SpanStart),
+            projection.Span);
+        Assert.Equal(projection.Span.Length, projection.Text.Length);
+        Assert.Contains("<button onClick={         } title=\"Counter\">", projection.Text, StringComparison.Ordinal);
+        Assert.Contains("Count: {     }", projection.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("increment", projection.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("count", projection.Text, StringComparison.Ordinal);
+
+        var authoredBody = source.Substring(projection.Span.Start, projection.Span.Length);
+        Assert.Equal(
+            authoredBody.Select((character, index) => (character, index))
+                .Where(static item => item.character is '\r' or '\n')
+                .Select(static item => item.index),
+            projection.Text.Select((character, index) => (character, index))
+                .Where(static item => item.character is '\r' or '\n')
+                .Select(static item => item.index));
+    }
+
+    [Fact]
     public void CheckedInMarkupMacro_ProvidesCompleteToolingSnapshotAndAuthoredDiagnostics()
     {
         var macroReference = CreateCheckedInMarkupMacroReference();

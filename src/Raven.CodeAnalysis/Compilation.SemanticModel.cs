@@ -138,6 +138,39 @@ public partial class Compilation
     }
 
     /// <summary>
+    /// Gets a position-preserving embedded-language projection for a token-tree macro invocation.
+    /// </summary>
+    public MacroEmbeddedLanguageProjection? GetMacroEmbeddedLanguageProjection(
+        FreestandingMacroExpressionSyntax expression,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        var syntaxTree = expression.SyntaxTree
+            ?? throw new ArgumentException("Macro invocation is not attached to a syntax tree.", nameof(expression));
+        return GetSemanticModel(syntaxTree).GetMacroEmbeddedLanguageProjection(expression, cancellationToken);
+    }
+
+    public MacroEmbeddedLanguageProjection? GetMacroEmbeddedLanguageProjection(
+        FreestandingMacroMemberDeclarationSyntax member,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        var syntaxTree = member.SyntaxTree
+            ?? throw new ArgumentException("Macro invocation is not attached to a syntax tree.", nameof(member));
+        return GetSemanticModel(syntaxTree).GetMacroEmbeddedLanguageProjection(member, cancellationToken);
+    }
+
+    public MacroEmbeddedLanguageProjection? GetMacroEmbeddedLanguageProjection(
+        FreestandingMacroDeclarationSyntax declaration,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(declaration);
+        var syntaxTree = declaration.SyntaxTree
+            ?? throw new ArgumentException("Macro invocation is not attached to a syntax tree.", nameof(declaration));
+        return GetSemanticModel(syntaxTree).GetMacroEmbeddedLanguageProjection(declaration, cancellationToken);
+    }
+
+    /// <summary>
     /// Gets completion items available at a position in a syntax tree within this compilation asynchronously.
     /// </summary>
     /// <param name="syntaxTree">The syntax tree to query.</param>

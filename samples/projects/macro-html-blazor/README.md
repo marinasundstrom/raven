@@ -321,15 +321,19 @@ macro.
 
 The macro also provides compiler-backed completion for Blazor component tags
 and properties at incomplete markup positions. Standard HTML element and
-attribute completion is intentionally separate: a future editor integration
-can project the parser-owned markup envelope as a virtual HTML document and
-reuse the editor's HTML language service. The Markup parser remains responsible
-for structural validation, source coordinates, and excluding embedded Raven
-expressions from that projection.
+attribute completion is intentionally separate. `MarkupMacro` now implements
+`IMacroEmbeddedLanguageProvider` and projects the parser-owned markup envelope
+as a position-preserving `html` document. Embedded Raven expression text is
+masked while all offsets and line breaks remain unchanged. A future editor
+bridge can mount this projection in its existing HTML language service and map
+completion results directly back to the authored body. The Markup parser
+remains responsible for structural validation, source coordinates, and the
+embedded Raven exclusions.
 
 The sample now exercises the DSL-tooling MVP: immutable combined input
 snapshots, token kinds and classifications, embedded expression spans,
-deterministic cursor routing, failure isolation, and semantic highlighting.
+deterministic cursor routing, embedded-language projection, failure isolation,
+and semantic highlighting.
 Compiler acceptance coverage builds this checked-in `MarkupMacro.rvn` into an
 in-memory plugin and verifies those contracts plus authored-source diagnostics,
 preventing the sample and tooling API from drifting independently.

@@ -1099,9 +1099,13 @@ document, orders and deduplicates the items, propagates request cancellation,
 and contains provider failures before the language server presents the normal
 completion result. The Markup prototype uses this for Blazor component tags and
 properties. Standard HTML elements and attributes are deliberately not copied
-into the macro: a later virtual HTML projection may reuse the editor's existing
-HTML language service, with the Markup parser supplying validated structure,
-source mapping, and embedded-Raven exclusions.
+into the macro. `IMacroEmbeddedLanguageProvider` supplies the next compiler
+primitive: a macro may return one language-identified projection whose length
+and line breaks exactly match the authored body. The compiler validates,
+caches, and failure-isolates it. Markup now returns an `html` projection that
+retains the markup envelope and masks embedded Raven expression text. A later
+editor bridge can route that virtual document to the editor's existing HTML
+language service, with direct offset mapping back to the parser-validated body.
 
 Highlighting uses classifications rather than global `SyntaxKind` additions.
 Macro token metadata can mark raw kinds as keyword, reserved word, identifier,

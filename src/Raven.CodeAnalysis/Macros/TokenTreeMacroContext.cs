@@ -161,6 +161,36 @@ public class TokenTreeMacroContext : MacroContext
     public string GetBodyText()
         => TokenTree.OpenBraceToken.TrailingTrivia + TokenTree.BodyToken.Text;
 
+    /// <summary>
+    /// Creates a position-preserving embedded-language projection for this macro body.
+    /// </summary>
+    public MacroEmbeddedLanguageProjection CreateEmbeddedLanguageProjection(
+        string languageId,
+        string text)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageId);
+        ArgumentNullException.ThrowIfNull(text);
+
+        var bodyText = GetBodyText();
+        if (text.Length != bodyText.Length)
+            throw new ArgumentException("Projected text must have the same length as the macro body.", nameof(text));
+
+        for (var index = 0; index < bodyText.Length; index++)
+        {
+            var sourceIsLineBreak = bodyText[index] is '\r' or '\n';
+            var projectionIsLineBreak = text[index] is '\r' or '\n';
+            if (sourceIsLineBreak != projectionIsLineBreak ||
+                (sourceIsLineBreak && bodyText[index] != text[index]))
+            {
+                throw new ArgumentException(
+                    "Projected text must preserve the macro body's line breaks.",
+                    nameof(text));
+            }
+        }
+
+        return new MacroEmbeddedLanguageProjection(languageId, text, BodySpan);
+    }
+
     public MacroTokenStream CreateTokenStream()
     {
         var context = new MacroTokenStreamContext(

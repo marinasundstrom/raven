@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-21**.
 
 ## Unreleased
 
+- Added compiler-owned, position-preserving embedded-language projections for
+  token-tree macros. `IMacroEmbeddedLanguageProvider` identifies the target
+  language and supplies projected body text; Raven validates identical length
+  and line breaks, caches the result, and contains optional-provider failures.
+  The checked-in Markup macro now exposes an `html` projection that retains the
+  markup envelope while masking embedded Raven expressions, establishing the
+  source-mapped boundary for a future editor HTML-language-service bridge.
 - Added compiler-owned completion contributions for token-tree macro DSLs.
   `IMacroCompletionProvider` reports editor-neutral items with body-relative
   replacement spans and optional Raven symbols; the compiler maps, orders, and
