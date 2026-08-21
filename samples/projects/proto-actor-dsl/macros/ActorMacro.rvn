@@ -8,16 +8,222 @@ import Raven.CodeAnalysis.Text.*
 
 [assembly: RavenCompilerPlugin(typeof(ActorMacro))]
 
-class ActorMacro : IMacroDefinition, IMacroFragmentProvider {
+class ActorMacro : IMacroDefinition, IMacroKeywordProvider, IMacroFragmentProvider {
+    static val StartedKeywordRawKind: int => 82001
+    static val ReceiveKeywordRawKind: int => 82002
+    static val StoppingKeywordRawKind: int => 82003
+
     val Name: string => "Actor"
     val Alias: string? => "actor"
-    val Documentation: string? => "Declares an isolated actor. The first parameter is the message protocol; remaining defaulted parameters are private actor state."
+    val Documentation: string? => "Declares an isolated actor with optional lifecycle clauses and one domain-message protocol."
+
+    val Keywords: ImmutableArray<MacroKeyword>
+        => [
+            MacroKeyword("started", StartedKeywordRawKind, MacroKeywordClassification.ReservedWord),
+            MacroKeyword("receive", ReceiveKeywordRawKind, MacroKeywordClassification.ReservedWord),
+            MacroKeyword("stopping", StoppingKeywordRawKind, MacroKeywordClassification.ReservedWord)
+        ]
 
     func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
         let declaration: FreestandingMacroDeclarationSyntax = context.Syntax else {
             return []
         }
 
+        let locals = CreateFragmentLocals(declaration, context)
+        let stream = context.CreateTokenStream()
+        var regions: ImmutableArray<MacroFragmentRegion> = []
+
+        if !stream.IsEndOfFile && stream.PeekToken().RawKind == StartedKeywordRawKind {
+            stream.ReadToken()
+            let started = stream.ParseStatement()
+            if let block: BlockStatementSyntax = started.Syntax {
+                regions = regions.Add(context.CreateFragmentRegion(
+                    MacroFragmentKind.Block,
+                    GetBlockBodySpan(block, context),
+                    locals))
+            }
+        }
+
+        if stream.IsEndOfFile || stream.ReadToken().RawKind != ReceiveKeywordRawKind {
+            return regions
+        }
+
+        let receive = stream.ParseStatement()
+        if let block: BlockStatementSyntax = receive.Syntax {
+            regions = regions.Add(context.CreateFragmentRegion(
+                MacroFragmentKind.Block,
+                GetBlockBodySpan(block, context),
+                locals))
+        }
+
+        if !stream.IsEndOfFile && stream.PeekToken().RawKind == StoppingKeywordRawKind {
+            stream.ReadToken()
+            let stopping = stream.ParseStatement()
+            if let block: BlockStatementSyntax = stopping.Syntax {
+                regions = regions.Add(context.CreateFragmentRegion(
+                    MacroFragmentKind.Block,
+                    GetBlockBodySpan(block, context),
+                    locals))
+            }
+        }
+
+        regions
+    }
+
+    func Expand(
+        declaration: FreestandingMacroDeclarationSyntax,
+        body: IMacroTokenStream,
+        context: TokenTreeMacroContext
+    ) -> FreestandingMacroExpansionResult {
+        let parameters: ParameterListSyntax = declaration.ParameterList else {
+            return DeclarationError(context, declaration, "An actor declaration requires a message parameter.")
+        }
+        if parameters.Parameters.Count == 0 {
+            return DeclarationError(context, declaration, "An actor declaration requires a message parameter.")
+        }
+
+        let messageParameter = parameters.Parameters[0]
+        let messageType: TypeAnnotationClauseSyntax = messageParameter.TypeAnnotation else {
+            return DeclarationError(context, declaration, "The actor message parameter requires an explicit protocol type.")
+        }
+
+        let stream = context.CreateTokenStream()
+        var startedBody: BlockStatementSyntax? = null
+        var stoppingBody: BlockStatementSyntax? = null
+
+        if !stream.IsEndOfFile && stream.PeekToken().RawKind == StartedKeywordRawKind {
+            stream.ReadToken()
+            let started = stream.ParseStatement()
+            if started.HasErrors {
+                return FreestandingMacroExpansionResult.FromDiagnostics(started.Diagnostics)
+            }
+            let block: BlockStatementSyntax = started.Syntax else {
+                return BodyError(context, started.BodyRelativeSpan, "The 'started' clause requires a block.")
+            }
+            startedBody = block
+        }
+
+        if stream.IsEndOfFile {
+            return BodyError(context, TextSpan(context.BodySpan.Length, 0), "Expected a 'receive' clause.")
+        }
+
+        let receiveKeyword = stream.ReadToken()
+        if receiveKeyword.RawKind != ReceiveKeywordRawKind {
+            return BodyError(
+                context,
+                TextSpan(receiveKeyword.SpanStart, receiveKeyword.Text.Length),
+                "Expected the 'receive' clause after optional startup behavior.")
+        }
+
+        let receive = stream.ParseStatement()
+        if receive.HasErrors {
+            return FreestandingMacroExpansionResult.FromDiagnostics(receive.Diagnostics)
+        }
+        let receiveBody: BlockStatementSyntax = receive.Syntax else {
+            return BodyError(context, receive.BodyRelativeSpan, "The 'receive' clause requires a block.")
+        }
+
+        if !stream.IsEndOfFile && stream.PeekToken().RawKind == StoppingKeywordRawKind {
+            stream.ReadToken()
+            let stopping = stream.ParseStatement()
+            if stopping.HasErrors {
+                return FreestandingMacroExpansionResult.FromDiagnostics(stopping.Diagnostics)
+            }
+            let block: BlockStatementSyntax = stopping.Syntax else {
+                return BodyError(context, stopping.BodyRelativeSpan, "The 'stopping' clause requires a block.")
+            }
+            stoppingBody = block
+        }
+
+        if !stream.IsEndOfFile {
+            let unexpected = stream.PeekToken()
+            return BodyError(
+                context,
+                TextSpan(unexpected.SpanStart, unexpected.Text.Length),
+                "Expected the end of the actor declaration.")
+        }
+
+        let source = StringBuilder()
+        source.Append("class ")
+        source.Append(declaration.Identifier.ValueText)
+        source.Append(" : Proto.IActor {")
+
+        var index = 1
+        while index < parameters.Parameters.Count {
+            let state = parameters.Parameters[index]
+            let stateType: TypeAnnotationClauseSyntax = state.TypeAnnotation else {
+                return DeclarationError(context, state, "Actor state requires an explicit type.")
+            }
+            let initialValue: EqualsValueClauseSyntax = state.DefaultValue else {
+                return DeclarationError(context, state, "Actor state requires an initial value.")
+            }
+
+            source.Append("private var ")
+            source.Append(state.Identifier.ValueText)
+            source.Append(stateType.ToString())
+            source.Append(initialValue.ToString())
+            source.Append(";")
+            index = index + 1
+        }
+
+        source.Append("static func Props() -> Proto.Props => Proto.Props.FromProducer(func () => ")
+        source.Append(declaration.Identifier.ValueText)
+        source.Append("());")
+        source.Append("func ReceiveAsync(context: Proto.IContext) -> System.Threading.Tasks.Task {")
+
+        var sourceMaps: ImmutableArray<MacroExpansionSourceMap> = []
+        let bodyText = context.GetBodyText()
+
+        if let block: BlockStatementSyntax = startedBody {
+            source.Append("if let startedEvent: Proto.Started = context.Message {")
+            let originalSpan = GetBlockBodySpan(block, context)
+            let expandedStart = source.Length
+            source.Append(bodyText.Substring(originalSpan.Start, originalSpan.Length))
+            sourceMaps = sourceMaps.Add(MacroExpansionSourceMap(
+                TextSpan(expandedStart, originalSpan.Length),
+                originalSpan))
+            source.Append("return System.Threading.Tasks.Task.CompletedTask")
+            source.Append("}")
+        }
+
+        source.Append("if let ")
+        source.Append(messageParameter.Identifier.ValueText)
+        source.Append(": ")
+        source.Append(messageType.Type.ToString())
+        source.Append(" = context.Message {")
+        let receiveSpan = GetBlockBodySpan(receiveBody, context)
+        let receiveExpandedStart = source.Length
+        source.Append(bodyText.Substring(receiveSpan.Start, receiveSpan.Length))
+        sourceMaps = sourceMaps.Add(MacroExpansionSourceMap(
+            TextSpan(receiveExpandedStart, receiveSpan.Length),
+            receiveSpan))
+        source.Append("return System.Threading.Tasks.Task.CompletedTask")
+        source.Append("}")
+
+        if let stoppingBlock: BlockStatementSyntax = stoppingBody {
+            source.Append("if let stoppingEvent: Proto.Stopping = context.Message {")
+            let originalSpan = GetBlockBodySpan(stoppingBlock, context)
+            let expandedStart = source.Length
+            source.Append(bodyText.Substring(originalSpan.Start, originalSpan.Length))
+            sourceMaps = sourceMaps.Add(MacroExpansionSourceMap(
+                TextSpan(expandedStart, originalSpan.Length),
+                originalSpan))
+            source.Append("return System.Threading.Tasks.Task.CompletedTask")
+            source.Append("}")
+        }
+
+        source.Append("return System.Threading.Tasks.Task.CompletedTask")
+        source.Append("} }")
+
+        let tree = ParseSyntaxTree(source.ToString())
+        let actorClass = tree.GetRoot().Members[0]
+        FreestandingMacroExpansionResult.FromNode(context.WithOrigins(actorClass, sourceMaps))
+    }
+
+    static func CreateFragmentLocals(
+        declaration: FreestandingMacroDeclarationSyntax,
+        context: TokenTreeMacroContext
+    ) -> ImmutableArray<MacroFragmentLocal> {
         var locals: ImmutableArray<MacroFragmentLocal> = []
         if let parameters: ParameterListSyntax = declaration.ParameterList {
             for parameter in parameters.Parameters {
@@ -33,80 +239,30 @@ class ActorMacro : IMacroDefinition, IMacroFragmentProvider {
                     parameter.Identifier.Span))
             }
         }
-
-        [context.CreateFragmentRegion(
-            MacroFragmentKind.Block,
-            TextSpan(0, context.BodySpan.Length),
-            locals)]
+        locals
     }
 
-    func Expand(
-        declaration: FreestandingMacroDeclarationSyntax,
-        body: IMacroTokenStream,
-        context: TokenTreeMacroContext
-    ) -> MemberDeclarationSyntax {
-        body.PeekToken()
+    static func GetBlockBodySpan(block: BlockStatementSyntax, context: TokenTreeMacroContext) -> TextSpan {
+        TextSpan.FromBounds(
+            block.OpenBraceToken.Span.End - context.BodySpan.Start,
+            block.CloseBraceToken.Span.Start - context.BodySpan.Start)
+    }
 
-        let parameters: ParameterListSyntax = declaration.ParameterList else {
-            return declaration
-        }
-        if parameters.Parameters.Count == 0 {
-            return declaration
-        }
+    static func DeclarationError(
+        context: TokenTreeMacroContext,
+        syntax: SyntaxNode,
+        message: string
+    ) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.FromDiagnostic(
+            context.CreateDiagnostic(message, syntax: syntax, code: "ACTOR001"))
+    }
 
-        let messageParameter = parameters.Parameters[0]
-        let messageType: TypeAnnotationClauseSyntax = messageParameter.TypeAnnotation else {
-            return declaration
-        }
-
-        let source = StringBuilder()
-        source.Append("class ")
-        source.Append(declaration.Identifier.ValueText)
-        source.Append(" : Proto.IActor {")
-
-        var index = 1
-        while index < parameters.Parameters.Count {
-            let state = parameters.Parameters[index]
-            let stateType: TypeAnnotationClauseSyntax = state.TypeAnnotation else {
-                return declaration
-            }
-            let initialValue: EqualsValueClauseSyntax = state.DefaultValue else {
-                return declaration
-            }
-
-            source.Append("private var ")
-            source.Append(state.Identifier.ValueText)
-            source.Append(stateType.ToString())
-            source.Append(initialValue.ToString())
-            source.Append(";")
-            index = index + 1
-        }
-
-        source.Append("static func Props() -> Proto.Props => Proto.Props.FromProducer(func () => ")
-        source.Append(declaration.Identifier.ValueText)
-        source.Append("());")
-        source.Append("func ReceiveAsync(context: Proto.IContext) -> System.Threading.Tasks.Task {")
-        source.Append("if let ")
-        source.Append(messageParameter.Identifier.ValueText)
-        source.Append(": ")
-        source.Append(messageType.Type.ToString())
-        source.Append(" = context.Message {")
-
-        let expandedBodyStart = source.Length
-        let bodyText = context.GetBodyText()
-        source.Append(bodyText)
-        source.Append("}")
-        source.Append("return System.Threading.Tasks.Task.CompletedTask")
-        source.Append("} }")
-
-        let tree = ParseSyntaxTree(source.ToString())
-        let actorClass = tree.GetRoot().Members[0]
-        let sourceMaps: ImmutableArray<MacroExpansionSourceMap> = [
-            MacroExpansionSourceMap(
-                TextSpan(expandedBodyStart, bodyText.Length),
-                TextSpan(0, bodyText.Length))
-        ]
-
-        context.WithOrigins(actorClass, sourceMaps)
+    static func BodyError(
+        context: TokenTreeMacroContext,
+        span: TextSpan,
+        message: string
+    ) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.FromDiagnostic(
+            context.CreateBodyDiagnostic(span, message, code: "ACTOR002"))
     }
 }

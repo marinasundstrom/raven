@@ -24,5 +24,5 @@ func Main() {
     let afterReset = system.Root.RequestAsync<CounterSnapshot>(counter, get).GetAwaiter().GetResult()
     WriteLine("After reset: ${afterReset.Value}")
 
-    system.Root.Stop(counter)
+    system.Root.StopAsync(counter).GetAwaiter().GetResult()
 }

@@ -53,11 +53,21 @@ The actor itself is one declaration:
 
 ```raven
 actor! CounterActor(command: CounterCommand, count: int = 0) {
-    match command {
-        .Add(let amount) => count = count + amount
-        .Subtract(let amount) => count = count - amount
-        .Reset => count = 0
-        .Get => context.Respond(CounterSnapshot(count))
+    started {
+        WriteLine("Counter started")
+    }
+
+    receive {
+        match command {
+            .Add(let amount) => count = count + amount
+            .Subtract(let amount) => count = count - amount
+            .Reset => count = 0
+            .Get => context.Respond(CounterSnapshot(count))
+        }
+    }
+
+    stopping {
+        WriteLine("Counter stopping at ${count}")
     }
 }
 ```
@@ -70,13 +80,16 @@ The declaration has three semantic parts:
 
 1. `CounterActor` is the generated actor type and Proto.Actor producer.
 2. The first parameter, `command: CounterCommand`, declares the mailbox protocol
-   and names the current message inside the body.
+   and names the current message inside the `receive` clause.
 3. Remaining defaulted parameters are actor-owned state. Here `count` becomes a
    private mutable property initialized to zero.
+4. `started`, `receive`, and `stopping` are body-scoped DSL keywords. They do not
+   become Raven keywords outside an `actor!` declaration.
 
-The body is ordinary Raven. Because `CounterCommand` is a closed union, `match`
-must interpret the complete protocol. Adding another command therefore points
-at actor behavior that has not yet been defined.
+Each clause body is ordinary Raven. Because `CounterCommand` is a closed union,
+`match` must interpret the complete protocol. Adding another command therefore
+points at actor behavior that has not yet been defined. Lifecycle events remain
+separate from the domain protocol and lower to Proto.Actor's system messages.
 
 ## What the macro unfolds to
 
@@ -91,6 +104,11 @@ class CounterActor : Proto.IActor {
         Proto.Props.FromProducer(func () => CounterActor())
 
     func ReceiveAsync(context: Proto.IContext) -> System.Threading.Tasks.Task {
+        if let startedEvent: Proto.Started = context.Message {
+            WriteLine("Counter started")
+            return System.Threading.Tasks.Task.CompletedTask
+        }
+
         if let command: CounterCommand = context.Message {
             match command {
                 .Add(let amount) => count = count + amount
@@ -98,6 +116,13 @@ class CounterActor : Proto.IActor {
                 .Reset => count = 0
                 .Get => context.Respond(CounterSnapshot(count))
             }
+
+            return System.Threading.Tasks.Task.CompletedTask
+        }
+
+        if let stoppingEvent: Proto.Stopping = context.Message {
+            WriteLine("Counter stopping at ${count}")
+            return System.Threading.Tasks.Task.CompletedTask
         }
 
         return System.Threading.Tasks.Task.CompletedTask
@@ -135,15 +160,55 @@ facts local and explicit:
 - **Framework plumbing is generated.** `IActor`, `ReceiveAsync`, the safe message
   type test, `Task.CompletedTask`, and `Props.FromProducer` are implementation
   details.
-- **The body remains normal Raven.** The macro reports it as an ordinary block
-  fragment and maps it back into the generated handler for diagnostics,
-  completion, and debugging.
+- **Lifecycle intent has names.** Startup and shutdown behavior no longer appear
+  as framework types mixed into the domain-message switch.
+- **Clause bodies remain normal Raven.** The macro reports each one as an
+  ordinary block fragment and maps it independently into the generated handler
+  for diagnostics, completion, and debugging.
 - **Interop remains direct.** The generated type, `Props`, `PID`, `IContext`, and
   messages are normal .NET and Proto.Actor shapes.
 
 This is deliberately closer to Swift's declaration-level actor ergonomics than
 to a fluent wrapper API. A wrapper can shorten spawning and sending, but it
 cannot make actor isolation part of the declaration's meaning.
+
+## What this teaches us about Raven DSLs
+
+This actor POC is also a stress test for declaration-oriented macros. Several
+lessons generalize to UI, workflow, service, routing, and persistence DSLs:
+
+- **Keep Raven in charge of the declaration envelope.** The macro receives the
+  actor name and parameter list as structured syntax instead of rescanning raw
+  text. Only the body uses a private grammar.
+- **Use body-scoped keywords.** `started`, `receive`, and `stopping` are reserved
+  only within `actor!`. A DSL can introduce domain vocabulary without changing
+  Raven's lexer or global grammar.
+- **Project embedded code as ordinary fragments.** Every clause body is reported
+  as a Raven block with fragment locals for the message and state names. This
+  lets editor features reuse the compiler rather than requiring actor-specific
+  expression binding.
+- **Source mapping must support multiple regions.** One generated method contains
+  code authored in three independent blocks. Diagnostics and sequence points
+  need a map per region, while dispatch plumbing stays hidden.
+- **Coordinate spaces must be explicit.** Token-stream positions and parsed
+  syntax positions do not always use the same origin. Diagnostics should be
+  normalized to body-relative `TextSpan`s before being reported.
+- **Macros should return diagnostics, not malformed fallback syntax.** The actor
+  macro now emits `ACTOR001` for declaration-shape errors and `ACTOR002` for its
+  body grammar.
+- **Generated interop needs runtime validation.** A valid-looking imported type
+  test exposed an emission problem in the first lifecycle lowering. Typed
+  conditional bindings produced the correct Proto.Actor dispatch shape. A DSL
+  cannot treat successful parsing as proof that its generated boundary works.
+- **Parsing the body twice is an MVP smell.** Fragment discovery and expansion
+  currently walk the same small grammar independently. A reusable parsed DSL
+  model, owned or cached by the macro provider, would prevent tooling and
+  expansion from drifting as grammars become larger.
+
+The useful macro-platform direction is therefore not a separate parser or
+semantic system per DSL. It is a structured declaration carrier, a small
+provider-owned grammar, ordinary Raven fragments, explicit diagnostics, and a
+well-mapped lowering to normal Raven code.
 
 ## POC boundaries and design questions
 
@@ -152,12 +217,10 @@ real actor feature, the following need design work:
 
 - The handler is synchronous and returns `Task.CompletedTask`. An async body
   needs a sound expansion and clear rules about actor reentrancy.
-- Proto.Actor lifecycle messages are currently ignored by the generated message
-  type test. A real DSL needs explicit lifecycle clauses without weakening the
-  domain protocol.
-- Invalid declaration shapes currently fall back to ordinary compiler errors.
-  The macro should report dedicated diagnostics for a missing protocol or state
-  without defaults.
+- Only the `Started` and `Stopping` lifecycle stages are modeled. Restart,
+  completion, watching, and termination still need deliberate source forms.
+- Dedicated declaration and body diagnostics exist, but the POC does not yet
+  test every invalid clause order or duplicate lifecycle clause.
 - The first-parameter/remaining-state convention is concise but still a POC.
   Named roles such as `receives` and `state` may communicate intent better.
 - Supervision, child spawning, behavior changes, timers, persistence,
@@ -169,9 +232,10 @@ real actor feature, the following need design work:
   lowered by another backend, but portable behavior should not be claimed until
   lifecycle and reentrancy semantics are specified.
 
-These are useful review questions for an actor-runtime expert: the goal is not
-to hide Proto.Actor, but to find the smallest Raven surface that makes correct
-actor code easier to read and author.
+These are useful review questions for an actor-runtime expert. The authored
+surface should hide Proto.Actor plumbing wherever the actor concept already has
+a clearer name, while the generated code continues to use Proto.Actor's runtime,
+contracts, configuration, and operational behavior directly.
 
 ## Project layout
 
@@ -194,8 +258,10 @@ dotnet run --project samples/projects/proto-actor-dsl/app/ProtoActorDslSample.rv
 Expected output:
 
 ```text
+Counter started
 Counter value: 5
 After reset: 0
+Counter stopping at 0
 ```
 
 The runtime package is the stable

@@ -1,10 +1,22 @@
 namespace ProtoActorDslSample
 
+import System.Console.*
+
 actor! CounterActor(command: CounterCommand, count: int = 0) {
-    match command {
-        .Add(let amount) => count = count + amount
-        .Subtract(let amount) => count = count - amount
-        .Reset => count = 0
-        .Get => context.Respond(CounterSnapshot(count))
+    started {
+        WriteLine("Counter started")
+    }
+
+    receive {
+        match command {
+            .Add(let amount) => count = count + amount
+            .Subtract(let amount) => count = count - amount
+            .Reset => count = 0
+            .Get => context.Respond(CounterSnapshot(count))
+        }
+    }
+
+    stopping {
+        WriteLine("Counter stopping at ${count}")
     }
 }
