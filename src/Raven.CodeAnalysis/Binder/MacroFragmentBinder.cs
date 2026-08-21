@@ -118,6 +118,10 @@ internal sealed class MacroFragmentBinder : BlockBinder
     protected override void OnFreestandingMacroExpressionBinding(FreestandingMacroExpressionSyntax syntax)
         => CaptureNestedMacroVisibleSymbols(syntax);
 
+    protected override FreestandingMacroExpansionResult? GetFreestandingMacroExpansion(
+        FreestandingMacroExpressionSyntax syntax)
+        => SemanticModel.GetFreestandingMacroExpansionForFragmentTooling(syntax);
+
     private void CaptureNestedMacroVisibleSymbols(FreestandingMacroExpressionSyntax syntax)
     {
         var builder = ImmutableArray.CreateBuilder<MacroFragmentVisibleSymbol>();

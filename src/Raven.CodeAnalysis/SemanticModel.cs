@@ -10097,6 +10097,27 @@ public partial class SemanticModel
         return result;
     }
 
+    internal FreestandingMacroExpansionResult? GetFreestandingMacroExpansionForFragmentTooling(
+        FreestandingMacroExpressionSyntax expression,
+        CancellationToken cancellationToken = default)
+    {
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+
+        ArgumentNullException.ThrowIfNull(expression);
+
+        // Fragment syntax is parsed speculatively to power editor features. Its
+        // immediate statement/expression position belongs to the fragment parse,
+        // not necessarily to the outer macro's eventual expansion, so diagnostics
+        // from this expansion must not escape into the authored document.
+        return MacroExpansionService.ExpandFreestandingMacro(
+            Compilation,
+            this,
+            expression,
+            new DiagnosticBag(),
+            cancellationToken,
+            registerGeneratedSyntax: false);
+    }
+
     private void InvalidateStaleFreestandingMacroExpansions()
     {
         foreach (var (invocation, entry) in _freestandingMacroExpansionCache)

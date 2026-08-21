@@ -128,13 +128,15 @@ internal static class MacroExpansionService
         SemanticModel semanticModel,
         FreestandingMacroExpressionSyntax expression,
         DiagnosticBag diagnostics,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool registerGeneratedSyntax = true)
         => ExpandFreestandingMacro(
             compilation,
             semanticModel,
             FreestandingMacroInvocation.Create(expression),
             diagnostics,
-            cancellationToken);
+            cancellationToken,
+            registerGeneratedSyntax);
 
     public static FreestandingMacroExpansionResult? ExpandFreestandingMacro(
         Compilation compilation,
@@ -147,7 +149,8 @@ internal static class MacroExpansionService
             semanticModel,
             FreestandingMacroInvocation.Create(member),
             diagnostics,
-            cancellationToken);
+            cancellationToken,
+            registerGeneratedSyntax: true);
 
     public static FreestandingMacroExpansionResult? ExpandFreestandingMacro(
         Compilation compilation,
@@ -160,14 +163,16 @@ internal static class MacroExpansionService
             semanticModel,
             FreestandingMacroInvocation.Create(declaration),
             diagnostics,
-            cancellationToken);
+            cancellationToken,
+            registerGeneratedSyntax: true);
 
     private static FreestandingMacroExpansionResult? ExpandFreestandingMacro(
         Compilation compilation,
         SemanticModel semanticModel,
         FreestandingMacroInvocation invocation,
         DiagnosticBag diagnostics,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool registerGeneratedSyntax)
     {
         cancellationToken.ThrowIfCancellationRequested();
         compilation.PerformanceInstrumentation.Macros.RecordFreestandingExpansionInvocation();
@@ -222,9 +227,12 @@ internal static class MacroExpansionService
 
             result = ValidateExpansionCategory(loaded.Macro.Name, invocation, result, diagnostics);
             result = ContextualizeExpansionResult(invocation, result);
-            RegisterGeneratedSyntaxTree(compilation, semanticModel, result.Node);
-            foreach (var member in result.Members)
-                RegisterGeneratedSyntaxTree(compilation, semanticModel, member);
+            if (registerGeneratedSyntax)
+            {
+                RegisterGeneratedSyntaxTree(compilation, semanticModel, result.Node);
+                foreach (var member in result.Members)
+                    RegisterGeneratedSyntaxTree(compilation, semanticModel, member);
+            }
 
             ReportMacroDiagnostics(diagnostics, loaded.Macro.Name, invocation.Name.GetLocation(), result.MacroDiagnostics);
 

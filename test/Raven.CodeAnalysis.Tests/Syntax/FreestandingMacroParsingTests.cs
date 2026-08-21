@@ -156,6 +156,27 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
+    public void FreestandingMacroDeclaration_ParsesAsMemberInFileScopedNamespace()
+    {
+        var tree = SyntaxTree.ParseText("""
+            namespace Components;
+
+            component! Header() {
+            }
+            """);
+        var root = Assert.IsType<CompilationUnitSyntax>(tree.GetRoot());
+        var fileScopedNamespace = Assert.IsType<FileScopedNamespaceDeclarationSyntax>(
+            Assert.Single(root.Members));
+        var declaration = Assert.IsType<FreestandingMacroDeclarationSyntax>(
+            Assert.Single(fileScopedNamespace.Members));
+
+        Assert.Equal("component", declaration.Name.ToString());
+        Assert.Equal("Header", declaration.Identifier.ValueText);
+        Assert.Empty(declaration.Ancestors().OfType<GlobalStatementSyntax>());
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void FreestandingMacroDeclaration_UnterminatedBodyReportsMissingBrace()
     {
         var tree = SyntaxTree.ParseText("""

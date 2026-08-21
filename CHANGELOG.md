@@ -1,9 +1,16 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-08-20**.
+Behavior-focused timeline covering **2025-09-12** to **2026-08-21**.
 
 ## Unreleased
 
+- Macro-fragment editor queries no longer publish speculative nested expansion
+  diagnostics or register their synthetic expansion trees as authored document
+  state. Declaration-shaped component macros therefore remain valid while
+  inlays, completion, and classifications inspect a nested expression macro,
+  including after blank-line edits. Declaration carriers are also covered as
+  members at compilation-unit and file-scoped-namespace scope, distinct from
+  Raven's supported top-level statement macro form.
 - Fixed VS Code language-server resolution so a packaged extension does not
   silently use an older automatically discovered SDK server, which could
   invalidate macro expansion diagnostics after otherwise harmless edits.

@@ -94,11 +94,51 @@ public sealed class MarkupMacroToolingAcceptanceTests
             var semanticModel = compilation.GetSemanticModel(syntaxTree);
             var declaration = Assert.Single(
                 syntaxTree.GetRoot().Members.OfType<FreestandingMacroDeclarationSyntax>());
+            Assert.IsType<CompilationUnitSyntax>(declaration.Parent);
             Assert.NotNull(semanticModel.GetMacroInputSnapshot(declaration));
+            _ = semanticModel.GetMacroFragmentInferredTypeAnnotations(declaration);
             Assert.DoesNotContain(
                 compilation.GetDiagnostics(),
                 static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         }
+    }
+
+    [Fact]
+    public void CheckedInFunctionComponent_InFileScopedNamespaceRemainsADeclarationMember()
+    {
+        var macroReference = CreateCheckedInBlazorMacroReference();
+        const string source = """
+            import System.Console.*
+
+            namespace Components;
+
+            component! Greeting(Name: string = "") {
+                WriteLine("Rendering Greeting for ${Name}")
+
+                markup! {
+                    <section class="greeting">
+                        <h1>Hello {Name}</h1>
+                    </section>
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "namespaced-function-component.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference)
+            .AddReferences(CreateAspNetCoreComponentsReference());
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var declaration = Assert.Single(
+            syntaxTree.GetRoot().DescendantNodes().OfType<FreestandingMacroDeclarationSyntax>());
+
+        Assert.IsType<FileScopedNamespaceDeclarationSyntax>(declaration.Parent);
+        Assert.Empty(declaration.Ancestors().OfType<GlobalStatementSyntax>());
+
+        _ = semanticModel.GetMacroFragmentInferredTypeAnnotations(declaration);
+        var expanded = semanticModel.GetExpandedRoot().ToFullString();
+
+        Assert.Contains("class Greeting", expanded, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]

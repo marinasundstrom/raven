@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -2503,7 +2504,7 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
-        var expansion = SemanticModel.GetMacroExpansion(syntax);
+        var expansion = GetFreestandingMacroExpansion(syntax);
         if (expansion?.Expression is null)
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
 
@@ -2518,6 +2519,10 @@ partial class BlockBinder : Binder
         CacheBoundNode(expansion.Expression, bound);
         return bound;
     }
+
+    protected virtual FreestandingMacroExpansionResult? GetFreestandingMacroExpansion(
+        FreestandingMacroExpressionSyntax syntax)
+        => SemanticModel.GetMacroExpansion(syntax);
 
     private BoundExpression BindNullCoalesceExpression(NullCoalesceExpressionSyntax coalesce)
     {

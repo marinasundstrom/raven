@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 
@@ -52,9 +53,30 @@ public sealed class LanguageServerMacroExpansionTests
         await manager.FlushPendingMacroConsumerRefreshesAsync();
         store.TryGetCompilation(uri, out var updatedCompilation).ShouldBeTrue();
         updatedCompilation.ShouldNotBeNull();
+        var updatedTree = updatedCompilation.SyntaxTrees.Single(tree =>
+            string.Equals(Path.GetFullPath(tree.FilePath), documentPath, StringComparison.Ordinal));
+        var updatedModel = updatedCompilation.GetSemanticModel(updatedTree);
+        var updatedRoot = updatedTree.GetRoot();
+        var hints = new List<InlayHint>();
+        var budget = new InlayHintHandler.InlayHintCollectionBudget(
+            Stopwatch.StartNew(),
+            CancellationToken.None,
+            double.PositiveInfinity,
+            includeTooltips: false);
+        InlayHintHandler.AddMacroFragmentTypeHints(
+            hints,
+            updatedModel,
+            updatedRoot,
+            updatedTree.GetText(),
+            updatedRoot.FullSpan,
+            budget,
+            CancellationToken.None);
+
         updatedCompilation.GetDiagnostics()
             .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
             .ShouldBeEmpty();
+        var lspDiagnostics = await store.GetDiagnosticsAsync(uri, CancellationToken.None);
+        lspDiagnostics.Where(static diagnostic => diagnostic.Code?.String == "RAVM022").ShouldBeEmpty();
     }
 
     [Fact]

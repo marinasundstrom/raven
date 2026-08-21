@@ -27,7 +27,7 @@ partial class BlockBinder
     {
         if (expressionStmt.Expression is FreestandingMacroExpressionSyntax { TokenTree: not null } macroExpression)
         {
-            var expansion = SemanticModel.GetMacroExpansion(macroExpression);
+            var expansion = GetFreestandingMacroExpansion(macroExpression);
             if (expansion?.Statement is not { } expansionStatement)
                 return new BoundExpressionStatement(ErrorExpression(reason: BoundExpressionReason.NotFound));
 

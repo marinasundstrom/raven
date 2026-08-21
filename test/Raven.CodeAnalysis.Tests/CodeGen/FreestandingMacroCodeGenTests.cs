@@ -48,13 +48,14 @@ public sealed class FreestandingMacroCodeGenTests
     [Fact]
     public void FreestandingMacro_WrongExpansionCategory_ReportsDiagnostic()
     {
-        var syntaxTree = SyntaxTree.ParseText("""
+        const string source = """
             import Raven.CodeAnalysis.Tests.*
 
             func Run() {
                 raven!{ 20 + 22 }
             }
-            """);
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source);
 
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(syntaxTree)
@@ -65,6 +66,7 @@ public sealed class FreestandingMacroCodeGenTests
             compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM022"));
 
         Assert.Contains("statement syntax is required", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Equal("raven", source.Substring(diagnostic.Location.SourceSpan.Start, diagnostic.Location.SourceSpan.Length));
     }
 
     [Fact]
