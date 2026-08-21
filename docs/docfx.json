@@ -53,6 +53,8 @@
           "compiler/raven-compiler.md",
           "compiler/target-platforms.md",
           "compiler/nanoframework.md",
+          "compiler/webassembly.md",
+          "compiler/browser-wasm.md",
           "compiler/project-system.md",
           "compiler/extending-projects.md",
           "compiler/source-generators.md",

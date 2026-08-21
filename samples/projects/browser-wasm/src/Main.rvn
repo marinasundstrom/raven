@@ -1,12 +1,24 @@
 import System.Runtime.InteropServices.JavaScript.*
 
+partial class BrowserInterop {
+    [JSImport("setGreeting", "raven")]
+    static partial func SetGreeting(
+        message: string,
+        [JSMarshalAs<JSType.Function<JSType.String>>] onRendered: Action<string>
+    );
+}
+
 func Main() {
-    match JSHost.GlobalThis.GetPropertyAsJSObject("ravenApp") {
-        null => Console.Error.WriteLine("JavaScript did not provide the Raven app element.")
-        JSObject element => {
-            use app = element
+    match JSHost.GlobalThis.GetPropertyAsJSObject("ravenCallback") {
+        null => Console.Error.WriteLine("JavaScript did not provide the callback element.")
+        JSObject callbackElement => {
+            use callback = callbackElement
             let href = JSHost.GlobalThis.GetPropertyAsString("ravenLocation")
-            app.SetProperty("textContent", "Hello from Raven WebAssembly at $href")
+
+            BrowserInterop.SetGreeting(
+                "Hello from Raven WebAssembly at $href",
+                message => callback.SetProperty("textContent", message)
+            )
         }
     }
 }

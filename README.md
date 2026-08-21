@@ -248,8 +248,8 @@ and `rvn run` commands remain available for the standalone SDK workflow.
 
 For a framework-free browser app compiled to .NET WebAssembly, install the
 standard `wasm-tools` workload and use `dotnet new raven-browser` or
-`rvn init browser`. See the
-[browser WebAssembly sample](samples/projects/browser-wasm/README.md).
+`rvn init browser`. See [Browser WebAssembly applications](docs/compiler/browser-wasm.md)
+and the [runnable sample](samples/projects/browser-wasm/README.md).
 
 For a small program or learning exercise, run one source file without creating
 a project:

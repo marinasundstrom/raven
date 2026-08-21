@@ -280,6 +280,9 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV4001` | Warning | Documentation comment is not valid XML | Documentation comment is not well-formed XML: {message} | `samples/runtime/documentation-comment-basic.rav` |
 | `RAV4002` | Warning | Documentation comment is not valid Markdown | Documentation comment is not well-formed Markdown: {message} | `samples/runtime/documentation-comment-basic.rav` |
 | `RAV4003` | Warning | Documentation comment indentation is inconsistent | Documentation comment lines must have consistent indentation | `samples/runtime/documentation-comment-basic.rav` |
+| `RVNGEN001` | Error | Source generator failure | Source generator '{generatorName}' failed: {message} | — |
+| `RVNJS001` | Error | Unsupported JavaScript import | JavaScript import '{methodName}' is not supported by the current Raven interop generator: {reason} | `samples/projects/browser-wasm` |
+
 ## Behavior notes
 
 ### Struct-union boundaries

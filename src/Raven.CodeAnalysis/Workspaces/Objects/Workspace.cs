@@ -348,15 +348,21 @@ public class Workspace
 
         var generators = project.GeneratorReferences
             .SelectMany(static reference => reference.GetGenerators())
+            .ToList();
+        if (JavaScriptInteropGenerator.HasCandidate(compilation))
+            generators.Add(new JavaScriptInteropGenerator());
+
+        var orderedGenerators = generators
             .OrderBy(static generator => generator.GetType().FullName, StringComparer.Ordinal)
             .ToArray();
-        if (generators.Length > 0)
+        if (orderedGenerators.Length > 0)
         {
-            _ = GeneratorDriver.Create(generators).RunGeneratorsAndUpdateCompilation(
+            var driver = GeneratorDriver.Create(orderedGenerators).RunGeneratorsAndUpdateCompilation(
                 compilation,
                 out compilation,
                 out _);
-            documentSetChanged = true;
+            var runResult = driver.GetRunResult();
+            documentSetChanged |= !runResult.GeneratedSources.IsEmpty || !runResult.Diagnostics.IsEmpty;
         }
 
         if (previousCompilation is not null)

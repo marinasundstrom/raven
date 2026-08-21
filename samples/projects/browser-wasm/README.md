@@ -4,8 +4,15 @@ This is a framework-free browser application: Raven compiles to a managed .NET
 assembly, the .NET WebAssembly SDK publishes the runtime and application into an
 `AppBundle`, and a small JavaScript module starts it. Blazor is not involved.
 
-The sample uses the generator-free `JSHost` and `JSObject` APIs to read
-`globalThis.location` and update a DOM element supplied by `wwwroot/main.js`.
+The sample demonstrates both interop directions. Raven calls the JavaScript
+`setGreeting` method, passing a Raven lambda as a managed delegate. JavaScript
+updates the DOM and invokes that delegate to call back into Raven, which updates
+a second element.
+
+The Raven source declares the import with the same `[JSImport]` partial-method
+shape used by C#. Raven's built-in interop source generator supplies the
+low-level .NET marshalling stub, so the application needs no C# companion and
+remains independent of Blazor.
 
 Install the .NET WebAssembly build tools once, then run the project:
 
@@ -21,7 +28,7 @@ Release mode and host the generated `AppBundle` directory:
 dotnet publish samples/projects/browser-wasm/BrowserWasmSample.rvnproj -c Release
 ```
 
-The low-level API is deliberate for the first sample. A future Raven interop
-macro can generate the marshalling stubs behind typed JavaScript imports and
-exports, replacing the role played by Roslyn source generators in C# while
-leaving this project and hosting model unchanged.
+The source generator is the first typed interop slice. A future Raven interop
+macro can generate or refine the same marshalling boundary behind typed
+JavaScript imports and exports while leaving this project and hosting model
+unchanged.

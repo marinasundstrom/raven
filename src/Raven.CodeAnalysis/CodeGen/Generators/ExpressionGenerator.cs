@@ -7566,7 +7566,9 @@ internal partial class ExpressionGenerator : Generator
         // Emit receiver (for instance methods)
         if (!target.IsStatic)
         {
-            var requiresAddress = invocationExpression.RequiresReceiverAddress || useConstrainedCall;
+            var requiresAddress = invocationExpression.RequiresReceiverAddress ||
+                useConstrainedCall ||
+                target.ContainingType?.IsValueType == true;
             var receiverAddressLoaded = false;
 
             if (!receiverAlreadyLoaded)

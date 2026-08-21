@@ -20,7 +20,10 @@ dotnet new raven-web -n RavenWeb --framework net10.0
 ```
 
 The browser template is a framework-free .NET WebAssembly application rather
-than a Blazor application. Install the standard WebAssembly build tools before
+than a Blazor application. Raven's built-in `[JSImport]` source generator
+demonstrates a typed JavaScript method call and a JavaScript-to-Raven delegate
+callback without a C# companion. A future Raven macro can build on that
+marshalling contract. Install the standard WebAssembly build tools before
 building it:
 
 ```bash
