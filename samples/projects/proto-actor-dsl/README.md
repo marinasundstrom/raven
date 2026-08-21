@@ -52,9 +52,13 @@ record CounterSnapshot(Value: int)
 The actor itself is one declaration:
 
 ```raven
-actor! CounterActor(command: CounterCommand, count: int = 0) {
+actor! CounterActor(
+    command: CounterCommand,
+    events: ICounterEvents,
+    count: int = 0
+) {
     started {
-        WriteLine("Counter started")
+        events.Started()
     }
 
     receive {
@@ -67,7 +71,7 @@ actor! CounterActor(command: CounterCommand, count: int = 0) {
     }
 
     stopping {
-        WriteLine("Counter stopping at ${count}")
+        events.Stopping(count)
     }
 }
 ```
@@ -76,15 +80,17 @@ The `!` is Raven's marker for a macro invocation. `actor! Name(...) { ... }` is
 a declaration-form macro, so it occupies the same source position as a class.
 It does not add `actor` to Raven's global grammar.
 
-The declaration has three semantic parts:
+The declaration has five semantic parts:
 
 1. `CounterActor` is the generated actor type and Proto.Actor producer.
 2. The first parameter, `command: CounterCommand`, declares the mailbox protocol
    and names the current message inside the `receive` clause.
-3. Remaining defaulted parameters are actor-owned state. Here `count` becomes a
-   private mutable property initialized to zero.
-4. `started`, `receive`, and `stopping` are body-scoped DSL keywords. They do not
-   become Raven keywords outside an `actor!` declaration.
+3. A remaining parameter without a default is a constructor-injected
+   dependency. Here `events` is an application capability, not actor state.
+4. A remaining parameter with a default is actor-owned state. Here `count`
+   becomes a private mutable property initialized to zero.
+5. `started`, `receive`, and `stopping` are body-scoped contextual keywords.
+   They do not become Raven keywords outside an `actor!` declaration.
 
 Each clause body is ordinary Raven. Because `CounterCommand` is a closed union,
 `match` must interpret the complete protocol. Adding another command therefore
@@ -97,15 +103,17 @@ The generated shape is equivalent to this Raven code (slightly formatted for
 readability):
 
 ```raven
-class CounterActor : Proto.IActor {
+class CounterActor(private val events: ICounterEvents) : Proto.IActor {
     private var count: int = 0
 
-    static func Props() -> Proto.Props =>
-        Proto.Props.FromProducer(func () => CounterActor())
+    static func Props(system: Proto.ActorSystem) -> Proto.Props =>
+        Proto.DependencyInjection.Extensions
+            .DI(system)
+            .PropsFor<CounterActor>()
 
     func ReceiveAsync(context: Proto.IContext) -> System.Threading.Tasks.Task {
         if let startedEvent: Proto.Started = context.Message {
-            WriteLine("Counter started")
+            events.Started()
             return System.Threading.Tasks.Task.CompletedTask
         }
 
@@ -121,7 +129,7 @@ class CounterActor : Proto.IActor {
         }
 
         if let stoppingEvent: Proto.Stopping = context.Message {
-            WriteLine("Counter stopping at ${count}")
+            events.Stopping(count)
             return System.Threading.Tasks.Task.CompletedTask
         }
 
@@ -134,8 +142,13 @@ There is no second runtime or actor abstraction. The application spawns the
 generated producer and uses the normal Proto.Actor root context:
 
 ```raven
-let system = ActorSystem()
-let counter = system.Root.SpawnNamed(CounterActor.Props(), "counter")
+let services = ServiceCollection()
+services.AddSingleton<ICounterEvents, ConsoleCounterEvents>()
+services.AddTransient<CounterActor>()
+
+use provider = services.BuildServiceProvider()
+let system = ActorSystem().WithServiceProvider(provider)
+let counter = system.Root.SpawnNamed(CounterActor.Props(system), "counter")
 
 let add: CounterCommand = .Add(7)
 let get: CounterCommand = .Get
@@ -157,9 +170,12 @@ facts local and explicit:
   interpreted with an exhaustive match.
 - **State ownership is visible.** Defaulted parameters after the protocol are
   private state belonging to each actor instance.
+- **Dependencies are separated from state.** Required typed parameters become
+  constructor-injected capabilities. Container setup stays at the application
+  boundary and does not leak into actor behavior.
 - **Framework plumbing is generated.** `IActor`, `ReceiveAsync`, the safe message
-  type test, `Task.CompletedTask`, and `Props.FromProducer` are implementation
-  details.
+  type test, `Task.CompletedTask`, and Proto.Actor's DI-backed `Props` construction
+  are implementation details.
 - **Lifecycle intent has names.** Startup and shutdown behavior no longer appear
   as framework types mixed into the domain-message switch.
 - **Clause bodies remain normal Raven.** The macro reports each one as an
@@ -204,6 +220,10 @@ lessons generalize to UI, workflow, service, routing, and persistence DSLs:
   currently walk the same small grammar independently. A reusable parsed DSL
   model, owned or cached by the macro provider, would prevent tooling and
   expansion from drifting as grammars become larger.
+- **Declaration syntax can carry semantic roles.** This POC distinguishes a
+  dependency from state by the presence of a default value. That keeps the
+  surface compact, but an explicit future `dependency` or `state` form may be
+  clearer as the model grows.
 
 The useful macro-platform direction is therefore not a separate parser or
 semantic system per DSL. It is a structured declaration carrier, a small
@@ -222,7 +242,14 @@ real actor feature, the following need design work:
 - Dedicated declaration and body diagnostics exist, but the POC does not yet
   test every invalid clause order or duplicate lifecycle clause.
 - The first-parameter/remaining-state convention is concise but still a POC.
-  Named roles such as `receives` and `state` may communicate intent better.
+  Named roles such as `receives`, `dependency`, and `state` may communicate
+  intent better.
+- Actor types are registered as transient so each restart or spawn receives a
+  fresh actor instance. Singleton actor instances would accidentally share
+  mutable incarnation state.
+- Long-lived actors should not directly capture request-scoped services. A
+  production model needs an explicit actor-owned scope or a factory when scoped
+  work is required.
 - Supervision, child spawning, behavior changes, timers, persistence,
   cancellation, serialization, and remote/cluster contracts are not modeled.
 - A production design should decide whether `Props()` belongs on the generated
@@ -242,6 +269,8 @@ contracts, configuration, and operational behavior directly.
 - `macros/ActorMacro.rvn` implements the declaration macro and source mapping.
 - `macros/ProtoActorDslMacros.rvnproj` builds the Raven compiler plugin.
 - `app/src/CounterProtocol.rvn` defines immutable commands and the response.
+- `app/src/CounterEvents.rvn` defines and implements an injected application
+  capability.
 - `app/src/CounterActor.rvn` contains the single actor declaration.
 - `app/src/Program.rvn` exercises normal Proto.Actor spawn, send, and request
   APIs.

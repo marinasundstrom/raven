@@ -1,0 +1,18 @@
+namespace ProtoActorDslSample
+
+import System.Console.*
+
+interface ICounterEvents {
+    func Started()
+    func Stopping(value: int)
+}
+
+class ConsoleCounterEvents : ICounterEvents {
+    func Started() {
+        WriteLine("Counter started")
+    }
+
+    func Stopping(value: int) {
+        WriteLine("Counter stopping at ${value}")
+    }
+}

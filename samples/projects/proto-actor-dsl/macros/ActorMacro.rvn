@@ -19,9 +19,9 @@ class ActorMacro : IMacroDefinition, IMacroKeywordProvider, IMacroFragmentProvid
 
     val Keywords: ImmutableArray<MacroKeyword>
         => [
-            MacroKeyword("started", StartedKeywordRawKind, MacroKeywordClassification.ReservedWord),
-            MacroKeyword("receive", ReceiveKeywordRawKind, MacroKeywordClassification.ReservedWord),
-            MacroKeyword("stopping", StoppingKeywordRawKind, MacroKeywordClassification.ReservedWord)
+            MacroKeyword("started", StartedKeywordRawKind),
+            MacroKeyword("receive", ReceiveKeywordRawKind),
+            MacroKeyword("stopping", StoppingKeywordRawKind)
         ]
 
     func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
@@ -146,29 +146,62 @@ class ActorMacro : IMacroDefinition, IMacroKeywordProvider, IMacroFragmentProvid
         let source = StringBuilder()
         source.Append("class ")
         source.Append(declaration.Identifier.ValueText)
+
+        var dependencyCount = 0
+        var index = 1
+        while index < parameters.Parameters.Count {
+            let dependency = parameters.Parameters[index]
+            let dependencyType: TypeAnnotationClauseSyntax = dependency.TypeAnnotation else {
+                return DeclarationError(context, dependency, "Actor dependencies and state require explicit types.")
+            }
+
+            if let stateInitializer: EqualsValueClauseSyntax = dependency.DefaultValue {
+                _ = stateInitializer
+            } else {
+                if dependencyCount == 0 {
+                    _ = source.Append("(")
+                } else {
+                    _ = source.Append(", ")
+                }
+                source.Append("private val ")
+                source.Append(dependency.Identifier.ValueText)
+                source.Append(dependencyType.ToString())
+                dependencyCount = dependencyCount + 1
+            }
+
+            index = index + 1
+        }
+        if dependencyCount > 0 {
+            source.Append(")")
+        }
         source.Append(" : Proto.IActor {")
 
-        var index = 1
+        index = 1
         while index < parameters.Parameters.Count {
             let state = parameters.Parameters[index]
             let stateType: TypeAnnotationClauseSyntax = state.TypeAnnotation else {
-                return DeclarationError(context, state, "Actor state requires an explicit type.")
+                return DeclarationError(context, state, "Actor dependencies and state require explicit types.")
             }
-            let initialValue: EqualsValueClauseSyntax = state.DefaultValue else {
-                return DeclarationError(context, state, "Actor state requires an initial value.")
+            if let initialValue: EqualsValueClauseSyntax = state.DefaultValue {
+                source.Append("private var ")
+                source.Append(state.Identifier.ValueText)
+                source.Append(stateType.ToString())
+                source.Append(initialValue.ToString())
+                source.Append(";")
             }
-
-            source.Append("private var ")
-            source.Append(state.Identifier.ValueText)
-            source.Append(stateType.ToString())
-            source.Append(initialValue.ToString())
-            source.Append(";")
             index = index + 1
         }
 
-        source.Append("static func Props() -> Proto.Props => Proto.Props.FromProducer(func () => ")
-        source.Append(declaration.Identifier.ValueText)
-        source.Append("());")
+        if dependencyCount > 0 {
+            _ = source.Append("static func Props(system: Proto.ActorSystem) -> Proto.Props => ")
+            source.Append("Proto.DependencyInjection.Extensions.DI(system).PropsFor<")
+            source.Append(declaration.Identifier.ValueText)
+            source.Append(">();")
+        } else {
+            _ = source.Append("static func Props() -> Proto.Props => Proto.Props.FromProducer(func () => ")
+            source.Append(declaration.Identifier.ValueText)
+            source.Append("());")
+        }
         source.Append("func ReceiveAsync(context: Proto.IContext) -> System.Threading.Tasks.Task {")
 
         var sourceMaps: ImmutableArray<MacroExpansionSourceMap> = []

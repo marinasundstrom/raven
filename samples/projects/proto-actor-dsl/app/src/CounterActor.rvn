@@ -1,10 +1,12 @@
 namespace ProtoActorDslSample
 
-import System.Console.*
-
-actor! CounterActor(command: CounterCommand, count: int = 0) {
+actor! CounterActor(
+    command: CounterCommand,
+    events: ICounterEvents,
+    count: int = 0
+) {
     started {
-        WriteLine("Counter started")
+        events.Started()
     }
 
     receive {
@@ -17,6 +19,6 @@ actor! CounterActor(command: CounterCommand, count: int = 0) {
     }
 
     stopping {
-        WriteLine("Counter stopping at ${count}")
+        events.Stopping(count)
     }
 }

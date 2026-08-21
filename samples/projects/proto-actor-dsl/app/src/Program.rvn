@@ -2,11 +2,18 @@ namespace ProtoActorDslSample
 
 import System.*
 import System.Console.*
+import Microsoft.Extensions.DependencyInjection.*
 import Proto.*
+import Proto.DependencyInjection.*
 
 func Main() {
-    let system = ActorSystem()
-    let counter = system.Root.SpawnNamed(CounterActor.Props(), "counter")
+    let services = ServiceCollection()
+    services.AddSingleton<ICounterEvents, ConsoleCounterEvents>()
+    services.AddTransient<CounterActor>()
+
+    use provider = services.BuildServiceProvider()
+    let system = ActorSystem().WithServiceProvider(provider)
+    let counter = system.Root.SpawnNamed(CounterActor.Props(system), "counter")
 
     let add: CounterCommand = .Add(7)
     let subtract: CounterCommand = .Subtract(2)
