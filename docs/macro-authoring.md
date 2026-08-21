@@ -1,8 +1,9 @@
 # Authoring Raven macros
 
 Raven macros are procedural macros: compile-time programs that validate input
-and produce ordinary Raven syntax. Start with `macro`. Move to provider interfaces only when a
-macro needs capabilities the compact declaration syntax does not yet project.
+and produce ordinary Raven syntax. Start with `macro`. Move to provider
+interfaces only when a macro needs capabilities the compact declaration syntax
+does not yet project.
 
 > [!NOTE]
 > Macro authoring is experimental. Examples here describe the current
@@ -14,6 +15,11 @@ A Raven macro receives typed values, authored syntax, or a lossless token body
 at compile time. It returns ordinary Raven syntax, and the compiler then parses,
 binds, diagnoses, emits, debugs, and serves editor features for that syntax in
 the usual way.
+
+A freestanding invocation always retains `!` as its visible extension marker.
+A resolved alias may be colored like a contextual keyword, especially in a
+declaration-shaped DSL, but it remains a library-provided macro name rather
+than a reserved Raven keyword.
 
 Keep four rules in mind:
 
@@ -60,6 +66,12 @@ authors do not need to begin there.
 
 The compact and class-authored forms are two projections of one model. They use
 the same invocation syntax, registry, contexts, diagnostics, and results.
+
+Raven does not currently define a declarative pattern-and-replacement macro
+language. A macro library can parse such rules with the procedural APIs when a
+domain needs them; the generated Raven syntax is then validated and bound in
+the normal way. Prefer the direct typed or syntax-based contract until a
+concrete rule language provides a clearer authoring experience.
 
 This is also a complexity ladder. Typed-value and syntax-input macros are often
 small. A full token DSL can require a grammar, recovery, diagnostics, source
@@ -205,6 +217,10 @@ The declaration carrier preserves modifiers, the macro name, declared name,
 parameter list, and body. This allows aliases such as `component` to read like
 declaration keywords in `public component! Greeting(...) { ... }`, while the
 body remains lossless input owned by the macro.
+
+The `!` is intentional even in this declaration-like form. It lets the DSL
+participate in Raven's declaration experience without suggesting that
+`component` is permanently built into the language.
 
 An alias does not become a lexical Raven keyword. It is resolved through the
 macro registry using normal namespace and import rules. Once resolved, IDEs

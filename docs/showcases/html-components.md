@@ -4,6 +4,11 @@ This experimental sample is a DSL built by macros on top of Blazor. It offers
 another way to express ordinary Blazor components while retaining Blazor's
 component model, renderer, events, CSS isolation, hosting, and .NET interop.
 
+The syntax is designed to feel native without hiding its extension boundary:
+the IDE presents the resolved `component` and `markup` aliases like contextual
+keywords, while `!` makes it clear that each construct is supplied by a macro
+library rather than built into Raven.
+
 ```raven
 import System.Console.*
 
@@ -22,6 +27,9 @@ component! Greeting(Name: string = "") {
 
 - `component!` is a declaration-shaped macro that generates an ordinary Blazor
   `ComponentBase` class from its name, typed parameters, and Raven body.
+- The declaration-shaped carrier remains a declaration member at compilation
+  unit, namespace, and type-member scope; it is not reinterpreted as Raven's
+  supported top-level statement form.
 - Ordinary Raven statements can run before the final render expression; this
   example logs through `System.Console` before evaluating `markup!`.
 - `markup!` is an ordinary token-tree macro supplied by the sample library, not

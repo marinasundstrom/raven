@@ -6,6 +6,12 @@ syntax. The resulting syntax then follows the normal compiler pipeline: it is
 bound, diagnosed, emitted, debugged, and presented by editor tooling like
 handwritten Raven code.
 
+The spelling deliberately balances integration with honesty. A resolved alias
+such as `component` can be presented like a contextual language keyword, so a
+DSL reads naturally beside built-in Raven declarations. The required `!`
+remains visible as the stable signal that the construct is a macro invocation
+provided by a library rather than syntax fixed into the Raven language.
+
 Macros are experimental. Their syntax and authoring contracts may change while
 the feature is refined.
 
@@ -65,6 +71,10 @@ private grammar part of Raven. The compiler owns the surrounding invocation,
 source locations, expansion category, and semantic integration. The macro owns
 the meaning of its declared inputs.
 
+The goal is native language experience, not indistinguishability from the
+language core. A reader can understand `component` as declaration vocabulary
+while `!` still identifies the extension point.
+
 ## Two application kinds
 
 Raven distinguishes where a macro is applied from how it receives input.
@@ -112,6 +122,12 @@ component! Greeting(Name: string) { }
 In the second line, `Greeting` and its parameters belong to the declaration
 being introduced; they are not macro call arguments.
 
+This is a real declaration-shaped carrier. At compilation-unit, namespace, and
+type-member boundaries it remains distinct from Raven's expression and
+statement invocation forms, including top-level statements. That distinction
+lets the compiler and IDE give the carrier declaration behavior such as member
+placement and an outline entry under `Greeting`.
+
 ## Placement follows the expansion
 
 A macro declares the kind of syntax it produces, and that result determines
@@ -141,6 +157,13 @@ source spans, highlighting, completion, hover, navigation, and cancellation.
 Raven supplies APIs for those responsibilities, but the macro author still
 defines the DSL grammar and its lowering.
 
+Raven currently favors this procedural model: macro code receives declared,
+possibly typed inputs and explicitly constructs an expansion. There is no
+first-class declarative pattern-and-replacement macro syntax. Such a facility
+could later be built as a library macro that interprets rules and produces
+Raven syntax, but its result would still pass through the same expansion
+validation, binding, diagnostics, and type checking as every other macro.
+
 ## Names, aliases, and editor presentation
 
 A macro has a canonical name and may publish an alias. Aliases are
@@ -153,6 +176,10 @@ as a **contextual keyword**. This is especially natural in declaration forms
 such as `public component! Greeting(...)`. Canonical macro names retain the
 distinct macro classification. The language server and Playground use the same
 compiler-owned semantic classification.
+
+This presentation does not reserve the alias or erase the macro boundary. The
+alias remains an ordinary, resolvable name, and `!` remains part of every
+freestanding invocation spelling.
 
 An identifier-bearing declaration form also contributes one editor-outline
 entry for its authored identifier. For example, `component! Greeting(...)`

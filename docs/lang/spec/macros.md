@@ -13,6 +13,12 @@ A macro is an explicitly invoked compile-time program that consumes declared
 inputs and produces ordinary Raven syntax or declaration contributions.
 Expansion is procedural and syntax-based, not textual substitution.
 
+The `!` token is the explicit freestanding macro-invocation marker. Semantic
+tooling may present a resolved alias as a contextual keyword, but the alias does
+not become reserved syntax and `!` is not omitted. This permits library-defined
+constructs to read like Raven vocabulary while remaining visibly distinct from
+the fixed language grammar.
+
 The source file is parsed before macro resolution. The compiler then resolves
 the macro, binds its inputs, executes it in the compile-time partition,
 validates its output against the authored grammar position, and binds the
@@ -218,6 +224,11 @@ type-member boundaries. Resolution must select a macro descriptor that accepts
 the declaration carrier. Its result must be valid in the containing
 declaration list.
 
+An identifier-bearing declaration carrier is not a top-level statement. This
+remains true in a compilation unit or file-scoped namespace where Raven also
+permits global statements. The declared identifier and parameter list select
+the declaration-shaped syntax carrier before macro resolution.
+
 ### 4.4 Future sequence carrier
 
 `Name![item1, item2]` is reserved design direction and is not implemented.
@@ -262,6 +273,11 @@ before semantic resolution. A declaration result supplies file or namespace
 members; a statement result retains statement behavior. In a type body the
 parser uses a member carrier directly.
 
+This invocation-shaped envelope is distinct from
+`Name! Decl(parameters) { ... }`, which is parsed as a declaration carrier and
+must expand as a compatible declaration member. Whitespace, comments, or
+neighboring top-level statements do not change that carrier distinction.
+
 The compiler validates the complete result atomically against the actual
 target. A category mismatch reports `RAVM022` and does not insert the invalid
 node. A list result preserves source order. An explicitly empty member list
@@ -305,6 +321,10 @@ resolution, IDEs present the alias token with the contextual-keyword semantic
 classification. Canonical macro names retain the macro classification. This
 presentation rule applies equally to invocation and declaration-shaped forms
 and is shared by language-server clients and the Playground.
+
+Contextual-keyword presentation is an editor interpretation of the resolved
+symbol, not a change to lexical grammar. The source-level `!` continues to mark
+the construct as a macro invocation.
 
 Completion, signature help, hover, navigation, diagnostics, and expansion must
 consume the same compiler-owned descriptor and resolution result. Language
@@ -414,6 +434,7 @@ expansion, source-located diagnostics, and span-based editor integration.
 The following remain future design work:
 
 - the `[...]` sequence carrier and `MacroList<T>`;
+- first-class declarative pattern-and-replacement macro definitions;
 - type and pattern invocation targets;
 - typed syntax facades that preserve both semantic type information and
   authored syntax;
@@ -424,3 +445,9 @@ The following remain future design work:
 These boundaries do not prevent a macro from maintaining a private parser or
 syntax tree. They describe what the Raven compiler currently recognizes and
 shares across macro, semantic, and language-service boundaries.
+
+A library may use the implemented procedural API to interpret a declarative
+rule language and construct an expansion. Raven does not currently standardize
+such rules as a separate macro-definition form. Any syntax produced by that
+library still undergoes normal expansion-category validation, binding,
+diagnostics, and type checking.
