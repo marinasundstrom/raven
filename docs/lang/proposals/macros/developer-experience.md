@@ -1103,9 +1103,12 @@ into the macro. `IMacroEmbeddedLanguageProvider` supplies the next compiler
 primitive: a macro may return one language-identified projection whose length
 and line breaks exactly match the authored body. The compiler validates,
 caches, and failure-isolates it. Markup now returns an `html` projection that
-retains the markup envelope and masks embedded Raven expression text. A later
-editor bridge can route that virtual document to the editor's existing HTML
-language service, with direct offset mapping back to the parser-validated body.
+retains the markup envelope and masks embedded Raven expression text. The VS
+Code extension now proves the completion bridge: a custom language-server
+request resolves the projection owning the authored position, including nested
+macros inside reported Raven blocks; the client mounts it as a virtual HTML
+document and merges mapped HTML items after Raven's semantic items. Hover,
+formatting, linked editing, and diagnostics remain separate editor slices.
 
 Highlighting uses classifications rather than global `SyntaxKind` additions.
 Macro token metadata can mark raw kinds as keyword, reserved word, identifier,

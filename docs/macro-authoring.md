@@ -614,9 +614,12 @@ The projected text must have the same length and line breaks as the authored
 macro body. `SemanticModel.GetMacroEmbeddedLanguageProjection` returns the
 normalized, cached projection with its authored body span; provider failures
 remain isolated to the optional tooling query. The checked-in Markup macro
-retains its HTML envelope and masks embedded Raven expression text. A future
-editor bridge can pass that document to an existing HTML language service and
-map results directly by offset, without duplicating the HTML catalog in Raven.
+retains its HTML envelope and masks embedded Raven expression text. Raven's VS
+Code extension mounts that projection as a virtual document, invokes VS Code's
+HTML completion provider, maps its edits directly back by offset, and merges
+them after compiler-owned component completions. This avoids duplicating the
+HTML catalog in Raven. Other editor features and hosts can consume the same
+compiler projection API without depending on VS Code.
 The Markup parser remains the structural authority for validation, expansion,
 source mapping, and routing between HTML-owned positions, component semantics,
 and embedded Raven regions.

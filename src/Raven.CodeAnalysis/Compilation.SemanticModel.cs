@@ -171,6 +171,18 @@ public partial class Compilation
     }
 
     /// <summary>
+    /// Gets the embedded-language projection that owns a position in a syntax tree.
+    /// </summary>
+    public MacroEmbeddedLanguageProjection? GetMacroEmbeddedLanguageProjection(
+        SyntaxTree syntaxTree,
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(syntaxTree);
+        return GetSemanticModel(syntaxTree).GetMacroEmbeddedLanguageProjection(position, cancellationToken);
+    }
+
+    /// <summary>
     /// Gets completion items available at a position in a syntax tree within this compilation asynchronously.
     /// </summary>
     /// <param name="syntaxTree">The syntax tree to query.</param>

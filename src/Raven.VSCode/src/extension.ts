@@ -27,6 +27,56 @@ let inlayHintRefreshEpoch = 0;
 let inlayHintRefreshPromise: Promise<void> | undefined;
 const sdkInstallPromptDismissedKey = 'raven.sdkInstallPromptDismissed';
 const sdkInstallationDocumentationUrl = 'https://github.com/marinasundstrom/raven/blob/main/docs/compiler/distribution.md';
+const macroEmbeddedLanguageProjectionMethod = 'raven/macroEmbeddedLanguageProjection';
+const macroEmbeddedDocumentScheme = 'raven-embedded';
+
+interface LspPosition {
+  line: number;
+  character: number;
+}
+
+interface LspRange {
+  start: LspPosition;
+  end: LspPosition;
+}
+
+interface MacroEmbeddedLanguageProjectionResponse {
+  languageId: string;
+  text: string;
+  range: LspRange;
+}
+
+class MacroEmbeddedDocumentContentProvider implements vscode.TextDocumentContentProvider, vscode.Disposable {
+  private readonly contents = new Map<string, string>();
+  private readonly changed = new vscode.EventEmitter<vscode.Uri>();
+
+  readonly onDidChange = this.changed.event;
+
+  setContent(uri: vscode.Uri, content: string): void {
+    const key = uri.toString();
+    this.contents.delete(key);
+    this.contents.set(key, content);
+    while (this.contents.size > 32) {
+      const oldest = this.contents.keys().next().value as string | undefined;
+      if (!oldest) {
+        break;
+      }
+      this.contents.delete(oldest);
+    }
+    this.changed.fire(uri);
+  }
+
+  provideTextDocumentContent(uri: vscode.Uri): string {
+    return this.contents.get(uri.toString()) ?? '';
+  }
+
+  dispose(): void {
+    this.contents.clear();
+    this.changed.dispose();
+  }
+}
+
+const macroEmbeddedDocuments = new MacroEmbeddedDocumentContentProvider();
 
 type ExecFileTextOptions = Omit<ExecFileOptions, 'encoding'>;
 
@@ -73,6 +123,147 @@ function bufferToText(value: string | Buffer | Uint8Array | null | undefined): s
 
 function appendLifecycleLog(message: string): void {
   output.appendLine(`[lifecycle ${new Date().toISOString()}] ${message}`);
+}
+
+function toVsCodePosition(position: LspPosition): vscode.Position {
+  return new vscode.Position(position.line, position.character);
+}
+
+function mapEmbeddedRangeToSource(
+  range: vscode.Range,
+  virtualDocument: vscode.TextDocument,
+  sourceDocument: vscode.TextDocument,
+  sourceStartOffset: number
+): vscode.Range {
+  const start = sourceDocument.positionAt(sourceStartOffset + virtualDocument.offsetAt(range.start));
+  const end = sourceDocument.positionAt(sourceStartOffset + virtualDocument.offsetAt(range.end));
+  return new vscode.Range(start, end);
+}
+
+function mapEmbeddedCompletionItemToSource(
+  item: vscode.CompletionItem,
+  virtualDocument: vscode.TextDocument,
+  sourceDocument: vscode.TextDocument,
+  sourceStartOffset: number
+): vscode.CompletionItem {
+  item.sortText = `90_${item.sortText ?? getCompletionLabel(item)}`;
+  item.preselect = false;
+
+  if (item.range instanceof vscode.Range) {
+    item.range = mapEmbeddedRangeToSource(
+      item.range,
+      virtualDocument,
+      sourceDocument,
+      sourceStartOffset);
+  } else if (item.range) {
+    item.range = {
+      inserting: mapEmbeddedRangeToSource(
+        item.range.inserting,
+        virtualDocument,
+        sourceDocument,
+        sourceStartOffset),
+      replacing: mapEmbeddedRangeToSource(
+        item.range.replacing,
+        virtualDocument,
+        sourceDocument,
+        sourceStartOffset)
+    };
+  }
+
+  if (item.additionalTextEdits) {
+    item.additionalTextEdits = item.additionalTextEdits.map(edit => new vscode.TextEdit(
+      mapEmbeddedRangeToSource(
+        edit.range,
+        virtualDocument,
+        sourceDocument,
+        sourceStartOffset),
+      edit.newText));
+  }
+
+  return item;
+}
+
+function getCompletionLabel(item: vscode.CompletionItem): string {
+  return typeof item.label === 'string' ? item.label : item.label.label;
+}
+
+async function provideMacroEmbeddedLanguageCompletions(
+  document: vscode.TextDocument,
+  position: vscode.Position,
+  context: vscode.CompletionContext,
+  token: vscode.CancellationToken
+): Promise<vscode.CompletionList | undefined> {
+  if (!client || token.isCancellationRequested || document.languageId !== 'raven') {
+    return undefined;
+  }
+
+  const requestedVersion = document.version;
+  const projection = await client.sendRequest<MacroEmbeddedLanguageProjectionResponse | null>(
+    macroEmbeddedLanguageProjectionMethod,
+    {
+      textDocument: { uri: document.uri.toString() },
+      position: { line: position.line, character: position.character }
+    },
+    token);
+  if (!projection || token.isCancellationRequested || document.version !== requestedVersion) {
+    return undefined;
+  }
+
+  const sourceStartOffset = document.offsetAt(toVsCodePosition(projection.range.start));
+  const sourceEndOffset = document.offsetAt(toVsCodePosition(projection.range.end));
+  const sourcePositionOffset = document.offsetAt(position);
+  if (sourcePositionOffset < sourceStartOffset || sourcePositionOffset > sourceEndOffset) {
+    return undefined;
+  }
+
+  const languageId = projection.languageId.trim();
+  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(languageId)) {
+    return undefined;
+  }
+
+  const identity = crypto.createHash('sha256')
+    .update(document.uri.toString())
+    .update('\0')
+    .update(String(requestedVersion))
+    .update('\0')
+    .update(String(sourceStartOffset))
+    .digest('hex')
+    .slice(0, 20);
+  const virtualUri = vscode.Uri.from({
+    scheme: macroEmbeddedDocumentScheme,
+    authority: 'macro',
+    path: `/projection-${identity}.${languageId}`
+  });
+  macroEmbeddedDocuments.setContent(virtualUri, projection.text);
+
+  let virtualDocument = await vscode.workspace.openTextDocument(virtualUri);
+  if (virtualDocument.languageId !== languageId) {
+    virtualDocument = await vscode.languages.setTextDocumentLanguage(virtualDocument, languageId);
+  }
+  if (token.isCancellationRequested || document.version !== requestedVersion) {
+    return undefined;
+  }
+
+  const virtualPosition = virtualDocument.positionAt(sourcePositionOffset - sourceStartOffset);
+  const triggerCharacter = context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter
+    ? context.triggerCharacter
+    : undefined;
+  const completion = await vscode.commands.executeCommand<vscode.CompletionList>(
+    'vscode.executeCompletionItemProvider',
+    virtualUri,
+    virtualPosition,
+    triggerCharacter);
+  if (!completion || token.isCancellationRequested || document.version !== requestedVersion) {
+    return undefined;
+  }
+
+  return new vscode.CompletionList(
+    completion.items.map(item => mapEmbeddedCompletionItemToSource(
+      item,
+      virtualDocument,
+      document,
+      sourceStartOffset)),
+    completion.isIncomplete);
 }
 
 function formatClientState(state: State): string {
@@ -534,6 +725,47 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
       }
     },
     middleware: {
+      async provideCompletionItem(document, position, completionContext, token, next) {
+        const embeddedPromise = provideMacroEmbeddedLanguageCompletions(
+          document,
+          position,
+          completionContext,
+          token).catch(error => {
+            if (!token.isCancellationRequested) {
+              const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+              appendLifecycleLog(`Embedded-language completion failed: ${message}`);
+            }
+            return undefined;
+          });
+        const [ravenCompletion, embeddedCompletion] = await Promise.all([
+          Promise.resolve(next(document, position, completionContext, token)),
+          embeddedPromise
+        ]);
+        if (!embeddedCompletion || token.isCancellationRequested) {
+          return ravenCompletion;
+        }
+
+        const ravenItems = ravenCompletion instanceof vscode.CompletionList
+          ? ravenCompletion.items
+          : ravenCompletion ?? [];
+        const labels = new Set(ravenItems.map(item => getCompletionLabel(item).toLowerCase()));
+        const mergedItems = [...ravenItems];
+        for (const item of embeddedCompletion.items) {
+          const label = getCompletionLabel(item).toLowerCase();
+          if (labels.has(label)) {
+            continue;
+          }
+          labels.add(label);
+          mergedItems.push(item);
+        }
+
+        const ravenIncomplete = ravenCompletion instanceof vscode.CompletionList
+          ? ravenCompletion.isIncomplete
+          : false;
+        return new vscode.CompletionList(
+          mergedItems,
+          ravenIncomplete || embeddedCompletion.isIncomplete);
+      },
       async sendRequest(type, param, token, next) {
         const method = formatRequestType(type);
         const interesting =
@@ -1914,6 +2146,13 @@ export function activate(context: vscode.ExtensionContext): void {
       return stopClient('subscription dispose');
     }
   });
+
+  context.subscriptions.push(
+    macroEmbeddedDocuments,
+    vscode.workspace.registerTextDocumentContentProvider(
+      macroEmbeddedDocumentScheme,
+      macroEmbeddedDocuments)
+  );
 
   void startClient(context, 'activate');
   void offerSdkInstallationIfMissing(context);

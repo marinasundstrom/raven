@@ -14,6 +14,23 @@ The view is always available from the Explorer's Views menu. Run
 **Raven: Show Authored Syntax Tree** or **Raven: Show Expanded Syntax Tree**
 from the Command Palette to open Explorer, focus the view, and select its mode.
 
+## Embedded macro language completion
+
+When a token-tree macro exposes an `IMacroEmbeddedLanguageProvider` projection,
+the extension can reuse an installed VS Code language provider without copying
+that language's catalog into Raven. For `markup!`, the language server returns
+the position-preserving `html` projection that owns the cursor. The extension
+opens it as an invisible virtual HTML document, invokes VS Code's standard HTML
+completion provider, maps replacement and additional-edit ranges back to the
+Raven body, and merges those items after Raven's semantic completions.
+
+This gives standard HTML elements, attributes, and closing-tag suggestions in
+`markup!`, including a nested invocation inside a `component!` block. Blazor
+component tags and `[Parameter]` properties still come from Raven's compiler
+completion provider. Embedded Raven expressions are masked in the HTML view and
+continue to use native Raven completion. The bridge currently covers completion;
+HTML hover, formatting, linked editing, and diagnostics are later slices.
+
 ## Prerequisites
 - .NET SDK available on your `PATH` so the client can start the language server.
 - The Raven SDK for build, run, and debug commands. The packaged extension can

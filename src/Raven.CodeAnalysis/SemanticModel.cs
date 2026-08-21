@@ -473,6 +473,40 @@ public partial class SemanticModel
         CancellationToken cancellationToken = default)
         => GetMacroEmbeddedLanguageProjectionCore(declaration, cancellationToken);
 
+    /// <summary>
+    /// Gets the embedded-language projection that owns an authored position,
+    /// including a projection from a nested macro inside a reported Raven fragment.
+    /// </summary>
+    public MacroEmbeddedLanguageProjection? GetMacroEmbeddedLanguageProjection(
+        int position,
+        CancellationToken cancellationToken = default)
+    {
+        var treeLength = SyntaxTree.GetRoot(cancellationToken).FullSpan.End;
+        if ((uint)position > (uint)treeLength)
+            throw new ArgumentOutOfRangeException(nameof(position));
+
+        using var semanticAccess = EnterSemanticAccess(cancellationToken);
+        if (!MacroEmbeddedLanguageProjectionService.TryFindInvocationAtPosition(
+                this,
+                position,
+                cancellationToken,
+                out var syntax,
+                out var resolutionContext) ||
+            syntax is null ||
+            resolutionContext is null)
+        {
+            return null;
+        }
+
+        return ReferenceEquals(syntax.SyntaxTree, SyntaxTree)
+            ? GetMacroEmbeddedLanguageProjectionCore(syntax, cancellationToken)
+            : MacroEmbeddedLanguageProjectionService.GetProjection(
+                this,
+                syntax,
+                resolutionContext,
+                cancellationToken);
+    }
+
     internal MacroEmbeddedLanguageProjection? GetMacroEmbeddedLanguageProjectionCore(
         SyntaxNode syntax,
         CancellationToken cancellationToken)

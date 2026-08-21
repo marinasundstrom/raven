@@ -22,6 +22,7 @@ public class LanguageServerCompletionRegistrationTests
         options.TriggerCharacters.ShouldContain("[");
         options.TriggerCharacters.ShouldContain("<");
         options.TriggerCharacters.ShouldContain(">");
+        options.TriggerCharacters.ShouldContain("/");
         options.TriggerCharacters.ShouldContain(" ");
         options.TriggerCharacters.ShouldNotContain("(");
     }

@@ -51,6 +51,7 @@ internal static class Program
             .WithHandler<RavenTextDocumentSyncHandler>()
             .WithHandler<DidChangeWatchedFilesHandler>()
             .WithHandler<CompletionHandler>()
+            .WithHandler<MacroEmbeddedLanguageProjectionHandler>()
             .WithHandler<SignatureHelpHandler>()
             .WithHandler<DefinitionHandler>()
             .WithHandler<ReferencesHandler>()

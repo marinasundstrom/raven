@@ -1,6 +1,6 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-08-21**.
+Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
 
 ## Unreleased
 
@@ -9,16 +9,20 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-21**.
   language and supplies projected body text; Raven validates identical length
   and line breaks, caches the result, and contains optional-provider failures.
   The checked-in Markup macro now exposes an `html` projection that retains the
-  markup envelope while masking embedded Raven expressions, establishing the
-  source-mapped boundary for a future editor HTML-language-service bridge.
+  markup envelope while masking embedded Raven expressions. The VS Code
+  extension mounts it as a virtual HTML document, asks VS Code's existing HTML
+  provider for standard element, attribute, and closing-tag completions, maps
+  edits back to Raven source, and merges them after Raven's semantic component
+  completions. Nested `markup!` inside a reported macro block uses the same
+  position-based projection lookup.
 - Added compiler-owned completion contributions for token-tree macro DSLs.
   `IMacroCompletionProvider` reports editor-neutral items with body-relative
   replacement spans and optional Raven symbols; the compiler maps, orders, and
   failure-isolates them before the language server presents them. The checked-in
   Markup macro now completes incomplete Blazor component tags and properties,
   while embedded Raven expressions retain native completion and standard HTML
-  catalog completion remains available for a future virtual-document editor
-  integration. Completion requests now propagate cancellation into macro
+  catalog completion comes from VS Code's virtual-document integration.
+  Completion requests now propagate cancellation into macro
   providers, and the language server triggers completion on `<` and spaces.
 - Macro block fragments now honor their reported body-relative spans instead of
   reparsing the complete token-tree body. Structured declaration DSLs can expose

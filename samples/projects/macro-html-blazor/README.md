@@ -324,9 +324,11 @@ and properties at incomplete markup positions. Standard HTML element and
 attribute completion is intentionally separate. `MarkupMacro` now implements
 `IMacroEmbeddedLanguageProvider` and projects the parser-owned markup envelope
 as a position-preserving `html` document. Embedded Raven expression text is
-masked while all offsets and line breaks remain unchanged. A future editor
-bridge can mount this projection in its existing HTML language service and map
-completion results directly back to the authored body. The Markup parser
+masked while all offsets and line breaks remain unchanged. Raven's VS Code
+extension mounts this projection in its existing HTML language service and maps
+completion results directly back to the authored body. Standard HTML elements,
+attributes, and closing tags therefore come from VS Code, while component tags
+and parameters remain compiler-owned Raven completions. The Markup parser
 remains responsible for structural validation, source coordinates, and the
 embedded Raven exclusions.
 

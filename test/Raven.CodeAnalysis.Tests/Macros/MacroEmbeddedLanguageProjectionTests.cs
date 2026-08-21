@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 
@@ -40,6 +41,33 @@ public sealed class MacroEmbeddedLanguageProjectionTests
 
         Assert.Throws<OperationCanceledException>(
             () => compilation.GetMacroEmbeddedLanguageProjection(invocation, cancellation.Token));
+    }
+
+    [Fact]
+    public void GetProjectionAtPosition_FindsNestedMacroInsideReportedBlock()
+    {
+        const string source = """
+            class ProjectionHost {
+                func Render() => outerProjection! { nestedProjection! { <p>text</p> } }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "nested-projection.rvn");
+        var compilation = Compilation.Create(
+                "nested-projection-tests",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(
+                new MacroReference(new OuterProjectionMacro()),
+                new MacroReference(new NestedProjectionMacro()));
+        var position = source.IndexOf("text", StringComparison.Ordinal) + 2;
+
+        var projection = compilation.GetMacroEmbeddedLanguageProjection(syntaxTree, position);
+
+        Assert.NotNull(projection);
+        Assert.Equal("html", projection.LanguageId);
+        Assert.Equal(" <p>text</p> ", projection.Text);
+        Assert.Equal(projection.Text, source.Substring(projection.Span.Start, projection.Span.Length));
     }
 
     private static (Compilation Compilation, FreestandingMacroExpressionSyntax Invocation) CreateCompilation(
@@ -99,5 +127,37 @@ public sealed class MacroEmbeddedLanguageProjectionTests
             context.CancellationToken.ThrowIfCancellationRequested();
             return context.CreateEmbeddedLanguageProjection("html", context.GetBodyText());
         }
+    }
+
+    private sealed class OuterProjectionMacro : IMacroDefinition, IMacroFragmentProvider
+    {
+        public string Namespace => string.Empty;
+
+        public string Name => "outerProjection";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+            =>
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Block,
+                    new TextSpan(0, context.BodySpan.Length)),
+            ];
+    }
+
+    private sealed class NestedProjectionMacro : IMacroDefinition, IMacroEmbeddedLanguageProvider
+    {
+        public string Namespace => string.Empty;
+
+        public string Name => "nestedProjection";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public MacroEmbeddedLanguageProjection? GetEmbeddedLanguageProjection(
+            TokenTreeMacroContext context)
+            => context.CreateEmbeddedLanguageProjection("html", context.GetBodyText());
     }
 }

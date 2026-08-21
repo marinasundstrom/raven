@@ -220,6 +220,12 @@ public sealed class MarkupMacroToolingAcceptanceTests
         var completions = semanticModel.GetCompletions(completionPosition);
         Assert.Contains(completions, static item => item.DisplayText == "Length");
 
+        var markupPosition = source.IndexOf("<h1", StringComparison.Ordinal) + 2;
+        var projection = semanticModel.GetMacroEmbeddedLanguageProjection(markupPosition);
+        Assert.NotNull(projection);
+        Assert.Equal("html", projection.LanguageId);
+        Assert.Contains("<h1>Hello {     }</h1>", projection.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Name", projection.Text, StringComparison.Ordinal);
     }
 
     [Fact]
