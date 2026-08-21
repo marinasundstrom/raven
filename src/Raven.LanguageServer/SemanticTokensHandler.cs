@@ -126,7 +126,10 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             sourceText = context.Value.SourceText;
             semanticCompilation = context.Value.Compilation;
             semanticBefore = semanticCompilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
-            cacheKey = new SemanticTokensCacheKey(identifier.TextDocument.Uri.ToString(), context.Value.Document.Version);
+            cacheKey = new SemanticTokensCacheKey(
+                identifier.TextDocument.Uri.ToString(),
+                context.Value.Document.Version,
+                context.Value.Document.Project.Version);
             requestedRange = GetRequestedRangeSpan(identifier, sourceText);
             effectiveCancellationToken.ThrowIfCancellationRequested();
 
@@ -150,18 +153,19 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             effectiveCancellationToken.ThrowIfCancellationRequested();
 
             stageStopwatch.Restart();
-            var useSemanticModel = identifier is SemanticTokensRangeParams ||
-                root.DescendantNodesAndSelf().Any(static node =>
-                    node is FreestandingMacroExpressionSyntax or
-                        FreestandingMacroMemberDeclarationSyntax or
-                        FreestandingMacroDeclarationSyntax);
+            var containsMacro = root.DescendantNodesAndSelf().Any(static node =>
+                node is FreestandingMacroExpressionSyntax or
+                    FreestandingMacroMemberDeclarationSyntax or
+                    FreestandingMacroDeclarationSyntax);
+            var useSemanticModel = identifier is SemanticTokensRangeParams || containsMacro;
             DocumentStore.DocumentSemanticAccess? semanticModelAccess = null;
             SemanticModel? semanticModel = null;
             if (useSemanticModel)
             {
-                var semanticModelResult = await TryGetSemanticModelForSemanticTokensAsync(
+                var semanticModelResult = await GetSemanticModelForSemanticTokensAsync(
                     identifier.TextDocument.Uri,
                     context.Value,
+                    requireSemanticModel: containsMacro,
                     effectiveCancellationToken).ConfigureAwait(false);
                 semanticModelAccess = semanticModelResult.Access;
                 semanticModel = semanticModelAccess?.SemanticModel;
@@ -311,11 +315,22 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         _tokenEntryCache[cacheKey] = entries;
     }
 
-    private async Task<(DocumentStore.DocumentSemanticAccess? Access, bool WasSkipped)> TryGetSemanticModelForSemanticTokensAsync(
+    private async Task<(DocumentStore.DocumentSemanticAccess? Access, bool WasSkipped)> GetSemanticModelForSemanticTokensAsync(
         DocumentUri uri,
         DocumentStore.DocumentAnalysisContext context,
+        bool requireSemanticModel,
         CancellationToken cancellationToken)
     {
+        if (requireSemanticModel)
+        {
+            var requiredAccess = await _documents.EnterDocumentSemanticModelAccessAsync(
+                uri,
+                context,
+                cancellationToken,
+                "semanticTokens-macroSemanticModel").ConfigureAwait(false);
+            return (requiredAccess, false);
+        }
+
         var access = await _documents.TryEnterExistingDocumentSemanticModelAccessAsync(
             uri,
             context,
@@ -1098,5 +1113,8 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         SemanticTokenType? TokenType,
         ImmutableArray<SemanticTokenModifier> Modifiers);
 
-    private readonly record struct SemanticTokensCacheKey(string Uri, VersionStamp Version);
+    private readonly record struct SemanticTokensCacheKey(
+        string Uri,
+        VersionStamp DocumentVersion,
+        VersionStamp ProjectVersion);
 }

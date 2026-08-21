@@ -422,6 +422,74 @@ func Main() -> unit {
     }
 
     [Fact]
+    public async Task SemanticTokens_UpdatedMacroDocumentWaitsForAuthoritativeClassificationsAsync()
+    {
+        var repositoryRoot = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var sampleRoot = Path.Combine(repositoryRoot, "samples", "projects", "proto-actor-dsl", "app");
+        var documentPath = Path.Combine(sampleRoot, "src", "CounterActor.rvn");
+        var code = await File.ReadAllTextAsync(documentPath);
+        var updatedCode = code + "\n";
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "proto-actor-dsl",
+                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
+            })
+        });
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        await store.UpsertDocumentAsync(uri, code);
+        var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
+
+        var initialResult = await handler.Handle(new SemanticTokensParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri)
+        }, CancellationToken.None);
+        AssertLifecycleKeywords(initialResult, code);
+
+        await store.UpsertDocumentAsync(uri, updatedCode, deferMacroConsumerRefresh: true);
+        await manager.FlushPendingMacroConsumerRefreshesAsync();
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        _ = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
+
+        var semanticAccess = await store.EnterDocumentSemanticModelAccessAsync(
+            uri,
+            context.Value,
+            CancellationToken.None,
+            "test-held-semantic-access");
+        Task<SemanticTokens?> updatedTokensTask;
+        try
+        {
+            updatedTokensTask = handler.Handle(new SemanticTokensParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri)
+            }, CancellationToken.None);
+            await Task.Delay(50);
+        }
+        finally
+        {
+            semanticAccess.Dispose();
+        }
+
+        var updatedResult = await updatedTokensTask;
+        AssertLifecycleKeywords(updatedResult, updatedCode);
+
+        static void AssertLifecycleKeywords(SemanticTokens? result, string source)
+        {
+            result.ShouldNotBeNull();
+            var decoded = Decode(source, result.Data, SemanticTokensHandler.Legend);
+            Find(decoded, 7, "started").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 11, "receive").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 20, "stopping").Type.ShouldBe(SemanticTokenType.Keyword);
+        }
+    }
+
+    [Fact]
     public async Task SemanticTokens_ColdDocument_UsesSyntaxOnlyWithoutMaterializingSemanticModelAsync()
     {
         const string code = """

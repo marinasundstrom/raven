@@ -584,6 +584,13 @@ remain future work. Likewise, an actor block receives completion for `events.`
 and `context.`, but clause-order suggestions such as `receive` after `started`
 need a DSL completion capability.
 
+Editor classification for a macro invocation is semantic rather than a
+best-effort lexical overlay. On each document snapshot, Raven resolves the
+macro's keyword, token, and fragment providers against that current compiler
+snapshot before publishing semantic tokens. A concurrent completion or inlay
+request may delay classification, but must not replace it with and cache a
+syntax-only result that drops the DSL vocabulary.
+
 The planned capability is an optional, compiler-owned macro completion provider,
 not an LSP extension point. It should receive the invocation, a body-relative
 cursor and replacement span, trigger information, cancellation, and the

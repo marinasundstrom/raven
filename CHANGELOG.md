@@ -16,6 +16,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-21**.
   histories. The Proto.Actor DSL also projects its generated `IContext` into
   fragment scope so `context.Respond(...)` participates in native binding,
   hover, and completion.
+- Semantic tokens for macro documents now wait for the current compiler semantic
+  snapshot instead of caching a syntax-only result when completion, inlays, or
+  other work temporarily owns semantic access. Macro-provided keywords and
+  fragment classifications therefore remain stable while editing, and token
+  caches also track cross-file project snapshot changes.
 - Added a framework-free browser application type to `rvn init` and
   `Raven.Templates` as `browser`/`raven-browser`. It composes Raven with
   `Microsoft.NET.Sdk.WebAssembly`, publishes a normal static browser bundle,
