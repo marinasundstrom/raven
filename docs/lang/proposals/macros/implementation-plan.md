@@ -302,7 +302,12 @@ accepted only when the preceding use case demonstrates its value.
    scoped completion, hover, and navigation contributions for outer DSL tokens
    only when token kind, fragment semantics, and ordinary Raven hover cannot
    express the experience. Compiler APIs normalize and cache them; the language
-   server remains a presenter.
+   server remains a presenter. The first completion slice is implemented:
+   `IMacroCompletionProvider` returns body-relative, editor-neutral items that
+   the compiler maps to ordinary completion results. The Markup fixture uses it
+   for Blazor component tags and properties while leaving standard HTML catalog
+   completion to a future virtual-HTML editor integration. Custom hover,
+   navigation, trigger metadata, and richer ordering remain future work.
 7. **Retain private structure snapshots when measurement justifies it.** Permit
    a provider-owned immutable snapshot shared between expansion and tooling if
    repeated parsing is materially expensive. Do not standardize or expose its

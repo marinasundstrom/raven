@@ -1092,6 +1092,17 @@ Macro completion has two levels:
    capability using the current body-relative position and cached DSL
    structure.
 
+The first outer-DSL completion contract is `IMacroCompletionProvider`. It
+returns `MacroCompletionItem` values with body-relative replacement spans and
+optional ordinary Raven symbols. The compiler maps those spans to the authored
+document, orders and deduplicates the items, propagates request cancellation,
+and contains provider failures before the language server presents the normal
+completion result. The Markup prototype uses this for Blazor component tags and
+properties. Standard HTML elements and attributes are deliberately not copied
+into the macro: a later virtual HTML projection may reuse the editor's existing
+HTML language service, with the Markup parser supplying validated structure,
+source mapping, and embedded-Raven exclusions.
+
 Highlighting uses classifications rather than global `SyntaxKind` additions.
 Macro token metadata can mark raw kinds as keyword, reserved word, identifier,
 literal, operator, punctuation, comment, or a future custom semantic

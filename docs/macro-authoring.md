@@ -575,14 +575,31 @@ There are two distinct completion layers in a mixed-language macro body:
    lifecycle clauses in an actor DSL, HTML tags and attributes in `markup!`,
    route templates, SQL tables and columns, or schema-derived names.
 
-The first layer is implemented today through fragment regions. Keyword and
-token providers also supply parsing and semantic classification for the outer
-DSL, but they do not currently contribute custom completion items. Consequently,
-`markup!` can provide normal Raven member completion inside `{ expression }`,
-while HTML tag, attribute, component-parameter, and closing-tag suggestions
-remain future work. Likewise, an actor block receives completion for `events.`
-and `context.`, but clause-order suggestions such as `receive` after `started`
-need a DSL completion capability.
+The first layer is implemented through fragment regions. The second uses the
+optional `IMacroCompletionProvider` capability. Its items use body-relative
+replacement spans; the compiler maps them back to the authored document,
+deduplicates them, preserves ordinary symbol associations, and isolates a
+provider failure to that completion request.
+
+```raven
+class RouteMacro : IMacroDefinition, IMacroCompletionProvider {
+    func GetCompletions(
+        context: TokenTreeMacroContext,
+        bodyRelativePosition: int
+    ) -> ImmutableArray<MacroCompletionItem> {
+        // Recover the provider-owned grammar at the cursor.
+        // Return editor-neutral items with body-relative replacement spans.
+    }
+}
+```
+
+`markup!` uses this capability for compiler-backed Blazor component tags and
+component properties, including incomplete input. Ordinary HTML elements and
+attributes are a separate editor-integration concern: a future virtual HTML
+projection can reuse an editor's existing HTML language service without
+duplicating the HTML catalog in the macro or compiler. The Markup parser remains
+the structural authority for validation, expansion, source mapping, and routing
+between HTML-owned positions, component semantics, and embedded Raven regions.
 
 Editor classification for a macro invocation is semantic rather than a
 best-effort lexical overlay. On each document snapshot, Raven resolves the
@@ -591,15 +608,13 @@ snapshot before publishing semantic tokens. A concurrent completion or inlay
 request may delay classification, but must not replace it with and cache a
 syntax-only result that drops the DSL vocabulary.
 
-The planned capability is an optional, compiler-owned macro completion provider,
-not an LSP extension point. It should receive the invocation, a body-relative
-cursor and replacement span, trigger information, cancellation, and the
-provider's private input context. It should return editor-neutral items with a
-label, insertion text or snippet, kind, detail/documentation, and ordering data.
-The compiler should map spans, merge and deduplicate DSL items with native Raven
-fragment items, and isolate provider failure just as it does for token and
-fragment metadata. This keeps the language server a presenter and lets one macro
-package behave consistently in VS Code, the Playground, and future editors.
+This is a compiler-owned capability, not an LSP extension point. The current
+contract receives the token-tree context and body-relative cursor and returns
+editor-neutral `MacroCompletionItem` values. The context carries cancellation.
+Future additions such as trigger metadata, richer item kinds, or ordering data
+should extend this compiler boundary rather than introduce editor-specific
+contracts. The language server remains a presenter, so one macro package can
+behave consistently in VS Code, the Playground, and future editors.
 
 A custom provider should be used only for knowledge Raven cannot derive. If a
 suggestion denotes an ordinary Raven symbol—such as a component parameter—the

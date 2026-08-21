@@ -257,6 +257,72 @@ public sealed class MarkupMacroToolingAcceptanceTests
     }
 
     [Fact]
+    public void CheckedInMarkupMacro_CompletesComponentTagsAndParametersInIncompleteMarkup()
+    {
+        var macroReference = CreateCheckedInMarkupMacroReference();
+        const string source = """
+            public class Greeting : Microsoft.AspNetCore.Components.ComponentBase {
+                [Microsoft.AspNetCore.Components.Parameter]
+                public var Name: string = ""
+            }
+
+            namespace sample.Components {
+                public class StatusBadge : Microsoft.AspNetCore.Components.ComponentBase { }
+            }
+
+            class Gallery {
+                func RenderTag() => Markup! {
+                    <Gre
+                }
+
+                func RenderParameter() => Markup! {
+                    <Greeting Na
+                }
+
+                func RenderQualifiedTag() => Markup! {
+                    <sample.Components.Sta
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(source, path: "html-component-completion.rvn");
+        var compilation = CreateConsumerCompilation(syntaxTree, macroReference)
+            .AddReferences(CreateAspNetCoreComponentsReference());
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var greetingType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Greeting"));
+        Assert.Equal(
+            "Microsoft.AspNetCore.Components.ComponentBase",
+            greetingType.BaseType?.ToFullyQualifiedMetadataName());
+
+        var tagPosition = source.IndexOf("<Gre", StringComparison.Ordinal) + "<Gre".Length;
+        var tag = Assert.Single(
+            semanticModel.GetCompletions(tagPosition),
+            static item => item.DisplayText == "Greeting");
+        Assert.Equal("Gre", source.Substring(tag.ReplacementSpan.Start, tag.ReplacementSpan.Length));
+        var component = Assert.IsAssignableFrom<INamedTypeSymbol>(tag.Symbol);
+        Assert.Equal("Greeting", component.Name);
+
+        var parameterPosition = source.LastIndexOf(" Na", StringComparison.Ordinal) + " Na".Length;
+        var parameter = Assert.Single(
+            semanticModel.GetCompletions(parameterPosition),
+            static item => item.DisplayText == "Name");
+        Assert.Equal("Na", source.Substring(parameter.ReplacementSpan.Start, parameter.ReplacementSpan.Length));
+        var property = Assert.IsAssignableFrom<IPropertySymbol>(parameter.Symbol);
+        Assert.Equal("Name", property.Name);
+        Assert.Equal(component, property.ContainingType, SymbolEqualityComparer.Default);
+
+        var qualifiedPosition = source.IndexOf(".Sta", StringComparison.Ordinal) + ".Sta".Length;
+        var qualified = Assert.Single(
+            semanticModel.GetCompletions(qualifiedPosition),
+            static item => item.DisplayText == "StatusBadge");
+        Assert.Equal(
+            "Sta",
+            source.Substring(qualified.ReplacementSpan.Start, qualified.ReplacementSpan.Length));
+        var statusBadge = Assert.IsAssignableFrom<INamedTypeSymbol>(qualified.Symbol);
+        Assert.Equal("sample.Components.StatusBadge", statusBadge.ToFullyQualifiedMetadataName());
+    }
+
+    [Fact]
     public void CheckedInMarkupMacro_ProvidesCompleteToolingSnapshotAndAuthoredDiagnostics()
     {
         var macroReference = CreateCheckedInMarkupMacroReference();

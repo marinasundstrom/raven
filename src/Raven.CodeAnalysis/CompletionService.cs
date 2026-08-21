@@ -57,7 +57,12 @@ public class CompletionService
         {
             var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
-            return GetCompletions(token, semanticModel, position, isWhitespaceOnlyLinePosition);
+            return GetCompletions(
+                token,
+                semanticModel,
+                position,
+                isWhitespaceOnlyLinePosition,
+                CancellationToken.None);
         }
         catch
         {
@@ -84,7 +89,12 @@ public class CompletionService
         var token = syntaxTree.GetRoot().FindToken(searchPosition);
         try
         {
-            return GetCompletions(token, semanticModel, position, isWhitespaceOnlyLinePosition);
+            return GetCompletions(
+                token,
+                semanticModel,
+                position,
+                isWhitespaceOnlyLinePosition,
+                CancellationToken.None);
         }
         catch
         {
@@ -144,7 +154,7 @@ public class CompletionService
         CancellationToken cancellationToken = default)
     {
         return await Task.Run(
-                () => GetCompletionsWithMetrics(compilation, syntaxTree, position),
+                () => GetCompletionsWithMetrics(compilation, syntaxTree, position, cancellationToken),
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -155,7 +165,7 @@ public class CompletionService
         CancellationToken cancellationToken = default)
     {
         return await Task.Run(
-                () => GetCompletionsWithMetrics(semanticModel, position),
+                () => GetCompletionsWithMetrics(semanticModel, position, cancellationToken),
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -185,24 +195,40 @@ public class CompletionService
     }
 
     internal CompletionComputation GetCompletionsWithMetrics(Compilation compilation, SyntaxTree syntaxTree, int position)
+        => GetCompletionsWithMetrics(compilation, syntaxTree, position, CancellationToken.None);
+
+    private CompletionComputation GetCompletionsWithMetrics(
+        Compilation compilation,
+        SyntaxTree syntaxTree,
+        int position,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var semanticModelMs = 0d;
         var semanticModelStopwatch = System.Diagnostics.Stopwatch.StartNew();
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         semanticModelStopwatch.Stop();
         semanticModelMs = semanticModelStopwatch.Elapsed.TotalMilliseconds;
 
-        return GetCompletionsWithMetrics(semanticModel, position, semanticModelMs);
+        return GetCompletionsWithMetrics(semanticModel, position, semanticModelMs, cancellationToken);
     }
 
     internal CompletionComputation GetCompletionsWithMetrics(SemanticModel semanticModel, int position)
-        => GetCompletionsWithMetrics(semanticModel, position, semanticModelMs: 0d);
+        => GetCompletionsWithMetrics(semanticModel, position, CancellationToken.None);
 
     private CompletionComputation GetCompletionsWithMetrics(
         SemanticModel semanticModel,
         int position,
-        double semanticModelMs)
+        CancellationToken cancellationToken)
+        => GetCompletionsWithMetrics(semanticModel, position, semanticModelMs: 0d, cancellationToken);
+
+    private CompletionComputation GetCompletionsWithMetrics(
+        SemanticModel semanticModel,
+        int position,
+        double semanticModelMs,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var searchPosition = Math.Max(0, position - 1);
         var syntaxTree = semanticModel.SyntaxTree;
         var sourceText = syntaxTree.GetText();
@@ -221,12 +247,21 @@ public class CompletionService
         try
         {
             var providerStopwatch = System.Diagnostics.Stopwatch.StartNew();
-            var items = GetCompletions(token, semanticModel, position, isWhitespaceOnlyLinePosition)
+            var items = GetCompletions(
+                    token,
+                    semanticModel,
+                    position,
+                    isWhitespaceOnlyLinePosition,
+                    cancellationToken)
                 .ToImmutableArray();
             providerStopwatch.Stop();
             providerMs = providerStopwatch.Elapsed.TotalMilliseconds;
 
             return new CompletionComputation(items, semanticModelMs, providerMs, UsedFallback: false, FailureType: null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -551,20 +586,24 @@ public class CompletionService
         SyntaxToken token,
         SemanticModel semanticModel,
         int position,
-        bool forceInsertionAtCaret)
+        bool forceInsertionAtCaret,
+        CancellationToken cancellationToken)
     {
-        if (TryGetMacroFragmentToken(
+        var hasMacroFragment = TryGetMacroFragmentToken(
             token,
             semanticModel,
             position,
+            cancellationToken,
             out var fragmentToken,
             out var invocation,
-            out var fragmentLocals))
+            out var resolutionContext,
+            out var fragmentLocals);
+        if (hasMacroFragment)
         {
             var completions = CompletionProvider.GetCompletionsForMacroFragment(
                 fragmentToken,
                 semanticModel,
-                invocation,
+                invocation!,
                 fragmentLocals,
                 position,
                 forceInsertionAtCaret || fragmentToken.Kind == SyntaxKind.None);
@@ -573,6 +612,18 @@ public class CompletionService
                 completion.ReplacementSpan == tokenReplacementSpan
                     ? completion with { ReplacementSpan = fragmentToken.Span }
                     : completion);
+        }
+
+        if (invocation is not null && resolutionContext is not null &&
+            MacroCompletionService.TryGetCompletions(
+                semanticModel,
+                invocation,
+                resolutionContext,
+                position,
+                cancellationToken,
+                out var macroCompletions))
+        {
+            return macroCompletions;
         }
 
         return CompletionProvider.GetCompletions(
@@ -586,20 +637,25 @@ public class CompletionService
         SyntaxToken token,
         SemanticModel semanticModel,
         int position,
+        CancellationToken cancellationToken,
         out SyntaxToken fragmentToken,
-        out SyntaxNode invocation,
+        out SyntaxNode? invocation,
+        out SyntaxNode? resolutionContext,
         out ImmutableArray<MacroFragmentLocal> fragmentLocals)
     {
         fragmentToken = default;
         fragmentLocals = ImmutableArray<MacroFragmentLocal>.Empty;
+        resolutionContext = null;
         invocation = token.Parent?.AncestorsAndSelf()
             .FirstOrDefault(static node =>
                 node is FreestandingMacroExpressionSyntax { TokenTree: not null } or
-                    FreestandingMacroDeclarationSyntax { TokenTree: not null })!;
+                    FreestandingMacroDeclarationSyntax { TokenTree: not null } or
+                    FreestandingMacroMemberDeclarationSyntax { TokenTree: not null });
         if (invocation is null)
             return false;
+        resolutionContext = invocation;
 
-        var region = semanticModel.GetMacroInputSnapshotCore(invocation, CancellationToken.None).FindFragmentRegion(position);
+        var region = semanticModel.GetMacroInputSnapshotCore(invocation, cancellationToken).FindFragmentRegion(position);
         if (region is null)
             return false;
         fragmentLocals = region.Locals;
@@ -609,11 +665,18 @@ public class CompletionService
             FreestandingMacroExpressionSyntax expression => new TokenTreeMacroContext(
                 semanticModel.Compilation,
                 semanticModel,
-                expression),
+                expression,
+                cancellationToken),
             FreestandingMacroDeclarationSyntax declaration => new TokenTreeMacroContext(
                 semanticModel.Compilation,
                 semanticModel,
-                declaration),
+                declaration,
+                cancellationToken),
+            FreestandingMacroMemberDeclarationSyntax member => new TokenTreeMacroContext(
+                semanticModel.Compilation,
+                semanticModel,
+                member,
+                cancellationToken),
             _ => throw new InvalidOperationException("Unsupported macro fragment carrier.")
         };
         SyntaxNode fragment = ParseMacroFragment(context, region);
@@ -632,14 +695,17 @@ public class CompletionService
                     semanticModel,
                     nestedInvocation,
                     invocation,
-                    CancellationToken.None)
+                    cancellationToken)
                 .Where(candidate => candidate.Span.Length == 0
                     ? position == candidate.Span.Start
                     : position >= candidate.Span.Start && position <= candidate.Span.End)
                 .OrderBy(static candidate => candidate.Span.Length)
                 .FirstOrDefault();
             if (nestedRegion is null)
-                break;
+            {
+                invocation = nestedInvocation;
+                return false;
+            }
 
             fragmentLocals = fragmentLocals
                 .Concat(nestedRegion.Locals)
@@ -649,7 +715,8 @@ public class CompletionService
             var nestedContext = new TokenTreeMacroContext(
                 semanticModel.Compilation,
                 semanticModel,
-                nestedInvocation);
+                nestedInvocation,
+                cancellationToken);
             fragment = ParseMacroFragment(nestedContext, nestedRegion);
         }
 

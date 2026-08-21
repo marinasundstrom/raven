@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-21**.
 
 ## Unreleased
 
+- Added compiler-owned completion contributions for token-tree macro DSLs.
+  `IMacroCompletionProvider` reports editor-neutral items with body-relative
+  replacement spans and optional Raven symbols; the compiler maps, orders, and
+  failure-isolates them before the language server presents them. The checked-in
+  Markup macro now completes incomplete Blazor component tags and properties,
+  while embedded Raven expressions retain native completion and standard HTML
+  catalog completion remains available for a future virtual-document editor
+  integration. Completion requests now propagate cancellation into macro
+  providers, and the language server triggers completion on `<` and spaces.
 - Macro block fragments now honor their reported body-relative spans instead of
   reparsing the complete token-tree body. Structured declaration DSLs can expose
   multiple independent Raven blocks and receive native hover, completion,

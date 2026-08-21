@@ -133,6 +133,87 @@ class MacroHost {
     }
 
     [Fact]
+    public void GetCompletions_InsideMacroOwnedDsl_UsesProviderAndMapsBodyRelativeSpan()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        let value = completionDsl!{ <Wid }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(new CompletionDslMacro()));
+
+        var position = code.IndexOf("Wid }", StringComparison.Ordinal) + "Wid".Length;
+        var items = new CompletionService()
+            .GetCompletions(compilation, syntaxTree, position)
+            .ToList();
+
+        var widget = Assert.Single(items);
+        Assert.Equal("Widget", widget.DisplayText);
+        Assert.Equal("Widget", widget.InsertionText);
+        Assert.Equal("Wid", code.Substring(widget.ReplacementSpan.Start, widget.ReplacementSpan.Length));
+        Assert.Equal("macro DSL item", widget.Description);
+    }
+
+    [Fact]
+    public async Task GetCompletionsAsync_PropagatesCancellationTokenToMacroProvider()
+    {
+        const string code = "let value = completionDsl!{ <Wid }";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var macro = new CompletionDslMacro();
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(macro));
+        var position = code.IndexOf("Wid", StringComparison.Ordinal) + "Wid".Length;
+        using var cancellation = new CancellationTokenSource();
+
+        var items = await new CompletionService()
+            .GetCompletionsAsync(compilation, syntaxTree, position, cancellation.Token);
+
+        Assert.Contains(items, static item => item.DisplayText == "Widget");
+        Assert.True(macro.SawCancellableToken);
+    }
+
+    [Fact]
+    public void GetCompletions_InsideNestedMacroWithoutRavenFragment_UsesNestedProvider()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        let value = outerBlock! { completionDsl!{ <Wid } }
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(
+                new MacroReference(new OuterBlockMacro()),
+                new MacroReference(new CompletionDslMacro()));
+        var position = code.IndexOf("Wid", StringComparison.Ordinal) + "Wid".Length;
+
+        var widget = Assert.Single(
+            new CompletionService().GetCompletions(compilation, syntaxTree, position),
+            static item => item.DisplayText == "Widget");
+
+        Assert.Equal("Wid", code.Substring(widget.ReplacementSpan.Start, widget.ReplacementSpan.Length));
+    }
+
+    [Fact]
     public void GetCompletions_InsideIndependentBlockFragments_UsesEachReportedSpan()
     {
         const string code = """
@@ -777,6 +858,53 @@ class MacroHost {
                     new TextSpan(secondStart, "message.".Length)),
             ];
         }
+    }
+
+    private sealed class CompletionDslMacro : IMacroDefinition, IMacroCompletionProvider
+    {
+        public string Namespace => string.Empty;
+
+        public string Name => "completionDsl";
+
+        public bool SawCancellableToken { get; private set; }
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroCompletionItem> GetCompletions(
+            TokenTreeMacroContext context,
+            int bodyRelativePosition)
+        {
+            SawCancellableToken = context.CancellationToken.CanBeCanceled;
+            var body = context.GetBodyText();
+            var start = body.IndexOf("Wid", StringComparison.Ordinal);
+            return
+            [
+                new MacroCompletionItem(
+                    "Widget",
+                    "Widget",
+                    new TextSpan(start, bodyRelativePosition - start),
+                    Description: "macro DSL item"),
+            ];
+        }
+    }
+
+    private sealed class OuterBlockMacro : IMacroDefinition, IMacroFragmentProvider
+    {
+        public string Namespace => string.Empty;
+
+        public string Name => "outerBlock";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+            =>
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Block,
+                    new TextSpan(0, context.BodySpan.Length)),
+            ];
     }
 
     private sealed class CategorizedFragmentMacro(MacroFragmentKind kind) :

@@ -86,6 +86,9 @@ Supported by the prototype:
   compiler's classified token-stream API;
 - component tag identifiers resolved to their ordinary Raven component symbols
   for normal hover and go-to-definition;
+- compiler-backed completion for incomplete Blazor component tags and their
+  properties, retaining ordinary type/property symbols and authored replacement
+  spans;
 - imported component types from referenced Blazor projects, using the same
   namespace lookup and component frames as Raven-authored components;
 - qualified component tags such as `<ExistingBlazorComponents.StatusBadge>`,
@@ -111,7 +114,8 @@ Not supported by the macro:
 
 - component child content or macro-owned control-flow directives;
 - attribute splatting or Razor compatibility;
-- distinct tag-versus-attribute classifications or DSL-specific completion;
+- distinct tag-versus-attribute classifications, standard HTML catalog
+  completion, or closing-tag completion;
 - multiple root elements.
 
 `#[Parameter]` is convenience rather than a new parameter model. Components
@@ -314,6 +318,14 @@ Ordinary Raven completion, hover, and definition now route through reported
 fragment spans, and component tags and attributes can publish ordinary symbol
 targets. The markup parser's own tree, if it grows one, remains private to the
 macro.
+
+The macro also provides compiler-backed completion for Blazor component tags
+and properties at incomplete markup positions. Standard HTML element and
+attribute completion is intentionally separate: a future editor integration
+can project the parser-owned markup envelope as a virtual HTML document and
+reuse the editor's HTML language service. The Markup parser remains responsible
+for structural validation, source coordinates, and excluding embedded Raven
+expressions from that projection.
 
 The sample now exercises the DSL-tooling MVP: immutable combined input
 snapshots, token kinds and classifications, embedded expression spans,

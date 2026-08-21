@@ -11,9 +11,294 @@ import Raven.CodeAnalysis.Text.*
 [assembly: RavenCompilerPlugin(typeof(MarkupMacro))]
 
 [MacroAlias("Html")]
-class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifier, IMacroTokenSymbolProvider {
+class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifier, IMacroTokenSymbolProvider, IMacroCompletionProvider {
     val Name: string => "Markup"
     val Alias: string? => "markup"
+
+    func GetCompletions(
+        context: TokenTreeMacroContext,
+        bodyRelativePosition: int
+    ) -> ImmutableArray<MacroCompletionItem> {
+        let body = context.GetBodyText()
+        let tagTarget: HtmlCompletionSpan = FindTagNameCompletionSpan(body, bodyRelativePosition) else {
+            let attribute = GetComponentAttributeCompletion(
+                context,
+                body,
+                bodyRelativePosition)
+            return attribute
+        }
+        let tagSpan = tagTarget.Span
+
+        let prefix = body.Substring(tagSpan.Start, tagSpan.Length)
+        let separator = prefix.LastIndexOf(".")
+        if separator >= 0 {
+            let namespaceName = prefix.Substring(0, separator)
+            let namespaceSymbol: INamespaceSymbol = FindNamespace(
+                context.Compilation.GlobalNamespace,
+                namespaceName) else {
+                return []
+            }
+            let simplePrefix = prefix.Substring(separator + 1)
+            let simpleSpan = TextSpan(
+                tagSpan.Start + separator + 1,
+                simplePrefix.Length)
+            return AddComponentTypes(
+                context,
+                namespaceSymbol,
+                simplePrefix,
+                simpleSpan,
+                [])
+        }
+
+        var items: ImmutableArray<MacroCompletionItem> = []
+        items = AddComponentTypes(
+            context,
+            context.Compilation.GlobalNamespace,
+            prefix,
+            tagSpan,
+            items)
+
+        let syntaxTree: SyntaxTree = context.Syntax.SyntaxTree else {
+            return items
+        }
+        for node in syntaxTree.GetRoot().DescendantNodes() {
+            context.CancellationToken.ThrowIfCancellationRequested()
+            if node is ImportDirectiveSyntax importDirective
+                && importDirective.Span.Start < context.Syntax.Span.Start
+                && context.SemanticModel.GetSymbolInfo(importDirective.Name).Symbol is INamespaceSymbol namespaceSymbol {
+                items = AddComponentTypes(
+                    context,
+                    namespaceSymbol,
+                    prefix,
+                    tagSpan,
+                    items)
+            }
+        }
+
+        items
+    }
+
+    private static func FindNamespace(
+        root: INamespaceSymbol,
+        metadataName: string
+    ) -> INamespaceSymbol? {
+        var current: INamespaceSymbol? = root
+        for segment in metadataName.Split(".") {
+            let parent: INamespaceSymbol = current else {
+                return null
+            }
+            current = parent.LookupNamespace(segment)
+        }
+
+        current
+    }
+
+    private static func GetComponentAttributeCompletion(
+        context: TokenTreeMacroContext,
+        body: string,
+        bodyRelativePosition: int
+    ) -> ImmutableArray<MacroCompletionItem> {
+        let attributeTarget: HtmlCompletionSpan = FindAttributeNameCompletionSpan(
+            body,
+            bodyRelativePosition) else {
+            return []
+        }
+        let attributeSpan = attributeTarget.Span
+        let openTag = body.LastIndexOf(
+            "<",
+            Math.Min(attributeSpan.Start, body.Length - 1))
+        if 0 > openTag {
+            return []
+        }
+        if openTag + 1 >= body.Length {
+            return []
+        }
+        if body[openTag + 1] == '/' {
+            return []
+        }
+
+        var tagEnd = openTag + 1
+        while tagEnd < body.Length && IsNameCharacter(body[tagEnd]) {
+            tagEnd = tagEnd + 1
+        }
+        let tagName = body.Substring(openTag + 1, tagEnd - openTag - 1)
+        if !IsComponentTagName(tagName) {
+            return []
+        }
+
+        let component: INamedTypeSymbol = FindComponentType(context, tagName) else {
+            return []
+        }
+        let prefix = body.Substring(attributeSpan.Start, attributeSpan.Length)
+        var items: ImmutableArray<MacroCompletionItem> = []
+        for member in component.GetMembers() {
+            context.CancellationToken.ThrowIfCancellationRequested()
+            if member is IPropertySymbol property
+                && property.DeclaredAccessibility == Accessibility.Public
+                && IsComponentParameter(property)
+                && property.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) {
+                let symbol: ISymbol = property
+                items = items.Add(
+                    MacroCompletionItem(
+                        property.Name,
+                        property.Name,
+                        attributeSpan,
+                        Description: "Blazor component parameter",
+                        Symbol: symbol))
+            }
+        }
+
+        items
+    }
+
+    private static func AddComponentTypes(
+        context: TokenTreeMacroContext,
+        namespaceSymbol: INamespaceSymbol,
+        prefix: string,
+        replacementSpan: TextSpan,
+        items: ImmutableArray<MacroCompletionItem>
+    ) -> ImmutableArray<MacroCompletionItem> {
+        var result = items
+        for member in namespaceSymbol.GetMembers() {
+            context.CancellationToken.ThrowIfCancellationRequested()
+            if member is INamedTypeSymbol type
+                && type.DeclaredAccessibility == Accessibility.Public
+                && !type.IsAbstract
+                && type.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                && IsBlazorComponent(type) {
+                let symbol: ISymbol = type
+                result = result.Add(
+                    MacroCompletionItem(
+                        type.Name,
+                        type.Name,
+                        replacementSpan,
+                        Description: "Blazor component",
+                        Symbol: symbol))
+            }
+        }
+
+        result
+    }
+
+    private static func FindComponentType(
+        context: TokenTreeMacroContext,
+        name: string
+    ) -> INamedTypeSymbol? {
+        if let exact: INamedTypeSymbol = context.Compilation.GetTypeByMetadataName(name) {
+            return exact
+        }
+
+        for member in context.Compilation.GlobalNamespace.GetMembers(name) {
+            if member is INamedTypeSymbol type && IsBlazorComponent(type) {
+                return type
+            }
+        }
+
+        let syntaxTree: SyntaxTree = context.Syntax.SyntaxTree else {
+            return null
+        }
+        for node in syntaxTree.GetRoot().DescendantNodes() {
+            if node is ImportDirectiveSyntax importDirective
+                && importDirective.Span.Start < context.Syntax.Span.Start
+                && context.SemanticModel.GetSymbolInfo(importDirective.Name).Symbol is INamespaceSymbol namespaceSymbol {
+                for member in namespaceSymbol.GetMembers(name) {
+                    if member is INamedTypeSymbol type && IsBlazorComponent(type) {
+                        return type
+                    }
+                }
+            }
+        }
+
+        null
+    }
+
+    private static func FindTagNameCompletionSpan(body: string, caret: int) -> HtmlCompletionSpan? {
+        if 0 > caret {
+            return null
+        }
+        if caret > body.Length {
+            return null
+        }
+
+        var start = caret
+        while start > 0 && IsNameCharacter(body[start - 1]) {
+            start = start - 1
+        }
+
+        if start == 0 || body[start - 1] != '<' {
+            return null
+        }
+
+        HtmlCompletionSpan(TextSpan(start, caret - start))
+    }
+
+    private static func FindAttributeNameCompletionSpan(body: string, caret: int) -> HtmlCompletionSpan? {
+        if 0 > caret {
+            return null
+        }
+        if caret > body.Length {
+            return null
+        }
+        if body.Length == 0 {
+            return null
+        }
+
+        let searchStart = Math.Min(caret, body.Length - 1)
+        let openTag = body.LastIndexOf("<", searchStart)
+        let closeTag = body.LastIndexOf(">", searchStart)
+        if 0 > openTag {
+            return null
+        }
+        if closeTag > openTag {
+            return null
+        }
+
+        var start = caret
+        while start > openTag && IsNameCharacter(body[start - 1]) {
+            start = start - 1
+        }
+        if start > openTag && (
+            body[start - 1] == '='
+            || body[start - 1] == '"'
+            || body[start - 1] == '{') {
+            return null
+        }
+
+        HtmlCompletionSpan(TextSpan(start, caret - start))
+    }
+
+    private static func IsNameCharacter(value: char) -> bool {
+        Char.IsLetterOrDigit(value) || value == '_' || value == '-' || value == ':' || value == '.'
+    }
+
+    private static func IsBlazorComponent(type: INamedTypeSymbol) -> bool {
+        var current: INamedTypeSymbol? = type.BaseType
+        while let currentType: INamedTypeSymbol = current {
+            if currentType.ToFullyQualifiedMetadataName() == "Microsoft.AspNetCore.Components.ComponentBase" {
+                return true
+            }
+            current = currentType.BaseType
+        }
+
+        false
+    }
+
+    private static func IsComponentTagName(name: string) -> bool {
+        let separator = name.LastIndexOf(".")
+        let typeNameStart = separator + 1
+        typeNameStart < name.Length && Char.IsUpper(name[typeNameStart])
+    }
+
+    private static func IsComponentParameter(property: IPropertySymbol) -> bool {
+        for attribute in property.GetAttributes() {
+            if attribute.AttributeClass.ToFullyQualifiedMetadataName()
+                == "Microsoft.AspNetCore.Components.ParameterAttribute" {
+                return true
+            }
+        }
+
+        false
+    }
 
     func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> ISymbol? {
         if token.Kind != SyntaxKind.IdentifierToken {
@@ -188,6 +473,8 @@ class HtmlComponentReference(
     val Name: string,
     val SymbolSpan: TextSpan
 )
+
+class HtmlCompletionSpan(val Span: TextSpan)
 
 class HtmlComponentAttribute(
     val ComponentName: string,
