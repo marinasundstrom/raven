@@ -385,19 +385,37 @@ public partial class SemanticModel
                 continue;
             }
 
-            var bound = TryGetCachedBoundNode(candidate);
-            var symbolInfo = bound switch
+            if (candidate is ParameterSyntax parameterSyntax &&
+                TryResolveFunctionExpressionParameterSymbolFast(parameterSyntax, out var parameterSymbol) &&
+                parameterSymbol is not null)
             {
-                BoundExpression boundExpression => boundExpression.GetSymbolInfo(),
-                BoundStatement boundStatement => boundStatement.GetSymbolInfo(),
-                _ => SymbolInfo.None
-            };
+                return new MacroFragmentSemanticInfo(
+                    region,
+                    token.Span,
+                    new SymbolInfo(parameterSymbol),
+                    new TypeInfo(parameterSymbol.Type, parameterSymbol.Type),
+                    token.Parent);
+            }
+
+            var bound = TryGetCachedBoundNode(candidate);
+            var symbolInfo = TryGetSymbolMapping(candidate, out var mappedSymbolInfo) && HasSymbolInfo(mappedSymbolInfo)
+                ? mappedSymbolInfo
+                : bound switch
+                {
+                    BoundExpression boundExpression => boundExpression.GetSymbolInfo(),
+                    BoundStatement boundStatement => boundStatement.GetSymbolInfo(),
+                    _ => SymbolInfo.None
+                };
             if (symbolInfo.Symbol is null && symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
                 continue;
 
             symbolInfo = UseAuthoredLocalName(symbolInfo, token.ValueText);
 
-            var type = bound is BoundExpression expressionNode ? expressionNode.Type : null;
+            var type = bound is BoundExpression expressionNode
+                ? expressionNode.Type
+                : candidate is ExpressionSyntax
+                    ? GetTypeFromSymbol(symbolInfo.Symbol?.UnderlyingSymbol ?? symbolInfo.Symbol)
+                    : null;
             return new MacroFragmentSemanticInfo(
                 region,
                 token.Span,

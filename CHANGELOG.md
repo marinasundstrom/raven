@@ -8,6 +8,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-21**.
   reparsing the complete token-tree body. Structured declaration DSLs can expose
   multiple independent Raven blocks and receive native hover, completion,
   classifications, inferred-type inlays, and semantic binding in each region.
+- Macro-fragment semantic queries now prefer exact compiler symbol mappings,
+  including target-typed arguments and inferred pattern declarations, instead
+  of falling back to an enclosing invocation. Fragment results are authoritative
+  to language services, so detached syntax is not rebound through the outer
+  tree, and target-typed lambda declarations are stable across incremental cache
+  histories. The Proto.Actor DSL also projects its generated `IContext` into
+  fragment scope so `context.Respond(...)` participates in native binding,
+  hover, and completion.
 - Added a framework-free browser application type to `rvn init` and
   `Raven.Templates` as `browser`/`raven-browser`. It composes Raven with
   `Microsoft.NET.Sdk.WebAssembly`, publishes a normal static browser bundle,

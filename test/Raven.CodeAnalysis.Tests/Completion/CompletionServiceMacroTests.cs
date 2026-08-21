@@ -132,6 +132,39 @@ class MacroHost {
         Assert.Contains(items, static item => item.DisplayText == "message");
     }
 
+    [Fact]
+    public void GetCompletions_InsideIndependentBlockFragments_UsesEachReportedSpan()
+    {
+        const string code = """
+class MacroHost {
+    func Test() {
+        let message = "hello"
+        let value = structuredBlocks! {
+            started { message. }
+            stopping { message. }
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(new StructuredBlockMacro()));
+        var firstPosition = code.IndexOf("message.", StringComparison.Ordinal) + "message.".Length;
+        var secondPosition = code.LastIndexOf("message.", StringComparison.Ordinal) + "message.".Length;
+        var completionService = new CompletionService();
+
+        var firstItems = completionService.GetCompletions(compilation, syntaxTree, firstPosition);
+        var secondItems = completionService.GetCompletions(compilation, syntaxTree, secondPosition);
+
+        Assert.Contains(firstItems, static item => item.DisplayText == "Length");
+        Assert.Contains(secondItems, static item => item.DisplayText == "Length");
+    }
+
     [Theory]
     [InlineData(MacroFragmentKind.Statement, "mes", "message")]
     [InlineData(MacroFragmentKind.Type, "Wid", "Widget")]
@@ -718,6 +751,32 @@ class MacroHost {
                     MacroFragmentKind.Expression,
                     new TextSpan(context.BodySpan.Length, 0)),
             ];
+    }
+
+    private sealed class StructuredBlockMacro : IMacroDefinition, IMacroFragmentProvider
+    {
+        public string Namespace => string.Empty;
+
+        public string Name => "structuredBlocks";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+        {
+            var body = context.GetBodyText();
+            var firstStart = body.IndexOf("message.", StringComparison.Ordinal);
+            var secondStart = body.LastIndexOf("message.", StringComparison.Ordinal);
+            return
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Block,
+                    new TextSpan(firstStart, "message.".Length)),
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Block,
+                    new TextSpan(secondStart, "message.".Length)),
+            ];
+        }
     }
 
     private sealed class CategorizedFragmentMacro(MacroFragmentKind kind) :

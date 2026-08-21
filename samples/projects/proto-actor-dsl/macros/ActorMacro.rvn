@@ -272,6 +272,11 @@ class ActorMacro : IMacroDefinition, IMacroKeywordProvider, IMacroFragmentProvid
                     parameter.Identifier.Span))
             }
         }
+
+        let actorContextType: ITypeSymbol = context.Compilation.GetTypeByMetadataName("Proto.IContext") else {
+            return locals
+        }
+        locals = locals.Add(context.CreateFragmentLocal("context", actorContextType))
         locals
     }
 

@@ -798,7 +798,7 @@ internal sealed class HoverHandler : IHoverHandler
                 continue;
 
             return new SymbolResolutionResult(
-                SymbolResolutionKind.SymbolInfo,
+                SymbolResolutionKind.MacroFragment,
                 symbol.UnderlyingSymbol,
                 info.Syntax);
         }
@@ -3439,7 +3439,8 @@ internal sealed class HoverHandler : IHoverHandler
         var symbol = resolution.Symbol;
         var contextNode = resolution.Node;
 
-        if (contextNode.AncestorsAndSelf().OfType<SingleVariableDesignationSyntax>().FirstOrDefault() is { } single &&
+        if (resolution.Kind is not SymbolResolutionKind.MacroFragment &&
+            contextNode.AncestorsAndSelf().OfType<SingleVariableDesignationSyntax>().FirstOrDefault() is { } single &&
             semanticModel.GetDeclaredSymbol(single) is { } declaredSymbol)
         {
             symbol = declaredSymbol;

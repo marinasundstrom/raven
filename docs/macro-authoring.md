@@ -563,6 +563,44 @@ caller scope, so locals, parameters, fields, types, and member access behave as
 they do outside the DSL. Macro authors do not implement a second completion
 provider for embedded Raven syntax.
 
+### Native fragment completion and DSL completion
+
+There are two distinct completion layers in a mixed-language macro body:
+
+1. **Native Raven completion** applies inside a reported fragment. The compiler
+   owns parsing, binding, member lookup, replacement spans, and presentation for
+   the embedded Raven code. A provider contributes the fragment category plus
+   any introduced locals or target type.
+2. **DSL completion** applies to the provider's private grammar. Examples are
+   lifecycle clauses in an actor DSL, HTML tags and attributes in `markup!`,
+   route templates, SQL tables and columns, or schema-derived names.
+
+The first layer is implemented today through fragment regions. Keyword and
+token providers also supply parsing and semantic classification for the outer
+DSL, but they do not currently contribute custom completion items. Consequently,
+`markup!` can provide normal Raven member completion inside `{ expression }`,
+while HTML tag, attribute, component-parameter, and closing-tag suggestions
+remain future work. Likewise, an actor block receives completion for `events.`
+and `context.`, but clause-order suggestions such as `receive` after `started`
+need a DSL completion capability.
+
+The planned capability is an optional, compiler-owned macro completion provider,
+not an LSP extension point. It should receive the invocation, a body-relative
+cursor and replacement span, trigger information, cancellation, and the
+provider's private input context. It should return editor-neutral items with a
+label, insertion text or snippet, kind, detail/documentation, and ordering data.
+The compiler should map spans, merge and deduplicate DSL items with native Raven
+fragment items, and isolate provider failure just as it does for token and
+fragment metadata. This keeps the language server a presenter and lets one macro
+package behave consistently in VS Code, the Playground, and future editors.
+
+A custom provider should be used only for knowledge Raven cannot derive. If a
+suggestion denotes an ordinary Raven symbol—such as a component parameter—the
+item should retain that symbol association so documentation and navigation stay
+compiler-owned. A provider may reuse its private recovered parse internally,
+but Raven should not require every DSL to expose a public syntax tree or build a
+second semantic model.
+
 Use `MacroFragmentKind.Block` when a reported region is a sequence of ordinary
 Raven statements sharing one lexical scope. A DSL may report the entire body or
 several independent block regions separated by its own structural keywords.

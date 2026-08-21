@@ -237,6 +237,12 @@ hover, completion, navigation, diagnostics, semantic classification, and source
 mapping for those regions. The actor macro describes three independent blocks;
 it does not implement an actor-specific language server.
 
+The provider also projects Proto.Actor's generated `context: IContext` into the
+fragment scope. It is not actor-owned state, but authored calls such as
+`context.Respond(...)` must bind, hover, and complete against the real runtime
+contract. Generated names that are usable in authored fragments are therefore
+part of the macro's semantic interface and must be declared to tooling.
+
 Building this sample exposed and closed a platform gap: block-fragment tooling
 previously reparsed the complete macro body even when a provider reported a
 smaller span. That worked for a single all-Raven body but made a structured DSL
@@ -245,6 +251,15 @@ Block parsing is now span-aware, so each lifecycle body retains a first-class
 Raven editing experience. This is one purpose of the DSL samples: pressure-test
 the reusable macro contracts and improve them instead of hiding gaps in sample
 code.
+
+Completion has the same two-layer boundary. Raven completion inside lifecycle
+blocks should come from the reported fragments for free: actor parameters,
+pattern locals, state, dependencies, and `context` use ordinary semantic lookup.
+Suggestions for the actor grammar itself—valid next lifecycle clauses, clause
+ordering, or actor-specific snippets—need the future macro DSL-completion
+capability described in `docs/macro-authoring.md`. The HTML `markup!` DSL has the
+same split between Raven completion inside embedded expressions and custom HTML
+tag, attribute, component-parameter, and closing-tag completion.
 
 ## POC boundaries and design questions
 

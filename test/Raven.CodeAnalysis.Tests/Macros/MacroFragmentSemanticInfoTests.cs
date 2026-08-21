@@ -248,6 +248,86 @@ public sealed class MacroFragmentSemanticInfoTests
     }
 
     [Fact]
+    public void GetMacroFragmentSemanticInfo_ResolvesPatternDeclarationAndReferenceInBlock()
+    {
+        const string code = """
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            union Command {
+                case Add(amount: int)
+            }
+
+            func Main(command: Command) {
+                blockFragment! {
+                    match command {
+                        .Add(let amount) => amount
+                    }
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "MacroBlockPatternHover",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new BlockFragmentMacro()));
+        var expression = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var declarationPosition = code.LastIndexOf("let amount", StringComparison.Ordinal) + "let ".Length + 1;
+        var referencePosition = code.LastIndexOf("=> amount", StringComparison.Ordinal) + "=> ".Length + 1;
+
+        var declarationInfo = compilation.GetMacroFragmentSemanticInfo(expression, declarationPosition);
+        var referenceInfo = compilation.GetMacroFragmentSemanticInfo(expression, referencePosition);
+
+        var declaration = Assert.IsAssignableFrom<ILocalSymbol>(declarationInfo?.SymbolInfo.Symbol);
+        var reference = Assert.IsAssignableFrom<ILocalSymbol>(referenceInfo?.SymbolInfo.Symbol);
+        Assert.Equal("amount", declaration.Name);
+        Assert.Equal(SpecialType.System_Int32, declaration.Type.SpecialType);
+        Assert.Equal("amount", reference.Name);
+        Assert.Equal(SpecialType.System_Int32, reference.Type.SpecialType);
+    }
+
+    [Fact]
+    public void GetMacroFragmentSemanticInfo_PrefersContextuallyBoundArgumentOverInvocation()
+    {
+        const string code = """
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            interface Events {
+                func Stopping(value: int)
+            }
+
+            func Main(events: Events, count: int) {
+                blockFragment! {
+                    events.Stopping(count)
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "MacroBlockContextualArgumentHover",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new BlockFragmentMacro()));
+        var expression = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var position = code.LastIndexOf("count", StringComparison.Ordinal) + 1;
+
+        var info = compilation.GetMacroFragmentSemanticInfo(expression, position);
+
+        var count = Assert.IsAssignableFrom<IParameterSymbol>(info?.SymbolInfo.Symbol);
+        Assert.Equal("count", count.Name);
+        Assert.Equal(SpecialType.System_Int32, count.Type.SpecialType);
+        Assert.Equal("count", code.Substring(info!.Span.Start, info.Span.Length));
+    }
+
+    [Fact]
     public void GetMacroFragmentSemanticInfo_ResolvesNestedMacroFragmentSymbols()
     {
         const string code = """
@@ -317,8 +397,7 @@ public sealed class MacroFragmentSemanticInfoTests
         var parameterInfo = compilation.GetMacroFragmentSemanticInfo(expression, parameterPosition);
         var referenceInfo = compilation.GetMacroFragmentSemanticInfo(expression, referencePosition);
 
-        var lambda = Assert.IsAssignableFrom<ILambdaSymbol>(parameterInfo?.SymbolInfo.Symbol);
-        var parameter = Assert.Single(lambda.Parameters);
+        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(parameterInfo?.SymbolInfo.Symbol);
         Assert.Equal("value", parameter.Name);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
 
@@ -359,6 +438,22 @@ public sealed class MacroFragmentSemanticInfoTests
             [
                 context.CreateFragmentRegion(
                     MacroFragmentKind.Expression,
+                    new TextSpan(0, context.BodySpan.Length))
+            ];
+    }
+
+    private sealed class BlockFragmentMacro : IMacroDefinition, IMacroFragmentProvider
+    {
+        public string Name => "blockFragment";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+            =>
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Block,
                     new TextSpan(0, context.BodySpan.Length))
             ];
     }

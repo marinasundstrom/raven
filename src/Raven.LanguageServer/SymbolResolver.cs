@@ -1140,6 +1140,7 @@ internal enum SymbolResolutionKind
     TypePosition,
     PatternLocal,
     BlockLocal,
+    MacroFragment,
     SymbolInfo,
     Declaration
 }

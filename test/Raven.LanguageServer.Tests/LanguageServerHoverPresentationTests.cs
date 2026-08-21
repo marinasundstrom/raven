@@ -144,7 +144,7 @@ func Main() {
         var declarationSignature = (string)buildSignature.Invoke(
             null,
             [declarationResolution!.Value, semanticModel, root, declarationOffset])!;
-        declarationSignature.ShouldBe("(id: int) -> ()");
+        declarationSignature.ShouldBe("id: int");
 
     }
 
@@ -250,7 +250,7 @@ func Main() {
         var signature = (string)buildSignature.Invoke(
             null,
             [validResolution!.Value, validCompilation.GetSemanticModel(validTree), validRoot, validOffset])!;
-        signature.ShouldBe("(id: int) -> ()");
+        signature.ShouldBe("id: int");
     }
 
     [Fact]
@@ -293,6 +293,51 @@ func Main() {
             null,
             [resolution.Value, semanticModel, root, offset])!;
         signature.ShouldContain("Name: string");
+    }
+
+    [Fact]
+    public void MacroBlockFragmentHover_PresentsPatternLocalFromDetachedFragment()
+    {
+        const string code = """
+import Raven.LanguageServer.Tests.*
+
+union Command {
+    case Add(amount: int)
+}
+
+func Main(command: Command) {
+    blockFragmentHover! {
+        match command {
+            .Add(let amount) => amount
+        }
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(new MacroReference(new BlockFragmentHoverMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var offset = code.LastIndexOf("let amount", StringComparison.Ordinal) + "let ".Length + 2;
+        var tryResolve = typeof(HoverHandler)
+            .GetMethod("TryResolveMacroFragmentHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var resolution = (SymbolResolutionResult?)tryResolve.Invoke(
+            null,
+            [semanticModel, root, offset, CancellationToken.None]);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("amount");
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignature.Invoke(
+            null,
+            [resolution.Value, semanticModel, root, offset])!;
+        signature.ShouldBe("val amount: int");
     }
 
     [Fact]
@@ -539,6 +584,22 @@ func Test(item: Foo) -> bool {
             [
                 context.CreateFragmentRegion(
                     MacroFragmentKind.Expression,
+                    new TextSpan(0, context.BodySpan.Length))
+            ];
+    }
+
+    private sealed class BlockFragmentHoverMacro : IMacroDefinition, IMacroFragmentProvider
+    {
+        public string Name => "blockFragmentHover";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+            =>
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Block,
                     new TextSpan(0, context.BodySpan.Length))
             ];
     }
