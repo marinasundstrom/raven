@@ -1,0 +1,28 @@
+namespace ProtoActorDslSample
+
+import System.*
+import System.Console.*
+import Proto.*
+
+func Main() {
+    let system = ActorSystem()
+    let counter = system.Root.SpawnNamed(CounterActor.Props(), "counter")
+
+    let add: CounterCommand = .Add(7)
+    let subtract: CounterCommand = .Subtract(2)
+    let get: CounterCommand = .Get
+
+    system.Root.Send(counter, add)
+    system.Root.Send(counter, subtract)
+
+    let snapshot = system.Root.RequestAsync<CounterSnapshot>(counter, get).GetAwaiter().GetResult()
+    WriteLine("Counter value: ${snapshot.Value}")
+
+    let reset: CounterCommand = .Reset
+    system.Root.Send(counter, reset)
+
+    let afterReset = system.Root.RequestAsync<CounterSnapshot>(counter, get).GetAwaiter().GetResult()
+    WriteLine("After reset: ${afterReset.Value}")
+
+    system.Root.Stop(counter)
+}

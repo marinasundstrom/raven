@@ -95,6 +95,7 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/syntax-quoter/README.md` (generate Raven SyntaxFactory code from Raven source)
 - `samples/projects/macro-declarations/README.md` (author a same-project macro with `macro`)
 - `samples/projects/macro-dsl/README.md` (minimal token DSL with an embedded Raven expression and source mapping)
+- `samples/projects/proto-actor-dsl/README.md` (Proto.Actor POC with a Swift-like Raven actor declaration macro)
 - `samples/projects/macro-token-stream/README.md` (replace Raven's macro token stream with a custom lexer)
 - `samples/projects/macro-quote/README.md` (construct another macro's expansion with `quote!`)
 - `samples/projects/error-macro/README.md` (derive the standard `IError` contract for a union)

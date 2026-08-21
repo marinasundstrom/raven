@@ -1,0 +1,10 @@
+namespace ProtoActorDslSample
+
+union CounterCommand {
+    case Add(amount: int)
+    case Subtract(amount: int)
+    case Reset
+    case Get
+}
+
+record CounterSnapshot(Value: int)
