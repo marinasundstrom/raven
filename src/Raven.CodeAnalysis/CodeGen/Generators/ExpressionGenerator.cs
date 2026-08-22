@@ -7568,7 +7568,7 @@ internal partial class ExpressionGenerator : Generator
         {
             var requiresAddress = invocationExpression.RequiresReceiverAddress ||
                 useConstrainedCall ||
-                target.ContainingType?.IsValueType == true;
+                (!receiverAlreadyLoaded && target.ContainingType?.IsValueType == true);
             var receiverAddressLoaded = false;
 
             if (!receiverAlreadyLoaded)
