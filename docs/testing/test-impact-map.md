@@ -1,5 +1,9 @@
 # Test Impact Map
 
+See [Selective Test Organization Improvements](selective-test-organization-improvements.md)
+for the proposed feature/layer/profile taxonomy and migration from manual
+filters to explainable change-based selection.
+
 Use this map to pick the smallest trustworthy pre-change baseline and
 post-change validation set. The full baseline is still the broad safety gate,
 but it is not the default inner-loop command for scoped compiler work.
