@@ -129,7 +129,8 @@ class EmptyPropertyPatterns {
         var code = """
 class EmptyPropertyPatterns {
     public static func IsWidget(value: object?) -> int {
-        if value is Widget { } {
+        let matches = value is Widget { }
+        if matches {
             return 1
         }
 
