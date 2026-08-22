@@ -688,8 +688,8 @@ public sealed class MarkupMacroToolingAcceptanceTests
         var valueInfo = compilation.GetMacroFragmentSemanticInfo(
             invocation,
             source.LastIndexOf("(value)", StringComparison.Ordinal) + 2);
-        var lambda = Assert.IsAssignableFrom<ILambdaSymbol>(valueInfo?.SymbolInfo.Symbol);
-        Assert.Equal(SpecialType.System_Int32, Assert.Single(lambda.Parameters).Type.SpecialType);
+        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(valueInfo?.SymbolInfo.Symbol);
+        Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
     }
 
     [Fact]
