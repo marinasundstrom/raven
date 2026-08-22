@@ -58,7 +58,7 @@ internal sealed class RavenMacroTokenStream : IMacroTokenStream
         var greenToken = _parseContext.ReadToken();
         var token = new SyntaxToken(greenToken, parent: null, position);
 
-        if (token.Kind == SyntaxKind.IdentifierToken &&
+        if (token.CanBeIdentifier() &&
             _keywords.TryGetValue(token.ValueText, out var keyword))
         {
             token = token.WithRawKind(keyword.RawKind);

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
@@ -11,6 +12,17 @@ namespace Raven.CodeAnalysis.Macros.Tests;
 
 public sealed class TokenTreeMacroContextTests
 {
+    [Fact]
+    public void CreateTokenStream_ReclassifiesContextualKeywordAsMacroKeyword()
+    {
+        var context = CreateContext("then value", new ThenKeywordMacro());
+
+        var token = context.CreateTokenStream().ReadToken();
+
+        Assert.Equal(SyntaxKind.ThenKeyword, token.Kind);
+        Assert.Equal(ThenKeywordMacro.ThenRawKind, token.RawKind);
+    }
+
     [Fact]
     public void ParseExpressionResult_RetainsAuthoredPosition()
     {
@@ -366,7 +378,7 @@ public sealed class TokenTreeMacroContextTests
         Assert.Equal(context.TokenTree.Span, diagnostic.Location!.SourceSpan);
     }
 
-    private static TokenTreeMacroContext CreateContext(string body)
+    private static TokenTreeMacroContext CreateContext(string body, IMacroDefinition? macro = null)
     {
         var tree = SyntaxTree.ParseText($"func Main() -> unit => probe! {{ {body} }}");
         var compilation = Compilation.Create(
@@ -379,10 +391,10 @@ public sealed class TokenTreeMacroContextTests
             .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
 
-        return new TokenTreeMacroContext(
-            compilation,
-            compilation.GetSemanticModel(tree),
-            invocation);
+        var semanticModel = compilation.GetSemanticModel(tree);
+        return macro is null
+            ? new TokenTreeMacroContext(compilation, semanticModel, invocation)
+            : new TokenTreeMacroContext(compilation, semanticModel, invocation, macro);
     }
 
     private static TextSpan BodySpanOf(TokenTreeMacroContext context, string text)
@@ -414,5 +426,18 @@ public sealed class TokenTreeMacroContextTests
             compilation,
             compilation.GetSemanticModel(tree),
             invocation);
+    }
+
+    private sealed class ThenKeywordMacro : IMacroDefinition, IMacroKeywordProvider
+    {
+        public const int ThenRawKind = 91_001;
+
+        public string Name => "probe";
+
+        public ImmutableArray<MacroKeyword> Keywords =>
+            [new("then", ThenRawKind)];
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
     }
 }
