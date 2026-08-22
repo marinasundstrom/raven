@@ -10,6 +10,14 @@ remain familiar to users of Roslyn where those concepts fit, but it should not
 copy nullable C# signatures when Raven has a more precise carrier for the
 meaning of an outcome.
 
+The same principle applies to the eventual Raven-authored compiler
+implementation. Self-hosting is an opportunity to exercise the language as it
+is intended to be used: compiler data structures, inputs, intermediate state,
+and public APIs should use Raven constructs whenever those constructs express
+the model accurately. Bootstrap constraints may require temporary .NET or C#
+shapes, but those shapes should not become the design target for the
+Raven-authored compiler.
+
 ## Shape outcomes by meaning
 
 Choose the smallest result shape that represents the distinctions a caller
@@ -36,6 +44,56 @@ boundary, a Raven-facing convenience can explicitly project the platform shape
 into `Option` or another union. Null should not become the default representation
 of absence merely because the compiler implementation is currently written in
 C#.
+
+## Use unions at their natural scale
+
+When a value may hold one of several known types and the alternatives do not
+need a new domain identity, use Raven's ad hoc (standard) union type directly.
+This applies to parameters, return values, fields, locals, and intermediate
+compiler state; it is not limited to error handling:
+
+```raven
+func BindTarget(target: ExpressionSyntax | PatternSyntax) -> BoundNode
+```
+
+An ad hoc union such as `ExpressionSyntax | PatternSyntax` states the complete
+set of accepted value types without introducing a wrapper whose only purpose
+is storage. Prefer it over a shared base type, `object`, parallel nullable
+fields, or an untyped container when the actual domain is closed.
+
+Syntax modeling is an important example. A child slot that permits exactly two
+syntax node types can declare those types as a union instead of forcing both
+through a new intermediate base class:
+
+```raven
+val Target: ExpressionSyntax | PatternSyntax
+```
+
+This lets the syntax model describe the grammar's actual alternatives and
+avoids inheritance introduced only to make heterogeneous storage possible. It
+does not prohibit a meaningful syntax hierarchy: common identity, traversal,
+or behavior may still belong on `SyntaxNode` or another genuine abstraction.
+The union removes the need for an artificial shared ancestor when the only
+shared fact is that one slot accepts either type.
+
+When that same set of alternatives has a stable meaning of its own, appears
+repeatedly across an API, needs documentation or members, or should remain
+nominally distinct from another union with the same member types, give it a
+name with an ordinary parenthesized union declaration:
+
+```raven
+union BindTarget(ExpressionSyntax | PatternSyntax)
+```
+
+Use a body-form union instead when the alternatives are named cases that need
+their own case-specific payloads. Naming is a modeling choice, not a default
+requirement imposed merely because a value can have multiple possible types.
+
+This distinction should be applied throughout bootstrap design reviews. Ask
+first whether the state is a closed set of existing types, then whether that
+set itself has a durable domain identity. The answers determine whether the
+natural Raven shape is an ad hoc union, a named parenthesized union, or a
+body-form union.
 
 ## Interoperability
 

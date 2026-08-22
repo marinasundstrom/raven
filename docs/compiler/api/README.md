@@ -5,8 +5,8 @@ This document outlines the API of the Raven compiler, providing guidance on synt
 For analyzer, source-generator, refactoring, and language-server hot paths, see
 the [Compiler API performance guidance](performance.md).
 
-For the intended use of `Option`, `Result`, and purpose-built unions once the
-compiler bootstrap can consume Raven.Core safely, see
+For the intended use of `Option`, `Result`, ad hoc unions, and named unions once
+the compiler bootstrap can consume Raven.Core safely, see
 [Desired Compiler API result shapes after bootstrap](result-shapes.md).
 
 The examples are written in Raven and use `Raven.CodeAnalysis` directly. This
