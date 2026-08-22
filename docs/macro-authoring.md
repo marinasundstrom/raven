@@ -583,6 +583,80 @@ grammar needs.
 | `IMacroCompletionProvider` | DSL-owned completion items with body-relative replacement spans and optional symbols | Raven maps, orders, deduplicates, cancellation-checks, and presents the items | Completes Blazor component tags and `[Parameter]` properties, including incomplete markup |
 | `IMacroEmbeddedLanguageProvider` | A language ID and position-preserving projected body | Hosts can reuse an existing language service; Raven validates equal length and line breaks and excludes reported Raven fragments from projection-owned requests | Projects the markup envelope as HTML while masking embedded Raven expressions; VS Code currently reuses HTML completion and hover |
 
+### How cursor ownership is resolved
+
+Mixed-language bodies do not have one provider that wins every editor request.
+Raven resolves ownership according to the information needed by each feature:
+
+1. Cursor lookup descends through reported Raven regions when they contain a
+   nested token-tree macro invocation. The nested macro can then report its own
+   fragments, tokens, completion, or embedded-language projection while
+   inheriting the lexical scope at its authored position.
+2. An explicit `IMacroTokenSymbolProvider` association wins symbol hover and
+   definition for that DSL token, even when a broader Raven fragment contains
+   the same position.
+3. Otherwise, a reported Raven fragment owns native semantic requests inside
+   its span. Raven supplies diagnostics, completion, hover, definition,
+   classifications, and inlays, and an embedded-language projection is not
+   offered at that position.
+4. At positions owned by the outer DSL, `IMacroCompletionProvider` may add
+   domain-specific items. An embedded-language host may also add results from
+   the projected language. The VS Code bridge orders Raven's semantic items and
+   hover content before projected HTML results and removes duplicate completion
+   labels.
+5. If no provider claims a position, the body retains neutral token
+   presentation. Tools must not reinterpret arbitrary DSL text as Raven source
+   or fall back to hover for the enclosing macro invocation.
+
+This routing keeps the macro's structural parser authoritative without making
+its private tree part of Raven's public syntax or semantic model.
+
+### Choose completion or an embedded-language projection
+
+| Need | Preferred service |
+| --- | --- |
+| Complete ordinary Raven inside the DSL | Report an `IMacroFragmentProvider` region; do not write a custom completion provider |
+| Complete names known only to the DSL, a schema, or a framework model | Use `IMacroCompletionProvider` and retain an ordinary Raven symbol on an item when one exists |
+| Give hover or definition to a DSL token that denotes a Raven type, member, or namespace | Use `IMacroTokenSymbolProvider`, not custom hover text |
+| Reuse a mature language catalog and documentation set such as HTML | Use `IMacroEmbeddedLanguageProvider` with a position-preserving projection |
+| Combine framework-specific semantics with a standard embedded language | Implement both completion and projection services; keep framework items compiler-owned and let the editor supplement them |
+| Validate or lower the DSL | Keep using the macro's parser and `Expand`; an editor projection is never the structural authority |
+
+### A composed Markup provider
+
+The checked-in
+[Markup provider](https://github.com/marinasundstrom/raven/blob/main/samples/projects/macro-html-blazor/macros/MarkupMacro.rvn)
+demonstrates the complete composition. Its abbreviated class shape is:
+
+```raven
+class MarkupMacro :
+    IMacroDefinition,
+    IMacroFragmentProvider,
+    IMacroTokenClassifier,
+    IMacroTokenSymbolProvider,
+    IMacroCompletionProvider,
+    IMacroEmbeddedLanguageProvider {
+    // Expand validates and lowers the private markup grammar.
+    // GetFragmentRegions publishes embedded Raven expressions.
+    // ClassifyToken presents markup tokens without new SyntaxKind values.
+    // GetTokenSymbol associates component tags and parameters with symbols.
+    // GetCompletions contributes Blazor component and parameter items.
+    // GetEmbeddedLanguageProjection exposes the remaining envelope as HTML.
+}
+```
+
+All six services use the same authored body and body-relative coordinate
+system, but publish different editor-neutral views. Parser-backed services
+recover the same private grammar; lightweight classification and incomplete
+completion helpers preserve that grammar's coordinates during recovery.
+`Expand` remains the only method that decides whether the markup is
+structurally valid and produces the Blazor `RenderFragment`. Fragment regions
+preserve `{ expression }` as Raven; the HTML projection replaces only the
+expression text with spaces while retaining braces, length, and line breaks.
+Component completion and symbols are derived from the consumer compilation,
+while standard element and attribute knowledge remains in the editor's HTML
+service.
+
 `SemanticModel.GetMacroInputSnapshot` is the combined token-and-fragment query.
 `GetMacroTokens`, `GetMacroFragmentRegions`,
 `GetMacroFragmentSemanticInfo`, and
@@ -596,6 +670,38 @@ providers receive the request cancellation token through their context.
 contracts above. It is an adapter marker generated for compact `macro`
 declarations whose reached `token` or `fragment` contributions are carried by
 the expansion result; macro authors do not implement it directly.
+
+### Authoring and testing checklist
+
+Before treating a token-tree DSL as editor-ready:
+
+- Use the same recovery rules and body-relative coordinate system for
+  expansion, diagnostics, fragments, tokens, completion, and projections.
+- Return meaningful partial tokens, regions, and completion targets while the
+  user is typing incomplete input. Use zero-width regions for expected Raven
+  syntax slots.
+- Report malformed authored input with body-mapped diagnostics. Reserve
+  exceptions for provider defects; optional tooling failures are isolated and
+  contribute no result for that request.
+- Honor `context.CancellationToken` during parsing, symbol lookup, schema work,
+  and loops over large inputs. Providers can run on latency-sensitive editor
+  requests and must be deterministic for one compilation snapshot.
+- Keep body-relative spans within `context.BodySpan`. Preserve exact length and
+  line-break positions in an embedded-language projection; mask excluded text
+  with non-newline whitespace instead of deleting or reformatting it.
+- Publish ordinary Raven symbols whenever DSL tokens or completion items denote
+  real types or members. This keeps documentation and navigation consistent
+  across compiler and editor features.
+- Add focused acceptance coverage for malformed and incomplete input, authored
+  span mapping, cancellation, provider failure isolation, ordinary Raven
+  semantics inside fragments, DSL completion replacement spans, symbol hover
+  and definition, nested macros, and projection exclusion inside Raven spans.
+
+The projection contract is compiler-owned and host-neutral. Automatic reuse of
+VS Code's embedded-language providers is a client capability: Raven's VS Code
+extension currently bridges completion and hover for `html` projections.
+Formatting, linked editing, and projected-language diagnostics are not yet
+bridged, and other editors must consume the compiler projection API explicitly.
 
 ### Native fragment completion and DSL completion
 
