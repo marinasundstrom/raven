@@ -68,7 +68,7 @@ class Program {
     }
 
     [Fact]
-    public void IsPropertyPattern_WithBareIdentifier_UsesExistingValue()
+    public void IsPropertyPattern_WithExplicitValueComparison_UsesExistingValue()
     {
         var code = """
 import System.Console.*
@@ -77,7 +77,7 @@ record class Person(Name: string)
 
 class Program {
     static func Find(person: Person, name: string) -> string {
-        if person is { Name: name } {
+        if person is { Name: == name } {
             return "match"
         }
 
