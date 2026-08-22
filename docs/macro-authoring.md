@@ -563,6 +563,40 @@ caller scope, so locals, parameters, fields, types, and member access behave as
 they do outside the DSL. Macro authors do not implement a second completion
 provider for embedded Raven syntax.
 
+### Implemented token-tree tooling services
+
+Token-tree macros can compose the following optional compiler services. Each
+contract contributes editor-neutral spans, tokens, symbols, or text; the
+compiler validates, maps, routes, and failure-isolates that data, caching the
+immutable snapshot or projection where applicable. Language servers and
+editors present it. A macro should implement only the services its private
+grammar needs.
+
+| Contract | Macro contribution | Compiler and editor behavior | Markup use |
+| --- | --- | --- | --- |
+| `IMacroKeywordProvider` | Body-scoped DSL keywords over the standard Raven token stream | Contextual semantic classification without adding global Raven keywords | Not required by the HTML-shaped grammar |
+| `IMacroTokenStreamProvider` | A custom lexer/token stream | `GetMacroTokens` exposes provider-owned tokens with authored and body-relative spans | Not required; Markup uses the standard token stream |
+| `IMacroTokenKindProvider` | Stable names for custom raw token kinds | Tools can display provider kinds without extending `SyntaxKind` | Not required while Markup uses standard Raven token kinds |
+| `IMacroTokenClassifier` | Lightweight classifications for body tokens | Semantic tokens distinguish identifiers, literals, punctuation, operators, and comments | Classifies markup identifiers, literals, and punctuation |
+| `IMacroFragmentProvider` | Ordinary Raven expression, statement, type, pattern, member, or block regions, with optional locals and target types | Native parsing, diagnostics, binding, hover, completion, definition, classifications, and inlays run inside each region | Reports every `{ expression }`; callback expressions receive their real `Action` target type |
+| `IMacroTokenSymbolProvider` | An ordinary Raven symbol associated with a DSL token | Standard symbol hover and go-to-definition work without a public DSL tree | Resolves Blazor component tags and component parameter names |
+| `IMacroCompletionProvider` | DSL-owned completion items with body-relative replacement spans and optional symbols | Raven maps, orders, deduplicates, cancellation-checks, and presents the items | Completes Blazor component tags and `[Parameter]` properties, including incomplete markup |
+| `IMacroEmbeddedLanguageProvider` | A language ID and position-preserving projected body | Hosts can reuse an existing language service; Raven validates equal length and line breaks and excludes reported Raven fragments from projection-owned requests | Projects the markup envelope as HTML while masking embedded Raven expressions; VS Code currently reuses HTML completion and hover |
+
+`SemanticModel.GetMacroInputSnapshot` is the combined token-and-fragment query.
+`GetMacroTokens`, `GetMacroFragmentRegions`,
+`GetMacroFragmentSemanticInfo`, and
+`GetMacroEmbeddedLanguageProjection` expose narrower compiler-owned views when
+a host needs only one capability. Equivalent `Compilation` entry points are
+available when the caller starts from a syntax tree. Optional-provider failure
+is isolated to the corresponding tooling query, and all potentially expensive
+providers receive the request cancellation token through their context.
+
+`IMacroExpansionMetadataProvider` is different from the author-facing
+contracts above. It is an adapter marker generated for compact `macro`
+declarations whose reached `token` or `fragment` contributions are carried by
+the expansion result; macro authors do not implement it directly.
+
 ### Native fragment completion and DSL completion
 
 There are two distinct completion layers in a mixed-language macro body:
@@ -977,6 +1011,13 @@ requiring public custom syntax trees. Query-like macros can also bridge an
 introduced sequence-element local into selected fragments. Broader custom
 scope shapes remain future work and should be driven by a concrete DSL use
 case.
+
+Outer DSLs can additionally contribute symbol-bearing completion items and
+ordinary symbol associations for their own tokens. Position-preserving
+embedded-language projections are implemented for host reuse; Raven's VS Code
+extension currently delegates completion and hover to the projected language
+service while reported Raven fragments retain cursor ownership. Formatting,
+linked editing, and projected-language diagnostics remain later editor slices.
 
 Expression and raw-body statement placement, single-member and member-list
 expansion, and declaration-shaped carriers are implemented. Type and pattern

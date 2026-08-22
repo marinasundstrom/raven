@@ -282,6 +282,26 @@ Malformed Raven therefore reports a native parser diagnostic at the authored
 expression inside the HTML body. The markup parser owns only the surrounding DSL
 grammar.
 
+### Implemented tooling ownership
+
+Markup deliberately combines macro-owned structure, compiler-owned Raven and
+Blazor semantics, and editor-owned HTML catalog knowledge:
+
+| Authored position or concern | Owning layer | Implemented support |
+| --- | --- | --- |
+| Markup envelope and render-tree shape | `HtmlDslParser` and `MarkupMacro` | Structural validation, body-relative `HTML001` diagnostics, expansion, source maps, and correctly nested Blazor `RenderTreeBuilder` calls |
+| `{ RavenExpression }` | `IMacroFragmentProvider` and Raven semantic services | Native Raven parsing and diagnostics, caller-scope binding, completion, hover, definition, classifications, and inferred-type inlays |
+| Event callback expression | Typed Raven fragment | `EventCallback` and `EventCallback<T>` supply `Action`/`Action<T>` target types, including inline-lambda parameter inference |
+| Blazor component tag | `IMacroTokenSymbolProvider` and `IMacroCompletionProvider` | Ordinary type hover and definition plus compiler-backed completion for imported, qualified, and Raven-authored components |
+| Blazor component parameter | `IMacroTokenSymbolProvider` and `IMacroCompletionProvider` | Ordinary property hover and definition plus completion restricted to public `[Parameter]` properties |
+| Markup token presentation | `IMacroTokenClassifier` | Semantic identifier, literal, and punctuation classifications over the standard token stream |
+| Standard HTML element, attribute, or closing tag | `IMacroEmbeddedLanguageProvider` plus VS Code's HTML service | Position-preserving HTML projection, standard catalog completion, and HTML documentation hover |
+| Cursor inside embedded Raven | Compiler routing | The Raven fragment takes precedence; the HTML projection is not offered at that position |
+| Nested `markup!` inside `component!` | Compiler routing and lexical fragment scope | HTML tooling reaches the nested projection, while component parameters and caller symbols remain visible inside its Raven fragments |
+
+The general contracts and compiler query APIs are summarized in the
+[macro authoring guide](../../../docs/macro-authoring.md#implemented-token-tree-tooling-services).
+
 The macro also implements `IMacroFragmentProvider` and reports those same spans
 as `MacroFragmentKind.Expression`. `SemanticModel.GetMacroFragmentRegions`
 therefore exposes body-relative and absolute authored spans without exposing

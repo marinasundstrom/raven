@@ -25,6 +25,13 @@ completion and hover providers, and maps their ranges back to the Raven body.
 Completion items are merged after Raven's semantic completions; hover content
 is merged after Raven's semantic hover when both providers contribute.
 
+| Cursor location | Raven contribution | Projected HTML contribution |
+| --- | --- | --- |
+| Standard element or attribute | Macro classifications and structural diagnostics | Catalog completion and HTML documentation hover |
+| Blazor component tag or parameter | Symbol hover, definition, and compiler-backed component completion | HTML results may supplement but do not replace Raven symbols |
+| Embedded `{ RavenExpression }` | Native Raven diagnostics, completion, hover, definition, and inlays | None; reported Raven fragments take precedence over the projection |
+| Nested `markup!` in `component!` | Component parameters and surrounding lexical scope remain visible | The nested position-preserving HTML document supplies completion and hover |
+
 This gives standard HTML elements, attributes, and closing-tag suggestions in
 `markup!`, including a nested invocation inside a `component!` block. Blazor
 component tags and `[Parameter]` properties still come from Raven's compiler
