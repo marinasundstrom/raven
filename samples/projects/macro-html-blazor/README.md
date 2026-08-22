@@ -114,8 +114,7 @@ Not supported by the macro:
 
 - component child content or macro-owned control-flow directives;
 - attribute splatting or Razor compatibility;
-- distinct tag-versus-attribute classifications, standard HTML catalog
-  completion, or closing-tag completion;
+- distinct tag-versus-attribute classifications;
 - multiple root elements.
 
 `#[Parameter]` is convenience rather than a new parameter model. Components
@@ -326,9 +325,10 @@ attribute completion is intentionally separate. `MarkupMacro` now implements
 as a position-preserving `html` document. Embedded Raven expression text is
 masked while all offsets and line breaks remain unchanged. Raven's VS Code
 extension mounts this projection in its existing HTML language service and maps
-completion results directly back to the authored body. Standard HTML elements,
-attributes, and closing tags therefore come from VS Code, while component tags
-and parameters remain compiler-owned Raven completions. The Markup parser
+completion and hover results directly back to the authored body. Standard HTML
+elements, attributes, closing tags, and HTML documentation therefore come from
+VS Code, while component tags and parameters remain compiler-owned Raven
+tooling. The Markup parser
 remains responsible for structural validation, source coordinates, and the
 embedded Raven exclusions.
 

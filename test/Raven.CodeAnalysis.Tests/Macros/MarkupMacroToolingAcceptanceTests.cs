@@ -226,6 +226,7 @@ public sealed class MarkupMacroToolingAcceptanceTests
         Assert.Equal("html", projection.LanguageId);
         Assert.Contains("<h1>Hello {     }</h1>", projection.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("Name", projection.Text, StringComparison.Ordinal);
+        Assert.Null(semanticModel.GetMacroEmbeddedLanguageProjection(namePosition));
     }
 
     [Fact]
@@ -365,6 +366,16 @@ public sealed class MarkupMacroToolingAcceptanceTests
         Assert.Contains("Count: {     }", projection.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("increment", projection.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("count", projection.Text, StringComparison.Ordinal);
+        Assert.Same(
+            projection,
+            semanticModel.GetMacroEmbeddedLanguageProjection(
+                source.IndexOf("button", StringComparison.Ordinal) + 1));
+        Assert.Null(
+            semanticModel.GetMacroEmbeddedLanguageProjection(
+                source.IndexOf("increment", StringComparison.Ordinal) + 1));
+        Assert.Null(
+            semanticModel.GetMacroEmbeddedLanguageProjection(
+                source.LastIndexOf("count", StringComparison.Ordinal) + 1));
 
         var authoredBody = source.Substring(projection.Span.Start, projection.Span.Length);
         Assert.Equal(

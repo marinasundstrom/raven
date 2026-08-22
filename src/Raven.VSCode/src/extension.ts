@@ -46,6 +46,14 @@ interface MacroEmbeddedLanguageProjectionResponse {
   range: LspRange;
 }
 
+interface OpenMacroEmbeddedDocument {
+  virtualUri: vscode.Uri;
+  virtualDocument: vscode.TextDocument;
+  virtualPosition: vscode.Position;
+  sourceStartOffset: number;
+  requestedVersion: number;
+}
+
 class MacroEmbeddedDocumentContentProvider implements vscode.TextDocumentContentProvider, vscode.Disposable {
   private readonly contents = new Map<string, string>();
   private readonly changed = new vscode.EventEmitter<vscode.Uri>();
@@ -187,12 +195,11 @@ function getCompletionLabel(item: vscode.CompletionItem): string {
   return typeof item.label === 'string' ? item.label : item.label.label;
 }
 
-async function provideMacroEmbeddedLanguageCompletions(
+async function openMacroEmbeddedDocument(
   document: vscode.TextDocument,
   position: vscode.Position,
-  context: vscode.CompletionContext,
   token: vscode.CancellationToken
-): Promise<vscode.CompletionList | undefined> {
+): Promise<OpenMacroEmbeddedDocument | undefined> {
   if (!client || token.isCancellationRequested || document.languageId !== 'raven') {
     return undefined;
   }
@@ -244,26 +251,78 @@ async function provideMacroEmbeddedLanguageCompletions(
     return undefined;
   }
 
-  const virtualPosition = virtualDocument.positionAt(sourcePositionOffset - sourceStartOffset);
+  return {
+    virtualUri,
+    virtualDocument,
+    virtualPosition: virtualDocument.positionAt(sourcePositionOffset - sourceStartOffset),
+    sourceStartOffset,
+    requestedVersion
+  };
+}
+
+async function provideMacroEmbeddedLanguageCompletions(
+  document: vscode.TextDocument,
+  position: vscode.Position,
+  context: vscode.CompletionContext,
+  token: vscode.CancellationToken
+): Promise<vscode.CompletionList | undefined> {
+  const embedded = await openMacroEmbeddedDocument(document, position, token);
+  if (!embedded) {
+    return undefined;
+  }
+
   const triggerCharacter = context.triggerKind === vscode.CompletionTriggerKind.TriggerCharacter
     ? context.triggerCharacter
     : undefined;
   const completion = await vscode.commands.executeCommand<vscode.CompletionList>(
     'vscode.executeCompletionItemProvider',
-    virtualUri,
-    virtualPosition,
+    embedded.virtualUri,
+    embedded.virtualPosition,
     triggerCharacter);
-  if (!completion || token.isCancellationRequested || document.version !== requestedVersion) {
+  if (!completion || token.isCancellationRequested || document.version !== embedded.requestedVersion) {
     return undefined;
   }
 
   return new vscode.CompletionList(
     completion.items.map(item => mapEmbeddedCompletionItemToSource(
       item,
-      virtualDocument,
+      embedded.virtualDocument,
       document,
-      sourceStartOffset)),
+      embedded.sourceStartOffset)),
     completion.isIncomplete);
+}
+
+async function provideMacroEmbeddedLanguageHover(
+  document: vscode.TextDocument,
+  position: vscode.Position,
+  token: vscode.CancellationToken
+): Promise<vscode.Hover | undefined> {
+  const embedded = await openMacroEmbeddedDocument(document, position, token);
+  if (!embedded) {
+    return undefined;
+  }
+
+  const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
+    'vscode.executeHoverProvider',
+    embedded.virtualUri,
+    embedded.virtualPosition);
+  if (!hovers?.length || token.isCancellationRequested || document.version !== embedded.requestedVersion) {
+    return undefined;
+  }
+
+  const range = hovers
+    .map(hover => hover.range)
+    .find((candidate): candidate is vscode.Range => candidate !== undefined);
+  const sourceRange = range
+    ? mapEmbeddedRangeToSource(
+        range,
+        embedded.virtualDocument,
+        document,
+        embedded.sourceStartOffset)
+    : undefined;
+  return new vscode.Hover(
+    hovers.flatMap(hover => hover.contents),
+    sourceRange);
 }
 
 function formatClientState(state: State): string {
@@ -725,6 +784,32 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
       }
     },
     middleware: {
+      async provideHover(document, position, token, next) {
+        const embeddedPromise = provideMacroEmbeddedLanguageHover(
+          document,
+          position,
+          token).catch(error => {
+            if (!token.isCancellationRequested) {
+              const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+              appendLifecycleLog(`Embedded-language hover failed: ${message}`);
+            }
+            return undefined;
+          });
+        const [ravenHover, embeddedHover] = await Promise.all([
+          Promise.resolve(next(document, position, token)),
+          embeddedPromise
+        ]);
+        if (!embeddedHover || token.isCancellationRequested) {
+          return ravenHover;
+        }
+        if (!ravenHover) {
+          return embeddedHover;
+        }
+
+        return new vscode.Hover(
+          [...ravenHover.contents, ...embeddedHover.contents],
+          ravenHover.range ?? embeddedHover.range);
+      },
       async provideCompletionItem(document, position, completionContext, token, next) {
         const embeddedPromise = provideMacroEmbeddedLanguageCompletions(
           document,

@@ -32,12 +32,6 @@ internal static class MacroEmbeddedLanguageProjectionService
         resolutionContext = invocation;
         for (var nestingDepth = 0; nestingDepth < 16; nestingDepth++)
         {
-            if (CanProvideProjectionAtPosition(semanticModel, invocation, resolutionContext, position, cancellationToken))
-            {
-                syntax = invocation;
-                return true;
-            }
-
             var regions = ReferenceEquals(invocation.SyntaxTree, semanticModel.SyntaxTree)
                 ? semanticModel.GetMacroInputSnapshotCore(invocation, cancellationToken).FragmentRegions
                 : MacroFragmentRegionService.GetFragmentRegions(
@@ -52,7 +46,15 @@ internal static class MacroEmbeddedLanguageProjectionService
                 .OrderBy(static candidate => candidate.Span.Length)
                 .FirstOrDefault();
             if (region is null)
+            {
+                if (CanProvideProjectionAtPosition(semanticModel, invocation, resolutionContext, position, cancellationToken))
+                {
+                    syntax = invocation;
+                    return true;
+                }
+
                 return false;
+            }
 
             var context = CreateContext(semanticModel, invocation, cancellationToken);
             var fragment = ParseFragment(context, region);

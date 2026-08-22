@@ -11,10 +11,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
   The checked-in Markup macro now exposes an `html` projection that retains the
   markup envelope while masking embedded Raven expressions. The VS Code
   extension mounts it as a virtual HTML document, asks VS Code's existing HTML
-  provider for standard element, attribute, and closing-tag completions, maps
-  edits back to Raven source, and merges them after Raven's semantic component
-  completions. Nested `markup!` inside a reported macro block uses the same
-  position-based projection lookup.
+  provider for standard element, attribute, and closing-tag completions plus
+  HTML hover, maps ranges back to Raven source, and merges them after Raven's
+  semantic tooling. Nested `markup!` inside a reported macro block uses the same
+  position-based projection lookup, while reported embedded Raven fragments
+  retain ownership of completion and hover inside their spans.
 - Added compiler-owned completion contributions for token-tree macro DSLs.
   `IMacroCompletionProvider` reports editor-neutral items with body-relative
   replacement spans and optional Raven symbols; the compiler maps, orders, and

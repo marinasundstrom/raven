@@ -1104,11 +1104,12 @@ primitive: a macro may return one language-identified projection whose length
 and line breaks exactly match the authored body. The compiler validates,
 caches, and failure-isolates it. Markup now returns an `html` projection that
 retains the markup envelope and masks embedded Raven expression text. The VS
-Code extension now proves the completion bridge: a custom language-server
+Code extension now proves the completion and hover bridge: a custom language-server
 request resolves the projection owning the authored position, including nested
 macros inside reported Raven blocks; the client mounts it as a virtual HTML
-document and merges mapped HTML items after Raven's semantic items. Hover,
-formatting, linked editing, and diagnostics remain separate editor slices.
+document and merges mapped HTML results after Raven's semantic results. Reported
+embedded Raven fragments take precedence over the HTML projection. Formatting,
+linked editing, and diagnostics remain separate editor slices.
 
 Highlighting uses classifications rather than global `SyntaxKind` additions.
 Macro token metadata can mark raw kinds as keyword, reserved word, identifier,
