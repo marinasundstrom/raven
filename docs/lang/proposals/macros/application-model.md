@@ -17,9 +17,44 @@ Raven macros are procedural macros with one of two application kinds:
 grammar position, or **Attached**, meaning it occupies an attribute-like
 position on an existing declaration.
 
+The intended user experience is native Raven at the boundary and macro-owned
+language inside a token body. Declaration and invocation carriers establish a
+normal Raven name, signature, source location, and grammar position. The braces
+then open a bounded region whose contents may follow any DSL grammar. Optional
+capabilities reconnect that region to Raven fragments, semantic symbols, or an
+embedded editor language without requiring the private grammar itself to become
+part of Raven's parser.
+
 The central rule is that application position, input representation, output
 syntax, and optional capabilities are independent dimensions. Token bodies,
 editor metadata, and custom DSL structure are not separate macro kinds.
+
+## Future bootstrap direction
+
+The compiler-owned `macro` declaration is a bootstrap implementation, not
+necessarily the permanent implementation boundary. A future Raven distribution
+could define the declaration's meaning and generated adapter through the public
+macro API itself, in the same spirit as a macro system implementing one of its
+own higher-level authoring forms. Doing so would provide a demanding proof that
+the API can express real language features and would let macro authoring evolve
+without coupling every change to the compiler core.
+
+That direction still requires a small parser-owned carrier. Raven must preserve
+the function-shaped header, body, and extensible declaration clauses as lossless
+syntax before any macro implementation can interpret them. The current uniform
+`capability by Handler` clauses intentionally keep that boundary shallow: they
+are declarative header data whose meaning can later move out of the compiler,
+not complex statements embedded in expansion control flow. Any bootstrap design
+must also define ordering, diagnostics before macro activation, and how the
+macro that implements `macro` itself is made available.
+
+The parser-side carrier should eventually standardize a declaration clause
+list shared with constructs such as generic `where` constraints. Its stable
+shape is a declaration header, followed by zero or more constraint and
+extension clauses, followed by the body. Every clause needs a leading
+contextual keyword, a bounded payload, consistent newline or terminator rules,
+and a distinct syntax node. A macro-defined declaration can then consume
+structured clauses predictably instead of reparsing arbitrary header text.
 
 For a freestanding macro, the declared **return type decides its
 invocation target**. It is not an ordinary runtime return-type annotation:
@@ -69,6 +104,15 @@ macro Query(
     expand LowerQuery(dialect, body, context)
 }
 
+macro Markup(context: TokenTreeMacroContext) -> ExpressionSyntax
+    highlighting by ClassifyMarkupToken
+    fragments by GetMarkupFragments
+    completion by MarkupCompletion.GetItems
+    projection by ProjectMarkup
+{
+    expand LowerMarkup(context)
+}
+
 macro Observable(enabled: bool = true,
     on property: PropertyDeclarationSyntax) {
     if enabled {
@@ -107,6 +151,14 @@ The declaration rules are:
   expression. Omitting it is shorthand for `-> ExpressionSyntax`.
 * `expand` terminates a freestanding expansion. `replace` and `introduce`
   accumulate attached contributions, which are finalized on body fall-through.
+* A declaration-level capability clause has the uniform form
+  `capability by Handler`. It projects an existing optional macro interface onto
+  the generated adapter and forwards the interface member to an ordinary
+  namespace function or qualified static function. It does not introduce a
+  statement or a nested service scope in the expansion body.
+* `keywords`, `tokens`, `tokenKinds`, `highlighting`, `fragments`, `symbols`,
+  `completion`, and `projection` are the initial capability keywords. Each may
+  appear at most once and requires token-tree input.
 
 The delimiters communicate author intent:
 

@@ -1274,9 +1274,15 @@
     <Slot Name="ParameterList" Type="ParameterList" />
     <Slot Name="ReturnType" Type="ArrowTypeClause" IsNullable="true" />
     <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
+    <Slot Name="CapabilityClauses" Type="List" ElementType="MacroCapabilityClause" />
     <Slot Name="Body" Type="BlockStatement" IsNullable="true" />
     <Slot Name="ExpressionBody" Type="ArrowExpressionClause" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
+  </Node>
+  <Node Name="MacroCapabilityClause" Inherits="Node">
+    <Slot Name="CapabilityKeyword" Type="Token" />
+    <Slot Name="ByKeyword" Type="Token" />
+    <Slot Name="Handler" Type="Expression" />
   </Node>
   <Node Name="MacroExpansionStatement" Inherits="Statement">
     <Slot Name="Keyword" Type="Token" />

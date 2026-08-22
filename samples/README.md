@@ -94,6 +94,7 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/syntax-tree-api/README.md` (parse and inspect Raven syntax trees from Raven code)
 - `samples/projects/syntax-quoter/README.md` (generate Raven SyntaxFactory code from Raven source)
 - `samples/projects/macro-declarations/README.md` (author a same-project macro with `macro`)
+- `samples/projects/macro-capabilities/README.md` (attach editor capabilities to a macro through adjacent namespace functions)
 - `samples/projects/macro-dsl/README.md` (minimal token DSL with an embedded Raven expression and source mapping)
 - `samples/projects/proto-actor-dsl/README.md` (Proto.Actor POC with a Swift-like Raven actor declaration macro)
 - `samples/projects/macro-token-stream/README.md` (replace Raven's macro token stream with a custom lexer)

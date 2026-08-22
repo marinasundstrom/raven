@@ -100,11 +100,12 @@ internal static class LocalMacroSyntaxClassifier
 
     private static IEnumerable<MemberDeclarationSyntax> GetTopLevelMacroDeclarations(SyntaxTree syntaxTree)
     {
+        var declarations = new List<MemberDeclarationSyntax>();
         foreach (var declaration in GetTopLevelTypeDeclarations(syntaxTree)
             .Where(static declaration => declaration.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
             .Where(IsLocalMacroDeclaration))
         {
-            yield return declaration;
+            declarations.Add(declaration);
         }
 
         foreach (var declaration in syntaxTree.GetRoot()
@@ -113,9 +114,56 @@ internal static class LocalMacroSyntaxClassifier
             .Where(static declaration =>
                 declaration.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax))
         {
-            yield return declaration;
+            declarations.Add(declaration);
         }
+
+        var candidates = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MemberDeclarationSyntax>()
+            .Where(static declaration => declaration.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
+            .OfType<GlobalStatementSyntax>()
+            .Where(declaration => !declarations.Contains(declaration))
+            .ToArray();
+        var selected = declarations.ToHashSet<SyntaxNode>();
+        var referencedNames = declarations
+            .SelectMany(static declaration => declaration.DescendantTokens())
+            .Where(static token => token.Kind == SyntaxKind.IdentifierToken)
+            .Select(static token => token.ValueText)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var added = true;
+        while (added)
+        {
+            added = false;
+            foreach (var candidate in candidates)
+            {
+                if (selected.Contains(candidate) ||
+                    GetDeclarationName(candidate) is not { } name ||
+                    !referencedNames.Contains(name))
+                {
+                    continue;
+                }
+
+                declarations.Add(candidate);
+                selected.Add(candidate);
+                foreach (var identifier in candidate.DescendantTokens()
+                    .Where(static token => token.Kind == SyntaxKind.IdentifierToken))
+                {
+                    referencedNames.Add(identifier.ValueText);
+                }
+                added = true;
+            }
+        }
+
+        return declarations;
     }
+
+    private static string? GetDeclarationName(MemberDeclarationSyntax declaration)
+        => declaration switch
+        {
+            GlobalStatementSyntax { Statement: FunctionStatementSyntax function } => function.Identifier.ValueText,
+            _ => null
+        };
 
     private static bool HasMarkerAttribute(
         TypeDeclarationSyntax declaration,

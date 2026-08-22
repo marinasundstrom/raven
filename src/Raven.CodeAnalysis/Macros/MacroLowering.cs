@@ -321,6 +321,12 @@ internal static class MacroLowering
         var hasEditorMetadataContributions = declaration.DescendantNodes()
             .OfType<MacroExpansionStatementSyntax>()
             .Any(static statement => statement.Keyword.ValueText is "fragment" or "token");
+        var capabilityClauses = declaration.CapabilityClauses
+            .GroupBy(static clause => clause.CapabilityKeyword.ValueText, StringComparer.Ordinal)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.First(),
+                StringComparer.Ordinal);
         var hasParameters = valueParameters.Length > 0;
         var usedNames = declaration.DescendantTokens()
             .Where(static token => token.Kind == SyntaxKind.IdentifierToken)
@@ -344,6 +350,8 @@ internal static class MacroLowering
         var resultFactory = isAttached && !hasTokenTreeBody ? "Attached" : "Freestanding";
         if (hasEditorMetadataContributions)
             interfaceName += ", Raven.CodeAnalysis.Macros.IMacroExpansionMetadataProvider";
+        foreach (var capability in capabilityClauses.Keys)
+            interfaceName += $", {GetCapabilityInterface(capability)}";
 
         var builder = new StringBuilder();
         if (declaration.TypeParameterList is { Parameters.Count: > 0 } typeParameterList)
@@ -402,6 +410,9 @@ internal static class MacroLowering
             builder.AppendLine("    val HasTokenBody: bool => true");
         if (hasParameters)
             builder.AppendLine("    val AcceptsArguments: bool => true");
+
+        foreach (var capability in capabilityClauses)
+            AppendCapabilityForwarder(builder, capability.Key, capability.Value.Handler.ToString());
 
         builder.AppendLine(
             $"    func Expand({executionVariableName}: Raven.CodeAnalysis.Macros.MacroExecutionContext) -> Raven.CodeAnalysis.Macros.MacroExecutionResult {{");
@@ -474,6 +485,41 @@ internal static class MacroLowering
         builder.AppendLine("    }");
         builder.AppendLine("}");
         return builder.ToString();
+    }
+
+    private static string GetCapabilityInterface(string capability)
+        => capability switch
+        {
+            "keywords" => "Raven.CodeAnalysis.Macros.IMacroKeywordProvider",
+            "tokens" => "Raven.CodeAnalysis.Macros.IMacroTokenStreamProvider",
+            "tokenKinds" => "Raven.CodeAnalysis.Macros.IMacroTokenKindProvider",
+            "highlighting" => "Raven.CodeAnalysis.Macros.IMacroTokenClassifier",
+            "fragments" => "Raven.CodeAnalysis.Macros.IMacroFragmentProvider",
+            "symbols" => "Raven.CodeAnalysis.Macros.IMacroTokenSymbolProvider",
+            "completion" => "Raven.CodeAnalysis.Macros.IMacroCompletionProvider",
+            "projection" => "Raven.CodeAnalysis.Macros.IMacroEmbeddedLanguageProvider",
+            _ => throw new InvalidOperationException($"Unknown macro capability '{capability}'.")
+        };
+
+    private static void AppendCapabilityForwarder(
+        StringBuilder builder,
+        string capability,
+        string handler)
+    {
+        var member = capability switch
+        {
+            "keywords" => $"    val Keywords: System.Collections.Immutable.ImmutableArray<Raven.CodeAnalysis.Macros.MacroKeyword> => {handler}()",
+            "tokens" => $"    func CreateTokenStream(context: Raven.CodeAnalysis.Macros.MacroTokenStreamContext) -> Raven.CodeAnalysis.Macros.IMacroTokenStream {{ {handler}(context) }}",
+            "tokenKinds" => $"    func GetTokenKindName(rawKind: int) -> string? {{ {handler}(rawKind) }}",
+            "highlighting" => $"    func ClassifyToken(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext, token: Raven.CodeAnalysis.Syntax.SyntaxToken) -> Raven.CodeAnalysis.Macros.MacroTokenClassification {{ {handler}(context, token) }}",
+            "fragments" => $"    func GetFragmentRegions(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) -> System.Collections.Immutable.ImmutableArray<Raven.CodeAnalysis.Macros.MacroFragmentRegion> {{ {handler}(context) }}",
+            "symbols" => $"    func GetTokenSymbol(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext, token: Raven.CodeAnalysis.Syntax.SyntaxToken) -> Raven.CodeAnalysis.ISymbol? {{ {handler}(context, token) }}",
+            "completion" => $"    func GetCompletions(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext, bodyRelativePosition: int) -> System.Collections.Immutable.ImmutableArray<Raven.CodeAnalysis.Macros.MacroCompletionItem> {{ {handler}(context, bodyRelativePosition) }}",
+            "projection" => $"    func GetEmbeddedLanguageProjection(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) -> Raven.CodeAnalysis.Macros.MacroEmbeddedLanguageProjection? {{ {handler}(context) }}",
+            _ => throw new InvalidOperationException($"Unknown macro capability '{capability}'.")
+        };
+
+        builder.AppendLine(member);
     }
 
     private static string GetParameterType(

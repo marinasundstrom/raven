@@ -69,7 +69,12 @@ MacroDeclaration         ::= {AttributeList}
                              '(' MacroParameterList? ')'
                              ReturnTypeClause?
                              WhereClauseList?
+                             {MacroCapabilityClause}
                              ( Block | '=>' Expression ) ;
+MacroCapabilityClause   ::= MacroCapabilityKeyword 'by' Expression ;
+MacroCapabilityKeyword  ::= 'keywords' | 'tokens' | 'tokenKinds'
+                           | 'highlighting' | 'fragments' | 'symbols'
+                           | 'completion' | 'projection' ;
 MacroParameterList       ::= MacroParameter {',' MacroParameter} ;
 MacroParameter           ::= {AttributeList} 'on'? AccessModifier? ScopedModifier? RefKindModifier? ParamsModifier? ParameterBindingKeyword?
                              Identifier ':' Type VarParamsSuffix? ['=' Expression] ;

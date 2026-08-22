@@ -1,6 +1,7 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
@@ -60,6 +61,7 @@ internal sealed class MacroDeclarationParser : SyntaxParser
 
         var returnType = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
         var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
+        var capabilityClauses = ParseCapabilityClauses();
         var isExtern = modifiers.GetChildren().Any(child => child.IsKind(SyntaxKind.ExternKeyword));
 
         BlockStatementSyntax? body = null;
@@ -88,10 +90,55 @@ internal sealed class MacroDeclarationParser : SyntaxParser
             parameterList,
             returnType,
             constraintClauses,
+            capabilityClauses,
             body,
             expressionBody,
             terminatorToken);
     }
+
+    private SyntaxList ParseCapabilityClauses()
+    {
+        var restoreNewlinesAsTokens = TreatNewlinesAsTokens;
+        SetTreatNewlinesAsTokens(false);
+        try
+        {
+            while (IsNewLineLike(PeekToken()))
+                ReadToken();
+
+            var clauses = new List<GreenNode>();
+            while (IsCapabilityKeyword(PeekToken()) && PeekToken(1).IsKind(SyntaxKind.ByKeyword))
+            {
+                var capabilityKeyword = ReadToken();
+                var byKeyword = ReadToken();
+                var handler = new ExpressionSyntaxParser(this).ParseExpression();
+                clauses.Add(MacroCapabilityClause(capabilityKeyword, byKeyword, handler));
+            }
+
+            return List(clauses);
+        }
+        finally
+        {
+            SetTreatNewlinesAsTokens(restoreNewlinesAsTokens);
+        }
+    }
+
+    private static bool IsCapabilityKeyword(SyntaxToken token)
+        => token.IsKind(SyntaxKind.IdentifierToken) &&
+           token.GetValueText() is
+               "keywords" or
+               "tokens" or
+               "tokenKinds" or
+               "highlighting" or
+               "fragments" or
+               "symbols" or
+               "completion" or
+               "projection";
+
+    private static bool IsNewLineLike(SyntaxToken token)
+        => token.Kind is
+            SyntaxKind.LineFeedToken or
+            SyntaxKind.CarriageReturnToken or
+            SyntaxKind.CarriageReturnLineFeedToken;
 
     internal static bool IsMacroKeyword(SyntaxToken token)
         => IsContextualKeyword(token, "macro");

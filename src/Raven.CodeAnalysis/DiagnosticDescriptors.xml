@@ -1285,4 +1285,12 @@
     Title="Attached macros do not have invocation return targets"
     Message="Attached macro declaration '{macroName}' cannot declare freestanding syntax return type '{returnType}'."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0939" Identifier="DuplicateMacroCapability"
+    Title="Macro capability is already declared"
+    Message="Macro capability '{capability}' is declared more than once."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0940" Identifier="MacroCapabilityRequiresTokenTree"
+    Title="Macro capability requires a token-tree macro"
+    Message="Macro capability '{capability}' can only be declared by a token-tree macro."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

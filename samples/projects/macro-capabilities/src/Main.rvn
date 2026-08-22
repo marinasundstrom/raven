@@ -1,0 +1,99 @@
+import System.Collections.Immutable.*
+import System.Console.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+/// Returns the Raven expression that follows the `text` DSL keyword.
+macro Show(context: TokenTreeMacroContext) -> ExpressionSyntax
+    keywords by ShowKeywords
+    tokenKinds by GetShowTokenKindName
+    highlighting by ClassifyShowToken
+    fragments by GetShowFragments
+    symbols by GetShowTokenSymbol
+    completion by GetShowCompletions
+    projection by ProjectShowBody
+{
+    expand ExpandShow(context)
+}
+
+// These namespace functions are the normal, compact authoring model. The
+// generated macro adapter forwards each declared capability to one of them.
+
+func ShowKeywords() -> ImmutableArray<MacroKeyword> {
+    [MacroKeyword("text", 82001, MacroKeywordClassification.ReservedWord)]
+}
+
+func GetShowTokenKindName(rawKind: int) -> string? {
+    if rawKind == 82001 {
+        return "ShowTextKeyword"
+    }
+
+    null
+}
+
+func ExpandShow(context: TokenTreeMacroContext) -> ExpressionSyntax {
+    let stream = context.CreateTokenStream()
+    stream.ReadToken()
+    stream.ParseExpression().Syntax
+}
+
+func GetShowFragments(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
+    let stream = context.CreateTokenStream()
+    if stream.IsEndOfFile {
+        return []
+    }
+
+    stream.ReadToken()
+    if stream.IsEndOfFile {
+        return []
+    }
+
+    let expression = stream.ParseExpression()
+    [context.CreateFragmentRegion(
+        MacroFragmentKind.Expression,
+        expression.BodyRelativeSpan)]
+}
+
+func ClassifyShowToken(
+    context: TokenTreeMacroContext,
+    token: SyntaxToken
+) -> MacroTokenClassification {
+    if token.ValueText == "text" {
+        return MacroTokenClassification.ReservedWord
+    }
+
+    MacroTokenClassification.Default
+}
+
+func GetShowTokenSymbol(
+    context: TokenTreeMacroContext,
+    token: SyntaxToken
+) -> ISymbol? {
+    if token.ValueText == "text" {
+        return context.Compilation.GetTypeByMetadataName("System.String")
+    }
+
+    null
+}
+
+func GetShowCompletions(
+    context: TokenTreeMacroContext,
+    bodyRelativePosition: int
+) -> ImmutableArray<MacroCompletionItem> {
+    [MacroCompletionItem(
+        "text",
+        "text ",
+        TextSpan(bodyRelativePosition, 0))]
+}
+
+func ProjectShowBody(
+    context: TokenTreeMacroContext
+) -> MacroEmbeddedLanguageProjection? {
+    context.CreateEmbeddedLanguageProjection("plaintext", context.GetBodyText())
+}
+
+func Main() {
+    WriteLine(Show! { text "capability functions" })
+}

@@ -381,6 +381,7 @@ public partial class SemanticModel
 
         ValidateMacroParameters(declaration, symbol);
         ValidateMacroContributionStatements(declaration, symbol);
+        ValidateMacroCapabilityClauses(declaration, symbol);
         RegisterMacroDeclarationSymbol(declaration, symbol);
 
         if (sourceNamespace.GetMembers(symbol.Name)
@@ -668,6 +669,35 @@ public partial class SemanticModel
                         ? "freestanding"
                         : "attached",
                     contribution.Keyword.GetLocation());
+            }
+        }
+    }
+
+    private void ValidateMacroCapabilityClauses(
+        MacroDeclarationSyntax declaration,
+        SourceMacroSymbol symbol)
+    {
+        var hasTokenTreeInput = symbol.Parameters.Any(static parameter =>
+            parameter.MacroRole == MacroParameterRole.TokenBody ||
+            parameter.MacroRole == MacroParameterRole.Context &&
+                MacroParameterRoleFacts.GetContextKind(parameter.Type) == MacroContextKind.TokenTree);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var clause in declaration.CapabilityClauses)
+        {
+            var capability = clause.CapabilityKeyword.ValueText;
+            if (!seen.Add(capability))
+            {
+                _declarationDiagnostics.ReportDuplicateMacroCapability(
+                    capability,
+                    clause.CapabilityKeyword.GetLocation());
+            }
+
+            if (!hasTokenTreeInput)
+            {
+                _declarationDiagnostics.ReportMacroCapabilityRequiresTokenTree(
+                    capability,
+                    clause.CapabilityKeyword.GetLocation());
             }
         }
     }

@@ -9,6 +9,14 @@ does not yet project.
 > Macro authoring is experimental. Examples here describe the current
 > implementation. Sections marked **Future** describe planned tooling.
 
+The authoring aspiration is a native Raven boundary around an intentionally
+open language region. A macro declaration and its invocation use Raven names,
+signatures, lookup, diagnostics, and tooling conventions. Once a token-tree
+invocation opens `{ ... }`, the macro may parse any language it needs. Fragment,
+token, symbol, completion, and projection capabilities are explicit bridges
+that integrate that private grammar with Raven or another editor language; the
+body does not have to masquerade as ordinary Raven syntax.
+
 ## The 30-second model
 
 A Raven macro receives typed values, authored syntax, or a lossless token body
@@ -217,6 +225,58 @@ The declaration carrier preserves modifiers, the macro name, declared name,
 parameter list, and body. This allows aliases such as `component` to read like
 declaration keywords in `public component! Greeting(...) { ... }`, while the
 body remains lossless input owned by the macro.
+
+### Declare optional capabilities with functions
+
+A token-tree macro can declare optional compiler and editor capabilities after
+its signature and before its expansion body. Each clause forwards the existing
+provider interface member to an ordinary function:
+
+```raven
+macro Show(context: TokenTreeMacroContext) -> ExpressionSyntax
+    keywords by ShowKeywords
+    highlighting by ClassifyShowToken
+    fragments by GetShowFragments
+    symbols by GetShowTokenSymbol
+    completion by GetShowCompletions
+    projection by ProjectShowBody
+{
+    expand ExpandShow(context)
+}
+
+func ShowKeywords() -> ImmutableArray<MacroKeyword> { ... }
+func ExpandShow(context: TokenTreeMacroContext) -> ExpressionSyntax { ... }
+func GetShowFragments(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> { ... }
+```
+
+Namespace functions beside the declaration are the simplest and preferred
+organization. They remain implementation details of the macro assembly and do
+not require a service class. When an implementation grows, a clause may name a
+qualified static function such as `ShowServices.GetFragments`; the declaration
+still acts only as the macro entry point and capability manifest. A support
+class in the same project must be part of the compile-time macro partition;
+mark it with `[LocalMacro]` (or implement a macro contract) rather than allowing
+the compiler to pull an ordinary consumer class across that boundary
+implicitly. A class in a referenced macro assembly needs no local marker.
+
+The supported clauses project directly onto the current contracts:
+
+| Clause | Generated provider contract |
+| --- | --- |
+| `keywords by` | `IMacroKeywordProvider` |
+| `tokens by` | `IMacroTokenStreamProvider` |
+| `tokenKinds by` | `IMacroTokenKindProvider` |
+| `highlighting by` | `IMacroTokenClassifier` |
+| `fragments by` | `IMacroFragmentProvider` |
+| `symbols by` | `IMacroTokenSymbolProvider` |
+| `completion by` | `IMacroCompletionProvider` |
+| `projection by` | `IMacroEmbeddedLanguageProvider` |
+
+The handler uses the signature of the corresponding interface member. Raven
+generates the interface implementation and forwarding call; it does not create
+a second service lifecycle or move the implementation into the macro body.
+Only explicitly declared capabilities are projected. Duplicate clauses and
+clauses on macros without a token-tree input are diagnosed.
 
 The `!` is intentional even in this declaration-like form. It lets the DSL
 participate in Raven's declaration experience without suggesting that
@@ -922,6 +982,14 @@ The compiler lowers `macro` declarations to adapters, but tools expose an
 | reached `introduce` | ordered introduced members |
 | reached `fragment` | ordinary Raven fragment metadata |
 | reached `token` | token kind and classification metadata |
+| `keywords by Handler` | `IMacroKeywordProvider` forwarding member |
+| `tokens by Handler` | `IMacroTokenStreamProvider` forwarding member |
+| `tokenKinds by Handler` | `IMacroTokenKindProvider` forwarding member |
+| `highlighting by Handler` | `IMacroTokenClassifier` forwarding member |
+| `fragments by Handler` | `IMacroFragmentProvider` forwarding member |
+| `symbols by Handler` | `IMacroTokenSymbolProvider` forwarding member |
+| `completion by Handler` | `IMacroCompletionProvider` forwarding member |
+| `projection by Handler` | `IMacroEmbeddedLanguageProvider` forwarding member |
 
 The two freestanding contexts expose a normalized carrier surface:
 `Syntax` is the authored `SyntaxNode`, while `Name`, `ExclamationToken`,

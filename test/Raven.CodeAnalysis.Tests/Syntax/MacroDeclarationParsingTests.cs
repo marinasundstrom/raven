@@ -130,6 +130,40 @@ public sealed class MacroDeclarationParsingTests
     }
 
     [Fact]
+    public void MacroDeclaration_ParsesCapabilityFunctionClauses()
+    {
+        var tree = SyntaxTree.ParseText("""
+            macro Output(context: TokenTreeMacroContext)
+                keywords by OutputKeywords
+                highlighting by OutputSyntax.Classify
+                completion by CompleteOutput
+            {
+                expand LowerOutput(context)
+            }
+            """);
+
+        var declaration = Assert.IsType<MacroDeclarationSyntax>(
+            Assert.Single(tree.GetRoot().Members));
+
+        Assert.Equal(
+            ["keywords", "highlighting", "completion"],
+            declaration.CapabilityClauses.Select(static clause => clause.CapabilityKeyword.ValueText));
+        Assert.Equal(
+            ["OutputKeywords", "OutputSyntax.Classify", "CompleteOutput"],
+            declaration.CapabilityClauses.Select(static clause => clause.Handler.ToString()));
+
+        var classifications = SemanticClassifier.Classify(declaration);
+        Assert.All(
+            declaration.CapabilityClauses,
+            clause =>
+            {
+                Assert.Equal(SemanticClassification.Keyword, classifications.Tokens[clause.CapabilityKeyword]);
+                Assert.Equal(SemanticClassification.Keyword, classifications.Tokens[clause.ByKeyword]);
+            });
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void MacroDeclaration_ParsesTypedTargetParameter()
     {
         var tree = SyntaxTree.ParseText("""

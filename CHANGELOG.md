@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
 
 ## Unreleased
 
+- Added declaration-level capability clauses for function-shaped token-tree
+  macros. Uniform clauses such as `completion by CompleteDsl` and
+  `fragments by DslSyntax.GetFragments` make generated adapters implement the
+  existing optional macro service interfaces and forward to ordinary namespace
+  or qualified static functions. Existing class-authored macros and provider
+  APIs remain unchanged. A new `macro-capabilities` sample demonstrates
+  expansion plus keyword, token-kind, highlighting, fragment, symbol,
+  completion, and embedded-language services without introducing a service
+  class.
 - Added compiler-owned, position-preserving embedded-language projections for
   token-tree macros. `IMacroEmbeddedLanguageProvider` identifies the target
   language and supplies projected body text; Raven validates identical length

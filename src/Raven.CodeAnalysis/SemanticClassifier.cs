@@ -45,6 +45,11 @@ public static class SemanticClassifier
             {
                 tokenMap[descendant] = SemanticClassification.Keyword;
             }
+            else if (descendant.Parent is MacroCapabilityClauseSyntax capability &&
+                     (descendant == capability.CapabilityKeyword || descendant == capability.ByKeyword))
+            {
+                tokenMap[descendant] = SemanticClassification.Keyword;
+            }
             // Interpolated-string punctuation: color ${ and } as interpolation (but only when they belong to an Interpolation node).
             else if ((kind == SyntaxKind.DollarToken ||
                       kind == SyntaxKind.OpenBraceToken ||
