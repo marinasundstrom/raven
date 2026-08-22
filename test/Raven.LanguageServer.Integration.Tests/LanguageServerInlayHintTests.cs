@@ -627,12 +627,20 @@ class StackPanel {
     }
 }
 
+class Box<T> {
+}
+
+extension BoxExtensions<T> for Box<T> {
+    func WithContext(message: string) -> string => message
+}
+
 func Render(spacing: double, title: string) -> unit {
 }
 
 func Main() -> unit {
     let panel = StackPanel(8.0)
     Render(8.0, title: "ready")
+    Box<int>().WithContext("reading")
 }
 """;
         await store.UpsertDocumentAsync(uri, code);
@@ -648,12 +656,16 @@ func Main() -> unit {
         var constructorArgumentInsertion = code.IndexOf("8.0)", StringComparison.Ordinal);
         var methodArgumentInsertion = code.IndexOf("8.0, title", StringComparison.Ordinal);
         var namedArgumentInsertion = code.IndexOf("\"ready\"", StringComparison.Ordinal);
+        var extensionArgumentInsertion = code.IndexOf("\"reading\"", StringComparison.Ordinal);
 
         var constructorHint = AssertHasHintAtInsertion(sourceText, hints, constructorArgumentInsertion, "spacing:");
         AssertParameterNameSourceApplicable(sourceText, constructorHint, constructorArgumentInsertion, "spacing: ");
 
         var methodHint = AssertHasHintAtInsertion(sourceText, hints, methodArgumentInsertion, "spacing:");
         AssertParameterNameSourceApplicable(sourceText, methodHint, methodArgumentInsertion, "spacing: ");
+
+        var extensionHint = AssertHasHintAtInsertion(sourceText, hints, extensionArgumentInsertion, "message:");
+        AssertParameterNameSourceApplicable(sourceText, extensionHint, extensionArgumentInsertion, "message: ");
 
         hints.ShouldNotContain(hint =>
             hint.Kind == InlayHintKind.Parameter &&

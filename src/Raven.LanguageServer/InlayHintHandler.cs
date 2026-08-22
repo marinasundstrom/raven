@@ -534,6 +534,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         var invocations = DescendantNodesInSpan<FreestandingMacroExpressionSyntax>(root, requestSpan)
             .Cast<SyntaxNode>()
             .Concat(DescendantNodesInSpan<FreestandingMacroDeclarationSyntax>(root, requestSpan))
+            .Concat(GetEnclosingMacroInvocations(root, requestSpan))
+            .Distinct()
             .OrderBy(static invocation => invocation.Span.Start);
 
         foreach (var invocation in invocations)
@@ -570,6 +572,41 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                     includeTooltip: budget.ShouldIncludeTooltip()));
             }
         }
+    }
+
+    private static IEnumerable<SyntaxNode> GetEnclosingMacroInvocations(SyntaxNode root, TextSpan requestSpan)
+    {
+        var positions = requestSpan.Length == 0
+            ? new[] { requestSpan.Start }
+            : new[] { requestSpan.Start, requestSpan.End - 1 };
+
+        foreach (var position in positions.Distinct())
+        {
+            var token = root.FindToken(Math.Clamp(position, root.FullSpan.Start, root.FullSpan.End));
+            foreach (var invocation in token.Parent?.AncestorsAndSelf() ?? [])
+            {
+                if (invocation is FreestandingMacroExpressionSyntax or FreestandingMacroDeclarationSyntax &&
+                    MacroInvocationIntersectsRequest(invocation, requestSpan))
+                {
+                    yield return invocation;
+                }
+            }
+        }
+    }
+
+    private static bool MacroInvocationIntersectsRequest(SyntaxNode invocation, TextSpan requestSpan)
+    {
+        if (ShouldVisitForRequestedSpan(invocation, requestSpan))
+            return true;
+
+        var tokenTree = invocation switch
+        {
+            FreestandingMacroExpressionSyntax expression => expression.TokenTree,
+            FreestandingMacroDeclarationSyntax declaration => declaration.TokenTree,
+            _ => null
+        };
+
+        return tokenTree is not null && ShouldVisitForRequestedSpan(tokenTree, requestSpan);
     }
 
     private static bool ShouldAvoidInitializerBindingForInlay(VariableDeclaratorSyntax declarator)

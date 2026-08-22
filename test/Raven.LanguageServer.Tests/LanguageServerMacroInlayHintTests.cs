@@ -96,6 +96,64 @@ public sealed class LanguageServerMacroInlayHintTests
             CancellationToken.None,
             double.PositiveInfinity,
             includeTooltips: false);
+        var insertionPosition = code.IndexOf("x = 42", StringComparison.Ordinal) + "x".Length;
+
+        InlayHintHandler.AddMacroFragmentTypeHints(
+            hints,
+            semanticModel,
+            root,
+            sourceText,
+            new TextSpan(insertionPosition, 0),
+            budget,
+            CancellationToken.None);
+
+        var hint = Assert.Single(hints);
+        hint.Label.String.ShouldBe(": int");
+        hint.Position.ShouldBe(PositionHelper.ToRange(sourceText, new TextSpan(insertionPosition, 0)).Start);
+    }
+
+    [Fact]
+    public void AddMacroFragmentTypeHints_ReportsInferredMatchPatternLocal()
+    {
+        const string code = """
+            import Raven.LanguageServer.Tests.*
+
+            union Command {
+                case Add(int)
+            }
+
+            func Main() {
+                let command: Command = .Add(1)
+                let value = fragmentInlay! {
+                    match command {
+                        .Add(let amount) => amount
+                    }
+                }
+            }
+            """;
+        var trustedPlatformAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+            .Split(Path.PathSeparator)
+            .Select(MetadataReference.CreateFromFile)
+            .Cast<MetadataReference>()
+            .ToArray();
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "MacroFragmentMatchPatternInlayHints",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(trustedPlatformAssemblies)
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new FragmentInlayMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var sourceText = syntaxTree.GetText();
+        var expression = root.DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        semanticModel.GetMacroFragmentInferredTypeAnnotations(expression).ShouldHaveSingleItem();
+        var hints = new List<InlayHint>();
+        var budget = new InlayHintHandler.InlayHintCollectionBudget(
+            Stopwatch.StartNew(),
+            CancellationToken.None,
+            double.PositiveInfinity,
+            includeTooltips: false);
 
         InlayHintHandler.AddMacroFragmentTypeHints(
             hints,
@@ -108,7 +166,7 @@ public sealed class LanguageServerMacroInlayHintTests
 
         var hint = Assert.Single(hints);
         hint.Label.String.ShouldBe(": int");
-        var insertionPosition = code.IndexOf("x = 42", StringComparison.Ordinal) + "x".Length;
+        var insertionPosition = code.IndexOf("amount) =>", StringComparison.Ordinal) + "amount".Length;
         hint.Position.ShouldBe(PositionHelper.ToRange(sourceText, new TextSpan(insertionPosition, 0)).Start);
     }
 

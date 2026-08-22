@@ -210,10 +210,14 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         _ = await store.UpsertDocumentWithResultAsync(mainUri, SourceText.From(await File.ReadAllTextAsync(mainPath)));
         _ = await store.UpsertDocumentWithResultAsync(testUri, SourceText.From(await File.ReadAllTextAsync(testPath)));
+        var refreshRequests = new List<(DocumentUri Uri, string Reason)>();
+        var dispatcher = new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance);
         var handler = new RavenTextDocumentSyncHandler(
             store,
+            dispatcher,
             languageServer: default!,
-            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+            NullLogger<RavenTextDocumentSyncHandler>.Instance,
+            requestInlayHintRefreshOverride: (uri, reason) => refreshRequests.Add((uri, reason)));
 
         GetDocumentVersions(handler)[mainUri] = 1;
         var scheduleRelatedDiagnostics = typeof(RavenTextDocumentSyncHandler).GetMethod(
@@ -238,6 +242,7 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         second.ExpectedSession.ShouldBe(1);
         second.ExpectedVersion.ShouldBe(1);
         first.Cancellation.IsCancellationRequested.ShouldBeTrue();
+        refreshRequests.Count(request => request == (testUri, "test")).ShouldBe(2);
         second!.Cancellation.Cancel();
     }
 
@@ -304,10 +309,14 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         context.ShouldNotBeNull();
         store.TryGetPendingDocumentText(testUri, out _).ShouldBeFalse();
 
+        var refreshRequests = new List<(DocumentUri Uri, string Reason)>();
+        var dispatcher = new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance);
         var handler = new RavenTextDocumentSyncHandler(
             store,
+            dispatcher,
             languageServer: default!,
-            NullLogger<RavenTextDocumentSyncHandler>.Instance);
+            NullLogger<RavenTextDocumentSyncHandler>.Instance,
+            requestInlayHintRefreshOverride: (uri, reason) => refreshRequests.Add((uri, reason)));
 
         GetDocumentSessions(handler)[mainUri] = 1;
         GetDocumentSessions(handler)[testUri] = 1;
@@ -329,8 +338,55 @@ public sealed class RavenTextDocumentSyncHandlerTests : IDisposable
         relatedRequest!.Reason.ShouldBe("relatedProjectEdit");
         relatedRequest.ExpectedSession.ShouldBe(1);
         relatedRequest.ExpectedVersion.ShouldBe(1);
+        refreshRequests.ShouldContain((testUri, "relatedProjectEdit"));
 
         foreach (var request in pendingDiagnostics.Values)
+            request.Cancellation.Cancel();
+    }
+
+    [Fact]
+    public async Task DocumentCommit_RequestsInlayRefreshWhenNoRelatedDocumentIsOpenAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var documentPath = Path.Combine(_tempRoot, "main.rvn");
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        _ = await store.UpsertDocumentWithResultAsync(uri, SourceText.From("func Main() {}"));
+        store.QueuePendingDocumentChange(uri, SourceText.From("func Main() { let value = 1 }"), deferMacroConsumerRefresh: true);
+
+        var refreshRequests = new List<(DocumentUri Uri, string Reason)>();
+        var dispatcher = new LanguageServerDispatcher(store, NullLogger<LanguageServerDispatcher>.Instance);
+        var handler = new RavenTextDocumentSyncHandler(
+            store,
+            dispatcher,
+            languageServer: default!,
+            NullLogger<RavenTextDocumentSyncHandler>.Instance,
+            requestInlayHintRefreshOverride: (changedUri, reason) => refreshRequests.Add((changedUri, reason)));
+        GetDocumentSessions(handler)[uri] = 1;
+        GetDocumentVersions(handler)[uri] = 2;
+
+        var commitPendingChange = typeof(RavenTextDocumentSyncHandler).GetMethod(
+            "CommitPendingDocumentChangeAndScheduleDiagnosticsAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        commitPendingChange.ShouldNotBeNull();
+
+        var task = (Task)commitPendingChange!.Invoke(
+            handler,
+            [uri, 1L, 2, false, CancellationToken.None])!;
+        await task;
+
+        refreshRequests.ShouldBe([(uri, "didChangeCommit")]);
+        foreach (var request in GetPendingDiagnostics(handler).Values)
             request.Cancellation.Cancel();
     }
 

@@ -212,6 +212,45 @@ public sealed class MacroFragmentSemanticInfoTests
     }
 
     [Fact]
+    public void GetMacroFragmentInferredTypeAnnotations_ReportsInferredMatchPatternLocal()
+    {
+        const string code = """
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            union Command {
+                case Add(int)
+            }
+
+            func Main() {
+                let command: Command = .Add(1)
+                let value = fragmentHover! {
+                    match command {
+                        .Add(let amount) => amount
+                    }
+                }
+            }
+            """;
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "MacroFragmentMatchPatternInlays",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTrees(syntaxTree)
+            .AddMacroReferences(new MacroReference(new FragmentHoverMacro()));
+        var expression = syntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+
+        var annotation = Assert.Single(
+            compilation.GetSemanticModel(syntaxTree)
+                .GetMacroFragmentInferredTypeAnnotations(expression));
+
+        Assert.Equal("amount", code.Substring(annotation.Span.Start, annotation.Span.Length));
+        Assert.Equal(SpecialType.System_Int32, annotation.Type.SpecialType);
+    }
+
+    [Fact]
     public void GetMacroFragmentSemanticInfo_ResolvesIndependentDeclarationBlockRegions()
     {
         const string code = """

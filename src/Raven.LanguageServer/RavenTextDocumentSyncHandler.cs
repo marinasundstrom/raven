@@ -43,6 +43,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     private readonly LanguageServerDispatcher _dispatcher;
     private readonly ILanguageServerFacade _languageServer;
     private readonly Action<PublishDiagnosticsParams>? _publishDiagnosticsOverride;
+    private readonly Action<DocumentUri, string>? _requestInlayHintRefreshOverride;
     private readonly ILogger<RavenTextDocumentSyncHandler> _logger;
     private readonly ConcurrentDictionary<DocumentUri, PendingDiagnosticsRequest> _pendingDiagnostics = new();
     private readonly ConcurrentDictionary<DocumentUri, SemaphoreSlim> _documentUpdateGates = new();
@@ -65,13 +66,15 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         LanguageServerDispatcher dispatcher,
         ILanguageServerFacade languageServer,
         ILogger<RavenTextDocumentSyncHandler> logger,
-        Action<PublishDiagnosticsParams>? publishDiagnosticsOverride = null)
+        Action<PublishDiagnosticsParams>? publishDiagnosticsOverride = null,
+        Action<DocumentUri, string>? requestInlayHintRefreshOverride = null)
     {
         _documents = documents;
         _dispatcher = dispatcher;
         _languageServer = languageServer;
         _logger = logger;
         _publishDiagnosticsOverride = publishDiagnosticsOverride;
+        _requestInlayHintRefreshOverride = requestInlayHintRefreshOverride;
     }
 
     public override TextDocumentAttributes GetTextDocumentAttributes(DocumentUri uri)
@@ -155,7 +158,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
         }
     }
 
-    private void ScheduleRelatedOpenDocumentCompilerDiagnostics(
+    private bool ScheduleRelatedOpenDocumentCompilerDiagnostics(
         DocumentUri changedUri,
         int diagnosticsDelayMilliseconds,
         bool replacePendingDiagnostics,
@@ -187,6 +190,8 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
         if (scheduledRelatedDiagnostics)
             RequestInlayHintRefresh(changedUri, reason);
+
+        return scheduledRelatedDiagnostics;
     }
 
     public override Task<Unit> Handle(DidChangeTextDocumentParams notification, CancellationToken cancellationToken)
@@ -532,14 +537,18 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
                 reason: "didChangeCommit",
                 editorVersion: expectedVersion,
                 documentSession: expectedSession);
+            var refreshRequestedForRelatedDocuments = false;
             if (upsertResult is null or { ProjectChanged: true })
             {
-                ScheduleRelatedOpenDocumentCompilerDiagnostics(
+                refreshRequestedForRelatedDocuments = ScheduleRelatedOpenDocumentCompilerDiagnostics(
                     uri,
                     RelatedDocumentCompilerDiagnosticsAfterEditDelayMilliseconds,
                     replacePendingDiagnostics: true,
                     reason: "relatedProjectEdit");
             }
+
+            if (!refreshRequestedForRelatedDocuments)
+                RequestInlayHintRefresh(uri, "didChangeCommit");
 
             var policy = GetEditDiagnosticsPolicy();
             await ScheduleDiagnosticsPublishAsync(
@@ -1666,6 +1675,12 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
 
     private void RequestInlayHintRefresh(DocumentUri changedUri, string reason)
     {
+        if (_requestInlayHintRefreshOverride is { } requestInlayHintRefresh)
+        {
+            requestInlayHintRefresh(changedUri, reason);
+            return;
+        }
+
         if (_languageServer is null)
         {
             RecordInlayHintRefreshEvent(

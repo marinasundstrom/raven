@@ -9,6 +9,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
   model with detached syntax. Typing `.` on the right side of an assignment
   therefore shows receiver members on the first request instead of falling back
   to statement keywords until completion is reopened.
+- Inferred-type inlays now include variables introduced by match patterns inside
+  macro fragments, including visible-range requests that start within a
+  declaration macro body. Committed document edits also request a fresh inlay
+  pass so newly added argument-name hints do not remain hidden behind translated
+  cached hints.
 
 ## 0.1.0-preview.12 - 2026-08-22
 

@@ -162,6 +162,27 @@ internal sealed class MacroFragmentBinder : BlockBinder
         {
             _inferredTypeAnnotations.Add(new MacroFragmentInferredTypeAnnotation(declarator.Identifier.Span, local.Type));
         }
+
+        if (declaringSyntax is SingleVariableDesignationSyntax designation &&
+            IsInferredPatternDesignation(designation) &&
+            local.Type.TypeKind != TypeKind.Error &&
+            !_inferredTypeAnnotations.Any(annotation => annotation.Span == designation.Identifier.Span))
+        {
+            _inferredTypeAnnotations.Add(new MacroFragmentInferredTypeAnnotation(designation.Identifier.Span, local.Type));
+        }
+    }
+
+    private static bool IsInferredPatternDesignation(SingleVariableDesignationSyntax designation)
+    {
+        if (designation.Identifier.IsMissing ||
+            string.IsNullOrWhiteSpace(designation.Identifier.ValueText) ||
+            designation.Identifier.ValueText == "_")
+        {
+            return false;
+        }
+
+        return designation.Ancestors().Any(static ancestor => ancestor is PatternSyntax) &&
+            !designation.Ancestors().Any(static ancestor => ancestor is TypedVariableDesignationSyntax);
     }
 
     internal ImmutableArray<MacroFragmentInferredTypeAnnotation> GetInferredTypeAnnotations()
