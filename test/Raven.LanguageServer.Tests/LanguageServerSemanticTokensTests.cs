@@ -424,25 +424,26 @@ func Main() -> unit {
     [Fact]
     public async Task SemanticTokens_UpdatedMacroDocumentWaitsForAuthoritativeClassificationsAsync()
     {
-        var repositoryRoot = Path.GetFullPath(
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        var sampleRoot = Path.Combine(repositoryRoot, "samples", "projects", "proto-actor-dsl", "app");
-        var documentPath = Path.Combine(sampleRoot, "src", "CounterActor.rvn");
-        var code = await File.ReadAllTextAsync(documentPath);
+        const string code = """
+actor! Counter() {
+    started {}
+    receive {}
+    stopping {}
+}
+
+func Main() {}
+""";
+        var documentPath = Path.Combine(Path.GetTempPath(), $"raven-actor-{Guid.NewGuid():N}.rvn");
         var updatedCode = code + "\n";
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
         var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
-        manager.Initialize(new InitializeParams
-        {
-            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
-            {
-                Name = "proto-actor-dsl",
-                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
-            })
-        });
+        manager.Initialize(new InitializeParams());
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
-        await store.UpsertDocumentAsync(uri, code);
+        var document = await store.UpsertDocumentAsync(uri, code);
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddMacroReference(
+            document.Project.Id,
+            new MacroReference(new LifecycleKeywordMacro()))).ShouldBeTrue();
         var handler = new SemanticTokensHandler(store, NullLogger<SemanticTokensHandler>.Instance);
 
         var initialResult = await handler.Handle(new SemanticTokensParams
@@ -483,9 +484,9 @@ func Main() -> unit {
         {
             result.ShouldNotBeNull();
             var decoded = Decode(source, result.Data, SemanticTokensHandler.Legend);
-            Find(decoded, 7, "started").Type.ShouldBe(SemanticTokenType.Keyword);
-            Find(decoded, 11, "receive").Type.ShouldBe(SemanticTokenType.Keyword);
-            Find(decoded, 20, "stopping").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 1, "started").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 2, "receive").Type.ShouldBe(SemanticTokenType.Keyword);
+            Find(decoded, 3, "stopping").Type.ShouldBe(SemanticTokenType.Keyword);
         }
     }
 
@@ -1181,6 +1182,33 @@ func ReleaseOnly() {}
             current += sourceText.GetLineLength(index) + 1;
 
         return current + character;
+    }
+
+    private sealed class LifecycleKeywordMacro : IMacroDefinition, IMacroKeywordProvider
+    {
+        private const int StartedRawKind = 82001;
+        private const int ReceiveRawKind = 82002;
+        private const int StoppingRawKind = 82003;
+
+        public string Namespace => string.Empty;
+
+        public string Name => "Actor";
+
+        public string? Alias => "actor";
+
+        public MacroInvocationTargets InvocationTargets => MacroInvocationTargets.NamespaceMember;
+
+        public ImmutableArray<MacroKeyword> Keywords =>
+        [
+            new("started", StartedRawKind),
+            new("receive", ReceiveRawKind),
+            new("stopping", StoppingRawKind)
+        ];
+
+        public MemberDeclarationSyntax Expand(
+            FreestandingMacroDeclarationSyntax declaration,
+            TokenTreeMacroContext context)
+            => SyntaxFactory.ParseMemberDeclaration($"class {declaration.Identifier.ValueText} {{ }}")!;
     }
 
     private sealed record DecodedToken(

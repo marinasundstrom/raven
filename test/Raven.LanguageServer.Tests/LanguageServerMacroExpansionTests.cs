@@ -22,27 +22,26 @@ using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 public sealed class LanguageServerMacroExpansionTests
 {
     [Fact]
-    public async Task ComponentMacro_RemainsExpandableAfterAppendingBlankLinesInLoadedSampleAsync()
+    public async Task ComponentMacro_RemainsExpandableAfterAppendingBlankLinesAsync()
     {
-        var repositoryRoot = Path.GetFullPath(
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        var sampleRoot = Path.Combine(repositoryRoot, "samples", "projects", "macro-html-blazor", "app");
-        var documentPath = Path.Combine(sampleRoot, "src", "Components", "Greeting.rvn");
-        var code = await File.ReadAllTextAsync(documentPath);
+        const string code = """
+component! Greeting(Name: string) {
+    let message = Name
+}
+
+func Main() {}
+""";
+        var documentPath = Path.Combine(Path.GetTempPath(), $"raven-component-{Guid.NewGuid():N}.rvn");
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
         var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
-        manager.Initialize(new InitializeParams
-        {
-            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
-            {
-                Name = "component-macros",
-                Uri = DocumentUri.FromFileSystemPath(sampleRoot)
-            })
-        });
+        manager.Initialize(new InitializeParams());
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var uri = DocumentUri.FromFileSystemPath(documentPath);
 
-        await store.UpsertDocumentAsync(uri, code);
+        var document = await store.UpsertDocumentAsync(uri, code);
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddMacroReference(
+            document.Project.Id,
+            new MacroReference(new DeclarationFragmentMacro()))).ShouldBeTrue();
         store.TryGetCompilation(uri, out var initialCompilation).ShouldBeTrue();
         initialCompilation.ShouldNotBeNull();
         initialCompilation.GetDiagnostics()
