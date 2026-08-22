@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
 
 ## Unreleased
 
+## 0.1.0-preview.12 - 2026-08-22
+
 - Added declaration-level capability clauses for function-shaped token-tree
   macros. Uniform clauses such as `completion by CompleteDsl` and
   `fragments by DslSyntax.GetFragments` make generated adapters implement the
@@ -59,7 +61,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
   via a built-in Raven `[JSImport]`/`[JSExport]` source generator, and includes
   a runnable sample plus a documented macro-based direction for evolving typed
   Raven imports and exports. Mutable value-type receiver calls now preserve
-  mutations required by the low-level WebAssembly marshalling API. The
+  mutations required by the low-level WebAssembly marshalling API without
+  misinterpreting preloaded conditional-access values as managed addresses. The
   WebAssembly direction now tracks browser and WASI as
   sibling host stories, including future WIT mappings and browser-hosted WASI
   experiments for server-shaped applications.
@@ -78,7 +81,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
   condition from an unbraced branch and permits statement bodies on the same
   line without reserving `then` as an identifier elsewhere. The keyword is
   primarily intended for expression-form conditionals; statement support keeps
-  the syntax symmetric.
+  the syntax symmetric. Macro token streams also preserve custom keyword kinds
+  for `then` and other non-reserved Raven keywords, so existing token-tree DSL
+  clauses remain compatible.
 - `Option<T>` parameters may now use `.None` as their default argument. Raven
   emits a dedicated parameter-metadata marker and reconstructs the active
   `None` case for omitted arguments, including calls across assembly references,
