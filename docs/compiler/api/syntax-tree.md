@@ -39,6 +39,13 @@ nodes that cover a `TextSpan`, `GetNodeForSpan` gives the first match, and
 Tree-level `GetDiagnostics` overloads aggregate parser diagnostics for the whole
 file, a particular node/token, or a span.【F:src/Raven.CodeAnalysis/Syntax/SyntaxTree.cs†L46-L139】
 
+Macro declarations retain declaration-level service clauses as structured
+syntax. `MacroDeclarationSyntax.CapabilityClauses` is an ordered
+`SyntaxList<MacroCapabilityClauseSyntax>`. Each clause exposes its contextual
+capability keyword, the `by` keyword, and the handler expression, so syntax
+tools never need to recover `completion by CompleteDsl` or similar clauses from
+raw text.
+
 For inspection and tooling, syntax trees can be printed using the `PrintSyntaxTree`
 extension showcased in the API README. That routine walks the red tree and emits
 kind names, spans, and trivia so callers can visualize structure.

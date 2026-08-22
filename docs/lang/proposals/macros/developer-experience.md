@@ -258,12 +258,34 @@ Those axes cover every MVP macro kind without a separate `kind` annotation:
 | `macro Observable(on property: PropertyDeclarationSyntax)` containing `replace` | The attached method shape returning a replacement result |
 
 Optional capability interfaces require an intentional source-syntax
-projection. `IMacroFragmentProvider` is projected through reached `fragment`
-contributions, and token metadata is projected through reached `token`
-contributions. Both accumulate through the same result/adapter boundary as
-`replace` and `introduce`, and are finalized by `expand` or fall-through. They
-preserve body-relative and authored spans without exposing generated adapter
-classes or a macro-private DSL tree.
+projection. A token-tree macro declaration can name an ordinary namespace or
+qualified static handler in a declaration-level clause:
+
+```raven
+macro Query(context: TokenTreeMacroContext) -> ExpressionSyntax
+    keywords by QueryKeywords
+    highlighting by ClassifyQueryToken
+    fragments by GetQueryFragments
+    completion by QueryCompletion.GetItems
+{
+    expand LowerQuery(context)
+}
+```
+
+The supported `keywords`, `tokens`, `tokenKinds`, `highlighting`, `fragments`,
+`symbols`, `completion`, and `projection` clauses project the corresponding
+existing provider interface onto the generated adapter. Adjacent namespace
+functions are included in the local compile-time macro partition; a same-project
+support class remains an explicit compile-time declaration. This keeps the
+macro body focused on expansion and avoids introducing service statements or a
+second lifecycle model.
+
+`IMacroFragmentProvider` may also be projected through reached `fragment`
+contributions, and token metadata through reached `token` contributions. Those
+dynamic contributions accumulate through the same result/adapter boundary as
+`replace` and `introduce`, and are finalized by `expand` or fall-through. Both
+forms preserve body-relative and authored spans without exposing generated
+adapter classes or a macro-private DSL tree.
 Class-authored providers remain useful when incomplete input must publish
 tooling metadata independently from full expansion.
 

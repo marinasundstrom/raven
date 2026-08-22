@@ -360,6 +360,10 @@ contracts:
 * [x] argument-style, attached, `ExpressionSyntax`, and `IMacroTokenStream`
   parameter roles
 * [x] synchronous `expand`, `replace`, and `introduce` contribution statements
+* [x] declaration-level capability clauses that forward existing keyword,
+  token-stream, token-kind, classification, fragment, symbol, completion, and
+  embedded-language contracts to ordinary functions
+* [x] compile-time partition discovery for adjacent namespace handler functions
 * [x] project and Playground samples
 * [x] curated parser, semantic, expansion, and project-runtime coverage
 
@@ -408,13 +412,15 @@ precisely into arbitrary macro bodies.
 
 Validation record for this slice:
 
-* current macro feature suite: 157 passed
+* macro feature suite at initial concise-declaration validation: 157 passed
 * current focused language-server signature-help and hover suite: 111 passed,
   3 skipped
 * `scripts/test-feature-suite.sh macros`: 89 passed
 * `scripts/test-feature-suite.sh macros --runtime`: 17 passed
 * focused macro parser and symbol tests: 19 passed
 * `macro-declarations` project build and runtime output: `42`, `42`, `6`
+* capability-clause reference sample runtime output: `capability functions`
+* macro feature suite after capability-clause integration: 166 passed
 
 ## Active slice: macro invocation completion
 

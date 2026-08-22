@@ -278,6 +278,15 @@ a second service lifecycle or move the implementation into the macro body.
 Only explicitly declared capabilities are projected. Duplicate clauses and
 clauses on macros without a token-tree input are diagnosed.
 
+Syntax tooling sees the same structure directly. `MacroDeclarationSyntax`
+exposes its ordered `CapabilityClauses`, and each
+`MacroCapabilityClauseSyntax` preserves the `CapabilityKeyword`, `ByKeyword`,
+and handler `ExpressionSyntax`. An analyzer or formatter can therefore inspect
+or rewrite capability declarations without parsing their source text. These are
+syntax-tree API classes; macro implementations normally use the clauses above
+and the corresponding provider contracts rather than constructing the nodes
+directly.
+
 The `!` is intentional even in this declaration-like form. It lets the DSL
 participate in Raven's declaration experience without suggesting that
 `component` is permanently built into the language.
