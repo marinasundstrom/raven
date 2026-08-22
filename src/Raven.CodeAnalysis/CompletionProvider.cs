@@ -1713,10 +1713,10 @@ public static class CompletionProvider
                 {
                     var leftSymbol = TryGetPreferredSymbolInfo(left, out var symbolInfo)
                         ? symbolInfo.Symbol?.UnderlyingSymbol
-                        : null;
+                        : TryResolveReceiverSymbol(left);
                     return TryGetExplicitlyAnnotatedType(leftSymbol)
                         ?? GetTypeFromSymbol(leftSymbol)
-                        ?? model.GetTypeInfo(left).Type;
+                        ?? GetContextualType(left);
                 }
                 return null;
             }
@@ -1730,10 +1730,10 @@ public static class CompletionProvider
                 {
                     var leftSymbol = TryGetPreferredSymbolInfo(left, out var symbolInfo)
                         ? symbolInfo.Symbol?.UnderlyingSymbol
-                        : null;
+                        : TryResolveReceiverSymbol(left);
                     return TryGetExplicitlyAnnotatedType(leftSymbol)
                         ?? GetTypeFromSymbol(leftSymbol)
-                        ?? model.GetTypeInfo(left).Type;
+                        ?? GetContextualType(left);
                 }
                 return null;
             }
@@ -2005,7 +2005,7 @@ public static class CompletionProvider
                 return assignmentExpr.Left is ExpressionSyntax leftExpr
                     ? TryGetPreferredSymbolInfo(leftExpr, out var symbolInfo)
                         ? symbolInfo.Symbol?.UnderlyingSymbol
-                        : null
+                        : TryResolveReceiverSymbol(leftExpr)
                     : null;
             }
 
@@ -2017,7 +2017,7 @@ public static class CompletionProvider
                 return assignmentStmt.Left is ExpressionSyntax leftExpr
                     ? TryGetPreferredSymbolInfo(leftExpr, out var symbolInfo)
                         ? symbolInfo.Symbol?.UnderlyingSymbol
-                        : null
+                        : TryResolveReceiverSymbol(leftExpr)
                     : null;
             }
 

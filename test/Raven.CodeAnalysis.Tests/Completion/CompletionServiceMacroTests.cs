@@ -246,6 +246,38 @@ class MacroHost {
         Assert.Contains(secondItems, static item => item.DisplayText == "Length");
     }
 
+    [Fact]
+    public void GetCompletions_AfterDotOnFragmentLocalInRecoveredMatchArm_ReturnsMembers()
+    {
+        const string code = """
+union Command {
+    case Subtract(amount: int)
+}
+
+let value = matchBlock! {
+    match command {
+        .Subtract(let amount) => count = count. - amount
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "test",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(new MatchBlockMacro()));
+        var position = code.IndexOf("count. -", StringComparison.Ordinal) + "count.".Length;
+
+        var completion = new CompletionService()
+            .GetCompletionsWithMetrics(compilation, syntaxTree, position);
+
+        Assert.False(completion.UsedFallback, completion.FailureType);
+        Assert.Contains(completion.Items, static item => item.DisplayText == "CompareTo");
+        Assert.DoesNotContain(completion.Items, static item => item.DisplayText == "return");
+    }
+
     [Theory]
     [InlineData(MacroFragmentKind.Statement, "mes", "message")]
     [InlineData(MacroFragmentKind.Type, "Wid", "Widget")]
@@ -856,6 +888,30 @@ class MacroHost {
                 context.CreateFragmentRegion(
                     MacroFragmentKind.Block,
                     new TextSpan(secondStart, "message.".Length)),
+            ];
+        }
+    }
+
+    private sealed class MatchBlockMacro : IMacroDefinition, IMacroFragmentProvider
+    {
+        public string Namespace => string.Empty;
+
+        public string Name => "matchBlock";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+
+        public ImmutableArray<MacroFragmentRegion> GetFragmentRegions(TokenTreeMacroContext context)
+        {
+            var count = context.CreateFragmentLocal(
+                "count",
+                context.Compilation.GetSpecialType(SpecialType.System_Int32));
+            return
+            [
+                context.CreateFragmentRegion(
+                    MacroFragmentKind.Block,
+                    new TextSpan(0, context.BodySpan.Length),
+                    [count]),
             ];
         }
     }

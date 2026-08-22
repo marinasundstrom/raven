@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
 
 ## Unreleased
 
+- Member completion in a macro block fragment now resolves assignment targets
+  through fragment-local semantic state instead of querying the outer semantic
+  model with detached syntax. Typing `.` on the right side of an assignment
+  therefore shows receiver members on the first request instead of falling back
+  to statement keywords until completion is reopened.
+
 ## 0.1.0-preview.12 - 2026-08-22
 
 - Added declaration-level capability clauses for function-shaped token-tree
