@@ -569,7 +569,9 @@ internal class NameSyntaxParser : SyntaxParser
                     return true;
             }
             else if (token.IsKind(SyntaxKind.EndOfFileToken) ||
-                     token.IsKind(SyntaxKind.SemicolonToken))
+                     token.IsKind(SyntaxKind.SemicolonToken) ||
+                     token.IsKind(SyntaxKind.OpenBraceToken) ||
+                     token.IsKind(SyntaxKind.CloseBraceToken))
             {
                 return false;
             }

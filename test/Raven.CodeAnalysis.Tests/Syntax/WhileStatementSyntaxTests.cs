@@ -7,6 +7,31 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public class WhileStatementSyntaxTests
 {
     [Fact]
+    public void LessThanCondition_DoesNotConsumeGreaterThanFromNestedBlock()
+    {
+        const string testCode = """
+while index < parts.Length {
+    if index > 0 {
+        Use(index)
+    }
+    index = index + 1
+}
+""";
+
+        var tree = SyntaxTree.ParseText(testCode);
+        var statement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single()).Statement;
+        var whileStatement = Assert.IsType<WhileStatementSyntax>(statement);
+        var condition = Assert.IsType<InfixOperatorExpressionSyntax>(whileStatement.Condition);
+        var body = Assert.IsType<BlockStatementSyntax>(whileStatement.Statement);
+
+        condition.Kind.ShouldBe(SyntaxKind.LessThanExpression);
+        body.Statements.Count.ShouldBe(2);
+        body.Statements[0].ShouldBeOfType<IfStatementSyntax>();
+        body.Statements[1].ShouldBeOfType<AssignmentStatementSyntax>();
+        tree.GetDiagnostics().ShouldBeEmpty();
+    }
+
+    [Fact]
     public void WhilePatternStatement_ParsesAsDedicatedNode()
     {
         const string testCode = """
