@@ -2,6 +2,8 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
+using Raven.CodeAnalysis.Macros;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
@@ -67,6 +69,43 @@ class C {
 """;
 
         Assert.Empty(Analyze(code));
+    }
+
+    [Fact]
+    public void LocalReadByMacroExpressionFragment_DoesNotReportDiagnostic()
+    {
+        const string code = """
+import Raven.Macros.*
+
+func Main() {
+    let name = "Ada"
+    json! {
+        "name": "$name"
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+                "lib",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(tree)
+            .AddReferences(TestMetadataReferences.DefaultWithRavenMacros)
+            .AddMacroReferences(MacroReference.CreateFromFile(
+                ((PortableExecutableReference)TestMetadataReferences.RavenMacros).FilePath!));
+        var invocation = Assert.Single(
+            tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
+        var fragmentPosition = code.LastIndexOf("name", StringComparison.Ordinal) + 1;
+        var semanticInfo = compilation.GetMacroFragmentSemanticInfo(invocation, fragmentPosition);
+
+        Assert.NotNull(semanticInfo);
+        Assert.IsAssignableFrom<ILocalSymbol>(semanticInfo.SymbolInfo.Symbol);
+
+        var diagnostics = new UnusedLocalAnalyzer()
+            .Analyze(compilation)
+            .Where(d => d.Id == UnusedLocalAnalyzer.DiagnosticId);
+
+        Assert.Empty(diagnostics);
     }
 
     [Fact]

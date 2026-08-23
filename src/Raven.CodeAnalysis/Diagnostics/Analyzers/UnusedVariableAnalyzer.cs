@@ -106,7 +106,12 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         if (bodyRoots.Length == 0 && usageRoots.Length == 0)
             return;
 
-        var facts = OwnerUsageCollector.Collect(context.SemanticModel, owner, collectLocals: true, collectParameters: false);
+        var facts = OwnerUsageCollector.Collect(
+            context.SemanticModel,
+            owner,
+            collectLocals: true,
+            collectParameters: false,
+            context.CancellationToken);
         if (!facts.IsSemanticallyComplete)
             return;
 
@@ -145,7 +150,12 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             if (bodyRoots.Length == 0 && usageRoots.Length == 0)
                 continue;
 
-            var facts = OwnerUsageCollector.Collect(semanticModel, owner, collectLocals: false, collectParameters: true);
+            var facts = OwnerUsageCollector.Collect(
+                semanticModel,
+                owner,
+                collectLocals: false,
+                collectParameters: true,
+                context.CancellationToken);
             if (!facts.IsSemanticallyComplete)
                 continue;
 
@@ -220,7 +230,8 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         {
             var facts = OwnerUsageCollector.CollectGlobalStatements(
                 context.SemanticModel,
-                compilationUnit.Members.OfType<GlobalStatementSyntax>());
+                compilationUnit.Members.OfType<GlobalStatementSyntax>(),
+                context.CancellationToken);
 
             if (facts.IsSemanticallyComplete)
                 ReportDiagnostics(context.ReportDiagnostic, context.SemanticModel, facts.Candidates, facts.UsedSymbols);
@@ -289,22 +300,28 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         private readonly Dictionary<ISymbol, Candidate> _candidates = new(SymbolEqualityComparer.Default);
         private readonly HashSet<string> _candidateNames = new(StringComparer.Ordinal);
         private readonly HashSet<ISymbol> _usedSymbols = new(SymbolEqualityComparer.Default);
+        private readonly CancellationToken _cancellationToken;
         private int _nestedOwnerDepth;
         private bool _isSemanticallyComplete = true;
 
-        private OwnerUsageCollector(SemanticModel semanticModel, bool collectLocals)
+        private OwnerUsageCollector(
+            SemanticModel semanticModel,
+            bool collectLocals,
+            CancellationToken cancellationToken)
         {
             _semanticModel = semanticModel;
             _collectLocals = collectLocals;
+            _cancellationToken = cancellationToken;
         }
 
         public static OwnerUsageFacts Collect(
             SemanticModel semanticModel,
             SyntaxNode owner,
             bool collectLocals,
-            bool collectParameters)
+            bool collectParameters,
+            CancellationToken cancellationToken)
         {
-            var collector = new OwnerUsageCollector(semanticModel, collectLocals);
+            var collector = new OwnerUsageCollector(semanticModel, collectLocals, cancellationToken);
 
             if (collectParameters)
                 collector.CollectParameters(owner);
@@ -317,9 +334,10 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
 
         public static OwnerUsageFacts CollectGlobalStatements(
             SemanticModel semanticModel,
-            IEnumerable<GlobalStatementSyntax> globalStatements)
+            IEnumerable<GlobalStatementSyntax> globalStatements,
+            CancellationToken cancellationToken)
         {
-            var collector = new OwnerUsageCollector(semanticModel, collectLocals: true);
+            var collector = new OwnerUsageCollector(semanticModel, collectLocals: true, cancellationToken);
 
             foreach (var member in globalStatements)
                 collector.Visit(member.Statement);
@@ -441,6 +459,66 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             base.VisitInterpolation(node);
         }
 
+        public override void VisitFreestandingMacroExpression(FreestandingMacroExpressionSyntax node)
+        {
+            MarkMacroFragmentUses(node);
+            base.VisitFreestandingMacroExpression(node);
+        }
+
+        public override void VisitFreestandingMacroDeclaration(FreestandingMacroDeclarationSyntax node)
+        {
+            MarkMacroFragmentUses(node);
+            base.VisitFreestandingMacroDeclaration(node);
+        }
+
+        private void MarkMacroFragmentUses(SyntaxNode invocation)
+        {
+            if (_candidateNames.Count == 0)
+                return;
+
+            var regions = _semanticModel.GetMacroFragmentRegionsCore(invocation, _cancellationToken);
+            if (regions.IsDefaultOrEmpty)
+                return;
+
+            var source = _semanticModel.SyntaxTree.GetText();
+            foreach (var region in regions)
+            {
+                var end = region.Span.End;
+                for (var position = region.Span.Start; position < end; position++)
+                {
+                    _cancellationToken.ThrowIfCancellationRequested();
+                    if (!SyntaxFacts.IsIdentifierStartCharacter(source[position]))
+                        continue;
+
+                    var identifierStart = position;
+                    position++;
+                    while (position < end && SyntaxFacts.IsIdentifierPartCharacter(source[position]))
+                        position++;
+
+                    var identifier = source.ToString(new Raven.CodeAnalysis.Text.TextSpan(identifierStart, position - identifierStart));
+                    position--;
+                    if (!_candidateNames.Contains(identifier))
+                        continue;
+
+                    var semanticPosition = identifierStart + Math.Min(1, identifier.Length - 1);
+                    var semanticInfo = invocation switch
+                    {
+                        FreestandingMacroExpressionSyntax expression =>
+                            _semanticModel.GetMacroFragmentSemanticInfo(expression, semanticPosition, _cancellationToken),
+                        FreestandingMacroDeclarationSyntax declaration =>
+                            _semanticModel.GetMacroFragmentSemanticInfo(declaration, semanticPosition, _cancellationToken),
+                        _ => null
+                    };
+                    if (semanticInfo?.SymbolInfo.Symbol?.UnderlyingSymbol is { } symbol &&
+                        TryGetLocalOrParameter(symbol, out var usedSymbol))
+                    {
+                        AddUsedSymbol(usedSymbol);
+                        TryMarkEquivalentCandidateByName(identifier, usedSymbol);
+                    }
+                }
+            }
+        }
+
         private void CollectParameter(ParameterSyntax parameter)
         {
             if (_semanticModel.GetDeclaredSymbol(parameter) is not IParameterSymbol parameterSymbol)
@@ -541,10 +619,15 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             if (node is not IdentifierNameSyntax identifier)
                 return;
 
+            TryMarkEquivalentCandidateByName(identifier.Identifier.ValueText, usedSymbol);
+        }
+
+        private void TryMarkEquivalentCandidateByName(string name, ISymbol usedSymbol)
+        {
             foreach (var candidate in _candidates.Values)
             {
                 if (candidate.Symbol.Kind == usedSymbol.Kind &&
-                    string.Equals(candidate.Name, identifier.Identifier.ValueText, StringComparison.Ordinal))
+                    string.Equals(candidate.Name, name, StringComparison.Ordinal))
                 {
                     AddUsedSymbol(candidate.Symbol);
                 }
