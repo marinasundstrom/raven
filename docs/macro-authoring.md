@@ -405,6 +405,19 @@ Selected spans are relative to the macro body. The member parser diagnoses
 empty input, multiple declarations, global statements, and compilation-unit
 content rather than silently choosing a node.
 
+When a macro must mask its own holes or delimiters before asking Raven to parse
+the complete body, use `ParseProjectedExpressionResult(projectedBody)`. The
+projected text must retain the authored body's exact length and line breaks, so
+native parser diagnostics still point into the invocation. `quote!` uses this
+to replace each `#(...)` hole with an equal-width identifier before parsing the
+surrounding expression.
+
+`RavenQuoterOptions.NodeSourceOverride` can then render selected parsed nodes
+as caller-provided source instead of syntax-factory construction code. The
+quoter preserves trivia around overridden nodes. Override text is emitted
+verbatim, so validating and constructing it remains the macro author's
+responsibility.
+
 Every `MacroSyntaxParseResult<TSyntax>` also exposes `BodyRelativeSpan`. For an
 explicit-span parse this is the actual node span inside the selected region;
 for a cursor parse it is likewise the recovered node's actual span. The stream

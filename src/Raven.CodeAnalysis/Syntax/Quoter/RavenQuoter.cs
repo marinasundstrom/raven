@@ -38,6 +38,9 @@ public static class RavenQuoter
     public static string Quote(SyntaxNode root, RavenQuoterOptions? options = null)
     {
         options ??= new RavenQuoterOptions();
+        if (options.IncludeTrivia && options.NodeSourceOverride is not null)
+            root = RedistributeSourceOverrideTrivia(root, options.NodeSourceOverride);
+
         var w = new CodeWriter();
         var writer = new QuoterWriter(w, options);
 
@@ -109,6 +112,57 @@ public static class RavenQuoter
         }
 
         return w.ToString();
+    }
+
+    private static SyntaxNode RedistributeSourceOverrideTrivia(
+        SyntaxNode root,
+        Func<SyntaxNode, string?> sourceOverride)
+    {
+        var boundaryTokens = root
+            .DescendantNodesAndSelf()
+            .Where(node => sourceOverride(node) is not null)
+            .SelectMany(static node => new[] { node.GetFirstToken(), node.GetLastToken() })
+            .ToHashSet();
+        if (boundaryTokens.Count == 0)
+            return root;
+
+        var tokens = root.DescendantTokens().ToArray();
+        var replacements = new Dictionary<SyntaxToken, SyntaxToken>();
+
+        SyntaxToken GetReplacement(int index)
+            => replacements.TryGetValue(tokens[index], out var replacement)
+                ? replacement
+                : tokens[index];
+
+        for (var index = 0; index < tokens.Length; index++)
+        {
+            var token = tokens[index];
+            if (!boundaryTokens.Contains(token))
+                continue;
+
+            var replacement = GetReplacement(index);
+            if (replacement.HasLeadingTrivia && index > 0)
+            {
+                var previous = GetReplacement(index - 1);
+                replacements[tokens[index - 1]] = previous.WithTrailingTrivia(
+                    previous.TrailingTrivia.Concat(replacement.LeadingTrivia));
+                replacement = replacement.WithLeadingTrivia(SyntaxTriviaList.Empty);
+            }
+
+            if (replacement.HasTrailingTrivia && index < tokens.Length - 1)
+            {
+                var next = GetReplacement(index + 1);
+                replacements[tokens[index + 1]] = next.WithLeadingTrivia(
+                    replacement.TrailingTrivia.Concat(next.LeadingTrivia));
+                replacement = replacement.WithTrailingTrivia(SyntaxTriviaList.Empty);
+            }
+
+            replacements[token] = replacement;
+        }
+
+        return root.ReplaceTokens(
+            replacements.Keys,
+            (original, _) => replacements[original]);
     }
 
     private static IReadOnlyList<FactoryInfo> GetFactoryInfos(Type nodeType)

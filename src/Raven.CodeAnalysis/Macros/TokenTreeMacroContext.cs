@@ -178,24 +178,7 @@ public class TokenTreeMacroContext : MacroContext
         string text)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(languageId);
-        ArgumentNullException.ThrowIfNull(text);
-
-        var bodyText = GetBodyText();
-        if (text.Length != bodyText.Length)
-            throw new ArgumentException("Projected text must have the same length as the macro body.", nameof(text));
-
-        for (var index = 0; index < bodyText.Length; index++)
-        {
-            var sourceIsLineBreak = bodyText[index] is '\r' or '\n';
-            var projectionIsLineBreak = text[index] is '\r' or '\n';
-            if (sourceIsLineBreak != projectionIsLineBreak ||
-                (sourceIsLineBreak && bodyText[index] != text[index]))
-            {
-                throw new ArgumentException(
-                    "Projected text must preserve the macro body's line breaks.",
-                    nameof(text));
-            }
-        }
+        ValidatePositionPreservingBodyText(text, nameof(text));
 
         return new MacroEmbeddedLanguageProjection(languageId, text, BodySpan);
     }
@@ -510,17 +493,46 @@ public class TokenTreeMacroContext : MacroContext
             stream,
             static () => new ExpressionSyntax.Missing());
 
-    internal MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult(string bodyText)
+    /// <summary>
+    /// Parses a position-preserving projection of the complete macro body as
+    /// one Raven expression.
+    /// </summary>
+    /// <remarks>
+    /// The projection must have the same length and line breaks as the authored
+    /// body. This lets a macro temporarily replace its own delimiters or holes
+    /// with Raven syntax while retaining authored diagnostic positions.
+    /// </remarks>
+    public MacroSyntaxParseResult<ExpressionSyntax> ParseProjectedExpressionResult(string bodyText)
     {
-        ArgumentNullException.ThrowIfNull(bodyText);
-        if (bodyText.Length != BodySpan.Length)
-            throw new ArgumentException("Replacement body text must preserve the original body length.", nameof(bodyText));
+        ValidatePositionPreservingBodyText(bodyText, nameof(bodyText));
 
         return ParseSyntaxResult<ExpressionSyntax>(
             bodyText,
             new TextSpan(0, bodyText.Length),
             consumeFullText: true,
             static () => new ExpressionSyntax.Missing());
+    }
+
+    private void ValidatePositionPreservingBodyText(string text, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(text, parameterName);
+
+        var bodyText = GetBodyText();
+        if (text.Length != bodyText.Length)
+            throw new ArgumentException("Projected text must have the same length as the macro body.", parameterName);
+
+        for (var index = 0; index < bodyText.Length; index++)
+        {
+            var sourceIsLineBreak = bodyText[index] is '\r' or '\n';
+            var projectionIsLineBreak = text[index] is '\r' or '\n';
+            if (sourceIsLineBreak != projectionIsLineBreak ||
+                (sourceIsLineBreak && bodyText[index] != text[index]))
+            {
+                throw new ArgumentException(
+                    "Projected text must preserve the macro body's line breaks.",
+                    parameterName);
+            }
+        }
     }
 
     public StatementSyntax ParseStatement()

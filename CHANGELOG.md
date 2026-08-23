@@ -1,14 +1,19 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
+Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- `quote!` now implements expression parsing, splice recognition, diagnostics,
+  and syntax rendering wholly in the Raven-authored `Raven.Macros` library.
+  Macro authors can parse equal-width body projections while retaining source
+  positions, and `RavenQuoter` now exposes node source overrides that preserve
+  surrounding trivia. The transitional compiler-hosted quote implementation
+  has been removed, and `compile!` reuses the Raven implementation.
 - `compile!` now validates its delegate type argument and constructs its
-  runtime-compilation expression in the Raven-authored `Raven.Macros` library,
-  leaving only the shared quote-and-splice operation compiler-hosted. The macro
-  design now records contextual expected-delegate and explicitly typed-lambda
-  inference as future, non-heuristic directions.
+  runtime-compilation expression in the Raven-authored `Raven.Macros` library.
+  The macro design now records contextual expected-delegate and explicitly
+  typed-lambda inference as future, non-heuristic directions.
 - `Error` now performs its union inspection, `System.IError` base-list rewrite,
   duplicate-message diagnostics, and generated `Message` and `Cause` property
   construction wholly in the Raven-authored `Raven.Macros` library. The final

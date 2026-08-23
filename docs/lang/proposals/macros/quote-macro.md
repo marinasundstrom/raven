@@ -118,8 +118,8 @@ let syntax = quote!{
 }
 ```
 
-The intrinsic is registered by the compiler and needs no macro plugin
-reference. It parses the complete body through `ParseExpressionResult`,
+The standard macro is implemented in the Raven-authored `Raven.Macros`
+library. It parses the complete body through `ParseExpressionResult`,
 rejects native parser diagnostics, trailing tokens, and missing recovery
 tokens, and maps user diagnostics to the authored quote body. It then expands
 to fully qualified ordinary `SyntaxFactory` construction syntax and preserves
@@ -133,8 +133,9 @@ future work.
 
 The MVP does not yet select categories from contextual types, quote statements
 or declarations, or perform a separate bind-and-equivalence verification pass
-before substitution. The generated factory expression is parsed by the
-intrinsic and then goes through ordinary caller binding and emit.
+before substitution. The generated factory expression is parsed by the macro
+through Raven's public syntax API and then goes through ordinary caller binding
+and emit.
 
 ### Expression holes
 
@@ -154,7 +155,7 @@ or other expression. Multiple holes are allowed. The generated expansion uses
 the hole expression directly where an `ExpressionSyntax` is required, leaving
 ordinary binding to enforce the type contract.
 
-The intrinsic recognizes holes through its standard Raven token stream,
+The macro recognizes holes through its standard Raven token stream,
 balances nested parentheses, and replaces each hole with an equal-width
 parser-only placeholder. This keeps authored parser diagnostics correctly
 positioned without adding lexer tokens or changing ordinary Raven parsing.

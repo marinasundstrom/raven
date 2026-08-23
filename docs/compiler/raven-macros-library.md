@@ -187,18 +187,14 @@ late type-load or invocation failure.
 
 ## Current implementation boundary
 
-`Quote.rvn` owns its public macro declaration, namespace, alias, and
-documentation while its low-level quote and splice mechanics currently
-delegate to `StandardMacroExpansions` in `Raven.CodeAnalysis`. `Compile.rvn`
-implements its delegate-type validation and runtime-compilation expression in
-Raven while reusing that quote operation. `Error.rvn`, `ErrorMessage.rvn`, and
-the other standard macros are implemented wholly in Raven. This incremental
-boundary is intentional while the macro API is still evolving.
-
-As the public API gains sufficient diagnostic, source-location, and
-syntax-construction support, suitable behavior can move wholly or partly into
-the Raven-authored macro project. The present boundary should not be treated as
-the final architecture.
+`Quote.rvn` owns expression parsing, splice recognition, source-mapped
+diagnostics, and syntax-factory rendering through public macro and syntax APIs.
+`Compile.rvn` reuses that Raven-authored quote operation before constructing
+the runtime-compilation call. `Error.rvn`, `ErrorMessage.rvn`, and the other
+standard macros are likewise implemented wholly in Raven. The compiler owns
+the reusable contracts—position-preserving projected parsing, source-aware
+diagnostics, and `RavenQuoter`—rather than the policy of individual standard
+macros.
 
 ## Documentation publishing
 

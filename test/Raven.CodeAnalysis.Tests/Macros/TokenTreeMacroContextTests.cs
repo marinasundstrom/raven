@@ -37,6 +37,33 @@ public sealed class TokenTreeMacroContextTests
     }
 
     [Fact]
+    public void ParseProjectedExpressionResult_RetainsAuthoredPosition()
+    {
+        var context = CreateContext("#(value) + 1");
+        var projectedBody = context.GetBodyText().Replace("#(value)", "replaced");
+
+        var result = context.ParseProjectedExpressionResult(projectedBody);
+
+        Assert.False(result.HasErrors, string.Join(Environment.NewLine, result.Diagnostics));
+        Assert.Equal("replaced + 1", result.Syntax.ToString());
+        Assert.Equal(
+            context.BodySpan.Start + projectedBody.IndexOf("replaced", StringComparison.Ordinal),
+            result.Syntax.Span.Start);
+    }
+
+    [Fact]
+    public void ParseProjectedExpressionResult_RejectsChangedLineBreaks()
+    {
+        var context = CreateContext("value +\n1");
+        var projectedBody = context.GetBodyText().Replace('\n', ' ');
+
+        var exception = Assert.Throws<ArgumentException>(
+            () => context.ParseProjectedExpressionResult(projectedBody));
+
+        Assert.Contains("line breaks", exception.Message);
+    }
+
+    [Fact]
     public void WithOrigin_UsesParsedFragmentSpan()
     {
         var context = CreateContext("prefix value + 1");

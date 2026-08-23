@@ -151,4 +151,43 @@ public class RavenQuoterTests
         Assert.DoesNotContain("NormalizeWhitespace", quoted);
         Assert.Empty(SyntaxTree.ParseText($"let quoted = {quoted}").GetDiagnostics());
     }
+
+    [Fact]
+    public void Quote_CanEmitSourceInPlaceOfSelectedNode()
+    {
+        var quoted = RavenQuoter.Quote(
+            SyntaxFactory.ParseExpression("left + placeholder"),
+            new RavenQuoterOptions
+            {
+                GenerateUsingDirectives = false,
+                NormalizeWhitespace = false,
+                NodeSourceOverride = node => node is IdentifierNameSyntax identifier &&
+                    identifier.Identifier.ValueText == "placeholder"
+                        ? "replacement"
+                        : null
+            });
+
+        Assert.Contains("Identifier(\"left\")", quoted);
+        Assert.Contains("replacement", quoted);
+        Assert.DoesNotContain("placeholder", quoted);
+    }
+
+    [Fact]
+    public void Quote_SourceOverride_PreservesSurroundingTrivia()
+    {
+        var quoted = RavenQuoter.Quote(
+            SyntaxFactory.ParseExpression("left + placeholder + right"),
+            new RavenQuoterOptions
+            {
+                GenerateUsingDirectives = false,
+                NormalizeWhitespace = false,
+                NodeSourceOverride = node => node is IdentifierNameSyntax identifier &&
+                    identifier.Identifier.ValueText == "placeholder"
+                        ? "replacement"
+                        : null
+            });
+
+        Assert.Contains("(replacement)", quoted);
+        Assert.Contains("WhitespaceTrivia", quoted);
+    }
 }

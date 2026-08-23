@@ -28,7 +28,7 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 public macro Compile(context: TokenTreeMacroContext) {
     if context.Name is GenericNameSyntax genericName {
         if genericName.TypeArgumentList.Arguments.Count == 1 {
-            let quoteResult = StandardMacroExpansions.ExpandQuote(context)
+            let quoteResult = QuoteMacroImplementation.Expand(context)
             if quoteResult.Expression is ExpressionSyntax quotedExpression {
                 let delegateType = genericName.TypeArgumentList.Arguments[0].ToFullString().Trim()
                 let expansion = ParseExpression(

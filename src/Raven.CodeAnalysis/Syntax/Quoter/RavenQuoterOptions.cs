@@ -14,7 +14,16 @@ public enum RavenQuoterOutputLanguage
 /// </summary>
 public sealed class RavenQuoterOptions
 {
-    internal Func<SyntaxNode, string?>? NodeSourceOverride { get; init; }
+    /// <summary>
+    /// Optionally supplies source text to emit in place of an individual syntax
+    /// node's factory construction.
+    /// </summary>
+    /// <remarks>
+    /// This is intended for macro holes and similar syntax substitutions. The
+    /// returned text is emitted verbatim and must be valid in
+    /// <see cref="OutputLanguage"/>.
+    /// </remarks>
+    public Func<SyntaxNode, string?>? NodeSourceOverride { get; init; }
 
     /// <summary>
     /// The source language used for imports, declarations, and collections.
