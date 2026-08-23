@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
 
 ## Unreleased
 
+- Macro authors can now read source-relative text files through public
+  dependency-tracked context APIs and construct safely escaped Raven string
+  literals with `MacroSyntax.StringLiteral`. `embedFileContent!` now implements
+  its expansion wholly in the Raven-authored `Raven.Macros` library instead of
+  delegating to a compiler-hosted C# helper.
 - Freestanding macros now preserve their source envelope through explicit
   parenthesized, expression-header, token-tree, and declaration carrier syntax
   nodes. Class-authored macros can select accepted carrier kinds and whether a

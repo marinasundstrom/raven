@@ -1,5 +1,7 @@
 namespace Raven.Macros
 
+import Raven.CodeAnalysis.Macros.*
+
 /// Embeds the UTF-8 text content of a file as a string literal.
 ///
 /// Import `Raven.Macros.*` to invoke the conventional
@@ -22,7 +24,26 @@ namespace Raven.Macros
 [Raven.CodeAnalysis.Macros.MacroAlias("embedFileContent")]
 public macro EmbedFileContent(
     path: string,
-    context: Raven.CodeAnalysis.Macros.FreestandingMacroContext
+    context: FreestandingMacroContext
 ) {
-    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandEmbedFileContent(context, path)
+    let file = context.ReadFile(path)
+    let result =
+        if file.Status == MacroFileReadStatus.Missing {
+            FreestandingMacroExpansionResult.FromDiagnostic(
+                context.CreateArgumentDiagnostic(
+                    context.Arguments[0],
+                    "The file '${file.Path}' does not exist.",
+                    code: "EMBEDFILE001"))
+        } else if file.Status == MacroFileReadStatus.Failed {
+            FreestandingMacroExpansionResult.FromDiagnostic(
+                context.CreateArgumentDiagnostic(
+                    context.Arguments[0],
+                    "The file '${file.Path}' could not be read: ${file.Error}",
+                    code: "EMBEDFILE002"))
+        } else {
+            FreestandingMacroExpansionResult.FromExpression(
+                MacroSyntax.StringLiteral(file.Content ?? ""))
+        }
+
+    expand result
 }

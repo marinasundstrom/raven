@@ -894,7 +894,11 @@ public class TokenTreeMacroContext : MacroContext
         return new MacroExpansionDiagnostic(severity, message, location, code);
     }
 
-    internal MacroFileReadResult ReadFile(string path)
+    /// <summary>
+    /// Reads a text file relative to the invoking source file and observes it
+    /// as an input to the cached macro expansion.
+    /// </summary>
+    public MacroFileReadResult ReadFile(string path)
         => MacroFileReader.Read(Syntax, path, _fileDependencies);
 
     internal ImmutableArray<MacroFileDependency> GetFileDependencies()

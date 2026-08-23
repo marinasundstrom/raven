@@ -615,6 +615,43 @@ static class Extensions
     }
 
     [Fact]
+    public void MemberAccess_WithMetadataGenericExtension_InferConstrainedReceiverTypeArgument()
+    {
+        const string source = """
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+let statement = ParseStatement("let value = 1")
+let replacement = ParseStatement("let value = 2")
+let rewritten = statement.ReplaceNode(statement, replacement)
+""";
+
+        var references = GetMetadataReferences()
+            .Concat([MetadataReference.CreateFromFile(typeof(SyntaxNode).Assembly.Location)])
+            .ToArray();
+        var (compilation, tree) = CreateCompilation(source, references: references);
+        compilation.EnsureSetup();
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(diagnostics.IsEmpty, string.Join(Environment.NewLine, diagnostics.Select(d => d.ToString())));
+
+        var model = compilation.GetSemanticModel(tree);
+        var invocationSyntax = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "ReplaceNode");
+
+        var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
+        Assert.True(boundInvocation.Method.IsExtensionMethod);
+        Assert.Equal("ReplaceNode", boundInvocation.Method.Name);
+        Assert.Equal("StatementSyntax", boundInvocation.Method.ReturnType.Name);
+        Assert.NotNull(boundInvocation.ExtensionReceiver);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            boundInvocation.Method.Parameters[0].Type,
+            boundInvocation.ExtensionReceiver!.Type));
+    }
+
+    [Fact]
     public void MemberAccess_WithMultipleSourceExtensions_ResolvesMatchingReceiver()
     {
         const string source = """

@@ -29,12 +29,13 @@ public macro Timer(context: TokenTreeMacroContext) -> StatementSyntax {
     let stopwatchName = context.CreateUniqueName("stopwatch")
     let stopwatchDeclaration = ParseStatement(
         "let $stopwatchName = System.Diagnostics.Stopwatch.StartNew()")
+    let bodyPlaceholder = ParseStatement("{}")
     let stopStatement = ParseStatement("$stopwatchName.Stop()")
     let reportStatement = ParseStatement(
         "System.Console.WriteLine($stopwatchName.Elapsed)")
     let tryStatement = TryStatement(
         Token(SyntaxKind.TryKeyword),
-        BlockStatement(List<StatementSyntax>([bodyResult.Syntax])),
+        BlockStatement(List<StatementSyntax>([bodyPlaceholder])),
         List<CatchClauseSyntax>(),
         FinallyClause(BlockStatement(List<StatementSyntax>([
             stopStatement,
@@ -44,7 +45,7 @@ public macro Timer(context: TokenTreeMacroContext) -> StatementSyntax {
     let statement = BlockStatement(List<StatementSyntax>([
         stopwatchDeclaration,
         tryStatement
-    ]))
+    ])).ReplaceNode(bodyPlaceholder, bodyResult.Syntax)
 
     let macroDiagnostics: ImmutableArray<MacroExpansionDiagnostic> =
         if context.Compilation.Options.OptimizationLevel == OptimizationLevel.Release {

@@ -429,6 +429,19 @@ shows the equivalent immutable `SyntaxFactory` construction. These correspond
 to the practical roles of Nim's `treeRepr` and `repr` without making either
 representation part of expansion semantics.
 
+Use `MacroSyntax.StringLiteral(value)` when generated syntax must contain an
+arbitrary string value. It creates a string-literal expression with Raven
+escaping for quotes, slashes, line breaks, and control characters; macro code
+does not need to assemble token text itself.
+
+Freestanding and token-tree contexts can observe a source-relative text file
+with `context.ReadFile(path)`. The result distinguishes `Success`, `Missing`,
+and `Failed` and supplies the resolved path, content, or read error. Every read
+is automatically recorded as an expansion input, including a missing file, so
+the compiler invalidates the cached expansion when the file changes, is
+deleted, or is later created. Macro implementations should not maintain file
+timestamps or cache dependencies themselves.
+
 Macro contexts accumulate diagnostics through the ordinary
 `ReportDiagnostic` and `ReportDiagnostics` APIs. This deliberately avoids a
 separate diagnostic statement in the language. `expand` supplies the final

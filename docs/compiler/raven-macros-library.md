@@ -149,13 +149,15 @@ comments. `AssemblyInfo.rvn` marks the output as a compiler plugin:
 [assembly: RavenCompilerPlugin]
 ```
 
-Standard macro implementations should move into this Raven project
-incrementally instead of depending indefinitely on implementation helpers in
-the compiler. Each port is deliberate language and API dogfooding: awkward
+Standard macro implementations move into this Raven project incrementally
+instead of depending indefinitely on implementation helpers in the compiler.
+Each port is deliberate language and API dogfooding: awkward
 syntax construction, missing semantic operations, hidden compiler hooks, or a
 required C# escape hatch should be treated as evidence of a Raven compiler or
 macro-authoring problem to diagnose and improve. `timer` is implemented wholly
-in `Raven.Macros`; the older standard macros remain migration work.
+in `Raven.Macros`. `embedFileContent` also runs wholly from Raven and uses the
+public dependency-tracked file-reading API; the older standard macros remain
+migration work.
 
 When a marked Raven library contains macro declarations, emission
 lowers those declarations into reusable provider types and includes them in the
