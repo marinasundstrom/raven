@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
-## 0.1.0-preview.13 - 2026-08-23
+## 0.1.0-preview.14 - 2026-08-23
 
 - Compact macro declarations can now opt into explicit carrier combinations and
   token-body requirements with `MacroCarrier`. The standard `timer!` macro uses
@@ -15,6 +15,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
   through **Raven: Show Toolchain Information**, distinguishing repository and
   installed extension hosts, the exact language-server source, the installed
   SDK, and each workspace's `global.json`-selected project SDK.
+- Language-server handlers now bind explicitly to `MediatR.Unit`, keeping VS
+  Code extension packaging compatible with the .NET 11 SDK.
 - Playground metaprogramming showcases now separate typed parenthesized calls,
   declaration-shaped forms, and the standard attached, token-body, quote, and
   statement-shaped macro forms into focused runnable examples.

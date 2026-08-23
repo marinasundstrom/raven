@@ -179,7 +179,7 @@ Blazor WebAssembly application.
 An exact `v<version>` tag on the built commit is presented as a released build.
 An untagged commit is labeled **unreleased** and uses the selected next preview
 line. Local commit-qualified SDK versions such as
-`0.1.0-preview.13-local.<sha>` are displayed as `0.1.0-preview.13`; when the
+`0.1.0-preview.15-local.<sha>` are displayed as `0.1.0-preview.15`; when the
 configured version already has a release tag on an earlier commit, the script
 advances to the next preview number. `RAVEN_SITE_VERSION` can explicitly select
 the unreleased version when it cannot be inferred. A local artifact also says
