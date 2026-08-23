@@ -1,6 +1,6 @@
 # Standard JSON and XML macro plan
 
-Status: planned, post-QueryMacro promotion
+Status: implemented (initial library slice)
 
 This proposal defines two small data-literal DSLs for `Raven.Macros`:
 
@@ -38,27 +38,33 @@ template macro.
 import Raven.Macros.*
 
 let payload = json! {
-    {
-        "name": #(name),
-        "active": true,
-        "tags": ["raven", #(category)]
-    }
+    "name": "$name",
+    "active": true,
+    "tags": ["raven", $category],
+    "next": ${sequence + 1}
 }
 
 let element = xml! {
-    <user id=#(id)>
-        <name>#(name)</name>
+    <user id="$id">
+        <name>$name</name>
+        ${CreateStatusElement()}
     </user>
 }
 ```
 
-`#(expression)` is the recommended splice syntax for the first implementation.
-It is already used by `quote!`, clearly separates Raven from the surrounding
-data language, and does not compete with JSON object braces or XML markup. The
-syntax is still an explicit decision gate: before implementation, compare it
-with the component-template `{ expression }` convention and choose one shared
-rule for data DSLs. The two new macros should not invent different splice
-conventions independently.
+The data macros use Raven's established Kotlin-like interpolation forms:
+`$identifier` for one identifier and `${expression}` for a larger expression.
+Inside a quoted data value these forms produce text interpolation. In JSON
+value position they serialize the Raven value as JSON; in XML content they
+pass the value to LINQ to XML, which applies its normal value, escaping, and
+node semantics. `quote!` retains its separate `#(expression)` syntax because
+it quotes Raven syntax rather than embedding a data language.
+
+The outer `json!` braces represent the JSON object's braces to consumers. In
+the Raven syntax tree they remain the ordinary macro token-body delimiter. The
+initial contract therefore returns an object and does not require a redundant
+inner `{ ... }`. `xml!` uses its braces only as the carrier and accepts one XML
+root element inside them.
 
 ## JSON MVP
 
@@ -69,11 +75,12 @@ The JSON parser accepts:
 - string, number, Boolean, and null literals;
 - Raven expression splices in value position.
 
-It expands to construction of `JsonObject`, `JsonArray`, and `JsonValue`/
-`JsonNode` values from `System.Text.Json.Nodes`. A splice is checked by normal
-Raven binding after expansion. Values implicitly convertible to `JsonNode` are
-accepted; arbitrary object serialization remains explicit through
-`JsonSerializer.SerializeToNode` at the authored splice.
+It expands to ordinary `System.Text.Json` calls and returns a strongly typed
+`ExpressionSyntax<JsonObject>` contract. Structural splices are serialized by
+`JsonSerializer` and the resulting text is parsed as `JsonObject`; normal Raven
+binding checks every splice before emission. This accepts the same values that
+the platform serializer accepts without introducing a Raven-specific JSON
+conversion layer.
 
 The MVP deliberately excludes computed property names, object/array spreads,
 comments, conditionals, comprehensions, serializer options, schema validation,
@@ -91,10 +98,12 @@ The XML parser accepts:
 - self-closing elements;
 - Raven expression splices in attribute-value or content position.
 
-It expands to `XElement`, `XAttribute`, `XText`, and `XName` construction from
-`System.Xml.Linq`. Namespace declarations and qualified names should be part of
-the MVP only if they can map directly to `XNamespace`/`XName` without adding a
-second name-resolution system. Otherwise they are the first follow-up slice.
+It expands to `XElement`, `XAttribute`, and `XName` construction from
+`System.Xml.Linq` and returns a strongly typed `ExpressionSyntax<XElement>`
+contract. LINQ to XML owns escaping and the interpretation of inserted values
+or nodes. Namespace declarations and qualified names are deferred to a
+follow-up slice so the first version does not invent a second name-resolution
+system.
 
 The MVP excludes DTDs, external entities, processing instructions, XPath,
 schema validation, and document parsing. It constructs values and therefore
@@ -104,18 +113,19 @@ does not need to enable external resource resolution.
 
 Both macros should use the same small internal architecture:
 
-1. Token-tree cursor with non-throwing `TryRead`/`Expect` helpers.
-2. A private, immutable DSL representation owned by the macro implementation.
-3. Accumulated body-relative diagnostics with stable codes (`JSON001...` and
+1. A body-relative cursor owned by each Raven-authored macro parser.
+2. Accumulated body-relative diagnostics with stable codes (`JSON001...` and
    `XML001...`).
+3. Final validation by `JsonDocument` or `XDocument`, so accepted completed
+   literals follow the platform formats rather than a permissive approximation.
 4. `MacroFragmentRegion` entries for every Raven splice.
-5. `MacroTokenInfo`/classification for data-language punctuation, names,
-   literals, and structural tokens.
+5. Position-preserving JSON/XML projections for embedded-language editor
+   services, with Raven fragments masked from those projections.
 6. Expansion to ordinary Raven `ExpressionSyntax`, with source mappings for
    generated expressions that originate from authored splices.
 
-The private representation is an implementation detail, not a new compiler
-syntax-node API. This follows the same principle as `query!`: the compiler owns
+Any private parser representation is an implementation detail, not a new
+compiler syntax-node API. This follows the same principle as `query!`: the compiler owns
 tokens, spans, Raven fragments, diagnostics, and semantic projection; the macro
 owns the structure of its DSL.
 
@@ -123,7 +133,8 @@ owns the structure of its DSL.
 
 - Hovering the macro name describes the macro and points to the expansion
   command; hovering inside the body does not repeat the invocation hover.
-- Hover and completion inside `#(...)` use normal Raven semantic information.
+- Hover and completion inside `$identifier` and `${expression}` use normal
+  Raven semantic information.
 - JSON property names and XML element/attribute names receive DSL
   classification, not fake Raven symbols.
 - Incomplete strings, missing separators, mismatched XML tags, unfinished
@@ -162,17 +173,15 @@ or split them into a concise “Data literals with macros” example. The browse
 smoke test must compile and run every built-in macro used by the selected
 example before the documentation site is published.
 
-## Decision gates
+## Recorded decisions
 
-Before implementing `json!` or `xml!`, decide and record:
-
-1. the shared Raven splice syntax;
-2. the exact JSON splice conversion rules;
-3. whether XML namespaces are MVP or the first follow-up;
-4. whether each macro returns the concrete root type (`JsonNode`/`XElement`) or
-   relies solely on target typing;
-5. whether the standard macros remain experimental or are included in the
-   supported `Raven.Macros` surface.
+1. Both macros use `$identifier` and `${expression}`.
+2. JSON value splices use `JsonSerializer`; interpolation inside a JSON string
+   remains string interpolation.
+3. XML namespaces are the first follow-up rather than MVP behavior.
+4. The concrete contracts are `JsonObject` and `XElement`.
+5. The macros ship in `Raven.Macros` as an initial standard-library surface;
+   their deliberately small DSL grammars may evolve before Raven 1.0.
 
 No new Raven keyword, compiler syntax node, bound node, or runtime abstraction
 is justified by this plan.

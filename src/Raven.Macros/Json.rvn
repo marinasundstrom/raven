@@ -1,0 +1,603 @@
+namespace Raven.Macros
+
+import System.*
+import System.Collections.Immutable.*
+import System.Text.*
+import System.Text.Json.*
+import System.Text.Json.Nodes.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+import Raven.CodeAnalysis.Text.*
+
+/// Constructs a `System.Text.Json.Nodes.JsonObject` from JSON-shaped source.
+///
+/// The macro body's braces are the JSON object's braces. `$name` and
+/// `${expression}` insert Raven values in JSON value position and retain
+/// Raven's ordinary string-interpolation meaning inside JSON strings.
+///
+/// ## Example
+///
+/// ```raven
+/// import Raven.Macros.*
+///
+/// let name = "Ada"
+/// let age = 42
+/// let value = json! {
+///     "name": "$name",
+///     "age": $age,
+///     "active": true
+/// }
+/// ```
+[MacroAlias("json")]
+public macro Json(context: TokenTreeMacroContext)
+    -> Raven.CodeAnalysis.Macros.ExpressionSyntax<System.Text.Json.Nodes.JsonObject>
+    fragments by GetJsonFragments
+    projection by ProjectJsonBody
+{
+    let result = JsonDslParser(context).Parse()
+    if let error: JsonDslError = result.Error {
+        expand FreestandingMacroExpansionResult.FromDiagnostic(
+            context.CreateBodyDiagnostic(
+                error.Span,
+                error.Message,
+                code: "JSON001"))
+    }
+
+    if result.Diagnostics.Length > 0 {
+        expand FreestandingMacroExpansionResult.FromDiagnostics(result.Diagnostics)
+    }
+
+    let expression = ParseExpression(
+        result.ExpressionText,
+        context.Syntax.SyntaxTree?.Options)
+    let mappedExpression = context.WithOrigins(expression, result.SourceMaps)
+    expand FreestandingMacroExpansionResult.FromExpression(mappedExpression)
+}
+
+func GetJsonFragments(
+    context: TokenTreeMacroContext
+) -> ImmutableArray<MacroFragmentRegion> {
+    JsonDslParser(context).Parse().Fragments
+}
+
+func ProjectJsonBody(
+    context: TokenTreeMacroContext
+) -> MacroEmbeddedLanguageProjection? {
+    let result = JsonDslParser(context).Parse()
+    context.CreateEmbeddedLanguageProjection("json", result.Projection)
+}
+
+[LocalMacro]
+class JsonDslError(val Span: TextSpan, val Message: string)
+
+[LocalMacro]
+class JsonDslExpansion {
+    val ExpressionText: string
+    val Error: JsonDslError?
+    val Fragments: ImmutableArray<MacroFragmentRegion>
+    val Diagnostics: ImmutableArray<Diagnostic>
+    val Projection: string
+    val SourceMaps: ImmutableArray<MacroExpansionSourceMap>
+
+    init(
+        expressionText: string,
+        error: JsonDslError?,
+        fragments: ImmutableArray<MacroFragmentRegion>,
+        diagnostics: ImmutableArray<Diagnostic>,
+        projection: string,
+        sourceMaps: ImmutableArray<MacroExpansionSourceMap>
+    ) {
+        ExpressionText = expressionText
+        Error = error
+        Fragments = fragments
+        Diagnostics = diagnostics
+        Projection = projection
+        SourceMaps = sourceMaps
+    }
+}
+
+[LocalMacro]
+class JsonDslParser {
+    private val _context: TokenTreeMacroContext
+    private val _source: string
+    private val _projection: StringBuilder
+    private val _expression = StringBuilder()
+    private var _position: int = 0
+    private var _literalStart: int = 0
+    private var _rootPrefixPending: bool = true
+    private var _partCount: int = 0
+    private var _error: JsonDslError? = null
+    private var _fragments: ImmutableArray<MacroFragmentRegion> = []
+    private var _diagnostics: ImmutableArray<Diagnostic> = []
+    private var _sourceMaps: ImmutableArray<MacroExpansionSourceMap> = []
+
+    init(context: TokenTreeMacroContext) {
+        _context = context
+        _source = context.GetBodyText()
+        _projection = StringBuilder(_source)
+    }
+
+    func Parse() -> JsonDslExpansion {
+        SkipWhitespace()
+        if !IsEnd() {
+            ParseMembers()
+        }
+        SkipWhitespace()
+        if _error is null && !IsEnd() {
+            ErrorAt(_position, 1, "Expected ',' between JSON properties.")
+        }
+
+        if _error is null {
+            ValidateJsonProjection()
+        }
+
+        FlushLiteral(_source.Length)
+        AppendLiteral("}")
+        let jsonText = _expression.ToString()
+        let expressionText =
+            "(() => { " +
+            "let jsonNode: System.Text.Json.Nodes.JsonNode = " +
+            "System.Text.Json.Nodes.JsonNode.Parse(" + jsonText + ") else { " +
+            "throw System.Text.Json.JsonException(\"The JSON macro produced no value.\") }; " +
+            "return jsonNode.AsObject() })()"
+        JsonDslExpansion(
+            expressionText,
+            _error,
+            _fragments,
+            _diagnostics,
+            _projection.ToString(),
+            _sourceMaps)
+    }
+
+    private func ParseMembers() {
+        var expectProperty = true
+        while _error is null && !IsEnd() {
+            SkipWhitespace()
+            if IsEnd() {
+                return
+            }
+
+            if !expectProperty {
+                if !Consume(",") {
+                    return
+                }
+                SkipWhitespace()
+                if IsEnd() {
+                    ErrorAt(_position, 0, "Expected a JSON property after ','.")
+                    return
+                }
+            }
+
+            if !At("\"") {
+                ErrorAt(_position, 1, "Expected a quoted JSON property name.")
+                return
+            }
+            ParseString(allowInterpolation: false)
+            SkipWhitespace()
+            if !Consume(":") {
+                ErrorAt(_position, 0, "Expected ':' after the JSON property name.")
+                return
+            }
+            SkipWhitespace()
+            ParseValue()
+            expectProperty = false
+        }
+    }
+
+    private func ParseValue() {
+        if _error is not null {
+            return
+        }
+        if IsEnd() {
+            ErrorAt(_position, 0, "Expected a JSON value.")
+            return
+        }
+
+        if At("{") {
+            ParseObject()
+        } else if At("[") {
+            ParseArray()
+        } else if At("\"") {
+            ParseString(allowInterpolation: true)
+        } else if At("$") {
+            ParseSplice(inString: false)
+        } else if At("true") {
+            Consume("true")
+        } else if At("false") {
+            Consume("false")
+        } else if At("null") {
+            Consume("null")
+        } else if IsNumberStart(Current()) {
+            ParseNumber()
+        } else {
+            ErrorAt(_position, 1, "Expected a JSON value or Raven splice.")
+        }
+    }
+
+    private func ParseObject() {
+        Consume("{")
+        SkipWhitespace()
+        if Consume("}") {
+            return
+        }
+
+        var first = true
+        while _error is null && !IsEnd() {
+            if !first {
+                if !Consume(",") {
+                    ErrorAt(_position, 1, "Expected ',' between JSON properties.")
+                    return
+                }
+                SkipWhitespace()
+            }
+            if !At("\"") {
+                ErrorAt(_position, 1, "Expected a quoted JSON property name.")
+                return
+            }
+            ParseString(allowInterpolation: false)
+            SkipWhitespace()
+            if !Consume(":") {
+                ErrorAt(_position, 0, "Expected ':' after the JSON property name.")
+                return
+            }
+            SkipWhitespace()
+            ParseValue()
+            SkipWhitespace()
+            if Consume("}") {
+                return
+            }
+            first = false
+        }
+
+        if _error is null {
+            ErrorAt(_position, 0, "Expected '}' to close the JSON object.")
+        }
+    }
+
+    private func ParseArray() {
+        Consume("[")
+        SkipWhitespace()
+        if Consume("]") {
+            return
+        }
+
+        var first = true
+        while _error is null && !IsEnd() {
+            if !first {
+                if !Consume(",") {
+                    ErrorAt(_position, 1, "Expected ',' between JSON array values.")
+                    return
+                }
+                SkipWhitespace()
+            }
+            ParseValue()
+            SkipWhitespace()
+            if Consume("]") {
+                return
+            }
+            first = false
+        }
+
+        if _error is null {
+            ErrorAt(_position, 0, "Expected ']' to close the JSON array.")
+        }
+    }
+
+    private func ParseString(allowInterpolation: bool) {
+        let stringStart = _position
+        Consume("\"")
+        var escaped = false
+        var hasInterpolation = false
+
+        while _error is null && !IsEnd() {
+            let current = Current()
+            if escaped {
+                escaped = false
+                _position = _position + 1
+            } else if current == "\\" {
+                escaped = true
+                _position = _position + 1
+            } else if current == "\"" {
+                _position = _position + 1
+                if hasInterpolation {
+                    ReplaceStringWithExpression(stringStart, _position)
+                }
+                return
+            } else if allowInterpolation && current == "$" && IsSpliceStart() {
+                hasInterpolation = true
+                ParseSplice(inString: true)
+            } else {
+                _position = _position + 1
+            }
+        }
+
+        if _error is null {
+            ErrorAt(stringStart, Math.Max(1, _position - stringStart), "Unterminated JSON string.")
+        }
+    }
+
+    private func ReplaceStringWithExpression(start: int, end: int) {
+        FlushLiteral(start)
+        let source = _source.Substring(start, end - start)
+        let generatedPrefix = "System.Text.Json.JsonSerializer.Serialize("
+        AppendSeparator()
+        _expression.Append(generatedPrefix)
+        let generatedStart = _expression.Length
+        _expression.Append(source)
+        _sourceMaps = _sourceMaps.Add(
+            MacroExpansionSourceMap(
+                TextSpan(generatedStart, source.Length),
+                TextSpan(start, source.Length)))
+        _expression.Append(")")
+        _literalStart = end
+
+        let parsed = _context.ParseExpressionResult(TextSpan(start, end - start))
+        _diagnostics = _diagnostics.AddRange(parsed.Diagnostics)
+    }
+
+    private func ParseSplice(inString: bool) {
+        let spliceStart = _position
+        Consume("$")
+        var expressionStart = _position
+        var expressionEnd = _position
+
+        if Consume("{") {
+            expressionStart = _position
+            var depth = 1
+            var inQuotedString = false
+            var escaped = false
+            while !IsEnd() && depth > 0 {
+                let current = Current()
+                if inQuotedString {
+                    if escaped {
+                        escaped = false
+                    } else if current == "\\" {
+                        escaped = true
+                    } else if current == "\"" {
+                        inQuotedString = false
+                    }
+                    _position = _position + 1
+                } else if current == "\"" {
+                    inQuotedString = true
+                    _position = _position + 1
+                } else if current == "{" {
+                    depth = depth + 1
+                    _position = _position + 1
+                } else if current == "}" {
+                    depth = depth - 1
+                    if depth == 0 {
+                        expressionEnd = _position
+                    }
+                    _position = _position + 1
+                } else {
+                    _position = _position + 1
+                }
+            }
+            if depth > 0 {
+                ErrorAt(spliceStart, Math.Max(1, _position - spliceStart), "Unterminated Raven splice.")
+                return
+            }
+        } else {
+            if !IsIdentifierStart(Current()) {
+                ErrorAt(spliceStart, 1, "Expected an identifier or '{' after '$'.")
+                return
+            }
+            _position = _position + 1
+            while !IsEnd() && IsIdentifierPart(Current()) {
+                _position = _position + 1
+            }
+            expressionEnd = _position
+        }
+
+        let expressionSpan = TextSpan.FromBounds(expressionStart, expressionEnd)
+        if expressionSpan.Length == 0 {
+            ErrorAt(spliceStart, _position - spliceStart, "Raven splice expressions cannot be empty.")
+            return
+        }
+
+        _fragments = _fragments.Add(_context.CreateFragmentRegion(
+            MacroFragmentKind.Expression,
+            expressionSpan))
+        Mask(spliceStart, _position, inString)
+
+        if !inString {
+            FlushLiteral(spliceStart)
+            let expressionSource = _source.Substring(
+                expressionSpan.Start,
+                expressionSpan.Length)
+            let generatedPrefix = "System.Text.Json.JsonSerializer.Serialize("
+            AppendSeparator()
+            _expression.Append(generatedPrefix)
+            let generatedStart = _expression.Length
+            _expression.Append(expressionSource)
+            _sourceMaps = _sourceMaps.Add(
+                MacroExpansionSourceMap(
+                    TextSpan(generatedStart, expressionSource.Length),
+                    expressionSpan))
+            _expression.Append(")")
+            _literalStart = _position
+
+            let parsed = _context.ParseExpressionResult(expressionSpan)
+            _diagnostics = _diagnostics.AddRange(parsed.Diagnostics)
+        }
+    }
+
+    private func ParseNumber() {
+        if Consume("-") && IsEnd() {
+            ErrorAt(_position, 0, "Expected digits after '-'.")
+            return
+        }
+        ReadDigits()
+        if Consume(".") {
+            if !Char.IsDigit(CurrentCharacter()) {
+                ErrorAt(_position, 0, "Expected digits after the decimal point.")
+                return
+            }
+            ReadDigits()
+        }
+        if At("e") || At("E") {
+            _position = _position + 1
+            if At("+") || At("-") {
+                _position = _position + 1
+            }
+            if !Char.IsDigit(CurrentCharacter()) {
+                ErrorAt(_position, 0, "Expected digits in the JSON exponent.")
+                return
+            }
+            ReadDigits()
+        }
+    }
+
+    private func ReadDigits() {
+        while !IsEnd() && Char.IsDigit(_source[_position]) {
+            _position = _position + 1
+        }
+    }
+
+    private func ValidateJsonProjection() {
+        try {
+            let document = JsonDocument.Parse("{" + _projection.ToString() + "}")
+            document.Dispose()
+        } catch (JsonException exception) {
+            let line = if let value: long = exception.LineNumber { value } else { 0L }
+            let column = if let value: long = exception.BytePositionInLine { value } else { 0L }
+            let position = ProjectionPosition(line, column, hasInjectedPrefix: true)
+            ErrorAt(
+                position,
+                if position < _source.Length { 1 } else { 0 },
+                "Invalid JSON literal: " + exception.Message)
+        }
+    }
+
+    private func ProjectionPosition(
+        line: long,
+        column: long,
+        hasInjectedPrefix: bool
+    ) -> int {
+        var position = 0
+        var currentLine = 0L
+        while position < _source.Length && currentLine < line {
+            if _source[position] == '\n' {
+                currentLine = currentLine + 1L
+            }
+            position = position + 1
+        }
+        var result = position + Convert.ToInt32(column)
+        if hasInjectedPrefix && line == 0L {
+            result = result - 1
+        }
+        Math.Clamp(result, 0, _source.Length)
+    }
+
+    private func FlushLiteral(end: int) {
+        if end <= _literalStart && !_rootPrefixPending {
+            return
+        }
+        let prefix = if _rootPrefixPending { "{" } else { "" }
+        _rootPrefixPending = false
+        AppendLiteral(prefix + _source.Substring(_literalStart, end - _literalStart))
+    }
+
+    private func AppendLiteral(value: string) {
+        AppendSeparator()
+        _ = _expression.Append("\"")
+        _expression.Append(EscapeRavenString(value))
+        _expression.Append("\"")
+    }
+
+    private func AppendSeparator() {
+        if _partCount > 0 {
+            _expression.Append(" + ")
+        }
+        _partCount = _partCount + 1
+    }
+
+    private func Mask(start: int, end: int, inString: bool) {
+        var position = start
+        while position < end {
+            if _source[position] != '\r' && _source[position] != '\n' {
+                if inString {
+                    _projection[position] = ' '
+                } else if position == start {
+                    _projection[position] = '0'
+                } else {
+                    _projection[position] = ' '
+                }
+            }
+            position = position + 1
+        }
+    }
+
+    private static func EscapeRavenString(value: string) -> string {
+        value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n")
+    }
+
+    private func SkipWhitespace() {
+        while !IsEnd() && Char.IsWhiteSpace(_source[_position]) {
+            _position = _position + 1
+        }
+    }
+
+    private func At(value: string) -> bool {
+        _position + value.Length <= _source.Length &&
+            _source.Substring(_position, value.Length) == value
+    }
+
+    private func Consume(value: string) -> bool {
+        if !At(value) {
+            return false
+        }
+        _position = _position + value.Length
+        true
+    }
+
+    private func Current() -> string {
+        if IsEnd() {
+            return ""
+        }
+        _source.Substring(_position, 1)
+    }
+
+    private func CurrentCharacter() -> char {
+        if IsEnd() {
+            return '\0'
+        }
+        _source[_position]
+    }
+
+    private func IsSpliceStart() -> bool {
+        _position + 1 < _source.Length &&
+            (_source[_position + 1] == '{' || IsIdentifierStart(
+                _source.Substring(_position + 1, 1)))
+    }
+
+    private static func IsNumberStart(value: string) -> bool {
+        value == "-" || (value.Length == 1 && Char.IsDigit(value[0]))
+    }
+
+    private static func IsIdentifierStart(value: string) -> bool {
+        value.Length == 1 && (Char.IsLetter(value[0]) || value == "_")
+    }
+
+    private static func IsIdentifierPart(value: string) -> bool {
+        value.Length == 1 && (Char.IsLetterOrDigit(value[0]) || value == "_")
+    }
+
+    private func IsEnd() -> bool {
+        _position >= _source.Length
+    }
+
+    private func ErrorAt(position: int, length: int, message: string) {
+        if _error is null {
+            _error = JsonDslError(
+                TextSpan(Math.Clamp(position, 0, _source.Length), Math.Max(0, length)),
+                message)
+        }
+    }
+}

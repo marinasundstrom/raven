@@ -103,6 +103,7 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/embed-file-content/README.md` (embed a UTF-8 file as a compile-time string)
 - `samples/projects/sha256-digest/README.md` (compute a SHA-256 digest during compilation)
 - `samples/projects/timer-macro/README.md` (expand a Raven block into `Stopwatch` instrumentation)
+- `samples/projects/data-literal-macros/README.md` (construct JSON and XML platform values with Raven expression splices)
 - `samples/projects/efcore-expression-trees/README.md` (EF Core query + expression-tree progress target)
 - `samples/projects/greenhouse-monitor/README.md` (simulated IoT telemetry,
   unions and patterns, and reproducible Native AOT publishing for macOS or

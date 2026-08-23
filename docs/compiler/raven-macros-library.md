@@ -1,7 +1,7 @@
 # Raven Macro Library
 
 `Raven.Macros` is the standard compiler-plugin library distributed with Raven.
-It contains reusable macros such as `quote`, `compile`, `timer`, and the
+It contains reusable macros such as `quote`, `compile`, `timer`, `json`, `xml`, and the
 attached `Error` macro without making them intrinsic compiler declarations or
 members of `Raven.Core`. These macros demonstrate the broader purpose of the
 feature: concise forms can hide repetitive or domain-specific expansion code
@@ -157,6 +157,45 @@ DSL can combine custom tokens, Raven expression fragments, introduced locals,
 diagnostics, and ordinary generated code without adding query syntax to the
 language grammar.
 
+## `json!` and `xml!`
+
+The standard data-literal macros embed JSON- and XML-shaped bodies while
+producing the platform's ordinary in-memory models:
+
+```raven
+let payload = json! {
+    "name": "$name",
+    "age": $age,
+    "nextAge": ${age + 1}
+}
+
+let element = xml! {
+    <person age="$age">
+        <name>$name</name>
+        $statusElement
+    </person>
+}
+```
+
+`json!` promises `JsonObject`; its carrier braces are also the object's braces.
+`xml!` promises `XElement` and accepts one root element. `$identifier` and
+`${expression}` are ordinary Raven interpolation/splice forms rather than a
+second macro-specific expression syntax. JSON value splices use
+`JsonSerializer`; XML content is passed through LINQ to XML so text is escaped
+and an inserted `XElement` remains a node. JSON formatting whitespace is
+discarded by parsing. XML indentation-only text is likewise omitted from the
+constructed value; meaningful inline text remains content.
+
+Both macros report each embedded expression as a Raven fragment and expose a
+position-preserving `json` or `xml` projection for editor hosts. Caller-scope
+hover, completion, navigation, and diagnostics therefore own splice positions,
+while an embedded-language service can own the surrounding data syntax. The
+macros validate the masked literal with the platform JSON/XML parser during
+compilation, so malformed escapes, entities, delimiters, and nesting are
+reported at the authored body instead of becoming runtime string failures. The
+initial XML grammar deliberately diagnoses qualified names; namespace support
+is a follow-up requiring an explicit `XNamespace` mapping contract.
+
 ## Authoring model
 
 The project under `src/Raven.Macros` is written in Raven. Each public macro has
@@ -178,7 +217,9 @@ public dependency-tracked file-reading API. `sha256Digest` consumes the public
 constant information already carried by its `MacroArgument`. The `Error` and
 `ErrorMessage` pair also run wholly from Raven: they inspect attached syntax,
 report diagnostics, rewrite a base list, and introduce generated properties.
-The remaining older standard macros are migration work.
+The JSON and XML macros are likewise Raven-authored and exercise typed result
+contracts, private DSL parsing, expression fragments, and embedded-language
+projections. The remaining older standard macros are migration work.
 
 When a marked Raven library contains macro declarations, emission
 lowers those declarations into reusable provider types and includes them in the

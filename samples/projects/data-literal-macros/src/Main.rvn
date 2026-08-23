@@ -1,0 +1,31 @@
+import System.Console.*
+import System.Text.Json.*
+import System.Xml.Linq.*
+import Raven.Macros.*
+
+func Main() -> unit {
+    let name = "Ada & Bob"
+    let age = 42
+    let nextAge = age + 1
+
+    let jsonDocument = json! {
+        "name": "$name",
+        "age": $age,
+        "nextAge": ${age + 1},
+        "skills": ["compilers", "DSLs"],
+        "active": true
+    }
+
+    let status = XElement.Parse("<status>ready</status>")
+    let xmlDocument = xml! {
+        <person age="$age">
+            <name>$name</name>
+            <nextAge>$nextAge</nextAge>
+            $status
+        </person>
+    }
+
+    WriteLine(jsonDocument.ToJsonString(JsonSerializerOptions { WriteIndented = true }))
+    WriteLine()
+    WriteLine(xmlDocument.ToString())
+}

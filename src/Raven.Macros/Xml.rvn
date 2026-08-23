@@ -1,0 +1,481 @@
+namespace Raven.Macros
+
+import System.*
+import System.Collections.Immutable.*
+import System.Net.*
+import System.Text.*
+import System.Xml.*
+import System.Xml.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+import Raven.CodeAnalysis.Text.*
+
+/// Constructs a `System.Xml.Linq.XElement` from XML-shaped source.
+///
+/// The body contains one XML root. `$name` and `${expression}` insert Raven
+/// values as element content; the same forms retain Raven's ordinary
+/// interpolation meaning inside quoted attribute values.
+///
+/// ## Example
+///
+/// ```raven
+/// import Raven.Macros.*
+///
+/// let id = 42
+/// let name = "Ada"
+/// let value = xml! {
+///     <user id="$id">
+///         <name>$name</name>
+///     </user>
+/// }
+/// ```
+[MacroAlias("xml")]
+public macro Xml(context: TokenTreeMacroContext)
+    -> Raven.CodeAnalysis.Macros.ExpressionSyntax<System.Xml.Linq.XElement>
+    fragments by GetXmlFragments
+    projection by ProjectXmlBody
+{
+    let result = XmlDslParser(context).Parse()
+    if let error: XmlDslError = result.Error {
+        expand FreestandingMacroExpansionResult.FromDiagnostic(
+            context.CreateBodyDiagnostic(
+                error.Span,
+                error.Message,
+                code: "XML001"))
+    }
+
+    if result.Diagnostics.Length > 0 {
+        expand FreestandingMacroExpansionResult.FromDiagnostics(result.Diagnostics)
+    }
+
+    let expression = ParseExpression(
+        result.ExpressionText,
+        context.Syntax.SyntaxTree?.Options)
+    expand FreestandingMacroExpansionResult.FromExpression(expression)
+}
+
+func GetXmlFragments(
+    context: TokenTreeMacroContext
+) -> ImmutableArray<MacroFragmentRegion> {
+    XmlDslParser(context).Parse().Fragments
+}
+
+func ProjectXmlBody(
+    context: TokenTreeMacroContext
+) -> MacroEmbeddedLanguageProjection? {
+    let result = XmlDslParser(context).Parse()
+    context.CreateEmbeddedLanguageProjection("xml", result.Projection)
+}
+
+[LocalMacro]
+class XmlDslError(val Span: TextSpan, val Message: string)
+
+[LocalMacro]
+class XmlDslExpansion {
+    val ExpressionText: string
+    val Error: XmlDslError?
+    val Fragments: ImmutableArray<MacroFragmentRegion>
+    val Diagnostics: ImmutableArray<Diagnostic>
+    val Projection: string
+
+    init(
+        expressionText: string,
+        error: XmlDslError?,
+        fragments: ImmutableArray<MacroFragmentRegion>,
+        diagnostics: ImmutableArray<Diagnostic>,
+        projection: string
+    ) {
+        ExpressionText = expressionText
+        Error = error
+        Fragments = fragments
+        Diagnostics = diagnostics
+        Projection = projection
+    }
+}
+
+[LocalMacro]
+class XmlDslParser {
+    private val _context: TokenTreeMacroContext
+    private val _source: string
+    private val _projection: StringBuilder
+    private var _position: int = 0
+    private var _error: XmlDslError? = null
+    private var _fragments: ImmutableArray<MacroFragmentRegion> = []
+    private var _diagnostics: ImmutableArray<Diagnostic> = []
+
+    init(context: TokenTreeMacroContext) {
+        _context = context
+        _source = context.GetBodyText()
+        _projection = StringBuilder(_source)
+    }
+
+    func Parse() -> XmlDslExpansion {
+        SkipWhitespace()
+        let expression = ParseElement()
+        SkipWhitespace()
+        if _error is null && !IsEnd() {
+            ErrorAt(_position, 1, "Expected a single XML root element.")
+        }
+        if _error is null {
+            ValidateXmlProjection()
+        }
+
+        XmlDslExpansion(
+            expression,
+            _error,
+            _fragments,
+            _diagnostics,
+            _projection.ToString())
+    }
+
+    private func ParseElement() -> string {
+        let builder = StringBuilder()
+        let openingPosition = _position
+        if !Consume("<") {
+            ErrorAt(_position, 1, "Expected '<' to start an XML element.")
+            return "System.Xml.Linq.XElement(System.Xml.Linq.XName.Get(\"invalid\"))"
+        }
+
+        let nameStart = _position
+        let name = ReadName()
+        if name.Length == 0 {
+            ErrorAt(nameStart, 0, "Expected an XML element name.")
+            return "System.Xml.Linq.XElement(System.Xml.Linq.XName.Get(\"invalid\"))"
+        }
+        if name.Contains(":") {
+            ErrorAt(nameStart, name.Length, "XML namespaces are not supported by this macro version.")
+            return "System.Xml.Linq.XElement(System.Xml.Linq.XName.Get(\"invalid\"))"
+        }
+
+        _ = builder.Append(
+            "System.Xml.Linq.XElement(System.Xml.Linq.XName.Get(\"" +
+            EscapeRavenString(name) + "\"), [null")
+        SkipWhitespace()
+
+        while _error is null && !IsEnd() && !At(">") && !At("/>") {
+            let attributeStart = _position
+            let attributeName = ReadName()
+            if attributeName.Length == 0 {
+                ErrorAt(_position, 1, "Expected an XML attribute name or '>'.")
+                return builder.Append("])").ToString()
+            }
+            if attributeName.Contains(":") {
+                ErrorAt(attributeStart, attributeName.Length, "XML namespaces are not supported by this macro version.")
+                return builder.Append("])").ToString()
+            }
+            SkipWhitespace()
+            if !Consume("=") {
+                ErrorAt(_position, 0, "Expected '=' after the XML attribute name.")
+                return builder.Append("])").ToString()
+            }
+            SkipWhitespace()
+
+            var value = "\"\""
+            if At("\"") {
+                value = ParseQuotedValue()
+            } else if At("$") {
+                value = ParseSplice(inQuotedValue: false)
+            } else {
+                ErrorAt(_position, 1, "Expected a quoted value or Raven splice for the XML attribute.")
+            }
+            _ = builder.Append(
+                ", System.Xml.Linq.XAttribute(System.Xml.Linq.XName.Get(\"" +
+                EscapeRavenString(attributeName) + "\"), " + value + ")")
+            SkipWhitespace()
+        }
+
+        if Consume("/>") {
+            return builder.Append("])").ToString()
+        }
+        if !Consume(">") {
+            ErrorAt(openingPosition, Math.Max(1, _position - openingPosition), "Expected '>' after the XML element.")
+            return builder.Append("])").ToString()
+        }
+
+        while _error is null && !IsEnd() {
+            if At("</") {
+                Consume("</")
+                let closingStart = _position
+                let closingName = ReadName()
+                SkipWhitespace()
+                if !Consume(">") {
+                    ErrorAt(_position, 0, "Expected '>' after the closing XML element name.")
+                } else if closingName != name {
+                    ErrorAt(
+                        closingStart,
+                        closingName.Length,
+                        "Closing XML element '" + closingName + "' does not match '" + name + "'.")
+                }
+                return builder.Append("])").ToString()
+            }
+
+            if At("<") {
+                _ = builder.Append(", " + ParseElement())
+            } else if At("$") && IsSpliceStart() {
+                _ = builder.Append(", " + ParseSplice(inQuotedValue: false))
+            } else {
+                let text = ReadText()
+                let content = NormalizeXmlText(DecodeXml(text))
+                if content.Length > 0 {
+                    _ = builder.Append(", \"" + EscapeRavenString(content) + "\"")
+                }
+            }
+        }
+
+        if _error is null {
+            ErrorAt(openingPosition, name.Length + 1, "XML element '" + name + "' is missing a closing tag.")
+        }
+        builder.Append("])").ToString()
+    }
+
+    private func ParseQuotedValue() -> string {
+        let quote = Current()
+        let valueStart = _position + 1
+        _position = _position + 1
+        var segmentStart = _position
+        var parts: ImmutableArray<string> = []
+
+        while _error is null && !IsEnd() && !At(quote) {
+            if At("$") && IsSpliceStart() {
+                let segmentText = _source.Substring(segmentStart, _position - segmentStart)
+                if segmentText.Length > 0 {
+                    parts = parts.Add("\"" + EscapeRavenString(DecodeXml(segmentText)) + "\"")
+                }
+                parts = parts.Add(ParseSplice(inQuotedValue: true))
+                segmentStart = _position
+            } else {
+                _position = _position + 1
+            }
+        }
+
+        if IsEnd() {
+            ErrorAt(valueStart - 1, Math.Max(1, _position - valueStart + 1), "Unterminated XML attribute value.")
+            return "\"\""
+        }
+
+        let trailingText = _source.Substring(segmentStart, _position - segmentStart)
+        if trailingText.Length > 0 || parts.Length == 0 {
+            parts = parts.Add("\"" + EscapeRavenString(DecodeXml(trailingText)) + "\"")
+        }
+        _position = _position + 1
+
+        if parts.Length == 1 {
+            return parts[0]
+        }
+
+        "(" + String.Join(" + ", parts) + ")"
+    }
+
+    private func ParseSplice(inQuotedValue: bool) -> string {
+        let spliceStart = _position
+        Consume("$")
+        var expressionStart = _position
+        var expressionEnd = _position
+
+        if Consume("{") {
+            expressionStart = _position
+            var depth = 1
+            var inString = false
+            var escaped = false
+            while !IsEnd() && depth > 0 {
+                let current = Current()
+                if inString {
+                    if escaped {
+                        escaped = false
+                    } else if current == "\\" {
+                        escaped = true
+                    } else if current == "\"" {
+                        inString = false
+                    }
+                    _position = _position + 1
+                } else if current == "\"" {
+                    inString = true
+                    _position = _position + 1
+                } else if current == "{" {
+                    depth = depth + 1
+                    _position = _position + 1
+                } else if current == "}" {
+                    depth = depth - 1
+                    if depth == 0 {
+                        expressionEnd = _position
+                    }
+                    _position = _position + 1
+                } else {
+                    _position = _position + 1
+                }
+            }
+            if depth > 0 {
+                ErrorAt(spliceStart, Math.Max(1, _position - spliceStart), "Unterminated Raven splice.")
+                return "\"\""
+            }
+        } else {
+            if !IsIdentifierStart(Current()) {
+                ErrorAt(spliceStart, 1, "Expected an identifier or '{' after '$'.")
+                return "\"\""
+            }
+            _position = _position + 1
+            while !IsEnd() && IsIdentifierPart(Current()) {
+                _position = _position + 1
+            }
+            expressionEnd = _position
+        }
+
+        let expressionSpan = TextSpan.FromBounds(expressionStart, expressionEnd)
+        if expressionSpan.Length == 0 {
+            ErrorAt(spliceStart, _position - spliceStart, "Raven splice expressions cannot be empty.")
+            return "\"\""
+        }
+
+        _fragments = _fragments.Add(_context.CreateFragmentRegion(
+            MacroFragmentKind.Expression,
+            expressionSpan))
+        Mask(spliceStart, _position)
+        let parsed = _context.ParseExpressionResult(expressionSpan)
+        _diagnostics = _diagnostics.AddRange(parsed.Diagnostics)
+        let source = _source.Substring(expressionSpan.Start, expressionSpan.Length)
+        if inQuotedValue {
+            return "System.Convert.ToString(" + source + ")"
+        }
+        source
+    }
+
+    private func ReadText() -> string {
+        let start = _position
+        while !IsEnd() && !At("<") && !(At("$") && IsSpliceStart()) {
+            _position = _position + 1
+        }
+        _source.Substring(start, _position - start)
+    }
+
+    private func ReadName() -> string {
+        let start = _position
+        while !IsEnd() && IsNameCharacter(Current()) {
+            _position = _position + 1
+        }
+        _source.Substring(start, _position - start)
+    }
+
+    private func ValidateXmlProjection() {
+        try {
+            let document = XDocument.Parse(
+                _projection.ToString(),
+                LoadOptions.PreserveWhitespace)
+        } catch (XmlException exception) {
+            let position = ProjectionPosition(exception.LineNumber, exception.LinePosition)
+            ErrorAt(
+                position,
+                if position < _source.Length { 1 } else { 0 },
+                "Invalid XML literal: " + exception.Message)
+        }
+    }
+
+    private func ProjectionPosition(line: int, column: int) -> int {
+        var position = 0
+        var currentLine = 1
+        while position < _source.Length && currentLine < line {
+            if _source[position] == '\n' {
+                currentLine = currentLine + 1
+            }
+            position = position + 1
+        }
+        Math.Clamp(position + Math.Max(0, column - 1), 0, _source.Length)
+    }
+
+    private func Mask(start: int, end: int) {
+        var position = start
+        while position < end {
+            if _source[position] != '\r' && _source[position] != '\n' {
+                _projection[position] = ' '
+            }
+            position = position + 1
+        }
+    }
+
+    private static func DecodeXml(value: string) -> string {
+        let decoded: string = WebUtility.HtmlDecode(value) else {
+            return value
+        }
+        decoded
+    }
+
+    private static func NormalizeXmlText(value: string) -> string {
+        if String.IsNullOrWhiteSpace(value) {
+            return ""
+        }
+        if value.Contains("\r") || value.Contains("\n") {
+            return value.Trim()
+        }
+        value
+    }
+
+    private static func EscapeRavenString(value: string) -> string {
+        value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n")
+    }
+
+    private static func IsNameCharacter(value: string) -> bool {
+        value.Length == 1 && (
+            Char.IsLetterOrDigit(value[0]) ||
+            value == "-" ||
+            value == "_" ||
+            value == ":" ||
+            value == ".")
+    }
+
+    private func SkipWhitespace() {
+        while !IsEnd() && Char.IsWhiteSpace(_source[_position]) {
+            _position = _position + 1
+        }
+    }
+
+    private func At(value: string) -> bool {
+        _position + value.Length <= _source.Length &&
+            _source.Substring(_position, value.Length) == value
+    }
+
+    private func Consume(value: string) -> bool {
+        if !At(value) {
+            return false
+        }
+        _position = _position + value.Length
+        true
+    }
+
+    private func Current() -> string {
+        if IsEnd() {
+            return ""
+        }
+        _source.Substring(_position, 1)
+    }
+
+    private func IsSpliceStart() -> bool {
+        _position + 1 < _source.Length &&
+            (_source[_position + 1] == '{' || IsIdentifierStart(
+                _source.Substring(_position + 1, 1)))
+    }
+
+    private static func IsIdentifierStart(value: string) -> bool {
+        value.Length == 1 && (Char.IsLetter(value[0]) || value == "_")
+    }
+
+    private static func IsIdentifierPart(value: string) -> bool {
+        value.Length == 1 && (Char.IsLetterOrDigit(value[0]) || value == "_")
+    }
+
+    private func IsEnd() -> bool {
+        _position >= _source.Length
+    }
+
+    private func ErrorAt(position: int, length: int, message: string) {
+        if _error is null {
+            _error = XmlDslError(
+                TextSpan(Math.Clamp(position, 0, _source.Length), Math.Max(0, length)),
+                message)
+        }
+    }
+}
