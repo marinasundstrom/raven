@@ -2200,6 +2200,16 @@ public partial class SemanticModel
 
         if (unresolvedAliases.Count > 0)
         {
+            if (!allowSourceDeclarationCompletion)
+            {
+                BindNamespaceMembers(
+                    cu,
+                    compilationUnitBinder,
+                    targetNamespace,
+                    bindMemberSignatures: true,
+                    bindTopLevelFunctionSignatures: false);
+            }
+
             var aliasesToRetry = unresolvedAliases.ToArray();
             unresolvedAliases.Clear();
             BindAliases(aliasesToRetry, reportUnresolved: true);
@@ -3152,7 +3162,8 @@ public partial class SemanticModel
         SyntaxNode containerNode,
         Binder parentBinder,
         INamespaceSymbol parentNamespace,
-        bool bindMemberSignatures = true)
+        bool bindMemberSignatures = true,
+        bool bindTopLevelFunctionSignatures = true)
     {
         var classBinders = new List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)>();
         var interfaceBinders = new List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)>();
@@ -3180,7 +3191,12 @@ public partial class SemanticModel
                         var nsBinder = Compilation.BinderFactory.GetBinder(nsDecl, parentBinder)!;
                         CacheBinder(nsDecl, nsBinder);
 
-                        BindNamespaceMembers(nsDecl, nsBinder, nsSymbol, bindMemberSignatures);
+                        BindNamespaceMembers(
+                            nsDecl,
+                            nsBinder,
+                            nsSymbol,
+                            bindMemberSignatures,
+                            bindTopLevelFunctionSignatures);
                         break;
                     }
 
@@ -3270,7 +3286,7 @@ public partial class SemanticModel
                             break;
 
                         var functionBinder = new FunctionBinder(parentBinder, functionStatement);
-                        if (bindMemberSignatures)
+                        if (bindMemberSignatures && bindTopLevelFunctionSignatures)
                             _ = functionBinder.GetMethodSymbol();
                         CacheBinder(globalStatement, functionBinder);
                         CacheBinder(functionStatement, functionBinder);
