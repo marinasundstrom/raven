@@ -2188,7 +2188,15 @@ public partial class SemanticModel
             BindAliases(fileScopedNamespace.Aliases, reportUnresolved: false);
         }
 
-        BindNamespaceMembers(cu, compilationUnitBinder, targetNamespace, bindMemberSignatures: allowSourceDeclarationCompletion);
+        var canBindIncrementalMemberSignatures =
+            unresolvedAliases.Count == 0 &&
+            deferredWildcardImports.Count == 0 &&
+            deferredConstantImports.Count == 0;
+        BindNamespaceMembers(
+            cu,
+            compilationUnitBinder,
+            targetNamespace,
+            bindMemberSignatures: allowSourceDeclarationCompletion || canBindIncrementalMemberSignatures);
 
         if (unresolvedAliases.Count > 0)
         {
