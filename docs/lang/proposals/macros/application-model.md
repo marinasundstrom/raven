@@ -698,6 +698,23 @@ would bind and verify the input before execution, then unwrap, bind, and verify
 the expansion after execution, mapping diagnostics through provenance. The
 macro cannot assert or bypass either check.
 
+The future result contract therefore has three independent axes:
+
+* the application position and output syntax category, such as expression;
+* an optional semantic result-type constraint, such as `T` in
+  `ExpressionSyntax<T>`; and
+* an optional fixed syntax-node shape, such as the literal shape in
+  `LiteralExpressionSyntax<T>` or another dedicated facade over an existing
+  expression node kind.
+
+Returning plain `ExpressionSyntax` continues to mean “an expression of any
+semantic type and any expression node kind.” A typed wrapper narrows the
+semantic type without creating a new grammar position. A fixed-node wrapper
+narrows the existing syntax hierarchy without letting a macro invent new Raven
+syntax kinds. The normalized macro descriptor should retain these constraints
+separately so resolution, expansion validation, hover, and contextual typing
+can agree on the promise.
+
 The final wrapper API is deliberately undecided. Semantic promises must remain
 separate from grammatical invocation targets, work without creating binding
 cycles, and degrade to stable error-typed inputs and results during incomplete

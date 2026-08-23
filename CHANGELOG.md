@@ -11,6 +11,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
   carriers accept one ordinary Raven expression in expression or statement
   position, including keyword aliases such as `match! value { ... }`, without
   reclassifying postfix `!` followed by an operator or member access.
+  Declaration carriers now preserve a reusable Raven-shaped header containing
+  declared type parameters, parameters, either a base list or return type,
+  standard `where` constraints, an optional `permits` clause, and an optional
+  token body. Generic arguments on the macro name remain distinct from type
+  parameters introduced after the carried declaration name.
 - Member completion in a macro block fragment now resolves assignment targets
   through fragment-local semantic state instead of querying the outer semantic
   model with detached syntax. Typing `.` on the right side of an assignment
@@ -2844,6 +2849,12 @@ Impact:
 ## 2026-04-01
 
 ### Added
+
+- Added the standard `timer! { statements }` statement macro, including
+  hygienic `Stopwatch` expansion, a release-code warning, and a runnable sample
+  project. Its expansion is implemented in Raven inside `Raven.Macros`, making
+  it an initial dogfooding case for moving standard macro behavior out of
+  compiler-owned C# helpers.
 - `Raven.Core` now defines `System.IParseError`, `System.ParseIntError`, `System.IntErrorKind`, and lowercase `int.parse(...)` static extension helpers that return `Result<int, ParseIntError>` instead of throwing for null, empty, format, and overflow failures.
 
 Impact:

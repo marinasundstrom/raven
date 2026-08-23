@@ -199,10 +199,24 @@
   <Node Name="TokenTreeMacroCarrier" Inherits="MacroCarrier">
     <Slot Name="TokenTree" Type="MacroTokenTree" />
   </Node>
-  <Node Name="DeclarationMacroCarrier" Inherits="MacroCarrier">
+  <Node Name="MacroDeclarationSuffix" Inherits="Node" IsAbstract="true" />
+  <Node Name="MacroBaseListSuffix" Inherits="MacroDeclarationSuffix">
+    <Slot Name="BaseList" Type="BaseList" />
+  </Node>
+  <Node Name="MacroReturnTypeSuffix" Inherits="MacroDeclarationSuffix">
+    <Slot Name="ReturnType" Type="ArrowTypeClause" />
+  </Node>
+  <Node Name="MacroDeclarationHeader" Inherits="Node">
     <Slot Name="Identifier" Type="Token" />
+    <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
     <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" />
-    <Slot Name="TokenTree" Type="MacroTokenTree" />
+    <Slot Name="Suffix" Type="MacroDeclarationSuffix" IsNullable="true" />
+    <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
+    <Slot Name="PermitsClause" Type="PermitsClause" IsNullable="true" />
+  </Node>
+  <Node Name="DeclarationMacroCarrier" Inherits="MacroCarrier">
+    <Slot Name="Header" Type="MacroDeclarationHeader" />
+    <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" />
   </Node>
   <Node Name="FreestandingMacroExpression" Inherits="Expression">
     <Slot Name="Name" Type="Name" />

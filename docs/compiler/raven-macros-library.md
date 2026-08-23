@@ -1,9 +1,16 @@
 # Raven Macro Library
 
 `Raven.Macros` is the standard compiler-plugin library distributed with Raven.
-It contains reusable macros such as `quote`, `compile`, and the attached
-`Error` macro without making them intrinsic compiler declarations or members
-of `Raven.Core`.
+It contains reusable macros such as `quote`, `compile`, `timer`, and the
+attached `Error` macro without making them intrinsic compiler declarations or
+members of `Raven.Core`. These macros demonstrate the broader purpose of the
+feature: concise forms can hide repetitive or domain-specific expansion code
+and grow into DSLs that integrate naturally with Raven.
+
+The standard library is also a proving ground rather than a permanent home for
+every useful DSL. A macro family can move into its own package when it needs an
+independent API, dependency set, compatibility policy, or release cadence;
+Raven's carrier and application model remains the same.
 
 Applications opt into the short aliases by importing the macro namespace:
 
@@ -66,6 +73,47 @@ does not already declare that property, so an authored implementation always
 takes precedence. `ErrorMessage` is valid only on a case nested in an
 `#[Error]` union and accepts a string literal or interpolated string.
 
+## `timer!`
+
+`timer!` removes the usual `Stopwatch` setup and cleanup around a block of Raven
+statements:
+
+```raven
+import Raven.Macros.*
+
+timer! {
+    let index = LoadIndex()
+    Rebuild(index)
+    Save(index)
+}
+```
+
+Conceptually, it expands to the following boilerplate:
+
+```raven
+{
+    let __stopwatch = System.Diagnostics.Stopwatch.StartNew()
+    try {
+        {
+            let index = LoadIndex()
+            Rebuild(index)
+            Save(index)
+        }
+    }
+    finally {
+        __stopwatch.Stop()
+        System.Console.WriteLine(__stopwatch.Elapsed)
+    }
+}
+```
+
+The macro parses its token body as an ordinary Raven block, preserves that
+block's lexical scope, and emits the elapsed duration after the body finishes.
+It uses `try`/`finally` so timing also stops when control leaves the body early.
+The actual stopwatch name is generated to avoid collisions; this expansion is
+illustrative rather than an exact syntax-tree contract. Release builds report
+`TIMER002` to make accidental instrumentation visible.
+
 ## `query!`
 
 `query!` is a small LINQ-style token-tree DSL included in `Raven.Macros`. It
@@ -100,6 +148,14 @@ comments. `AssemblyInfo.rvn` marks the output as a compiler plugin:
 ```raven
 [assembly: RavenCompilerPlugin]
 ```
+
+Standard macro implementations should move into this Raven project
+incrementally instead of depending indefinitely on implementation helpers in
+the compiler. Each port is deliberate language and API dogfooding: awkward
+syntax construction, missing semantic operations, hidden compiler hooks, or a
+required C# escape hatch should be treated as evidence of a Raven compiler or
+macro-authoring problem to diagnose and improve. `timer` is implemented wholly
+in `Raven.Macros`; the older standard macros remain migration work.
 
 When a marked Raven library contains macro declarations, emission
 lowers those declarations into reusable provider types and includes them in the

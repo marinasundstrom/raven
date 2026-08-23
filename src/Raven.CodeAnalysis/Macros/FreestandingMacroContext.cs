@@ -54,6 +54,7 @@ public class FreestandingMacroContext : MacroContext
         Carrier = invocation.Carrier;
         ArgumentList = invocation.ArgumentList;
         ExpressionArgument = invocation.ExpressionArgument;
+        DeclarationHeader = invocation.DeclarationHeader;
         TokenTree = invocation.TokenTree;
         Arguments = CreateArguments(invocation, semanticModel);
         CancellationToken = cancellationToken;
@@ -74,6 +75,8 @@ public class FreestandingMacroContext : MacroContext
     public ArgumentListSyntax? ArgumentList { get; }
 
     public ExpressionSyntax? ExpressionArgument { get; }
+
+    public MacroDeclarationHeaderSyntax? DeclarationHeader { get; }
 
     public MacroTokenTreeSyntax? TokenTree { get; }
 

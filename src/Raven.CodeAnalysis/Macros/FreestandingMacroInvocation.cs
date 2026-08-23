@@ -14,6 +14,9 @@ internal readonly record struct FreestandingMacroInvocation(
     public ExpressionSyntax? ExpressionArgument
         => (Carrier as ExpressionHeaderMacroCarrierSyntax)?.Expression;
 
+    public MacroDeclarationHeaderSyntax? DeclarationHeader
+        => (Carrier as DeclarationMacroCarrierSyntax)?.Header;
+
     public MacroTokenTreeSyntax? TokenTree
         => Carrier switch
         {

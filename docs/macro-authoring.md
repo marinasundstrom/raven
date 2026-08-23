@@ -5,6 +5,13 @@ and produce ordinary Raven syntax. Start with `macro`. Move to provider
 interfaces only when a macro needs capabilities the compact declaration syntax
 does not yet project.
 
+The purpose of a macro is to make authored code simpler and more expressive by
+giving a concise, meaningful form to behavior that expands into more complex
+Raven code. Across call-like, expression-header, token-body, and
+declaration-shaped forms, macros let a library build a domain-specific language
+that integrates with Raven syntax rather than sitting beside it as an unrelated
+string or external generator.
+
 > [!NOTE]
 > Macro authoring is experimental. Examples here describe the current
 > implementation. Sections marked **Future** describe planned tooling.
@@ -31,8 +38,10 @@ than a reserved Raven keyword.
 
 Keep four rules in mind:
 
-1. Invoke a freestanding macro with `Name!(...)`, `Name! { ... }`, or both.
-   `#` is reserved for directives and attached macro attributes.
+1. Invoke a freestanding macro with its declared carrier: `Name!(...)`,
+   `Name! expression`, `Name! { ... }`, or a declaration-shaped
+   `Name! Decl<T>(...) ...`. `#` is reserved for directives and attached macro
+   attributes.
 2. Use `expand` once the freestanding result is ready. It sets the expansion and
    returns from that execution path.
 3. Report expected input failures as diagnostics. Do not throw for malformed
@@ -221,10 +230,28 @@ macro FunctionComponent(
 }
 ```
 
-The declaration carrier preserves modifiers, the macro name, declared name,
-parameter list, and body. This allows aliases such as `component` to read like
-declaration keywords in `public component! Greeting(...) { ... }`, while the
-body remains lossless input owned by the macro.
+The declaration carrier preserves modifiers and the macro name outside a
+reusable `MacroDeclarationHeaderSyntax`. The header contains the declared name,
+declared type parameters, parameter list, either a `BaseListSyntax` or
+`ArrowTypeClauseSyntax`, standard `where` constraints, and an optional
+`PermitsClauseSyntax`. Its token body is independently optional. This allows
+aliases such as `component` to read like declaration keywords in forms such as:
+
+```raven
+public component<Blazor>! Greeting<T>(value: T)
+    : ComponentBase, IRenderable<T>
+    where T: Entity
+{
+    // lossless component DSL
+}
+```
+
+Here `Blazor` is a macro type argument on the `GenericNameSyntax` before `!`;
+`T` is a declared type parameter in the header after `Greeting`. Raven parses
+the former for macro resolution and carries the latter to the expansion through
+`MacroDeclarationHeaderSyntax`. Raven parses every standard header piece with
+its ordinary syntax node and does not let the macro reinterpret a base type,
+return type, constraint, or permitted type as private grammar.
 
 ### Declare optional capabilities with functions
 
@@ -1032,6 +1059,147 @@ parenthesized or token-tree form. A source-level carrier clause for selecting
 expression-header form is a later authoring slice; the normalized descriptor
 and execution API no longer require another carrier-model redesign for it.
 
+### Author the carrier shapes
+
+A token-body macro can give an ordinary Raven block a statement-like outer
+shape. For example, this abbreviated version of `timer` parses its complete
+body and surrounds it with `Stopwatch` boilerplate:
+
+```raven
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+
+macro Timer(context: TokenTreeMacroContext) -> StatementSyntax {
+    let bodyResult = context.ParseBlockResult()
+    context.ReportDiagnostics(bodyResult)
+    let stopwatch = context.CreateUniqueName("stopwatch")
+    expand BuildTimedBlock(bodyResult.Syntax, stopwatch)
+}
+```
+
+The application is statement-shaped source:
+
+```raven
+timer! {
+    let index = LoadIndex()
+    Rebuild(index)
+    Save(index)
+}
+```
+
+Curly braces delimit a losslessly captured token body; they do not require that
+body to use Raven block grammar. The macro author decides whether to ask Raven
+to parse it as a block, parse selected Raven fragments, or interpret it as a
+completely custom DSL. That freedom comes with an authoring responsibility: the
+chosen interpretation should match the expectations created by the macro's
+surface syntax.
+
+For `timer`, the block-like expectation is intentional. It asks Raven to parse
+the complete body as `BlockStatementSyntax`. `BuildTimedBlock` places that
+authored block inside a generated `try` and reports the elapsed duration from
+`finally`, so the timer is stopped even when control leaves the body early.
+`CreateUniqueName` prevents the generated stopwatch local from colliding with a
+caller local.
+
+Parsing a carrier body as a Raven block gives the macro author Raven's normal
+statement and lexical-scope building blocks; it does not by itself guarantee a
+well-behaved expansion. The author remains responsible for preserving the
+control-flow, evaluation, and scope behavior that the surface form leads users
+to expect. A macro may deliberately generate unusual behavior, but it should
+not make Raven-shaped syntax misleading accidentally. `timer` therefore keeps
+the authored body as one nested block instead of flattening its statements into
+the generated scope.
+
+The standard `timer` macro in `Raven.Macros` also reports `TIMER002` when an
+invocation is left in release code. That is macro policy rather than carrier
+syntax: the macro still expands normally, but reports a warning at its
+invocation when the compilation uses release optimization.
+
+The expression-header shape is separate and is currently selected by a
+class-authored macro:
+
+```raven
+public class ProbeMacro : IMacroDefinition {
+    val Name: string => "probe"
+    val CarrierKinds: MacroCarrierKinds => MacroCarrierKinds.ExpressionHeader
+    val BodyRequirement: MacroBodyRequirement => MacroBodyRequirement.Optional
+
+    func Expand(
+        expression: ExpressionSyntax,
+        context: MacroContext
+    ) -> FreestandingMacroExpansionResult
+        => FreestandingMacroExpansionResult.FromExpression(expression)
+}
+```
+
+That contract admits both `probe! value` and `probe! value { ... }`. The first
+form receives a `FreestandingMacroContext`; the second receives a
+`TokenTreeMacroContext`. Their shared `MacroContext` base lets one entry point
+accept both, while a type test exposes the optional token body when needed.
+
+A compact macro can infer the declaration carrier from a
+`FreestandingMacroDeclarationSyntax` input. The generic parameter on the macro
+definition specializes the macro itself, while the type parameters found on
+`declaration.Header` belong to the carried declaration:
+
+```raven
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+
+macro Component<TFramework>(
+    declaration: FreestandingMacroDeclarationSyntax,
+    body: IMacroTokenStream,
+    context: TokenTreeMacroContext
+) -> MemberDeclarationSyntax {
+    let header = declaration.Header
+    let declaredName = header.Identifier.ValueText
+    let declaredTypeParameters = header.TypeParameterList
+    let baseList = declaration.BaseList
+    let constraints = declaration.ConstraintClauses
+
+    // Interpret body and construct the resulting member.
+    expand BuildComponent<TFramework>(
+        declaredName,
+        declaredTypeParameters,
+        baseList,
+        constraints,
+        body,
+        context
+    )
+}
+```
+
+For this application:
+
+```raven
+Component<Blazor>! Greeting<T>(value: T)
+    : ComponentBase, IRenderable<T>
+    where T: Entity
+{
+    render value
+}
+```
+
+`Blazor` binds `TFramework` during macro resolution. `T` is never used to
+construct the macro provider; it remains a `TypeParameterSyntax` in the carried
+header and participates in `BuildComponent`'s expansion.
+
+Omit the token-body parameter when the declaration shape is a bodyless marker:
+
+```raven
+macro Marker(
+    declaration: FreestandingMacroDeclarationSyntax
+) -> MemberDeclarationSyntax {
+    expand BuildMarkerMember(declaration.Header)
+}
+
+Marker! GeneratedMember
+```
+
+Conversely, declaring `IMacroTokenStream` or `TokenTreeMacroContext` makes the
+body part of the contract. The authoring signature therefore says both which
+carrier pieces the implementation consumes and whether a token body is needed.
+
 `fragment` accepts a `MacroFragmentRegion` and is valid only for a token-tree
 macro declaration. The generated adapter keeps reached regions on its expansion
 result; `SemanticModel` uses them when the macro does not implement a dedicated
@@ -1229,8 +1397,9 @@ service while reported Raven fragments retain cursor ownership. Formatting,
 linked editing, and projected-language diagnostics remain later editor slices.
 
 Expression and raw-body statement placement, expression-header syntax,
-single-member and member-list expansion, and the initial declaration-shaped
-carrier are implemented. Rich declaration headers (generic parameters, base
-lists, constraints, return types, and custom clauses), compact-source carrier
-selection, type and pattern invocation targets, the `[...]`/`MacroList<T>`
-input family, and typed syntax wrappers remain future work.
+single-member and member-list expansion, and structured declaration headers
+with generic parameters, base-list or return-type suffixes, constraints, and
+permits clauses are implemented. Macro-defined declaration clauses,
+compact-source carrier selection, type and pattern invocation targets, the
+`[...]`/`MacroList<T>` input family, and typed syntax wrappers remain future
+work.

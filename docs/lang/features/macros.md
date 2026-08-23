@@ -6,6 +6,12 @@ syntax. The resulting syntax then follows the normal compiler pipeline: it is
 bound, diagnosed, emitted, debugged, and presented by editor tooling like
 handwritten Raven code.
 
+Their purpose is to simplify authored code and add expressiveness. A small,
+domain-meaningful form can expand into more complex Raven behavior, whether the
+form looks like a call, an expression or statement header, a token-body DSL, or
+a declaration. In effect, a library can build its own DSL while retaining a
+seamless boundary with Raven syntax, semantics, diagnostics, and tooling.
+
 The spelling deliberately balances integration with honesty. A resolved alias
 such as `component` can be presented like a contextual language keyword, so a
 DSL reads naturally beside built-in Raven declarations. The required `!`

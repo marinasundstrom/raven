@@ -23,6 +23,11 @@ A freestanding macro looks like a function-style or delimited expression, while
 an attached macro is applied as an attribute. The compiler resolves and expands
 it during binding, before ordinary code generation.
 
+Macros simplify source by letting a concise form stand for more complex Raven
+behavior. Their different application and input shapes can provide anything
+from a small reusable transformation to a domain-specific language that feels
+integrated with Raven while still expanding to ordinary Raven syntax.
+
 Use a macro when the metaprogram should affect the program being compiled. A
 macro can:
 

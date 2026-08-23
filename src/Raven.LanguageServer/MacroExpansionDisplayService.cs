@@ -171,11 +171,10 @@ internal static class MacroExpansionDisplayService
         if (!macroDeclaration.TryGetMacroName(out var macroName))
             macroName = macroDeclaration.Name.ToString();
 
-        var parameters = macroDeclaration.ParameterList is null ? string.Empty : "(...)";
         var body = macroDeclaration.TokenTree is null ? string.Empty : " { ... }";
         display = new MacroExpansionDisplay(
             macroName,
-            $"{macroName}! {macroDeclaration.Identifier.ValueText}{parameters}{body}",
+            $"{macroName}! {macroDeclaration.Header.ToString().Trim()}{body}",
             macroDeclaration.Name.Span,
             CreatePreview(fullText),
             fullText);
@@ -186,9 +185,14 @@ internal static class MacroExpansionDisplayService
         FreestandingMacroExpressionSyntax expression,
         string macroName)
     {
-        var arguments = expression.ArgumentList.OpenParenToken.IsMissing ? string.Empty : "(...)";
+        var input = expression.Carrier switch
+        {
+            ParenthesizedMacroCarrierSyntax => "(...)",
+            ExpressionHeaderMacroCarrierSyntax expressionHeader => $" {expressionHeader.Expression}",
+            _ => string.Empty,
+        };
         var body = expression.TokenTree is null ? string.Empty : " { ... }";
-        return $"{macroName}!{arguments}{body}";
+        return $"{macroName}!{input}{body}";
     }
 
     private static string FormatNode(SyntaxNode node)
@@ -328,10 +332,16 @@ internal static class MacroExpansionDisplayService
 
     private static TextSpan GetInvocationHeadSpan(FreestandingMacroExpressionSyntax expression)
     {
-        var end = expression.TokenTree?.OpenBraceToken.Span.Start
-            ?? (!expression.ArgumentList.OpenParenToken.IsMissing
-                ? expression.ArgumentList.OpenParenToken.Span.Start
-                : expression.Name.Span.End);
+        var end = expression.Carrier switch
+        {
+            ParenthesizedMacroCarrierSyntax parenthesized =>
+                parenthesized.ArgumentList.OpenParenToken.Span.Start,
+            ExpressionHeaderMacroCarrierSyntax expressionHeader =>
+                expressionHeader.Expression.Span.Start,
+            TokenTreeMacroCarrierSyntax tokenTree =>
+                tokenTree.TokenTree.OpenBraceToken.Span.Start,
+            _ => expression.Name.Span.End,
+        };
         return TextSpan.FromBounds(expression.Span.Start, end);
     }
 

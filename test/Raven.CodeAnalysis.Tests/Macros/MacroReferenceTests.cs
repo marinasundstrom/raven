@@ -208,6 +208,61 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void DeclarationShapedMacro_ReceivesStructuredHeaderThroughSyntaxAndContext()
+    {
+        var macro = new RichDeclarationClassMacro();
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            richComponent! Greeting<T>(value: T)
+                : ComponentBase, IRenderable<T>
+                where T: Entity
+                permits SpecializedGreeting
+            { 42 }
+            """);
+        var compilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(macro));
+
+        _ = compilation.GetSemanticModel(syntaxTree).GetExpandedRoot();
+
+        Assert.Same(macro.DeclarationHeader, macro.ContextHeader);
+        Assert.Equal("T", Assert.Single(macro.DeclarationHeader!.TypeParameterList!.Parameters).Identifier.ValueText);
+        Assert.Equal(2, Assert.IsType<MacroBaseListSuffixSyntax>(macro.DeclarationHeader.Suffix).BaseList.Types.Count);
+        Assert.Single(macro.DeclarationHeader.ConstraintClauses);
+        Assert.NotNull(macro.DeclarationHeader.PermitsClause);
+    }
+
+    [Fact]
+    public void DeclarationShapedMacro_CanExpandMarkerHeaderWithoutTokenBody()
+    {
+        var macro = new MarkerDeclarationClassMacro();
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            marker! GeneratedMember
+            """);
+        var compilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(macro));
+
+        var expanded = compilation.GetSemanticModel(syntaxTree).GetExpandedRoot();
+
+        Assert.Contains(
+            expanded.Members,
+            static member => member is ClassDeclarationSyntax { Identifier.ValueText: "GeneratedMember" });
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void MacroReference_FromRavenMethodShapedClass_UsesOrdinaryExpandMethod()
     {
         var macroImage = EmitMacroAssembly("""
@@ -936,6 +991,37 @@ public sealed class MacroReferenceTests
                 }
                 """).GetRoot().Members.Single();
         }
+    }
+
+    public sealed class RichDeclarationClassMacro : IMacroDefinition
+    {
+        public string Name => "RichDeclaration";
+        public string? Alias => "richComponent";
+
+        public MacroDeclarationHeaderSyntax? DeclarationHeader { get; private set; }
+        public MacroDeclarationHeaderSyntax? ContextHeader { get; private set; }
+
+        public MemberDeclarationSyntax Expand(
+            FreestandingMacroDeclarationSyntax declaration,
+            TokenTreeMacroContext context)
+        {
+            DeclarationHeader = declaration.Header;
+            ContextHeader = context.DeclarationHeader;
+            return SyntaxFactory.ParseSyntaxTree($$"""
+                class {{declaration.Identifier.ValueText}} {}
+                """).GetRoot().Members.Single();
+        }
+    }
+
+    public sealed class MarkerDeclarationClassMacro : IMacroDefinition
+    {
+        public string Name => "MarkerDeclaration";
+        public string? Alias => "marker";
+
+        public MemberDeclarationSyntax Expand(FreestandingMacroDeclarationSyntax declaration)
+            => SyntaxFactory.ParseSyntaxTree($$"""
+                class {{declaration.Identifier.ValueText}} {}
+                """).GetRoot().Members.Single();
     }
 
     public sealed class TestTokenTreeMacro : IMacroDefinition

@@ -14,6 +14,7 @@ using System.Xml.Linq;
 using Raven;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Diagnostics;
+using Raven.CodeAnalysis.Macros;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 
@@ -585,22 +586,23 @@ static bool IsAssemblyCompatibleWithTargetFramework(string path, TargetFramework
             return false;
 
         var metadataReader = peReader.GetMetadataReader();
-        var targetVersion = targetFramework.Version;
-
-        foreach (var assemblyRefHandle in metadataReader.AssemblyReferences)
+        foreach (var attributeHandle in metadataReader.GetAssemblyDefinition().GetCustomAttributes())
         {
-            var assemblyRef = metadataReader.GetAssemblyReference(assemblyRefHandle);
-            var assemblyName = metadataReader.GetString(assemblyRef.Name);
-            if (!string.Equals(assemblyName, "System.Runtime", StringComparison.Ordinal) &&
-                !string.Equals(assemblyName, "System.Private.CoreLib", StringComparison.Ordinal))
-            {
+            var attribute = metadataReader.GetCustomAttribute(attributeHandle);
+            if (!IsTargetFrameworkAttribute(metadataReader, attribute.Constructor))
                 continue;
-            }
 
-            var referencedVersion = assemblyRef.Version;
-            // A library targeting an earlier .NET version is compatible with a
-            // later target, but the reverse direction is not.
-            return referencedVersion <= targetVersion;
+            var valueReader = metadataReader.GetBlobReader(attribute.Value);
+            if (valueReader.ReadUInt16() != 1)
+                return false;
+
+            var frameworkName = valueReader.ReadSerializedString();
+            if (string.IsNullOrWhiteSpace(frameworkName))
+                return false;
+
+            var assemblyTargetFramework = TargetFrameworkMoniker.Parse(frameworkName);
+            return assemblyTargetFramework.Framework == targetFramework.Framework &&
+                assemblyTargetFramework.Version <= targetFramework.Version;
         }
 
         return true;
@@ -610,6 +612,31 @@ static bool IsAssemblyCompatibleWithTargetFramework(string path, TargetFramework
         return false;
     }
 }
+
+static bool IsTargetFrameworkAttribute(MetadataReader reader, EntityHandle constructorHandle)
+{
+    EntityHandle typeHandle = constructorHandle.Kind switch
+    {
+        HandleKind.MemberReference => reader.GetMemberReference((MemberReferenceHandle)constructorHandle).Parent,
+        HandleKind.MethodDefinition => reader.GetMethodDefinition((MethodDefinitionHandle)constructorHandle).GetDeclaringType(),
+        _ => default
+    };
+
+    return typeHandle.Kind switch
+    {
+        HandleKind.TypeReference => IsTargetFrameworkTypeReference(reader, reader.GetTypeReference((TypeReferenceHandle)typeHandle)),
+        HandleKind.TypeDefinition => IsTargetFrameworkTypeDefinition(reader, reader.GetTypeDefinition((TypeDefinitionHandle)typeHandle)),
+        _ => false
+    };
+}
+
+static bool IsTargetFrameworkTypeReference(MetadataReader reader, TypeReference type)
+    => reader.StringComparer.Equals(type.Namespace, "System.Runtime.Versioning") &&
+        reader.StringComparer.Equals(type.Name, "TargetFrameworkAttribute");
+
+static bool IsTargetFrameworkTypeDefinition(MetadataReader reader, TypeDefinition type)
+    => reader.StringComparer.Equals(type.Namespace, "System.Runtime.Versioning") &&
+        reader.StringComparer.Equals(type.Name, "TargetFrameworkAttribute");
 
 static string? TryReadProjectTargetFramework(string projectFilePath)
 {
@@ -1177,9 +1204,10 @@ if (!string.IsNullOrWhiteSpace(targetCoreLibraryPath))
 if (!string.Equals(assemblyName, "Raven.Macros", StringComparison.OrdinalIgnoreCase) &&
     !string.IsNullOrWhiteSpace(ravenMacrosPath))
 {
-    project = AddMetadataReferenceIfMissing(project, ravenMacrosPath);
+    project = ReplaceMetadataReferenceByAssemblyIdentity(project, ravenMacrosPath);
+    project = ReplaceMacroReferenceByAssemblyIdentity(project, ravenMacrosPath);
     if (!string.IsNullOrWhiteSpace(ravenCodeAnalysisPath))
-        project = AddMetadataReferenceIfMissing(project, ravenCodeAnalysisPath);
+        project = ReplaceMetadataReferenceByAssemblyIdentity(project, ravenCodeAnalysisPath);
 }
 
 foreach (var r in additionalRefs)
@@ -2040,6 +2068,21 @@ static Project ReplaceMetadataReferenceByAssemblyIdentity(Project project, strin
         .Append(MetadataReference.CreateFromFile(fullPath));
 
     return project.WithMetadataReferences(references);
+}
+
+static Project ReplaceMacroReferenceByAssemblyIdentity(Project project, string assemblyPath)
+{
+    var fullPath = Path.GetFullPath(assemblyPath);
+    var replacementIdentity = AssemblyName.GetAssemblyName(fullPath).Name;
+    var references = project.MacroReferences
+        .Where(reference =>
+            !Path.IsPathFullyQualified(reference.Display) ||
+            !HasAssemblyName(reference.Display, replacementIdentity))
+        .Append(MacroReference.CreateFromFile(fullPath));
+
+    return project.Solution
+        .WithMacroReferences(project.Id, references)
+        .GetProject(project.Id)!;
 }
 
 static bool HasAssemblyName(string assemblyPath, string? expectedName)

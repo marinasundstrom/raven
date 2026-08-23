@@ -24,11 +24,28 @@ public sealed partial class FreestandingMacroMemberDeclarationSyntax
 
 public sealed partial class FreestandingMacroDeclarationSyntax
 {
-    public SyntaxToken Identifier => Carrier.Identifier;
+    public MacroDeclarationHeaderSyntax Header => Carrier.Header;
 
-    public ParameterListSyntax? ParameterList => Carrier.ParameterList;
+    public SyntaxToken Identifier => Header.Identifier;
 
-    public MacroTokenTreeSyntax TokenTree => Carrier.TokenTree;
+    public TypeParameterListSyntax? TypeParameterList => Header.TypeParameterList;
+
+    public ParameterListSyntax? ParameterList => Header.ParameterList;
+
+    public MacroDeclarationSuffixSyntax? Suffix => Header.Suffix;
+
+    public BaseListSyntax? BaseList
+        => (Suffix as MacroBaseListSuffixSyntax)?.BaseList;
+
+    public ArrowTypeClauseSyntax? ReturnType
+        => (Suffix as MacroReturnTypeSuffixSyntax)?.ReturnType;
+
+    public SyntaxList<TypeParameterConstraintClauseSyntax> ConstraintClauses
+        => Header.ConstraintClauses;
+
+    public PermitsClauseSyntax? PermitsClause => Header.PermitsClause;
+
+    public MacroTokenTreeSyntax? TokenTree => Carrier.TokenTree;
 }
 
 internal static class MacroCarrierSyntaxExtensions

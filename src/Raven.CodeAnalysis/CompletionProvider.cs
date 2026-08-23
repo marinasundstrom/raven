@@ -3090,7 +3090,7 @@ public static class CompletionProvider
                     out var loaded,
                     out _) =>
                 loaded.Descriptor,
-            FreestandingMacroExpressionSyntax expression when
+            ParenthesizedMacroCarrierSyntax { Parent: FreestandingMacroExpressionSyntax expression } when
                 expression.TryGetMacroName(out var name) &&
                 compilation.GetMacroRegistry().TryResolveFreestandingMacro(
                     compilation,

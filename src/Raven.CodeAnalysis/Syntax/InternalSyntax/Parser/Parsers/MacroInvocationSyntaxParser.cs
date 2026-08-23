@@ -73,9 +73,18 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
 
         if (isStart)
         {
-            _ = ReadIdentifierToken();
-            isStart = PeekToken().IsKind(SyntaxKind.OpenParenToken) ||
-                PeekToken().IsKind(SyntaxKind.OpenBraceToken);
+            var header = ParseDeclarationHeader();
+            var hasDeclarationHeaderShape = header.TypeParameterList is not null ||
+                header.ParameterList is not null ||
+                header.Suffix is not null ||
+                header.ConstraintClauses.SlotCount > 0 ||
+                header.PermitsClause is not null;
+            isStart = hasDeclarationHeaderShape ||
+                PeekToken().IsKind(SyntaxKind.OpenBraceToken) ||
+                PeekToken().IsKind(SyntaxKind.EndOfFileToken) ||
+                PeekToken().IsKind(SyntaxKind.CloseBraceToken) ||
+                PeekToken().IsKind(SyntaxKind.SemicolonToken) ||
+                HasLineBreakBeforePeekToken();
         }
 
         checkpoint.Rewind();
@@ -113,6 +122,24 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
         var name = ParseMacroName();
         ConsumeTokenOrMissing(SyntaxKind.ExclamationToken, out var exclamationToken);
 
+        var header = ParseDeclarationHeader();
+        var tokenTree = PeekToken().IsKind(SyntaxKind.OpenBraceToken)
+            ? ParseTokenTree()
+            : null;
+
+        TryConsumeTerminator(out var terminatorToken);
+        var carrier = DeclarationMacroCarrier(header, tokenTree);
+        return FreestandingMacroDeclaration(
+            attributeLists,
+            modifiers,
+            name,
+            exclamationToken,
+            carrier,
+            terminatorToken);
+    }
+
+    private MacroDeclarationHeaderSyntax ParseDeclarationHeader()
+    {
         SyntaxToken identifier;
         if (CanTokenBeIdentifier(PeekToken()))
         {
@@ -126,36 +153,36 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
                 GetEndOfLastToken()));
         }
 
-        ParameterListSyntax? parameterList = null;
-        if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
-            parameterList = new StatementSyntaxParser(this).ParseParameterList();
+        var typeParser = new TypeDeclarationParser(this);
+        var typeParameterList = PeekToken().IsKind(SyntaxKind.LessThanToken)
+            ? typeParser.ParseTypeParameterList()
+            : null;
+        var parameterList = PeekToken().IsKind(SyntaxKind.OpenParenToken)
+            ? new StatementSyntaxParser(this).ParseParameterList()
+            : null;
 
-        MacroTokenTreeSyntax tokenTree;
-        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+        MacroDeclarationSuffixSyntax? suffix = null;
+        if (PeekToken().IsKind(SyntaxKind.ColonToken))
         {
-            tokenTree = ParseTokenTree();
+            suffix = MacroBaseListSuffix(typeParser.ParseBaseList()!);
         }
-        else
+        else if (PeekToken().IsKind(SyntaxKind.ArrowToken))
         {
-            AddDiagnostic(DiagnosticInfo.Create(
-                CompilerDiagnostics.CharacterExpected,
-                GetSpanOfLastToken(),
-                "{"));
-            tokenTree = MacroTokenTree(
-                MissingToken(SyntaxKind.OpenBraceToken),
-                MissingToken(SyntaxKind.MacroBodyToken),
-                MissingToken(SyntaxKind.CloseBraceToken));
+            suffix = MacroReturnTypeSuffix(
+                new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation()!);
         }
 
-        TryConsumeTerminator(out var terminatorToken);
-        var carrier = DeclarationMacroCarrier(identifier, parameterList, tokenTree);
-        return FreestandingMacroDeclaration(
-            attributeLists,
-            modifiers,
-            name,
-            exclamationToken,
-            carrier,
-            terminatorToken);
+        var constraintClauses = new ConstrainClauseListParser(this).ParseConstraintClauseList();
+        var permitsClause = suffix is MacroReturnTypeSuffixSyntax
+            ? null
+            : typeParser.ParsePermitsClause();
+        return MacroDeclarationHeader(
+            identifier,
+            typeParameterList,
+            parameterList,
+            suffix,
+            constraintClauses,
+            permitsClause);
     }
 
     private InvocationParts ParseInvocation(bool allowExpressionHeader)

@@ -125,6 +125,7 @@ public class TokenTreeMacroContext : MacroContext
         Carrier = invocation.Carrier;
         ArgumentList = invocation.ArgumentList;
         ExpressionArgument = invocation.ExpressionArgument;
+        DeclarationHeader = invocation.DeclarationHeader;
         TokenTree = invocation.TokenTree ?? throw new ArgumentException(
             "A token-tree macro context requires a token-tree invocation.",
             nameof(invocation));
@@ -151,6 +152,8 @@ public class TokenTreeMacroContext : MacroContext
     public ArgumentListSyntax? ArgumentList { get; }
 
     public ExpressionSyntax? ExpressionArgument { get; }
+
+    public MacroDeclarationHeaderSyntax? DeclarationHeader { get; }
 
     public ImmutableArray<MacroArgument> Arguments { get; }
 
@@ -541,13 +544,19 @@ public class TokenTreeMacroContext : MacroContext
     /// retaining the authored positions of its statements and expressions.
     /// </summary>
     public BlockStatementSyntax ParseBlock()
-        => ParseBlock(new TextSpan(0, BodySpan.Length));
+        => ParseBlockResult().Syntax;
 
     /// <summary>
     /// Parses a region of the token-tree body as one Raven lexical block while
     /// retaining the authored positions of its statements and expressions.
     /// </summary>
     public BlockStatementSyntax ParseBlock(TextSpan bodyRelativeSpan)
+        => ParseBlockResult(bodyRelativeSpan).Syntax;
+
+    public MacroSyntaxParseResult<BlockStatementSyntax> ParseBlockResult()
+        => ParseBlockResult(new TextSpan(0, BodySpan.Length));
+
+    public MacroSyntaxParseResult<BlockStatementSyntax> ParseBlockResult(TextSpan bodyRelativeSpan)
     {
         if (bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length)
             throw new ArgumentOutOfRangeException(nameof(bodyRelativeSpan));
@@ -566,7 +575,20 @@ public class TokenTreeMacroContext : MacroContext
             consumeFullText: true);
         var block = parseResult?.Root.CreateRed(parent: null, position: blockStart) as BlockStatementSyntax
             ?? (BlockStatementSyntax)SyntaxFactory.ParseStatement("{}");
-        return MacroSyntaxOrigin.AttachParsedOrigin(block, Syntax.SyntaxTree);
+        block = MacroSyntaxOrigin.AttachParsedOrigin(block, Syntax.SyntaxTree);
+        var diagnostics = parseResult?.Diagnostics
+            .Select(diagnostic => Diagnostic.Create(
+                diagnostic.Descriptor,
+                Syntax.SyntaxTree?.GetLocation(diagnostic.Span) ?? Location.None,
+                diagnostic.Args))
+            .ToImmutableArray()
+            ?? ImmutableArray<Diagnostic>.Empty;
+
+        return new MacroSyntaxParseResult<BlockStatementSyntax>(
+            block,
+            bodyRelativeSpan,
+            bodyRelativeSpan.End,
+            diagnostics);
     }
 
     /// <summary>

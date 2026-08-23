@@ -1,0 +1,65 @@
+namespace Raven.Macros
+
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+/// Measures an ordinary Raven block body with
+/// `System.Diagnostics.Stopwatch` and writes the elapsed duration.
+///
+/// The invocation occupies statement position. Release builds report a warning
+/// so accidental instrumentation is visible without preventing compilation.
+///
+/// ## Example
+///
+/// ```raven
+/// import Raven.Macros.*
+///
+/// timer! {
+///     let index = LoadIndex()
+///     Rebuild(index)
+///     Save(index)
+/// }
+/// ```
+[MacroAlias("timer")]
+public macro Timer(context: TokenTreeMacroContext) -> StatementSyntax {
+    let bodyResult = context.ParseBlockResult()
+    let stopwatchName = context.CreateUniqueName("stopwatch")
+    let stopwatchDeclaration = ParseStatement(
+        "let $stopwatchName = System.Diagnostics.Stopwatch.StartNew()")
+    let stopStatement = ParseStatement("$stopwatchName.Stop()")
+    let reportStatement = ParseStatement(
+        "System.Console.WriteLine($stopwatchName.Elapsed)")
+    let tryStatement = TryStatement(
+        Token(SyntaxKind.TryKeyword),
+        BlockStatement(List<StatementSyntax>([bodyResult.Syntax])),
+        List<CatchClauseSyntax>(),
+        FinallyClause(BlockStatement(List<StatementSyntax>([
+            stopStatement,
+            reportStatement
+        ]))),
+        Token(SyntaxKind.None))
+    let statement = BlockStatement(List<StatementSyntax>([
+        stopwatchDeclaration,
+        tryStatement
+    ]))
+
+    let macroDiagnostics: ImmutableArray<MacroExpansionDiagnostic> =
+        if context.Compilation.Options.OptimizationLevel == OptimizationLevel.Release {
+            [context.CreateDiagnostic(
+                "The timer macro is present in release code.",
+                DiagnosticSeverity.Warning,
+                context.Name,
+                "TIMER002")]
+        } else {
+            []
+        }
+
+    expand FreestandingMacroExpansionResult {
+        Statement = statement
+        Diagnostics = bodyResult.Diagnostics
+        MacroDiagnostics = macroDiagnostics
+    }
+}
