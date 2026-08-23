@@ -48,6 +48,25 @@ compiler component is ported to Raven:
    provider implementation library.
 7. Port compiler components to Raven only in a later phase, behind stable
    boundaries and differential tests against the C# implementation.
+8. Preserve the complete compiler baseline and the standalone and project
+   sample corpora as stage-transition gates. A bootstrap stage is not accepted
+   merely because it can build itself; it must continue to compile and, where
+   applicable, run the same representative Raven programs as stage 0.
+
+Defects discovered while porting must be classified before they are fixed:
+
+- A stage-0 compiler or runtime defect is reduced, covered, and fixed on the
+  maintained pre-bootstrap line first, then carried into the port.
+- An unclear language rule or public contract is decided and documented for
+  both lines before either implementation becomes the oracle.
+- A defect confined to the Raven port is fixed forward and guarded by
+  differential coverage; it is not backported into unrelated stage-0 code.
+- A bootstrap-only accommodation is kept at an explicit stage boundary and is
+  not presented as ordinary language behavior.
+
+This classification determines whether a fix is backported. Backports protect
+the trusted foundation; they must not turn the foundation branch into a mirror
+of every structural change made during the port.
 
 The detailed result-shape and migration guidance lives in
 [Raven-native Compiler API result shapes and pre-bootstrap
@@ -70,6 +89,10 @@ adoption](../../api/result-shapes.md).
 - Optional macro inputs should move toward `Option<SyntaxType>` rather than
   nullable default parameters that obscure meaning or violate Raven parameter
   ordering expectations.
+- Release and bootstrap validation takes longer because it includes the full
+  baseline plus build-and-run coverage for the maintained sample corpora. That
+  cost is intentional: the samples exercise integration paths and Raven-shaped
+  workloads that unit tests alone do not cover.
 
 ## Alternatives considered
 
@@ -106,5 +129,9 @@ compiler API to one macro distribution and create another cycle.
 - Select a small pilot API family, with optional macro syntax inputs as one
   candidate.
 - Add Raven and C# contract tests before changing each family.
+- Record a reproducible baseline and sample-corpus result for the stage-0 tag,
+  including target-framework and toolchain provenance.
+- Establish a small porting ledger that records each discovered issue, its
+  classification, the chosen backport target, and the regression coverage.
 - Record subsequent architectural choices as new ADRs and supersede this record
   if the foundation or staging strategy changes.

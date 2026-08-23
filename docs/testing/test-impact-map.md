@@ -43,7 +43,7 @@ All ad hoc `dotnet test` commands should include `/property:WarningLevel=0`.
 | Functions, lambdas, async/await, propagation | `scripts/test-feature-suite.sh functions-async` | Same suite; add `--runtime` for async state-machine or emitted-control-flow changes |
 | Extensions and metadata extension members | `scripts/test-feature-suite.sh extensions` | Same suite; add completion tests when editor-facing lookup changes |
 | Imports, aliases, namespaces, escaped identifiers, multi-file lookup | `scripts/test-feature-suite.sh imports-and-namespaces` | Same suite; add project/sample coverage only when project loading or generated imports change |
-| Target frameworks, reference assembly paths, Raven project targeting | `scripts/test-feature-suite.sh framework-and-targeting` | Same suite; add sample project builds when SDK/MSBuild compatibility changes |
+| Target frameworks, reference assembly paths, Raven project targeting | `scripts/test-feature-suite.sh framework-and-targeting` | Same suite; run `scripts/test-target-framework-matrix.sh` when compiler-host/target compatibility changes, and add full sample project builds for SDK/MSBuild changes |
 | Compiler driver, Raven project loading, MSBuild targets | Focused compiler-driver/project-loading tests | Same filters; add `FORCE_REBUILD=1 samples/build.sh` when sample compatibility or build outputs change |
 | Raven.Core source or public standard-library behavior | Focused `test/Raven.Core.Tests` filter | Same filter; add relevant compiler feature suite if compiler behavior changed too |
 | Language-server request handling, hover/completion/inlay presentation | Focused `test/Raven.LanguageServer.Tests` filter | Same filter; add compiler tests first when the bug is semantic rather than LSP-owned |
@@ -65,3 +65,7 @@ Run `scripts/test-baseline.sh` instead of only a targeted baseline when:
 
 For runtime-heavy stabilization, run `scripts/test-runtime-isolated.sh`
 separately instead of folding those tests into the fast baseline.
+
+Release and bootstrap-stage validation is broader than the ordinary change
+impact workflow. Follow [Release and bootstrap compatibility
+gates](release-and-bootstrap-gates.md) for that procedure.

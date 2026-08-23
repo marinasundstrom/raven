@@ -183,9 +183,17 @@ Review the diff, finish the changelog, and commit every intended release change.
 Then run the release checks against that clean commit:
 
 ```bash
+scripts/test-target-framework-matrix.sh
+scripts/build-project-samples.sh
 scripts/validate-release.sh VERSION --require-clean
 scripts/package-nuget.sh VERSION
 ```
+
+For a release that establishes or advances a bootstrap stage, also retain the
+full baseline, isolated runtime, standalone-sample, and project-sample results
+described in [Release and bootstrap compatibility
+gates](../testing/release-and-bootstrap-gates.md), including the active SDK and
+repository-versus-installed toolchain provenance.
 
 Every push to `main` runs `scripts/test-ci.sh`: the repository's ordered
 generator/compiler build, the normal baseline, the isolated runtime/emission

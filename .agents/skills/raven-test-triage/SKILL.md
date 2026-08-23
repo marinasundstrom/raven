@@ -30,6 +30,20 @@ Run isolated heavy suites separately with:
 scripts/test-runtime-isolated.sh
 ```
 
+For release preparation, cross-target SDK changes, or a bootstrap-stage gate,
+also follow `docs/testing/release-and-bootstrap-gates.md`. In particular, run:
+
+```bash
+scripts/test-target-framework-matrix.sh
+scripts/build-project-samples.sh
+```
+
+The target matrix must use the .NET 11 repository compiler host to build and
+run both `net10.0` and `net11.0` representatives. Do not treat a build using an
+installed SDK, or a repository compiler DLL combined with installed MSBuild
+targets, as equivalent evidence. The baseline plus the standalone and project
+sample corpora are compatibility gates for stage transitions.
+
 Use `WarningLevel=0` for ad hoc test runs.
 
 ## Build Decision
@@ -77,6 +91,8 @@ Choose the narrowest layer that proves the bug is fixed:
 - language-service issue: compiler API test first, then LSP presentation/scheduling test if editor behavior is also involved
 - operation modeling issue: operations test
 - runtime behavior issue: runtime or codegen behavior test
+- compiler-host/target-framework issue: metadata/reference assertion plus the
+  executable target-framework matrix
 - lazy-binding issue: test both a cold semantic query and, when relevant, a second query that proves the first query populated compiler-owned state for reuse
 - available-state optimization: include a negative or ambiguous case proving the code falls back to normal full binding instead of returning a partial or guessed answer
 - cross-file incremental issue: add or update another document in the same project, then query symbols/diagnostics in the original document through the current compilation snapshot
@@ -92,3 +108,7 @@ Keep documentation in step with stabilized behavior. When test triage exposes be
 1. Run the smallest targeted test set that proves the fix.
 2. Run the appropriate baseline or isolated suite for the affected area.
 3. Clean up outdated assertions in the touched area instead of preserving obviously stale expectations.
+4. For a bootstrap-stage candidate, record the exact commit, active SDK,
+   target frameworks, toolchain provenance, baseline result, and sample-corpus
+   result. Classify port-discovered defects before deciding whether to backport
+   them to the maintained pre-bootstrap line.
