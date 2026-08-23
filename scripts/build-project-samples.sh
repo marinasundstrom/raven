@@ -11,6 +11,7 @@ BUILD_REPORT_TSV="${BUILD_REPORT_TSV:-$OUTPUT_DIR/build-report.tsv}"
 BUILD_REPORT_MD="${BUILD_REPORT_MD:-$OUTPUT_DIR/build-report.md}"
 INCLUDE_TEMPORARY=0
 INCLUDE_CSPROJ=1
+SAMPLE_TOOLCHAIN="${RAVEN_SAMPLE_TOOLCHAIN:-repository}"
 
 usage() {
   cat <<EOF
@@ -20,6 +21,8 @@ Options:
   -c, --configuration <c> Build configuration (default: ${BUILD_CONFIG})
       --include-temporary Include tmp-* project folders
       --rvn-only          Build only .rvnproj sample projects
+      --installed-toolchain
+                          Use the installed Raven SDK targets and compiler
   -h, --help              Show this help
 
 Filters:
@@ -29,7 +32,8 @@ Filters:
                             scripts/build-project-samples.sh 'macro-*'
 
 Environment overrides:
-  BUILD_CONFIG, OUTPUT_DIR, BUILD_REPORT_TSV, BUILD_REPORT_MD, DOTNET_BUILD_ARGS
+  BUILD_CONFIG, OUTPUT_DIR, BUILD_REPORT_TSV, BUILD_REPORT_MD, DOTNET_BUILD_ARGS,
+  RAVEN_SAMPLE_TOOLCHAIN (repository or installed)
 EOF
 }
 
@@ -48,6 +52,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --rvn-only)
       INCLUDE_CSPROJ=0
+      shift
+      ;;
+    --installed-toolchain)
+      SAMPLE_TOOLCHAIN="installed"
       shift
       ;;
     -h|--help)
@@ -146,17 +154,47 @@ failures=()
 pass_count=0
 fail_count=0
 
-dotnet_build_args=()
-if [[ -n "${DOTNET_BUILD_ARGS:-}" ]]; then
-  # shellcheck disable=SC2206
-  dotnet_build_args=(${DOTNET_BUILD_ARGS})
-fi
+repository_compiler=""
+repository_targets=""
+case "$SAMPLE_TOOLCHAIN" in
+  repository)
+    repository_compiler="$ROOT_DIR/src/Raven.Compiler/bin/$BUILD_CONFIG/net11.0/rvnc.dll"
+    repository_targets="$ROOT_DIR/build/Raven.Language.targets"
+    if [[ ! -f "$repository_compiler" ]]; then
+      echo "Repository compiler host not found: $repository_compiler"
+      echo "Build src/Raven.Compiler for net11.0 first."
+      exit 1
+    fi
+    ;;
+  installed)
+    ;;
+  *)
+    echo "Unknown RAVEN_SAMPLE_TOOLCHAIN '$SAMPLE_TOOLCHAIN' (expected repository or installed)."
+    exit 2
+    ;;
+esac
+
+echo "Raven sample toolchain: $SAMPLE_TOOLCHAIN"
 
 for project in "${PROJECTS[@]}"; do
   echo
   echo "Building $project"
 
   start_ms="$(timestamp_ms)"
+
+  dotnet_build_args=()
+  if [[ "$SAMPLE_TOOLCHAIN" == "repository" ]]; then
+    dotnet_build_args+=("/property:RavenCompilerHost=$repository_compiler")
+    if [[ "$project" == *.rvnproj ]]; then
+      dotnet_build_args+=("/property:LanguageTargets=$repository_targets")
+    fi
+  fi
+
+  if [[ -n "${DOTNET_BUILD_ARGS:-}" ]]; then
+    # shellcheck disable=SC2206
+    extra_dotnet_build_args=(${DOTNET_BUILD_ARGS})
+    dotnet_build_args+=("${extra_dotnet_build_args[@]}")
+  fi
 
   if (( ${#dotnet_build_args[@]} > 0 )); then
     if dotnet build "$ROOT_DIR/$project" --configuration "$BUILD_CONFIG" /property:WarningLevel=0 "${dotnet_build_args[@]}"; then
