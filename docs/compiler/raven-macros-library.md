@@ -160,8 +160,10 @@ required C# escape hatch should be treated as evidence of a Raven compiler or
 macro-authoring problem to diagnose and improve. `timer` is implemented wholly
 in `Raven.Macros`. `embedFileContent` also runs wholly from Raven and uses the
 public dependency-tracked file-reading API. `sha256Digest` consumes the public
-constant information already carried by its `MacroArgument`; the older
-standard macros remain migration work.
+constant information already carried by its `MacroArgument`. The `Error` and
+`ErrorMessage` pair also run wholly from Raven: they inspect attached syntax,
+report diagnostics, rewrite a base list, and introduce generated properties.
+The remaining older standard macros are migration work.
 
 When a marked Raven library contains macro declarations, emission
 lowers those declarations into reusable provider types and includes them in the
@@ -185,12 +187,12 @@ late type-load or invocation failure.
 
 ## Current implementation boundary
 
-`Quote.rvn`, `Compile.rvn`, and `Error.rvn` own their public macro declarations,
-namespaces, aliases, and documentation while their low-level expansion
-mechanics currently delegate to `StandardMacroExpansions` in
-`Raven.CodeAnalysis`. `ErrorMessage.rvn` and the other standard macros are
-implemented wholly in Raven. This incremental boundary is intentional while
-the macro API is still evolving.
+`Quote.rvn` and `Compile.rvn` own their public macro declarations, namespaces,
+aliases, and documentation while their low-level expansion mechanics currently
+delegate to `StandardMacroExpansions` in `Raven.CodeAnalysis`. `Error.rvn`,
+`ErrorMessage.rvn`, and the other standard macros are implemented wholly in
+Raven. This incremental boundary is intentional while the macro API is still
+evolving.
 
 As the public API gains sufficient diagnostic, source-location, and
 syntax-construction support, suitable behavior can move wholly or partly into

@@ -1017,7 +1017,10 @@ members.
 
 A convenience macro should expand to the ordinary framework model rather than
 create a parallel one. For example, the HTML/Blazor sample's `#[Parameter]`
-adds Blazor's normal parameter attribute.
+adds Blazor's normal parameter attribute. The standard `Error` macro is a
+larger attached-transform example: its Raven implementation preserves the
+authored union, adds `System.IError` to the typed base list when necessary, and
+introduces only the missing `Message` and `Cause` properties.
 
 ## 8. Package a reusable library
 

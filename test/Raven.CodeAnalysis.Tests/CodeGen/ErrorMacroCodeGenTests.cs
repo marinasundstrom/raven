@@ -116,6 +116,36 @@ public sealed class ErrorMacroCodeGenTests
         Assert.Equal("ParseError.MissingValue", result);
     }
 
+    [Fact]
+    public void ErrorMessageMacro_UsesStructLikeCaseFieldsInRavenInterpolation()
+    {
+        var result = InvokeRun("""
+            import System.*
+            import Raven.Macros.*
+
+            #[Error]
+            union ProcessError {
+                #[ErrorMessage("Process $Code failed: $Reason")]
+                case Failed {
+                    Code: int
+                    Reason: string
+                }
+            }
+
+            class Harness {
+                public static func Run() -> string {
+                    let failure: IError = ProcessError.Failed {
+                        Code = 17
+                        Reason = "timeout"
+                    }
+                    return failure.Message
+                }
+            }
+            """);
+
+        Assert.Equal("Process 17 failed: timeout", result);
+    }
+
     [Theory]
     [InlineData("#[ErrorMessage(42)] case Invalid", "ERRORMESSAGE001")]
     [InlineData("#[ErrorMessage(\"Invalid\")] case Invalid", "ERRORMESSAGE002")]

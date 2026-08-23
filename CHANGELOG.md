@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
 
 ## Unreleased
 
+- `Error` now performs its union inspection, `System.IError` base-list rewrite,
+  duplicate-message diagnostics, and generated `Message` and `Cause` property
+  construction wholly in the Raven-authored `Raven.Macros` library. The final
+  compiler-hosted C# implementation for the Error macro family has been
+  removed.
 - `ErrorMessage` now validates its string expression and containing `#[Error]`
   union wholly in the Raven-authored `Raven.Macros` library, demonstrating an
   attached macro that reports diagnostics and intentionally returns an empty
