@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+## 0.1.0-preview.13 - 2026-08-23
+
 - Compact macro declarations can now opt into explicit carrier combinations and
   token-body requirements with `MacroCarrier`. The standard `timer!` macro uses
   this to add `timer! message { ... }` while retaining `timer! { ... }`; message
