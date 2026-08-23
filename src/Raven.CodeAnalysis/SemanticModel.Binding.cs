@@ -2192,11 +2192,6 @@ public partial class SemanticModel
 
         if (unresolvedAliases.Count > 0)
         {
-            if (!allowSourceDeclarationCompletion)
-            {
-                BindNamespaceMembers(cu, compilationUnitBinder, targetNamespace, bindMemberSignatures: true);
-            }
-
             var aliasesToRetry = unresolvedAliases.ToArray();
             unresolvedAliases.Clear();
             BindAliases(aliasesToRetry, reportUnresolved: true);
@@ -2206,7 +2201,6 @@ public partial class SemanticModel
             (deferredWildcardImports.Count > 0 || deferredConstantImports.Count > 0))
         {
             Compilation.EnsureSourceDeclarationsDeclared();
-            BindNamespaceMembers(cu, compilationUnitBinder, targetNamespace, bindMemberSignatures: true);
         }
 
         foreach (var baseName in deferredWildcardImports)
@@ -3268,7 +3262,8 @@ public partial class SemanticModel
                             break;
 
                         var functionBinder = new FunctionBinder(parentBinder, functionStatement);
-                        _ = functionBinder.GetMethodSymbol();
+                        if (bindMemberSignatures)
+                            _ = functionBinder.GetMethodSymbol();
                         CacheBinder(globalStatement, functionBinder);
                         CacheBinder(functionStatement, functionBinder);
                         break;

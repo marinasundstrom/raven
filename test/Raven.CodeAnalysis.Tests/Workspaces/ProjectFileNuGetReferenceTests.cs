@@ -1710,6 +1710,37 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    public void OpenProject_Mfrc522Sample_ResolvesReaderErrorUnionForEditorQueries()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(repoRoot, "samples", "projects", "mfrc522-rfid", "Mfrc522Rfid.rvnproj");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "mfrc522-rfid", "src", "Program.rvn");
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.OpenProject(projectPath);
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree =>
+            string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
+        var model = compilation.GetSemanticModel(tree);
+        var root = tree.GetRoot();
+        var readerErrorSyntax = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .First(static identifier => identifier.Identifier.ValueText == "ReaderError");
+        var describeSyntax = root.DescendantNodes()
+            .OfType<FunctionStatementSyntax>()
+            .Single(static function => function.Identifier.ValueText == "Describe");
+
+        var readerError = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(readerErrorSyntax).Symbol);
+        var describe = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(describeSyntax));
+        Assert.True(readerError.IsUnion);
+        Assert.Equal("ReaderError", readerError.Name);
+        Assert.True(Assert.Single(describe.Parameters).Type.IsUnion);
+
+        var diagnostics = compilation.GetDocumentDiagnostics(tree, analyzerOptions: null, CancellationToken.None);
+        Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void OpenProject_EfCoreContractsSample_PresentationQueriesBeforeDiagnostics_DoNotLoseVehicleStatusDtoMembers()
     {
         var repoRoot = FindRepositoryRoot();
