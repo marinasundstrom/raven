@@ -76,7 +76,8 @@ public class LanguageServerHoverPresentationTests
             [syntaxTree.GetText(), semanticModel, root, offset]);
 
         hover.ShouldNotBeNull();
-        hover.Contents.MarkupContent!.Value.ShouldContain("component! Greeting(...) { ... }");
+        hover.Contents.MarkupContent!.Value.ShouldContain(
+            "component! Greeting(Name: string = \"\") { ... }");
     }
 
     [Fact]
