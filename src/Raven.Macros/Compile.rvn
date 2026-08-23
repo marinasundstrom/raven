@@ -1,5 +1,9 @@
 namespace Raven.Macros
 
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
 /// Quotes a Raven expression and compiles it into the requested delegate type.
 ///
 /// Import `Raven.Macros.*` to invoke the conventional `compile!` alias. Runtime
@@ -20,7 +24,38 @@ namespace Raven.Macros
 ///     value => value + 1
 /// }
 /// ```
-[Raven.CodeAnalysis.Macros.MacroAlias("compile")]
-public macro Compile(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
-    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandCompile(context)
+[MacroAlias("compile")]
+public macro Compile(context: TokenTreeMacroContext) {
+    if context.Name is GenericNameSyntax genericName {
+        if genericName.TypeArgumentList.Arguments.Count == 1 {
+            let quoteResult = StandardMacroExpansions.ExpandQuote(context)
+            if quoteResult.Expression is ExpressionSyntax quotedExpression {
+                let delegateType = genericName.TypeArgumentList.Arguments[0].ToFullString().Trim()
+                let expansion = ParseExpression(
+                    "Raven.CodeAnalysis.RavenCompiler.Compile<" +
+                    delegateType +
+                    ">(" +
+                    quotedExpression.ToFullString() +
+                    ")")
+
+                if !expansion.IsMissing && !expansion.ContainsDiagnostics {
+                    expand FreestandingMacroExpansionResult.FromExpression(expansion)
+                }
+
+                expand FreestandingMacroExpansionResult.FromDiagnostic(
+                    context.CreateDiagnostic(
+                        "The compiler could not construct the runtime compilation expression.",
+                        syntax: context.Name,
+                        code: "COMPILE002"))
+            }
+
+            expand quoteResult
+        }
+    }
+
+    expand FreestandingMacroExpansionResult.FromDiagnostic(
+        context.CreateDiagnostic(
+            "The compile macro requires exactly one delegate type argument, as in compile<Func<int>>! { ... }.",
+            syntax: context.Name,
+            code: "COMPILE001"))
 }

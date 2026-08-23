@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
 
 ## Unreleased
 
+- `compile!` now validates its delegate type argument and constructs its
+  runtime-compilation expression in the Raven-authored `Raven.Macros` library,
+  leaving only the shared quote-and-splice operation compiler-hosted. The macro
+  design now records contextual expected-delegate and explicitly typed-lambda
+  inference as future, non-heuristic directions.
 - `Error` now performs its union inspection, `System.IError` base-list rewrite,
   duplicate-message diagnostics, and generated `Message` and `Cause` property
   construction wholly in the Raven-authored `Raven.Macros` library. The final

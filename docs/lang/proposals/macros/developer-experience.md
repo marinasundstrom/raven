@@ -353,6 +353,25 @@ arguments, constraints, and expansion-result validation are stable. Initially,
 registry identity can include name, generic arity, and invocation envelope
 without requiring general overload resolution.
 
+For `compile!`, inference should prefer semantic evidence over guessing from
+tokens. The useful progression is:
+
+1. retain `compile<TDelegate>! { ... }` as the explicit and unambiguous form;
+2. allow `compile! { ... }` when the invocation has a contextual expected
+   delegate type, such as an explicitly typed initializer, return, or argument;
+3. allow a body whose lambda parameters are explicitly typed to contribute its
+   parameter shape, then infer the result type by binding the body; and
+4. represent the result as typed expression syntax associated with that
+   delegate type once the typed syntax contract exists.
+
+An untyped body such as `value => value + 1` does not by itself determine
+whether `value` is an integer, decimal, user-defined numeric type, or another
+overloadable shape. The macro model should not make that choice heuristically.
+Contextual inference also requires the compiler to expose the invocation's
+expected type to expansion without recursively depending on the expansion's
+own bound type. That is a compiler-owned input to a future macro contract, not
+something each macro should reconstruct from parent syntax.
+
 ### Names and qualification
 
 Macros have one canonical namespace-qualified identity. Ordinary namespace
