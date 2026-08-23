@@ -132,6 +132,9 @@ public partial class SemanticModel
 
     private bool IsInSemanticQueryBinding => _semanticQueryBindingDepth.Value > 0;
 
+    internal bool IsCollectingBindingDiagnosticsForCurrentFlow =>
+        _isCollectingDiagnostics && !IsInSemanticQueryBinding;
+
     private bool HasSemanticAccessForCurrentFlow =>
         _semanticAccessDepth.Value > 0 ||
         (_isCollectingDiagnostics && _diagnosticCollectionThreadId == Environment.CurrentManagedThreadId);
@@ -13809,7 +13812,7 @@ public partial class SemanticModel
     }
 
     private BoundNode BindNodeWithCurrentDiagnosticMode(Binder binder, SyntaxNode node)
-        => _isCollectingDiagnostics && !IsInSemanticQueryBinding
+        => IsCollectingBindingDiagnosticsForCurrentFlow
             ? binder.GetOrBind(node)
             : binder.GetOrBindForSemanticQuery(node);
 

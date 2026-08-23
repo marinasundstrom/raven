@@ -780,6 +780,9 @@ partial class BlockBinder
 
     private void ReportUnreachableStatements(SyntaxNode block)
     {
+        if (!SemanticModel.IsCollectingBindingDiagnosticsForCurrentFlow)
+            return;
+
         var controlFlow = block switch
         {
             BlockStatementSyntax statementBlock => SemanticModel.AnalyzeControlFlowInternal(new ControlFlowRegion(statementBlock), statementBlock, analyzeJumpPoints: false),
