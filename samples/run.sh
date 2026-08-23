@@ -19,7 +19,7 @@ Options:
   -h, --help              Show this help
 
 Environment overrides:
-  DOTNET_VERSION, OUTPUT_DIR, EXCLUSIONS_FILE
+  DOTNET_VERSION, OUTPUT_DIR, EXCLUSIONS_FILE, RUN_CASES_FILE
 EOF
 }
 
@@ -60,6 +60,7 @@ else
 fi
 
 EXCLUSIONS_FILE="${EXCLUSIONS_FILE:-$SCRIPT_DIR/exclusions.txt}"
+RUN_CASES_FILE="${RUN_CASES_FILE:-$SCRIPT_DIR/run-cases.txt}"
 EXCLUDE_PATTERNS=()
 
 load_exclusions() {
@@ -108,6 +109,29 @@ has_source_sample() {
   [[ -f "$SCRIPT_DIR/$stem.rav" || -f "$SCRIPT_DIR/$stem.rvn" ]]
 }
 
+load_run_case() {
+  local relpath="$1"
+  EXPECTED_EXIT=0
+  RUN_ARGS=()
+
+  [[ -f "$RUN_CASES_FILE" ]] || return 0
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    [[ -z "$line" || "$line" == \#* ]] && continue
+
+    local path expected rest
+    read -r path expected rest <<< "$line"
+    [[ "$path" == "$relpath" ]] || continue
+
+    EXPECTED_EXIT="${expected:-0}"
+    if [[ -n "${rest:-}" ]]; then
+      read -r -a RUN_ARGS <<< "$rest"
+    fi
+    return 0
+  done < "$RUN_CASES_FILE"
+}
+
 if [[ ! -d "$OUTPUT_DIR" ]]; then
   echo "Output directory '$OUTPUT_DIR' does not exist."
   exit 1
@@ -145,14 +169,28 @@ for dll in "${dlls[@]}"; do
     continue
   fi
 
-  echo "Running: ${DOTNET_CMD[*]} \"$dll\""
-  if "${DOTNET_CMD[@]}" "$dll"; then
-    echo "✅ Success: $relpath"
-    successes+=("$relpath")
+  load_run_case "$relpath"
+  run_command=("${DOTNET_CMD[@]}" "$dll")
+  if (( ${#RUN_ARGS[@]} > 0 )); then
+    run_command+=("${RUN_ARGS[@]}")
+  fi
+  echo "Running: ${run_command[*]}"
+  if "${run_command[@]}"; then
+    rc=0
   else
     rc=$?
-    echo "❌ Failed ($rc): $relpath"
-    failures+=("$relpath (exit $rc)")
+  fi
+
+  if [[ "$rc" -eq "$EXPECTED_EXIT" ]]; then
+    if [[ "$EXPECTED_EXIT" -eq 0 ]]; then
+      echo "✅ Success: $relpath"
+    else
+      echo "✅ Success: $relpath (expected exit $EXPECTED_EXIT)"
+    fi
+    successes+=("$relpath")
+  else
+    echo "❌ Failed ($rc, expected $EXPECTED_EXIT): $relpath"
+    failures+=("$relpath (exit $rc, expected $EXPECTED_EXIT)")
   fi
   echo
 done

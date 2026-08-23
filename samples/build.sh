@@ -263,11 +263,15 @@ collect_filtered_sample_files() {
 if (( ${#FILTERS[@]} > 0 )); then
   while IFS= read -r file; do
     [[ -n "$file" ]] && sample_files+=("$file")
-  done < <(collect_filtered_sample_files || find . -type f \( -name "*.rav" -o -name "*.rvn" \) ! -path "./output/*" ! -path "./projects/*" | sort | sed 's#^\./##')
+  done < <(collect_filtered_sample_files || find . \
+    \( -path './output' -o -path './projects' -o -path '*/bin' -o -path '*/obj' -o -path '*/.raven' \) -prune -o \
+    -type f \( -name "*.rav" -o -name "*.rvn" \) -print | sort | sed 's#^\./##')
 else
   while IFS= read -r file; do
     sample_files+=("${file#./}")
-  done < <(find . -type f \( -name "*.rav" -o -name "*.rvn" \) ! -path "./output/*" ! -path "./projects/*" | sort)
+  done < <(find . \
+    \( -path './output' -o -path './projects' -o -path '*/bin' -o -path '*/obj' -o -path '*/.raven' \) -prune -o \
+    -type f \( -name "*.rav" -o -name "*.rvn" \) -print | sort)
 fi
 
 if (( ${#sample_files[@]} == 0 )); then

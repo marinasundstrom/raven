@@ -1,0 +1,6 @@
+# Per-sample runtime expectations.
+# Format: <output-relative-dll> <expected-exit-code> [arguments...]
+
+cases/first-or-error-conversion.dll 1
+cases/greeting-workflow-result.dll 0 Raven
+cases/greeting-workflow-result-async.dll 0 Raven
