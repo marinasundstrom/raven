@@ -2,8 +2,8 @@ import System.Console.*
 import Raven.Macros.*
 
 func Main() -> unit {
-    timer! {
-        let indexName = "products"
+    let indexName = "products"
+    timer! "$indexName index rebuilt in {time}" {
         RebuildIndex(indexName)
         WriteLine("Index saved")
     }

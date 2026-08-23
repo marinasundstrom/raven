@@ -130,6 +130,19 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void MacroCarrierAttribute_DeclaresContextOwnedInvocationShape()
+    {
+        var descriptor = MacroFacts.GetDescriptor(new AttributedCarrierMacro());
+
+        Assert.Equal(
+            MacroCarrierKinds.TokenTree | MacroCarrierKinds.ExpressionHeader,
+            descriptor.CarrierKinds);
+        Assert.Equal(MacroBodyRequirement.Required, descriptor.BodyRequirement);
+        Assert.True(descriptor.AcceptsArguments);
+        Assert.Empty(descriptor.Parameters);
+    }
+
+    [Fact]
     public void MethodShapedClass_UsesExpandSignatureWithoutExecutorBoilerplate()
     {
         var macro = new MethodShapedMacro();
@@ -1027,6 +1040,17 @@ public sealed class MacroReferenceTests
     public sealed class TestTokenTreeMacro : IMacroDefinition
     {
         public string Name => "tokenTree";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+    }
+
+    [MacroCarrier(
+        MacroCarrierKinds.TokenTree | MacroCarrierKinds.ExpressionHeader,
+        MacroBodyRequirement.Required)]
+    public sealed class AttributedCarrierMacro : IMacroDefinition
+    {
+        public string Name => "attributedCarrier";
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => FreestandingMacroExpansionResult.Empty;

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Compact macro declarations can now opt into explicit carrier combinations and
+  token-body requirements with `MacroCarrier`. The standard `timer!` macro uses
+  this to add `timer! message { ... }` while retaining `timer! { ... }`; message
+  templates preserve normal Raven interpolation and reserve literal `{time}`
+  for the elapsed duration.
 - The VS Code extension now reports its toolchain provenance at activation and
   through **Raven: Show Toolchain Information**, distinguishing repository and
   installed extension hosts, the exact language-server source, the installed

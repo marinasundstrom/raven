@@ -773,6 +773,12 @@ Here `carrier expressionHeader` changes the authored source envelope from
 `Retry!(operation) { ... }` to `Retry! operation { ... }`. It does not change
 the fact that `operation` is Raven `ExpressionSyntax`.
 
+The current API bridge uses `[MacroCarrier(...)]` on compact `macro`
+declarations and class-authored providers. It publishes the same normalized
+carrier and body-requirement descriptor without forcing a compact macro into a
+class shape. A future `carrier` clause can replace that attribute spelling
+without changing invocation syntax or the execution contract.
+
 A macro name or alias may publish several forms. Each form should retain its
 own typed entry point or overload so simple macro implementations do not need
 to inspect an untyped union of every possible carrier. Candidate selection

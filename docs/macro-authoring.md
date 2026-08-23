@@ -1202,6 +1202,28 @@ func GetTimerFragments(context: TokenTreeMacroContext) -> ImmutableArray<MacroFr
 }
 ```
 
+When a compact macro accepts a carrier shape that cannot be inferred solely
+from its parameters, declare the shape on the macro instead of replacing the
+declaration with an executor class:
+
+```raven
+[MacroCarrier(
+    MacroCarrierKinds.TokenTree | MacroCarrierKinds.ExpressionHeader,
+    MacroBodyRequirement.Required)]
+macro Timer(context: TokenTreeMacroContext) -> StatementSyntax {
+    let message = context.ExpressionArgument
+    let body = context.ParseBlockResult()
+    expand BuildTimedBlock(body.Syntax, message)
+}
+```
+
+This admits both `timer! { ... }` and `timer! message { ... }`. A
+context-owned expression header is intentionally raw syntax; typed and
+semantically constrained headers should remain declared `ExpressionSyntax<T>`
+inputs when the header is required. A future optional-input projection should
+model this as `Option<ExpressionSyntax<T>>` rather than using a null default or
+weakening Raven's ordinary default-parameter ordering rules.
+
 The application is statement-shaped source:
 
 ```raven
@@ -1244,8 +1266,7 @@ invocation is left in release code. That is macro policy rather than carrier
 syntax: the macro still expands normally, but reports a warning at its
 invocation when the compilation uses release optimization.
 
-The expression-header shape is separate and is currently selected by a
-class-authored macro:
+The expression-header shape can also be selected by a class-authored macro:
 
 ```raven
 public class ProbeMacro : IMacroDefinition {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Reflection;
 
 namespace Raven.CodeAnalysis.Macros;
 
@@ -21,7 +22,6 @@ public static class MacroFacts
         var acceptsDeclaredArguments = parameters.Any(static parameter =>
             parameter.Role is MacroParameterRole.Value or MacroParameterRole.SyntaxInput);
         var hasMethodExpand = MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var methodExpand);
-        var acceptsArguments = acceptsDeclaredArguments || macro.AcceptsArguments;
         var hasTokenBody = macro is IMacroExecutor { HasTokenBody: true } ||
             hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand)
                 .Any(static parameter =>
@@ -31,12 +31,16 @@ public static class MacroFacts
                 parameter.Source == MacroParameterSource.DeclarationInput) ||
             hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand).Any(static parameter =>
                 parameter.Source == MacroParameterSource.DeclarationInput);
+        var carrierKinds = GetCarrierKinds(macro, hasTokenBody, hasDeclarationInput);
+        var acceptsArguments = acceptsDeclaredArguments ||
+            macro.AcceptsArguments ||
+            carrierKinds.HasFlag(MacroCarrierKinds.ExpressionHeader);
         return new MacroDefinitionDescriptor(
             macro,
             GetApplicationKind(macro),
             GetInvocationTargets(macro),
             macro.ExpressionResultType,
-            GetCarrierKinds(macro, hasTokenBody, hasDeclarationInput),
+            carrierKinds,
             GetBodyRequirement(macro, hasTokenBody),
             GetTargets(macro),
             parameters,
@@ -52,6 +56,9 @@ public static class MacroFacts
         bool hasTokenBody,
         bool hasDeclarationInput)
     {
+        if (GetMacroCarrierAttribute(macro) is { } attribute)
+            return attribute.CarrierKinds;
+
         if (macro.CarrierKinds != MacroCarrierKinds.Default)
             return macro.CarrierKinds;
 
@@ -65,11 +72,23 @@ public static class MacroFacts
     private static MacroBodyRequirement GetBodyRequirement(
         IMacroDefinition macro,
         bool hasTokenBody)
-        => macro.BodyRequirement != MacroBodyRequirement.Default
+        => GetMacroCarrierAttribute(macro) is { BodyRequirement: not MacroBodyRequirement.Default } attribute
+            ? attribute.BodyRequirement
+            : macro.BodyRequirement != MacroBodyRequirement.Default
             ? macro.BodyRequirement
             : hasTokenBody
                 ? MacroBodyRequirement.Required
                 : MacroBodyRequirement.None;
+
+    private static MacroCarrierAttribute? GetMacroCarrierAttribute(IMacroDefinition macro)
+    {
+        if (macro.GetType().GetCustomAttribute<MacroCarrierAttribute>() is { } typeAttribute)
+            return typeAttribute;
+
+        return MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var expandMethod)
+            ? expandMethod.GetCustomAttribute<MacroCarrierAttribute>()
+            : null;
+    }
 
     /// <summary>
     /// Gets how the macro is applied to authored Raven syntax.

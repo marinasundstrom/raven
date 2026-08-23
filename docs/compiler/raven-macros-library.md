@@ -91,6 +91,19 @@ timer! {
 }
 ```
 
+An expression-header form accepts an optional message template:
+
+```raven
+let indexName = "products"
+timer! "$indexName index rebuilt in {time}" {
+    RebuildIndex(indexName)
+}
+```
+
+`$indexName` and `${expression}` retain Raven's ordinary caller-scope string
+interpolation. `{time}` is deliberately a separate timer placeholder so it
+cannot capture a caller variable named `time`.
+
 Conceptually, it expands to the following boilerplate:
 
 ```raven

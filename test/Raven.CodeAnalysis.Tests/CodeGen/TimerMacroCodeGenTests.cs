@@ -31,6 +31,36 @@ public sealed class TimerMacroCodeGenTests
     }
 
     [Fact]
+    public void TimerMacro_MessageTemplate_UsesElapsedTimeAndCallerInterpolation()
+    {
+        var output = InvokeRun("""
+            import System.*
+            import Raven.Macros.*
+
+            class Harness {
+                public static func Run() -> string {
+                    let operation = "Rebuild index"
+                    let previous = Console.Out
+                    let writer = IO.StringWriter()
+                    Console.SetOut(writer)
+                    try {
+                        timer! "$operation succeeded in {time}" {
+                            let value = 42
+                        }
+                    } finally {
+                        Console.SetOut(previous)
+                    }
+                    return writer.ToString()
+                }
+            }
+            """);
+
+        var message = Assert.IsType<string>(output);
+        Assert.StartsWith("Rebuild index succeeded in ", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("{time}", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TimerMacro_ReportsOrdinaryRavenBlockDiagnostics()
     {
         var syntaxTree = SyntaxTree.ParseText("""

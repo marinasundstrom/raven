@@ -264,7 +264,8 @@ internal static class MacroExpansionService
         TypeSyntax name,
         DiagnosticBag diagnostics)
     {
-        if (!MacroParameterBinder.ValidateArguments(
+        var argumentsAreContextOwned = descriptor.Parameters.IsEmpty && descriptor.AcceptsArguments;
+        if (!argumentsAreContextOwned && !MacroParameterBinder.ValidateArguments(
                 executor.Name,
                 name.GetLocation(),
                 descriptor.Parameters,

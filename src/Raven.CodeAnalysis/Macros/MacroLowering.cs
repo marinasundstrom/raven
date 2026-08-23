@@ -393,6 +393,16 @@ internal static class MacroLowering
             builder.AppendLine(
                 $"    val Alias: string? => \"{EscapeString(alias)}\"");
         }
+        if (GetMacroCarrier(declaration) is { } carrier)
+        {
+            builder.AppendLine(
+                $"    val CarrierKinds: Raven.CodeAnalysis.Macros.MacroCarrierKinds => {carrier.CarrierKinds}");
+            if (carrier.BodyRequirement is { } bodyRequirement)
+            {
+                builder.AppendLine(
+                    $"    val BodyRequirement: Raven.CodeAnalysis.Macros.MacroBodyRequirement => {bodyRequirement}");
+            }
+        }
         if (!isAttached)
         {
             builder.AppendLine(
@@ -734,6 +744,34 @@ internal static class MacroLowering
             }
 
             return literal.Token.ValueText;
+        }
+
+        return null;
+    }
+
+    internal static (string CarrierKinds, string? BodyRequirement)? GetMacroCarrier(
+        MacroDeclarationSyntax declaration)
+    {
+        foreach (var attribute in declaration.AttributeLists.SelectMany(static list => list.Attributes))
+        {
+            var attributeName = attribute.Name switch
+            {
+                IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+                QualifiedNameSyntax { Right: IdentifierNameSyntax identifier } =>
+                    identifier.Identifier.ValueText,
+                _ => string.Empty
+            };
+            if (attributeName is not ("MacroCarrier" or "MacroCarrierAttribute") ||
+                attribute.ArgumentList is not { Arguments.Count: >= 1 and <= 2 } arguments)
+            {
+                continue;
+            }
+
+            return (
+                arguments.Arguments[0].Expression.ToString(),
+                arguments.Arguments.Count == 2
+                    ? arguments.Arguments[1].Expression.ToString()
+                    : null);
         }
 
         return null;
