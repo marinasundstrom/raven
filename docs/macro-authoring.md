@@ -199,6 +199,14 @@ The compiler projects the second argument to `ExpressionSyntax`; it does not
 execute that expression. For nontrivial construction, prefer immutable syntax
 factories or `quote!` with syntax holes over long generated strings.
 
+When a syntax-role parameter may also be a compile-time constant, accept a
+`FreestandingMacroContext` and inspect the corresponding `MacroArgument` in
+`context.Arguments`. `HasValue` distinguishes evaluable constant syntax from
+ordinary runtime expressions; `Constant`, `Value`, `Type`, and `ValueKind`
+describe the evaluated value without requiring an internal evaluator. The
+standard `sha256Digest!` macro uses this path while retaining the authored
+expression for precise diagnostics.
+
 ## 3. Add an unrestricted DSL body
 
 One `IMacroTokenStream` parameter denotes the brace-delimited body. It is

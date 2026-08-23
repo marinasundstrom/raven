@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
 
 ## Unreleased
 
+- `sha256Digest!` now implements constant inspection, canonical formatting,
+  hashing, and syntax construction wholly in the Raven-authored
+  `Raven.Macros` library through the public `MacroArgument` constant contract.
 - Macro authors can now read source-relative text files through public
   dependency-tracked context APIs and construct safely escaped Raven string
   literals with `MacroSyntax.StringLiteral`. `embedFileContent!` now implements

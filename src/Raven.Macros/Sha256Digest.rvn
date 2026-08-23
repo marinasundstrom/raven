@@ -1,5 +1,11 @@
 namespace Raven.Macros
 
+import System.*
+import System.Globalization.*
+import System.Security.Cryptography.*
+import System.Text.*
+import Raven.CodeAnalysis.Macros.*
+
 /// Computes the SHA-256 digest of a literal value during compilation.
 ///
 /// Import `Raven.Macros.*` to invoke the conventional `sha256Digest!` alias.
@@ -22,7 +28,47 @@ namespace Raven.Macros
 [Raven.CodeAnalysis.Macros.MacroAlias("sha256Digest")]
 public macro Sha256Digest(
     value: Raven.CodeAnalysis.Syntax.ExpressionSyntax,
-    context: Raven.CodeAnalysis.Macros.FreestandingMacroContext
+    context: FreestandingMacroContext
 ) {
-    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandSha256Digest(context, value)
+    let argument = context.Arguments[0]
+    if !argument.HasValue {
+        expand FreestandingMacroExpansionResult.FromDiagnostic(
+            context.CreateArgumentDiagnostic(
+                argument,
+                "The sha256Digest macro requires a literal string, character, Boolean, numeric, or null value.",
+                code: "SHA256001"))
+    }
+
+    let constant = argument.Value
+    var canonicalText: string? = null
+    if constant is null {
+        canonicalText = ""
+    } else if constant is string stringValue {
+        canonicalText = stringValue
+    } else if constant is char character {
+        canonicalText = character.ToString()
+    } else if constant is bool boolean {
+        canonicalText = if boolean { "true" } else { "false" }
+    } else if constant is float single {
+        canonicalText = single.ToString("R", CultureInfo.InvariantCulture)
+    } else if constant is double doubleValue {
+        canonicalText = doubleValue.ToString("R", CultureInfo.InvariantCulture)
+    } else if constant is decimal decimalValue {
+        canonicalText = decimalValue.ToString("G29", CultureInfo.InvariantCulture)
+    } else if constant is IFormattable formattable {
+        canonicalText = formattable.ToString(null, CultureInfo.InvariantCulture)
+    }
+
+    if canonicalText is string canonicalValue {
+        let bytes = Encoding.UTF8.GetBytes(canonicalValue)
+        let digest = Convert.ToHexStringLower(SHA256.HashData(bytes))
+        expand FreestandingMacroExpansionResult.FromExpression(
+            MacroSyntax.StringLiteral(digest))
+    }
+
+    expand FreestandingMacroExpansionResult.FromDiagnostic(
+        context.CreateArgumentDiagnostic(
+            argument,
+            "The sha256Digest macro requires a literal string, character, Boolean, numeric, or null value.",
+            code: "SHA256001"))
 }
