@@ -153,12 +153,13 @@ stable. Do not require a flag-day rewrite of the entire compiler.
 During this parity phase, prefer direct and reviewable translations. Local
 idiomatic Raven constructs are welcome when they are obviously equivalent,
 well tested, and reduce risk, but broad cleanup or architectural invention
-should remain limited. After the Raven compiler is stable enough to compile
-itself and its results agree with the C# oracle, begin a distinct idiomatic
-cleanup phase. That phase can reshape internal APIs, replace expected absence
-with `Option`, use `Result` for recoverable failure, model closed states with
-unions, and simplify code around Raven-native language features without
-obscuring whether an earlier mismatch was a porting error.
+should remain limited. Public compiler API contracts are a separate boundary:
+the [pre-bootstrap adoption plan](../api/result-shapes.md) may introduce
+`Option`, `Result`, and unions through the existing C# implementation before a
+source port begins. Once a port starts, those already-established contracts are
+part of the oracle rather than port-time cleanup. Broader internal reshaping
+still belongs in a distinct idiomatic cleanup phase after the Raven compiler
+agrees with the C# implementation.
 
 ## Project-system boundary
 
@@ -260,10 +261,12 @@ contract merely to eliminate `null` from its signature.
 
 This does not require Raven-designed Compiler APIs to expose nullable C# shapes.
 `Option`, `Result`, and custom Raven unions are ordinary .NET ABI types and can
-be consumed from C#. After bootstrap, APIs owned by Raven should use those
-carriers when they express the outcome more precisely; platform projections
-should retain nullability only where it is part of the underlying contract. See
-[Desired Compiler API result shapes after bootstrap](../api/result-shapes.md).
+be consumed from C#. Under the pre-bootstrap adoption plan, APIs owned by Raven
+can begin using those carriers through the existing C# implementation when they
+express the outcome more precisely; platform projections should retain
+nullability only where it is part of the underlying contract. See
+[Raven-native Compiler API result shapes and pre-bootstrap
+adoption](../api/result-shapes.md).
 
 ## Findings from the current implementation
 
@@ -1243,5 +1246,6 @@ boundary at a time and checked against the same suites. Each component carries
 its focused tests and can replace the C# implementation independently when the
 architecture permits it. The existing compiler continues to receive
 correctness, diagnostics, recovery, and performance improvements throughout
-that process; after parity is established, the Raven implementation enters a
-separate Raven-native cleanup phase.
+that process. Selected public API contracts may already be Raven-native under
+the pre-bootstrap adoption plan; after parity is established, the Raven
+implementation enters a separate internal Raven-native cleanup phase.

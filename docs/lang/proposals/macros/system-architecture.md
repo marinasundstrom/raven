@@ -461,12 +461,13 @@ partially bound answer.
 ### Raven-facing result shapes and bootstrap layering
 
 The compiler-wide policy is documented in
-[Desired Compiler API result shapes after bootstrap](../../../compiler/api/result-shapes.md).
+[Raven-native Compiler API result shapes and pre-bootstrap
+adoption](../../../compiler/api/result-shapes.md).
 Macro APIs should apply that policy rather than define a separate result model.
 
-The long-term Raven-authored API should look like Raven rather than merely
-transliterating nullable C# contracts. Once the compiler bootstrap can consume
-these types without introducing a `Raven.Core` build cycle, use:
+The Raven-facing API should look like Raven rather than merely transliterating
+nullable C# contracts. Once the explicit stage-0 build boundary can supply
+these types without introducing a `Raven.Core` source-build cycle, use:
 
 * `Option<T>` when the only distinction is presence or absence;
 * `Result<T, TError>` for one expected success/failure boundary;

@@ -1,4 +1,9 @@
 # Architecture
+
+Architecturally significant choices are preserved in the
+[architecture decision record index](ADR.md). Add a record when a
+change establishes a durable compiler, language, API, bootstrap, build, or
+distribution constraint.
  
 ## Design goals
 
@@ -12,6 +17,11 @@ diagnostic lanes, and language-server scheduling.
 Before porting compiler components to Raven, use
 [Syntactic and semantic stabilization](syntactic-and-semantic-stabilization.md)
 as the evidence-based stabilization plan and behavioral exit gate.
+
+Use [Raven-native Compiler API result shapes and pre-bootstrap
+adoption](../api/result-shapes.md) for the staged plan that preserves
+`v0.1.0-preview.14` as the stage-0 foundation while selected APIs adopt
+Raven.Core contracts inside the existing C# implementation.
 
 Use [.NET conformance, Raven divergences, and emitted
 IL](dotnet-conformance-and-divergence.md) when deciding whether Raven should
