@@ -320,6 +320,12 @@ public interface IMacroSymbol : ISymbol
     MacroInvocationTargets InvocationTargets { get; }
 
     /// <summary>
+    /// Gets the semantic type promised by an expression macro, or
+    /// <see langword="null"/> for a category-only expression contract.
+    /// </summary>
+    ITypeSymbol? ExpressionResultType => null;
+
+    /// <summary>
     /// Gets the category of macro represented by this symbol.
     /// </summary>
     MacroKind MacroKind { get; }

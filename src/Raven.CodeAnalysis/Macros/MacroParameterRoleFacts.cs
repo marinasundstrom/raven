@@ -23,7 +23,8 @@ internal static class MacroParameterRoleFacts
         if (IsOrDerivesFrom(
             parameterType,
             "Raven.CodeAnalysis.Syntax",
-            nameof(ExpressionSyntax)))
+            nameof(ExpressionSyntax)) ||
+            IsExpressionSyntaxFacade(parameterType))
         {
             return MacroParameterRole.SyntaxInput;
         }
@@ -55,6 +56,12 @@ internal static class MacroParameterRoleFacts
 
         if (typeof(ExpressionSyntax).IsAssignableFrom(parameterType))
             return MacroParameterRole.SyntaxInput;
+
+        if (parameterType.IsGenericType &&
+            parameterType.GetGenericTypeDefinition() == typeof(ExpressionSyntax<>))
+        {
+            return MacroParameterRole.SyntaxInput;
+        }
 
         if (typeof(IMacroTokenStream).IsAssignableFrom(parameterType))
             return MacroParameterRole.TokenBody;
@@ -182,6 +189,13 @@ internal static class MacroParameterRoleFacts
 
         return false;
     }
+
+    internal static bool IsExpressionSyntaxFacade(ITypeSymbol type)
+        => type is INamedTypeSymbol { Arity: 1 } namedType &&
+           IsNamedType(
+               namedType.OriginalDefinition,
+               "Raven.CodeAnalysis.Macros",
+               nameof(ExpressionSyntax));
 
     private static bool IsNamedType(
         ITypeSymbol type,

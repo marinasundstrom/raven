@@ -752,6 +752,49 @@ its private tree part of Raven's public syntax or semantic model.
 | Combine framework-specific semantics with a standard embedded language | Implement both completion and projection services; keep framework items compiler-owned and let the editor supplement them |
 | Validate or lower the DSL | Keep using the macro's parser and `Expand`; an editor projection is never the structural authority |
 
+### Strongly typed expression boundaries
+
+Use `ExpressionSyntax<T>` when a macro must accept or promise an expression
+with a particular Raven result type:
+
+```raven
+macro Render(
+    model: ExpressionSyntax<ViewModel>
+) -> ExpressionSyntax<RenderFragment> {
+    // model.Syntax is the authored immutable expression node.
+    // model.Type is its compiler-verified bound type.
+    expand BuildRenderFragment(model.Syntax)
+}
+
+let fragment = Render!(LoadViewModel!())
+```
+
+The compiler checks the input before running `Render` and checks its ordinary
+expanded expression after binding it. It does not evaluate `model`. Plain
+`ExpressionSyntax` remains available when only the expression syntax category
+matters. At an invocation, hover presents the promised Raven result type `T`,
+not the macro-infrastructure facade `ExpressionSyntax<T>`. For an untyped
+expression macro, hover instead reports the type inferred from its bound
+expansion.
+
+Class-authored providers keep returning an ordinary `ExpressionSyntax` or
+`FreestandingMacroExpansionResult` and declare an output contract separately:
+
+```raven
+class MarkupMacro : IMacroDefinition {
+    val ExpressionResultType: Type? => typeof(RenderFragment)
+
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+        // Parse the DSL and return an ordinary expression expansion.
+    }
+}
+```
+
+The checked-in Markup sample uses this contract because every successful
+expansion is a `RenderFragment`. The standard Query macro is intentionally not
+fixed to one result type yet: its precise result depends on the source operator
+family and selector type, which requires a later generic inference contract.
+
 ### A composed Markup provider
 
 The checked-in

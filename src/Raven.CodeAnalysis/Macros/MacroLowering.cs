@@ -397,6 +397,11 @@ internal static class MacroLowering
         {
             builder.AppendLine(
                 $"    val InvocationTargets: Raven.CodeAnalysis.Macros.MacroInvocationTargets => {GetInvocationTargetsExpression(symbol?.InvocationTargets ?? MacroInvocationTargets.Expression)}");
+            if (TryGetExpressionResultType(symbol?.ReturnType, out var expressionResultType))
+            {
+                builder.AppendLine(
+                    $"    val ExpressionResultType: System.Type? => typeof({expressionResultType})");
+            }
         }
         if (isAttached)
         {
@@ -685,7 +690,23 @@ internal static class MacroLowering
                     target != MacroInvocationTargets.None &&
                     ((int)target & ((int)target - 1)) == 0)
                 .Where(target => targets.HasFlag(target))
-                .Select(target => prefix + target));
+            .Select(target => prefix + target));
+    }
+
+    private static bool TryGetExpressionResultType(
+        ITypeSymbol? returnType,
+        out string expressionResultType)
+    {
+        if (returnType is INamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
+            MacroParameterRoleFacts.IsExpressionSyntaxFacade(namedType))
+        {
+            expressionResultType = namedType.TypeArguments[0].ToDisplayString(
+                SymbolDisplayFormat.RavenCodeGenerationFormat);
+            return true;
+        }
+
+        expressionResultType = string.Empty;
+        return false;
     }
 
     private static bool EndsWithExpand(MacroDeclarationSyntax declaration)

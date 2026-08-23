@@ -70,6 +70,12 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
             ? MacroInvocationTargets.None
             : _invocationTargets;
 
+    public ITypeSymbol? ExpressionResultType =>
+        ReturnType is INamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
+        MacroParameterRoleFacts.IsExpressionSyntaxFacade(namedType)
+            ? namedType.TypeArguments[0]
+            : null;
+
     public MacroKind MacroKind =>
         _isAttached
             ? MacroKind.AttachedDeclaration

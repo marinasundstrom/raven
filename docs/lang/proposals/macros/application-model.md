@@ -576,20 +576,19 @@ The same rule applies to sequence items. `MacroList<int>` converts every
 item as authored expression syntax. A conversion or syntax-category failure is
 diagnosed at the responsible item and prevents execution with a partial input.
 
-Future typed syntax facades extend the syntax projection rather than replace
-it:
+Typed syntax facades extend the syntax projection rather than replace it:
 
 ```raven
-ExpressionSyntax<T>
-LiteralExpressionSyntax<T>
+ExpressionSyntax<T>        // implemented
+LiteralExpressionSyntax<T> // future fixed-node facade
 ```
 
-`ExpressionSyntax<T>` preserves the ordinary source-backed expression while
-also carrying a compiler-verified semantic constraint that its bound result is
-compatible with `T`. `LiteralExpressionSyntax<T>` additionally constrains the
-syntax shape. These are macro input facades over ordinary immutable syntax,
-not new nodes inserted into Raven's syntax tree and not evaluated runtime
-values.
+`ExpressionSyntax<T>` preserves the ordinary source-backed expression and its
+actual bound type while carrying a compiler-verified constraint that the result
+is compatible with `T`. A future `LiteralExpressionSyntax<T>` would additionally
+constrain the syntax shape. These are macro input facades over ordinary
+immutable syntax, not new nodes inserted into Raven's syntax tree and not
+evaluated runtime values.
 
 A dynamic context remains the escape hatch when a macro deliberately wants to
 interpret raw argument syntax itself. The normal strongly typed path should be
@@ -659,53 +658,48 @@ expression. This is a normal checked syntax conversion; a mismatch is diagnosed
 before the macro executes. The design does not require a new node such as a
 numeric-expression node merely to describe semantic numeric compatibility.
 
-The macro return annotation describes the **syntax category**, not the runtime
-or semantic type of the expanded expression. After expansion, Raven binds the
-ordinary returned expression in its invocation context. In the example, `x` is
-inferred as the normal numeric type of `2 + 3`; hover and downstream type
+Plain `ExpressionSyntax` describes the **syntax category**, not the semantic
+type of the expanded expression. After expansion, Raven binds the ordinary
+returned expression in its invocation context. Hover and downstream type
 checking use that bound type rather than `ExpressionSyntax`.
 
-The MVP does not introduce `ExpressionSyntax<T>` or another parallel type system
-for syntax objects. Contextual typing already validates the expansion where the
-invocation appears:
+The first typed-contract slice additionally supports `ExpressionSyntax<T>` at
+macro input and output boundaries:
 
 ```raven
-let x: double = evaluate!(2 + 3)
-```
-
-Typed syntax wrappers remain a post-MVP design decision and belong to a special
-macro-infrastructure layer. They are not syntax nodes, do not appear in ordinary
-Raven syntax trees, and do not extend the generated syntax-node hierarchy. They
-wrap existing immutable syntax nodes together with a compiler-verified semantic
-constraint. Ordinary syntax-node parameters and returns remain supported as the
-category-only, or “untyped,” forms.
-
-Illustrative future shapes are:
-
-```raven
-ExpressionSyntax<T>        // Any expression whose resulting type is compatible with T.
-LiteralExpressionSyntax<T> // A literal syntax node whose resulting type is compatible with T.
-
-macro Double(expr: ExpressionSyntax<double>) -> ExpressionSyntax<double> {
-    // ...
+macro RequireInt(value: ExpressionSyntax<int>) -> ExpressionSyntax<int> {
+    expand value.Syntax
 }
+
+macro ProduceInt() -> ExpressionSyntax<int> {
+    expand SyntaxFactory.ParseExpression("42")
+}
+
+let value: int = RequireInt!(ProduceInt!())
 ```
 
-`ExpressionSyntax<T>` constrains only the semantic result while
-`LiteralExpressionSyntax<T>` constrains both existing syntax shape and semantic
-type. Each wrapper retains access to its underlying ordinary node. The compiler
-would bind and verify the input before execution, then unwrap, bind, and verify
-the expansion after execution, mapping diagnostics through provenance. The
-macro cannot assert or bypass either check.
+For input, the compiler binds the authored expression, requires an implicit
+conversion to `T`, and only then executes the macro. The macro receives a
+macro-infrastructure facade containing the original source-backed `Syntax` node
+and its actual bound `Type`; the expression is not evaluated. For output, the
+macro still expands to an ordinary expression node. Raven binds that expansion
+and requires an implicit conversion to the promised `T` before exposing the
+result to the consuming expression context.
 
-The future result contract therefore has three independent axes:
+The facade is not a syntax node, does not appear in ordinary Raven syntax
+trees, and does not extend the generated syntax-node hierarchy. Plain
+`ExpressionSyntax` remains the category-only form. Class-authored providers
+express the same output promise through `IMacroDefinition.ExpressionResultType`
+while continuing to return an ordinary expression or expansion result.
+
+The result contract therefore has three independent axes:
 
 * the application position and output syntax category, such as expression;
 * an optional semantic result-type constraint, such as `T` in
   `ExpressionSyntax<T>`; and
 * an optional fixed syntax-node shape, such as the literal shape in
-  `LiteralExpressionSyntax<T>` or another dedicated facade over an existing
-  expression node kind.
+  a future `LiteralExpressionSyntax<T>` or another dedicated facade over an
+  existing expression node kind.
 
 Returning plain `ExpressionSyntax` continues to mean “an expression of any
 semantic type and any expression node kind.” A typed wrapper narrows the
@@ -715,10 +709,10 @@ syntax kinds. The normalized macro descriptor should retain these constraints
 separately so resolution, expansion validation, hover, and contextual typing
 can agree on the promise.
 
-The final wrapper API is deliberately undecided. Semantic promises must remain
-separate from grammatical invocation targets, work without creating binding
-cycles, and degrade to stable error-typed inputs and results during incomplete
-editing.
+Generic constraint inference and fixed-node facades remain future work.
+Semantic promises stay separate from grammatical invocation targets and are
+checked without consulting replacement-aware public semantic queries, avoiding
+expansion binding cycles.
 
 ### Binding order
 

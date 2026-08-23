@@ -573,6 +573,9 @@ public partial class SemanticModel
         ITypeSymbol type,
         TypeSyntax? syntax = null)
     {
+        if (MacroParameterRoleFacts.IsExpressionSyntaxFacade(type))
+            return MacroInvocationTargets.Expression;
+
         if (type is INamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
             Compilation.GetTypeByMetadataName(
                 "Raven.CodeAnalysis.Syntax.SyntaxList`1") is INamedTypeSymbol syntaxListType &&

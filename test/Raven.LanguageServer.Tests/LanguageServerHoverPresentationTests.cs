@@ -458,8 +458,47 @@ func Main() {
         var hover = nameHover.ShouldBeOfType<Hover>();
         hover.Contents.MarkupContent.ShouldNotBeNull();
         hover.Contents.MarkupContent!.Value.ShouldContain("Macro `symbolToken! { ... }`.");
+        hover.Contents.MarkupContent.Value.ShouldContain("inferred type `int`");
         hover.Contents.MarkupContent.Value.ShouldContain("Use `Show macro expansion`");
         hover.Contents.MarkupContent.Value.ShouldNotContain("Greeting");
+    }
+
+    [Fact]
+    public void TypedMacroInvocationHover_UsesPromisedTypeInsteadOfExpansionType()
+    {
+        const string code = """
+            import Raven.LanguageServer.Tests.*
+
+            let value = typedObject!()
+            """;
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(new MacroReference(new TypedObjectMacro()));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+        var root = syntaxTree.GetRoot();
+        var invocation = root.DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .ShouldHaveSingleItem();
+        semanticModel.GetMacroExpansion(invocation)?.Expression.ShouldNotBeNull();
+        var sourceText = syntaxTree.GetText();
+        var offset = code.IndexOf("typedObject", StringComparison.Ordinal) + 1;
+        var tryBuild = typeof(HoverHandler)
+            .GetMethod("TryBuildMacroInvocationHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var hover = tryBuild.Invoke(null, [sourceText, semanticModel, root, offset])
+            .ShouldBeOfType<Hover>();
+
+        hover.Contents.MarkupContent.ShouldNotBeNull();
+        hover.Contents.MarkupContent!.Value.ShouldContain("type `object`");
+        hover.Contents.MarkupContent.Value.ShouldNotContain("inferred type `string`");
+        hover.Contents.MarkupContent.Value.ShouldNotContain("ExpressionSyntax<object>");
     }
 
     [Fact]
@@ -656,6 +695,16 @@ func Test(item: Foo) -> bool {
 
         public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
             => context.Compilation.GetTypeByMetadataName(token.ValueText);
+    }
+
+    private sealed class TypedObjectMacro : IMacroDefinition
+    {
+        public string Name => "typedObject";
+
+        public Type? ExpressionResultType => typeof(object);
+
+        public ExpressionSyntax Expand()
+            => SyntaxFactory.ParseExpression("\"value\"");
     }
 
     private sealed class ConflictingSymbolMacro :

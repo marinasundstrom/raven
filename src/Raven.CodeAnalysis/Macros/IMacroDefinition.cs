@@ -52,6 +52,15 @@ public interface IMacroDefinition
     MacroInvocationTargets InvocationTargets => MacroInvocationTargets.Expression;
 
     /// <summary>
+    /// Gets the optional semantic result-type constraint for an expression macro.
+    /// </summary>
+    /// <remarks>
+    /// The compiler binds the expanded expression normally and requires an implicit
+    /// conversion to this type. This is independent of <see cref="InvocationTargets"/>.
+    /// </remarks>
+    Type? ExpressionResultType => null;
+
+    /// <summary>
     /// Gets the source carrier shapes accepted by this macro. The default
     /// infers the compatibility form from the macro's typed inputs.
     /// </summary>

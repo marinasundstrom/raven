@@ -13,7 +13,8 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
         ImmutableArray<string> aliases,
         MacroDefinitionDescriptor descriptor,
         INamespaceSymbol containingNamespace,
-        INamedTypeSymbol? implementationType)
+        INamedTypeSymbol? implementationType,
+        ITypeSymbol? expressionResultType)
         : base(
             SymbolKind.Macro,
             name,
@@ -28,6 +29,7 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
         Aliases = aliases;
         Descriptor = descriptor;
         ImplementationType = implementationType;
+        ExpressionResultType = expressionResultType;
     }
 
     public override string MetadataName => Name;
@@ -39,6 +41,8 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
     public MacroApplicationKind ApplicationKind => Descriptor.ApplicationKind;
 
     public MacroInvocationTargets InvocationTargets => Descriptor.InvocationTargets;
+
+    public ITypeSymbol? ExpressionResultType { get; }
 
     public MacroKind MacroKind => MacroFacts.GetKind(Descriptor.Definition);
 

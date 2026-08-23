@@ -248,16 +248,19 @@ macro binding and expansion results. Tooling for unchanged consumer documents
 must resolve against the replacement descriptor in the new snapshot rather
 than retaining or reconstructing the old signature.
 
-## Future-compatible requirements
+## Typed-expression requirements
 
-The MVP does not yet implement typed syntax facades, generic inference, or
-macro overloads. The ABI leaves room for them.
+Concrete `ExpressionSyntax<T>` parameters remain `SyntaxInput` parameters. The
+execution boundary constructs the macro-only facade after binding verifies the
+authored expression is implicitly convertible to `T`; the facade carries the
+ordinary syntax node and its actual bound type. Typed output contracts travel
+as descriptor metadata and are checked after ordinary expansion binding. No
+wider generic syntax-node hierarchy is implied.
 
-In particular, a future macro-only `ExpressionSyntax<T>` parameter remains a
-`SyntaxInput` whose semantic constraint refers to a definition-type parameter.
-The execution ABI must transport its bound syntax and symbolic type information
-without constructing `ExpressionSyntax<T>` with a consumer CLR type. No wider
-generic syntax-node hierarchy is implied by this requirement.
+Generic macro inference and constraints that refer to an unconstructed
+definition-type parameter remain future ABI work. They must preserve symbolic
+type information until invocation construction rather than treating an open
+CLR generic parameter as a verified constraint.
 
 ## Migration direction
 

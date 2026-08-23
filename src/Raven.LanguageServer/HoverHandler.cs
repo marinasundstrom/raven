@@ -645,6 +645,19 @@ internal sealed class HoverHandler : IHoverHandler
 
         var macroSymbol = semanticModel.GetSymbolInfo(invocationName).Symbol as IMacroSymbol
             ?? semanticModel.GetSymbolInfo(invocation).Symbol as IMacroSymbol;
+        var expressionResultType = macroSymbol?.ExpressionResultType;
+        var isDeclaredResultType = expressionResultType is not null;
+        if (expressionResultType is null &&
+            invocation is FreestandingMacroExpressionSyntax macroExpression)
+        {
+            expressionResultType = semanticModel.GetTypeInfo(macroExpression).Type;
+        }
+
+        if (expressionResultType is { TypeKind: not TypeKind.Error })
+        {
+            parts.Add(
+                $"Expands to an expression of {(isDeclaredResultType ? "type" : "inferred type")} `{expressionResultType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}`.");
+        }
         var documentation = FormatDocumentation(macroSymbol?.GetDocumentationComment());
         if (!string.IsNullOrWhiteSpace(documentation))
             parts.Add($"---\n\n{documentation}");
@@ -851,8 +864,8 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static SyntaxNode? FindFreestandingMacroCarrier(SyntaxToken token)
         => token.Parent?.AncestorsAndSelf().FirstOrDefault(static node =>
-            node is FreestandingMacroExpressionSyntax { TokenTree: not null } or
-                FreestandingMacroDeclarationSyntax { TokenTree: not null });
+            node is FreestandingMacroExpressionSyntax or
+                FreestandingMacroDeclarationSyntax);
 
     private static bool TryGetMacroHint(Compilation compilation, string macroName, out string hint)
     {

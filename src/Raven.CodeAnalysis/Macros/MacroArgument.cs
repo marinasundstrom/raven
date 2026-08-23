@@ -7,6 +7,7 @@ namespace Raven.CodeAnalysis.Macros;
 public sealed class MacroArgument
 {
     private readonly Lazy<TypedConstant> _constant;
+    private readonly Lazy<ITypeSymbol?> _semanticType;
 
     public MacroArgument(ArgumentSyntax syntax, SemanticModel semanticModel)
         : this(syntax, syntax?.Expression!, semanticModel)
@@ -24,9 +25,11 @@ public sealed class MacroArgument
         ArgumentNullException.ThrowIfNull(semanticModel);
         Name = (syntax as ArgumentSyntax)?.NameColon?.Name.Identifier.ValueText;
         Expression = expression ?? throw new ArgumentNullException(nameof(expression));
+        SemanticModel = semanticModel;
         _constant = new Lazy<TypedConstant>(() => TryCreateConstant(Expression, semanticModel.Compilation, out var constant)
             ? constant
             : TypedConstant.CreateError(type: null));
+        _semanticType = new Lazy<ITypeSymbol?>(() => semanticModel.GetMacroArgumentType(Expression));
     }
 
     public SyntaxNode Syntax { get; }
@@ -42,6 +45,11 @@ public sealed class MacroArgument
     public object? Value => Constant.Value;
 
     public ITypeSymbol? Type => Constant.Type;
+
+    /// <summary>Gets the ordinary bound type of the authored expression.</summary>
+    public ITypeSymbol? SemanticType => _semanticType.Value;
+
+    internal SemanticModel SemanticModel { get; }
 
     public TypedConstantKind ValueKind => Constant.Kind;
 

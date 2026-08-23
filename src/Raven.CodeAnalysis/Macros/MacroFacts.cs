@@ -35,6 +35,7 @@ public static class MacroFacts
             macro,
             GetApplicationKind(macro),
             GetInvocationTargets(macro),
+            macro.ExpressionResultType,
             GetCarrierKinds(macro, hasTokenBody, hasDeclarationInput),
             GetBodyRequirement(macro, hasTokenBody),
             GetTargets(macro),
@@ -268,6 +269,9 @@ public static class MacroFacts
 
     internal static string GetParameterTypeDisplay(Type type)
     {
+        if (MacroExpressionTypeFacts.TryGetConstraint(type, out var expressionType))
+            return $"ExpressionSyntax<{GetParameterTypeDisplay(expressionType)}>";
+
         var nullableType = Nullable.GetUnderlyingType(type);
         if (nullableType is not null)
             return GetParameterTypeDisplay(nullableType) + "?";

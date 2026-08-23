@@ -127,7 +127,8 @@ internal static class MethodMacroFacts
         {
             return MacroParameterSource.AttachedTarget;
         }
-        if (typeof(ExpressionSyntax).IsAssignableFrom(parameterType))
+        if (typeof(ExpressionSyntax).IsAssignableFrom(parameterType) ||
+            MacroExpressionTypeFacts.TryGetConstraint(parameterType, out _))
             return MacroParameterSource.SyntaxInput;
         return MacroParameterSource.Value;
     }

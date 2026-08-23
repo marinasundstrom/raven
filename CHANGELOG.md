@@ -4,6 +4,18 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Macros can now use `ExpressionSyntax<T>` as a semantic boundary contract in
+  addition to the existing expression syntax-category contract. Typed inputs
+  retain the authored immutable expression and its bound type, reject
+  incompatible arguments before execution, and compose with nested macro
+  invocations. Typed outputs bind the ordinary expansion and reject results
+  that are not implicitly convertible to `T`. Class-authored providers expose
+  the equivalent output promise through `ExpressionResultType`; the checked-in
+  Blazor Markup sample now promises `RenderFragment`, while Query remains
+  untyped until its source- and selector-dependent result can be inferred.
+  Macro hover presents a declared result as `T` rather than the infrastructure
+  facade `ExpressionSyntax<T>`, and infers the bound expansion type when no
+  result contract is declared.
 - The compiler no longer records or copies assemblies from the installed .NET
   shared framework as application-local runtime dependencies. Rebuilding after
   removing a runtime-dependent macro now clears the stale dependency manifest.

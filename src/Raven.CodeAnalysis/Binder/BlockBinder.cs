@@ -27,6 +27,16 @@ partial class BlockBinder : Binder
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor s_macroExpressionResultTypeMismatch = DiagnosticDescriptor.Create(
+        "RAVM023",
+        "Macro expression result type mismatch",
+        "",
+        "",
+        "Macro '{0}' promises an expression compatible with '{1}', but its expansion has type '{2}'.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
+
     private sealed class ExpressionSyntaxStructuralComparer : IEqualityComparer<ExpressionSyntax>
     {
         public bool Equals(ExpressionSyntax? x, ExpressionSyntax? y)
@@ -2510,11 +2520,30 @@ partial class BlockBinder : Binder
 
         SemanticModel.RegisterMacroReplacementSyntaxTree(syntax, expansion.Expression);
 
+        var expressionResultType = expansion.ExpressionResultType is { } runtimeResultType
+            ? MacroExpressionTypeFacts.ResolveConstraint(Compilation, runtimeResultType)
+            : null;
         var bound = BindExpressionWithTargetType(
             expansion.Expression,
-            GetScopedTargetType(syntax),
+            expressionResultType ?? GetScopedTargetType(syntax),
             allowReturn: _allowReturnsInExpression,
             allowReturnInBlockExpressionsOnly: _allowReturnsInBlockExpressionsOnly);
+
+        if (expressionResultType is not null &&
+            bound.Type is { } boundType &&
+            !IsAssignable(expressionResultType, boundType, out _))
+        {
+            _diagnostics.Report(Diagnostic.Create(
+                s_macroExpressionResultTypeMismatch,
+                syntax.Name.GetLocation(),
+                syntax.Name.ToString(),
+                expressionResultType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                boundType.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat)));
+            bound = new BoundErrorExpression(
+                expressionResultType,
+                bound.Symbol,
+                BoundExpressionReason.OtherError);
+        }
 
         CacheBoundNode(expansion.Expression, bound);
         return bound;

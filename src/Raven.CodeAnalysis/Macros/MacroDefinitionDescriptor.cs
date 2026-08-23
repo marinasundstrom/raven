@@ -11,6 +11,7 @@ public sealed class MacroDefinitionDescriptor
         IMacroDefinition definition,
         MacroApplicationKind applicationKind,
         MacroInvocationTargets invocationTargets,
+        System.Type? expressionResultType,
         MacroCarrierKinds carrierKinds,
         MacroBodyRequirement bodyRequirement,
         MacroTarget attachmentTargets,
@@ -21,6 +22,7 @@ public sealed class MacroDefinitionDescriptor
         Definition = definition;
         ApplicationKind = applicationKind;
         InvocationTargets = invocationTargets;
+        ExpressionResultType = expressionResultType;
         CarrierKinds = carrierKinds;
         BodyRequirement = bodyRequirement;
         AttachmentTargets = attachmentTargets;
@@ -33,6 +35,7 @@ public sealed class MacroDefinitionDescriptor
     public IMacroDefinition Definition { get; }
     public MacroApplicationKind ApplicationKind { get; }
     public MacroInvocationTargets InvocationTargets { get; }
+    public System.Type? ExpressionResultType { get; }
     public MacroCarrierKinds CarrierKinds { get; }
     public MacroBodyRequirement BodyRequirement { get; }
 

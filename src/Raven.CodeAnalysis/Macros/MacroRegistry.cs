@@ -242,6 +242,9 @@ internal sealed class MacroRegistry
         var implementationType = string.IsNullOrWhiteSpace(implementationTypeName)
             ? null
             : compilation.GetTypeByMetadataName(implementationTypeName);
+        var expressionResultType = descriptor.ExpressionResultType is { } runtimeResultType
+            ? MacroExpressionTypeFacts.ResolveConstraint(compilation, runtimeResultType)
+            : null;
 
         symbol = new SynthesizedMacroSymbol(
             resolvedName,
@@ -249,7 +252,8 @@ internal sealed class MacroRegistry
             aliases,
             descriptor,
             containingNamespace,
-            implementationType);
+            implementationType,
+            expressionResultType);
         return true;
     }
 

@@ -139,10 +139,10 @@ part of the stable contract.
 The authored carrier and the typed projection are separate decisions. The
 parser preserves arguments and regions without choosing their meaning. During
 macro binding, an ordinary parameter type requests compile-time value
-conversion, a syntax-node type requests the source-backed authored node, and a
-future typed syntax facade such as `ExpressionSyntax<T>` requests that same
-node together with a compiler-verified semantic constraint. One macro
-signature may mix all of these projections.
+conversion, a syntax-node type requests the source-backed authored node, and
+`ExpressionSyntax<T>` requests that same node and its actual bound type together
+with a compiler-verified semantic constraint. One macro signature may mix all
+of these projections.
 
 Future strongly typed inputs should extend this layering rather than create a
 parallel model. A normalized typed input frame can eventually contain:

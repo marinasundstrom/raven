@@ -227,6 +227,7 @@ internal static class MacroExpansionService
 
             result = ValidateExpansionCategory(loaded.Macro.Name, invocation, result, diagnostics);
             result = ContextualizeExpansionResult(invocation, result);
+            result.ExpressionResultType = loaded.Descriptor.ExpressionResultType;
             if (registerGeneratedSyntax)
             {
                 RegisterGeneratedSyntaxTree(compilation, semanticModel, result.Node);
@@ -671,6 +672,7 @@ internal static class MacroExpansionService
         destination.FragmentRegions = source.FragmentRegions;
         destination.TokenInfos = source.TokenInfos;
         destination.FileDependencies = source.FileDependencies;
+        destination.ExpressionResultType = source.ExpressionResultType;
         return destination;
     }
 
@@ -682,7 +684,8 @@ internal static class MacroExpansionService
             MacroDiagnostics = result.MacroDiagnostics,
             FragmentRegions = result.FragmentRegions,
             TokenInfos = result.TokenInfos,
-            FileDependencies = result.FileDependencies
+            FileDependencies = result.FileDependencies,
+            ExpressionResultType = result.ExpressionResultType
         };
 
     private static bool IsStatementPosition(FreestandingMacroExpressionSyntax expression)
