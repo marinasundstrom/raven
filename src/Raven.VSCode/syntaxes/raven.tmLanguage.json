@@ -147,7 +147,7 @@
             "patterns": [
                 {
                     "name": "meta.macro.freestanding.raven",
-                    "match": "([A-Za-z_][A-Za-z0-9_]*)(\\s*(?:<[^\\r\\n{}]*>)?\\s*)(!)(?=\\s*(?:\\(|\\{))",
+                    "match": "([A-Za-z_][A-Za-z0-9_]*)([ \\t]*(?:<[^\\r\\n{}]*>)?[ \\t]*)(!)(?=[ \\t]*(?:\\(|\\{|[A-Za-z_]|[0-9]|[\\\"']))",
                     "captures": {
                         "1": {
                             "name": "entity.name.function.macro.raven"

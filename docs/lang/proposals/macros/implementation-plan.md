@@ -50,11 +50,13 @@ The dependency-ordered slices are:
 6. raw-body statement invocation and recovery coverage (implemented); and
 7. later member, type, pattern, and quote-category work.
 
-After the application model is stable, evaluate macro-only typed syntax wrappers
-such as `ExpressionSyntax<T>` and `LiteralExpressionSyntax<T>`. They wrap
-existing ordinary nodes with compiler-verified semantic constraints; they are
-not additions to the Raven syntax tree, and untyped/category-only syntax nodes
-remain fully supported.
+The first macro-only typed syntax wrapper, `ExpressionSyntax<T>`, is now
+implemented for input and output contracts. It wraps an existing ordinary input
+node with its compiler-verified bound type, and records an output promise that
+is checked after expansion binding. It is not an addition to the Raven syntax
+tree, and untyped/category-only syntax nodes remain fully supported. Generic
+constraint inference and fixed-node wrappers such as
+`LiteralExpressionSyntax<T>` remain later slices.
 
 Each slice is committed independently. Syntax-model changes require generator
 rebuilds; compiler behavior changes require focused macro tests, and editor-facing
@@ -397,11 +399,10 @@ removing the compatibility surface. This is a distribution gate, not a second
 compiler execution model: the registry adapts those providers once and core
 expansion always invokes an `IMacroExecutor`.
 
-Typed expression facades, generic inference, and overloads are deliberately
-outside this slice. The ABI only preserves the symbolic type and syntax-input
-information they will require later. In particular, `ExpressionSyntax<T>`
-remains planned as a macro-only typed syntax facade rather than a runtime CLR
-generic that expansion must construct.
+Typed expression facades, generic inference, and overloads were deliberately
+outside this historical slice. A subsequent slice implemented concrete
+`ExpressionSyntax<T>` input wrappers and output constraints. Generic macro
+inference and overloads remain future work.
 
 The current adapter lowering reparses generated Raven source inside the local
 macro partition. Compiler-generated locals are allocated against authored

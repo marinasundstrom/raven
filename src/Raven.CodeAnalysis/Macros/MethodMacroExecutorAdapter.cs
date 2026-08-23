@@ -27,6 +27,9 @@ internal sealed class MethodMacroExecutorAdapter : IMacroExecutor
     public string? Documentation => _definition.Documentation;
     public DocumentationFormat DocumentationFormat => _definition.DocumentationFormat;
     public MacroInvocationTargets InvocationTargets => _definition.InvocationTargets;
+    public Type? ExpressionResultType => _definition.ExpressionResultType;
+    public MacroCarrierKinds CarrierKinds => _definition.CarrierKinds;
+    public MacroBodyRequirement BodyRequirement => _definition.BodyRequirement;
     public bool AcceptsArguments => Parameters.Any(static parameter => parameter.InvocationArgumentOrdinal is not null);
     public ImmutableArray<string> TypeParameters => [];
     public ImmutableArray<MacroExecutorParameter> Parameters { get; }

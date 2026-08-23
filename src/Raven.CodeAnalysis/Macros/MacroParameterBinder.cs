@@ -60,6 +60,16 @@ internal static class MacroParameterBinder
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor s_expressionTypeMismatch = DiagnosticDescriptor.Create(
+        "RAVM037",
+        "Macro expression argument type mismatch",
+        "",
+        "",
+        "Macro '{0}' argument '{1}' requires an expression compatible with '{2}', but this expression has type '{3}'.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true);
+
     public static bool ValidateArguments(
         string macroName,
         Location macroNameLocation,
@@ -150,6 +160,30 @@ internal static class MacroParameterBinder
         MacroArgument argument,
         DiagnosticBag diagnostics)
     {
+        if (MacroExpressionTypeFacts.TryGetConstraint(parameter.ParameterType, out var runtimeConstraint))
+        {
+            var actualType = argument.SemanticType;
+            var expectedType = MacroExpressionTypeFacts.ResolveConstraint(
+                argument.SemanticModel.Compilation,
+                runtimeConstraint);
+            var conversion = actualType is null || expectedType is null
+                ? default
+                : argument.SemanticModel.Compilation.ClassifyConversion(actualType, expectedType);
+            if (actualType is null || expectedType is null || !conversion.Exists || !conversion.IsImplicit)
+            {
+                diagnostics.Report(Diagnostic.Create(
+                    s_expressionTypeMismatch,
+                    argument.Expression.GetLocation(),
+                    macroName,
+                    parameter.Name,
+                    expectedType?.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? runtimeConstraint.Name,
+                    actualType?.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<unknown>"));
+                return false;
+            }
+
+            return true;
+        }
+
         if (TryConvertValue(argument, parameter.ParameterType, out _))
             return true;
 
@@ -164,6 +198,18 @@ internal static class MacroParameterBinder
 
     internal static bool TryConvertValue(MacroArgument argument, Type targetType, out object? converted)
     {
+        if (MacroExpressionTypeFacts.TryGetConstraint(targetType, out _))
+        {
+            if (argument.SemanticType is null)
+            {
+                converted = null;
+                return false;
+            }
+
+            converted = MacroExpressionTypeFacts.CreateFacade(targetType, argument);
+            return true;
+        }
+
         if (targetType.IsInstanceOfType(argument.Expression))
         {
             converted = argument.Expression;

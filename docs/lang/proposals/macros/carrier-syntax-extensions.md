@@ -1,6 +1,8 @@
 # Macro carrier syntax shapes
 
-Status: **Proposed**
+Status: **Carrier hierarchy, expression-header, and structured declaration
+header slices implemented; custom clauses and additional grammar positions
+remain proposed**
 
 This proposal adds predictable source shapes to Raven's macro carrier model.
 Its two immediate additions are richer declaration-shaped carriers and an
@@ -25,6 +27,13 @@ The existing terminology remains in use:
 * the **grammar position** is where the complete macro application appears,
   such as an expression, statement, type, pattern, or member position.
 
+Curly braces establish the token body's predictable boundary, not a mandatory
+Raven block grammar. A macro may parse the body as an ordinary Raven block,
+expose selected Raven fragments inside a private grammar, or interpret the
+entire body as a custom DSL. Authors should nevertheless respect the consumer
+expectations created by Raven-shaped surface syntax, especially around lexical
+scope, evaluation order, and control flow.
+
 A token body, declaration header, or unparenthesized expression is a carrier
 shape. It does not create another macro application kind.
 
@@ -32,7 +41,10 @@ shape. It does not create another macro application kind.
 
 Raven should let libraries offer DSLs with an outer shape appropriate to the
 job instead of forcing every extension through function-call syntax or one raw
-token body. Together, the carrier family can cover a useful spectrum:
+token body. The broader purpose is to simplify authored code: a concise,
+domain-meaningful form expands into more complex ordinary Raven code. Together,
+the carrier family lets those forms compose into DSLs that feel integrated with
+the language and covers a useful spectrum:
 
 ```raven
 sql!(queryText)
@@ -347,7 +359,9 @@ component<Blazor>! Counter<T>(initial: T)
 
 `Blazor` is a macro type argument. `T` is a declared type parameter. A macro
 author may accept either or both forms, but cannot change the category selected
-by the source position.
+by the source position. Macro resolution consumes the type arguments before
+`!`; the type parameters after the carried identifier remain syntax that
+participates in the expansion.
 
 ## Declaration-shaped carriers
 
@@ -759,6 +773,12 @@ Here `carrier expressionHeader` changes the authored source envelope from
 `Retry!(operation) { ... }` to `Retry! operation { ... }`. It does not change
 the fact that `operation` is Raven `ExpressionSyntax`.
 
+The current API bridge uses `[MacroCarrier(...)]` on compact `macro`
+declarations and class-authored providers. It publishes the same normalized
+carrier and body-requirement descriptor without forcing a compact macro into a
+class shape. A future `carrier` clause can replace that attribute spelling
+without changing invocation syntax or the execution contract.
+
 A macro name or alias may publish several forms. Each form should retain its
 own typed entry point or overload so simple macro implementations do not need
 to inspect an untyped union of every possible carrier. Candidate selection
@@ -794,6 +814,32 @@ positions, carrier syntax, or the public execution API.
 
 This is a forward-compatibility requirement on the model, not an implementation
 slice in this proposal.
+
+### Future data-literal DSLs
+
+A future `json` macro over `System.Text.Json.Nodes.JsonObject` and `JsonValue`
+would be a useful exercise for token-body DSLs:
+
+```raven
+let name = "Bob"
+
+json! {
+    "name": "$name",
+    "age": 42
+}
+```
+
+The outer braces should remain the Raven token-body delimiter in the syntax
+tree, while the macro may interpret their contents as the members of one JSON
+object. The consumer still experiences the complete form as an object literal;
+the DSL does not need a redundant inner brace pair. Inside a JSON string,
+`$identifier` and `${expression}` should retain Raven's existing Kotlin-like
+string-interpolation meaning. Structural insertion of strings, numbers,
+`JsonValue`, or `JsonObject` values needs a separate, not-yet-specified form so
+it cannot be confused with text interpolation. Array and arbitrary-root
+literals may motivate a future bracket carrier or another explicit root form.
+This is deferred library and syntax design, not part of the current
+implementation slice.
 
 ## Parser recovery
 
@@ -841,6 +887,26 @@ The model can advance in independently reviewable slices:
    select accepted position-and-carrier forms without losing strong typing.
 9. Update the grammar, syntax factories, pretty-printer, classifier, TextMate
    grammar, and macro tooling alongside the implemented slices.
+
+`Raven.Macros` should also act as a conformance suite for the public model and
+API. Familiar library macros for JSON, XML, Query, and SQL provide useful,
+understandable tests of custom token grammars, embedded Raven values,
+contextual clauses, introduced names, and typed fragments. They are validation
+milestones rather than the complexity ceiling: declaration-shaped DSLs, nested
+macro composition, and control-flow-like forms must eventually test the harder
+position, scope, and expansion contracts.
+
+Implementing and porting those macros in Raven is itself part of the validation
+method. A port that exposes a compiler bug, an awkward language construct, a
+missing public semantic API, or dependence on an internal C# helper should feed
+an improvement back into Raven and the macro contract rather than be hidden by
+another library-specific workaround.
+
+The standard library is a proving ground, not a permanent ownership boundary.
+Any of these macros may later move into a focused package so its DSL, runtime
+dependencies, compatibility policy, and release cadence can evolve and be
+versioned independently of Raven itself. That extraction should require only a
+macro-reference change for consumers, not a new carrier or application model.
 
 Changes to `Model.xml` require regeneration through the repository's normal
 syntax-generator build path.

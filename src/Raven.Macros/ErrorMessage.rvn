@@ -1,5 +1,9 @@
 namespace Raven.Macros
 
+import System.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+
 /// Supplies the message for one case of a union derived with `#[Error]`.
 ///
 /// The message is Raven expression syntax and is evaluated in the matching
@@ -16,9 +20,47 @@ namespace Raven.Macros
 /// }
 /// ```
 public macro ErrorMessage(
-    message: Raven.CodeAnalysis.Syntax.ExpressionSyntax,
-    on target: Raven.CodeAnalysis.Syntax.CaseDeclarationSyntax,
-    context: Raven.CodeAnalysis.Macros.AttachedMacroContext
+    message: ExpressionSyntax,
+    on target: CaseDeclarationSyntax,
+    context: AttachedMacroContext
 ) {
-    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandErrorMessage(context, target, message)
+    let isMessageExpression =
+        if message is InterpolatedStringExpressionSyntax interpolated {
+            true
+        } else if message is LiteralExpressionSyntax literal {
+            literal.Token.Kind == SyntaxKind.StringLiteralToken ||
+                literal.Token.Kind == SyntaxKind.MultiLineStringLiteralToken
+        } else {
+            false
+        }
+
+    if !isMessageExpression {
+        expand MacroExpansionResult.FromDiagnostic(
+            context.CreateDiagnostic(
+                "ErrorMessage requires a string literal or interpolated string expression.",
+                syntax: message,
+                code: "ERRORMESSAGE001"))
+    }
+
+    var hasErrorMacro = false
+    if target.Parent is UnionDeclarationSyntax targetUnion {
+        for attributeList in targetUnion.AttributeLists {
+            for attribute in attributeList.Attributes {
+                if attribute.TryGetMacroName(out var macroName) {
+                    if macroName == "Error" || macroName.EndsWith(".Error", StringComparison.Ordinal) {
+                        hasErrorMacro = true
+                    }
+                }
+            }
+        }
+    }
+
+    if !hasErrorMacro {
+        expand MacroExpansionResult.FromDiagnostic(
+            context.CreateDiagnostic(
+                "ErrorMessage can only be used on a case inside a union derived with #[Error].",
+                code: "ERRORMESSAGE002"))
+    }
+
+    expand MacroExpansionResult.Empty
 }

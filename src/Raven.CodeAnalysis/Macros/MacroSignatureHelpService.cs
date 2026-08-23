@@ -27,7 +27,8 @@ internal static class MacroSignatureHelpService
                 expectedKind = MacroKind.AttachedDeclaration;
                 break;
 
-            case FreestandingMacroExpressionSyntax expression when expression.TryGetMacroName(out name):
+            case ParenthesizedMacroCarrierSyntax { Parent: FreestandingMacroExpressionSyntax expression }
+                when expression.TryGetMacroName(out name):
                 nameSyntax = expression.Name;
                 invocation = expression;
                 expectedKind = MacroKind.Freestanding;

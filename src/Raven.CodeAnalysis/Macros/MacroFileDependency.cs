@@ -36,7 +36,10 @@ internal readonly record struct MacroFileDependency(
         => Equals(Capture(Path));
 }
 
-internal readonly record struct MacroFileReadResult(
+/// <summary>
+/// Describes the result of reading a file observed by a macro expansion.
+/// </summary>
+public readonly record struct MacroFileReadResult(
     string Path,
     string? Content,
     MacroFileReadStatus Status,
@@ -52,7 +55,10 @@ internal readonly record struct MacroFileReadResult(
         => new(path, Content: null, MacroFileReadStatus.Failed, error);
 }
 
-internal enum MacroFileReadStatus
+/// <summary>
+/// Describes whether a macro-observed file was read successfully.
+/// </summary>
+public enum MacroFileReadStatus
 {
     Success,
     Missing,

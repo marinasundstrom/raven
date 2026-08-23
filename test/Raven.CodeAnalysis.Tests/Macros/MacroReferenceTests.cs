@@ -130,6 +130,19 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void MacroCarrierAttribute_DeclaresContextOwnedInvocationShape()
+    {
+        var descriptor = MacroFacts.GetDescriptor(new AttributedCarrierMacro());
+
+        Assert.Equal(
+            MacroCarrierKinds.TokenTree | MacroCarrierKinds.ExpressionHeader,
+            descriptor.CarrierKinds);
+        Assert.Equal(MacroBodyRequirement.Required, descriptor.BodyRequirement);
+        Assert.True(descriptor.AcceptsArguments);
+        Assert.Empty(descriptor.Parameters);
+    }
+
+    [Fact]
     public void MethodShapedClass_UsesExpandSignatureWithoutExecutorBoilerplate()
     {
         var macro = new MethodShapedMacro();
@@ -205,6 +218,61 @@ public sealed class MacroReferenceTests
         Assert.True(errors.Length == 0, string.Join(System.Environment.NewLine, errors.Select(static diagnostic => diagnostic.ToString())));
         Assert.Contains("class Greeting", expanded, System.StringComparison.Ordinal);
         Assert.Contains("=> 42", expanded, System.StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DeclarationShapedMacro_ReceivesStructuredHeaderThroughSyntaxAndContext()
+    {
+        var macro = new RichDeclarationClassMacro();
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            richComponent! Greeting<T>(value: T)
+                : ComponentBase, IRenderable<T>
+                where T: Entity
+                permits SpecializedGreeting
+            { 42 }
+            """);
+        var compilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(macro));
+
+        _ = compilation.GetSemanticModel(syntaxTree).GetExpandedRoot();
+
+        Assert.Same(macro.DeclarationHeader, macro.ContextHeader);
+        Assert.Equal("T", Assert.Single(macro.DeclarationHeader!.TypeParameterList!.Parameters).Identifier.ValueText);
+        Assert.Equal(2, Assert.IsType<MacroBaseListSuffixSyntax>(macro.DeclarationHeader.Suffix).BaseList.Types.Count);
+        Assert.Single(macro.DeclarationHeader.ConstraintClauses);
+        Assert.NotNull(macro.DeclarationHeader.PermitsClause);
+    }
+
+    [Fact]
+    public void DeclarationShapedMacro_CanExpandMarkerHeaderWithoutTokenBody()
+    {
+        var macro = new MarkerDeclarationClassMacro();
+        var syntaxTree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Tests.Macros.*
+
+            marker! GeneratedMember
+            """);
+        var compilation = Compilation.Create(
+                "Consumer",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default)
+            .AddMacroReferences(new MacroReference(macro));
+
+        var expanded = compilation.GetSemanticModel(syntaxTree).GetExpandedRoot();
+
+        Assert.Contains(
+            expanded.Members,
+            static member => member is ClassDeclarationSyntax { Identifier.ValueText: "GeneratedMember" });
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
@@ -938,9 +1006,51 @@ public sealed class MacroReferenceTests
         }
     }
 
+    public sealed class RichDeclarationClassMacro : IMacroDefinition
+    {
+        public string Name => "RichDeclaration";
+        public string? Alias => "richComponent";
+
+        public MacroDeclarationHeaderSyntax? DeclarationHeader { get; private set; }
+        public MacroDeclarationHeaderSyntax? ContextHeader { get; private set; }
+
+        public MemberDeclarationSyntax Expand(
+            FreestandingMacroDeclarationSyntax declaration,
+            TokenTreeMacroContext context)
+        {
+            DeclarationHeader = declaration.Header;
+            ContextHeader = context.DeclarationHeader;
+            return SyntaxFactory.ParseSyntaxTree($$"""
+                class {{declaration.Identifier.ValueText}} {}
+                """).GetRoot().Members.Single();
+        }
+    }
+
+    public sealed class MarkerDeclarationClassMacro : IMacroDefinition
+    {
+        public string Name => "MarkerDeclaration";
+        public string? Alias => "marker";
+
+        public MemberDeclarationSyntax Expand(FreestandingMacroDeclarationSyntax declaration)
+            => SyntaxFactory.ParseSyntaxTree($$"""
+                class {{declaration.Identifier.ValueText}} {}
+                """).GetRoot().Members.Single();
+    }
+
     public sealed class TestTokenTreeMacro : IMacroDefinition
     {
         public string Name => "tokenTree";
+
+        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
+            => FreestandingMacroExpansionResult.Empty;
+    }
+
+    [MacroCarrier(
+        MacroCarrierKinds.TokenTree | MacroCarrierKinds.ExpressionHeader,
+        MacroBodyRequirement.Required)]
+    public sealed class AttributedCarrierMacro : IMacroDefinition
+    {
+        public string Name => "attributedCarrier";
 
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => FreestandingMacroExpansionResult.Empty;

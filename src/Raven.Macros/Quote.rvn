@@ -1,5 +1,12 @@
 namespace Raven.Macros
 
+import System.*
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
 /// Quotes a Raven expression as an immutable Raven syntax tree.
 ///
 /// Import `Raven.Macros.*` to invoke the conventional `quote!` alias. The
@@ -20,7 +27,237 @@ namespace Raven.Macros
 ///     left + right
 /// }
 /// ```
-[Raven.CodeAnalysis.Macros.MacroAlias("quote")]
-public macro Quote(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
-    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandQuote(context)
+[MacroAlias("quote")]
+public macro Quote(context: TokenTreeMacroContext) {
+    expand QuoteMacroImplementation.Expand(context)
+}
+
+[LocalMacro]
+class QuoteMacroImplementation {
+    static func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+        let bodyText = context.GetBodyText()
+        var projectedBody = bodyText
+        var placeholderNames: ImmutableArray<string> = []
+        var spliceSources: ImmutableArray<string> = []
+        var diagnostics: ImmutableArray<Diagnostic> = []
+        var macroDiagnostics: ImmutableArray<MacroExpansionDiagnostic> = []
+        let stream = context.CreateTokenStream()
+        var placeholderIndex = 0
+
+        while !stream.IsEndOfFile {
+            let hashToken = stream.ReadToken()
+            if hashToken.Kind == SyntaxKind.HashToken &&
+                stream.PeekToken().Kind == SyntaxKind.OpenParenToken &&
+                hashToken.Span.End == stream.PeekToken().SpanStart {
+                let openParenToken = stream.ReadToken()
+                var depth = 1
+                var closeParenToken = openParenToken
+                var foundClose = false
+
+                while !stream.IsEndOfFile && !foundClose {
+                    let token = stream.ReadToken()
+                    if token.Kind == SyntaxKind.OpenParenToken {
+                        depth = depth + 1
+                    } else if token.Kind == SyntaxKind.CloseParenToken {
+                        depth = depth - 1
+                        if depth == 0 {
+                            closeParenToken = token
+                            foundClose = true
+                        }
+                    }
+                }
+
+                if foundClose {
+                    let expressionSpan = TextSpan.FromBounds(
+                        openParenToken.Span.End,
+                        closeParenToken.SpanStart)
+                    let spliceSource = bodyText.Substring(
+                        expressionSpan.Start,
+                        expressionSpan.Length)
+
+                    if String.IsNullOrWhiteSpace(spliceSource) {
+                        macroDiagnostics = macroDiagnostics.Add(context.CreateBodyDiagnostic(
+                            expressionSpan,
+                            "Expression splice is incomplete.",
+                            code: "QUOTE005"))
+                    } else {
+                        let spliceExpression = context.ParseExpressionResult(expressionSpan)
+                        diagnostics = diagnostics.AddRange(spliceExpression.Diagnostics)
+
+                        if !spliceExpression.HasErrors {
+                            var spliceMissingPosition = -1
+                            for token in spliceExpression.Syntax.DescendantTokens() {
+                                if spliceMissingPosition < 0 && token.IsMissing {
+                                    spliceMissingPosition = token.SpanStart
+                                }
+                            }
+
+                            if spliceExpression.Syntax.IsMissing || spliceMissingPosition >= 0 {
+                                let position = if spliceMissingPosition < 0 {
+                                    expressionSpan.Start
+                                } else {
+                                    Math.Clamp(
+                                        spliceMissingPosition - context.BodySpan.Start,
+                                        expressionSpan.Start,
+                                        expressionSpan.End)
+                                }
+                                macroDiagnostics = macroDiagnostics.Add(context.CreateBodyDiagnostic(
+                                    TextSpan(position, 0),
+                                    "Expression splice is incomplete.",
+                                    code: "QUOTE005"))
+                            } else {
+                                let placeholderSpan = TextSpan.FromBounds(
+                                    hashToken.SpanStart,
+                                    closeParenToken.Span.End)
+                                let placeholderName = CreatePlaceholderName(
+                                    placeholderSpan.Length,
+                                    placeholderIndex,
+                                    bodyText,
+                                    placeholderNames)
+                                placeholderIndex = placeholderIndex + 1
+
+                                projectedBody =
+                                    projectedBody.Substring(0, placeholderSpan.Start) +
+                                    placeholderName +
+                                    projectedBody.Substring(placeholderSpan.End)
+                                placeholderNames = placeholderNames.Add(placeholderName)
+                                spliceSources = spliceSources.Add(spliceSource)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if diagnostics.Length > 0 || macroDiagnostics.Length > 0 {
+            return FreestandingMacroExpansionResult.FromDiagnostics(
+                diagnostics,
+                macroDiagnostics)
+        }
+
+        let fragment = context.ParseProjectedExpressionResult(projectedBody)
+        if fragment.HasErrors {
+            return FreestandingMacroExpansionResult.FromDiagnostics(fragment.Diagnostics)
+        }
+
+        var fragmentMissingPosition = -1
+        for token in fragment.Syntax.DescendantTokens() {
+            if fragmentMissingPosition < 0 && token.IsMissing {
+                fragmentMissingPosition = token.SpanStart
+            }
+        }
+
+        if fragment.Syntax.IsMissing || fragmentMissingPosition >= 0 {
+            let bodyPosition = if fragmentMissingPosition < 0 {
+                0
+            } else {
+                Math.Clamp(
+                    fragmentMissingPosition - context.BodySpan.Start,
+                    0,
+                    context.BodySpan.Length)
+            }
+            return FreestandingMacroExpansionResult.FromDiagnostic(
+                context.CreateBodyDiagnostic(
+                    TextSpan(bodyPosition, 0),
+                    "Quoted expression is incomplete.",
+                    code: "QUOTE001"))
+        }
+
+        if context.Compilation.GetTypeByMetadataName(
+            "Raven.CodeAnalysis.Syntax.SyntaxFactory") == null {
+            return Error(
+                context,
+                "Expression quotes require a runtime reference to Raven.CodeAnalysis.",
+                "QUOTE003")
+        }
+
+        let expansionText = RavenQuoter.Quote(fragment.Syntax, RavenQuoterOptions {
+            GenerateUsingDirectives = false
+            UseStaticSyntaxFactoryImport = false
+            FullyQualifyNames = true
+            IncludeTrivia = true
+            NormalizeWhitespace = false
+            NodeSourceOverride = node => SourceOverride(
+                node,
+                placeholderNames,
+                spliceSources)
+        })
+        let expansion = SyntaxFactory.ParseExpression(
+            expansionText,
+            context.Syntax.SyntaxTree?.Options)
+
+        if expansion is null || expansion.IsMissing || expansion.ContainsDiagnostics {
+            return Error(
+                context,
+                "The compiler could not construct the quoted expression.",
+                "QUOTE002")
+        }
+
+        FreestandingMacroExpansionResult.FromExpression(expansion)
+    }
+
+    static func SourceOverride(
+        node: SyntaxNode,
+        placeholderNames: ImmutableArray<string>,
+        spliceSources: ImmutableArray<string>
+    ) -> string? {
+        if node is IdentifierNameSyntax identifier {
+            var index = 0
+            while index < placeholderNames.Length {
+                if identifier.Identifier.ValueText == placeholderNames[index] {
+                    return spliceSources[index]
+                }
+                index = index + 1
+            }
+        }
+
+        null
+    }
+
+    static func Contains(values: ImmutableArray<string>, value: string) -> bool {
+        for candidate in values {
+            if candidate == value {
+                return true
+            }
+        }
+
+        false
+    }
+
+    static func CreatePlaceholderName(
+        length: int,
+        initialIndex: int,
+        bodyText: string,
+        existingPlaceholders: ImmutableArray<string>
+    ) -> string {
+        const alphabet = "_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+        var index = initialIndex
+
+        while true {
+            var value = index
+            index = index + 1
+            var suffix = ""
+            var position = length - 1
+            while position > 0 {
+                suffix = alphabet[value % alphabet.Length].ToString() + suffix
+                value = value / alphabet.Length
+                position = position - 1
+            }
+
+            let placeholder = "q" + suffix
+            if !bodyText.Contains(placeholder, StringComparison.Ordinal) &&
+                !Contains(existingPlaceholders, placeholder) {
+                return placeholder
+            }
+        }
+    }
+
+    static func Error(
+        context: TokenTreeMacroContext,
+        message: string,
+        code: string
+    ) -> FreestandingMacroExpansionResult {
+        FreestandingMacroExpansionResult.FromDiagnostic(
+            context.CreateDiagnostic(message, code: code))
+    }
 }

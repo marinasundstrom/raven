@@ -311,6 +311,54 @@ public sealed class MacroDeclarationParsingTests
     }
 
     [Fact]
+    public void AttachedMacroDeclaration_NestedExpansionAndSyntaxTypeTests_DoNotParseLocalTypes()
+    {
+        var tree = SyntaxTree.ParseText("""
+            macro Validate(
+                message: ExpressionSyntax,
+                on target: CaseDeclarationSyntax,
+                context: AttachedMacroContext
+            ) {
+                let valid =
+                    if message is InterpolatedStringExpressionSyntax interpolated {
+                        true
+                    } else if message is LiteralExpressionSyntax literal {
+                        literal.Token.Kind == SyntaxKind.StringLiteralToken
+                    } else {
+                        false
+                    }
+
+                if !valid {
+                    expand MacroExpansionResult.Empty
+                }
+
+                var found = false
+                if target.Parent is UnionDeclarationSyntax targetUnion {
+                    for attributeList in targetUnion.AttributeLists {
+                        for attribute in attributeList.Attributes {
+                            if attribute.TryGetMacroName(out var macroName) {
+                                found = macroName == "Error"
+                            }
+                        }
+                    }
+                }
+
+                expand MacroExpansionResult.Empty
+            }
+            """);
+
+        var localTypes = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<TypeDeclarationStatementSyntax>()
+            .ToArray();
+
+        Assert.True(
+            localTypes.Length == 0,
+            string.Join(Environment.NewLine, localTypes.Select(static node => node.ToFullString())));
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void ExpansionWords_RemainIdentifiersOutsideMacros()
     {
         var tree = SyntaxTree.ParseText("""

@@ -1,0 +1,107 @@
+namespace Raven.Macros
+
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+import Raven.CodeAnalysis.Text.*
+
+/// Measures an ordinary Raven block body with
+/// `System.Diagnostics.Stopwatch` and writes the elapsed duration. An optional
+/// message template uses `{time}` for the elapsed duration while retaining
+/// Raven's ordinary `$name` and `${expression}` interpolation.
+///
+/// The invocation occupies statement position. Release builds report a warning
+/// so accidental instrumentation is visible without preventing compilation.
+///
+/// ## Example
+///
+/// ```raven
+/// import Raven.Macros.*
+///
+/// timer! {
+///     let index = LoadIndex()
+///     Rebuild(index)
+///     Save(index)
+/// }
+///
+/// let operation = "Index rebuild"
+/// timer! "$operation succeeded in {time}" {
+///     RebuildIndex()
+/// }
+/// ```
+[MacroAlias("timer")]
+[MacroCarrier(
+    MacroCarrierKinds.TokenTree | MacroCarrierKinds.ExpressionHeader,
+    MacroBodyRequirement.Required)]
+public macro Timer(context: TokenTreeMacroContext) -> StatementSyntax
+    fragments by GetTimerFragments
+{
+    let bodyResult = context.ParseBlockResult()
+    let stopwatchName = context.CreateUniqueName("stopwatch")
+    let messageName = context.CreateUniqueName("timerMessage")
+    let stopwatchDeclaration = ParseStatement(
+        "let $stopwatchName = System.Diagnostics.Stopwatch.StartNew()")
+    let bodyPlaceholder = ParseStatement("{}")
+    let stopStatement = ParseStatement("$stopwatchName.Stop()")
+    let message = context.ExpressionArgument
+    var messageDeclaration: StatementSyntax? = null
+    let reportStatement =
+        if message is ExpressionSyntax messageExpression {
+            messageDeclaration = ParseStatement(
+                "let $messageName = " + messageExpression.ToFullString())
+            ParseStatement(
+                "System.Console.WriteLine($messageName.Replace(\"{time}\", $stopwatchName.Elapsed.ToString()))")
+        } else {
+            ParseStatement("System.Console.WriteLine($stopwatchName.Elapsed)")
+        }
+    let tryStatement = TryStatement(
+        Token(SyntaxKind.TryKeyword),
+        BlockStatement(List<StatementSyntax>([bodyPlaceholder])),
+        List<CatchClauseSyntax>(),
+        FinallyClause(BlockStatement(List<StatementSyntax>([
+            stopStatement,
+            reportStatement
+        ]))),
+        Token(SyntaxKind.None))
+    let statement =
+        if messageDeclaration is StatementSyntax declaration {
+            BlockStatement(List<StatementSyntax>([
+                declaration,
+                stopwatchDeclaration,
+                tryStatement
+            ]))
+        } else {
+            BlockStatement(List<StatementSyntax>([
+                stopwatchDeclaration,
+                tryStatement
+            ]))
+        }
+    let expandedStatement = statement.ReplaceNode(
+        bodyPlaceholder,
+        bodyResult.Syntax)
+
+    let macroDiagnostics: ImmutableArray<MacroExpansionDiagnostic> =
+        if context.Compilation.Options.OptimizationLevel == OptimizationLevel.Release {
+            [context.CreateDiagnostic(
+                "The timer macro is present in release code.",
+                DiagnosticSeverity.Warning,
+                context.Name,
+                "TIMER002")]
+        } else {
+            []
+        }
+
+    expand FreestandingMacroExpansionResult {
+        Statement = expandedStatement
+        Diagnostics = bodyResult.Diagnostics
+        MacroDiagnostics = macroDiagnostics
+    }
+}
+
+func GetTimerFragments(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
+    [context.CreateFragmentRegion(
+        MacroFragmentKind.Block,
+        TextSpan(0, context.BodySpan.Length))]
+}

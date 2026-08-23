@@ -20,6 +20,7 @@ let clientStartPromise: Promise<void> | undefined;
 let languageServerBuildPromise: Promise<void> | undefined;
 const output = vscode.window.createOutputChannel('Raven');
 let extensionInstallPath = '';
+let activeServerResolution: ResolvedServerPath | undefined;
 let pendingInlayHintRefresh: NodeJS.Timeout | undefined;
 let pendingImportCompletionTrigger: NodeJS.Timeout | undefined;
 const inlayHintRequestVersions = new Map<string, number>();
@@ -96,6 +97,11 @@ interface ExecFileTextResult {
 interface ExecFileTextError extends Error {
   stdout?: string;
   stderr?: string;
+}
+
+interface ResolvedServerPath {
+  path: string;
+  source: string;
 }
 
 function execFileText(command: string, args: readonly string[], options: ExecFileTextOptions = {}): Promise<ExecFileTextResult> {
@@ -723,9 +729,10 @@ async function ensureLanguageServerBuilt(): Promise<void> {
 }
 
 function createLanguageClient(context: vscode.ExtensionContext): LanguageClient {
-  let serverPath: string;
+  let serverResolution: ResolvedServerPath;
   try {
-    serverPath = resolveServerPath(context, output);
+    serverResolution = resolveServerPath(context, output);
+    activeServerResolution = serverResolution;
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     output.appendLine(message);
@@ -735,7 +742,7 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
 
   let isolatedServerPath: string;
   try {
-    isolatedServerPath = stageServerForIsolatedLaunch(context, serverPath);
+    isolatedServerPath = stageServerForIsolatedLaunch(context, serverResolution.path);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     output.appendLine(`Failed to stage isolated language server: ${message}`);
@@ -743,10 +750,11 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
     throw new Error(`Raven: Failed to stage isolated language server: ${message}`);
   }
 
-  output.appendLine(`Using language server: ${serverPath}`);
+  output.appendLine(`Using language server (${serverResolution.source}): ${serverResolution.path}`);
   output.appendLine(`Using isolated language server: ${isolatedServerPath}`);
-  const languageServerWorkingDirectory = tryFindRepositoryRoot(serverPath) ?? path.dirname(isolatedServerPath);
+  const languageServerWorkingDirectory = tryFindRepositoryRoot(serverResolution.path) ?? path.dirname(isolatedServerPath);
   output.appendLine(`Using language server working directory: ${languageServerWorkingDirectory}`);
+  appendToolchainReport(context);
 
   const runCommand = {
     command: 'dotnet',
@@ -1089,6 +1097,94 @@ function resolveConfiguredSdkPath(): string | undefined {
   return undefined;
 }
 
+function getExtensionModeName(mode: vscode.ExtensionMode): string {
+  switch (mode) {
+    case vscode.ExtensionMode.Development:
+      return 'repository development host';
+    case vscode.ExtensionMode.Test:
+      return 'extension test host';
+    default:
+      return 'installed extension';
+  }
+}
+
+function tryReadSdkVersion(sdkPath: string): string {
+  try {
+    const version = fs.readFileSync(path.join(sdkPath, 'VERSION'), 'utf8').trim();
+    if (version.length > 0) {
+      return version;
+    }
+  } catch {
+    // Older or custom SDK layouts may not carry VERSION.
+  }
+
+  return path.basename(sdkPath);
+}
+
+function findNearestGlobalJson(startPath: string): string | undefined {
+  for (const directory of enumerateAncestorDirectories(startPath)) {
+    const candidate = path.join(directory, 'global.json');
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+function tryReadProjectSdkSelection(globalJsonPath: string): string | undefined {
+  try {
+    const content = JSON.parse(fs.readFileSync(globalJsonPath, 'utf8')) as {
+      'msbuild-sdks'?: Record<string, unknown>;
+    };
+    const selectedVersion = content['msbuild-sdks']?.['Raven.Sdk'];
+    return typeof selectedVersion === 'string' && selectedVersion.trim().length > 0
+      ? selectedVersion.trim()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function appendToolchainReport(context: vscode.ExtensionContext): void {
+  const extensionVersion = String(context.extension.packageJSON.version ?? '<unknown>');
+  output.appendLine('Raven toolchain provenance:');
+  output.appendLine(`- Extension: ${extensionVersion} (${getExtensionModeName(context.extensionMode)})`);
+  output.appendLine(`- Extension path: ${context.extensionPath}`);
+
+  if (activeServerResolution) {
+    output.appendLine(`- Language server source: ${activeServerResolution.source}`);
+    output.appendLine(`- Language server path: ${activeServerResolution.path}`);
+  } else {
+    output.appendLine('- Language server: not resolved yet');
+  }
+
+  const sdkPath = resolveConfiguredSdkPath();
+  if (sdkPath) {
+    output.appendLine(`- Installed SDK: ${tryReadSdkVersion(sdkPath)}`);
+    output.appendLine(`- Installed SDK path: ${sdkPath}`);
+  } else {
+    output.appendLine('- Installed SDK: not found');
+  }
+
+  const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+  if (workspaceFolders.length === 0) {
+    output.appendLine('- Project SDK selection: no workspace folder');
+  }
+
+  for (const workspaceFolder of workspaceFolders) {
+    const globalJsonPath = findNearestGlobalJson(workspaceFolder.uri.fsPath);
+    const selectedVersion = globalJsonPath
+      ? tryReadProjectSdkSelection(globalJsonPath)
+      : undefined;
+    output.appendLine(
+      selectedVersion
+        ? `- Project SDK (${workspaceFolder.name}): ${selectedVersion} via ${globalJsonPath}`
+        : `- Project SDK (${workspaceFolder.name}): no Raven.Sdk selection in nearest global.json`
+    );
+  }
+}
+
 async function offerSdkInstallationIfMissing(context: vscode.ExtensionContext): Promise<void> {
   if (resolveConfiguredSdkPath() || context.globalState.get<boolean>(sdkInstallPromptDismissedKey, false)) {
     return;
@@ -1109,7 +1205,7 @@ async function offerSdkInstallationIfMissing(context: vscode.ExtensionContext): 
   }
 }
 
-function resolveServerPath(context: vscode.ExtensionContext, output: vscode.OutputChannel): string {
+function resolveServerPath(context: vscode.ExtensionContext, output: vscode.OutputChannel): ResolvedServerPath {
   const configuration = vscode.workspace.getConfiguration('raven');
   const configuredPath = configuration.get<string>('languageServerPath')?.trim();
 
@@ -1118,7 +1214,7 @@ function resolveServerPath(context: vscode.ExtensionContext, output: vscode.Outp
   if (configuredPath) {
     attempts.push(configuredPath);
     if (fs.existsSync(configuredPath)) {
-      return configuredPath;
+      return { path: configuredPath, source: 'explicit raven.languageServerPath' };
     }
   }
 
@@ -1135,7 +1231,7 @@ function resolveServerPath(context: vscode.ExtensionContext, output: vscode.Outp
     for (const candidate of sdkCandidates) {
       attempts.push(candidate);
       if (fs.existsSync(candidate)) {
-        return candidate;
+        return { path: candidate, source: 'explicit raven.sdkPath' };
       }
     }
   }
@@ -1158,7 +1254,7 @@ function resolveServerPath(context: vscode.ExtensionContext, output: vscode.Outp
         const candidate = path.join(root, cfg, tfm, 'Raven.LanguageServer.dll');
         attempts.push(candidate);
         if (fs.existsSync(candidate)) {
-          return candidate;
+          return { path: candidate, source: 'repository build' };
         }
       }
     }
@@ -1168,7 +1264,7 @@ function resolveServerPath(context: vscode.ExtensionContext, output: vscode.Outp
   const packagedPath = context.asAbsolutePath(path.join('server', 'Raven.LanguageServer.dll'));
   attempts.push(packagedPath);
   if (fs.existsSync(packagedPath)) {
-    return packagedPath;
+    return { path: packagedPath, source: 'installed extension bundle' };
   }
 
   // An automatically discovered SDK can be older than the installed extension.
@@ -1189,7 +1285,7 @@ function resolveServerPath(context: vscode.ExtensionContext, output: vscode.Outp
       attempts.push(candidate);
       if (fs.existsSync(candidate)) {
         output.appendLine(`Bundled language server unavailable; falling back to discovered SDK server: ${candidate}`);
-        return candidate;
+        return { path: candidate, source: 'auto-discovered installed SDK fallback' };
       }
     }
   }
@@ -2223,6 +2319,7 @@ export function activate(context: vscode.ExtensionContext): void {
   extensionInstallPath = context.extensionPath;
   output.appendLine('Activating Raven VS Code extension...');
   appendLifecycleLog(`Extension activate() called. extensionPath=${context.extensionPath}`);
+  appendToolchainReport(context);
 
   // Ensure VS Code disposes the client on shutdown.
   context.subscriptions.push({
@@ -2374,6 +2471,13 @@ export function activate(context: vscode.ExtensionContext): void {
       debugConfigurationProvider,
       vscode.DebugConfigurationProviderTriggerKind.Dynamic
     )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('raven.showToolchainInfo', () => {
+      appendToolchainReport(context);
+      output.show(true);
+    })
   );
 
   context.subscriptions.push(

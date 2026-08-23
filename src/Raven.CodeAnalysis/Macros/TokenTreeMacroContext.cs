@@ -122,11 +122,14 @@ public class TokenTreeMacroContext : MacroContext
         Invocation = invocation;
         Name = invocation.Name;
         ExclamationToken = invocation.ExclamationToken;
+        Carrier = invocation.Carrier;
         ArgumentList = invocation.ArgumentList;
+        ExpressionArgument = invocation.ExpressionArgument;
+        DeclarationHeader = invocation.DeclarationHeader;
         TokenTree = invocation.TokenTree ?? throw new ArgumentException(
             "A token-tree macro context requires a token-tree invocation.",
             nameof(invocation));
-        Arguments = CreateArguments(invocation.ArgumentList, semanticModel);
+        Arguments = CreateArguments(invocation, semanticModel);
         _tokenStreamProvider = tokenStreamProvider;
         _keywords = keywords.IsDefault ? ImmutableArray<MacroKeyword>.Empty : keywords;
         CancellationToken = cancellationToken;
@@ -142,9 +145,15 @@ public class TokenTreeMacroContext : MacroContext
 
     public SyntaxToken ExclamationToken { get; }
 
+    public MacroCarrierSyntax Carrier { get; }
+
     public MacroTokenTreeSyntax TokenTree { get; }
 
     public ArgumentListSyntax? ArgumentList { get; }
+
+    public ExpressionSyntax? ExpressionArgument { get; }
+
+    public MacroDeclarationHeaderSyntax? DeclarationHeader { get; }
 
     public ImmutableArray<MacroArgument> Arguments { get; }
 
@@ -169,24 +178,7 @@ public class TokenTreeMacroContext : MacroContext
         string text)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(languageId);
-        ArgumentNullException.ThrowIfNull(text);
-
-        var bodyText = GetBodyText();
-        if (text.Length != bodyText.Length)
-            throw new ArgumentException("Projected text must have the same length as the macro body.", nameof(text));
-
-        for (var index = 0; index < bodyText.Length; index++)
-        {
-            var sourceIsLineBreak = bodyText[index] is '\r' or '\n';
-            var projectionIsLineBreak = text[index] is '\r' or '\n';
-            if (sourceIsLineBreak != projectionIsLineBreak ||
-                (sourceIsLineBreak && bodyText[index] != text[index]))
-            {
-                throw new ArgumentException(
-                    "Projected text must preserve the macro body's line breaks.",
-                    nameof(text));
-            }
-        }
+        ValidatePositionPreservingBodyText(text, nameof(text));
 
         return new MacroEmbeddedLanguageProjection(languageId, text, BodySpan);
     }
@@ -501,17 +493,46 @@ public class TokenTreeMacroContext : MacroContext
             stream,
             static () => new ExpressionSyntax.Missing());
 
-    internal MacroSyntaxParseResult<ExpressionSyntax> ParseExpressionResult(string bodyText)
+    /// <summary>
+    /// Parses a position-preserving projection of the complete macro body as
+    /// one Raven expression.
+    /// </summary>
+    /// <remarks>
+    /// The projection must have the same length and line breaks as the authored
+    /// body. This lets a macro temporarily replace its own delimiters or holes
+    /// with Raven syntax while retaining authored diagnostic positions.
+    /// </remarks>
+    public MacroSyntaxParseResult<ExpressionSyntax> ParseProjectedExpressionResult(string bodyText)
     {
-        ArgumentNullException.ThrowIfNull(bodyText);
-        if (bodyText.Length != BodySpan.Length)
-            throw new ArgumentException("Replacement body text must preserve the original body length.", nameof(bodyText));
+        ValidatePositionPreservingBodyText(bodyText, nameof(bodyText));
 
         return ParseSyntaxResult<ExpressionSyntax>(
             bodyText,
             new TextSpan(0, bodyText.Length),
             consumeFullText: true,
             static () => new ExpressionSyntax.Missing());
+    }
+
+    private void ValidatePositionPreservingBodyText(string text, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(text, parameterName);
+
+        var bodyText = GetBodyText();
+        if (text.Length != bodyText.Length)
+            throw new ArgumentException("Projected text must have the same length as the macro body.", parameterName);
+
+        for (var index = 0; index < bodyText.Length; index++)
+        {
+            var sourceIsLineBreak = bodyText[index] is '\r' or '\n';
+            var projectionIsLineBreak = text[index] is '\r' or '\n';
+            if (sourceIsLineBreak != projectionIsLineBreak ||
+                (sourceIsLineBreak && bodyText[index] != text[index]))
+            {
+                throw new ArgumentException(
+                    "Projected text must preserve the macro body's line breaks.",
+                    parameterName);
+            }
+        }
     }
 
     public StatementSyntax ParseStatement()
@@ -535,13 +556,19 @@ public class TokenTreeMacroContext : MacroContext
     /// retaining the authored positions of its statements and expressions.
     /// </summary>
     public BlockStatementSyntax ParseBlock()
-        => ParseBlock(new TextSpan(0, BodySpan.Length));
+        => ParseBlockResult().Syntax;
 
     /// <summary>
     /// Parses a region of the token-tree body as one Raven lexical block while
     /// retaining the authored positions of its statements and expressions.
     /// </summary>
     public BlockStatementSyntax ParseBlock(TextSpan bodyRelativeSpan)
+        => ParseBlockResult(bodyRelativeSpan).Syntax;
+
+    public MacroSyntaxParseResult<BlockStatementSyntax> ParseBlockResult()
+        => ParseBlockResult(new TextSpan(0, BodySpan.Length));
+
+    public MacroSyntaxParseResult<BlockStatementSyntax> ParseBlockResult(TextSpan bodyRelativeSpan)
     {
         if (bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length)
             throw new ArgumentOutOfRangeException(nameof(bodyRelativeSpan));
@@ -560,7 +587,20 @@ public class TokenTreeMacroContext : MacroContext
             consumeFullText: true);
         var block = parseResult?.Root.CreateRed(parent: null, position: blockStart) as BlockStatementSyntax
             ?? (BlockStatementSyntax)SyntaxFactory.ParseStatement("{}");
-        return MacroSyntaxOrigin.AttachParsedOrigin(block, Syntax.SyntaxTree);
+        block = MacroSyntaxOrigin.AttachParsedOrigin(block, Syntax.SyntaxTree);
+        var diagnostics = parseResult?.Diagnostics
+            .Select(diagnostic => Diagnostic.Create(
+                diagnostic.Descriptor,
+                Syntax.SyntaxTree?.GetLocation(diagnostic.Span) ?? Location.None,
+                diagnostic.Args))
+            .ToImmutableArray()
+            ?? ImmutableArray<Diagnostic>.Empty;
+
+        return new MacroSyntaxParseResult<BlockStatementSyntax>(
+            block,
+            bodyRelativeSpan,
+            bodyRelativeSpan.End,
+            diagnostics);
     }
 
     /// <summary>
@@ -866,7 +906,11 @@ public class TokenTreeMacroContext : MacroContext
         return new MacroExpansionDiagnostic(severity, message, location, code);
     }
 
-    internal MacroFileReadResult ReadFile(string path)
+    /// <summary>
+    /// Reads a text file relative to the invoking source file and observes it
+    /// as an input to the cached macro expansion.
+    /// </summary>
+    public MacroFileReadResult ReadFile(string path)
         => MacroFileReader.Read(Syntax, path, _fileDependencies);
 
     internal ImmutableArray<MacroFileDependency> GetFileDependencies()
@@ -876,11 +920,14 @@ public class TokenTreeMacroContext : MacroContext
         => _fileDependencies.AddRange(dependencies);
 
     private static ImmutableArray<MacroArgument> CreateArguments(
-        ArgumentListSyntax? argumentList,
+        FreestandingMacroInvocation invocation,
         SemanticModel semanticModel)
     {
-        if (argumentList is null)
-            return ImmutableArray<MacroArgument>.Empty;
+        if (invocation.ExpressionArgument is { } expression)
+            return [new MacroArgument(expression, semanticModel)];
+
+        if (invocation.ArgumentList is not { } argumentList)
+            return [];
 
         var builder = ImmutableArray.CreateBuilder<MacroArgument>(argumentList.Arguments.Count);
         foreach (var argument in argumentList.Arguments)

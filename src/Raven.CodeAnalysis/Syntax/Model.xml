@@ -187,19 +187,48 @@
   <Node Name="DiscardExpression" Inherits="Expression">
     <Slot Name="UnderscoreToken" Type="Token" DefaultToken="UnderscoreToken" />
   </Node>
+  <Node Name="MacroCarrier" Inherits="Node" IsAbstract="true" />
+  <Node Name="ParenthesizedMacroCarrier" Inherits="MacroCarrier">
+    <Slot Name="ArgumentList" Type="ArgumentList" />
+    <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" />
+  </Node>
+  <Node Name="ExpressionHeaderMacroCarrier" Inherits="MacroCarrier">
+    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" />
+  </Node>
+  <Node Name="TokenTreeMacroCarrier" Inherits="MacroCarrier">
+    <Slot Name="TokenTree" Type="MacroTokenTree" />
+  </Node>
+  <Node Name="MacroDeclarationSuffix" Inherits="Node" IsAbstract="true" />
+  <Node Name="MacroBaseListSuffix" Inherits="MacroDeclarationSuffix">
+    <Slot Name="BaseList" Type="BaseList" />
+  </Node>
+  <Node Name="MacroReturnTypeSuffix" Inherits="MacroDeclarationSuffix">
+    <Slot Name="ReturnType" Type="ArrowTypeClause" />
+  </Node>
+  <Node Name="MacroDeclarationHeader" Inherits="Node">
+    <Slot Name="Identifier" Type="Token" />
+    <Slot Name="TypeParameterList" Type="TypeParameterList" IsNullable="true" />
+    <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" />
+    <Slot Name="Suffix" Type="MacroDeclarationSuffix" IsNullable="true" />
+    <Slot Name="ConstraintClauses" Type="List" ElementType="TypeParameterConstraintClause" />
+    <Slot Name="PermitsClause" Type="PermitsClause" IsNullable="true" />
+  </Node>
+  <Node Name="DeclarationMacroCarrier" Inherits="MacroCarrier">
+    <Slot Name="Header" Type="MacroDeclarationHeader" />
+    <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" />
+  </Node>
   <Node Name="FreestandingMacroExpression" Inherits="Expression">
     <Slot Name="Name" Type="Name" />
     <Slot Name="ExclamationToken" Type="Token" DefaultToken="ExclamationToken" />
-    <Slot Name="ArgumentList" Type="ArgumentList" />
-    <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" />
+    <Slot Name="Carrier" Type="MacroCarrier" />
   </Node>
   <Node Name="FreestandingMacroMemberDeclaration" Inherits="MemberDeclaration">
     <Slot Name="AttributeLists" Type="List" ElementType="AttributeList" IsInherited="true" />
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Name" Type="Name" />
     <Slot Name="ExclamationToken" Type="Token" DefaultToken="ExclamationToken" />
-    <Slot Name="ArgumentList" Type="ArgumentList" />
-    <Slot Name="TokenTree" Type="MacroTokenTree" IsNullable="true" />
+    <Slot Name="Carrier" Type="MacroCarrier" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
   <Node Name="FreestandingMacroDeclaration" Inherits="MemberDeclaration">
@@ -207,9 +236,7 @@
     <Slot Name="Modifiers" Type="TokenList" IsInherited="true" />
     <Slot Name="Name" Type="Name" />
     <Slot Name="ExclamationToken" Type="Token" DefaultToken="ExclamationToken" />
-    <Slot Name="Identifier" Type="Token" />
-    <Slot Name="ParameterList" Type="ParameterList" IsNullable="true" />
-    <Slot Name="TokenTree" Type="MacroTokenTree" />
+    <Slot Name="Carrier" Type="DeclarationMacroCarrier" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" />
   </Node>
   <Node Name="MacroTokenTree" Inherits="Node">

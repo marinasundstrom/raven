@@ -49,10 +49,6 @@ body > header {
     backdrop-filter: blur(16px);
 }
 
-.navbar {
-    min-height: 4.5rem;
-}
-
 .navbar .navbar-brand {
     gap: 0.7rem;
     color: var(--raven-ink);

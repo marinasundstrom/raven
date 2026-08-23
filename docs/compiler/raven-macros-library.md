@@ -1,9 +1,16 @@
 # Raven Macro Library
 
 `Raven.Macros` is the standard compiler-plugin library distributed with Raven.
-It contains reusable macros such as `quote`, `compile`, and the attached
-`Error` macro without making them intrinsic compiler declarations or members
-of `Raven.Core`.
+It contains reusable macros such as `quote`, `compile`, `timer`, and the
+attached `Error` macro without making them intrinsic compiler declarations or
+members of `Raven.Core`. These macros demonstrate the broader purpose of the
+feature: concise forms can hide repetitive or domain-specific expansion code
+and grow into DSLs that integrate naturally with Raven.
+
+The standard library is also a proving ground rather than a permanent home for
+every useful DSL. A macro family can move into its own package when it needs an
+independent API, dependency set, compatibility policy, or release cadence;
+Raven's carrier and application model remains the same.
 
 Applications opt into the short aliases by importing the macro namespace:
 
@@ -41,7 +48,10 @@ union ParseError {
 ordinary Raven interpolation can refer to the payload names of that case; no
 macro-specific formatting language is involved. A case without
 `ErrorMessage` falls back to the union's normal case-aware string
-representation.
+representation. Its validation is implemented in Raven: the attached macro
+inspects the authored expression and containing union, reports diagnostics for
+invalid use, and returns an empty expansion because `Error` consumes the
+annotation when it derives the union implementation.
 
 Conceptually, the macros above expand to ordinary Raven code:
 
@@ -65,6 +75,62 @@ lowered syntax-tree shape. `Error` adds `Message` or `Cause` only when the union
 does not already declare that property, so an authored implementation always
 takes precedence. `ErrorMessage` is valid only on a case nested in an
 `#[Error]` union and accepts a string literal or interpolated string.
+
+## `timer!`
+
+`timer!` removes the usual `Stopwatch` setup and cleanup around a block of Raven
+statements:
+
+```raven
+import Raven.Macros.*
+
+timer! {
+    let index = LoadIndex()
+    Rebuild(index)
+    Save(index)
+}
+```
+
+An expression-header form accepts an optional message template:
+
+```raven
+let indexName = "products"
+timer! "$indexName index rebuilt in {time}" {
+    RebuildIndex(indexName)
+}
+```
+
+`$indexName` and `${expression}` retain Raven's ordinary caller-scope string
+interpolation. `{time}` is deliberately a separate timer placeholder so it
+cannot capture a caller variable named `time`.
+
+Conceptually, it expands to the following boilerplate:
+
+```raven
+{
+    let __stopwatch = System.Diagnostics.Stopwatch.StartNew()
+    try {
+        {
+            let index = LoadIndex()
+            Rebuild(index)
+            Save(index)
+        }
+    }
+    finally {
+        __stopwatch.Stop()
+        System.Console.WriteLine(__stopwatch.Elapsed)
+    }
+}
+```
+
+The macro parses its token body as an ordinary Raven block, preserves that
+block's lexical scope, and emits the elapsed duration after the body finishes.
+It also publishes the body as a block fragment, so hover and other ordinary
+Raven editor features remain available within the braces.
+It uses `try`/`finally` so timing also stops when control leaves the body early.
+The actual stopwatch name is generated to avoid collisions; this expansion is
+illustrative rather than an exact syntax-tree contract. Release builds report
+`TIMER002` to make accidental instrumentation visible.
 
 ## `query!`
 
@@ -101,6 +167,19 @@ comments. `AssemblyInfo.rvn` marks the output as a compiler plugin:
 [assembly: RavenCompilerPlugin]
 ```
 
+Standard macro implementations move into this Raven project incrementally
+instead of depending indefinitely on implementation helpers in the compiler.
+Each port is deliberate language and API dogfooding: awkward
+syntax construction, missing semantic operations, hidden compiler hooks, or a
+required C# escape hatch should be treated as evidence of a Raven compiler or
+macro-authoring problem to diagnose and improve. `timer` is implemented wholly
+in `Raven.Macros`. `embedFileContent` also runs wholly from Raven and uses the
+public dependency-tracked file-reading API. `sha256Digest` consumes the public
+constant information already carried by its `MacroArgument`. The `Error` and
+`ErrorMessage` pair also run wholly from Raven: they inspect attached syntax,
+report diagnostics, rewrite a base list, and introduce generated properties.
+The remaining older standard macros are migration work.
+
 When a marked Raven library contains macro declarations, emission
 lowers those declarations into reusable provider types and includes them in the
 plugin assembly. This is the same general assembly-plugin mechanism available
@@ -123,15 +202,14 @@ late type-load or invocation failure.
 
 ## Current implementation boundary
 
-`Quote.rvn` and `Compile.rvn` own the public macro declarations, namespace,
-aliases, and documentation. Their low-level expansion mechanics currently
-delegate to `StandardMacroExpansions` in `Raven.CodeAnalysis`. This is
-intentional while the macro API is still evolving.
-
-As the public API gains sufficient diagnostic, source-location, and
-syntax-construction support, suitable behavior can move wholly or partly into
-the Raven-authored macro project. The present boundary should not be treated as
-the final architecture.
+`Quote.rvn` owns expression parsing, splice recognition, source-mapped
+diagnostics, and syntax-factory rendering through public macro and syntax APIs.
+`Compile.rvn` reuses that Raven-authored quote operation before constructing
+the runtime-compilation call. `Error.rvn`, `ErrorMessage.rvn`, and the other
+standard macros are likewise implemented wholly in Raven. The compiler owns
+the reusable contracts—position-preserving projected parsing, source-aware
+diagnostics, and `RavenQuoter`—rather than the policy of individual standard
+macros.
 
 ## Documentation publishing
 

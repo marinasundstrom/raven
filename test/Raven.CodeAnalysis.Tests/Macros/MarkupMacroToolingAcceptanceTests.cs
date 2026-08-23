@@ -828,6 +828,7 @@ public sealed class MarkupMacroToolingAcceptanceTests
             .AddReferences([
                 .. TestMetadataReferences.DefaultWithRavenMacros,
                 codeAnalysisReference,
+                CreateAspNetCoreComponentsReference(),
             ])
             .AddMacroReferences(MacroReference.CreateFromFile(
                 ((PortableExecutableReference)TestMetadataReferences.RavenMacros).FilePath!));

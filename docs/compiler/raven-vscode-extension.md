@@ -90,6 +90,28 @@ The extension exposes settings to control language-server resolution and debug c
 
 When the extension discovers a workspace-built language server, it stages that build into an extension-owned directory before launch. The staged copy runs with the repository root as its working directory so repo-relative assets like `Raven.Core.dll` continue to resolve while the workspace build outputs remain free of language-server file locks.
 
+### Toolchain provenance
+
+Use **Raven: Show Toolchain Information** to make the active toolchain explicit.
+The command opens the Raven output channel and reports:
+
+- whether VS Code loaded a repository development extension or an installed
+  extension, including its version and path;
+- whether the language server came from an explicit override, an explicit SDK,
+  a repository build, the installed extension bundle, or the discovered SDK
+  fallback, including its exact path;
+- the discovered or explicitly configured SDK version and path used by Raven
+  commands; and
+- the `Raven.Sdk` version selected by the nearest `global.json` for every
+  workspace folder.
+
+These identities need not be the same. In the normal installed configuration,
+editor features come from the server bundled with the installed VSIX, Raven
+commands use the installed SDK, and `dotnet build` resolves the project SDK
+selected by `global.json`. A repository extension host instead prefers the
+repository-built language server so local compiler and language-service changes
+are visible.
+
 ## F5 compile + debug
 The extension contributes a `Raven` debug type:
 - `Raven: Compile and Debug` compiles the active `.rvn` file or `.rvnproj` target using the `rvnc` compiler driver. Legacy `.rav` source files remain supported for compatibility.

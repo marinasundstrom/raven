@@ -10422,6 +10422,15 @@ public partial class SemanticModel
         return Cache(new TypeInfo(naturalType, convertedType, conversion));
     }
 
+    internal ITypeSymbol? GetMacroArgumentType(ExpressionSyntax expression)
+    {
+        ValidateSyntaxNode(expression, nameof(expression));
+
+        using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
+        var binder = GetBinder(expression);
+        return binder.BindExpression(expression).Type;
+    }
+
     private bool TryGetContextualConvertedType(
         ExpressionSyntax expression,
         ITypeSymbol? naturalType,

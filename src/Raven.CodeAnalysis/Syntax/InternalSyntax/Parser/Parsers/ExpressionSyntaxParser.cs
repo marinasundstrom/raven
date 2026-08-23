@@ -656,6 +656,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         SyntaxToken token = PeekToken();
 
+        // A disclosed macro alias takes precedence over the ordinary meaning
+        // of a keyword only when the keyword is immediately followed by `!`.
+        if (SyntaxFacts.IsKeywordKind(token.Kind) && IsFreestandingMacroExpressionStart())
+            return ParseFreestandingMacroExpression();
+
         switch (token.Kind)
         {
             case SyntaxKind.PlusToken:
@@ -2228,13 +2233,13 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         // diagnostic. By removing this check the parser treats the newline as
         // trivia and correctly parses the following expression token.
 
+        if (IsFreestandingMacroExpressionStart())
+            return ParseFreestandingMacroExpression();
+
         if (CanTokenBeIdentifier(token))
         {
             if (IsInMacro && IsMacroExpansionExpressionKeyword(token))
                 return ParseMacroExpansionExpression();
-
-            if (IsFreestandingMacroExpressionStart())
-                return ParseFreestandingMacroExpression();
 
             return new NameSyntaxParser(this).ParseSimpleName();
         }
@@ -2791,7 +2796,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     }
 
     private bool IsFreestandingMacroExpressionStart()
-        => new MacroInvocationSyntaxParser(this).IsBangInvocationStart();
+        => new MacroInvocationSyntaxParser(this).IsBangInvocationStart(allowExpressionHeader: true);
 
     private ExpressionSyntax ParseFreestandingMacroExpression()
         => new MacroInvocationSyntaxParser(this).ParseExpression();

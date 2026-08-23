@@ -190,6 +190,8 @@ public sealed class FreestandingMacroExpansionResult
     internal ImmutableArray<MacroFileDependency> FileDependencies { get; set; } =
         ImmutableArray<MacroFileDependency>.Empty;
 
+    internal Type? ExpressionResultType { get; set; }
+
     private static ImmutableArray<T> Normalize<T>(ImmutableArray<T> values)
         => values.IsDefault ? ImmutableArray<T>.Empty : values;
 }

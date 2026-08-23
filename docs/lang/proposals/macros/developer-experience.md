@@ -139,10 +139,10 @@ part of the stable contract.
 The authored carrier and the typed projection are separate decisions. The
 parser preserves arguments and regions without choosing their meaning. During
 macro binding, an ordinary parameter type requests compile-time value
-conversion, a syntax-node type requests the source-backed authored node, and a
-future typed syntax facade such as `ExpressionSyntax<T>` requests that same
-node together with a compiler-verified semantic constraint. One macro
-signature may mix all of these projections.
+conversion, a syntax-node type requests the source-backed authored node, and
+`ExpressionSyntax<T>` requests that same node and its actual bound type together
+with a compiler-verified semantic constraint. One macro signature may mix all
+of these projections.
 
 Future strongly typed inputs should extend this layering rather than create a
 parallel model. A normalized typed input frame can eventually contain:
@@ -352,6 +352,25 @@ Generic inference and macro overload resolution can follow after explicit type
 arguments, constraints, and expansion-result validation are stable. Initially,
 registry identity can include name, generic arity, and invocation envelope
 without requiring general overload resolution.
+
+For `compile!`, inference should prefer semantic evidence over guessing from
+tokens. The useful progression is:
+
+1. retain `compile<TDelegate>! { ... }` as the explicit and unambiguous form;
+2. allow `compile! { ... }` when the invocation has a contextual expected
+   delegate type, such as an explicitly typed initializer, return, or argument;
+3. allow a body whose lambda parameters are explicitly typed to contribute its
+   parameter shape, then infer the result type by binding the body; and
+4. represent the result as typed expression syntax associated with that
+   delegate type once the typed syntax contract exists.
+
+An untyped body such as `value => value + 1` does not by itself determine
+whether `value` is an integer, decimal, user-defined numeric type, or another
+overloadable shape. The macro model should not make that choice heuristically.
+Contextual inference also requires the compiler to expose the invocation's
+expected type to expansion without recursively depending on the expansion's
+own bound type. That is a compiler-owned input to a future macro contract, not
+something each macro should reconstruct from parent syntax.
 
 ### Names and qualification
 

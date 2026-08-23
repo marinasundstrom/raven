@@ -114,6 +114,102 @@ public sealed class FreestandingMacroParsingTests
     }
 
     [Fact]
+    public void FreestandingMacroDeclaration_DistinguishesMacroTypeArgumentsFromDeclaredTypeParameters()
+    {
+        var tree = SyntaxTree.ParseText("""
+            component<Blazor>! Counter<T>(initial: T)
+                : ComponentBase, IRenderable<T>
+                where T: Entity
+                permits SpecializedCounter
+            {
+                render initial
+            }
+            """);
+
+        var declaration = Assert.IsType<FreestandingMacroDeclarationSyntax>(
+            tree.GetRoot().Members.Single());
+        var macroName = Assert.IsType<GenericNameSyntax>(declaration.Name);
+        var declaredTypeParameters = Assert.IsType<TypeParameterListSyntax>(
+            declaration.TypeParameterList);
+        var baseList = Assert.IsType<BaseListSyntax>(declaration.BaseList);
+
+        Assert.Equal("Blazor", Assert.Single(macroName.TypeArgumentList.Arguments).ToString());
+        Assert.Equal("T", Assert.Single(declaredTypeParameters.Parameters).Identifier.ValueText);
+        Assert.Equal(2, baseList.Types.Count);
+        Assert.IsType<MacroBaseListSuffixSyntax>(declaration.Suffix);
+        Assert.Equal("T", Assert.Single(declaration.ConstraintClauses).TypeParameter.ToString());
+        Assert.Equal("SpecializedCounter", Assert.Single(declaration.PermitsClause!.Types).ToString());
+        Assert.Contains("render initial", declaration.TokenTree!.BodyToken.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FreestandingMacroDeclaration_ParsesCallableReturnAndConstraints()
+    {
+        var tree = SyntaxTree.ParseText("""
+            consumer! Handle<T>(message: T) -> Task<Result>
+                where T: Message
+            {
+                consume message
+            }
+            """);
+
+        var declaration = Assert.IsType<FreestandingMacroDeclarationSyntax>(
+            tree.GetRoot().Members.Single());
+
+        Assert.Equal("Task<Result>", declaration.ReturnType!.Type.ToString());
+        Assert.IsType<MacroReturnTypeSuffixSyntax>(declaration.Suffix);
+        Assert.Null(declaration.BaseList);
+        Assert.Null(declaration.PermitsClause);
+        Assert.Single(declaration.ConstraintClauses);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FreestandingMacroDeclaration_AllowsMarkerHeaderWithoutBody()
+    {
+        var tree = SyntaxTree.ParseText("""
+            marker! GeneratedMember
+
+            class Existing {}
+            """);
+        var declaration = Assert.IsType<FreestandingMacroDeclarationSyntax>(
+            tree.GetRoot().Members[0]);
+
+        Assert.Equal("GeneratedMember", declaration.Identifier.ValueText);
+        Assert.Null(declaration.TokenTree);
+        Assert.IsType<ClassDeclarationSyntax>(tree.GetRoot().Members[1]);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FreestandingMacroDeclaration_PreservesIncompleteDeclaredTypeParameterList()
+    {
+        var tree = SyntaxTree.ParseText("component! Counter<T");
+        var declaration = Assert.IsType<FreestandingMacroDeclarationSyntax>(
+            tree.GetRoot().Members.Single());
+        var typeParameters = Assert.IsType<TypeParameterListSyntax>(
+            declaration.TypeParameterList);
+
+        Assert.Equal("T", Assert.Single(typeParameters.Parameters).Identifier.ValueText);
+        Assert.True(typeParameters.GreaterThanToken.IsMissing);
+        Assert.Null(declaration.TokenTree);
+        Assert.NotEmpty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void IdentifierExpressionHeaderAtCompilationUnitScope_RemainsGlobalStatementWhenTailIsExpressionSyntax()
+    {
+        var tree = SyntaxTree.ParseText("process! operation + 1");
+        var globalStatement = Assert.IsType<GlobalStatementSyntax>(tree.GetRoot().Members.Single());
+        var statement = Assert.IsType<ExpressionStatementSyntax>(globalStatement.Statement);
+        var invocation = Assert.IsType<FreestandingMacroExpressionSyntax>(statement.Expression);
+
+        Assert.IsType<ExpressionHeaderMacroCarrierSyntax>(invocation.Carrier);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
     public void FreestandingMacroDeclaration_PreservesAttributesAndModifiersInTypeBody()
     {
         var tree = SyntaxTree.ParseText("""
@@ -365,8 +461,74 @@ public sealed class FreestandingMacroParsingTests
         Assert.True(expression.TryGetMacroName(out var macroName));
         Assert.Equal("quote", macroName);
         Assert.Equal(SyntaxKind.ExclamationToken, expression.ExclamationToken.Kind);
-        Assert.True(expression.ArgumentList.OpenParenToken.IsMissing);
+        Assert.IsType<TokenTreeMacroCarrierSyntax>(expression.Carrier);
+        Assert.Null(expression.ArgumentList);
         Assert.Contains("left + right", Assert.IsType<MacroTokenTreeSyntax>(expression.TokenTree).BodyToken.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FreestandingMacroExpression_ParsesExpressionHeaderWithoutBody()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Process(operation: int) -> int => process! operation + 1
+            """);
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var carrier = Assert.IsType<ExpressionHeaderMacroCarrierSyntax>(invocation.Carrier);
+
+        Assert.IsType<InfixOperatorExpressionSyntax>(carrier.Expression);
+        Assert.Null(carrier.TokenTree);
+        Assert.Null(invocation.ArgumentList);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FreestandingMacroExpression_ParsesExpressionHeaderAndRawBody()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Describe(value: int) -> string {
+                return match! value {
+                    0 => "zero"
+                    _ => "other"
+                }
+            }
+            """);
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var carrier = Assert.IsType<ExpressionHeaderMacroCarrierSyntax>(invocation.Carrier);
+
+        Assert.Equal("value", carrier.Expression.ToString());
+        Assert.Contains("0 => \"zero\"", Assert.IsType<MacroTokenTreeSyntax>(carrier.TokenTree).BodyToken.Text);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void FreestandingMacroExpression_ExpressionHeaderCanOccupyStatementPosition()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Check(value: int) {
+                guard! value > 0 {
+                    report failure
+                }
+            }
+            """);
+
+        var statement = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ExpressionStatementSyntax>()
+            .Single();
+        var invocation = Assert.IsType<FreestandingMacroExpressionSyntax>(statement.Expression);
+        var carrier = Assert.IsType<ExpressionHeaderMacroCarrierSyntax>(invocation.Carrier);
+
+        Assert.IsType<InfixOperatorExpressionSyntax>(carrier.Expression);
+        Assert.NotNull(carrier.TokenTree);
         Assert.Empty(tree.GetDiagnostics());
     }
 
@@ -471,6 +633,20 @@ public sealed class FreestandingMacroParsingTests
     {
         var tree = SyntaxTree.ParseText("""
             func Main(value: string?) -> string => value!.ToString()
+            """);
+
+        Assert.Empty(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
+        Assert.Contains(
+            tree.GetRoot().DescendantNodes().OfType<PostfixOperatorExpressionSyntax>(),
+            static expression => expression.Kind == SyntaxKind.SuppressNullableWarningExpression);
+        Assert.Empty(tree.GetDiagnostics());
+    }
+
+    [Fact]
+    public void PostfixExclamationBeforeOperator_RemainsPostfixOperator()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Main(value: int?) -> int => value! + 1
             """);
 
         Assert.Empty(tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());

@@ -53,6 +53,30 @@ public sealed class CompileMacroCodeGenTests
     }
 
     [Fact]
+    public void CompileMacro_WithMultipleDelegateTypes_ReportsDiagnostic()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+            import System.*
+            import Raven.Macros.*
+
+            func Main() -> unit {
+                let increment = compile<Func<int>, Func<int>>! {
+                    () => 1
+                }
+            }
+            """);
+        var compilation = CreateCompilation(syntaxTree);
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM021"));
+
+        Assert.Contains(
+            "COMPILE001: The compile macro requires exactly one delegate type argument",
+            diagnostic.GetMessage(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CompileMacro_SemanticallyInvalidExpression_ReportsRuntimeDiagnostics()
     {
         var syntaxTree = SyntaxTree.ParseText("""

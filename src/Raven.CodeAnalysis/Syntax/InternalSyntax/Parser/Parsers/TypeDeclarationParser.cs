@@ -366,7 +366,7 @@ internal class TypeDeclarationParser : SyntaxParser
         return TypeParameterList(lessThanToken, List(parameters), greaterThanToken);
     }
 
-    private BaseListSyntax? ParseBaseList()
+    internal BaseListSyntax? ParseBaseList()
     {
         if (ConsumeToken(SyntaxKind.ColonToken, out var colonToken))
         {
@@ -406,7 +406,7 @@ internal class TypeDeclarationParser : SyntaxParser
         return null;
     }
 
-    private PermitsClauseSyntax? ParsePermitsClause()
+    internal PermitsClauseSyntax? ParsePermitsClause()
     {
         if (ConsumeToken(SyntaxKind.PermitsKeyword, out var permitsKeyword))
         {

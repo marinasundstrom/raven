@@ -761,7 +761,7 @@ namespace Example
 /// ## Parameters
 /// - `context`: The token tree context to expand.
 public macro Expand(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) {
-    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandQuote(context)
+    expand Raven.CodeAnalysis.Macros.FreestandingMacroExpansionResult.Empty
 }
 """,
             new ParseOptions

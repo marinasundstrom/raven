@@ -11,25 +11,33 @@ public sealed class MacroDefinitionDescriptor
         IMacroDefinition definition,
         MacroApplicationKind applicationKind,
         MacroInvocationTargets invocationTargets,
+        System.Type? expressionResultType,
+        MacroCarrierKinds carrierKinds,
+        MacroBodyRequirement bodyRequirement,
         MacroTarget attachmentTargets,
         ImmutableArray<MacroParameterDescriptor> parameters,
         bool acceptsArguments,
-        bool hasTokenBody,
         bool hasDeclarationInput)
     {
         Definition = definition;
         ApplicationKind = applicationKind;
         InvocationTargets = invocationTargets;
+        ExpressionResultType = expressionResultType;
+        CarrierKinds = carrierKinds;
+        BodyRequirement = bodyRequirement;
         AttachmentTargets = attachmentTargets;
         Parameters = parameters;
         AcceptsArguments = acceptsArguments;
-        HasTokenBody = hasTokenBody;
+        HasTokenBody = bodyRequirement != MacroBodyRequirement.None;
         HasDeclarationInput = hasDeclarationInput;
     }
 
     public IMacroDefinition Definition { get; }
     public MacroApplicationKind ApplicationKind { get; }
     public MacroInvocationTargets InvocationTargets { get; }
+    public System.Type? ExpressionResultType { get; }
+    public MacroCarrierKinds CarrierKinds { get; }
+    public MacroBodyRequirement BodyRequirement { get; }
 
     /// <summary>
     /// Gets the legacy attached-target projection while attached macros migrate

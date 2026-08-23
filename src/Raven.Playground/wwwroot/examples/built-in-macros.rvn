@@ -4,25 +4,31 @@ import System.Linq.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.Macros.*
 
-// Raven.Macros is experimental while the macro system evolves.
+// Attached macros use Raven's attribute-shaped form to extend declarations.
 #[Error]
 union ParseError {
     #[ErrorMessage("Invalid value: $value")]
     case InvalidValue(value: string)
 }
 
+// Token-body macros can interpret a focused DSL within their braces.
 let projected = query! {
     from value in [1, 2, 3, 4]
     where value > 2
     select value * 10
 }
 
+// Quote returns syntax as a value, while interpolation splices authored syntax.
 let expression: ExpressionSyntax = quote! {
     projected.Sum() + 2
 }
 
 let error: IError = ParseError.InvalidValue("age")
 
-WriteLine("Query total: ${projected.Sum()}")
+// A statement-shaped macro can give its braces ordinary block semantics.
+timer! {
+    WriteLine("Query total: ${projected.Sum()}")
+}
+
 WriteLine(error.Message)
 WriteLine("Quoted Raven: ${expression.ToFullString()}")

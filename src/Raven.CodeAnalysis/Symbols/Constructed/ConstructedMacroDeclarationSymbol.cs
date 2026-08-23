@@ -52,6 +52,12 @@ internal sealed class ConstructedMacroDeclarationSymbol : Symbol, IMacroDeclarat
 
     public MacroInvocationTargets InvocationTargets => _originalDefinition.InvocationTargets;
 
+    public ITypeSymbol? ExpressionResultType =>
+        ReturnType is INamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
+        MacroParameterRoleFacts.IsExpressionSyntaxFacade(namedType)
+            ? namedType.TypeArguments[0]
+            : null;
+
     public MacroKind MacroKind => _originalDefinition.MacroKind;
 
     public MacroTarget Targets => _originalDefinition.Targets;

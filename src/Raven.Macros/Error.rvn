@@ -1,5 +1,11 @@
 namespace Raven.Macros
 
+import System.*
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
 /// Derives Raven's standard error contract for a union.
 ///
 /// `Error` makes the union implement `System.IError`. When the union does not
@@ -19,8 +25,170 @@ namespace Raven.Macros
 /// }
 /// ```
 public macro Error(
-    on target: Raven.CodeAnalysis.Syntax.UnionDeclarationSyntax,
-    context: Raven.CodeAnalysis.Macros.AttachedMacroContext
+    on target: UnionDeclarationSyntax,
+    context: AttachedMacroContext
 ) {
-    expand Raven.CodeAnalysis.Macros.StandardMacroExpansions.ExpandError(context, target)
+    var messageArms: ImmutableArray<string> = []
+    for member in target.Members {
+        if member is CaseDeclarationSyntax caseDeclaration {
+            var messageExpression: ExpressionSyntax? = null
+            var messageCount = 0
+
+            for attributeList in caseDeclaration.AttributeLists {
+                for attribute in attributeList.Attributes {
+                    var isErrorMessage = false
+                    if attribute.TryGetMacroName(out var macroName) {
+                        isErrorMessage = (macroName == "ErrorMessage" || macroName.EndsWith(".ErrorMessage", StringComparison.Ordinal))
+                    }
+
+                    if isErrorMessage {
+                        if messageCount > 0 {
+                            context.ReportDiagnostic(
+                                "A union case can declare only one ErrorMessage.",
+                                syntax: attribute,
+                                code: "ERRORMESSAGE003")
+                        } else if attribute.ArgumentList is ArgumentListSyntax argumentList {
+                            if argumentList.Arguments.Count > 0 {
+                                messageExpression = argumentList.Arguments[0].Expression
+                            }
+                        }
+
+                        messageCount = messageCount + 1
+                    }
+                }
+            }
+
+            if messageExpression is ExpressionSyntax expression {
+                let isMessageExpression =
+                    if expression is InterpolatedStringExpressionSyntax interpolated {
+                        true
+                    } else if expression is LiteralExpressionSyntax literal {
+                        literal.Token.Kind == SyntaxKind.StringLiteralToken ||
+                            literal.Token.Kind == SyntaxKind.MultiLineStringLiteralToken
+                    } else {
+                        false
+                    }
+
+                if isMessageExpression {
+                    var payloadNames: ImmutableArray<string> = []
+                    if caseDeclaration.ParameterList is ParameterListSyntax parameterList {
+                        for parameter in parameterList.Parameters {
+                            if !String.IsNullOrWhiteSpace(parameter.Identifier.ValueText) {
+                                payloadNames = payloadNames.Add(parameter.Identifier.ValueText)
+                            }
+                        }
+                    }
+                    if caseDeclaration.FieldClause is CaseFieldClauseSyntax fieldClause {
+                        for caseField in fieldClause.Fields {
+                            if !String.IsNullOrWhiteSpace(caseField.Identifier.ValueText) {
+                                payloadNames = payloadNames.Add(caseField.Identifier.ValueText)
+                            }
+                        }
+                    }
+
+                    var patterns: ImmutableArray<string> = []
+                    for payloadName in payloadNames {
+                        patterns = patterns.Add("let " + payloadName)
+                    }
+                    let payloadPattern =
+                        if patterns.Length == 0 {
+                            ""
+                        } else {
+                            "(" + String.Join(", ", patterns) + ")"
+                        }
+                    let casePattern = caseDeclaration.Identifier.ValueText + payloadPattern
+                    let expressionText = expression.ToFullString().Trim()
+                    messageArms = messageArms.Add(casePattern + " => " + expressionText)
+                }
+            }
+        }
+    }
+
+    var generatedMessageExpression = "self.ToString()"
+    if messageArms.Length > 0 {
+        messageArms = messageArms.Add("_ => self.ToString()")
+        generatedMessageExpression =
+            "self match {\n" + String.Join("\n", messageArms) + "\n}"
+    }
+
+    let template = ParseMemberDeclaration(
+        "union __GeneratedError: System.IError { " +
+        "case Placeholder " +
+        "val Message: string => " + generatedMessageExpression + " " +
+        "val Cause: System.IError? => null " +
+        "}")
+
+    if template is UnionDeclarationSyntax generatedUnion {
+        var generatedMessage: PropertyDeclarationSyntax? = null
+        var generatedCause: PropertyDeclarationSyntax? = null
+        for member in generatedUnion.Members {
+            if member is PropertyDeclarationSyntax property {
+                if property.Identifier.ValueText == "Message" {
+                    generatedMessage = property
+                } else if property.Identifier.ValueText == "Cause" {
+                    generatedCause = property
+                }
+            }
+        }
+
+        if generatedUnion.BaseList is BaseListSyntax generatedBaseList &&
+            generatedMessage is PropertyDeclarationSyntax messageProperty &&
+            generatedCause is PropertyDeclarationSyntax causeProperty {
+            var replacement = target
+            var hasErrorInterface = false
+            if target.BaseList is BaseListSyntax targetBaseList {
+                for baseType in targetBaseList.Types {
+                    let baseTypeName = baseType.Type.ToString()
+                    if baseTypeName == "IError" || baseTypeName == "System.IError" {
+                        hasErrorInterface = true
+                    }
+                }
+            }
+
+            if !hasErrorInterface {
+                let errorBaseType = generatedBaseList.Types[0]
+                if target.BaseList is BaseListSyntax existingBaseList {
+                    var items: ImmutableArray<SyntaxNodeOrToken> = []
+                    for item in existingBaseList.Types.GetWithSeparators() {
+                        items = items.Add(item)
+                    }
+                    items = items.Add(SyntaxNodeOrToken(CommaToken))
+                    items = items.Add(SyntaxNodeOrToken(errorBaseType))
+                    replacement = target.WithBaseList(
+                        BaseList(SeparatedList<BaseTypeSyntax>(items.ToBuilder().ToArray())))
+                } else {
+                    replacement = target.WithBaseList(
+                        BaseList(SingletonSeparatedList<BaseTypeSyntax>(
+                            SyntaxNodeOrToken(errorBaseType))))
+                }
+            }
+
+            var hasMessage = false
+            var hasCause = false
+            for member in target.Members {
+                if member is BasePropertyDeclarationSyntax property {
+                    if property.Identifier.ValueText == "Message" {
+                        hasMessage = true
+                    } else if property.Identifier.ValueText == "Cause" {
+                        hasCause = true
+                    }
+                }
+            }
+
+            var introducedMembers: ImmutableArray<MemberDeclarationSyntax> = []
+            if !hasMessage {
+                introducedMembers = introducedMembers.Add(messageProperty)
+            }
+            if !hasCause {
+                introducedMembers = introducedMembers.Add(causeProperty)
+            }
+
+            expand MacroExpansionResult.FromReplacement(replacement, introducedMembers)
+        }
+    }
+
+    expand MacroExpansionResult.FromDiagnostic(
+        context.CreateDiagnostic(
+            "The Error macro could not construct its expansion.",
+            code: "ERROR001"))
 }

@@ -16,7 +16,7 @@ public sealed class EmbedFileContentMacroTests
             var sourcePath = Path.Combine(tempRoot, "Program.rvn");
             var embeddedPath = Path.Combine(tempRoot, "assets", "template.txt");
             Directory.CreateDirectory(Path.GetDirectoryName(embeddedPath)!);
-            const string expected = "first line\n\"quoted\" \\\\ path";
+            const string expected = "first line\n\"quoted\" \\\\ path\t\0";
             File.WriteAllText(embeddedPath, expected);
 
             var result = InvokeRun(

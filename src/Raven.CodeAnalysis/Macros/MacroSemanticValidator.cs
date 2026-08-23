@@ -206,6 +206,17 @@ internal static class MacroSemanticValidator
         }
 
         var isDeclarationInvocation = invocation.Syntax is FreestandingMacroDeclarationSyntax;
+        var carrierKind = GetCarrierKind(invocation.Carrier);
+        if (!loaded.Descriptor.CarrierKinds.HasFlag(carrierKind))
+        {
+            diagnostics?.Report(Diagnostic.Create(
+                s_macroInvocationFormNotSupported,
+                invocation.Carrier.GetLocation(),
+                macroName,
+                $"does not accept the {DescribeCarrier(carrierKind)} carrier"));
+            return false;
+        }
+
         if (isDeclarationInvocation != loaded.Descriptor.HasDeclarationInput)
         {
             diagnostics?.Report(Diagnostic.Create(
@@ -220,7 +231,7 @@ internal static class MacroSemanticValidator
 
         if (invocation.TokenTree is not null)
         {
-            if (!loaded.Descriptor.HasTokenBody)
+            if (loaded.Descriptor.BodyRequirement == MacroBodyRequirement.None)
             {
                 diagnostics?.Report(Diagnostic.Create(
                     s_macroInvocationFormNotSupported,
@@ -230,7 +241,7 @@ internal static class MacroSemanticValidator
                 return false;
             }
 
-            if (invocation.ArgumentList is { Arguments.Count: > 0 } && !loaded.Descriptor.AcceptsArguments)
+            if (HasArguments(invocation) && !loaded.Descriptor.AcceptsArguments)
             {
                 diagnostics?.Report(Diagnostic.Create(
                     s_macroArgumentsNotSupported,
@@ -242,7 +253,7 @@ internal static class MacroSemanticValidator
             return true;
         }
 
-        if (loaded.Descriptor.HasTokenBody)
+        if (loaded.Descriptor.BodyRequirement == MacroBodyRequirement.Required)
         {
             diagnostics?.Report(Diagnostic.Create(
                 s_macroInvocationFormNotSupported,
@@ -252,7 +263,7 @@ internal static class MacroSemanticValidator
             return false;
         }
 
-        if (invocation.ArgumentList is { Arguments.Count: > 0 } && !loaded.Descriptor.AcceptsArguments)
+        if (HasArguments(invocation) && !loaded.Descriptor.AcceptsArguments)
         {
             diagnostics?.Report(Diagnostic.Create(
                 s_macroArgumentsNotSupported,
@@ -263,6 +274,30 @@ internal static class MacroSemanticValidator
 
         return true;
     }
+
+    private static bool HasArguments(FreestandingMacroInvocation invocation)
+        => invocation.ExpressionArgument is not null ||
+            invocation.ArgumentList is { Arguments.Count: > 0 };
+
+    private static MacroCarrierKinds GetCarrierKind(MacroCarrierSyntax carrier)
+        => carrier switch
+        {
+            ParenthesizedMacroCarrierSyntax => MacroCarrierKinds.Parenthesized,
+            ExpressionHeaderMacroCarrierSyntax => MacroCarrierKinds.ExpressionHeader,
+            TokenTreeMacroCarrierSyntax => MacroCarrierKinds.TokenTree,
+            DeclarationMacroCarrierSyntax => MacroCarrierKinds.Declaration,
+            _ => MacroCarrierKinds.Default,
+        };
+
+    private static string DescribeCarrier(MacroCarrierKinds carrierKind)
+        => carrierKind switch
+        {
+            MacroCarrierKinds.Parenthesized => "parenthesized",
+            MacroCarrierKinds.ExpressionHeader => "expression-header",
+            MacroCarrierKinds.TokenTree => "token-tree",
+            MacroCarrierKinds.Declaration => "declaration-shaped",
+            _ => "unknown",
+        };
 
     private static MacroTarget GetTarget(SyntaxNode targetDeclaration)
         => targetDeclaration switch

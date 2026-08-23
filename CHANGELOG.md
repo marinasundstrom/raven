@@ -1,9 +1,82 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
+Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Compact macro declarations can now opt into explicit carrier combinations and
+  token-body requirements with `MacroCarrier`. The standard `timer!` macro uses
+  this to add `timer! message { ... }` while retaining `timer! { ... }`; message
+  templates preserve normal Raven interpolation and reserve literal `{time}`
+  for the elapsed duration.
+- The VS Code extension now reports its toolchain provenance at activation and
+  through **Raven: Show Toolchain Information**, distinguishing repository and
+  installed extension hosts, the exact language-server source, the installed
+  SDK, and each workspace's `global.json`-selected project SDK.
+- Playground metaprogramming showcases now separate typed parenthesized calls,
+  declaration-shaped forms, and the standard attached, token-body, quote, and
+  statement-shaped macro forms into focused runnable examples.
+- The standard `timer!` macro now publishes its complete body as an ordinary
+  Raven block fragment, restoring symbol hover and the other compiler-backed
+  editor features inside its braces.
+- Macros can now use `ExpressionSyntax<T>` as a semantic boundary contract in
+  addition to the existing expression syntax-category contract. Typed inputs
+  retain the authored immutable expression and its bound type, reject
+  incompatible arguments before execution, and compose with nested macro
+  invocations. Typed outputs bind the ordinary expansion and reject results
+  that are not implicitly convertible to `T`. Class-authored providers expose
+  the equivalent output promise through `ExpressionResultType`; the checked-in
+  Blazor Markup sample now promises `RenderFragment`, while Query remains
+  untyped until its source- and selector-dependent result can be inferred.
+  Macro hover presents a declared result as `T` rather than the infrastructure
+  facade `ExpressionSyntax<T>`, and infers the bound expansion type when no
+  result contract is declared.
+- The compiler no longer records or copies assemblies from the installed .NET
+  shared framework as application-local runtime dependencies. Rebuilding after
+  removing a runtime-dependent macro now clears the stale dependency manifest.
+- Language-server builds and VS Code extension packages now carry the matching
+  `Raven.Macros` assembly. Project loading can therefore activate standard and
+  referenced macro providers in isolated editor hosts, restoring macro DSL
+  completion, classifications, and embedded-language projections.
+- `quote!` now implements expression parsing, splice recognition, diagnostics,
+  and syntax rendering wholly in the Raven-authored `Raven.Macros` library.
+  Macro authors can parse equal-width body projections while retaining source
+  positions, and `RavenQuoter` now exposes node source overrides that preserve
+  surrounding trivia. The transitional compiler-hosted quote implementation
+  has been removed, and `compile!` reuses the Raven implementation.
+- `compile!` now validates its delegate type argument and constructs its
+  runtime-compilation expression in the Raven-authored `Raven.Macros` library.
+  The macro design now records contextual expected-delegate and explicitly
+  typed-lambda inference as future, non-heuristic directions.
+- `Error` now performs its union inspection, `System.IError` base-list rewrite,
+  duplicate-message diagnostics, and generated `Message` and `Cause` property
+  construction wholly in the Raven-authored `Raven.Macros` library. The final
+  compiler-hosted C# implementation for the Error macro family has been
+  removed.
+- `ErrorMessage` now validates its string expression and containing `#[Error]`
+  union wholly in the Raven-authored `Raven.Macros` library, demonstrating an
+  attached macro that reports diagnostics and intentionally returns an empty
+  expansion.
+- `sha256Digest!` now implements constant inspection, canonical formatting,
+  hashing, and syntax construction wholly in the Raven-authored
+  `Raven.Macros` library through the public `MacroArgument` constant contract.
+- Macro authors can now read source-relative text files through public
+  dependency-tracked context APIs and construct safely escaped Raven string
+  literals with `MacroSyntax.StringLiteral`. `embedFileContent!` now implements
+  its expansion wholly in the Raven-authored `Raven.Macros` library instead of
+  delegating to a compiler-hosted C# helper.
+- Freestanding macros now preserve their source envelope through explicit
+  parenthesized, expression-header, token-tree, and declaration carrier syntax
+  nodes. Class-authored macros can select accepted carrier kinds and whether a
+  trailing token body is forbidden, optional, or required. Expression-header
+  carriers accept one ordinary Raven expression in expression or statement
+  position, including keyword aliases such as `match! value { ... }`, without
+  reclassifying postfix `!` followed by an operator or member access.
+  Declaration carriers now preserve a reusable Raven-shaped header containing
+  declared type parameters, parameters, either a base list or return type,
+  standard `where` constraints, an optional `permits` clause, and an optional
+  token body. Generic arguments on the macro name remain distinct from type
+  parameters introduced after the carried declaration name.
 - Member completion in a macro block fragment now resolves assignment targets
   through fragment-local semantic state instead of querying the outer semantic
   model with detached syntax. Typing `.` on the right side of an assignment
@@ -2837,6 +2910,12 @@ Impact:
 ## 2026-04-01
 
 ### Added
+
+- Added the standard `timer! { statements }` statement macro, including
+  hygienic `Stopwatch` expansion, a release-code warning, and a runnable sample
+  project. Its expansion is implemented in Raven inside `Raven.Macros`, making
+  it an initial dogfooding case for moving standard macro behavior out of
+  compiler-owned C# helpers.
 - `Raven.Core` now defines `System.IParseError`, `System.ParseIntError`, `System.IntErrorKind`, and lowercase `int.parse(...)` static extension helpers that return `Result<int, ParseIntError>` instead of throwing for null, empty, format, and overflow failures.
 
 Impact:
