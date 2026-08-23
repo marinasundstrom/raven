@@ -7,6 +7,10 @@ This proposal defines where macros can be applied, what a macro declaration
 must communicate, and how the compiler validates expansion. It does not change
 compiler behavior by itself.
 
+The proposed structured declaration headers and expression-header invocation
+form are specified separately in
+[Macro carrier syntax shapes](carrier-syntax-extensions.md).
+
 The stable method-shaped declaration model and erased provider dispatch
 boundary are defined separately in [Macro ABI](abi.md). This document owns the
 application positions and normalized semantic facts that the ABI carries; it
