@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Playground metaprogramming showcases now separate typed parenthesized calls,
+  declaration-shaped forms, and the standard attached, token-body, quote, and
+  statement-shaped macro forms into focused runnable examples.
 - The standard `timer!` macro now publishes its complete body as an ordinary
   Raven block fragment, restoring symbol hover and the other compiler-backed
   editor features inside its braces.

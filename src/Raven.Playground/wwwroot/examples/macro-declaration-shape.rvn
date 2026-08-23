@@ -1,0 +1,18 @@
+import System.Console.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+
+// A declaration-shaped macro receives Raven's parsed declaration header. This
+// example consumes its name and emits an ordinary class declaration.
+[MacroAlias("model")]
+macro Model(declaration: FreestandingMacroDeclarationSyntax) -> MemberDeclarationSyntax {
+    let name = declaration.Identifier.ValueText
+    let tree = ParseSyntaxTree(
+        "class $name { func Describe() -> string => \"Generated model $name\" }")
+    expand tree.GetRoot().Members[0]
+}
+
+model! Customer
+
+WriteLine(Customer().Describe())

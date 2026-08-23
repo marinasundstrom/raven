@@ -19,13 +19,19 @@
   },
   {
     "id": "local-macros",
-    "title": "Define and use macro declarations",
+    "title": "Typed expression macro calls",
     "file": "local-macros.rvn",
     "category": "Metaprogramming"
   },
   {
+    "id": "macro-declaration-shape",
+    "title": "Declaration-shaped macro forms",
+    "file": "macro-declaration-shape.rvn",
+    "category": "Metaprogramming"
+  },
+  {
     "id": "built-in-macros",
-    "title": "Compose programs with built-in macros",
+    "title": "Built-in macro forms",
     "file": "built-in-macros.rvn",
     "category": "Metaprogramming"
   },

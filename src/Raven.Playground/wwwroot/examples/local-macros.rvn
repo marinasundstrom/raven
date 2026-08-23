@@ -1,45 +1,16 @@
 import System.Console.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
-import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 import Raven.Macros.*
 
-macro AddGreeting(on target: BaseTypeDeclarationSyntax) {
-    let tree = ParseSyntaxTree(
-        "class Generated { func Greeting() -> string => \"Hello from an attached macro\" }")
-    if let container: ClassDeclarationSyntax = tree.GetRoot().Members[0] {
-        if let method: MethodDeclarationSyntax = container.Members[0] {
-            introduce method
-        }
-    }
-}
-
-macro Twice(value: ExpressionSyntax) {
+// Parenthesized invocation arguments can use typed syntax contracts. The
+// caller supplies an ordinary Raven expression, not an evaluated value.
+macro Twice(value: ExpressionSyntax<int>) -> ExpressionSyntax<int> {
     expand quote! {
-        #(value) * 2
+        #(value.Syntax) * 2
     }
 }
-
-macro Unless(tokens: IMacroTokenStream) {
-    var source = ""
-    while !tokens.IsEndOfFile {
-        source = source + tokens.ReadToken().Text
-    }
-
-    let condition = ParseExpression(source)
-    expand quote! {
-        !#(condition)
-    }
-}
-
-#[AddGreeting]
-class Greeter {}
 
 let answer = Twice!(21)
-let shouldContinue = Unless! {
-    answer == 0
-}
 
-WriteLine(Greeter().Greeting())
 WriteLine("Twice 21 is $answer")
-WriteLine("Should continue: $shouldContinue")
