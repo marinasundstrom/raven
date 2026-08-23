@@ -112,6 +112,8 @@ Conceptually, it expands to the following boilerplate:
 
 The macro parses its token body as an ordinary Raven block, preserves that
 block's lexical scope, and emits the elapsed duration after the body finishes.
+It also publishes the body as a block fragment, so hover and other ordinary
+Raven editor features remain available within the braces.
 It uses `try`/`finally` so timing also stops when control leaves the body early.
 The actual stopwatch name is generated to avoid collisions; this expansion is
 illustrative rather than an exact syntax-tree contract. Release builds report

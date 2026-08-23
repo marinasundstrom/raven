@@ -297,6 +297,47 @@ func Main() {
     }
 
     [Fact]
+    public void TimerMacroBlockHover_UsesOrdinaryRavenSymbolPresentation()
+    {
+        const string code = """
+import Raven.Macros.*
+
+func Main() {
+    let message = "Rebuilding"
+    timer! {
+        System.Console.WriteLine(message)
+    }
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var (metadataReference, macroReference) = CreateRavenMacrosReferences();
+        var compilation = Compilation.Create(
+                "test",
+                [syntaxTree],
+                [.. LanguageServerTestReferences.Default, metadataReference],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddMacroReferences(macroReference);
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var offset = code.LastIndexOf("message", StringComparison.Ordinal) + 1;
+        var tryResolve = typeof(HoverHandler)
+            .GetMethod("TryResolveMacroFragmentHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var resolution = (SymbolResolutionResult?)tryResolve.Invoke(
+            null,
+            [semanticModel, root, offset, CancellationToken.None]);
+
+        resolution.ShouldNotBeNull();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("message");
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignature.Invoke(
+            null,
+            [resolution.Value, semanticModel, root, offset])!;
+        signature.ShouldBe("val message: string");
+    }
+
+    [Fact]
     public void MacroBlockFragmentHover_PresentsPatternLocalFromDetachedFragment()
     {
         const string code = """

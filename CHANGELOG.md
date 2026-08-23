@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- The standard `timer!` macro now publishes its complete body as an ordinary
+  Raven block fragment, restoring symbol hover and the other compiler-backed
+  editor features inside its braces.
 - Macros can now use `ExpressionSyntax<T>` as a semantic boundary contract in
   addition to the existing expression syntax-category contract. Typed inputs
   retain the authored immutable expression and its bound type, reject

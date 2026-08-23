@@ -5,6 +5,7 @@ import Raven.CodeAnalysis.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
 import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+import Raven.CodeAnalysis.Text.*
 
 /// Measures an ordinary Raven block body with
 /// `System.Diagnostics.Stopwatch` and writes the elapsed duration.
@@ -24,7 +25,9 @@ import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
 /// }
 /// ```
 [MacroAlias("timer")]
-public macro Timer(context: TokenTreeMacroContext) -> StatementSyntax {
+public macro Timer(context: TokenTreeMacroContext) -> StatementSyntax
+    fragments by GetTimerFragments
+{
     let bodyResult = context.ParseBlockResult()
     let stopwatchName = context.CreateUniqueName("stopwatch")
     let stopwatchDeclaration = ParseStatement(
@@ -63,4 +66,10 @@ public macro Timer(context: TokenTreeMacroContext) -> StatementSyntax {
         Diagnostics = bodyResult.Diagnostics
         MacroDiagnostics = macroDiagnostics
     }
+}
+
+func GetTimerFragments(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
+    [context.CreateFragmentRegion(
+        MacroFragmentKind.Block,
+        TextSpan(0, context.BodySpan.Length))]
 }

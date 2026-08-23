@@ -1181,14 +1181,24 @@ shape. For example, this abbreviated version of `timer` parses its complete
 body and surrounds it with `Stopwatch` boilerplate:
 
 ```raven
+import System.Collections.Immutable.*
 import Raven.CodeAnalysis.Macros.*
 import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
 
-macro Timer(context: TokenTreeMacroContext) -> StatementSyntax {
+macro Timer(context: TokenTreeMacroContext) -> StatementSyntax
+    fragments by GetTimerFragments
+{
     let bodyResult = context.ParseBlockResult()
     context.ReportDiagnostics(bodyResult)
     let stopwatch = context.CreateUniqueName("stopwatch")
     expand BuildTimedBlock(bodyResult.Syntax, stopwatch)
+}
+
+func GetTimerFragments(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
+    [context.CreateFragmentRegion(
+        MacroFragmentKind.Block,
+        TextSpan(0, context.BodySpan.Length))]
 }
 ```
 
@@ -1214,7 +1224,11 @@ the complete body as `BlockStatementSyntax`. `BuildTimedBlock` places that
 authored block inside a generated `try` and reports the elapsed duration from
 `finally`, so the timer is stopped even when control leaves the body early.
 `CreateUniqueName` prevents the generated stopwatch local from colliding with a
-caller local.
+caller local. Its `IMacroFragmentProvider` also publishes the complete body as
+a `MacroFragmentKind.Block`, preserving ordinary hover and related editor
+features inside the braces. The `fragments by` clause generates that interface
+implementation for the macro declaration, so this does not require a
+class-shaped macro.
 
 Parsing a carrier body as a Raven block gives the macro author Raven's normal
 statement and lexical-scope building blocks; it does not by itself guarantee a
