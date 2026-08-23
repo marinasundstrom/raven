@@ -13,5 +13,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Raven.CodeAnalysis\Raven.CodeAnalysis.csproj" />
+    <ProjectReference Include="..\Raven.Macros\Raven.Macros.rvnproj" />
   </ItemGroup>
 </Project>

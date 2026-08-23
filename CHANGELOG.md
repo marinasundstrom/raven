@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Language-server builds and VS Code extension packages now carry the matching
+  `Raven.Macros` assembly. Project loading can therefore activate standard and
+  referenced macro providers in isolated editor hosts, restoring macro DSL
+  completion, classifications, and embedded-language projections.
 - `quote!` now implements expression parsing, splice recognition, diagnostics,
   and syntax rendering wholly in the Raven-authored `Raven.Macros` library.
   Macro authors can parse equal-width body projections while retaining source
