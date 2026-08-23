@@ -2195,6 +2195,7 @@ static bool IsPlatformAssemblyReference(string assemblyName, string assemblyPath
        string.Equals(assemblyName, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase) ||
        string.Equals(assemblyName, "mscorlib", StringComparison.OrdinalIgnoreCase) ||
        string.Equals(assemblyName, "netstandard", StringComparison.OrdinalIgnoreCase) ||
+       IsUnderAnyDotNetSharedRoot(assemblyPath) ||
        assemblyPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
            .Any(static segment => string.Equals(segment, "packs", StringComparison.OrdinalIgnoreCase));
 

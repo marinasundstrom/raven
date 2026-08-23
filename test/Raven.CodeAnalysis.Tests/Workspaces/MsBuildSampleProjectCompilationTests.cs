@@ -1053,13 +1053,17 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             Assert.True(
                 rebuildResult.ExitCode == 0,
                 $"dotnet rebuild failed.\nstdout:\n{rebuildResult.StdOut}\nstderr:\n{rebuildResult.StdErr}");
+            var manifestPath = Path.Combine(
+                projectRoot,
+                "obj",
+                "Debug",
+                "net10.0",
+                ".raven-runtime-dependencies");
             Assert.False(
-                File.Exists(Path.Combine(
-                    projectRoot,
-                    "obj",
-                    "Debug",
-                    "net10.0",
-                    ".raven-runtime-dependencies")));
+                File.Exists(manifestPath),
+                File.Exists(manifestPath)
+                    ? $"Unexpected runtime dependencies:{Environment.NewLine}{File.ReadAllText(manifestPath)}"
+                    : null);
             Assert.DoesNotContain(
                 "Raven.CodeAnalysis",
                 File.ReadAllText(depsPath),

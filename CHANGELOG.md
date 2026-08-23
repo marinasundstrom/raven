@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- The compiler no longer records or copies assemblies from the installed .NET
+  shared framework as application-local runtime dependencies. Rebuilding after
+  removing a runtime-dependent macro now clears the stale dependency manifest.
 - Language-server builds and VS Code extension packages now carry the matching
   `Raven.Macros` assembly. Project loading can therefore activate standard and
   referenced macro providers in isolated editor hosts, restoring macro DSL
