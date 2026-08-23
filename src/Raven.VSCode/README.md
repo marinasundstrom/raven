@@ -66,6 +66,16 @@ npm run compile
 
 When the extension launches a language server from a workspace build, it stages that build into an isolated extension-owned directory first, then starts the staged copy with the repository root as its working directory. This avoids file locking on the workspace build outputs while still allowing the language server to discover repo-relative assets such as `Raven.Core.dll`.
 
+Run **Raven: Show Toolchain Information** when verifying a development or
+installed setup. The Raven output channel reports whether the active extension
+is running from a repository development host or an installed extension, the
+source and path of its language server, the discovered installed SDK version
+and path, and the `Raven.Sdk` version selected by the nearest `global.json` for
+each workspace folder. These are independent selections: an installed
+extension normally uses its bundled server, while `dotnet build` follows the
+project SDK selection and Raven commands use the discovered or explicitly
+configured SDK.
+
 ## Debugging Raven code (F5)
 1. Open a `.rvn`, `.rvnproj`, or `.rav` file.
 2. Press F5 and choose `Raven: Compile and Debug` (or run `Raven: Compile and Debug Active File` from the command palette).

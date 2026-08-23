@@ -28,6 +28,7 @@
     "onCommand:raven.toggleNameInlayHints",
     "onCommand:raven.showMacroExpansion",
     "onCommand:raven.showCodeActionPreview",
+    "onCommand:raven.showToolchainInfo",
     "onCommand:raven.syntaxTree.refresh",
     "onCommand:raven.syntaxTree.showAuthored",
     "onCommand:raven.syntaxTree.showExpanded",
@@ -87,6 +88,10 @@
       {
         "command": "raven.showCodeActionPreview",
         "title": "Raven: Show Code Action Preview"
+      },
+      {
+        "command": "raven.showToolchainInfo",
+        "title": "Raven: Show Toolchain Information"
       },
       {
         "command": "raven.syntaxTree.refresh",

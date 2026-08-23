@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- The VS Code extension now reports its toolchain provenance at activation and
+  through **Raven: Show Toolchain Information**, distinguishing repository and
+  installed extension hosts, the exact language-server source, the installed
+  SDK, and each workspace's `global.json`-selected project SDK.
 - Playground metaprogramming showcases now separate typed parenthesized calls,
   declaration-shaped forms, and the standard attached, token-body, quote, and
   statement-shaped macro forms into focused runnable examples.
