@@ -5,6 +5,8 @@ using System.Linq;
 
 using MediatR;
 
+using Unit = MediatR.Unit;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 

@@ -1,5 +1,7 @@
 using MediatR;
 
+using Unit = MediatR.Unit;
+
 using Microsoft.Extensions.Logging;
 
 using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
