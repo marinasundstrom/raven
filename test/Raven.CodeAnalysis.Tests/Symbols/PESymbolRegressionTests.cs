@@ -82,6 +82,21 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
     }
 
     [Fact]
+    public void RavenCoreMetadata_WithSelfScopedAttributeReferences_LoadsOnce()
+    {
+        var compilation = Compilation.Create("pe_raven_core_self_reference")
+            .AddReferences(TestMetadataReferences.DefaultWithRavenCore);
+
+        var unionAttribute = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Raven.Runtime.CompilerServices.RavenUnionCaseAttribute"));
+        var companionAttribute = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("Raven.Runtime.CompilerServices.RavenUnionCompanionAttribute"));
+
+        Assert.Equal("Raven.Core", unionAttribute.ContainingAssembly.Name);
+        Assert.Same(unionAttribute.ContainingAssembly, companionAttribute.ContainingAssembly);
+    }
+
+    [Fact]
     public void MetadataTypeParameters_ReportWhetherTheyAllowRefLikeArguments()
     {
         var compilation = Compilation.Create("pe_ref_like_generic_parameters")

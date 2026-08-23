@@ -2756,6 +2756,7 @@ public partial class Compilation
         if (assemblyPath is null && identity.Name is not null)
             _assemblyPathMap.TryGetValue(identity.Name, out assemblyPath);
         PEAssemblySymbol assemblySymbol = new PEAssemblySymbol(assembly, [], assemblyPath);
+        _assemblySymbols[assembly] = assemblySymbol;
 
         var refs = assembly.GetReferencedAssemblies();
 
@@ -2781,8 +2782,6 @@ public partial class Compilation
                         return null;
                     }
                 }).OfType<IAssemblySymbol>()));
-
-        _assemblySymbols[assembly] = assemblySymbol;
 
         return assemblySymbol;
     }
