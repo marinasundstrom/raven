@@ -21,26 +21,54 @@ public static class MacroFacts
         var acceptsDeclaredArguments = parameters.Any(static parameter =>
             parameter.Role is MacroParameterRole.Value or MacroParameterRole.SyntaxInput);
         var hasMethodExpand = MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var methodExpand);
+        var acceptsArguments = acceptsDeclaredArguments || macro.AcceptsArguments;
+        var hasTokenBody = macro is IMacroExecutor { HasTokenBody: true } ||
+            hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand)
+                .Any(static parameter =>
+                    parameter.Source == MacroParameterSource.TokenBody ||
+                    typeof(TokenTreeMacroContext).IsAssignableFrom(parameter.RuntimeType));
+        var hasDeclarationInput = macro is IMacroExecutor executor && executor.Parameters.Any(static parameter =>
+                parameter.Source == MacroParameterSource.DeclarationInput) ||
+            hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand).Any(static parameter =>
+                parameter.Source == MacroParameterSource.DeclarationInput);
         return new MacroDefinitionDescriptor(
             macro,
             GetApplicationKind(macro),
             GetInvocationTargets(macro),
+            GetCarrierKinds(macro, hasTokenBody, hasDeclarationInput),
+            GetBodyRequirement(macro, hasTokenBody),
             GetTargets(macro),
             parameters,
-            acceptsDeclaredArguments || macro.AcceptsArguments,
-            macro is IMacroExecutor { HasTokenBody: true } ||
-            hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand)
-                .Any(static parameter =>
-                    parameter.Source == MacroParameterSource.TokenBody ||
-                    typeof(TokenTreeMacroContext).IsAssignableFrom(parameter.RuntimeType)),
-            macro is IMacroExecutor executor && executor.Parameters.Any(static parameter =>
-                parameter.Source == MacroParameterSource.DeclarationInput) ||
-            hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand).Any(static parameter =>
-                parameter.Source == MacroParameterSource.DeclarationInput));
+            acceptsArguments,
+            hasDeclarationInput);
     }
 
     public static bool AcceptsArguments(IMacroDefinition macro)
         => GetDescriptor(macro).AcceptsArguments;
+
+    private static MacroCarrierKinds GetCarrierKinds(
+        IMacroDefinition macro,
+        bool hasTokenBody,
+        bool hasDeclarationInput)
+    {
+        if (macro.CarrierKinds != MacroCarrierKinds.Default)
+            return macro.CarrierKinds;
+
+        if (hasDeclarationInput)
+            return MacroCarrierKinds.Declaration;
+
+        return MacroCarrierKinds.Parenthesized |
+            (hasTokenBody ? MacroCarrierKinds.TokenTree : MacroCarrierKinds.Default);
+    }
+
+    private static MacroBodyRequirement GetBodyRequirement(
+        IMacroDefinition macro,
+        bool hasTokenBody)
+        => macro.BodyRequirement != MacroBodyRequirement.Default
+            ? macro.BodyRequirement
+            : hasTokenBody
+                ? MacroBodyRequirement.Required
+                : MacroBodyRequirement.None;
 
     /// <summary>
     /// Gets how the macro is applied to authored Raven syntax.

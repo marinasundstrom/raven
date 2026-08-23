@@ -1391,6 +1391,50 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         Assert.Equal("hi", parameters.Label);
     }
 
+    [Theory]
+    [InlineData("probe! value", typeof(FreestandingMacroContext), false)]
+    [InlineData("probe! value { custom rules }", typeof(TokenTreeMacroContext), true)]
+    public void ExpressionHeaderCarrier_BindsTypedExpressionAndOptionalBody(
+        string invocationText,
+        Type expectedContextType,
+        bool hasBody)
+    {
+        ExpressionHeaderProbeMacro.LastExpression = null;
+        ExpressionHeaderProbeMacro.LastContext = null;
+
+        var (compilation, tree) = CreateCompilation($$"""
+            func Main(value: int) -> int => {{invocationText}}
+            """);
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(typeof(ExpressionHeaderProbeMacro)));
+
+        var invocation = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>()
+            .Single();
+        var expansion = compilation.GetSemanticModel(tree).GetMacroExpansion(invocation);
+
+        Assert.Equal("value", expansion!.Expression!.ToString());
+        Assert.Equal("value", ExpressionHeaderProbeMacro.LastExpression!.ToString());
+        Assert.IsType(expectedContextType, ExpressionHeaderProbeMacro.LastContext);
+        Assert.Equal(hasBody, invocation.TokenTree is not null);
+    }
+
+    [Fact]
+    public void ExpressionHeaderCarrier_RejectsParenthesizedCarrier()
+    {
+        var (compilation, _) = CreateCompilation("""
+            func Main(value: int) -> int => probe!(value)
+            """);
+        compilation = compilation.AddMacroReferences(
+            new MacroReference(typeof(ExpressionHeaderProbeMacro)));
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Id == "RAVM013"));
+
+        Assert.Contains("parenthesized", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void TypedFreestandingMacroExpansionFailure_ReportsUnderlyingException()
     {
@@ -2032,6 +2076,25 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             {
                 Expression = ParseExpression(Count.ToString())
             };
+        }
+    }
+
+    public sealed class ExpressionHeaderProbeMacro : IMacroDefinition
+    {
+        public static ExpressionSyntax? LastExpression { get; set; }
+        public static MacroContext? LastContext { get; set; }
+
+        public string Name => "probe";
+        public MacroCarrierKinds CarrierKinds => MacroCarrierKinds.ExpressionHeader;
+        public MacroBodyRequirement BodyRequirement => MacroBodyRequirement.Optional;
+
+        public FreestandingMacroExpansionResult Expand(
+            ExpressionSyntax expression,
+            MacroContext context)
+        {
+            LastExpression = expression;
+            LastContext = context;
+            return FreestandingMacroExpansionResult.FromExpression(expression);
         }
     }
 

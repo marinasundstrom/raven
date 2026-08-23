@@ -51,5 +51,16 @@ public interface IMacroDefinition
     /// </remarks>
     MacroInvocationTargets InvocationTargets => MacroInvocationTargets.Expression;
 
+    /// <summary>
+    /// Gets the source carrier shapes accepted by this macro. The default
+    /// infers the compatibility form from the macro's typed inputs.
+    /// </summary>
+    MacroCarrierKinds CarrierKinds => MacroCarrierKinds.Default;
+
+    /// <summary>
+    /// Gets whether an accepted carrier may compose with a trailing token body.
+    /// </summary>
+    MacroBodyRequirement BodyRequirement => MacroBodyRequirement.Default;
+
     bool AcceptsArguments => false;
 }

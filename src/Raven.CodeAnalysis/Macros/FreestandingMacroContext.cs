@@ -51,9 +51,11 @@ public class FreestandingMacroContext : MacroContext
         Invocation = invocation;
         Name = invocation.Name;
         ExclamationToken = invocation.ExclamationToken;
+        Carrier = invocation.Carrier;
         ArgumentList = invocation.ArgumentList;
+        ExpressionArgument = invocation.ExpressionArgument;
         TokenTree = invocation.TokenTree;
-        Arguments = CreateArguments(invocation.ArgumentList, semanticModel);
+        Arguments = CreateArguments(invocation, semanticModel);
         CancellationToken = cancellationToken;
     }
 
@@ -67,7 +69,11 @@ public class FreestandingMacroContext : MacroContext
 
     public SyntaxToken ExclamationToken { get; }
 
+    public MacroCarrierSyntax Carrier { get; }
+
     public ArgumentListSyntax? ArgumentList { get; }
+
+    public ExpressionSyntax? ExpressionArgument { get; }
 
     public MacroTokenTreeSyntax? TokenTree { get; }
 
@@ -103,10 +109,15 @@ public class FreestandingMacroContext : MacroContext
     internal void AddFileDependencies(IEnumerable<MacroFileDependency> dependencies)
         => _fileDependencies.AddRange(dependencies);
 
-    private static ImmutableArray<MacroArgument> CreateArguments(ArgumentListSyntax? argumentList, SemanticModel semanticModel)
+    private static ImmutableArray<MacroArgument> CreateArguments(
+        FreestandingMacroInvocation invocation,
+        SemanticModel semanticModel)
     {
-        if (argumentList is null)
-            return ImmutableArray<MacroArgument>.Empty;
+        if (invocation.ExpressionArgument is { } expression)
+            return [new MacroArgument(expression, semanticModel)];
+
+        if (invocation.ArgumentList is not { } argumentList)
+            return [];
 
         var builder = ImmutableArray.CreateBuilder<MacroArgument>(argumentList.Arguments.Count);
         foreach (var argument in argumentList.Arguments)

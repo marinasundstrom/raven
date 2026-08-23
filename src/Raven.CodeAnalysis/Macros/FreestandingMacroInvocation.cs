@@ -6,25 +6,40 @@ internal readonly record struct FreestandingMacroInvocation(
     SyntaxNode Syntax,
     NameSyntax Name,
     SyntaxToken ExclamationToken,
-    ArgumentListSyntax? ArgumentList,
-    MacroTokenTreeSyntax? TokenTree)
+    MacroCarrierSyntax Carrier)
 {
+    public ArgumentListSyntax? ArgumentList
+        => (Carrier as ParenthesizedMacroCarrierSyntax)?.ArgumentList;
+
+    public ExpressionSyntax? ExpressionArgument
+        => (Carrier as ExpressionHeaderMacroCarrierSyntax)?.Expression;
+
+    public MacroTokenTreeSyntax? TokenTree
+        => Carrier switch
+        {
+            ParenthesizedMacroCarrierSyntax parenthesized => parenthesized.TokenTree,
+            ExpressionHeaderMacroCarrierSyntax expressionHeader => expressionHeader.TokenTree,
+            TokenTreeMacroCarrierSyntax tokenTree => tokenTree.TokenTree,
+            DeclarationMacroCarrierSyntax declaration => declaration.TokenTree,
+            _ => null
+        };
+
     public static FreestandingMacroInvocation Create(FreestandingMacroExpressionSyntax syntax)
     {
         ArgumentNullException.ThrowIfNull(syntax);
-        return new(syntax, syntax.Name, syntax.ExclamationToken, syntax.ArgumentList, syntax.TokenTree);
+        return new(syntax, syntax.Name, syntax.ExclamationToken, syntax.Carrier);
     }
 
     public static FreestandingMacroInvocation Create(FreestandingMacroMemberDeclarationSyntax syntax)
     {
         ArgumentNullException.ThrowIfNull(syntax);
-        return new(syntax, syntax.Name, syntax.ExclamationToken, syntax.ArgumentList, syntax.TokenTree);
+        return new(syntax, syntax.Name, syntax.ExclamationToken, syntax.Carrier);
     }
 
     public static FreestandingMacroInvocation Create(FreestandingMacroDeclarationSyntax syntax)
     {
         ArgumentNullException.ThrowIfNull(syntax);
-        return new(syntax, syntax.Name, syntax.ExclamationToken, null, syntax.TokenTree);
+        return new(syntax, syntax.Name, syntax.ExclamationToken, syntax.Carrier);
     }
 
     public static bool TryCreate(SyntaxNode syntax, out FreestandingMacroInvocation invocation)

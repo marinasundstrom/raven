@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
 
 ## Unreleased
 
+- Freestanding macros now preserve their source envelope through explicit
+  parenthesized, expression-header, token-tree, and declaration carrier syntax
+  nodes. Class-authored macros can select accepted carrier kinds and whether a
+  trailing token body is forbidden, optional, or required. Expression-header
+  carriers accept one ordinary Raven expression in expression or statement
+  position, including keyword aliases such as `match! value { ... }`, without
+  reclassifying postfix `!` followed by an operator or member access.
 - Member completion in a macro block fragment now resolves assignment targets
   through fragment-local semantic state instead of querying the outer semantic
   model with detached syntax. Typing `.` on the right side of an assignment

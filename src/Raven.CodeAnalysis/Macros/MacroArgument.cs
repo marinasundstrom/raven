@@ -9,17 +9,27 @@ public sealed class MacroArgument
     private readonly Lazy<TypedConstant> _constant;
 
     public MacroArgument(ArgumentSyntax syntax, SemanticModel semanticModel)
+        : this(syntax, syntax?.Expression!, semanticModel)
+    {
+    }
+
+    public MacroArgument(ExpressionSyntax syntax, SemanticModel semanticModel)
+        : this(syntax, syntax, semanticModel)
+    {
+    }
+
+    private MacroArgument(SyntaxNode syntax, ExpressionSyntax expression, SemanticModel semanticModel)
     {
         Syntax = syntax ?? throw new ArgumentNullException(nameof(syntax));
         ArgumentNullException.ThrowIfNull(semanticModel);
-        Name = syntax.NameColon?.Name.Identifier.ValueText;
-        Expression = syntax.Expression;
+        Name = (syntax as ArgumentSyntax)?.NameColon?.Name.Identifier.ValueText;
+        Expression = expression ?? throw new ArgumentNullException(nameof(expression));
         _constant = new Lazy<TypedConstant>(() => TryCreateConstant(Expression, semanticModel.Compilation, out var constant)
             ? constant
             : TypedConstant.CreateError(type: null));
     }
 
-    public ArgumentSyntax Syntax { get; }
+    public SyntaxNode Syntax { get; }
 
     public string? Name { get; }
 

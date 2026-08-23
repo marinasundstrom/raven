@@ -1,7 +1,5 @@
 namespace Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 
-using System;
-
 using static Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxFactory;
 
 internal sealed class MacroInvocationSyntaxParser : SyntaxParser
@@ -10,13 +8,13 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
     {
     }
 
-    public bool IsBangInvocationStart()
+    public bool IsBangInvocationStart(bool allowExpressionHeader = false)
     {
-        if (!CanTokenBeIdentifier(PeekToken()))
+        if (!CanStartMacroName())
             return false;
 
         var checkpoint = CreateCheckpoint("freestanding-macro-lookahead");
-        var name = new NameSyntaxParser(this).ParseName();
+        var name = ParseMacroName();
         var isStart = !name.IsMissing &&
             !HasLineBreakBeforePeekToken() &&
             ConsumeToken(SyntaxKind.ExclamationToken, out _);
@@ -35,19 +33,38 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
             return true;
         }
 
-        isStart = !HasLineBreakBeforePeekToken() &&
-            PeekToken().IsKind(SyntaxKind.OpenBraceToken);
+        if (HasLineBreakBeforePeekToken())
+        {
+            checkpoint.Rewind();
+            return false;
+        }
+
+        if (PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+        {
+            checkpoint.Rewind();
+            return true;
+        }
+
+        if (!allowExpressionHeader || IsOperatorLeadingHeader(PeekToken()))
+        {
+            checkpoint.Rewind();
+            return false;
+        }
+
+        var expressionStart = Position;
+        _ = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
+        isStart = Position > expressionStart;
         checkpoint.Rewind();
         return isStart;
     }
 
     public bool IsDeclarationInvocationStart()
     {
-        if (!CanTokenBeIdentifier(PeekToken()))
+        if (!CanStartMacroName())
             return false;
 
         var checkpoint = CreateCheckpoint("declaration-macro-lookahead");
-        var name = new NameSyntaxParser(this).ParseName();
+        var name = ParseMacroName();
         var isStart = !name.IsMissing &&
             !HasLineBreakBeforePeekToken() &&
             ConsumeToken(SyntaxKind.ExclamationToken, out _) &&
@@ -67,27 +84,25 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
 
     public FreestandingMacroExpressionSyntax ParseExpression()
     {
-        var invocation = ParseInvocation();
+        var invocation = ParseInvocation(allowExpressionHeader: true);
         return FreestandingMacroExpression(
             invocation.Name,
             invocation.ExclamationToken,
-            invocation.ArgumentList,
-            invocation.TokenTree);
+            invocation.Carrier);
     }
 
     public FreestandingMacroMemberDeclarationSyntax ParseMember(
         SyntaxList attributeLists,
         SyntaxList modifiers)
     {
-        var invocation = ParseInvocation();
+        var invocation = ParseInvocation(allowExpressionHeader: false);
         TryConsumeTerminator(out var terminatorToken);
         return FreestandingMacroMemberDeclaration(
             attributeLists,
             modifiers,
             invocation.Name,
             invocation.ExclamationToken,
-            invocation.ArgumentList,
-            invocation.TokenTree,
+            invocation.Carrier,
             terminatorToken);
     }
 
@@ -95,7 +110,7 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
         SyntaxList attributeLists,
         SyntaxList modifiers)
     {
-        var name = new NameSyntaxParser(this).ParseName();
+        var name = ParseMacroName();
         ConsumeTokenOrMissing(SyntaxKind.ExclamationToken, out var exclamationToken);
 
         SyntaxToken identifier;
@@ -133,22 +148,21 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
         }
 
         TryConsumeTerminator(out var terminatorToken);
+        var carrier = DeclarationMacroCarrier(identifier, parameterList, tokenTree);
         return FreestandingMacroDeclaration(
             attributeLists,
             modifiers,
             name,
             exclamationToken,
-            identifier,
-            parameterList,
-            tokenTree,
+            carrier,
             terminatorToken);
     }
 
-    private InvocationParts ParseInvocation()
+    private InvocationParts ParseInvocation(bool allowExpressionHeader)
     {
-        var name = new NameSyntaxParser(this).ParseName();
+        var name = ParseMacroName();
         ConsumeTokenOrMissing(SyntaxKind.ExclamationToken, out var exclamationToken);
-        var argumentList = CreateMissingArgumentList();
+        ArgumentListSyntax? argumentList = null;
 
         if (PeekToken().IsKind(SyntaxKind.OpenParenToken))
         {
@@ -156,11 +170,22 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
                 allowLegacyNamedArgumentEquals: false);
         }
 
-        var tokenTree = PeekToken().IsKind(SyntaxKind.OpenBraceToken)
+        ExpressionSyntax? expression = null;
+        if (argumentList is null &&
+            allowExpressionHeader &&
+            !HasLineBreakBeforePeekToken() &&
+            !PeekToken().IsKind(SyntaxKind.OpenBraceToken) &&
+            !IsOperatorLeadingHeader(PeekToken()))
+        {
+            expression = new ExpressionSyntaxParser(this, stopOnOpenBrace: true).ParseExpression();
+        }
+
+        var tokenTree = PeekToken().IsKind(SyntaxKind.OpenBraceToken) &&
+            !HasLineBreakBeforePeekToken()
             ? ParseTokenTree()
             : null;
 
-        if (argumentList.OpenParenToken.IsMissing && tokenTree is null)
+        if (argumentList is null && expression is null && tokenTree is null)
         {
             AddDiagnostic(DiagnosticInfo.Create(
                 CompilerDiagnostics.CharacterExpected,
@@ -168,8 +193,37 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
                 "( or {"));
         }
 
-        return new InvocationParts(name, exclamationToken, argumentList, tokenTree);
+        MacroCarrierSyntax carrier = argumentList switch
+        {
+            not null => ParenthesizedMacroCarrier(argumentList, tokenTree),
+            null when expression is not null => ExpressionHeaderMacroCarrier(expression, tokenTree),
+            _ => TokenTreeMacroCarrier(tokenTree!),
+        };
+
+        return new InvocationParts(name, exclamationToken, carrier);
     }
+
+    private bool CanStartMacroName()
+        => CanTokenBeIdentifier(PeekToken()) ||
+            SyntaxFacts.IsKeywordKind(PeekToken().Kind) &&
+            PeekToken(1).IsKind(SyntaxKind.ExclamationToken);
+
+    private NameSyntax ParseMacroName()
+    {
+        if (SyntaxFacts.IsKeywordKind(PeekToken().Kind) &&
+            PeekToken(1).IsKind(SyntaxKind.ExclamationToken))
+        {
+            var keyword = ToIdentifierToken(ReadToken());
+            UpdateLastToken(keyword);
+            return IdentifierName(keyword);
+        }
+
+        return new NameSyntaxParser(this).ParseName();
+    }
+
+    private static bool IsOperatorLeadingHeader(SyntaxToken token)
+        => SyntaxFacts.IsUnaryOperatorToken(token.Kind) ||
+            token.IsKind(SyntaxKind.DotToken);
 
     private MacroTokenTreeSyntax ParseTokenTree()
     {
@@ -190,15 +244,8 @@ internal sealed class MacroInvocationSyntaxParser : SyntaxParser
         return MacroTokenTree(openBraceToken, bodyToken, closeBraceToken);
     }
 
-    private static ArgumentListSyntax CreateMissingArgumentList()
-        => ArgumentList(
-            MissingToken(SyntaxKind.OpenParenToken),
-            List(Array.Empty<GreenNode>()),
-            MissingToken(SyntaxKind.CloseParenToken));
-
     private readonly record struct InvocationParts(
         NameSyntax Name,
         SyntaxToken ExclamationToken,
-        ArgumentListSyntax ArgumentList,
-        MacroTokenTreeSyntax? TokenTree);
+        MacroCarrierSyntax Carrier);
 }

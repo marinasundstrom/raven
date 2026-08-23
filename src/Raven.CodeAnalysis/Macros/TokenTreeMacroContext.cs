@@ -122,11 +122,13 @@ public class TokenTreeMacroContext : MacroContext
         Invocation = invocation;
         Name = invocation.Name;
         ExclamationToken = invocation.ExclamationToken;
+        Carrier = invocation.Carrier;
         ArgumentList = invocation.ArgumentList;
+        ExpressionArgument = invocation.ExpressionArgument;
         TokenTree = invocation.TokenTree ?? throw new ArgumentException(
             "A token-tree macro context requires a token-tree invocation.",
             nameof(invocation));
-        Arguments = CreateArguments(invocation.ArgumentList, semanticModel);
+        Arguments = CreateArguments(invocation, semanticModel);
         _tokenStreamProvider = tokenStreamProvider;
         _keywords = keywords.IsDefault ? ImmutableArray<MacroKeyword>.Empty : keywords;
         CancellationToken = cancellationToken;
@@ -142,9 +144,13 @@ public class TokenTreeMacroContext : MacroContext
 
     public SyntaxToken ExclamationToken { get; }
 
+    public MacroCarrierSyntax Carrier { get; }
+
     public MacroTokenTreeSyntax TokenTree { get; }
 
     public ArgumentListSyntax? ArgumentList { get; }
+
+    public ExpressionSyntax? ExpressionArgument { get; }
 
     public ImmutableArray<MacroArgument> Arguments { get; }
 
@@ -876,11 +882,14 @@ public class TokenTreeMacroContext : MacroContext
         => _fileDependencies.AddRange(dependencies);
 
     private static ImmutableArray<MacroArgument> CreateArguments(
-        ArgumentListSyntax? argumentList,
+        FreestandingMacroInvocation invocation,
         SemanticModel semanticModel)
     {
-        if (argumentList is null)
-            return ImmutableArray<MacroArgument>.Empty;
+        if (invocation.ExpressionArgument is { } expression)
+            return [new MacroArgument(expression, semanticModel)];
+
+        if (invocation.ArgumentList is not { } argumentList)
+            return [];
 
         var builder = ImmutableArray.CreateBuilder<MacroArgument>(argumentList.Arguments.Count);
         foreach (var argument in argumentList.Arguments)

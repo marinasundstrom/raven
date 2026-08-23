@@ -1000,11 +1000,37 @@ The compiler lowers `macro` declarations to adapters, but tools expose an
 | `completion by Handler` | `IMacroCompletionProvider` forwarding member |
 | `projection by Handler` | `IMacroEmbeddedLanguageProvider` forwarding member |
 
-The two freestanding contexts expose a normalized carrier surface:
-`Syntax` is the authored `SyntaxNode`, while `Name`, `ExclamationToken`,
-`ArgumentList`, and `TokenTree` provide the shared `Name!` parts. This keeps a
-macro independent of whether the parser used an expression carrier or a
-type-member carrier unless the macro deliberately inspects `Syntax`.
+The two freestanding contexts preserve the authored carrier through `Carrier`.
+It is one of `ParenthesizedMacroCarrierSyntax`,
+`ExpressionHeaderMacroCarrierSyntax`, `TokenTreeMacroCarrierSyntax`, or
+`DeclarationMacroCarrierSyntax`. `Syntax` remains the complete authored node,
+while `Name`, `ExclamationToken`, `ArgumentList`, `ExpressionArgument`, and
+`TokenTree` are convenience projections. Compatibility projections are
+nullable when that piece does not belong to the selected carrier.
+
+Class-authored macros select a non-default source shape with
+`IMacroDefinition.CarrierKinds`. For example, an expression-header macro can
+accept both of these forms:
+
+```raven
+probe! value
+probe! value {
+    custom rules
+}
+```
+
+Its definition publishes `MacroCarrierKinds.ExpressionHeader` and
+`MacroBodyRequirement.Optional`, then declares one `ExpressionSyntax` input.
+The compiler supplies the first form through `FreestandingMacroContext` and the
+second through `TokenTreeMacroContext`; a shared `MacroContext` parameter works
+for an entry point accepting both. `MacroBodyRequirement.None` forbids a body,
+while `Required` requires one. Leaving both properties at `Default` preserves
+the compatibility form inferred from the typed entry point.
+
+The compact Raven `macro` declaration syntax still publishes its inferred
+parenthesized or token-tree form. A source-level carrier clause for selecting
+expression-header form is a later authoring slice; the normalized descriptor
+and execution API no longer require another carrier-model redesign for it.
 
 `fragment` accepts a `MacroFragmentRegion` and is valid only for a token-tree
 macro declaration. The generated adapter keeps reached regions on its expansion
@@ -1202,7 +1228,9 @@ extension currently delegates completion and hover to the projected language
 service while reported Raven fragments retain cursor ownership. Formatting,
 linked editing, and projected-language diagnostics remain later editor slices.
 
-Expression and raw-body statement placement, single-member and member-list
-expansion, and declaration-shaped carriers are implemented. Type and pattern
-invocation targets, the `[...]`/`MacroList<T>` input family, and typed syntax
-wrappers remain future work.
+Expression and raw-body statement placement, expression-header syntax,
+single-member and member-list expansion, and the initial declaration-shaped
+carrier are implemented. Rich declaration headers (generic parameters, base
+lists, constraints, return types, and custom clauses), compact-source carrier
+selection, type and pattern invocation targets, the `[...]`/`MacroList<T>`
+input family, and typed syntax wrappers remain future work.
