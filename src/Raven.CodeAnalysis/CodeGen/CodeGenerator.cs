@@ -1702,41 +1702,110 @@ internal class CodeGenerator
     private IReadOnlyDictionary<string, Mono.Cecil.AssemblyNameReference> GetTargetAssemblyReferences()
     {
         var references = new Dictionary<string, Mono.Cecil.AssemblyNameReference>(StringComparer.OrdinalIgnoreCase);
+        var runtimeDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var reference in _compilation.References.OfType<PortableExecutableReference>())
         {
             if (string.IsNullOrWhiteSpace(reference.FilePath))
                 continue;
 
-            try
-            {
-                var identity = AssemblyName.GetAssemblyName(reference.FilePath);
-                if (string.IsNullOrWhiteSpace(identity.Name))
-                    continue;
+            AddTargetAssemblyReference(reference.FilePath, references);
+            if (TryGetSharedFrameworkDirectory(reference.FilePath) is { } runtimeDirectory)
+                runtimeDirectories.Add(runtimeDirectory);
+        }
 
-                var targetReference = new Mono.Cecil.AssemblyNameReference(
-                    identity.Name,
-                    identity.Version ?? new Version(0, 0, 0, 0))
-                {
-                    Culture = identity.CultureName ?? string.Empty
-                };
-                var publicKeyToken = identity.GetPublicKeyToken();
-                if (publicKeyToken is { Length: > 0 })
-                    targetReference.PublicKeyToken = publicKeyToken;
-
-                references.TryAdd(identity.Name, targetReference);
-            }
-            catch (BadImageFormatException)
-            {
-            }
-            catch (FileLoadException)
-            {
-            }
-            catch (FileNotFoundException)
-            {
-            }
+        // Reflection.Emit describes forwarded framework types using the compiler
+        // host's implementation assemblies (for example System.Private.Xml.Linq).
+        // Those implementation assemblies do not appear in the target reference
+        // pack, so include their target-runtime identities when retargeting the
+        // emitted metadata.
+        foreach (var runtimeDirectory in runtimeDirectories)
+        {
+            foreach (var assemblyPath in Directory.EnumerateFiles(runtimeDirectory, "*.dll"))
+                AddTargetAssemblyReference(assemblyPath, references);
         }
 
         return references;
+    }
+
+    private static void AddTargetAssemblyReference(
+        string assemblyPath,
+        IDictionary<string, Mono.Cecil.AssemblyNameReference> references)
+    {
+        try
+        {
+            var identity = AssemblyName.GetAssemblyName(assemblyPath);
+            if (string.IsNullOrWhiteSpace(identity.Name))
+                return;
+
+            var targetReference = new Mono.Cecil.AssemblyNameReference(
+                identity.Name,
+                identity.Version ?? new Version(0, 0, 0, 0))
+            {
+                Culture = identity.CultureName ?? string.Empty
+            };
+            var publicKeyToken = identity.GetPublicKeyToken();
+            if (publicKeyToken is { Length: > 0 })
+                targetReference.PublicKeyToken = publicKeyToken;
+
+            references.TryAdd(identity.Name, targetReference);
+        }
+        catch (BadImageFormatException)
+        {
+        }
+        catch (FileLoadException)
+        {
+        }
+        catch (FileNotFoundException)
+        {
+        }
+    }
+
+    private static string? TryGetSharedFrameworkDirectory(string referenceAssemblyPath)
+    {
+        try
+        {
+            var tfmDirectory = Path.GetDirectoryName(referenceAssemblyPath);
+            var refDirectory = tfmDirectory is null ? null : Path.GetDirectoryName(tfmDirectory);
+            if (refDirectory is null ||
+                !string.Equals(Path.GetFileName(refDirectory), "ref", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var versionDirectory = Path.GetDirectoryName(refDirectory);
+            var packDirectory = versionDirectory is null ? null : Path.GetDirectoryName(versionDirectory);
+            var packsDirectory = packDirectory is null ? null : Path.GetDirectoryName(packDirectory);
+            if (versionDirectory is null ||
+                packDirectory is null ||
+                packsDirectory is null ||
+                !string.Equals(Path.GetFileName(packsDirectory), "packs", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var packName = Path.GetFileName(packDirectory);
+            if (!packName.EndsWith(".Ref", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var dotnetRoot = Path.GetDirectoryName(packsDirectory);
+            if (dotnetRoot is null)
+                return null;
+
+            var runtimeDirectory = Path.Combine(
+                dotnetRoot,
+                "shared",
+                packName[..^4],
+                Path.GetFileName(versionDirectory));
+            return Directory.Exists(runtimeDirectory) ? runtimeDirectory : null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
     }
 
     private void DetermineShimTypeRequirements()
@@ -1765,9 +1834,9 @@ internal class CodeGenerator
 
         if (DiscriminatedUnionAttributeType is null)
         {
-            DiscriminatedUnionAttributeType = Compilation.ResolveRuntimeType(
+            DiscriminatedUnionAttributeType = ResolveReferencedRuntimeType(
                 "System.Runtime.CompilerServices.UnionAttribute")
-                ?? Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.DiscriminatedUnionAttribute");
+                ?? ResolveReferencedRuntimeType("System.Runtime.CompilerServices.DiscriminatedUnionAttribute");
             _discriminatedUnionCtor = DiscriminatedUnionAttributeType?.GetConstructor(Type.EmptyTypes);
         }
 
@@ -1777,6 +1846,14 @@ internal class CodeGenerator
             UnionInterfaceType = unionInterfaceSymbol.GetTypeInfo().AsType();
         }
 
+    }
+
+    private Type? ResolveReferencedRuntimeType(string metadataName)
+    {
+        if (Compilation.GetTypeByMetadataName(metadataName) is PENamedTypeSymbol metadataType)
+            return metadataType.GetTypeInfo().AsType();
+
+        return Compilation.ResolveRuntimeType(metadataName);
     }
 
     private void CreateExtensionMarkerNameAttributeType()

@@ -3534,20 +3534,10 @@ public partial class Compilation
             if (bestMatch is null)
             {
                 bestMatch = type;
-                if (IsStrongMetadataAssemblyMatch(metadataName, assembly.Name) &&
-                    !metadataName.StartsWith("System.", StringComparison.Ordinal))
-                {
+                if (IsStrongMetadataAssemblyMatch(metadataName, assembly.Name))
                     break;
-                }
 
                 continue;
-            }
-
-            var currentAssembly = bestMatch.ContainingAssembly?.Name;
-            if (!string.Equals(currentAssembly, "System.Runtime", StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(assembly.Name, "System.Runtime", StringComparison.OrdinalIgnoreCase))
-            {
-                bestMatch = type;
             }
         }
 

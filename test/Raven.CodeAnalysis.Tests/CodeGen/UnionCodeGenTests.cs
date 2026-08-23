@@ -523,7 +523,7 @@ union Option {
     }
 
     [Fact]
-    public void DiscriminatedUnion_Net10UsesRavenCoreIUnionInsteadOfHostRuntimeType()
+    public void DiscriminatedUnion_Net10UsesRavenCoreUnionContractsInsteadOfHostRuntimeTypes()
     {
         var syntaxTree = SyntaxTree.ParseText(
             """
@@ -565,6 +565,22 @@ union Option {
         var assemblyReference = metadata.GetAssemblyReference((AssemblyReferenceHandle)unionReference.ResolutionScope);
 
         Assert.Equal("Raven.Core", metadata.GetString(assemblyReference.Name));
+
+        var unionAttribute = optionDefinition.GetCustomAttributes()
+            .Select(metadata.GetCustomAttribute)
+            .Single(attribute =>
+                attribute.Constructor.Kind == HandleKind.MemberReference &&
+                IsMetadataType(
+                    metadata,
+                    metadata.GetMemberReference((MemberReferenceHandle)attribute.Constructor).Parent,
+                    "System.Runtime.CompilerServices",
+                    "UnionAttribute"));
+        var unionAttributeConstructor = metadata.GetMemberReference((MemberReferenceHandle)unionAttribute.Constructor);
+        var unionAttributeType = metadata.GetTypeReference((TypeReferenceHandle)unionAttributeConstructor.Parent);
+        var unionAttributeAssembly = metadata.GetAssemblyReference(
+            (AssemblyReferenceHandle)unionAttributeType.ResolutionScope);
+
+        Assert.Equal("Raven.Core", metadata.GetString(unionAttributeAssembly.Name));
     }
 
     private static MetadataReference CreateNet10RavenCoreUnionReference()
@@ -572,6 +588,11 @@ union Option {
         const string source = """
 namespace System.Runtime.CompilerServices
 {
+    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct)]
+    public sealed class UnionAttribute : System.Attribute
+    {
+    }
+
     public interface IUnion
     {
         object Value { get; }

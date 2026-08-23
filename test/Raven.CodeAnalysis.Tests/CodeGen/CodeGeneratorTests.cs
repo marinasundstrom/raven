@@ -634,6 +634,97 @@ class Greeter {
     }
 
     [Fact]
+    public void Emit_ForwardedFrameworkType_UsesTargetRuntimeImplementationIdentity()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+func Create() -> System.Xml.Linq.XElement {
+    return System.Xml.Linq.XElement.Parse("<root />")
+}
+""");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(version)
+            .Select(MetadataReference.CreateFromFile)
+            .ToArray();
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        peStream.Position = 0;
+        using var peReader = new PEReader(peStream, PEStreamOptions.PrefetchEntireImage);
+        var metadataReader = peReader.GetMetadataReader();
+        var xmlImplementationReference = metadataReader.AssemblyReferences
+            .Select(metadataReader.GetAssemblyReference)
+            .Single(reference => metadataReader.GetString(reference.Name) == "System.Private.Xml.Linq");
+
+        Assert.Equal(new Version(10, 0, 0, 0), xmlImplementationReference.Version);
+    }
+
+    [Fact]
+    public void Emit_FrameworkCollectionType_UsesTargetRuntimeImplementationIdentity()
+    {
+        var syntaxTree = SyntaxTree.ParseText("""
+import System.Collections.Generic.List<>
+
+let values = List<int>()
+values.Add(1)
+
+for value in values {
+    System.Console.WriteLine(value)
+}
+""");
+        var version = TargetFrameworkResolver.ResolveVersion("net10.0");
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(version)
+            .Select(MetadataReference.CreateFromFile)
+            .Append(MetadataReference.CreateFromFile(Path.Combine(
+                repoRoot,
+                "src",
+                "Raven.Core",
+                "bin",
+                "Debug",
+                "net10.0",
+                "Raven.Core.dll")))
+            .ToArray();
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.ConsoleApplication)
+                .WithFrameworkProjectionMode(FrameworkProjectionMode.None),
+            targetFramework: "net10.0");
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        foreach (var reference in references)
+            project = project.AddMetadataReference(reference);
+        project = project.AddDocument("test.rvn", syntaxTree.GetText(), "/tmp/test.rvn").Project;
+        project = project.AddDocument(
+            "test.Prelude.g.rvn",
+            RavenPrelude.CreateDefaultSourceText(),
+            "/tmp/test.Prelude.g.rvn").Project;
+        workspace.TryApplyChanges(project.Solution);
+        var compilation = workspace.GetCompilation(projectId);
+        _ = compilation.GetDiagnostics();
+
+        using var peStream = new MemoryStream();
+        using var pdbStream = new MemoryStream();
+        var result = compilation.Emit(peStream, pdbStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        peStream.Position = 0;
+        using var peReader = new PEReader(peStream, PEStreamOptions.PrefetchEntireImage);
+        var metadataReader = peReader.GetMetadataReader();
+        var listTypeReference = metadataReader.TypeReferences
+            .Select(metadataReader.GetTypeReference)
+            .Single(reference => metadataReader.GetString(reference.Name) == "List`1");
+        var scope = metadataReader.GetAssemblyReference((AssemblyReferenceHandle)listTypeReference.ResolutionScope);
+
+        Assert.Equal("System.Private.CoreLib", metadataReader.GetString(scope.Name));
+        Assert.Equal(new Version(10, 0, 0, 0), scope.Version);
+    }
+
+    [Fact]
     public void Emit_InterfaceStaticMembers_EmitsCallableStatics()
     {
         var code = """

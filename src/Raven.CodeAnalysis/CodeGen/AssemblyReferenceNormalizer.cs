@@ -47,6 +47,7 @@ internal static class AssemblyReferenceNormalizer
         var module = assembly.MainModule;
         var rewroteMetadataMethods = metadataMethodProxies is { Count: > 0 };
         RewriteMetadataMethodProxies(module, metadataMethodProxies, targetReferences);
+        RetargetKeptCoreLibraryTypeScopes(module, targetReferences);
         var coreLibRefs = module.AssemblyReferences
             .Where(reference => string.Equals(reference.Name, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase))
             .ToArray();
@@ -348,6 +349,56 @@ internal static class AssemblyReferenceNormalizer
         }
     }
 
+    private static void RetargetKeptCoreLibraryTypeScopes(
+        ModuleDefinition module,
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
+    {
+        if (targetReferences is null ||
+            !targetReferences.TryGetValue("System.Private.CoreLib", out var targetCoreLibrary))
+        {
+            return;
+        }
+
+        var runtimeReferences = module.AssemblyReferences
+            .Where(reference => string.Equals(reference.Name, "System.Runtime", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (runtimeReferences.Length == 0)
+            return;
+
+        var coreLibraryReference = module.AssemblyReferences.FirstOrDefault(reference =>
+            string.Equals(reference.Name, targetCoreLibrary.Name, StringComparison.OrdinalIgnoreCase));
+        if (coreLibraryReference is null)
+        {
+            coreLibraryReference = CloneAssemblyReference(targetCoreLibrary);
+            module.AssemblyReferences.Add(coreLibraryReference);
+        }
+
+        foreach (var runtimeReference in runtimeReferences)
+        {
+            foreach (var typeReference in module.GetTypeReferences())
+                RetargetKeptCoreLibraryTypeScope(typeReference, runtimeReference, coreLibraryReference);
+
+            foreach (var memberReference in module.GetMemberReferences())
+            {
+                if (memberReference.DeclaringType is { } declaringType)
+                    RetargetKeptCoreLibraryTypeScope(declaringType, runtimeReference, coreLibraryReference);
+            }
+        }
+    }
+
+    private static void RetargetKeptCoreLibraryTypeScope(
+        TypeReference typeReference,
+        AssemblyNameReference runtimeReference,
+        AssemblyNameReference coreLibraryReference)
+    {
+        var innermost = GetInnermostTypeReference(typeReference);
+        if (ReferenceEquals(innermost.Scope, runtimeReference) &&
+            ShouldKeepCoreLibScope(innermost.FullName, innermost.Namespace ?? string.Empty))
+        {
+            innermost.Scope = coreLibraryReference;
+        }
+    }
+
     private static void AddTargetTypeScope(
         TypeReference typeReference,
         IDictionary<string, AssemblyNameReference> targetScopes)
@@ -508,18 +559,22 @@ internal static class AssemblyReferenceNormalizer
     private static bool ShouldRewriteToSystemRuntime(TypeReference typeReference)
     {
         var innermost = GetInnermostTypeReference(typeReference);
-        if (KeepCoreLibTypeNames.Contains(innermost.FullName))
-            return false;
+        return !ShouldKeepCoreLibScope(innermost.FullName, innermost.Namespace ?? string.Empty);
+    }
 
-        var namespaceName = innermost.Namespace ?? string.Empty;
+    private static bool ShouldKeepCoreLibScope(string fullName, string namespaceName)
+    {
+        if (KeepCoreLibTypeNames.Contains(fullName))
+            return true;
 
         foreach (var prefix in KeepCoreLibNamespacePrefixes)
         {
-            if (namespaceName.StartsWith(prefix, StringComparison.Ordinal))
-                return false;
+            if (namespaceName.StartsWith(prefix, StringComparison.Ordinal) ||
+                fullName.StartsWith(prefix + ".", StringComparison.Ordinal))
+                return true;
         }
 
-        return true;
+        return false;
     }
 
     private static TypeReference GetInnermostTypeReference(TypeReference typeReference)
