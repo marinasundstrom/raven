@@ -16,7 +16,7 @@ func Main() {
 
     for character in fullCast {
         let name = "Jesse Mills"
-        if character is Character(name, _, _, _) {
+        if character is Character(== name, _, _, _) {
             Print(character)
         }
 

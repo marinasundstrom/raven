@@ -46,7 +46,7 @@ async func GetPerson(name: string) -> Task<Result<Person, CustomError>> {
 
 func FindPerson(persons: Person[], name: string) -> Result<Person, CustomError> {
     for person in persons {
-        if person is { Name: name } {
+        if person is { Name: == name } {
             return .Ok(person)
         }
     }
