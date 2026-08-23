@@ -4,6 +4,37 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Added Raven-authored `json!` and `xml!` standard-library macros. They produce
+  strongly typed `JsonObject` and `XElement` expressions, use Raven's
+  `$identifier` and `${expression}` splice forms, surface caller-scope Raven
+  fragments, validate completed literals with `JsonDocument` and `XDocument`,
+  and project their envelopes to JSON/XML editor services. A new data-literal
+  sample demonstrates platform interop and escaping.
+- Fixed emitted framework implementation references to use the target runtime's
+  identities rather than the compiler host's identities. This keeps assemblies
+  targeting .NET 10 loadable when Raven itself runs on .NET 11, including APIs
+  such as framework collections and LINQ to XML that use forwarded framework
+  types. Union contracts and marker attributes are likewise resolved from the
+  target `Raven.Core` rather than the host runtime.
+- Fixed metadata loading for assemblies whose emitted custom-attribute scopes
+  refer back to the containing assembly, preventing recursive assembly-symbol
+  construction when consuming Raven-authored union metadata.
+- Raven project builds now copy explicit macro runtime dependencies even when
+  the same assembly also appears among compiler references. The project-sample
+  harness defaults to the repository targets and .NET 11 compiler host, with an
+  explicit switch for testing the separately installed SDK.
+- Unused-value analysis now counts caller variables referenced by ordinary
+  Raven fragments inside macro bodies.
+- Fixed generic-name lookahead so a less-than comparison before a block cannot
+  consume a greater-than operator from a nested statement as a type-argument
+  terminator.
+- Fixed incremental editor binding so top-level function signatures wait for
+  deferred source imports, preserving union parameter types, union patterns,
+  and pattern payload locals during diagnostics and hover queries.
+- Fixed TextMate fallback colorization for attribute targets such as
+  `assembly`, lexical keywords such as `typeof`, and `not` in `is not`
+  patterns.
+
 ## 0.1.0-preview.14 - 2026-08-23
 
 - Compact macro declarations can now opt into explicit carrier combinations and
