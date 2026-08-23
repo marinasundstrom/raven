@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-22**.
 
 ## Unreleased
 
+- `ErrorMessage` now validates its string expression and containing `#[Error]`
+  union wholly in the Raven-authored `Raven.Macros` library, demonstrating an
+  attached macro that reports diagnostics and intentionally returns an empty
+  expansion.
 - `sha256Digest!` now implements constant inspection, canonical formatting,
   hashing, and syntax construction wholly in the Raven-authored
   `Raven.Macros` library through the public `MacroArgument` constant contract.

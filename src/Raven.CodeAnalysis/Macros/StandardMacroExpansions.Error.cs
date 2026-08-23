@@ -15,8 +15,6 @@ namespace Raven.CodeAnalysis.Macros;
 public static partial class StandardMacroExpansions
 {
     private const string ErrorExpansionFailedCode = "ERROR001";
-    private const string ErrorMessageInvalidExpressionCode = "ERRORMESSAGE001";
-    private const string ErrorMessageRequiresErrorCode = "ERRORMESSAGE002";
     private const string ErrorMessageDuplicateCode = "ERRORMESSAGE003";
 
     /// <summary>
@@ -57,34 +55,6 @@ public static partial class StandardMacroExpansions
             introducedMembers.Add(cause);
 
         return MacroExpansionResult.FromReplacement(replacement, introducedMembers.ToImmutable());
-    }
-
-    /// <summary>
-    /// Validates a case-level message consumed by <see cref="ExpandError"/>.
-    /// </summary>
-    public static MacroExpansionResult ExpandErrorMessage(
-        AttachedMacroContext context,
-        CaseDeclarationSyntax target,
-        ExpressionSyntax message)
-    {
-        if (!IsMessageExpression(message))
-        {
-            return MacroExpansionResult.FromDiagnostic(
-                context.CreateDiagnostic(
-                    "ErrorMessage requires a string literal or interpolated string expression.",
-                    syntax: message,
-                    code: ErrorMessageInvalidExpressionCode));
-        }
-
-        if (target.Parent is not UnionDeclarationSyntax union || !HasMacroAttribute(union.AttributeLists, "Error"))
-        {
-            return MacroExpansionResult.FromDiagnostic(
-                context.CreateDiagnostic(
-                    "ErrorMessage can only be used on a case inside a union derived with #[Error].",
-                    code: ErrorMessageRequiresErrorCode));
-        }
-
-        return MacroExpansionResult.Empty;
     }
 
     private static string CreateMessageExpression(
@@ -142,9 +112,6 @@ public static partial class StandardMacroExpansions
     private static bool IsMessageExpression(ExpressionSyntax expression)
         => expression is InterpolatedStringExpressionSyntax ||
            expression is LiteralExpressionSyntax { Token.Kind: SyntaxKind.StringLiteralToken or SyntaxKind.MultiLineStringLiteralToken };
-
-    private static bool HasMacroAttribute(SyntaxList<AttributeListSyntax> attributeLists, string name)
-        => GetMacroAttributes(attributeLists, name).Any();
 
     private static IEnumerable<AttributeSyntax> GetMacroAttributes(
         SyntaxList<AttributeListSyntax> attributeLists,

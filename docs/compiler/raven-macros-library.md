@@ -48,7 +48,10 @@ union ParseError {
 ordinary Raven interpolation can refer to the payload names of that case; no
 macro-specific formatting language is involved. A case without
 `ErrorMessage` falls back to the union's normal case-aware string
-representation.
+representation. Its validation is implemented in Raven: the attached macro
+inspects the authored expression and containing union, reports diagnostics for
+invalid use, and returns an empty expansion because `Error` consumes the
+annotation when it derives the union implementation.
 
 Conceptually, the macros above expand to ordinary Raven code:
 
@@ -182,11 +185,12 @@ late type-load or invocation failure.
 
 ## Current implementation boundary
 
-`Quote.rvn`, `Compile.rvn`, `Error.rvn`, and `ErrorMessage.rvn` own their public
-macro declarations, namespaces, aliases, and documentation. Their low-level
-expansion mechanics currently delegate to `StandardMacroExpansions` in
-`Raven.CodeAnalysis`. This is intentional while the macro API is still
-evolving; the other standard macros are implemented wholly in Raven.
+`Quote.rvn`, `Compile.rvn`, and `Error.rvn` own their public macro declarations,
+namespaces, aliases, and documentation while their low-level expansion
+mechanics currently delegate to `StandardMacroExpansions` in
+`Raven.CodeAnalysis`. `ErrorMessage.rvn` and the other standard macros are
+implemented wholly in Raven. This incremental boundary is intentional while
+the macro API is still evolving.
 
 As the public API gains sufficient diagnostic, source-location, and
 syntax-construction support, suitable behavior can move wholly or partly into

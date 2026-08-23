@@ -980,6 +980,41 @@ in execution order. The class-authored equivalent implements
 `AttachedMacroContext` exposes the original `TargetDeclaration` and composed
 `CurrentDeclaration`.
 
+An attached macro may also be validation-only. It can inspect typed syntax and
+its containing declaration, report a diagnostic on an invalid path, and return
+an empty expansion when there is no declaration transform to apply:
+
+```raven
+macro RequireString(
+    message: ExpressionSyntax,
+    on target: CaseDeclarationSyntax,
+    context: AttachedMacroContext
+) {
+    let valid =
+        if message is InterpolatedStringExpressionSyntax interpolated {
+            true
+        } else if message is LiteralExpressionSyntax literal {
+            true
+        } else {
+            false
+        }
+
+    if !valid {
+        expand MacroExpansionResult.FromDiagnostic(
+            context.CreateDiagnostic(
+                "RequireString expects a string expression.",
+                syntax: message,
+                code: "REQUIRESTRING001"))
+    }
+
+    expand MacroExpansionResult.Empty
+}
+```
+
+`ErrorMessage` in `Raven.Macros` uses this pattern: it validates its expression
+and containing union, while the separate `Error` macro owns the generated
+members.
+
 A convenience macro should expand to the ordinary framework model rather than
 create a parallel one. For example, the HTML/Blazor sample's `#[Parameter]`
 adds Blazor's normal parameter attribute.
