@@ -118,6 +118,13 @@
                     },
                     "patterns": [
                         {
+                            "name": "keyword.other.attribute-target.raven",
+                            "match": "\\b(?:assembly|module|field|event|method|param(?:eter)?|property|return|type)\\b(?=\\s*:)"
+                        },
+                        {
+                            "include": "#keywords"
+                        },
+                        {
                             "name": "entity.name.annotation.raven",
                             "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*\\b"
                         },
@@ -132,9 +139,6 @@
                         },
                         {
                             "include": "#punctuation"
-                        },
-                        {
-                            "include": "#keywords"
                         },
                         {
                             "include": "#types"
@@ -459,6 +463,18 @@
                 {
                     "name": "keyword.control.raven",
                     "match": "\\bis\\b(?=\\s*\\()"
+                },
+                {
+                    "name": "keyword.control.pattern.raven",
+                    "match": "\\b(is)(\\s+)(not)\\b",
+                    "captures": {
+                        "1": {
+                            "name": "keyword.control.raven"
+                        },
+                        "3": {
+                            "name": "keyword.control.pattern.raven"
+                        }
+                    }
                 }
             ]
         },
