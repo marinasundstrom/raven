@@ -303,6 +303,10 @@
       <_StaleRavenRuntimeDependencyName Remove="@(_ResolvedRavenReferenceName)" />
       <_RavenRuntimeDependency
         Include="@(_RavenRuntimeDependencyName->'$(_RavenRuntimeIntermediatePath)%(Identity)')" />
+      <_RavenRuntimeDependency
+        Remove="@(ReferenceCopyLocalPaths)"
+        MatchOnMetadata="Filename;Extension"
+        MatchOnMetadataOptions="CaseInsensitive" />
       <ReferenceCopyLocalPaths Include="@(_RavenRuntimeDependency)">
         <CopyLocal>true</CopyLocal>
         <ReferenceSourceTarget>RavenCompilerRuntime</ReferenceSourceTarget>

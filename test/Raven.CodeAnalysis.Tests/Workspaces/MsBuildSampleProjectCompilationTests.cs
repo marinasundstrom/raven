@@ -1453,6 +1453,96 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
         }
     }
 
+    [Fact]
+    public void RavenProject_PublishesReferencedRavenProjectWithoutDuplicateRuntimeDependency()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var root = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var libraryDirectory = Path.Combine(root, "library");
+            var appDirectory = Path.Combine(root, "app");
+            Directory.CreateDirectory(libraryDirectory);
+            Directory.CreateDirectory(appDirectory);
+
+            File.WriteAllText(Path.Combine(libraryDirectory, "Greeter.rvnproj"), $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>GreeterLib</AssemblyName>
+                    <OutputType>Library</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Compile Include="Greeter.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+            File.WriteAllText(Path.Combine(libraryDirectory, "Greeter.rvn"), """
+                public class Greeter {
+                    public static func Message() -> string {
+                        "Hello from Raven reference"
+                    }
+                }
+                """);
+
+            File.WriteAllText(Path.Combine(appDirectory, "App.rvnproj"), $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <LanguageTargets>{{languageTargetsPath}}</LanguageTargets>
+                    <RavenCompilerHost>{{compilerDllPath}}</RavenCompilerHost>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Exe</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Compile Include="Main.rvn" />
+                    <ProjectReference Include="../library/Greeter.rvnproj" />
+                  </ItemGroup>
+                </Project>
+                """);
+            File.WriteAllText(Path.Combine(appDirectory, "Main.rvn"), """
+                import System.*
+
+                func Main() {
+                    Console.WriteLine(Greeter.Message())
+                }
+                """);
+
+            var appProjectPath = Path.Combine(appDirectory, "App.rvnproj");
+            var publishResult = RunProcess(
+                "dotnet",
+                $"publish \"{appProjectPath}\" --property WarningLevel=0",
+                root,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(publishResult.StdOut);
+            output.WriteLine(publishResult.StdErr);
+
+            Assert.True(
+                publishResult.ExitCode == 0,
+                $"dotnet publish failed.\nstdout:\n{publishResult.StdOut}\nstderr:\n{publishResult.StdErr}");
+
+            var publishDirectory = Path.Combine(appDirectory, "bin", "Release", "net10.0", "publish");
+            Assert.Single(Directory.GetFiles(publishDirectory, "GreeterLib.dll"));
+
+            var runResult = RunProcess(
+                "dotnet",
+                $"\"{Path.Combine(publishDirectory, "App.dll")}\"",
+                root,
+                timeoutMilliseconds: 300_000);
+            Assert.True(
+                runResult.ExitCode == 0,
+                $"Published app failed.\nstdout:\n{runResult.StdOut}\nstderr:\n{runResult.StdErr}");
+            Assert.Contains("Hello from Raven reference", runResult.StdOut);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
     private static string EnsureCompilerBuilt(string repoRoot, string targetFramework = "net11.0")
     {
         var compilerDllPath = Path.Combine(repoRoot, "src", "Raven.Compiler", "bin", "Debug", targetFramework, "rvnc.dll");
