@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/website-Raven-brightgreen.svg)](https://marinasundstrom.github.io/raven/)
+[![GitHub Release](https://img.shields.io/github/v/release/marinasundstrom/raven?display_name=tag&sort=semver)](https://github.com/marinasundstrom/raven/releases/latest)
+[![Raven.CodeAnalysis](https://img.shields.io/nuget/v/Raven.CodeAnalysis.svg?label=Raven.CodeAnalysis)](https://www.nuget.org/packages/Raven.CodeAnalysis)
 
 Raven is a pragmatic, typed, general-purpose programming language for .NET. It
 makes functional composition, algebraic modeling, procedural code, and
@@ -214,6 +216,20 @@ dotnet run -f net10.0 --project src/Raven --property WarningLevel=0 -- \
 
 For a guided walkthrough, including a first `hello.rav` file and project
 scaffolding, see [Getting Started](docs/getting-started.md).
+
+## NuGet Packages
+
+Raven publishes its compiler, libraries, project SDK, and templates as one
+versioned package family.
+
+| Package | Current version | Purpose |
+| --- | --- | --- |
+| [Raven.CodeAnalysis](https://www.nuget.org/packages/Raven.CodeAnalysis) | [![NuGet](https://img.shields.io/nuget/v/Raven.CodeAnalysis.svg)](https://www.nuget.org/packages/Raven.CodeAnalysis) | Compiler services and public analysis APIs |
+| [Raven.Analyzers](https://www.nuget.org/packages/Raven.Analyzers) | [![NuGet](https://img.shields.io/nuget/v/Raven.Analyzers.svg)](https://www.nuget.org/packages/Raven.Analyzers) | Raven compiler analyzers |
+| [Raven.Core](https://www.nuget.org/packages/Raven.Core) | [![NuGet](https://img.shields.io/nuget/v/Raven.Core.svg)](https://www.nuget.org/packages/Raven.Core) | Core Raven library |
+| [Raven.Macros](https://www.nuget.org/packages/Raven.Macros) | [![NuGet](https://img.shields.io/nuget/v/Raven.Macros.svg)](https://www.nuget.org/packages/Raven.Macros) | Standard macro library |
+| [Raven.Sdk](https://www.nuget.org/packages/Raven.Sdk) | [![NuGet](https://img.shields.io/nuget/v/Raven.Sdk.svg)](https://www.nuget.org/packages/Raven.Sdk) | MSBuild project SDK |
+| [Raven.Templates](https://www.nuget.org/packages/Raven.Templates) | [![NuGet](https://img.shields.io/nuget/v/Raven.Templates.svg)](https://www.nuget.org/packages/Raven.Templates) | `dotnet new` project templates |
 
 ## Using `rvn` and `rvnc`
 
