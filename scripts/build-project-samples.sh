@@ -155,12 +155,10 @@ pass_count=0
 fail_count=0
 
 repository_compiler=""
-repository_targets=""
 repository_macros_project=""
 case "$SAMPLE_TOOLCHAIN" in
   repository)
     repository_compiler="$ROOT_DIR/src/Raven.Compiler/bin/$BUILD_CONFIG/net11.0/rvnc.dll"
-    repository_targets="$ROOT_DIR/build/Raven.Language.targets"
     repository_macros_project="$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj"
     if [[ ! -f "$repository_compiler" ]]; then
       echo "Repository compiler host not found: $repository_compiler"
@@ -200,9 +198,6 @@ for project in "${PROJECTS[@]}"; do
   dotnet_build_args=()
   if [[ "$SAMPLE_TOOLCHAIN" == "repository" ]]; then
     dotnet_build_args+=("/property:RavenCompilerHost=$repository_compiler")
-    if [[ "$project" == *.rvnproj ]]; then
-      dotnet_build_args+=("/property:LanguageTargets=$repository_targets")
-    fi
   fi
 
   if [[ -n "${DOTNET_BUILD_ARGS:-}" ]]; then
