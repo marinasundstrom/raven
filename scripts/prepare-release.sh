@@ -37,7 +37,16 @@ fi
 while IFS= read -r file; do
   OLD_RELEASE_VERSION="$current_version" NEW_RELEASE_VERSION="$VERSION" \
     perl -pi -e 's/\Q$ENV{OLD_RELEASE_VERSION}\E/$ENV{NEW_RELEASE_VERSION}/g' "$REPO_ROOT/$file"
-done < <(git -C "$REPO_ROOT" grep -Il -F "$current_version" -- ':!CHANGELOG.md')
+done < <(
+  git -C "$REPO_ROOT" grep -Il -F "$current_version" -- \
+    ':!CHANGELOG.md' \
+    ':!docs/compiler/architecture/decisions/**'
+)
+
+if ! git -C "$REPO_ROOT" diff --quiet -- docs/compiler/architecture/decisions; then
+  echo "Release preparation must not rewrite historical architecture decisions." >&2
+  exit 1
+fi
 
 release_date="$(date +%F)"
 RELEASE_VERSION="$VERSION" RELEASE_DATE="$release_date" \
