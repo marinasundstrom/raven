@@ -649,10 +649,10 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_tupleElementNamesCtor!, new object?[] { transformNames.ToArray() });
     }
 
-    internal CustomAttributeBuilder CreateDiscriminatedUnionAttribute()
+    internal void ApplyDiscriminatedUnionAttribute(Action<ConstructorInfo, byte[]> apply)
     {
         EnsureDiscriminatedUnionAttributeType();
-        return new CustomAttributeBuilder(_discriminatedUnionCtor!, Array.Empty<object?>());
+        apply(_discriminatedUnionCtor!, CreateParameterlessAttributeBlob());
     }
 
     internal Type GetUnionInterfaceType()
@@ -661,27 +661,61 @@ internal class CodeGenerator
         return UnionInterfaceType!;
     }
 
-    internal CustomAttributeBuilder CreateRavenUnionCaseAttribute(string caseTypeMetadataName, string name, int ordinal)
+    internal void ApplyRavenUnionCaseAttribute(
+        string caseTypeMetadataName,
+        string name,
+        int ordinal,
+        Action<ConstructorInfo, byte[]> apply)
     {
         ArgumentNullException.ThrowIfNull(caseTypeMetadataName);
         ArgumentNullException.ThrowIfNull(name);
 
         EnsureRavenUnionCaseAttributeType();
-        return new CustomAttributeBuilder(_ravenUnionCaseCtor!, new object?[] { caseTypeMetadataName, name, ordinal });
+        apply(_ravenUnionCaseCtor!, CreateRavenUnionCaseAttributeBlob(caseTypeMetadataName, name, ordinal));
     }
 
-    internal CustomAttributeBuilder CreateRavenUnionCompanionAttribute(string unionTypeMetadataName)
+    internal void ApplyRavenUnionCompanionAttribute(
+        string unionTypeMetadataName,
+        Action<ConstructorInfo, byte[]> apply)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(unionTypeMetadataName);
 
         EnsureRavenUnionCompanionAttributeType();
-        return new CustomAttributeBuilder(_ravenUnionCompanionCtor!, [unionTypeMetadataName]);
+        apply(_ravenUnionCompanionCtor!, CreateStringAttributeBlob(unionTypeMetadataName));
     }
 
-    internal CustomAttributeBuilder CreateRavenOptionNoneDefaultValueAttribute()
+    internal void ApplyRavenOptionNoneDefaultValueAttribute(Action<ConstructorInfo, byte[]> apply)
     {
         EnsureRavenOptionNoneDefaultValueAttributeType();
-        return new CustomAttributeBuilder(_ravenOptionNoneDefaultValueCtor!, []);
+        apply(_ravenOptionNoneDefaultValueCtor!, CreateParameterlessAttributeBlob());
+    }
+
+    private static byte[] CreateParameterlessAttributeBlob()
+        => [0x01, 0x00, 0x00, 0x00];
+
+    private static byte[] CreateStringAttributeBlob(string value)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+        writer.Write((ushort)1);
+        WriteSerString(stream, value);
+        writer.Write((ushort)0);
+        return stream.ToArray();
+    }
+
+    private static byte[] CreateRavenUnionCaseAttributeBlob(
+        string caseTypeMetadataName,
+        string name,
+        int ordinal)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+        writer.Write((ushort)1);
+        WriteSerString(stream, caseTypeMetadataName);
+        WriteSerString(stream, name);
+        writer.Write(ordinal);
+        writer.Write((ushort)0);
+        return stream.ToArray();
     }
 
     internal void ApplyClosedHierarchyAttribute(

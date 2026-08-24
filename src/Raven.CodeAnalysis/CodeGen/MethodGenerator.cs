@@ -923,8 +923,8 @@ internal class MethodGenerator
 
         if (defaultValue is OptionNoneParameterDefaultValue)
         {
-            parameterBuilder.SetCustomAttribute(
-                TypeGenerator.CodeGen.CreateRavenOptionNoneDefaultValueAttribute());
+            TypeGenerator.CodeGen.ApplyRavenOptionNoneDefaultValueAttribute(
+                parameterBuilder.SetCustomAttribute);
             return;
         }
 

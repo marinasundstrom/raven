@@ -399,8 +399,7 @@ internal class TypeGenerator
 
             if (discriminatedUnionSymbol.TypeKind == TypeKind.Struct)
                 ApplyDiscriminatedUnionLayout();
-            var discriminatedUnionAttribute = CodeGen.CreateDiscriminatedUnionAttribute();
-            TypeBuilder!.SetCustomAttribute(discriminatedUnionAttribute);
+            CodeGen.ApplyDiscriminatedUnionAttribute(TypeBuilder!.SetCustomAttribute);
         }
 
         if (TypeSymbol is SourceNamedTypeSymbol sourceNamedType && sourceNamedType.IsSealedHierarchy)
@@ -412,9 +411,9 @@ internal class TypeGenerator
 
         if (TypeSymbol is SynthesizedUnionCompanionTypeSymbol companionType)
         {
-            TypeBuilder!.SetCustomAttribute(
-                CodeGen.CreateRavenUnionCompanionAttribute(
-                    companionType.Union.ToFullyQualifiedMetadataName()));
+            CodeGen.ApplyRavenUnionCompanionAttribute(
+                companionType.Union.ToFullyQualifiedMetadataName(),
+                TypeBuilder!.SetCustomAttribute);
         }
 
         EnsureExtensionGroupingType();
@@ -480,8 +479,11 @@ internal class TypeGenerator
         foreach (var caseSymbol in unionSymbol.DeclaredCaseTypes.OrderBy(static caseSymbol => caseSymbol.Ordinal))
         {
             var caseTypeMetadataName = ((INamedTypeSymbol)caseSymbol).ToFullyQualifiedMetadataName();
-            var caseAttribute = CodeGen.CreateRavenUnionCaseAttribute(caseTypeMetadataName, caseSymbol.Name, caseSymbol.Ordinal);
-            TypeBuilder.SetCustomAttribute(caseAttribute);
+            CodeGen.ApplyRavenUnionCaseAttribute(
+                caseTypeMetadataName,
+                caseSymbol.Name,
+                caseSymbol.Ordinal,
+                TypeBuilder.SetCustomAttribute);
         }
 
         _ravenUnionCaseAttributesApplied = true;

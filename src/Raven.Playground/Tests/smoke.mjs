@@ -64,6 +64,24 @@ const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage();
 const browserErrors = [];
 
+async function waitForSuccessfulRun(testPage, description) {
+  await testPage.waitForFunction(
+    () => ["Complete", "Runtime error", "Compile error"].includes(
+      document.querySelector(".status-pill")?.textContent?.trim(),
+    ),
+    { timeout: 60_000 },
+  );
+
+  const status = (await testPage.locator(".status-pill").textContent())?.trim();
+  if (status === "Complete") return;
+
+  const diagnostics = await testPage.locator(".diagnostics li").allTextContents();
+  const output = await testPage.locator(".output-panel").textContent();
+  throw new Error(
+    `Expected ${description} to run, got ${status}: ${diagnostics.join("\n")}\n${output}`,
+  );
+}
+
 page.on("console", message => {
   if (message.type() === "error") browserErrors.push(message.text());
 });
@@ -255,7 +273,7 @@ try {
 
   const runningPredefinedPage = await browser.newPage();
   await runningPredefinedPage.goto(`${url}?example=records&run=true`);
-  await runningPredefinedPage.getByText("Complete", { exact: true }).waitFor({ timeout: 30_000 });
+  await waitForSuccessfulRun(runningPredefinedPage, "the trusted records example");
   const runningPredefinedOutput = await runningPredefinedPage.locator(".program-output").textContent();
   if (!runningPredefinedOutput.includes("Shipment 42 weighs 3.5 kg")) {
     throw new Error(`Expected the trusted records example to run from the URL, got ${runningPredefinedOutput}.`);
@@ -264,7 +282,7 @@ try {
 
   const documentationSnippetPage = await browser.newPage();
   await documentationSnippetPage.goto(`${url}?snippet=shipment-quote&run=true`);
-  await documentationSnippetPage.getByText("Complete", { exact: true }).waitFor({ timeout: 30_000 });
+  await waitForSuccessfulRun(documentationSnippetPage, "the trusted documentation snippet");
   const documentationSnippetOutput = await documentationSnippetPage.locator(".program-output").textContent();
   if (!documentationSnippetOutput.includes("Quote:")) {
     throw new Error(`Expected the trusted documentation snippet to run, got ${documentationSnippetOutput}.`);
@@ -275,6 +293,16 @@ try {
     throw new Error(`Expected a documentation-only selector state, got '${documentationSnippetSelection}'.`);
   }
   await documentationSnippetPage.close();
+
+  const builtInMacrosPage = await browser.newPage();
+  await builtInMacrosPage.goto(`${url}?example=built-in-macros&run=true`);
+  await waitForSuccessfulRun(builtInMacrosPage, "the built-in macro forms example");
+  const builtInMacrosOutput = await builtInMacrosPage.locator(".program-output").textContent();
+  if (!builtInMacrosOutput.includes("Query total: 70") ||
+      !builtInMacrosOutput.includes("Invalid value: age")) {
+    throw new Error(`Expected built-in macro output, got '${builtInMacrosOutput}'.`);
+  }
+  await builtInMacrosPage.close();
 
   const externalExamplePage = await browser.newPage();
   await externalExamplePage.goto(`${url}?example=${encodeURIComponent("https://example.com/program.rvn")}&run=true`);

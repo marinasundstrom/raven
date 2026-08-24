@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-24**.
 
 ## Unreleased
 
+- Fixed browser Playground compilation of Raven unions, including the built-in
+  macro forms sample, by emitting Raven-owned metadata without unsupported
+  WebAssembly reflection APIs.
+
 ## 0.1.0 - 2026-08-24
 
 - Fixed stable release preparation so version updates preserve historical
