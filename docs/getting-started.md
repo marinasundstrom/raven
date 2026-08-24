@@ -5,6 +5,12 @@ program, and introduces a scaffolded `.rvnproj` application. Building Raven
 itself from source remains available for compiler contributors, but is not
 required to try the language.
 
+If you want to change the compiler, SDK, or editor integration, use the
+repository-isolated setup in the [contributor guide on
+GitHub](https://github.com/marinasundstrom/raven/blob/main/CONTRIBUTING.md). It
+keeps repository builds separate from an installed Raven SDK and VS Code
+extension.
+
 If you are coming from C#, read this as more than a command checklist. The
 walkthrough uses familiar C# problem shapes and shows the Raven idioms for them:
 plain top-level functions instead of class wrappers, unions instead of
@@ -502,5 +508,9 @@ its `Directory.Build.props`, so repository contributors can also invoke
   and examples.
 - [Style guide](lang/style-guide.md) for source layout conventions.
 - [Compiler project system](compiler/project-system.md) for `.rvnproj` details.
+- [Contributor guide on
+  GitHub](https://github.com/marinasundstrom/raven/blob/main/CONTRIBUTING.md)
+  for building and testing Raven itself in isolated terminal and VS Code
+  environments.
 - [Sample projects on GitHub](https://github.com/marinasundstrom/raven/tree/main/samples/projects)
   for complete, runnable examples.

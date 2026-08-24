@@ -36,6 +36,8 @@ or browse the Markdown sources under [`docs/`](docs/).
 
 - [Getting Started](docs/getting-started.md) - install the preview SDK and VS
   Code extension, run a sample, and create a small project.
+- [Contributing](CONTRIBUTING.md) - build and test repository artifacts in
+  isolated terminal and VS Code development environments.
 - [MVP Roadmap](docs/roadmap.md) - outcome-based milestones for turning the
   current language, tooling, and workloads into an evaluatable release.
 - [Raven for Absolute Beginners](docs/raven-for-absolute-beginners.md) - learn
