@@ -22,6 +22,7 @@ samples/run.sh
 scripts/build-project-samples.sh
 scripts/run-project-samples.sh
 scripts/test-target-framework-matrix.sh
+scripts/test-sample-il.sh
 ```
 
 The aggregate project runner evaluates every project, executes every ordinary
@@ -76,6 +77,24 @@ set must cover at least generic records and unions, pattern-heavy control flow,
 async/state-machine emission, macros, collections and extension methods, and
 .NET interop. Add a sample when a new compiler defect reveals an emitted shape
 not represented by the set.
+
+`scripts/test-sample-il.sh` builds the compiler and foundational libraries in
+Release mode, reads the reviewed `samples/ilverify-manifest.tsv`, IL-verifies
+every listed assembly, runs it after emission, and records the exact source,
+target framework, assembly path, and coverage reason under
+`artifacts/validation/sample-il`. A failure does not remove the sample from the
+manifest; reduce it and add the applicable compiler-boundary regressions.
+
+The current `dotnet-ilverify` 9 tool, as well as version 10, rejects two valid
+modern CLR shapes: static-abstract interface dispatch (`constrained T` followed
+by `call`) and .NET 11 runtime-async method bodies whose logical result is
+wrapped according to the runtime-async method-implementation flag. Constrained
+generic math therefore retains semantic-method and reloaded-runtime regression
+coverage, while the manifest's generic-record entry intentionally avoids the
+first limitation. Runtime-async remains covered by the net11 target matrix and
+focused runtime tests; the IL manifest uses ordinary net10 state-machine
+emission for its async coverage. Do not generalize these exceptions or suppress
+other verification failures.
 
 Treat failures as clusters rather than isolated sample incidents. Reduce each
 failure and determine the earliest divergent boundary using the regression

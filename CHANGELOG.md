@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Added a manifest-driven Release IL gate for representative standalone and
+  project samples, with target, assembly, coverage, verifier, and runtime
+  evidence recorded for the bootstrap freeze.
 - Fixed async state-machine lowering so expressions nested inside comparison,
   range, guarded, union-member, and deconstruction patterns remap instance and
   captured receivers through their synthesized fields.

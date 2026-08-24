@@ -1,0 +1,13 @@
+import System.*
+import System.Console.*
+
+// Feature: generic record construction and synthesized value equality.
+let first = Box<int>(42)
+let second = Box<int>(42)
+let boxed: object = second
+
+WriteLine(first)
+WriteLine(first.Equals(second))
+WriteLine(first.Equals(boxed))
+
+record class Box<T>(Value: T)
