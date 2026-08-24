@@ -80,6 +80,12 @@
 
   <Import Project="$(RavenCommonTargetsPath)" />
 
+  <ItemGroup>
+    <ProjectReference Update="@(ProjectReference->WithoutMetadataValue('Extension', '.rvnproj'))">
+      <GlobalPropertiesToRemove>%(GlobalPropertiesToRemove);LanguageTargets</GlobalPropertiesToRemove>
+    </ProjectReference>
+  </ItemGroup>
+
   <ItemGroup Condition="'$(EnableDefaultCompileItems)' == 'true'">
     <Compile Remove="@(Compile->WithMetadataValue('DefiningProjectName', 'Microsoft.NET.Sdk.DefaultItems'))" />
     <Compile Include="**/*.rvn" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />

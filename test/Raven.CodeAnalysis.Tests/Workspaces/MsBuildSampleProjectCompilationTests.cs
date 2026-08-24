@@ -1471,6 +1471,70 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void RavenProject_GlobalLanguageTargetsDoNotFlowToCSharpProjectReferences()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var compilerDllPath = EnsureCompilerBuilt(repoRoot, "net10.0");
+        var root = CreateTempDirectory();
+        try
+        {
+            var languageTargetsPath = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var libraryDirectory = Path.Combine(root, "library");
+            var appDirectory = Path.Combine(root, "app");
+            Directory.CreateDirectory(libraryDirectory);
+            Directory.CreateDirectory(appDirectory);
+
+            File.WriteAllText(Path.Combine(libraryDirectory, "Greeter.csproj"), """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                  </PropertyGroup>
+                </Project>
+                """);
+            File.WriteAllText(Path.Combine(libraryDirectory, "Greeter.cs"), """
+                public static class Greeter
+                {
+                    public static string Message => "Hello from C# reference";
+                }
+                """);
+
+            File.WriteAllText(Path.Combine(appDirectory, "App.rvnproj"), """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Exe</OutputType>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Compile Include="Main.rvn" />
+                    <ProjectReference Include="../library/Greeter.csproj" />
+                  </ItemGroup>
+                </Project>
+                """);
+            File.WriteAllText(Path.Combine(appDirectory, "Main.rvn"), """
+                import System.*
+
+                Console.WriteLine(Greeter.Message)
+                """);
+
+            var appProjectPath = Path.Combine(appDirectory, "App.rvnproj");
+            var result = RunProcess(
+                "dotnet",
+                $"run --project \"{appProjectPath}\" --property:LanguageTargets=\"{languageTargetsPath}\" --property:RavenCompilerHost=\"{compilerDllPath}\" --property:WarningLevel=0",
+                root,
+                timeoutMilliseconds: 300_000);
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+
+            Assert.True(result.ExitCode == 0, $"dotnet run failed.\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
+            Assert.Contains("Hello from C# reference", result.StdOut);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void RavenProject_PublishesReferencedRavenProjectWithoutDuplicateRuntimeDependency()
     {
         var repoRoot = GetRepositoryRoot();
