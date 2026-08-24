@@ -41,6 +41,7 @@ public partial class SemanticModel
     // but they must keep using non-reporting binding. Diagnostic traversal is the
     // only path that should add binder diagnostics during a diagnostics pass.
     private readonly AsyncLocal<int> _semanticQueryBindingDepth = new();
+    private readonly AsyncLocal<AvailableLocalBindingQuery?> _availableLocalBindingQuery = new();
     private bool _isCollectingDiagnostics;
     private int _diagnosticCollectionThreadId;
     private CancellationToken _diagnosticBindingCancellationToken;
@@ -293,6 +294,20 @@ public partial class SemanticModel
                 semanticModel._semanticAccessGate.Release();
         }
     }
+
+    private sealed class AvailableLocalBindingQuery
+    {
+        public int Depth { get; set; }
+        public HashSet<AvailableLocalBindingKey> Active { get; } = new();
+        public HashSet<AvailableLocalBindingKey> Failed { get; } = new();
+    }
+
+    private readonly record struct AvailableLocalBindingKey(
+        VariableDeclaratorSyntax VariableDeclarator,
+        bool AllowErrorType,
+        bool AllowInitializerBinding,
+        bool AllowBindingFallback,
+        bool AllowBoundInitializerBindingWithoutFallback);
 
     private SemanticQueryBindingLease EnterSemanticQueryBinding()
     {
@@ -7201,7 +7216,6 @@ public partial class SemanticModel
                     StoreSymbolInfo(identifier, localSymbol);
                     return true;
                 }
-
             }
         }
 
@@ -9760,6 +9774,59 @@ public partial class SemanticModel
         bool allowInitializerBinding = true,
         bool allowBindingFallback = true,
         bool allowBoundInitializerBindingWithoutFallback = false)
+    {
+        var query = _availableLocalBindingQuery.Value;
+        if (query is null)
+        {
+            query = new AvailableLocalBindingQuery();
+            _availableLocalBindingQuery.Value = query;
+        }
+
+        query.Depth++;
+        var key = new AvailableLocalBindingKey(
+            variableDeclarator,
+            allowErrorType,
+            allowInitializerBinding,
+            allowBindingFallback,
+            allowBoundInitializerBindingWithoutFallback);
+        if (query.Failed.Contains(key) || !query.Active.Add(key))
+        {
+            query.Depth--;
+            if (query.Depth == 0)
+                _availableLocalBindingQuery.Value = null;
+            localSymbol = null;
+            return false;
+        }
+
+        try
+        {
+            var result = TryBindLocalDeclarationForStableLocalSymbolCore(
+                variableDeclarator,
+                out localSymbol,
+                allowErrorType,
+                allowInitializerBinding,
+                allowBindingFallback,
+                allowBoundInitializerBindingWithoutFallback);
+            if (!result)
+                query.Failed.Add(key);
+            return result;
+        }
+        finally
+        {
+            query.Active.Remove(key);
+            query.Depth--;
+            if (query.Depth == 0)
+                _availableLocalBindingQuery.Value = null;
+        }
+    }
+
+    private bool TryBindLocalDeclarationForStableLocalSymbolCore(
+        VariableDeclaratorSyntax variableDeclarator,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ILocalSymbol? localSymbol,
+        bool allowErrorType,
+        bool allowInitializerBinding,
+        bool allowBindingFallback,
+        bool allowBoundInitializerBindingWithoutFallback)
     {
         if (!allowBindingFallback)
         {

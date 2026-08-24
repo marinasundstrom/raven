@@ -648,6 +648,25 @@ class C {
         Assert.Empty(Analyze(code));
     }
 
+    [Fact]
+    public void UnresolvedFluentLocalChain_DoesNotRecurseDuringUsageAnalysis()
+    {
+        const string code = """
+import Missing.*
+
+let syntaxTree = MissingSyntaxTree.ParseText("let x = 42")
+let root = syntaxTree.GetRoot()
+let result = root.DescendantNodes()
+    .OfType<MissingNode>()
+    .FirstOrNone()
+
+if result is Some(let node) {
+}
+""";
+
+        Assert.Empty(Analyze(code));
+    }
+
     private static Diagnostic[] Analyze(string code)
         => Analyze(code, UnusedVariableAnalyzer.DiagnosticId);
 
