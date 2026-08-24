@@ -93,16 +93,17 @@ internal static partial class SynthesizedMethodBodyFactory
         SourceNamedTypeSymbol recordType)
     {
         var factory = new BoundNodeFactory(compilation);
-        var otherLocal = CreateSynthesizedLocal(method, method.ContainingType!, "other");
+        var invocationContainingType = GetInvocationContainingType(method);
+        var otherLocal = CreateSynthesizedLocal(method, invocationContainingType, "other");
         var objectParameter = new BoundParameterAccess(method.Parameters[0]);
-        var selfAccess = new BoundSelfExpression(method.ContainingType!);
-        var asConversion = compilation.ClassifyConversion(method.Parameters[0].Type, method.ContainingType!, includeUserDefined: false);
+        var selfAccess = new BoundSelfExpression(invocationContainingType);
+        var asConversion = compilation.ClassifyConversion(method.Parameters[0].Type, invocationContainingType, includeUserDefined: false);
         var otherAccess = new BoundLocalAccess(otherLocal);
 
         var statements = new List<BoundStatement>
         {
             new BoundLocalDeclarationStatement([
-                new BoundVariableDeclarator(otherLocal, factory.CreateAsExpression(objectParameter, method.ContainingType!, asConversion))
+                new BoundVariableDeclarator(otherLocal, factory.CreateAsExpression(objectParameter, invocationContainingType, asConversion))
             ])
         };
         statements.AddRange(CreateRecordReferenceEqualityPrelude(compilation, selfAccess, otherAccess, whenReferenceEqual: true));

@@ -719,6 +719,37 @@ record class Person(Name: string, Age: int)
     }
 
     [Fact]
+    public void GenericRecordObjectEquality_UsesConstructedSelfType()
+    {
+        const string code = """
+record class Box<T>(Value: T)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("generic-record-equality", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var boxType = loaded.Assembly.GetType("Box`1", throwOnError: true)!.MakeGenericType(typeof(string));
+        var constructor = boxType
+            .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Single(candidate => candidate.GetParameters() is [{ ParameterType: var parameterType }] && parameterType == typeof(string));
+        var left = constructor.Invoke(["raven"]);
+        var equal = constructor.Invoke(["raven"]);
+        var different = constructor.Invoke(["crow"]);
+
+        Assert.True(left.Equals(equal));
+        Assert.False(left.Equals(different));
+        Assert.False(left.Equals(new object()));
+    }
+
+    [Fact]
     public void RecordEquality_IncludesNonPublicPrimaryConstructorProperties()
     {
         var code = """

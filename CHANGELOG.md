@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed synthesized `Equals(object)` for generic record classes so casts and
+  locals use the constructed self type rather than the open generic definition.
+  Generic record equality now executes correctly and emits verifiable IL.
 - Fixed repeated generic substitution when nested union cases were re-anchored
   under a constructed carrier. Generic cases such as `Ok<T[]>` now remain
   `Ok<T[]>` instead of becoming nested arrays, and `try` expressions returning

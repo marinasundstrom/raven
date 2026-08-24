@@ -1143,7 +1143,7 @@ internal static partial class SynthesizedMethodBodyFactory
     private static INamedTypeSymbol GetInvocationContainingType(IMethodSymbol method)
     {
         var containingType = (INamedTypeSymbol)method.ContainingType!;
-        if (!containingType.IsGenericType || !containingType.TypeArguments.IsDefaultOrEmpty)
+        if (!containingType.IsGenericType || containingType is ConstructedNamedTypeSymbol)
             return containingType;
 
         if (containingType.TypeParameters.IsDefaultOrEmpty)
