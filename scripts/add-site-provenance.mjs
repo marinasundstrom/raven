@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { nextUnreleasedVersion } from "./site-provenance-version.mjs";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..");
@@ -26,18 +27,6 @@ function hasTag(version) {
   } catch {
     return false;
   }
-}
-
-function nextUnreleasedVersion(version) {
-  const match = /^(.*-preview\.)(\d+)$/.exec(version);
-  if (!match) {
-    throw new Error(
-      `Version ${version} already has a release tag and its next preview cannot be inferred. ` +
-      "Set RAVEN_SITE_VERSION explicitly.",
-    );
-  }
-
-  return `${match[1]}${Number(match[2]) + 1}`;
 }
 
 function determineVersion() {

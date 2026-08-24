@@ -181,7 +181,8 @@ An untagged commit is labeled **unreleased** and uses the selected next preview
 line. Local commit-qualified SDK versions such as
 `0.1.1-preview.1-local.<sha>` are displayed as `0.1.1-preview.1`; when the
 configured version already has a release tag on an earlier commit, the script
-advances to the next preview number. `RAVEN_SITE_VERSION` can explicitly select
+advances an existing preview number, or increments the patch and selects
+`preview.1` after a stable release. `RAVEN_SITE_VERSION` can explicitly select
 the unreleased version when it cannot be inferred. A local artifact also says
 `uncommitted changes` when tracked files differ from its source commit.
 The publishing workflow checks out full Git history, including tags; without

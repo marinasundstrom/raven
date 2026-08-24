@@ -11,6 +11,8 @@ on:
       - "scripts/build-playground-site.sh"
       - "scripts/build-html-macro-site.sh"
       - "scripts/add-site-provenance.mjs"
+      - "scripts/site-provenance-version.mjs"
+      - "scripts/test-site-provenance-version.mjs"
       - "scripts/test-site-navigation.sh"
       - "scripts/add-production-analytics.sh"
       - "scripts/test-raven-highlighting-sync.mjs"
@@ -75,7 +77,9 @@ jobs:
         run: scripts/build-html-macro-site.sh
 
       - name: Add build provenance
-        run: node scripts/add-site-provenance.mjs _site
+        run: |
+          node scripts/test-site-provenance-version.mjs
+          node scripts/add-site-provenance.mjs _site
 
       - name: Check site-root navigation
         run: scripts/test-site-navigation.sh
