@@ -55,4 +55,5 @@ without changing the decision.
 
 ## Index
 
-- [ADR-0001: Preserve preview.14 as the pre-bootstrap foundation](decisions/0001-pre-bootstrap-foundation.md)
+- [ADR-0001: Preserve preview.14 as the pre-bootstrap foundation](decisions/0001-pre-bootstrap-foundation.md) — superseded
+- [ADR-0002: Qualify the bootstrap foundation after stabilization](decisions/0002-qualify-bootstrap-foundation-after-stabilization.md)

@@ -1,13 +1,17 @@
 # Release and bootstrap compatibility gates
 
-The release candidate that becomes Raven's stage-0 bootstrap foundation must
+The release candidate that becomes Raven's bootstrap-v1 foundation must
 be tested as both a compiler product and a compiler for real Raven workloads.
 Self-compilation alone is not sufficient evidence.
+
+The [staged bootstrap
+procedure](../compiler/architecture/bootstrap-procedure.md) defines how this
+foundation feeds Raven-native compiler API adoption and the later source port.
 
 ## Required gates
 
 Run the following against the exact clean commit intended for release or use as
-a bootstrap stage:
+a bootstrap version:
 
 ```bash
 scripts/test-baseline.sh
@@ -56,15 +60,21 @@ the complete corpus supplies breadth.
 When porting exposes a new issue, record it in the porting ledger and classify
 it before choosing a branch:
 
-- Fix a stage-0 compiler/runtime defect on the maintained pre-bootstrap line,
-  add focused coverage there, and carry the corrected behavior forward.
+- Keep compiler corrections discovered during bootstrap v2 forward-only by
+  default.
+- Backport only when a reduced reproduction proves that the frozen v1 compiler
+  or Core cannot correctly rebuild Core or supply a required v2 dependency.
+  Add focused coverage, publish a new immutable v1 foundation revision, and
+  carry that correction forward without moving or replacing the original
+  artifacts.
 - Decide and document unclear language or public API behavior before aligning
   both implementations.
 - Fix a Raven-port-only defect forward and add differential coverage; do not
-  manufacture an unrelated stage-0 change.
-- Isolate a bootstrap-only accommodation at an explicit stage boundary.
+  manufacture an unrelated bootstrap-v1 change.
+- Isolate a bootstrap-only accommodation at an explicit version boundary.
 
-Every accepted stage reruns the baseline, runtime suite, target matrix, and
+Every accepted bootstrap version reruns the baseline, runtime suite, target matrix, and
 sample compatibility suites. The recorded result includes the commit, SDK
-version, target frameworks, and whether repository or installed artifacts were
-used.
+version, target frameworks, immutable annotated bootstrap tag, corresponding
+public release tag when applicable, and whether repository or installed
+artifacts were used.

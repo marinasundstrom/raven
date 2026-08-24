@@ -1,14 +1,14 @@
 # Raven-native Compiler API result shapes and pre-bootstrap adoption
 
-> Design direction. `v0.1.0-preview.14` is the immutable stage-0 foundation for
-> this work. The next compiler line may begin adopting Raven.Core contracts
-> while the compiler implementation remains in C#. This is preparation for a
-> later source port, not the source port itself. Existing nullable and
-> record-based APIs are transitional and are not a compatibility constraint
-> while Raven remains experimental.
+> Design direction. The immutable bootstrap-v1 foundation will be selected only
+> after the pre-bootstrap stabilization gates pass. The next compiler line may
+> then begin adopting Raven.Core contracts while the compiler implementation
+> remains in C#. This is preparation for a later source port, not the source
+> port itself. Existing nullable and record-based APIs are transitional and are
+> not a compatibility constraint while Raven remains experimental.
 
-This direction is established by [ADR-0001: Preserve preview.14 as the
-pre-bootstrap foundation](../architecture/decisions/0001-pre-bootstrap-foundation.md).
+This direction is established by [ADR-0002: Qualify the bootstrap foundation
+after stabilization](../architecture/decisions/0002-qualify-bootstrap-foundation-after-stabilization.md).
 
 Raven's Compiler API should express Raven's own modeling principles. It should
 remain familiar to users of Roslyn where those concepts fit, but it should not
@@ -25,28 +25,32 @@ Raven-authored compiler.
 
 ## Foundation release and stage separation
 
-`v0.1.0-preview.14` is the last release before Raven-native types begin to
-participate deliberately in compiler API contracts. Keep its tag, SDK archives,
-NuGet family, VSIX, and source commit immutable. Together they form the trusted
-stage-0 toolchain that can build and diagnose the first stage-1 experiments.
+The release that passes the pre-bootstrap qualification gates is the last
+release before Raven-native types begin to participate deliberately in compiler
+API contracts. Keep its tag, SDK archives, NuGet family, VSIX, and source commit
+immutable. Together they form the trusted bootstrap-v1 toolchain that can build
+and diagnose the first bootstrap-v2 experiments.
 
-The important boundary is between toolchain stages, not between implementation
-languages:
+The important boundary is between bootstrap versions, not between public
+release version numbers:
 
-1. **Stage 0** is the published preview.14 compiler, `Raven.Core`,
-   `Raven.Macros`, SDK, and tests.
-2. **Stage 1** remains predominantly the C# compiler codebase, but may expose
-   selected public contracts using the Raven-authored `Option`, `Result`, and
-   union runtime representations produced by stage 0.
-3. **Later stages** may port compiler components to Raven one stable boundary at
-   a time. A source port is not required to make the public model Raven-native.
+1. **Bootstrap v1** is the qualified and frozen full C# compiler plus the first
+   trusted `Raven.Core` it compiles.
+2. **Bootstrap v2** remains the full C# compiler, but exposes selected public
+   contracts using the Raven-authored `Option`, `Result`, and union runtime
+   representations produced by bootstrap v1.
+3. **Bootstrap v3** is the full compiler implemented in Raven. It may be reached
+   one stable component boundary at a time while the C# compiler remains the
+   differential oracle.
 
-Stage 1 must consume exact, versioned stage-0 inputs rather than rebuilding the
-inputs with the compiler that is currently being built. The build graph must
-make that provenance visible and must prevent an accidental source-build cycle.
+Bootstrap v2 consumes the exact, hash-verified bootstrap-v1 `Raven.Core`
+assemblies checked into the repository rather than rebuilding Core with the
+compiler that is currently being built. The build graph must make that
+provenance visible and must prevent an accidental source-build cycle.
 Before the first API migration, prove the assembly identity, load, packaging,
-and side-by-side rules for the stage-0 and stage-1 `Raven.Core` artifacts. Do not
-rely on whichever copy happens to win output-directory resolution.
+and side-by-side rules for the bootstrap-v1 and bootstrap-v2 `Raven.Core`
+artifacts. Do not rely on whichever copy happens to win output-directory
+resolution.
 
 The existing dependency direction remains intentional. `Raven.CodeAnalysis`
 may adopt foundational runtime contracts from a bootstrap-safe `Raven.Core`.
@@ -183,9 +187,11 @@ difficult: the compiler normally builds before the Raven core library that it
 compiles. Treat that as a staging constraint, solved with an explicit published
 foundation rather than an implicit cycle:
 
-1. Preserve preview.14 as the reproducible stage-0 compiler and package family.
-2. Prove a deterministic two-stage build that cannot resolve Raven.Core from a
-   repository-local output or package cache by accident.
+1. Qualify and preserve one reproducible bootstrap-v1 compiler and checked-in
+   Core artifact family.
+2. Prove a deterministic bootstrap-v2 build that verifies and consumes the
+   checked-in Core rather than resolving it from a repository output, package
+   cache, or global installation by accident.
 3. Identify nullable and ad hoc result contracts by their intended meaning.
 4. Pilot `Option`, `Result`, and union contracts in small, high-value compiler
    API families while the implementation remains in C#.
@@ -203,9 +209,11 @@ shape over preserving accidental signatures.
 
 Before any Raven-authored compiler component becomes authoritative, require:
 
-- a fresh machine can restore the exact stage-0 toolchain and reproduce the
-  stage-1 build;
-- the stage used to build each foundational assembly is recorded and
+- a fresh machine can restore the exact bootstrap-v1 toolchain and reproduce
+  the checked-in Core artifacts when an exceptional rebuild is required;
+- an ordinary bootstrap-v2 build consumes the checked-in Core without invoking
+  the bootstrap-v1 compiler;
+- the bootstrap version used to build each foundational assembly is recorded and
   inspectable;
 - no build succeeds only because a repository-local NuGet feed, global SDK, or
   stale output supplied an untracked assembly;
@@ -213,8 +221,8 @@ Before any Raven-authored compiler component becomes authoritative, require:
   contracts;
 - the current C# compiler remains the behavioral oracle for syntax, semantics,
   diagnostics, operations, metadata, and runtime results;
-- rollback means selecting the immutable preview.14 toolchain, not reconstructing
-  an approximation from a later source tree.
+- rollback means selecting the immutable qualified bootstrap-v1 toolchain, not
+  reconstructing an approximation from a later source tree.
 
 ## Application to macro APIs
 

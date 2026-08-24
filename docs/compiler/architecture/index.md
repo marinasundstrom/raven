@@ -18,10 +18,14 @@ Before porting compiler components to Raven, use
 [Syntactic and semantic stabilization](syntactic-and-semantic-stabilization.md)
 as the evidence-based stabilization plan and behavioral exit gate.
 
+Use the [staged bootstrap procedure](bootstrap-procedure.md) for foundation
+qualification, Raven.Core and Raven.Macros gates, Raven-native compiler API
+adoption, incremental source porting, dogfooding, and defect backports.
+
 Use [Raven-native Compiler API result shapes and pre-bootstrap
-adoption](../api/result-shapes.md) for the staged plan that preserves
-`v0.1.0-preview.14` as the stage-0 foundation while selected APIs adopt
-Raven.Core contracts inside the existing C# implementation.
+adoption](../api/result-shapes.md) for the plan by which selected APIs adopt
+Raven.Core contracts inside the existing C# implementation after the
+foundation has qualified.
 
 Use [.NET conformance, Raven divergences, and emitted
 IL](dotnet-conformance-and-divergence.md) when deciding whether Raven should

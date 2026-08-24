@@ -1,6 +1,6 @@
 # ADR-0001: Preserve preview.14 as the pre-bootstrap foundation
 
-- Status: Accepted
+- Status: Superseded by [ADR-0002](0002-qualify-bootstrap-foundation-after-stabilization.md)
 - Date: 2026-08-23
 - Owners: Raven project maintainers
 
