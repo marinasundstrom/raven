@@ -191,10 +191,9 @@ scripts/package-nuget.sh VERSION
 
 For the stable pre-bootstrap release and every release that establishes or
 advances a bootstrap stage, also retain the full baseline, isolated runtime,
-standalone-sample, and project-sample build-and-run results
-described in [Release and bootstrap compatibility
-gates](../testing/release-and-bootstrap-gates.md), including the active SDK and
-repository-versus-installed toolchain provenance.
+standalone-sample, and project-sample build-and-run results described in the
+internal `docs/testing/release-and-bootstrap-gates.md` checklist, including the
+active SDK and repository-versus-installed toolchain provenance.
 
 Every push to `main` runs `scripts/test-ci.sh`: the repository's ordered
 generator/compiler build, the normal baseline, the isolated runtime/emission
