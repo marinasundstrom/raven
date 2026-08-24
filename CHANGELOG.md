@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed sync and async iterators so every yielded expression is checked against
+  the declared element type. Invalid implicit narrowing is now diagnosed, and
+  an available explicit conversion is surfaced to editor tooling instead of
+  being silently applied during emission.
 - Added a manifest-driven Release IL gate for representative standalone and
   project samples, with target, assembly, coverage, verifier, and runtime
   evidence recorded for the bootstrap freeze.

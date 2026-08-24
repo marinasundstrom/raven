@@ -4669,15 +4669,31 @@ partial class BlockBinder : Binder
         if (elementType.TypeKind == TypeKind.Error)
             elementType = Compilation.ErrorTypeSymbol;
 
-        if (ShouldAttemptConversion(expression) &&
-            expression.Type is { TypeKind: not TypeKind.Error } expressionType &&
-            elementType.TypeKind != TypeKind.Error &&
-            IsAssignable(elementType, expressionType, out var conversion))
-        {
-            expression = ApplyConversion(expression, elementType, conversion, yieldExpression.Expression);
-        }
+        expression = BindYieldValueConversion(expression, elementType, yieldExpression.Expression);
 
         return new BoundYieldExpression(expression, elementType, kind, Compilation.UnitTypeSymbol);
+    }
+
+    private BoundExpression BindYieldValueConversion(
+        BoundExpression expression,
+        ITypeSymbol elementType,
+        ExpressionSyntax expressionSyntax)
+    {
+        if (!ShouldAttemptConversion(expression) ||
+            expression.Type is not { TypeKind: not TypeKind.Error } expressionType ||
+            elementType.TypeKind == TypeKind.Error)
+        {
+            return expression;
+        }
+
+        if (!IsAssignable(elementType, expressionType, out var conversion))
+        {
+            ReportCannotConvertExpressionToType(expression, elementType, expressionSyntax.GetLocation());
+            ReportExplicitConversionHint(expressionType, elementType, expressionSyntax.GetLocation());
+            return expression;
+        }
+
+        return ApplyConversion(expression, elementType, conversion, expressionSyntax);
     }
 
     private BoundExpression BindYieldBreakExpression(YieldBreakExpressionSyntax yieldBreakExpression)

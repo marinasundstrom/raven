@@ -2285,13 +2285,7 @@ partial class BlockBinder
         if (elementType.TypeKind == TypeKind.Error)
             elementType = Compilation.ErrorTypeSymbol;
 
-        if (ShouldAttemptConversion(expression) &&
-            expression.Type is { TypeKind: not TypeKind.Error } expressionType &&
-            elementType.TypeKind != TypeKind.Error &&
-            IsAssignable(elementType, expressionType, out var conversion))
-        {
-            expression = ApplyConversion(expression, elementType, conversion, expressionSyntax);
-        }
+        expression = BindYieldValueConversion(expression, elementType, expressionSyntax);
 
         return new BoundYieldReturnStatement(expression, elementType, kind);
     }
