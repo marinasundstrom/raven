@@ -1014,35 +1014,31 @@ string? ResolveAndCopyLocalDependency(
     return null;
 }
 
-var ravenCodeAnalysisCandidates = new List<string>
-{
-    Path.Combine(AppContext.BaseDirectory, "Raven.CodeAnalysis.dll"),
-    Path.Combine(repositoryRoot, "src", "Raven.CodeAnalysis", "bin", "Debug", preferredCoreTfm, "Raven.CodeAnalysis.dll"),
-    Path.Combine(repositoryRoot, "src", "Raven.CodeAnalysis", "bin", "Debug", preferredCoreTfm, preferredCoreTfm, "Raven.CodeAnalysis.dll"),
-};
-foreach (var tfm in fallbackLocalTfms)
-{
-    ravenCodeAnalysisCandidates.Add(Path.Combine(repositoryRoot, "src", "Raven.CodeAnalysis", "bin", "Debug", tfm, "Raven.CodeAnalysis.dll"));
-    ravenCodeAnalysisCandidates.Add(Path.Combine(repositoryRoot, "src", "Raven.CodeAnalysis", "bin", "Debug", tfm, tfm, "Raven.CodeAnalysis.dll"));
-}
+var ravenCodeAnalysisCandidates = RepositoryDependencyCandidates.Create(
+    AppContext.BaseDirectory,
+    repositoryRoot,
+    "Raven.CodeAnalysis",
+    projectConfiguration,
+    preferredCoreTfm,
+    fallbackLocalTfms,
+    "Raven.CodeAnalysis.dll",
+    "Raven.CodeAnalysis.dll");
 
 var ravenCodeAnalysisPath = ResolveAndCopyLocalDependency(
     "Raven.CodeAnalysis.dll",
     path => IsAssemblyCompatibleWithTargetFramework(path, version.Moniker),
     copyLocal: false,
     ravenCodeAnalysisCandidates.ToArray());
-var ravenMacrosCandidates = new List<string>
-{
-    Path.Combine(AppContext.BaseDirectory, "Raven.Macros.dll"),
-    Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../sdk/Raven.Macros.dll")),
-    Path.Combine(repositoryRoot, "src", "Raven.Macros", "bin", "Debug", preferredCoreTfm, "Raven.Macros.dll"),
-    Path.Combine(repositoryRoot, "src", "Raven.Macros", "bin", "Debug", preferredCoreTfm, preferredCoreTfm, "Raven.Macros.dll"),
-};
-foreach (var tfm in fallbackLocalTfms)
-{
-    ravenMacrosCandidates.Add(Path.Combine(repositoryRoot, "src", "Raven.Macros", "bin", "Debug", tfm, "Raven.Macros.dll"));
-    ravenMacrosCandidates.Add(Path.Combine(repositoryRoot, "src", "Raven.Macros", "bin", "Debug", tfm, tfm, "Raven.Macros.dll"));
-}
+var ravenMacrosCandidates = RepositoryDependencyCandidates.Create(
+    AppContext.BaseDirectory,
+    repositoryRoot,
+    "Raven.Macros",
+    projectConfiguration,
+    preferredCoreTfm,
+    fallbackLocalTfms,
+    "Raven.Macros.dll",
+    "Raven.Macros.dll",
+    "../../sdk/Raven.Macros.dll");
 
 var ravenMacrosPath = ResolveAndCopyLocalDependency(
     "Raven.Macros.dll",

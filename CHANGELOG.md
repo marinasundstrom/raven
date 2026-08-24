@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed repository dependency discovery so Release compiler invocations select
+  Release Raven.CodeAnalysis and Raven.Macros fallbacks instead of silently
+  mixing in Debug assemblies.
 - Fixed constrained generic-math operators to emit calls to their static
   interface contracts instead of invalid primitive numeric IL over type
   parameters.
