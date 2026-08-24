@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Extended the Pico W nanoFramework Wi-Fi sample with manual and
+  `nanoFramework.Iot.Device.Ssd13xx` SH1106 OLED paths that display a retrieved
+  public IP address, including the complete I2C/graphics deployment closure.
 - Fixed RavenDoc source-link generation in linked worktrees and other
   hermetic environments, including relative or missing source directories.
 - Fixed clean-checkout compiler builds so syntax, bound-tree, symbol, and

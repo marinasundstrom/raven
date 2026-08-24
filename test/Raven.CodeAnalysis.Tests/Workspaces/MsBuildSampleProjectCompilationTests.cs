@@ -251,6 +251,23 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                 assembly.MainModule.GetTypeReferences(),
                 type => type.FullName == "System.Net.HttpStatusCode" &&
                         type.Scope is AssemblyNameReference { Name: "System.Net.Http" });
+            Assert.Contains(
+                assembly.MainModule.GetTypeReferences(),
+                type => type.FullName == "System.Device.I2c.I2cDevice" &&
+                        type.Scope is AssemblyNameReference { Name: "System.Device.I2c" });
+            Assert.Contains(
+                assembly.MainModule.GetTypeReferences(),
+                type => type.FullName == "Iot.Device.Ssd13xx.Sh1106" &&
+                        type.Scope is AssemblyNameReference { Name: "Iot.Device.Ssd13xx" });
+
+            var oledMethodReferences = assembly.MainModule
+                .GetMemberReferences()
+                .OfType<MethodReference>()
+                .Where(method => method.DeclaringType.FullName is
+                    "System.Device.I2c.I2cDevice" or "Iot.Device.Ssd13xx.Ssd13xx")
+                .ToArray();
+            Assert.Contains(oledMethodReferences, method => method.Name == "Write");
+            Assert.Contains(oledMethodReferences, method => method.Name == "DrawString");
             Assert.DoesNotContain(
                 assembly.MainModule.GetTypeReferences(),
                 type => type.FullName == "System.UIntPtr");

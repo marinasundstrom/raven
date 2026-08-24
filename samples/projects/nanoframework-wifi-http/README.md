@@ -1,8 +1,11 @@
-# .NET nanoFramework Wi-Fi HTTP LED
+# .NET nanoFramework Wi-Fi HTTP OLED
 
-This sample extends the Pico-family Blinky project with Wi-Fi and HTTP. It
-connects a wireless Pico to a DHCP network, sends an HTTPS request to
-`https://example.com`, and turns an external LED on when the response succeeds.
+This sample extends the Pico-family Blinky project with a 1.3-inch white I2C
+OLED, Wi-Fi, and HTTP. It writes `READY` with a small manual SH1106 driver,
+connects a wireless Pico to a DHCP network, retrieves the device's public IP
+address from `https://api4.ipify.org`, and writes the returned address with the
+`nanoFramework.Iot.Device.Ssd13xx` library. It also turns an external LED on
+when the response succeeds.
 The external LED defaults to GP15 because the onboard LED on Pico W boards is
 attached to the CYW43 wireless controller rather than an ordinary GPIO.
 
@@ -14,19 +17,46 @@ attached to the CYW43 wireless controller rather than an ordinary GPIO.
 > production traffic, credentials, tokens, or other sensitive data.
 
 The LED also makes each stage observable without a debugger. It first blinks
-three times to prove that `Main` started and GP15 works, stays off while the
-network and request operation is running, turns on permanently only after a
-successful response, or repeats one of these failure patterns:
+three times to prove that `Main` started and GP15 works, then blinks twice when
+the manual driver successfully writes `READY`. It stays off while the network
+and request operation is running, turns on permanently only after a successful
+response, or repeats one of these failure patterns:
 
 - 1 blink: Wi-Fi association, DHCP, or network-interface failure
 - 2 blinks: the server returned a non-success HTTP status
 - 3 blinks: the HTTP, DNS, or TLS operation threw an exception
 
 `ConnectAndGet` returns an exhaustive `NetworkRequestResult` union rather than
-an integer status code. Every failure case carries the information valid for
-that outcome: a DHCP/IP-address failure description, a setup exception
-message, the HTTP status, or the request exception message. `Main` matches
-those cases to the physical LED signal and debugger output.
+an integer status code. Its success case carries the response body, while every
+failure case carries the information valid for that outcome: a DHCP/IP-address
+failure description, a setup exception message, the HTTP status, or the request
+exception message. `Main` matches those cases to the OLED, physical LED signal,
+and debugger output.
+
+## OLED wiring
+
+The display uses I2C bus 0 and the common `0x3C` address. For the Pico W and
+Pico 2 W firmware profiles used by this sample, connect the four-pin display as
+follows:
+
+| OLED pin | Pico pin |
+| --- | --- |
+| `GND` | `GND` |
+| `VCC` | `3V3(OUT)` |
+| `SDA` | `GP4` (I2C0 SDA) |
+| `SCL` | `GP5` (I2C0 SCL) |
+
+The startup write uses direct SH1106 commands and a compact 5x7 font. After the
+HTTP request, the library-backed path clears the display and centers the public
+IP address. If that path throws, the sample logs the failure and falls back to
+the manual driver. An absent display does not prevent the Wi-Fi/HTTP phase.
+
+The linked `nanoFramework.Iot.Device.Ssd13xx` version `1.3.721` targets
+nanoFramework Core 1.17 and the old `System.SpanByte` API, so it is useful as a
+compiler compatibility probe but cannot run in this sample's 2.0-preview image.
+The runnable project uses `2.0.0-preview.109`, which matches the pinned Core,
+GPIO, and I2C 2.0-preview packages. Both the manual and library call surfaces
+are compiled and emitted by Raven in the same application.
 
 `ScanAndConnectDhcp` scans for the supplied SSID and associates using the
 credentials embedded by the build. When it returns `false`, the debugger
@@ -41,6 +71,11 @@ Both the network phase and HTTP request have timeouts, so invalid credentials
 no longer leave the sample apparently stuck forever. The successful path also
 keeps `Main` alive; otherwise disposing the GPIO scope immediately after
 writing `High` could make a successful request look like a failure.
+
+The successful request sends the device's public IP address to ipify's IPv4
+endpoint and displays the plain-text response. IPv4 is selected so the value
+fits on one 128-pixel line. Replace the request URI when a different
+internet-sourced value is desired.
 
 The Wi-Fi credentials are required Raven `extern const` values. The project
 contains nonfunctional placeholders so it can be evaluated without secrets;
@@ -165,15 +200,15 @@ and written to local MSBuild intermediates under `obj/`. Both `obj/` and
 credentials should no longer remain on disk, and treat a deployed device as
 containing the credentials.
 
-The Raven source calls `WifiNetworkHelper` and `HttpClient` directly. Raven's
-emitter preserves device-only method symbols as target metadata references, so
-the nanoFramework assemblies do not need to be loadable in the desktop
-compiler runtime. The build produces one application assembly and the
-deployment image contains only that application plus its nanoFramework
-reference closure.
+The Raven source calls `WifiNetworkHelper`, `HttpClient`, `I2cDevice`, and
+`Sh1106` directly. Raven's emitter preserves device-only method symbols as
+target metadata references, so the nanoFramework assemblies do not need to be
+loadable in the desktop compiler runtime. The build produces one application
+assembly and the deployment image contains only that application plus its
+nanoFramework reference closure.
 
 The board must run a matching nanoFramework 2.0 preview nanoCLR image with the
-Wi-Fi, networking, TLS, HTTP, and GPIO native contracts used by the pinned
+Wi-Fi, networking, TLS, HTTP, GPIO, and I2C native contracts used by the pinned
 managed packages. The managed package snapshot requires native checksums
 `0x7AE2272F` for `System.Device.Wifi` and `0x0D0C3837` for `System.Net`. A
 native-checksum mismatch causes nanoCLR to reject the affected managed

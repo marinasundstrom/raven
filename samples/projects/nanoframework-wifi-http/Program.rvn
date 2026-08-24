@@ -1,6 +1,8 @@
 import nanoFramework.Networking.*
+import Iot.Device.Ssd13xx.*
 import System.*
 import System.Device.Gpio.*
+import System.Device.I2c.*
 import System.Diagnostics.*
 import System.Net.Http.*
 import System.Net.Security.*
@@ -11,7 +13,7 @@ extern const Wifi_SSID: string
 extern const Wifi_Password: string
 
 union NetworkRequestResult {
-    case Success
+    case Success(content: string)
     case NetworkUnavailable(message: string)
     case NetworkSetupFailed(message: string)
     case HttpFailureStatus(status: string)
@@ -37,19 +39,204 @@ func SignalFailure(led: GpioPin, pulses: int) {
     }
 }
 
-func ConnectAndGet(ssid: string, password: string, requestUri: string) -> NetworkRequestResult {
+func WriteOledCommand(display: I2cDevice, command: byte) -> bool {
+    let buffer: byte[] = [(byte)0x00, command]
+    let result = display.Write(buffer)
+    return result.Status == I2cTransferStatus.FullTransfer
+}
+
+func SetOledCursor(display: I2cDevice, page: int, column: int) -> bool {
+    // Most 1.3-inch 128x64 modules use SH1106, whose visible RAM starts at
+    // column 2. Change this offset to 0 for an SSD1306 module.
+    let adjustedColumn = column + 2
+
+    return WriteOledCommand(display, (byte)(0xB0 | page)) &&
+        WriteOledCommand(display, (byte)(adjustedColumn & 0x0F)) &&
+        WriteOledCommand(
+            display,
+            (byte)(0x10 | ((adjustedColumn >> 4) & 0x0F)))
+}
+
+func ClearOled(display: I2cDevice) -> bool {
+    let pixels: byte[] = [
+        (byte)0x40,
+        (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0,
+        (byte)0, (byte)0, (byte)0, (byte)0
+    ]
+    var page = 0
+
+    while page < 8 {
+        if !SetOledCursor(display, page, 0) {
+            return false
+        }
+
+        var block = 0
+        while block < 8 {
+            let result = display.Write(pixels)
+            if result.Status != I2cTransferStatus.FullTransfer {
+                return false
+            }
+
+            block = block + 1
+        }
+
+        page = page + 1
+    }
+
+    return true
+}
+
+func InitializeOled(display: I2cDevice) -> bool {
+    // SH1106 initialization for the common 1.3-inch 128x64 I2C module.
+    let commands: byte[] = [
+        (byte)0xAE,
+        (byte)0xD5, (byte)0x80,
+        (byte)0xA8, (byte)0x3F,
+        (byte)0xD3, (byte)0x00,
+        (byte)0x40,
+        (byte)0xAD, (byte)0x8B,
+        (byte)0xA1,
+        (byte)0xC8,
+        (byte)0xDA, (byte)0x12,
+        (byte)0x81, (byte)0x80,
+        (byte)0xD9, (byte)0x22,
+        (byte)0xDB, (byte)0x35,
+        (byte)0xA4,
+        (byte)0xA6,
+        (byte)0xAF
+    ]
+
+    for command in commands {
+        if !WriteOledCommand(display, command) {
+            return false
+        }
+    }
+
+    return ClearOled(display)
+}
+
+func GetGlyph(character: char) -> byte[] {
+    match character {
+        '0' => return [(byte)0x3E, (byte)0x51, (byte)0x49, (byte)0x45, (byte)0x3E]
+        '1' => return [(byte)0x00, (byte)0x42, (byte)0x7F, (byte)0x40, (byte)0x00]
+        '2' => return [(byte)0x42, (byte)0x61, (byte)0x51, (byte)0x49, (byte)0x46]
+        '3' => return [(byte)0x21, (byte)0x41, (byte)0x45, (byte)0x4B, (byte)0x31]
+        '4' => return [(byte)0x18, (byte)0x14, (byte)0x12, (byte)0x7F, (byte)0x10]
+        '5' => return [(byte)0x27, (byte)0x45, (byte)0x45, (byte)0x45, (byte)0x39]
+        '6' => return [(byte)0x3C, (byte)0x4A, (byte)0x49, (byte)0x49, (byte)0x30]
+        '7' => return [(byte)0x01, (byte)0x71, (byte)0x09, (byte)0x05, (byte)0x03]
+        '8' => return [(byte)0x36, (byte)0x49, (byte)0x49, (byte)0x49, (byte)0x36]
+        '9' => return [(byte)0x06, (byte)0x49, (byte)0x49, (byte)0x29, (byte)0x1E]
+        '.' => return [(byte)0x00, (byte)0x60, (byte)0x60, (byte)0x00, (byte)0x00]
+        ':' => return [(byte)0x00, (byte)0x36, (byte)0x36, (byte)0x00, (byte)0x00]
+        'A' => return [(byte)0x7E, (byte)0x11, (byte)0x11, (byte)0x11, (byte)0x7E]
+        'D' => return [(byte)0x7F, (byte)0x41, (byte)0x41, (byte)0x22, (byte)0x1C]
+        'E' => return [(byte)0x7F, (byte)0x49, (byte)0x49, (byte)0x49, (byte)0x41]
+        'R' => return [(byte)0x7F, (byte)0x09, (byte)0x19, (byte)0x29, (byte)0x46]
+        'Y' => return [(byte)0x07, (byte)0x08, (byte)0x70, (byte)0x08, (byte)0x07]
+        'a' => return [(byte)0x20, (byte)0x54, (byte)0x54, (byte)0x54, (byte)0x78]
+        'b' => return [(byte)0x7F, (byte)0x48, (byte)0x44, (byte)0x44, (byte)0x38]
+        'c' => return [(byte)0x38, (byte)0x44, (byte)0x44, (byte)0x44, (byte)0x20]
+        'd' => return [(byte)0x38, (byte)0x44, (byte)0x44, (byte)0x48, (byte)0x7F]
+        'e' => return [(byte)0x38, (byte)0x54, (byte)0x54, (byte)0x54, (byte)0x18]
+        'f' => return [(byte)0x08, (byte)0x7E, (byte)0x09, (byte)0x01, (byte)0x02]
+        _ => return [(byte)0, (byte)0, (byte)0, (byte)0, (byte)0]
+    }
+}
+
+func ShowOledText(message: string) -> bool {
+    Debug.WriteLine("OLED: writing '" + message + "'...")
+
+    try {
+        let settings = I2cConnectionSettings(0, 0x3C)
+        use display = I2cDevice.Create(settings)
+
+        if !InitializeOled(display) {
+            Debug.WriteLine("OLED initialization failed.")
+            return false
+        }
+
+        var page = 2
+        var column = 0
+
+        var characterIndex = 0
+        while characterIndex < message.Length {
+            let character = message[characterIndex]
+
+            if column > 120 {
+                page = page + 1
+                column = 0
+            }
+
+            if page >= 8 || !SetOledCursor(display, page, column) {
+                return false
+            }
+
+            let glyph = GetGlyph(character)
+            let pixels: byte[] = [
+                (byte)0x40,
+                glyph[0], glyph[1], glyph[2], glyph[3], glyph[4],
+                (byte)0
+            ]
+            let result = display.Write(pixels)
+            if result.Status != I2cTransferStatus.FullTransfer {
+                return false
+            }
+
+            column = column + 6
+            characterIndex = characterIndex + 1
+        }
+
+        Debug.WriteLine("OLED updated.")
+        return true
+    } catch (Exception exception) {
+        Debug.WriteLine("OLED update failed: " + exception.Message)
+        return false
+    }
+}
+
+func ShowLibraryOledText(message: string) -> bool {
+    Debug.WriteLine("OLED library: writing '" + message + "'...")
+
+    try {
+        let settings = I2cConnectionSettings(0, 0x3C)
+        use oled = Sh1106(I2cDevice.Create(settings), -1)
+
+        oled.ClearScreen()
+        oled.DrawString(0, 24, message, (byte)1, true)
+        oled.Display()
+
+        Debug.WriteLine("OLED library updated the display.")
+        return true
+    } catch (Exception exception) {
+        Debug.WriteLine("OLED library update failed: " + exception.Message)
+        return false
+    }
+}
+
+func ConnectAndGet(
+    ssid: string,
+    password: string,
+    requestUri: string
+) -> NetworkRequestResult {
     Debug.WriteLine("Wi-Fi: waiting for an address...")
 
     try {
         use networkTimeout = CancellationTokenSource(60000)
+
         if !WifiNetworkHelper.ScanAndConnectDhcp(
             ssid,
             password,
             requiresDateTime: true,
             token: networkTimeout.Token) {
+
             let status = (int)WifiNetworkHelper.Status
+
             return .NetworkUnavailable(
-                "ScanAndConnectDhcp failed with status " + status.ToString())
+                "ScanAndConnectDhcp failed with status " +
+                status.ToString())
         }
     } catch (Exception exception) {
         return .NetworkSetupFailed(exception.Message)
@@ -62,11 +249,14 @@ func ConnectAndGet(ssid: string, password: string, requestUri: string) -> Networ
             Timeout = TimeSpan.FromSeconds(30)
             SslVerification = SslVerification.NoVerification
         }
-        Debug.WriteLine("WARNING: TLS certificate verification is disabled for this sample.")
+
+        Debug.WriteLine(
+            "WARNING: TLS certificate verification is disabled for this sample.")
 
         use response = client.Get(requestUri)
+
         if response.IsSuccessStatusCode {
-            return .Success
+            return .Success(response.Content.ReadAsString().Trim())
         }
 
         return .HttpFailureStatus(response.StatusCode.ToString())
@@ -79,35 +269,56 @@ func Main() {
     use gpio = GpioController()
     use led = gpio.OpenPin(LedPin, PinMode.Output)
 
-    // Three startup pulses prove that Main and GP15 are working before Wi-Fi.
     Pulse(led, 3)
     Thread.Sleep(750)
 
-    // Stay off while the blocking network operation runs. High means success.
+    let oledAvailable = ShowOledText("READY")
+
+    if oledAvailable {
+        // Two quick pulses = OLED answered.
+        Pulse(led, 2)
+    } else {
+        Debug.WriteLine("Continuing without OLED.")
+    }
+
+    Thread.Sleep(750)
+
     led.Write(PinValue.Low)
-    let result = ConnectAndGet(Wifi_SSID, Wifi_Password, "https://example.com")
+
+    let result = ConnectAndGet(
+        Wifi_SSID,
+        Wifi_Password,
+        "https://api4.ipify.org")
 
     match result {
-        .Success => {
+        .Success(let content) => {
+            Debug.WriteLine("Internet response: " + content)
+            if !ShowLibraryOledText(content) {
+                Debug.WriteLine("Falling back to the manual OLED driver.")
+                ShowOledText(content)
+            }
             led.Write(PinValue.High)
 
-            // Keep the pin and controller alive so the success LED stays on.
             loop {
                 Thread.Sleep(60000)
             }
         }
+
         .NetworkUnavailable(let message) => {
             Debug.WriteLine("Wi-Fi failed: " + message)
             SignalFailure(led, 1)
         }
+
         .NetworkSetupFailed(let message) => {
             Debug.WriteLine("Wi-Fi setup threw: " + message)
             SignalFailure(led, 1)
         }
+
         .HttpFailureStatus(let status) => {
             Debug.WriteLine("HTTP failure status: " + status)
             SignalFailure(led, 2)
         }
+
         .HttpRequestFailed(let message) => {
             Debug.WriteLine("HTTP request failed: " + message)
             SignalFailure(led, 3)

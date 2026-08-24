@@ -139,6 +139,12 @@ STREAMS_LIBRARY="$(package_file nanoFramework.System.IO.Streams 2.0.0-preview.22
 STREAMS_LIBRARY_PE="$(package_file nanoFramework.System.IO.Streams 2.0.0-preview.22 lib/netnano1.0/System.IO.Streams.pe)"
 GPIO_LIBRARY="$(package_file nanoFramework.System.Device.Gpio 2.0.0-preview.18 lib/netnano1.0/System.Device.Gpio.dll)"
 GPIO_LIBRARY_PE="$(package_file nanoFramework.System.Device.Gpio 2.0.0-preview.18 lib/netnano1.0/System.Device.Gpio.pe)"
+I2C_LIBRARY="$(package_file nanoFramework.System.Device.I2c 2.0.0-preview.12 lib/netnano1.0/System.Device.I2c.dll)"
+I2C_LIBRARY_PE="$(package_file nanoFramework.System.Device.I2c 2.0.0-preview.12 lib/netnano1.0/System.Device.I2c.pe)"
+MATH_LIBRARY="$(package_file nanoFramework.System.Math 2.0.0-preview.19 lib/netnano1.0/System.Math.dll)"
+MATH_LIBRARY_PE="$(package_file nanoFramework.System.Math 2.0.0-preview.19 lib/netnano1.0/System.Math.pe)"
+SSD13XX_LIBRARY="$(package_file nanoFramework.Iot.Device.Ssd13xx 2.0.0-preview.109 lib/netnano1.0/Iot.Device.Ssd13xx.dll)"
+SSD13XX_LIBRARY_PE="$(package_file nanoFramework.Iot.Device.Ssd13xx 2.0.0-preview.109 lib/netnano1.0/Iot.Device.Ssd13xx.pe)"
 WIFI_LIBRARY="$(package_file nanoFramework.System.Device.Wifi 2.0.0-preview.32 lib/netnano1.0/System.Device.Wifi.dll)"
 WIFI_LIBRARY_PE="$(package_file nanoFramework.System.Device.Wifi 2.0.0-preview.32 lib/netnano1.0/System.Device.Wifi.pe)"
 HTTP_LIBRARY="$(package_file nanoFramework.System.Net.Http 2.0.0-preview.9 lib/System.Net.Http.dll)"
@@ -191,6 +197,9 @@ RavenExternalConstantOverrides="$EXTERNAL_CONSTANT_OVERRIDES" \
   -loadhints System.Threading "$THREADING_LIBRARY" \
   -loadhints System.IO.Streams "$STREAMS_LIBRARY" \
   -loadhints System.Device.Gpio "$GPIO_LIBRARY" \
+  -loadhints System.Device.I2c "$I2C_LIBRARY" \
+  -loadhints System.Math "$MATH_LIBRARY" \
+  -loadhints Iot.Device.Ssd13xx "$SSD13XX_LIBRARY" \
   -loadhints System.Device.Wifi "$WIFI_LIBRARY" \
   -loadhints System.Net.Http "$HTTP_LIBRARY" \
   -parse "$MANAGED_OUTPUT" \
@@ -219,6 +228,9 @@ cp \
   "$THREADING_LIBRARY_PE" \
   "$STREAMS_LIBRARY_PE" \
   "$GPIO_LIBRARY_PE" \
+  "$I2C_LIBRARY_PE" \
+  "$MATH_LIBRARY_PE" \
+  "$SSD13XX_LIBRARY_PE" \
   "$WIFI_LIBRARY_PE" \
   "$HTTP_LIBRARY_PE" \
   "$NANO_OUTPUT" \
@@ -252,6 +264,9 @@ append_aligned_pe "$NET_LIBRARY_PE"
 append_aligned_pe "$THREADING_LIBRARY_PE"
 append_aligned_pe "$STREAMS_LIBRARY_PE"
 append_aligned_pe "$GPIO_LIBRARY_PE"
+append_aligned_pe "$I2C_LIBRARY_PE"
+append_aligned_pe "$MATH_LIBRARY_PE"
+append_aligned_pe "$SSD13XX_LIBRARY_PE"
 append_aligned_pe "$WIFI_LIBRARY_PE"
 append_aligned_pe "$HTTP_LIBRARY_PE"
 append_aligned_pe "$NANO_OUTPUT"

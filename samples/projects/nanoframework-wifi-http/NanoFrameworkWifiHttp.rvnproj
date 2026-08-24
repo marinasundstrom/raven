@@ -6,7 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="nanoFramework.Iot.Device.Ssd13xx" Version="2.0.0-preview.109" />
     <PackageReference Include="nanoFramework.System.Device.Gpio" Version="2.0.0-preview.18" />
+    <PackageReference Include="nanoFramework.System.Device.I2c" Version="2.0.0-preview.12" />
     <PackageReference Include="nanoFramework.System.Device.Wifi" Version="2.0.0-preview.32" />
     <PackageReference Include="nanoFramework.System.Collections" Version="2.0.0-preview.15" />
     <PackageReference Include="nanoFramework.System.Text" Version="2.0.0-preview.23" />
