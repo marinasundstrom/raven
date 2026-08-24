@@ -56,12 +56,12 @@ both `VERSION` and `sdk/build/Raven.Language.targets`.
 Release builds can be installed directly with the platform installer:
 
 ```bash
-curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0/install-raven.sh \
-  | sh -s -- 0.1.0
+curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.1/install-raven.sh \
+  | sh -s -- 0.1.1
 ```
 
 ```powershell
-$version = "0.1.0"
+$version = "0.1.1"
 Invoke-WebRequest "https://github.com/marinasundstrom/raven/releases/download/v$version/install-raven.ps1" -OutFile install-raven.ps1
 ./install-raven.ps1 -Version $version
 ```
@@ -76,9 +76,9 @@ Add `~/.raven/bin` to PATH after installation, then run `rvn doctor`.
 Run the package script with a .NET runtime identifier and version:
 
 ```bash
-scripts/package-sdk.sh osx-arm64 0.1.0
-scripts/package-sdk.sh linux-x64 0.1.0
-scripts/package-sdk.sh win-x64 0.1.0
+scripts/package-sdk.sh osx-arm64 0.1.1
+scripts/package-sdk.sh linux-x64 0.1.1
+scripts/package-sdk.sh win-x64 0.1.1
 ```
 
 Artifacts are written to `artifacts/distribution` by default. The distributable
@@ -91,8 +91,8 @@ safe to run from a clean checkout without relying on ignored build outputs.
 Validate a staged SDK before publishing it:
 
 ```bash
-scripts/test-distribution.sh artifacts/distribution/raven-sdk-0.1.0-osx-arm64
-scripts/test-distribution.sh --structure-only artifacts/distribution/raven-sdk-0.1.0-win-arm64
+scripts/test-distribution.sh artifacts/distribution/raven-sdk-0.1.1-osx-arm64
+scripts/test-distribution.sh --structure-only artifacts/distribution/raven-sdk-0.1.1-win-arm64
 ```
 
 Use `--structure-only` when inspecting an archive that cannot execute on the
@@ -472,13 +472,13 @@ The extension contains a framework-dependent copy of the Raven language
 server so editor features work without a platform-specific VSIX. Build it with:
 
 ```bash
-scripts/package-vscode.sh 0.1.0
+scripts/package-vscode.sh 0.1.1
 ```
 
 Install the published release directly from GitHub Releases:
 
 ```bash
-curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0/raven-vscode.vsix
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.1/raven-vscode.vsix
 code --install-extension raven-vscode.vsix --force
 ```
 

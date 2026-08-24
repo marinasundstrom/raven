@@ -1,8 +1,10 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-08-24**.
+Behavior-focused timeline covering **2025-09-12** to **2026-08-25**.
 
 ## Unreleased
+
+## 0.1.1 - 2026-08-25
 
 - Fixed browser Playground compilation of Raven unions, including the built-in
   macro forms sample, by emitting Raven-owned metadata without unsupported
