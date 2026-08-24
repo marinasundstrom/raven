@@ -2039,20 +2039,37 @@ partial class BlockBinder
 
     private BoundExpression? BindReturnValue(ExpressionSyntax? expressionSyntax, SyntaxNode returnSyntax)
     {
+        MarkIteratorFromEnclosingSyntax(returnSyntax);
+
         BoundExpression? expr = null;
 
         if (expressionSyntax is not null)
         {
-            var targetType = GetContainingReturnTargetType();
+            if (_containingSymbol is IMethodSymbol { IsIterator: true })
+            {
+                expr = BindExpression(expressionSyntax, allowReturn: false);
+            }
+            else
+            {
+                var targetType = GetContainingReturnTargetType();
 
-            // Return payloads are context-sensitive; ensure stale non-target-typed cache entries
-            // do not block target-typed member bindings like `.Error(...)`.
-            RemoveCachedBoundNode(expressionSyntax);
-            expr = BindExpressionWithTargetType(expressionSyntax, targetType, allowReturn: false);
+                // Return payloads are context-sensitive; ensure stale non-target-typed cache entries
+                // do not block target-typed member bindings like `.Error(...)`.
+                RemoveCachedBoundNode(expressionSyntax);
+                expr = BindExpressionWithTargetType(expressionSyntax, targetType, allowReturn: false);
+            }
         }
 
         if (_containingSymbol is IMethodSymbol method)
         {
+            if (method.IsIterator)
+            {
+                if (expr is not null)
+                    _diagnostics.ReportIteratorReturnCannotHaveExpression(expressionSyntax!.GetLocation());
+
+                return expr;
+            }
+
             var skipReturnConversions = method switch
             {
                 SourceMethodSymbol { HasAsyncReturnTypeError: true } => true,
@@ -2168,6 +2185,32 @@ partial class BlockBinder
         return expr;
     }
 
+    private void MarkIteratorFromEnclosingSyntax(SyntaxNode syntax)
+    {
+        if (_containingSymbol is not IMethodSymbol { IsIterator: false })
+            return;
+
+        for (var current = syntax.Parent; current is not null; current = current.Parent)
+        {
+            SyntaxNode? body = current switch
+            {
+                FunctionExpressionSyntax function => function.Body ?? (SyntaxNode?)function.ExpressionBody?.Expression,
+                FunctionStatementSyntax function => function.Body ?? (SyntaxNode?)function.ExpressionBody?.Expression,
+                BaseMethodDeclarationSyntax method => method.Body ?? (SyntaxNode?)method.ExpressionBody?.Expression,
+                AccessorDeclarationSyntax accessor => accessor.Body ?? (SyntaxNode?)accessor.ExpressionBody?.Expression,
+                _ => null,
+            };
+
+            if (body is null)
+                continue;
+
+            if (Compilation.ContainsYieldOutsideNestedFunctions(body))
+                ResolveIteratorInfoForCurrentMethod();
+
+            return;
+        }
+    }
+
     private bool TryConvertTaskLikeAsyncReturnExpression(
         IMethodSymbol method,
         BoundExpression expression,
@@ -2263,12 +2306,16 @@ partial class BlockBinder
 
     private BoundStatement BindYieldStatement(YieldStatementSyntax yieldStatement)
     {
-        return BindYieldValueExpression(yieldStatement.Expression);
-    }
+        if (yieldStatement.Expression is BreakExpressionSyntax)
+        {
+            ResolveIteratorInfoForCurrentMethod();
+            return new BoundReturnStatement(null);
+        }
 
-    private BoundStatement BindYieldReturnStatement(YieldReturnStatementSyntax yieldReturn)
-    {
-        return BindYieldValueExpression(yieldReturn.Expression);
+        if (yieldStatement.Expression is ReturnExpressionSyntax { Expression: { } recoveredExpression })
+            return BindYieldValueExpression(recoveredExpression);
+
+        return BindYieldValueExpression(yieldStatement.Expression);
     }
 
     private BoundStatement BindYieldValueExpression(ExpressionSyntax expressionSyntax)
@@ -2287,22 +2334,7 @@ partial class BlockBinder
 
         expression = BindYieldValueConversion(expression, elementType, expressionSyntax);
 
-        return new BoundYieldReturnStatement(expression, elementType, kind);
-    }
-
-    private BoundStatement BindYieldBreakStatement(YieldBreakStatementSyntax yieldBreak)
-    {
-        if (_expressionContextDepth > 0)
-        {
-            var unit = BoundFactory.UnitExpression();
-            return new BoundExpressionStatement(unit);
-        }
-
-        var (kind, elementType) = ResolveIteratorInfoForCurrentMethod();
-        if (elementType.TypeKind == TypeKind.Error)
-            elementType = Compilation.ErrorTypeSymbol;
-
-        return new BoundYieldBreakStatement(elementType, kind);
+        return new BoundYieldStatement(expression, elementType, kind);
     }
 
     private BoundStatement BindThrowStatement(ThrowStatementSyntax throwStatement)

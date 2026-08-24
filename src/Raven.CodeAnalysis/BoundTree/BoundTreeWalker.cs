@@ -74,10 +74,6 @@ internal class BoundTreeWalker : BoundTreeVisitor
         VisitExpression(node.Expression);
     }
 
-    public override void VisitYieldBreakExpression(BoundYieldBreakExpression node)
-    {
-    }
-
     public override void VisitNullCoalesceExpression(BoundNullCoalesceExpression node)
     {
         VisitExpression(node.Left);
@@ -187,13 +183,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
     }
 
-    public override void VisitYieldReturnStatement(BoundYieldReturnStatement node)
+    public override void VisitYieldStatement(BoundYieldStatement node)
     {
         VisitExpression(node.Expression);
-    }
-
-    public override void VisitYieldBreakStatement(BoundYieldBreakStatement node)
-    {
     }
 
     public override void VisitConditionalGotoStatement(BoundConditionalGotoStatement node)

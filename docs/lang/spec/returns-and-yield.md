@@ -69,9 +69,8 @@ return one of the following iterator shapes:
 * `IAsyncEnumerable<T>` or `IAsyncEnumerator<T>`
 * Their non-generic counterparts
 
-`yield value` and `yield return value` are equivalent. They publish the next
-element, suspend execution, and resume immediately after the yield when the
-consumer asks for another element.
+`yield value` publishes the next element, suspends execution, and resumes
+immediately after the yield when the consumer asks for another element.
 
 ```raven
 func numbers(max: int) -> IEnumerable<int> {
@@ -86,16 +85,21 @@ func numbers(max: int) -> IEnumerable<int> {
 The yielded value must be convertible to the iterator's element type. In an
 expression position, a yield evaluates to `unit` when execution resumes.
 
-`yield break` completes the iterator without producing another element. It is
+Bare `return` completes the iterator without producing another element. It is
 valid in statement or expression position; as an expression, it never resumes
-and therefore does not affect the surrounding type.
+and therefore does not affect the surrounding type. An iterator cannot return
+a value: use `yield value` to produce an element.
 
 ```raven
 let item = match next() {
     Some(let item) => item
-    None => yield break
+    None => return
 }
 ```
+
+Raven does not support the C#-style `yield return value` or `yield break`
+forms. `yield` is exclusively for producing an element; `return` is exclusively
+for completing the iterator.
 
 An unannotated function expression containing `yield` infers
 `IEnumerable<T>`. An async function expression containing `yield` infers

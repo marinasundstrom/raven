@@ -205,8 +205,8 @@ public sealed class ScopedLocalTests : CompilationTestBase
             func Values() -> IEnumerable<int> {
                 let value = 1
                 scoped let reference = &value
-                yield return 0
-                yield return *reference
+                yield 0
+                yield *reference
             }
             """;
 

@@ -384,8 +384,8 @@ import System.Collections.Generic.*
 class Container {
     func Provide() -> unit {
         let values = func () => {
-            yield return 1
-            yield return 2
+            yield 1
+            yield 2
         }
 
         values()
@@ -416,8 +416,8 @@ import System.Collections.Generic.*
 class Container {
     func Provide() -> unit {
         let values = async func () => {
-            yield return 1
-            yield return 2
+            yield 1
+            yield 2
         }
 
         values()

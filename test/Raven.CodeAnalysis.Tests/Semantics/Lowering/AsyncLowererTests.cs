@@ -132,8 +132,8 @@ import System.Threading.Tasks.*
 
 class C {
     static async func Values() -> IAsyncEnumerable<int> {
-        yield return 1
-        yield return 2
+        yield 1
+        yield 2
     }
 
     static async func Sum() -> Task<int> {

@@ -93,7 +93,7 @@ outer: loop {
     }
 
     [Fact]
-    public void MatchArms_WithYieldAndYieldBreak_EmitAndRun()
+    public void MatchArms_WithYieldAndReturn_EmitAndRun()
     {
         const string source = """
 import System.*
@@ -102,15 +102,15 @@ import System.Collections.Generic.*
 func Items(stop: bool) -> IEnumerable<int> {
     yield 1
     let item = match stop {
-        true => yield break
+        true => return
         false => 2
     }
     yield item
     match item {
-        2 => yield return 3
-        _ => yield break
+        2 => yield 3
+        _ => return
     }
-    yield break
+    return
 }
 
 func Main() {

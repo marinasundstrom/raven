@@ -2080,9 +2080,9 @@ public sealed class ProjectFileNuGetReferenceTests
             let app = builder.Build()
 
             app.MapGet("/stream", async () -> IAsyncEnumerable<int> => {
-                yield return 1
-                yield return 2
-                yield return 3
+                yield 1
+                yield 2
+                yield 3
             })
 
             app.Run()
@@ -2130,9 +2130,9 @@ public sealed class ProjectFileNuGetReferenceTests
             let app = builder.Build()
 
             app.MapGet("/stream", async () => {
-                yield return 1
-                yield return 2
-                yield return 3
+                yield 1
+                yield 2
+                yield 3
             })
 
             app.Run()
@@ -2182,9 +2182,9 @@ public sealed class ProjectFileNuGetReferenceTests
             let app = builder.Build()
 
             app.MapGet("/stream", async (cancellationToken: CancellationToken) => {
-                yield return 1
+                yield 1
                 await Task.Delay(1, cancellationToken)
-                yield return 2
+                yield 2
             })
 
             app.Run()
@@ -2236,9 +2236,9 @@ public sealed class ProjectFileNuGetReferenceTests
             let app = builder.Build()
 
             app.MapGet("/stream", async ([EnumeratorCancellation] cancellationToken: CancellationToken) => {
-                yield return 1
+                yield 1
                 await Task.Delay(1, cancellationToken)
-                yield return 2
+                yield 2
             })
 
             app.Run()

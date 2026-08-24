@@ -14,8 +14,7 @@ public class ControlFlowExpressionParserTests
     [InlineData("break", typeof(BreakExpressionSyntax))]
     [InlineData("continue", typeof(ContinueExpressionSyntax))]
     [InlineData("yield value", typeof(YieldExpressionSyntax))]
-    [InlineData("yield return value", typeof(YieldExpressionSyntax))]
-    [InlineData("yield break", typeof(YieldBreakExpressionSyntax))]
+    [InlineData("return", typeof(ReturnExpressionSyntax))]
     public void ControlFlowForm_ParsesAsExpression(string source, Type expectedType)
     {
         var parser = new ExpressionSyntaxParser(new BaseParseContext(new Lexer(new StringReader(source))));
@@ -23,6 +22,18 @@ public class ControlFlowExpressionParserTests
         var expression = parser.ParseExpression().CreateRed();
 
         Assert.IsType(expectedType, expression);
+    }
+
+    [Theory]
+    [InlineData("yield return value", "RAV1064")]
+    [InlineData("yield break", "RAV1065")]
+    public void RemovedYieldForm_ReportsMigrationDiagnostic(string source, string diagnosticId)
+    {
+        var context = new BaseParseContext(new Lexer(new StringReader(source)));
+        var expression = new ExpressionSyntaxParser(context).ParseExpression().CreateRed();
+
+        Assert.IsType<YieldExpressionSyntax>(expression);
+        Assert.Contains(context.Diagnostics, diagnostic => diagnostic.Descriptor.Id == diagnosticId);
     }
 
     [Theory]
@@ -53,8 +64,7 @@ func Iterator(value: int) {
         0 => break outer
         1 => continue outer
         2 => yield value
-        3 => yield return value
-        _ => yield break
+        _ => return
     }
 }
 """);
@@ -63,8 +73,7 @@ func Iterator(value: int) {
         Assert.IsType<BreakExpressionSyntax>(arms[0].Expression);
         Assert.IsType<ContinueExpressionSyntax>(arms[1].Expression);
         Assert.IsType<YieldExpressionSyntax>(arms[2].Expression);
-        Assert.IsType<YieldExpressionSyntax>(arms[3].Expression);
-        Assert.IsType<YieldBreakExpressionSyntax>(arms[4].Expression);
+        Assert.IsType<ReturnExpressionSyntax>(arms[3].Expression);
     }
 
     [Fact]

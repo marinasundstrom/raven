@@ -9,17 +9,18 @@ namespace Raven.CodeAnalysis.Syntax.Tests;
 public class YieldStatementSyntaxTests
 {
     [Fact]
-    public void ParsesYieldReturnStatement()
+    public void YieldReturnForm_ReportsMigrationDiagnostic()
     {
         var tree = SyntaxTree.ParseText("yield return value\n");
-        var yieldReturn = tree.GetRoot().DescendantNodes().OfType<YieldReturnStatementSyntax>().Single();
+        var yieldStatement = tree.GetRoot().DescendantNodes().OfType<YieldStatementSyntax>().Single();
 
-        Assert.Equal(SyntaxKind.YieldReturnStatement, yieldReturn.Kind);
-        Assert.Equal("value", ((IdentifierNameSyntax)yieldReturn.Expression).Identifier.Text);
+        Assert.Contains(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.YieldReturnFormRemoved);
+        var recovery = Assert.IsType<ReturnExpressionSyntax>(yieldStatement.Expression);
+        Assert.Equal("value", ((IdentifierNameSyntax)recovery.Expression!).Identifier.Text);
     }
 
     [Fact]
-    public void ParsesYieldStatementShorthand()
+    public void ParsesYieldStatement()
     {
         var tree = SyntaxTree.ParseText("yield value\n");
         var yieldStatement = tree.GetRoot().DescendantNodes().OfType<YieldStatementSyntax>().Single();
@@ -29,11 +30,12 @@ public class YieldStatementSyntaxTests
     }
 
     [Fact]
-    public void ParsesYieldBreakStatement()
+    public void YieldBreakForm_ReportsMigrationDiagnostic()
     {
         var tree = SyntaxTree.ParseText("yield break\n");
-        var yieldBreak = tree.GetRoot().DescendantNodes().OfType<YieldBreakStatementSyntax>().Single();
+        var yieldStatement = tree.GetRoot().DescendantNodes().OfType<YieldStatementSyntax>().Single();
 
-        Assert.Equal(SyntaxKind.YieldBreakStatement, yieldBreak.Kind);
+        Assert.Contains(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.YieldBreakFormRemoved);
+        Assert.IsType<BreakExpressionSyntax>(yieldStatement.Expression);
     }
 }

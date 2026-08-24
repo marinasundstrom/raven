@@ -308,7 +308,7 @@ internal sealed class ReturnExpressionOperation : Operation, IReturnOperation
 
     public IOperation? ReturnedValue => _returnedValue ??= Syntax switch
     {
-        ReturnExpressionSyntax returnExpression => SemanticModel.GetOperation(returnExpression.Expression),
+        ReturnExpressionSyntax { Expression: { } expression } => SemanticModel.GetOperation(expression),
         MacroExpansionExpressionSyntax macroExpansion => SemanticModel.GetOperation(macroExpansion.Expression),
         _ => null
     };
@@ -359,7 +359,7 @@ internal sealed class ContinueExpressionOperation : Operation, IContinueOperatio
     protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }
 
-internal sealed class YieldExpressionOperation : Operation, IYieldReturnOperation
+internal sealed class YieldExpressionOperation : Operation, IYieldOperation
 {
     private readonly BoundYieldExpression _bound;
     private IOperation? _returnedValue;
@@ -383,43 +383,23 @@ internal sealed class YieldExpressionOperation : Operation, IYieldReturnOperatio
         => ReturnedValue is null ? ImmutableArray<IOperation>.Empty : ImmutableArray.Create(ReturnedValue);
 }
 
-internal sealed class YieldBreakExpressionOperation : Operation, IYieldBreakOperation
+internal sealed class YieldOperation : Operation, IYieldOperation
 {
-    private readonly BoundYieldBreakExpression _bound;
-
-    internal YieldBreakExpressionOperation(
-        SemanticModel semanticModel,
-        BoundYieldBreakExpression bound,
-        SyntaxNode syntax,
-        bool isImplicit)
-        : base(semanticModel, OperationKind.YieldBreakExpression, syntax, bound.Type, isImplicit)
-    {
-        _bound = bound;
-    }
-
-    public ITypeSymbol ElementType => _bound.ElementType;
-
-    protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
-}
-
-internal sealed class YieldReturnOperation : Operation, IYieldReturnOperation
-{
-    private readonly BoundYieldReturnStatement _bound;
+    private readonly BoundYieldStatement _bound;
     private IOperation? _returnedValue;
 
-    internal YieldReturnOperation(
+    internal YieldOperation(
         SemanticModel semanticModel,
-        BoundYieldReturnStatement bound,
+        BoundYieldStatement bound,
         SyntaxNode syntax,
         bool isImplicit)
-        : base(semanticModel, OperationKind.YieldReturn, syntax, null, isImplicit)
+        : base(semanticModel, OperationKind.Yield, syntax, null, isImplicit)
     {
         _bound = bound;
     }
 
     public IOperation? ReturnedValue => _returnedValue ??= Syntax switch
     {
-        YieldReturnStatementSyntax yieldReturn when yieldReturn.Expression is { } expression => SemanticModel.GetOperation(expression),
         YieldStatementSyntax yieldStatement when yieldStatement.Expression is { } expression => SemanticModel.GetOperation(expression),
         _ => null,
     };
@@ -432,25 +412,6 @@ internal sealed class YieldReturnOperation : Operation, IYieldReturnOperation
             ? ImmutableArray<IOperation>.Empty
             : ImmutableArray.Create(ReturnedValue);
     }
-}
-
-internal sealed class YieldBreakOperation : Operation, IYieldBreakOperation
-{
-    private readonly BoundYieldBreakStatement _bound;
-
-    internal YieldBreakOperation(
-        SemanticModel semanticModel,
-        BoundYieldBreakStatement bound,
-        SyntaxNode syntax,
-        bool isImplicit)
-        : base(semanticModel, OperationKind.YieldBreak, syntax, null, isImplicit)
-    {
-        _bound = bound;
-    }
-
-    public ITypeSymbol ElementType => _bound.ElementType;
-
-    protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }
 
 internal sealed class ThrowOperation : Operation, IThrowOperation

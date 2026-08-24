@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Simplified iterator control flow to `yield value` and bare `return`. The
+  C#-style `yield return value` and `yield break` forms and their syntax and
+  operation API nodes have been removed; old source receives direct migration
+  diagnostics.
 - Fixed sync and async iterators so every yielded expression is checked against
   the declared element type. Invalid implicit narrowing is now diagnosed, and
   an available explicit conversion is surfaced to editor tooling instead of

@@ -152,7 +152,7 @@ public sealed class AsyncFunctionExpressionStateMachineTests(ITestOutputHelper o
             Register(async func ([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
                 yield 1 + offset
                 if cancellationToken.IsCancellationRequested {
-                    yield break
+                    return
                 }
 
                 await Task.Delay(1, cancellationToken)

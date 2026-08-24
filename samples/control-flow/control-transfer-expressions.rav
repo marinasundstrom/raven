@@ -34,11 +34,11 @@ func Items() -> IEnumerable<int> {
 
         let item = match next {
             Some(let item) => item
-            None => yield break
+            None => return
         }
 
         match item {
-            2 => yield return item * 10
+            2 => yield item * 10
             _ => yield item
         }
     }

@@ -990,9 +990,9 @@ import System.Collections.Generic.*
 class Counter {
     func Sum() -> int {
         let values: Func<IEnumerable<int>> = () -> IEnumerable<int> => {
-            yield return 1
-            yield return 2
-            yield return 3
+            yield 1
+            yield 2
+            yield 3
         }
 
         var sum = 0
@@ -1036,9 +1036,9 @@ import System.Collections.Generic.*
 class Counter {
     func MakeValues() -> Func<IAsyncEnumerable<int>> {
         let values: Func<IAsyncEnumerable<int>> = async () => {
-            yield return 1
-            yield return 2
-            yield return 3
+            yield 1
+            yield 2
+            yield 3
         }
 
         return values

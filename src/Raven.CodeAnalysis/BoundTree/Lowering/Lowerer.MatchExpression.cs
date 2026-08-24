@@ -180,8 +180,7 @@ internal sealed partial class Lowerer
             BoundThrowExpression throwExpr => new BoundThrowStatement(throwExpr.Expression),
             BoundBreakExpression breakExpr => new BoundBreakStatement(breakExpr.TargetLabel),
             BoundContinueExpression continueExpr => new BoundContinueStatement(continueExpr.TargetLabel),
-            BoundYieldExpression yieldExpr => new BoundYieldReturnStatement(yieldExpr.Expression, yieldExpr.ElementType, yieldExpr.IteratorKind),
-            BoundYieldBreakExpression yieldBreakExpr => new BoundYieldBreakStatement(yieldBreakExpr.ElementType, yieldBreakExpr.IteratorKind),
+            BoundYieldExpression yieldExpr => new BoundYieldStatement(yieldExpr.Expression, yieldExpr.ElementType, yieldExpr.IteratorKind),
             BoundAssignmentExpression assignmentExpr => new BoundAssignmentStatement(assignmentExpr),
             _ => new BoundExpressionStatement(expression),
         };
@@ -196,7 +195,6 @@ internal sealed partial class Lowerer
             BoundGotoStatement => true,
             BoundBreakStatement => true,
             BoundContinueStatement => true,
-            BoundYieldBreakStatement => true,
             BoundBlockStatement block when block.Statements.Any() => IsTerminatingStatement(block.Statements.Last()),
             BoundIfStatement { ElseNode: not null } nestedIf =>
                 IsTerminatingStatement(nestedIf.ThenNode) &&

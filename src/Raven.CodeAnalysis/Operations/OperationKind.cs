@@ -57,17 +57,11 @@ public enum OperationKind
     BreakExpression,
     ContinueExpression,
     YieldExpression,
-    YieldBreakExpression,
 
     /// <summary>
-    /// A yield return statement.
+    /// A yield statement.
     /// </summary>
-    YieldReturn,
-
-    /// <summary>
-    /// A yield break statement.
-    /// </summary>
-    YieldBreak,
+    Yield,
 
     /// <summary>
     /// A throw statement.

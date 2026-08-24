@@ -40,20 +40,14 @@ partial class BlockBinder
         {
         }
 
-        public override void VisitYieldReturnStatement(BoundYieldReturnStatement node)
+        public override void VisitYieldStatement(BoundYieldStatement node)
         {
             HasYield = true;
 
             if (node.Expression.Type is ITypeSymbol { TypeKind: not TypeKind.Error } type)
                 _yieldTypes.Add(TypeSymbolNormalization.NormalizeForInference(type));
 
-            base.VisitYieldReturnStatement(node);
-        }
-
-        public override void VisitYieldBreakStatement(BoundYieldBreakStatement node)
-        {
-            HasYield = true;
-            base.VisitYieldBreakStatement(node);
+            base.VisitYieldStatement(node);
         }
 
         public override void VisitYieldExpression(BoundYieldExpression node)
@@ -64,12 +58,6 @@ partial class BlockBinder
                 _yieldTypes.Add(TypeSymbolNormalization.NormalizeForInference(type));
 
             base.VisitYieldExpression(node);
-        }
-
-        public override void VisitYieldBreakExpression(BoundYieldBreakExpression node)
-        {
-            HasYield = true;
-            base.VisitYieldBreakExpression(node);
         }
 
         public ITypeSymbol InferElementType(Compilation compilation)

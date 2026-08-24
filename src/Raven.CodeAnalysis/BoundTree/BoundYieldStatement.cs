@@ -4,9 +4,9 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal sealed partial class BoundYieldReturnStatement : BoundStatement
+internal sealed partial class BoundYieldStatement : BoundStatement
 {
-    public BoundYieldReturnStatement(BoundExpression expression, ITypeSymbol elementType, IteratorMethodKind iteratorKind)
+    public BoundYieldStatement(BoundExpression expression, ITypeSymbol elementType, IteratorMethodKind iteratorKind)
     {
         Expression = expression ?? throw new ArgumentNullException(nameof(expression));
         ElementType = elementType;

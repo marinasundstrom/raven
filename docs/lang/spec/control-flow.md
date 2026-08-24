@@ -30,7 +30,7 @@ Expression contexts include assignment right-hand sides, call arguments,
 a block expression. Statements appear in bodies and other positions that do not
 pass a value outward.
 
-`return`, `yield return`, `yield break`, `break`, `continue`, statement-form
+`return`, `yield`, `break`, `continue`, statement-form
 `throw`, and statement-form `try` are valid only in statement context. Other
 constructs, including expressions, may also be used as statements when their
 result is not needed.

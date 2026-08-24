@@ -525,7 +525,6 @@ class MethodBodyBinder : BlockBinder
 
                     return new AnalysisState(assigned, false);
                 case BoundContinueExpression:
-                case BoundYieldBreakExpression:
                     return new AnalysisState(assigned, false);
                 case BoundYieldExpression yieldExpression:
                     return new AnalysisState(MarkAssignedExpression(yieldExpression.Expression, assigned), true);

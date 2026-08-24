@@ -10,7 +10,6 @@ internal static class BoundNodeFacts
             case BoundThrowExpression:
             case BoundBreakExpression:
             case BoundContinueExpression:
-            case BoundYieldBreakExpression:
                 return true;
             case BoundRequiredResultExpression requiredResult:
                 return IsAbruptExpression(requiredResult.Operand);
@@ -75,7 +74,7 @@ internal static class BoundNodeFacts
         return statement switch
         {
             BoundReturnStatement or BoundThrowStatement or BoundGotoStatement or
-            BoundBreakStatement or BoundContinueStatement or BoundYieldBreakStatement => true,
+            BoundBreakStatement or BoundContinueStatement => true,
             BoundExpressionStatement expressionStatement => IsAbruptExpression(expressionStatement.Expression),
             BoundBlockStatement block when block.Statements.LastOrDefault() is { } last => IsAbruptStatement(last),
             BoundIfStatement { ElseNode: not null } ifStatement =>
@@ -133,12 +132,10 @@ internal static class BoundNodeFacts
         public override void VisitThrowStatement(BoundThrowStatement node) => Found = true;
         public override void VisitBreakStatement(BoundBreakStatement node) => Found = true;
         public override void VisitContinueStatement(BoundContinueStatement node) => Found = true;
-        public override void VisitYieldBreakStatement(BoundYieldBreakStatement node) => Found = true;
         public override void VisitReturnExpression(BoundReturnExpression node) => Found = true;
         public override void VisitThrowExpression(BoundThrowExpression node) => Found = true;
         public override void VisitBreakExpression(BoundBreakExpression node) => Found = true;
         public override void VisitContinueExpression(BoundContinueExpression node) => Found = true;
-        public override void VisitYieldBreakExpression(BoundYieldBreakExpression node) => Found = true;
 
         public override void VisitFunctionExpression(BoundFunctionExpression node)
         {

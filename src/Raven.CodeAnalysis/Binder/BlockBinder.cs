@@ -1936,8 +1936,6 @@ partial class BlockBinder : Binder
             BreakStatementSyntax breakStatement => BindBreakStatement(breakStatement),
             ContinueStatementSyntax continueStatement => BindContinueStatement(continueStatement),
             YieldStatementSyntax yieldStatement => BindYieldStatement(yieldStatement),
-            YieldReturnStatementSyntax yieldReturn => BindYieldReturnStatement(yieldReturn),
-            YieldBreakStatementSyntax yieldBreak => BindYieldBreakStatement(yieldBreak),
             EmptyStatementSyntax emptyStatement => new BoundExpressionStatement(BoundFactory.UnitExpression()),
             IncompleteStatementSyntax incompleteStatement => BindIncompleteStatement(incompleteStatement),
             _ => throw new NotSupportedException($"Unsupported statement: {statement.Kind}")
@@ -2326,7 +2324,6 @@ partial class BlockBinder : Binder
             BreakExpressionSyntax breakExpression => BindBreakExpression(breakExpression),
             ContinueExpressionSyntax continueExpression => BindContinueExpression(continueExpression),
             YieldExpressionSyntax yieldExpression => BindYieldExpression(yieldExpression),
-            YieldBreakExpressionSyntax yieldBreakExpression => BindYieldBreakExpression(yieldBreakExpression),
             PropagateExpressionSyntax propagateExpression => BindPropagateExpression(propagateExpression),
             FunctionExpressionSyntax lambdaExpression => BindLambdaExpression(lambdaExpression),
             InterpolatedStringExpressionSyntax interpolated => BindInterpolatedStringExpression(interpolated),
@@ -2593,7 +2590,7 @@ partial class BlockBinder : Binder
     private bool IsEarlyExitExpression(BoundExpression expression, ExpressionSyntax syntax)
     {
         if (expression is BoundReturnExpression or BoundThrowExpression or
-            BoundBreakExpression or BoundContinueExpression or BoundYieldBreakExpression)
+            BoundBreakExpression or BoundContinueExpression)
             return true;
 
         if (syntax is not BlockSyntax block)
@@ -4610,6 +4607,9 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindReturnExpression(ReturnExpressionSyntax returnExpression)
     {
+        if (returnExpression.Expression is null)
+            ResolveIteratorInfoForCurrentMethod();
+
         var returnValue = BindReturnValue(returnExpression.Expression, returnExpression);
 
         var targetType = GetTargetType(returnExpression);
@@ -4663,13 +4663,22 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindYieldExpression(YieldExpressionSyntax yieldExpression)
     {
-        var expression = BindExpression(yieldExpression.Expression);
+        if (yieldExpression.Expression is BreakExpressionSyntax)
+        {
+            ResolveIteratorInfoForCurrentMethod();
+            return new BoundReturnExpression(null, GetAbruptExpressionType(yieldExpression));
+        }
+
+        var expressionSyntax = yieldExpression.Expression is ReturnExpressionSyntax { Expression: { } recoveredExpression }
+            ? recoveredExpression
+            : yieldExpression.Expression;
+        var expression = BindExpression(expressionSyntax);
         var (kind, elementType) = ResolveIteratorInfoForCurrentMethod();
 
         if (elementType.TypeKind == TypeKind.Error)
             elementType = Compilation.ErrorTypeSymbol;
 
-        expression = BindYieldValueConversion(expression, elementType, yieldExpression.Expression);
+        expression = BindYieldValueConversion(expression, elementType, expressionSyntax);
 
         return new BoundYieldExpression(expression, elementType, kind, Compilation.UnitTypeSymbol);
     }
@@ -4694,15 +4703,6 @@ partial class BlockBinder : Binder
         }
 
         return ApplyConversion(expression, elementType, conversion, expressionSyntax);
-    }
-
-    private BoundExpression BindYieldBreakExpression(YieldBreakExpressionSyntax yieldBreakExpression)
-    {
-        var (kind, elementType) = ResolveIteratorInfoForCurrentMethod();
-        if (elementType.TypeKind == TypeKind.Error)
-            elementType = Compilation.ErrorTypeSymbol;
-
-        return new BoundYieldBreakExpression(elementType, kind, GetAbruptExpressionType(yieldBreakExpression));
     }
 
     private ITypeSymbol GetAbruptExpressionType(ExpressionSyntax expression)

@@ -10,9 +10,9 @@ for item in items.Where(x => x > 2) {
 
 func test() -> IEnumerable<int> {
     var i = 1
-    yield return 42
+    yield 42
     while i < 10 {
-        yield return i
+        yield i
         i = i + 2
     }
 }

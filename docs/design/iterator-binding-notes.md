@@ -5,7 +5,7 @@ This note documents the current state of iterator (`yield`) support in the binde
 ## Binder metadata
 
 * `BlockBinder.ResolveIteratorInfoForCurrentMethod` inspects the enclosing method's return type, recognizes `IEnumerable<T>`, `IEnumerator<T>`, `IAsyncEnumerable<T>`, `IAsyncEnumerator<T>`, and non-generic iterator shapes, and calls `SourceMethodSymbol.MarkIterator` so the method is flagged as an iterator with a concrete element type. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L569-L618】【F:src/Raven.CodeAnalysis/Symbols/Source/SourceMethodSymbol.cs†L149-L157】
-* `BindYieldReturnStatement` and `BindYieldBreakStatement` embed the element type and iterator kind into the bound nodes, applying an implicit conversion to the element type when possible. These nodes therefore carry all metadata the lowerer needs. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L331-L360】
+* `BindYieldStatement` embeds the element type and iterator kind into the bound node, applying an implicit conversion to the element type when possible. Bare `return` uses the ordinary return node and is rewritten as iterator completion. These nodes therefore carry all metadata the lowerer needs. 【F:src/Raven.CodeAnalysis/Binder/BlockBinder.Statements.cs†L331-L360】
 
 ## Lowering entry point and backend integration
 
@@ -39,7 +39,7 @@ of blocking the caller. The kickoff method is marked with
 
 `await for` consumption is now lowered before async rewriting. The binder classifies async enumerator patterns (`GetAsyncEnumerator` + `MoveNextAsync` + `Current`) and a dedicated lowering pass rewrites the loop into explicit `while (await MoveNextAsync())` shape with `await DisposeAsync()` in `finally` when available.
 
-`MoveNextBuilder` provides the first pass at state-machine rewriting: it allocates numeric states, injects a dispatch table at the top of `MoveNext`, rewrites each `yield return` into assignments to `_current`/`_state` followed by `return true`, and turns `yield break` into `_state = -1` with `return false`. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L400-L583】
+`MoveNextBuilder` provides the first pass at state-machine rewriting: it allocates numeric states, injects a dispatch table at the top of `MoveNext`, rewrites each `yield` into assignments to `_current`/`_state` followed by `return true`, and turns a source-level bare `return` into `_state = -1` with `return false`. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L400-L583】
 
 ### Comparison with the Roslyn iterator contract
 
@@ -49,10 +49,10 @@ When Roslyn lowers the simple iterator shown below, the generated nested type im
 static IEnumerable<int> Test()
 {
     int i = 0;
-    yield return 42;
+    yield 42
     while (i < 2)
     {
-        yield return i;
+        yield i
         i++;
     }
 }
@@ -73,10 +73,21 @@ Before rewriting the control flow, `MoveNextBuilder` now walks the iterator body
 
 ## Try/finally scheduling and disposal
 
-`MoveNextBuilder` now tracks the active `try` scopes while rewriting so that `finally` blocks are guarded and replayed when an iterator suspends. Each `BoundTryStatement` with a `finally` is rewritten to wrap the cleanup block in an `if (_state < 0)` guard, preventing the `finally` from running when a `yield return` leaves the method with a positive resume state. The builder snapshots the stack of enclosing `finally` scopes for every resume state and uses it to synthesize a richer `Dispose` body: the generated method resets `_state` to `-1`, executes the guarded `finally` blocks from innermost to outermost, and then returns. This ensures deterministic disposal for suspended iterators and reuses the same `BoundBlockStatement` bodies the runtime executes during normal completion. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L526-L750】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L630-L686】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L697-L750】
+`MoveNextBuilder` now tracks the active `try` scopes while rewriting so that `finally` blocks are guarded and replayed when an iterator suspends. Each `BoundTryStatement` with a `finally` is rewritten to wrap the cleanup block in an `if (_state < 0)` guard, preventing the `finally` from running when a `yield` leaves the method with a positive resume state. The builder snapshots the stack of enclosing `finally` scopes for every resume state and uses it to synthesize a richer `Dispose` body: the generated method resets `_state` to `-1`, executes the guarded `finally` blocks from innermost to outermost, and then returns. This ensures deterministic disposal for suspended iterators and reuses the same `BoundBlockStatement` bodies the runtime executes during normal completion. 【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L526-L750】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L630-L686】【F:src/Raven.CodeAnalysis/BoundTree/Lowering/IteratorLowerer.cs†L697-L750】
 
 ## Outstanding work to finish the generator feature
 
 1. **End-to-end validation.**  With the lowering and disposal semantics in place, add integration tests that compile and execute iterator-heavy programs—including script-level functions—to verify the generated state machines behave correctly and that existing lowering paths continue to work. 【F:src/Raven.Compiler/samples/functions/generator-yield-basic.rav†L1-L17】
+
+## Deferred language enhancement: `yield from`
+
+After the 0.1.0 stabilization and release, consider adding
+`yield from expression` as the Raven spelling for forwarding every element of
+another sequence. This is deliberately not part of the pre-bootstrap release.
+Its design must cover both synchronous and asynchronous iterators, validate the
+source sequence and element conversion at the yield site, preserve enumerator
+disposal and `finally` behavior, and define cancellation behavior for async
+forwarding. It should lower as a first-class iterator construct rather than as
+parser sugar that bypasses these guarantees.
 
 Updating these notes after each milestone will keep the generator roadmap accurate and highlight any additional issues discovered during implementation.

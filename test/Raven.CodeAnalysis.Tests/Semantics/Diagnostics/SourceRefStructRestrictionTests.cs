@@ -97,7 +97,7 @@ public sealed class SourceRefStructRestrictionTests : CompilationTestBase
             ref struct Buffer {}
 
             func Values(buffer: Buffer) -> IEnumerable<int> {
-                yield return 1
+                yield 1
             }
             """;
 
@@ -187,7 +187,7 @@ public sealed class SourceRefStructRestrictionTests : CompilationTestBase
             import System.Collections.Generic.*
 
             func Values<T>(value: T) -> IEnumerable<int> where T: allows ref struct {
-                yield return 1
+                yield 1
             }
             """;
 

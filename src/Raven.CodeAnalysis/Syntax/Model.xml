@@ -579,20 +579,9 @@
     <Slot Name="Expression" Type="Expression" IsNullable="true" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
   </Node>
-  <Node Name="YieldReturnStatement" Inherits="Statement">
-    <Slot Name="YieldKeyword" Type="Token" DefaultToken="YieldKeyword" />
-    <Slot Name="ReturnKeyword" Type="Token" DefaultToken="ReturnKeyword" />
-    <Slot Name="Expression" Type="Expression" />
-    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
-  </Node>
   <Node Name="YieldStatement" Inherits="Statement">
     <Slot Name="YieldKeyword" Type="Token" DefaultToken="YieldKeyword" />
     <Slot Name="Expression" Type="Expression" />
-    <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
-  </Node>
-  <Node Name="YieldBreakStatement" Inherits="Statement">
-    <Slot Name="YieldKeyword" Type="Token" DefaultToken="YieldKeyword" />
-    <Slot Name="BreakKeyword" Type="Token" DefaultToken="BreakKeyword" />
     <Slot Name="TerminatorToken" Type="Token" IsOptionalToken="true" DefaultToken="None" />
   </Node>
   <Node Name="CatchClause" Inherits="Node">
@@ -715,7 +704,7 @@
   </Node>
   <Node Name="ReturnExpression" Inherits="Expression">
     <Slot Name="ReturnKeyword" Type="Token" DefaultToken="ReturnKeyword" />
-    <Slot Name="Expression" Type="Expression" />
+    <Slot Name="Expression" Type="Expression" IsNullable="true" />
   </Node>
   <Node Name="ThrowExpression" Inherits="Expression">
     <Slot Name="ThrowKeyword" Type="Token" DefaultToken="ThrowKeyword" />
@@ -731,12 +720,7 @@
   </Node>
   <Node Name="YieldExpression" Inherits="Expression">
     <Slot Name="YieldKeyword" Type="Token" DefaultToken="YieldKeyword" />
-    <Slot Name="ReturnKeyword" Type="Token" IsOptionalToken="true" DefaultToken="None" />
     <Slot Name="Expression" Type="Expression" />
-  </Node>
-  <Node Name="YieldBreakExpression" Inherits="Expression">
-    <Slot Name="YieldKeyword" Type="Token" DefaultToken="YieldKeyword" />
-    <Slot Name="BreakKeyword" Type="Token" DefaultToken="BreakKeyword" />
   </Node>
   <Node Name="PropagateExpression" Inherits="Expression">
     <Slot Name="Expression" Type="Expression" />

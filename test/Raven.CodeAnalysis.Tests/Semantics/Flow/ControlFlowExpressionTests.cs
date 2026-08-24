@@ -100,7 +100,7 @@ func Main() {
     }
 
     [Fact]
-    public void GetOperation_YieldExpressions_ReturnIteratorExpressionOperations()
+    public void GetOperation_YieldAndReturnExpressions_ReturnIteratorControlFlowOperations()
     {
         const string source = """
 import System.Collections.Generic.*
@@ -108,9 +108,9 @@ import System.Collections.Generic.*
 func Items(stop: bool) -> IEnumerable<int> {
     match stop {
         false => yield 1
-        _ => yield break
+        _ => return
     }
-    yield break
+    return
 }
 """;
 
@@ -119,9 +119,11 @@ func Items(stop: bool) -> IEnumerable<int> {
         compilation.GetDiagnostics().ShouldBeEmpty();
 
         var yieldExpression = tree.GetRoot().DescendantNodes().OfType<YieldExpressionSyntax>().Single();
-        var yieldBreakExpression = tree.GetRoot().DescendantNodes().OfType<YieldBreakExpressionSyntax>().Single();
+        var returnExpressions = tree.GetRoot().DescendantNodes().OfType<ReturnExpressionSyntax>().ToArray();
 
         model.GetOperation(yieldExpression)!.Kind.ShouldBe(OperationKind.YieldExpression);
-        model.GetOperation(yieldBreakExpression)!.Kind.ShouldBe(OperationKind.YieldBreakExpression);
+        returnExpressions.ShouldNotBeEmpty();
+        foreach (var returnExpression in returnExpressions)
+            model.GetOperation(returnExpression)!.Kind.ShouldBe(OperationKind.ReturnExpression);
     }
 }

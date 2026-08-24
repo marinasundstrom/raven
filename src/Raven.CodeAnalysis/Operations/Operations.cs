@@ -79,15 +79,10 @@ public interface IReturnOperation : IOperation
     IOperation? ReturnedValue { get; }
 }
 
-public interface IYieldReturnOperation : IOperation
+public interface IYieldOperation : IOperation
 {
     IOperation? ReturnedValue { get; }
 
-    ITypeSymbol ElementType { get; }
-}
-
-public interface IYieldBreakOperation : IOperation
-{
     ITypeSymbol ElementType { get; }
 }
 

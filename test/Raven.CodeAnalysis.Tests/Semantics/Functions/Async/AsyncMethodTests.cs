@@ -360,7 +360,7 @@ return ()
 import System.Collections.Generic.*
 
 async func Stream() -> IAsyncEnumerable<int> {
-    yield return 1
+    yield 1
 }
 """;
 

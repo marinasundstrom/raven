@@ -827,12 +827,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private ReturnExpressionSyntax ParseReturnExpression()
     {
         var returnKeyword = ReadToken();
-        var expression = PeekToken().Kind is
+        var expression = HasLineBreakBeforePeekToken() || PeekToken().Kind is
             SyntaxKind.SemicolonToken or
             SyntaxKind.CloseBraceToken or
             SyntaxKind.EndOfFileToken or
             SyntaxKind.ElseKeyword
-                ? UnitExpression(Token(SyntaxKind.None), Token(SyntaxKind.None))
+                ? null
                 : new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
         return ReturnExpression(returnKeyword, expression);
     }
@@ -875,13 +875,27 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     {
         var yieldKeyword = ReadToken();
         if (ConsumeToken(SyntaxKind.BreakKeyword, out var breakKeyword))
-            return YieldBreakExpression(yieldKeyword, breakKeyword);
+        {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.YieldBreakFormRemoved,
+                GetSpanOfLastToken()));
+            return YieldExpression(yieldKeyword, BreakExpression(breakKeyword, Token(SyntaxKind.None)));
+        }
 
-        var returnKeyword = ConsumeToken(SyntaxKind.ReturnKeyword, out var consumedReturnKeyword)
-            ? consumedReturnKeyword
-            : Token(SyntaxKind.None);
+        SyntaxToken? returnKeyword = null;
+        if (ConsumeToken(SyntaxKind.ReturnKeyword, out var consumedReturnKeyword))
+        {
+            returnKeyword = consumedReturnKeyword;
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.YieldReturnFormRemoved,
+                GetSpanOfLastToken()));
+        }
+
         var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
-        return YieldExpression(yieldKeyword, returnKeyword, expression);
+        if (returnKeyword is not null)
+            expression = ReturnExpression(returnKeyword, expression);
+
+        return YieldExpression(yieldKeyword, expression);
     }
 
     private bool TryParseLambdaExpression(out FunctionExpressionSyntax? lambda)

@@ -299,10 +299,6 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                     !boundDeclaration.Declarators.Any(static declarator =>
                         declarator.Initializer is not null && BoundNodeFacts.IsAbruptExpression(declarator.Initializer));
                 return _endPointIsReachable;
-            case YieldBreakStatementSyntax yieldBreakStatement:
-                base.VisitYieldBreakStatement(yieldBreakStatement);
-                _endPointIsReachable = false;
-                return false;
             default:
                 base.Visit(statement);
                 _endPointIsReachable = true;

@@ -354,10 +354,7 @@ internal sealed partial class BoundNodeFactory
     public BoundWhileStatement CreateWhileStatement(BoundExpression condition, BoundStatement body)
         => new(condition, body);
 
-    public BoundYieldBreakStatement CreateYieldBreakStatement(ITypeSymbol elementType, IteratorMethodKind iteratorKind)
-        => new(elementType, iteratorKind);
-
-    public BoundYieldReturnStatement CreateYieldReturnStatement(
+    public BoundYieldStatement CreateYieldStatement(
         BoundExpression expression,
         ITypeSymbol elementType,
         IteratorMethodKind iteratorKind)

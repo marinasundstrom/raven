@@ -18,7 +18,7 @@ import System.Threading.*
 
 class C {
     async func Stream(cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
-        yield return 1
+        yield 1
     }
 }
 """;
@@ -40,7 +40,7 @@ import System.Threading.*
 
 class C {
     async func Stream([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
-        yield return 1
+        yield 1
     }
 }
 """;

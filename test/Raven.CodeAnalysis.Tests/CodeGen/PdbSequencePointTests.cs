@@ -118,8 +118,8 @@ import System.Collections.Generic.*
 
 class C {
     func Values() -> IEnumerable<int> {
-        yield return 1
-        yield return 2
+        yield 1
+        yield 2
     }
 }
 """;

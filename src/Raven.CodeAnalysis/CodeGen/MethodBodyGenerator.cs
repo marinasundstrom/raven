@@ -763,8 +763,7 @@ internal class MethodBodyGenerator
                 AssignmentStatementSyntax or
                 ReturnStatementSyntax or
                 ThrowStatementSyntax or
-                YieldReturnStatementSyntax or
-                YieldBreakStatementSyntax or
+                YieldStatementSyntax or
                 UseDeclarationStatementSyntax);
         if (!isMatchRelatedSyntax &&
             statementSyntax is not null &&

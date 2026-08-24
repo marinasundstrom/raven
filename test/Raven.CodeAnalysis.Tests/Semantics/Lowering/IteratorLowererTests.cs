@@ -15,14 +15,14 @@ namespace Raven.CodeAnalysis.Semantics.Lowering.Tests;
 public sealed class IteratorLowererTests : CompilationTestBase
 {
     [Fact]
-    public void ShouldRewrite_WhenMethodContainsYieldReturn()
+    public void ShouldRewrite_WhenMethodContainsYield()
     {
         const string source = """
 import System.Collections.Generic.*
 
 class C {
     func Iterator() -> IEnumerable<int> {
-        yield return 1
+        yield 1
     }
 }
 """;
@@ -55,7 +55,7 @@ import System.Collections.Generic.*
 
 class C {
     func Iterator(count: int) -> IEnumerable<int> {
-        yield return count
+        yield count
     }
 }
 """;
@@ -130,7 +130,7 @@ import System.Collections.Generic.*
 
 class C {
     async func Iterator(count: int) -> IAsyncEnumerable<int> {
-        yield return count
+        yield count
     }
 }
 """;
@@ -187,7 +187,7 @@ import System.Threading.*
 
 class C {
     async func Iterator([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
-        yield return 1
+        yield 1
     }
 }
 """;
@@ -226,7 +226,7 @@ import System.Collections.Generic.*
 
 class C {
     func Iterator(count: int) -> IEnumerable<int> {
-        yield return count
+        yield count
     }
 }
 """;
@@ -268,14 +268,14 @@ class C {
     }
 
     [Fact]
-    public void Rewrite_PopulatesMoveNextBody_ForYieldReturn()
+    public void Rewrite_PopulatesMoveNextBody_ForYield()
     {
         const string source = """
 import System.Collections.Generic.*
 
 class C {
     func Iterator(count: int) -> IEnumerable<int> {
-        yield return count
+        yield count
     }
 }
 """;
@@ -335,7 +335,7 @@ import System.Collections.Generic.*
 
 class C {
     static func Iterator(count: int) -> IEnumerable<int> {
-        yield return count
+        yield count
     }
 }
 """;
@@ -408,7 +408,7 @@ import System.Collections.Generic.*
 class C {
     func Test() {
         func nested() -> IEnumerable<int> {
-            yield return 1
+            yield 1
         }
 
         let enumerator = nested()
@@ -447,8 +447,8 @@ import System.Collections.Generic.*
 class C {
     func Make() -> Func<IEnumerable<int>> {
         let iterator: Func<IEnumerable<int>> = () -> IEnumerable<int> => {
-            yield return 1
-            yield return 2
+            yield 1
+            yield 2
         }
 
         iterator
@@ -489,8 +489,8 @@ import System.Collections.Generic.*
 class C {
     func Make() -> Func<IAsyncEnumerable<int>> {
         let iterator: Func<IAsyncEnumerable<int>> = async () -> IAsyncEnumerable<int> => {
-            yield return 1
-            yield return 2
+            yield 1
+            yield 2
         }
 
         iterator
@@ -529,7 +529,7 @@ import System.Collections.Generic.*
 
 class C {
     func Iterator(count: int) -> IEnumerable<int> {
-        yield return count
+        yield count
     }
 }
 """;
@@ -607,7 +607,7 @@ import System.Collections.Generic.*
 class C {
     func Iterator(count: int) -> IEnumerable<int> {
         try {
-            yield return count
+            yield count
         } finally {
             let disposed = count
         }
@@ -661,7 +661,7 @@ import System.Collections.Generic.*
 class C {
     func Iterator(count: int) -> IEnumerable<int> {
         try {
-            yield return count
+            yield count
         } finally {
             let disposed = count
         }
@@ -729,7 +729,7 @@ import System.Collections.Generic.*
 
 class C {
     func Iterator(count: int) -> IEnumerator<int> {
-        yield return count
+        yield count
     }
 }
 """;

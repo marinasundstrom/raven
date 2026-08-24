@@ -10,7 +10,7 @@ class Sample {
             yield i
 
             if cancellationToken.IsCancellationRequested {
-                yield break
+                return
             }
 
             await Task.Delay(250)

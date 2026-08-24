@@ -785,22 +785,12 @@ internal static class IteratorLowerer
             base.VisitExpression(node);
         }
 
-        public override void VisitYieldReturnStatement(BoundYieldReturnStatement node)
-        {
-            FoundYield = true;
-        }
-
-        public override void VisitYieldBreakStatement(BoundYieldBreakStatement node)
+        public override void VisitYieldStatement(BoundYieldStatement node)
         {
             FoundYield = true;
         }
 
         public override void VisitYieldExpression(BoundYieldExpression node)
-        {
-            FoundYield = true;
-        }
-
-        public override void VisitYieldBreakExpression(BoundYieldBreakExpression node)
         {
             FoundYield = true;
         }
@@ -1075,7 +1065,7 @@ internal static class IteratorLowerer
             }
         }
 
-        public override BoundNode? VisitYieldReturnStatement(BoundYieldReturnStatement node)
+        public override BoundNode? VisitYieldStatement(BoundYieldStatement node)
         {
             if (node is null)
                 return null;
@@ -1114,35 +1104,20 @@ internal static class IteratorLowerer
             });
         }
 
-        public override BoundNode? VisitYieldBreakStatement(BoundYieldBreakStatement node)
-        {
-            if (node is null)
-                return null;
-
-            var assignCompleted = CreateStateAssignment(-1);
-            var returnFalse = CreateReturnStatement(CreateBoolLiteral(false));
-
-            return new BoundBlockStatement(new BoundStatement[]
-            {
-                assignCompleted,
-                returnFalse,
-            });
-        }
-
         public override BoundNode? VisitYieldExpression(BoundYieldExpression node)
         {
-            var rewritten = (BoundStatement)VisitYieldReturnStatement(
-                new BoundYieldReturnStatement(node.Expression, node.ElementType, node.IteratorKind))!;
+            var rewritten = (BoundStatement)VisitYieldStatement(
+                new BoundYieldStatement(node.Expression, node.ElementType, node.IteratorKind))!;
             return new BoundBlockExpression(
                 [rewritten, new BoundExpressionStatement(new BoundUnitExpression(_unitType))],
                 _unitType,
                 []);
         }
 
-        public override BoundNode? VisitYieldBreakExpression(BoundYieldBreakExpression node)
+        public override BoundNode? VisitReturnExpression(BoundReturnExpression node)
         {
-            var rewritten = (BoundBlockStatement)VisitYieldBreakStatement(
-                new BoundYieldBreakStatement(node.ElementType, node.IteratorKind))!;
+            var rewritten = (BoundBlockStatement)VisitReturnStatement(
+                new BoundReturnStatement(node.Expression))!;
             return new BoundBlockExpression(rewritten.Statements, node.Type, rewritten.LocalsToDispose);
         }
 

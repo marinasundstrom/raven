@@ -83,8 +83,7 @@ internal sealed class UnreachableCodeOptimizer : BoundTreeRewriter
                     case BoundReturnStatement or
                          BoundThrowStatement or
                          BoundBreakStatement or
-                         BoundContinueStatement or
-                         BoundYieldBreakStatement:
+                         BoundContinueStatement:
                         break;
                     default:
                         var transfers = TransferCollector.Collect(statement);

@@ -13,25 +13,25 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class IteratorBindingTests : CompilationTestBase
 {
     [Fact]
-    public void YieldReturn_InGenericEnumerableMethod_BindsIteratorElementType()
+    public void Yield_InGenericEnumerableMethod_BindsIteratorElementType()
     {
         const string source = """
 import System.Collections.Generic.*
 
 func Numbers() -> IEnumerable<int> {
-    yield return 1
-    yield return 2
+    yield 1
+    yield 2
 }
 """;
 
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
-        var yieldStatements = root.DescendantNodes().OfType<YieldReturnStatementSyntax>().ToArray();
+        var yieldStatements = root.DescendantNodes().OfType<YieldStatementSyntax>().ToArray();
         var methodDeclaration = root.DescendantNodes().OfType<FunctionStatementSyntax>().Single();
 
-        var firstYield = Assert.IsType<BoundYieldReturnStatement>(model.GetBoundNode(yieldStatements[0]));
-        var secondYield = Assert.IsType<BoundYieldReturnStatement>(model.GetBoundNode(yieldStatements[1]));
+        var firstYield = Assert.IsType<BoundYieldStatement>(model.GetBoundNode(yieldStatements[0]));
+        var secondYield = Assert.IsType<BoundYieldStatement>(model.GetBoundNode(yieldStatements[1]));
         var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
 
         Assert.Empty(compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));

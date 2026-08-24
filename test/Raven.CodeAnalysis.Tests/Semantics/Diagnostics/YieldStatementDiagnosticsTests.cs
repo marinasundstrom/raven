@@ -12,7 +12,7 @@ public class YieldStatementDiagnosticsTests : DiagnosticTestBase
 import System.Collections.Generic.*
 
 func Values() -> IEnumerable<int> {
-    yield return 0.5
+    yield 0.5
 }
 """;
 
@@ -20,10 +20,10 @@ func Values() -> IEnumerable<int> {
             expectedDiagnostics:
             [
                 new DiagnosticResult(CompilerDiagnostics.CannotConvertFromTypeToType.Id)
-                    .WithSpan(4, 18, 4, 21)
+                    .WithSpan(4, 11, 4, 14)
                     .WithArguments("double", "int"),
                 new DiagnosticResult(CompilerDiagnostics.ExplicitConversionExists.Id)
-                    .WithSpan(4, 18, 4, 21)
+                    .WithSpan(4, 11, 4, 14)
                     .WithArguments("double", "int")
             ]);
 
@@ -43,7 +43,7 @@ async func Values() -> IAsyncEnumerable<int> {
     match true {
         _ => yield 0.5
     }
-    yield break
+    return
 }
 """;
 
@@ -85,6 +85,69 @@ async func Values() -> IAsyncEnumerable<int> {
                 new DiagnosticResult(CompilerDiagnostics.ExplicitConversionExists.Id)
                     .WithSpan(6, 15, 6, 16)
                     .WithArguments("double", "int")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void Iterator_ReturnWithValueBeforeYield_ReportsDiagnostic()
+    {
+        var code = """
+import System.Collections.Generic.*
+
+func Values(stop: bool) -> IEnumerable<int> {
+    if stop {
+        return 2
+    }
+    yield 1
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.IteratorReturnCannotHaveExpression.Id)
+                    .WithSpan(5, 16, 5, 17)
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void SequenceReturningMethodWithoutYield_CanReturnASequence()
+    {
+        var code = """
+import System.*
+import System.Collections.Generic.*
+
+func Values() -> IEnumerable<int> {
+    return Array.Empty<int>()
+}
+""";
+
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
+    public void AsyncIterator_ReturnWithValue_ReportsDiagnostic()
+    {
+        var code = """
+import System.Collections.Generic.*
+import System.Threading.Tasks.*
+
+async func Values() -> IAsyncEnumerable<int> {
+    await Task.Delay(0)
+    yield 1
+    return 2
+}
+""";
+
+        var verifier = CreateVerifier(code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.IteratorReturnCannotHaveExpression.Id)
+                    .WithSpan(7, 12, 7, 13)
             ]);
 
         verifier.Verify();

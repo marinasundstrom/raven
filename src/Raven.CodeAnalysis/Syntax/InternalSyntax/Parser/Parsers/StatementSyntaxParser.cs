@@ -374,19 +374,29 @@ internal class StatementSyntaxParser : SyntaxParser
 
         if (next.Kind == SyntaxKind.BreakKeyword)
         {
-            return ParseYieldBreakStatementSyntax(yieldKeyword);
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.YieldBreakFormRemoved,
+                GetSpanOfPeekedToken()));
+
+            var breakKeyword = ReadToken();
+            var terminatorToken = ConsumeTerminator();
+            return YieldStatement(yieldKeyword, BreakExpression(breakKeyword, Token(SyntaxKind.None)), terminatorToken);
         }
 
         if (next.Kind == SyntaxKind.ReturnKeyword)
         {
+            AddDiagnostic(DiagnosticInfo.Create(
+                CompilerDiagnostics.YieldReturnFormRemoved,
+                GetSpanOfPeekedToken()));
+
             var returnKeyword = ReadToken();
-            return ParseYieldReturnStatementSyntax(yieldKeyword, returnKeyword);
+            return ParseYieldStatementSyntax(yieldKeyword, returnKeyword);
         }
 
         return ParseYieldStatementSyntax(yieldKeyword);
     }
 
-    private YieldReturnStatementSyntax ParseYieldReturnStatementSyntax(SyntaxToken yieldKeyword, SyntaxToken returnKeyword)
+    private YieldStatementSyntax ParseYieldStatementSyntax(SyntaxToken yieldKeyword, SyntaxToken returnKeyword)
     {
         SetTreatNewlinesAsTokens(false);
 
@@ -407,16 +417,7 @@ internal class StatementSyntaxParser : SyntaxParser
             terminatorToken = Token(SyntaxKind.None);
         }
 
-        return YieldReturnStatement(yieldKeyword, returnKeyword, expression, terminatorToken);
-    }
-
-    private YieldBreakStatementSyntax ParseYieldBreakStatementSyntax(SyntaxToken yieldKeyword)
-    {
-        var breakKeyword = ExpectToken(SyntaxKind.BreakKeyword);
-
-        var terminatorToken = ConsumeTerminator();
-
-        return YieldBreakStatement(yieldKeyword, breakKeyword, terminatorToken);
+        return YieldStatement(yieldKeyword, ReturnExpression(returnKeyword, expression), terminatorToken);
     }
 
     private YieldStatementSyntax ParseYieldStatementSyntax(SyntaxToken yieldKeyword)

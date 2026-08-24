@@ -1909,6 +1909,31 @@ public partial class Compilation
         }
     }
 
+    internal static bool ContainsYieldOutsideNestedFunctions(SyntaxNode node)
+    {
+        return ContainsYieldOutsideNestedFunctionsCore(node);
+
+        static bool ContainsYieldOutsideNestedFunctionsCore(SyntaxNode current)
+        {
+            if (IsNestedFunctionBoundary(current))
+                return false;
+
+            if (current is YieldStatementSyntax or YieldExpressionSyntax)
+                return true;
+
+            foreach (var child in current.ChildNodes())
+            {
+                if (IsNestedFunctionBoundary(child))
+                    continue;
+
+                if (ContainsYieldOutsideNestedFunctionsCore(child))
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
     internal static bool ContainsNonUnitReturnOutsideNestedFunctions(StatementSyntax statement)
     {
         return ContainsNonUnitReturnOutsideNestedFunctions((SyntaxNode)statement);

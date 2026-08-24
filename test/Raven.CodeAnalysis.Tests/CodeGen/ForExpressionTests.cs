@@ -313,11 +313,11 @@ import System.Threading.Tasks.*
 
 class C {
     static async func Values() -> IAsyncEnumerable<int> {
-        yield return 1
-        yield return 2
-        yield return 3
-        yield return 4
-        yield return 5
+        yield 1
+        yield 2
+        yield 3
+        yield 4
+        yield 5
     }
 
     static async func Sum() -> Task<int> {
@@ -365,8 +365,8 @@ import System.Threading.Tasks.*
 
 class C {
     static async func Values() -> IAsyncEnumerable<int> {
-        yield return 1
-        yield return 2
+        yield 1
+        yield 2
     }
 
     static async func Run() -> Task {
@@ -401,9 +401,9 @@ import System.Threading.Tasks.*
 
 class C {
     static async func Values() -> IAsyncEnumerable<int> {
-        yield return 1
-        yield return 2
-        yield return 3
+        yield 1
+        yield 2
+        yield 3
     }
 
     static async func Sum() -> Task<int> {
@@ -449,9 +449,9 @@ import System.Threading.Tasks.*
 
 class C {
     static async func Values([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
-        yield return 1
-        yield return 2
-        yield return 3
+        yield 1
+        yield 2
+        yield 3
     }
 
     static async func Sum() -> Task<int> {
@@ -496,7 +496,7 @@ import System.Collections.Generic.*
 class C {
     static func Values() -> IEnumerable<int> {
         for i in 1..3 {
-            yield return i
+            yield i
         }
     }
 
@@ -523,7 +523,7 @@ class C {
     static func Values() -> IEnumerable<int> {
         let items: IEnumerable<int> = [1, 2, 3]
         for i in items {
-            yield return i
+            yield i
         }
     }
 

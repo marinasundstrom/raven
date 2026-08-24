@@ -25,9 +25,9 @@ import System.Threading.Tasks.*
 
 class Counter {
     async func Values([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
-        yield return 1
+        yield 1
         await Task.Delay(5000, cancellationToken)
-        yield return 2
+        yield 2
     }
 }
 """;
@@ -66,12 +66,12 @@ import System.Threading.*
 
 class Counter {
     async func Values([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
-        yield return 1
+        yield 1
         if cancellationToken.IsCancellationRequested {
-            yield break
+            return
         }
 
-        yield return 2
+        yield 2
     }
 }
 """;
@@ -116,9 +116,9 @@ import System.Threading.Tasks.*
 
 class Counter {
     async func Values([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
-        yield return 1
+        yield 1
         await Task.Delay(5000, cancellationToken)
-        yield return 2
+        yield 2
     }
 }
 """;
@@ -149,9 +149,9 @@ import System.Threading.Tasks.*
 
 class Counter {
     async func Values([EnumeratorCancellation] cancellationToken: CancellationToken) -> IAsyncEnumerable<int> {
-        yield return 1
+        yield 1
         await Task.Delay(5000, cancellationToken)
-        yield return 2
+        yield 2
     }
 }
 """;
