@@ -1197,13 +1197,14 @@ if (!string.IsNullOrWhiteSpace(targetCoreLibraryPath))
     project = ReplaceMetadataReferenceByAssemblyIdentity(project, targetCoreLibraryPath);
 }
 
+if (!string.IsNullOrWhiteSpace(ravenCodeAnalysisPath))
+    project = ReplaceMetadataReferenceByAssemblyIdentity(project, ravenCodeAnalysisPath);
+
 if (!string.Equals(assemblyName, "Raven.Macros", StringComparison.OrdinalIgnoreCase) &&
     !string.IsNullOrWhiteSpace(ravenMacrosPath))
 {
     project = ReplaceMetadataReferenceByAssemblyIdentity(project, ravenMacrosPath);
     project = ReplaceMacroReferenceByAssemblyIdentity(project, ravenMacrosPath);
-    if (!string.IsNullOrWhiteSpace(ravenCodeAnalysisPath))
-        project = ReplaceMetadataReferenceByAssemblyIdentity(project, ravenCodeAnalysisPath);
 }
 
 foreach (var r in additionalRefs)

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed standalone compiler dependency setup so `Raven.CodeAnalysis` remains
+  available when the optional standard macro library has not been built or
+  installed alongside the compiler.
 - Extended the Pico W nanoFramework Wi-Fi sample with manual and
   `nanoFramework.Iot.Device.Ssd13xx` SH1106 OLED paths that display a retrieved
   public IP address, including the complete I2C/graphics deployment closure.
