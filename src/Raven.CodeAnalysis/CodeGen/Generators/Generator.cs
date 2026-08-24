@@ -866,14 +866,8 @@ internal abstract class Generator
 
     protected void EmitDefaultValue(ITypeSymbol type)
     {
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type.GetNonNullableType() is ITypeParameterSymbol)
         {
-            if ((typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0)
-            {
-                ILGenerator.Emit(OpCodes.Ldnull);
-                return;
-            }
-
             EmitDefaultValueWithInitObj(type);
             return;
         }

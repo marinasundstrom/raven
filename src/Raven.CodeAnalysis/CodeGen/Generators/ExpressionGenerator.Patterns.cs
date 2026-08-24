@@ -360,6 +360,30 @@ internal partial class ExpressionGenerator
                     ILGenerator.Emit(OpCodes.Ldc_I4_1);
                     return;
                 }
+
+                if (ClrTypesMatch(inputClr, declaredClr) &&
+                    inputType.IsNullable &&
+                    !typeSymbol.IsNullable &&
+                    inputType.GetNonNullableType() is ITypeParameterSymbol &&
+                    typeSymbol is ITypeParameterSymbol)
+                {
+                    var valueLocal = SpillScrutineeToLocal(inputType);
+                    var labelNull = ILGenerator.DefineLabel();
+                    var labelDone = ILGenerator.DefineLabel();
+
+                    ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+                    ILGenerator.Emit(OpCodes.Box, inputClr);
+                    ILGenerator.Emit(OpCodes.Brfalse, labelNull);
+                    ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+                    EmitDesignationFromStack(declarationPattern.Designator, scope);
+                    ILGenerator.Emit(OpCodes.Ldc_I4_1);
+                    ILGenerator.Emit(OpCodes.Br, labelDone);
+
+                    ILGenerator.MarkLabel(labelNull);
+                    ILGenerator.Emit(OpCodes.Ldc_I4_0);
+                    ILGenerator.MarkLabel(labelDone);
+                    return;
+                }
             }
 
             // General case: use object semantics

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed verifiable emission for reference-constrained generic values used by
+  nullable declaration patterns, null returns, and default values. These paths
+  now use CLR-verifiable typed locals, boxed null tests, and `initobj` defaults.
 - Fixed synthesized `Equals(object)` for generic record classes so casts and
   locals use the constructed self type rather than the open generic definition.
   Generic record equality now executes correctly and emits verifiable IL.

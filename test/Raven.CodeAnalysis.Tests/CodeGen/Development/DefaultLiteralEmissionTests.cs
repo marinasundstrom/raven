@@ -87,7 +87,7 @@ class C {
     }
 
     [Fact]
-    public void DefaultLiteral_ReferenceTypeConstraint_WithNullForgiving_UsesLdnull()
+    public void DefaultLiteral_ReferenceTypeConstraint_WithNullForgiving_UsesInitobj()
     {
         const string code = """
 class C {
@@ -121,8 +121,8 @@ class C {
         Assert.Null(value);
 
         var opcodes = ILReader.GetOpCodes(method);
-        Assert.Contains(OpCodes.Ldnull, opcodes);
-        Assert.DoesNotContain(OpCodes.Initobj, opcodes);
+        Assert.Contains(OpCodes.Initobj, opcodes);
+        Assert.DoesNotContain(OpCodes.Ldnull, opcodes);
     }
 
     [Fact]
@@ -204,7 +204,7 @@ class C {
     }
 
     [Fact]
-    public void DefaultExpression_ReferenceTypeConstraint_WithNullForgiving_UsesLdnull()
+    public void DefaultExpression_ReferenceTypeConstraint_WithNullForgiving_UsesInitobj()
     {
         const string code = """
 class C {
@@ -238,7 +238,7 @@ class C {
         Assert.Null(value);
 
         var opcodes = ILReader.GetOpCodes(method);
-        Assert.Contains(OpCodes.Ldnull, opcodes);
-        Assert.DoesNotContain(OpCodes.Initobj, opcodes);
+        Assert.Contains(OpCodes.Initobj, opcodes);
+        Assert.DoesNotContain(OpCodes.Ldnull, opcodes);
     }
 }

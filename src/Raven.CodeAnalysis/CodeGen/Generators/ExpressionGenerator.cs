@@ -8588,7 +8588,8 @@ internal partial class ExpressionGenerator : Generator
             case BoundLiteralExpressionKind.NullLiteral:
                 {
                     var convertedType = literalExpression.GetConvertedType();
-                    if (convertedType is not null && convertedType.IsValueType)
+                    if (convertedType is not null &&
+                        (convertedType.IsValueType || convertedType.GetNonNullableType() is ITypeParameterSymbol))
                     {
                         EmitDefaultValue(convertedType);
                     }
