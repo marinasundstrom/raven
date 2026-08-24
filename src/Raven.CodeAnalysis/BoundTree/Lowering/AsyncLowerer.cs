@@ -2998,6 +2998,19 @@ internal static class AsyncLowerer
         {
             switch (pattern)
             {
+                case BoundGuardedPattern guarded:
+                    {
+                        var inner = VisitPattern(guarded.Pattern);
+                        var guardPattern = guarded.GuardPattern is null ? null : VisitPattern(guarded.GuardPattern);
+                        var guardExpression = VisitExpression(guarded.GuardExpression) ?? guarded.GuardExpression;
+
+                        return ReferenceEquals(inner, guarded.Pattern) &&
+                            ReferenceEquals(guardPattern, guarded.GuardPattern) &&
+                            ReferenceEquals(guardExpression, guarded.GuardExpression)
+                            ? guarded
+                            : new BoundGuardedPattern(inner, guardPattern, guardExpression, guarded.Reason);
+                    }
+
                 case BoundCasePattern c:
                     {
                         var args = c.Arguments;
@@ -3015,6 +3028,19 @@ internal static class AsyncLowerer
                             return c;
 
                         return new BoundCasePattern(c.CaseSymbol, c.TryGetMethod, b.ToImmutable(), c.Designator, c.Reason);
+                    }
+
+                case BoundUnionMemberPattern unionMember:
+                    {
+                        var inner = VisitPattern(unionMember.Pattern);
+                        return ReferenceEquals(inner, unionMember.Pattern)
+                            ? unionMember
+                            : new BoundUnionMemberPattern(
+                                unionMember.UnionType,
+                                unionMember.MemberType,
+                                unionMember.TryGetMethod,
+                                inner,
+                                unionMember.Reason);
                     }
 
                 case BoundNotPattern n:
@@ -3065,6 +3091,32 @@ internal static class AsyncLowerer
                                 t.ElementKinds,
                                 t.IsSequence)
                             : t;
+                    }
+
+                case BoundDeconstructPattern deconstruct:
+                    {
+                        var arguments = deconstruct.Arguments;
+                        var rewrittenArguments = ImmutableArray.CreateBuilder<BoundPattern>(arguments.Length);
+                        var changed = false;
+
+                        foreach (var argument in arguments)
+                        {
+                            var rewritten = VisitPattern(argument);
+                            rewrittenArguments.Add(rewritten);
+                            changed |= !ReferenceEquals(rewritten, argument);
+                        }
+
+                        if (!changed)
+                            return deconstruct;
+
+                        return new BoundDeconstructPattern(
+                            deconstruct.InputType,
+                            deconstruct.ReceiverType,
+                            deconstruct.NarrowedType,
+                            deconstruct.DeconstructMethod,
+                            rewrittenArguments.ToImmutable(),
+                            deconstruct.Designator,
+                            deconstruct.Reason);
                     }
 
                 case BoundConstantPattern c:
@@ -3138,6 +3190,34 @@ internal static class AsyncLowerer
                         return changed || !ReferenceEquals(designator, d.Designator)
                             ? new BoundDictionaryPattern(d.InputType, d.ReceiverType, d.KeyType, d.ValueType, designator, b.ToImmutable(), d.Reason)
                             : d;
+                    }
+
+                case BoundComparisonPattern comparison:
+                    {
+                        var value = VisitExpression(comparison.Value) ?? comparison.Value;
+                        return ReferenceEquals(value, comparison.Value)
+                            ? comparison
+                            : new BoundComparisonPattern(
+                                comparison.InputType,
+                                comparison.Operator,
+                                value,
+                                comparison.Reason);
+                    }
+
+                case BoundRangePattern range:
+                    {
+                        var lowerBound = VisitExpression(range.LowerBound) ?? range.LowerBound;
+                        var upperBound = VisitExpression(range.UpperBound) ?? range.UpperBound;
+
+                        return ReferenceEquals(lowerBound, range.LowerBound) &&
+                            ReferenceEquals(upperBound, range.UpperBound)
+                            ? range
+                            : new BoundRangePattern(
+                                range.Type,
+                                lowerBound,
+                                upperBound,
+                                range.IsUpperExclusive,
+                                range.Reason);
                     }
 
                 case BoundDiscardPattern:

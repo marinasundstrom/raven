@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed async state-machine lowering so expressions nested inside comparison,
+  range, guarded, union-member, and deconstruction patterns remap instance and
+  captured receivers through their synthesized fields.
 - Fixed ILVerify reference resolution for cross-target compilation by supplying
   the selected target runtime's implementation closure, including framework
   internals such as `System.Private.Xml.Linq`, instead of the compiler host's
