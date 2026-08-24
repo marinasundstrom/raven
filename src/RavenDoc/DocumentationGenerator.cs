@@ -362,12 +362,25 @@ public static class DocumentationGenerator
 
     private static string? TryFindRepoRoot(string startDir)
     {
-        var dir = new DirectoryInfo(startDir);
+        if (string.IsNullOrWhiteSpace(startDir))
+            return null;
+
+        DirectoryInfo dir;
+        try
+        {
+            dir = new DirectoryInfo(Path.GetFullPath(startDir));
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
 
         while (dir is not null)
         {
-            // Most robust: detect .git folder
-            if (Directory.Exists(Path.Combine(dir.FullName, ".git")))
+            // A normal checkout has a .git directory; a linked worktree has a
+            // .git file that points back to the primary repository.
+            var gitPath = Path.Combine(dir.FullName, ".git");
+            if (Directory.Exists(gitPath) || File.Exists(gitPath))
                 return dir.FullName;
 
             dir = dir.Parent;

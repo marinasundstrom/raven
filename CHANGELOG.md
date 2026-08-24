@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed RavenDoc source-link generation in linked worktrees and other
+  hermetic environments, including relative or missing source directories.
 - Fixed clean-checkout compiler builds so syntax, bound-tree, symbol, and
   diagnostic sources generated during the build are included in the same
   compilation instead of requiring a second warm build.
