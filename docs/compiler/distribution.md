@@ -151,8 +151,8 @@ version so a previous package with the same identity cannot be reused.
 
 The `local.<sha>` suffix identifies an unpublished build; it does not create a
 release tag and must not be used for publication. Formal release preparation
-later selects the plain next version, such as `0.1.0-preview.15`, and updates
-the tracked release references together.
+selects the stable `0.1.0` pre-bootstrap release and updates the tracked release
+references together.
 
 ## Release procedure
 
@@ -165,14 +165,13 @@ worktree:
 scripts/prepare-release.sh
 ```
 
-Until the project deliberately transitions to its first stable major release,
-Raven uses one monotonically increasing prerelease counter:
-`0.1.0-preview.N`. Release preparation derives the next counter from
-`global.json`; for example, both `preview.8` and the historical `preview.8.1`
-advance to `preview.9`. Do not add another nested patch counter. An optional
-argument such as `scripts/prepare-release.sh 0.1.0-preview.14` asserts the
-expected derived version but cannot override it. Moving to `1.0.0` or another
-release line is an explicit project decision and requires updating this policy.
+The qualified pre-bootstrap foundation is Raven's first non-preview release,
+`0.1.0`. The project remains experimental, so this milestone does not claim
+the compatibility and maturity implied by `1.0.0`. Release preparation accepts
+the current `0.1.0-preview.N` line and selects exactly `0.1.0`; an optional
+`scripts/prepare-release.sh 0.1.0` argument asserts that decision but cannot
+override it. Moving to `1.0.0` or another release line remains a separate,
+explicit project decision.
 
 The script replaces the previously selected release version in tracked files,
 creates the dated changelog section, and validates the known release references.
@@ -189,8 +188,9 @@ scripts/validate-release.sh VERSION --require-clean
 scripts/package-nuget.sh VERSION
 ```
 
-For a release that establishes or advances a bootstrap stage, also retain the
-full baseline, isolated runtime, standalone-sample, and project-sample results
+For the stable pre-bootstrap release and every release that establishes or
+advances a bootstrap stage, also retain the full baseline, isolated runtime,
+standalone-sample, and project-sample build-and-run results
 described in [Release and bootstrap compatibility
 gates](../testing/release-and-bootstrap-gates.md), including the active SDK and
 repository-versus-installed toolchain provenance.

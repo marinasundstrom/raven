@@ -12,6 +12,12 @@ The bootstrap labels are separate from Raven's public SemVer release numbers:
    frozen v1 `Raven.Core` types in its compiler APIs.
 3. **Bootstrap v3** — the full compiler is implemented in Raven.
 
+The public release immediately before bootstrap v1 is the stable `0.1.0`
+release, not another preview and not `1.0.0`. It marks a qualified foundation
+for Raven's staged bootstrap while retaining the versioning latitude appropriate
+for an experimental language. Bootstrap tags remain separate from this SemVer
+identity.
+
 Each version is built by an exact earlier version. A version is accepted only after
 its compiler behavior, foundational libraries, samples, targets, and artifact
 provenance pass their gates. Self-compilation by itself is not sufficient.
@@ -175,6 +181,10 @@ each of these boundaries independently:
 9. **Artifact provenance** — every consumer reports whether it used repository,
    installed, or packaged artifacts; no gate passes because of a stale global
    SDK, local package cache, or output-directory copy.
+10. **Sample execution** — every standalone sample and executable project
+    sample builds and runs successfully. Unsafe, non-terminating, browser,
+    server, hardware, and library-only cases require an explicit reviewed
+    classification and the closest meaningful unattended smoke check.
 
 ### Current stabilization findings
 

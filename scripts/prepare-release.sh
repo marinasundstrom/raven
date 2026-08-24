@@ -18,15 +18,14 @@ if [[ -z "$current_version" ]]; then
 fi
 
 if [[ ! "$current_version" =~ ^0\.1\.0-preview\.([0-9]+)(\.[0-9]+)*$ ]]; then
-  echo "Cannot infer the next preview from $current_version; decide the next release line explicitly." >&2
+  echo "Cannot prepare the first stable 0.1.0 release from $current_version." >&2
   exit 1
 fi
 
-next_preview_number="$((BASH_REMATCH[1] + 1))"
-VERSION="0.1.0-preview.$next_preview_number"
+VERSION="0.1.0"
 
 if [[ -n "$REQUESTED_VERSION" && "$REQUESTED_VERSION" != "$VERSION" ]]; then
-  echo "The next release after $current_version is $VERSION, not $REQUESTED_VERSION." >&2
+  echo "The pre-bootstrap release after $current_version is $VERSION, not $REQUESTED_VERSION." >&2
   exit 2
 fi
 

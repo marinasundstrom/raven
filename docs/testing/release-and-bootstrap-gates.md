@@ -1,6 +1,7 @@
 # Release and bootstrap compatibility gates
 
-The release candidate that becomes Raven's bootstrap-v1 foundation must
+The stable `0.1.0` release candidate that becomes Raven's bootstrap-v1
+foundation must
 be tested as both a compiler product and a compiler for real Raven workloads.
 Self-compilation alone is not sufficient evidence.
 
@@ -22,11 +23,21 @@ scripts/build-project-samples.sh
 scripts/test-target-framework-matrix.sh
 ```
 
-The standalone and project sample sets are compatibility suites. Keep failures
+After the aggregate project build, run every project with `OutputType=Exe`
+through `dotnet run --no-build --project <project>` using the same configuration
+and repository toolchain. Retain a per-project result table alongside the build
+report. The gate must gain an aggregate runner before the `0.1.0` freeze; until
+then, a manual run table is required evidence rather than an implicit pass.
+
+The standalone and project sample sets are compatibility suites. Every
+standalone sample and every executable project sample must both build and run
+successfully. A build-only result is not a passing runtime gate. Keep failures
 visible and classify intentional non-runnable projects explicitly; do not
 silently remove a sample because it exposes a compiler regression. Server,
-browser, hardware, and platform-specific projects may remain build-only gates
-when unattended execution would be unsafe or non-terminating.
+browser, hardware, library-only, and platform-specific projects may use a
+documented unattended smoke substitute or remain build-only only when direct
+execution would be unsafe, non-terminating, or meaningless. Every exclusion
+must record its reason and is reviewed at the release freeze.
 
 `scripts/build-project-samples.sh` uses the repository
 `build/Raven.Language.targets` and the repository compiler host by default.

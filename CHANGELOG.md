@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- The qualified pre-bootstrap foundation will ship as the stable `0.1.0`
+  release. Release preparation now transitions the current preview line to
+  `0.1.0`, while bootstrap stage tags remain independent identities. Release
+  and bootstrap gates require both build and runtime evidence for standalone
+  and executable project samples, with reviewed reasons for non-runnable cases.
 - Fixed static interface implementation conformance and emission. Missing
   static contracts are now diagnosed, and valid implementations receive the
   method-override metadata required for generic static dispatch and verifiable
