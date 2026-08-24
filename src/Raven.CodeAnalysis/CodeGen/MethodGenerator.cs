@@ -75,18 +75,18 @@ internal class MethodGenerator
                 attributes |= MethodAttributes.SpecialName;
 
             var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
-            var hasInterfaceBody = isInterfaceMethod && !MethodSymbol.IsStatic && HasInterfaceMethodBody(MethodSymbol);
+            var hasInterfaceBody = isInterfaceMethod && HasInterfaceMethodBody(MethodSymbol);
 
             if (isExplicitInterfaceImplementation)
             {
                 attributes |= MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
             }
-            else if (isInterfaceMethod && !MethodSymbol.IsStatic)
+            else if (isInterfaceMethod)
             {
-                attributes |= MethodAttributes.Virtual | MethodAttributes.NewSlot;
-
                 if (!hasInterfaceBody)
-                    attributes |= MethodAttributes.Abstract;
+                    attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual | MethodAttributes.NewSlot;
+                else if (!MethodSymbol.IsStatic)
+                    attributes |= MethodAttributes.Virtual | MethodAttributes.NewSlot;
             }
             else
             {
@@ -751,7 +751,7 @@ internal class MethodGenerator
 
         var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
 
-        if (isInterfaceMethod && !MethodSymbol.IsStatic && !HasInterfaceMethodBody(MethodSymbol))
+        if (isInterfaceMethod && !HasInterfaceMethodBody(MethodSymbol))
         {
             _bodyEmitted = true;
             return;

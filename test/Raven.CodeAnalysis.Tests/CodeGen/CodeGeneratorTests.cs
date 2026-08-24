@@ -822,6 +822,37 @@ class ConsoleLogger : ILogger {
     }
 
     [Fact]
+    public void Emit_StaticInterfaceContract_EmitsAbstractMethodWithoutBody()
+    {
+        const string code = """
+interface IFactory<TSelf, TValue> {
+    static func Create(value: TValue) -> TSelf
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("static_interface_contract", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var interfaceType = loaded.Assembly.GetType("IFactory`2", throwOnError: true)!;
+        var createMethod = interfaceType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static);
+
+        Assert.NotNull(createMethod);
+        Assert.True(createMethod!.IsStatic);
+        Assert.True(createMethod.IsAbstract);
+        Assert.True(createMethod.IsVirtual);
+        Assert.Null(createMethod.GetMethodBody());
+    }
+
+    [Fact]
     public void Emit_ExplicitInterfaceImplementation_EmitsPrivateOverride()
     {
         var code = """
