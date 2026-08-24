@@ -156,15 +156,30 @@ fail_count=0
 
 repository_compiler=""
 repository_targets=""
+repository_macros_project=""
 case "$SAMPLE_TOOLCHAIN" in
   repository)
     repository_compiler="$ROOT_DIR/src/Raven.Compiler/bin/$BUILD_CONFIG/net11.0/rvnc.dll"
     repository_targets="$ROOT_DIR/build/Raven.Language.targets"
+    repository_macros_project="$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj"
     if [[ ! -f "$repository_compiler" ]]; then
       echo "Repository compiler host not found: $repository_compiler"
       echo "Build src/Raven.Compiler for net11.0 first."
       exit 1
     fi
+
+    for target_framework in net10.0 net11.0; do
+      repository_macros="$ROOT_DIR/src/Raven.Macros/bin/$BUILD_CONFIG/$target_framework/Raven.Macros.dll"
+      if [[ -f "$repository_macros" ]]; then
+        continue
+      fi
+
+      echo "Building repository standard macros for $target_framework"
+      dotnet build "$repository_macros_project" \
+        --framework "$target_framework" \
+        --configuration "$BUILD_CONFIG" \
+        /property:WarningLevel=0
+    done
     ;;
   installed)
     ;;
