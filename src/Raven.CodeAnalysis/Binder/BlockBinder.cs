@@ -9021,8 +9021,9 @@ partial class BlockBinder : Binder
             }
         }
 
-        // Predefined scalar operators take precedence over inherited
-        // static-abstract generic-math interface members exposed by metadata.
+        // Operators on concrete primitive types are predefined language operators.
+        // Resolve them before user-defined overload lookup so static abstract members
+        // inherited from generic-math interfaces cannot become concrete call targets.
         var leftScalarType = left.Type.UnwrapLiteralType() ?? left.Type;
         var rightScalarType = right.Type.UnwrapLiteralType() ?? right.Type;
         if (leftScalarType.SpecialType != SpecialType.None &&
@@ -10056,6 +10057,12 @@ partial class BlockBinder : Binder
                     continue;
 
                 if (!method.IsStatic)
+                    continue;
+
+                // Static abstract interface operators are invoked through a constrained
+                // type parameter. Interface members surfaced through a concrete metadata
+                // type are not concrete user-defined operator candidates.
+                if (type is not ITypeParameterSymbol && method.ContainingType?.TypeKind == TypeKind.Interface)
                     continue;
 
                 if (seen.Add(method))

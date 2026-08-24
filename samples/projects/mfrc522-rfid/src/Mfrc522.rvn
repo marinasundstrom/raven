@@ -149,11 +149,11 @@ class Mfrc522Reader : IDisposable {
     }
 
     private func SetBits(register: Register, mask: byte) {
-        WriteRegister(register, ReadRegister(register) | mask)
+        WriteRegister(register, (byte)(ReadRegister(register) | mask))
     }
 
     private func ClearBits(register: Register, mask: byte) {
-        WriteRegister(register, ReadRegister(register) & ~mask)
+        WriteRegister(register, (byte)(ReadRegister(register) & ~mask))
     }
 
     private func Transceive(command: Command, sendData: byte[]) -> CardResult<CommandResponse> {
@@ -173,7 +173,7 @@ class Mfrc522Reader : IDisposable {
             _ => ()
         }
 
-        WriteRegister(Register.CommunicationInterruptEnable, interruptEnable | 0x80)
+        WriteRegister(Register.CommunicationInterruptEnable, (byte)(interruptEnable | 0x80))
         ClearBits(Register.CommunicationInterruptRequest, (byte)0x80)
         SetBits(Register.FifoLevel, (byte)0x80)
         WriteRegister(Register.Command, Command.Idle)
@@ -207,7 +207,7 @@ class Mfrc522Reader : IDisposable {
             return .Failure(.TimedOut)
         }
 
-        let errorFlags = ReadRegister(Register.Error) & 0x1B
+        let errorFlags = (byte)(ReadRegister(Register.Error) & 0x1B)
         if errorFlags != 0 {
             return .Failure(.CommunicationFailed(errorFlags))
         }

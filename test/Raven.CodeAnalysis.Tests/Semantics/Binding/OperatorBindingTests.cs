@@ -173,6 +173,30 @@ func Invert(value: {{typeName}}) -> int {
         Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(expression).Type?.SpecialType);
     }
 
+    [Theory]
+    [InlineData("left & right")]
+    [InlineData("left | right")]
+    [InlineData("left ^ right")]
+    public void OperatorUsage_BitwiseSmallIntegralOperandsUseNumericPromotion(string expressionText)
+    {
+        var source = $$"""
+func Combine(left: byte, right: byte) -> int {
+    return {{expressionText}}
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var expression = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().Single();
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(expression).Type?.SpecialType);
+        Assert.Null(model.GetSymbolInfo(expression).Symbol);
+    }
+
     [Fact]
     public void OperatorDeclaration_BitwiseOperatorsBindExpectedMetadataNames()
     {

@@ -104,6 +104,10 @@ Raven supports bitwise complement `~`, bitwise `&`, `|`, and `^`, and shifts
   operands.
 * `<<` and `>>` accept an `int` or `long` left operand and an `int` shift count.
 
+Smaller integral operands are promoted to `int` before applying a numeric
+bitwise operator. Convert the result explicitly when a byte-sized value is
+required by an API or protocol.
+
 When both operands are `bool`, `&`, `|`, and `^` evaluate both sides without
 short-circuiting and return `bool`. Enum operands must have the same enum type,
 and the result keeps that type.
