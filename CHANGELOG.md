@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed repeated generic substitution when nested union cases were re-anchored
+  under a constructed carrier. Generic cases such as `Ok<T[]>` now remain
+  `Ok<T[]>` instead of becoming nested arrays, and `try` expressions returning
+  generic `Result` carriers emit verifiable conversion metadata.
 - The qualified pre-bootstrap foundation will ship as the stable `0.1.0`
   release. Release preparation now transitions the current preview line to
   `0.1.0`, while bootstrap stage tags remain independent identities. Release

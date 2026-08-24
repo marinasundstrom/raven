@@ -116,6 +116,62 @@ class Runner {
         }
     }
 
+    [Fact]
+    public void GenericArrayTryExpression_ReturnsConstructedUnionAndPassesIlVerifyWhenToolAvailable()
+    {
+        if (!IlVerifyTestHelper.TryResolve(_output))
+        {
+            _output.WriteLine("Skipping IL verification because ilverify was not found.");
+            return;
+        }
+
+        const string code = """
+namespace System
+
+union Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+
+namespace Example
+
+import System.*
+
+class Runner {
+    static func Wrap<T>() -> Result<T[], Exception> {
+        try Array.Empty<T>()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create(
+            "generic-array-try-expression",
+            [syntaxTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.dll");
+
+        try
+        {
+            using (var peStream = File.Create(assemblyPath))
+            {
+                var emitResult = compilation.Emit(peStream);
+                Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+            }
+
+            Assert.True(
+                IlVerifyRunner.Verify(null, assemblyPath, compilation),
+                "IL verification failed for a generic array Result returned by try-expression.");
+        }
+        finally
+        {
+            if (File.Exists(assemblyPath))
+                File.Delete(assemblyPath);
+        }
+    }
+
     private static MetadataReference[] GetReferencesWithRavenCore()
     {
         var corePath = Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll");

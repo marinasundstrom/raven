@@ -176,6 +176,12 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         ITypeSymbol type,
         Dictionary<ITypeParameterSymbol, ITypeParameterSymbol>? methodMap = null)
     {
+        if (type is INamedTypeSymbol { ContainingType: { } anchoredContainingType } &&
+            ReferenceEquals(anchoredContainingType, this))
+        {
+            return type;
+        }
+
         if (type is INamedTypeSymbol namedSelf &&
             ReferenceEquals(TypeSubstitution.GetDefinitionForSubstitution(namedSelf), _originalDefinition) &&
             HaveEquivalentExplicitTypeArguments(namedSelf))
@@ -901,8 +907,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         if (namedType is IUnionCaseTypeSymbol caseSymbol)
         {
             unionCaseSymbol = caseSymbol;
-            var substitutedUnion = SubstituteNamedType((INamedTypeSymbol)caseSymbol.Union);
-            unionTypeParameters = caseSymbol.Union.TypeParameters;
+            var unionDefinition = TypeSubstitution.GetDefinitionForSubstitution((INamedTypeSymbol)caseSymbol.Union);
+            var substitutedUnion = SubstituteNamedType(unionDefinition);
+            unionTypeParameters = unionDefinition.TypeParameters;
             unionTypeArguments = substitutedUnion.TypeArguments;
         }
 
