@@ -80,6 +80,9 @@ in the [staged bootstrap procedure](../bootstrap-procedure.md).
 - A dedicated exceptional script can reproduce candidate v1 Core binaries from
   the frozen compiler/tag, but it cannot overwrite the checked-in seed. Any
   seed update requires a new immutable foundation revision and explicit review.
+- Compiler product version, Core package/file version, Core CLR assembly
+  compatibility version, bootstrap tag, source commit, and binary hashes are
+  recorded independently even when public packages initially ship in lockstep.
 
 ## Alternatives considered
 

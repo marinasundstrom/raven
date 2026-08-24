@@ -80,19 +80,23 @@ the first Core binaries:
 
 1. create a clean worktree at the exact immutable v1 source tag;
 2. restore the recorded .NET SDK and v1 compiler inputs;
-3. run the dedicated v1 Core rebuild script;
+3. run `scripts/rebuild-bootstrap-v1-core.sh <compiler-version>
+   --core-version <core-version> --bootstrap-tag bootstrap-v1`;
 4. build Core for every recorded target using that compiler host;
-5. run Core source, metadata, C#-consumer, Raven-consumer, serialization, and
+5. run `dotnet-ilverify` over each exact target-specific Core assembly and fail
+   the candidate build on any invalid IL;
+6. run Core source, metadata, C#-consumer, Raven-consumer, serialization, and
    runtime tests;
-6. compare the generated assemblies and manifest with the checked-in seed; and
-7. if a correction is essential, publish a new immutable v1 foundation
+7. compare the generated assemblies and manifest with the checked-in seed; and
+8. if a correction is essential, publish a new immutable v1 foundation
    revision and review the binary and manifest update as an exceptional
    backport.
 
-The rebuild script must produce a candidate directory; it must not overwrite
-`eng/bootstrap/v1` automatically. Updating the checked-in seed is a separate,
-reviewable operation. The ordinary build script consumes and verifies the
-checked-in seed but never regenerates it.
+The rebuild script produces a candidate under `artifacts/bootstrap`; it does
+not overwrite `eng/bootstrap/v1`. Updating the checked-in seed is a separate,
+reviewable operation. Ordinary bootstrap-v2 builds run
+`scripts/verify-bootstrap-v1-core.sh` before consuming the checked-in seed and
+never regenerate it.
 
 ### Commit and tag identity
 
@@ -117,6 +121,31 @@ checked into `eng/bootstrap/v1`, and verified from the candidate commit. The v2
 and v3 tags likewise follow their complete version-transition gates; a branch
 name or untagged successful local build is not a bootstrap identity.
 
+### Compiler and Core version identities
+
+Track these identities independently even while public releases normally ship
+them in lockstep:
+
+| Identity | Purpose |
+| --- | --- |
+| Compiler product version | Identifies `Raven.CodeAnalysis`, compiler host, SDK, and diagnostics behavior |
+| Raven.Core package/file version | Identifies the concrete Core implementation and public library release |
+| Raven.Core CLR assembly version | Defines the CLR binding/API compatibility epoch; currently stable across preview packages |
+| Bootstrap tag and revision | Identifies which compiler/Core dependency model produced the next compiler version |
+| Source commit and binary hash | Proves the exact source and artifact rather than relying on a friendly version string |
+
+The bootstrap manifest records every identity. A lockstep public release may
+give the compiler and Core the same package version, but build logic must not
+infer one from the other. Bootstrap v2 pins the checked-in Core hash and CLR
+identity it was compiled against.
+
+Later Core releases may add behavior or APIs without changing the checked-in v1
+seed. The compiler can distribute or consume a newer compatible Core only after
+metadata and runtime compatibility gates prove that its CLR identity and the
+compiler API types remain valid. A breaking Core ABI change requires an
+explicit compatibility epoch and bootstrap decision; it must not appear as an
+ordinary package rebuild under the same assembly identity.
+
 ### Foundation correctness gates
 
 `Raven.Core` is a bootstrap input, not an incidental build output.
@@ -135,13 +164,15 @@ each of these boundaries independently:
 5. **Runtime behavior** — `Option`, `Result`, unions, propagation, parsing,
    serialization, and standard macro expansions behave as specified after
    emit and reload.
-6. **Macro compatibility** — provider discovery, application shape, typed expression
+6. **IL validity** — `dotnet-ilverify` accepts the exact checked-in
+   target-specific `Raven.Core` assemblies with no skipped verification gate.
+7. **Macro compatibility** — provider discovery, application shape, typed expression
    contracts, diagnostics, fragment services, source mapping, and generated
    runtime behavior work from the version-matched `Raven.Macros` assembly,
    without making that assembly a compiler bootstrap dependency.
-7. **Target compatibility** — the .NET 11 compiler host builds and runs both
+8. **Target compatibility** — the .NET 11 compiler host builds and runs both
    .NET 10 and .NET 11 consumers with the matching Core and macro assemblies.
-8. **Artifact provenance** — every consumer reports whether it used repository,
+9. **Artifact provenance** — every consumer reports whether it used repository,
    installed, or packaged artifacts; no gate passes because of a stale global
    SDK, local package cache, or output-directory copy.
 
