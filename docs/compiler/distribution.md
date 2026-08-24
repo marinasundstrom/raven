@@ -56,12 +56,12 @@ both `VERSION` and `sdk/build/Raven.Language.targets`.
 Release builds can be installed directly with the platform installer:
 
 ```bash
-curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.14/install-raven.sh \
-  | sh -s -- 0.1.0-preview.14
+curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.0/install-raven.sh \
+  | sh -s -- 0.1.0
 ```
 
 ```powershell
-$version = "0.1.0-preview.14"
+$version = "0.1.0"
 Invoke-WebRequest "https://github.com/marinasundstrom/raven/releases/download/v$version/install-raven.ps1" -OutFile install-raven.ps1
 ./install-raven.ps1 -Version $version
 ```
@@ -118,25 +118,25 @@ workflow artifacts and does not publish anything externally.
 
 ## Versioning unreleased local builds
 
-An unreleased build belongs to the **next** preview line, even before that
-preview is prepared or tagged. First increment the monotonically increasing
-preview counter, then append local provenance. For example, after
-`0.1.0-preview.14` has been published, a build from the current repository uses
+An unreleased build belongs to the **next** development line, even before that
+preview is prepared or tagged. After a stable release, increment the patch
+version and start a new preview counter before appending local provenance. For
+example, after `0.1.0` has been published, a build from later source uses
 a version such as:
 
 ```text
-0.1.0-preview.15-local.<sha>
+0.1.1-preview.1-local.<sha>
 ```
 
-Do not use `0.1.0-preview.14-local.<sha>` for later source. That spelling makes
-new work appear to be a rebuild of the already published preview.14 line and
+Do not use `0.1.0-local.<sha>` for later source. That spelling makes
+new work appear to be a rebuild of the already published stable release and
 can mix incompatible compiler, macro, SDK, and editor artifacts under a
 misleading version family.
 
 Use the same complete version for every artifact built from one commit:
 
 ```bash
-version="0.1.0-preview.15-local.$(git rev-parse --short HEAD)"
+version="0.1.1-preview.1-local.$(git rev-parse --short HEAD)"
 scripts/package-sdk.sh osx-arm64 "$version"
 scripts/package-nuget.sh "$version"
 scripts/package-vscode.sh "$version"
@@ -145,7 +145,7 @@ scripts/package-vscode.sh "$version"
 The SDK archive, `Raven.Sdk`, `Raven.Core`, `Raven.Macros`,
 `Raven.CodeAnalysis`, templates, analyzers, and VSIX form one lockstep version
 family. Do not combine a locally built compiler with Core or Macros restored
-from the preceding published preview. When validating a newly packed family,
+from the preceding published release. When validating a newly packed family,
 use a fresh NuGet package cache or clear only that exact unpublished local
 version so a previous package with the same identity cannot be reused.
 
@@ -276,7 +276,7 @@ it does not prove that the next stage is ready.
    When `main` contains post-release work, an unreleased next-preview footer is
    expected even though installation links still target the latest release.
    The workflow must fetch release tags for that inference; a shallow checkout
-   can incorrectly label the already published preview as unreleased.
+   can incorrectly label the already published release as unreleased.
 
 ## NuGet packages
 
@@ -426,8 +426,7 @@ depends on that structure. See the
 design note for the format contract and the [project system](project-system.md)
 for documentation-related properties.
 
-Replace `VERSION` with the release version being installed. Specifying it is
-required while Raven is distributed only as prerelease packages.
+Replace `VERSION` with the release version being installed.
 
 The MVP intentionally uses the base `Raven.Sdk` plus a framework reference for
 minimal ASP.NET Core applications. A dedicated `Raven.Sdk.Web` remains future
@@ -477,10 +476,10 @@ server so editor features work without a platform-specific VSIX. Build it with:
 scripts/package-vscode.sh 0.1.0
 ```
 
-Install the published preview directly from GitHub Releases:
+Install the published release directly from GitHub Releases:
 
 ```bash
-curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0-preview.14/raven-vscode.vsix
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.0/raven-vscode.vsix
 code --install-extension raven-vscode.vsix --force
 ```
 

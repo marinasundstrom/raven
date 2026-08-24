@@ -1,8 +1,10 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
+Behavior-focused timeline covering **2025-09-12** to **2026-08-24**.
 
 ## Unreleased
+
+## 0.1.0 - 2026-08-24
 
 - Fixed stable release preparation so version updates preserve historical
   architecture decision records instead of rewriting their original context.

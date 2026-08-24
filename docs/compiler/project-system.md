@@ -627,7 +627,7 @@ cd HelloRaven
 dotnet run
 ```
 
-Replace `VERSION` with the Raven prerelease version to install.
+Replace `VERSION` with the Raven release version to install.
 
 The other short names are `raven-classlib`, `raven-web`, `raven-browser`, and
 `raven-nano`.
