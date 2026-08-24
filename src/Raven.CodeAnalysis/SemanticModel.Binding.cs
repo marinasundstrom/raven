@@ -7413,9 +7413,6 @@ public partial class SemanticModel
 
     private static bool RequiresInterfaceImplementation(IMethodSymbol interfaceMethod)
     {
-        if (interfaceMethod.IsStatic)
-            return false;
-
         if (interfaceMethod.AssociatedSymbol is IPropertySymbol or IEventSymbol)
             return false;
 
@@ -7433,10 +7430,14 @@ public partial class SemanticModel
         if (interfaceMethod.ContainingType?.TypeKind != TypeKind.Interface)
             return false;
 
-        if (interfaceMethod is not SourceMethodSymbol)
+        var sourceMethod = interfaceMethod as SourceMethodSymbol
+            ?? interfaceMethod.OriginalDefinition as SourceMethodSymbol
+            ?? interfaceMethod.UnderlyingSymbol as SourceMethodSymbol;
+
+        if (sourceMethod is null)
             return false;
 
-        foreach (var reference in interfaceMethod.DeclaringSyntaxReferences)
+        foreach (var reference in sourceMethod.DeclaringSyntaxReferences)
         {
             if (reference.GetSyntax() is MethodDeclarationSyntax declaration)
                 return declaration.Body is null && declaration.ExpressionBody is null;
@@ -7458,7 +7459,7 @@ public partial class SemanticModel
     {
         foreach (var candidate in EnumerateTypeAndBaseMethods(typeSymbol))
         {
-            if (candidate.IsStatic)
+            if (candidate.IsStatic != interfaceMethod.IsStatic)
                 continue;
 
             if (candidate.ExplicitInterfaceImplementations.Any(implementation =>

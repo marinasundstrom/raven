@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed static interface implementation conformance and emission. Missing
+  static contracts are now diagnosed, and valid implementations receive the
+  method-override metadata required for generic static dispatch and verifiable
+  `IPropagatable` implementations.
 - Fixed static interface contracts without bodies so they emit as abstract
   static virtual methods rather than invalid empty method bodies. This makes
   generic static contracts such as `IPropagatable.FromResidual` verifiable IL.

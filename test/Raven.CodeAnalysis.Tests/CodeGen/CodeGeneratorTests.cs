@@ -853,6 +853,45 @@ interface IFactory<TSelf, TValue> {
     }
 
     [Fact]
+    public void Emit_StaticInterfaceImplementation_EmitsMethodOverrideMapping()
+    {
+        const string code = """
+interface IFactory<TSelf, TValue> {
+    static func Create(value: TValue) -> TSelf
+}
+
+class Factory<T> : IFactory<Factory<T>, T> {
+    static func Create(value: T) -> Factory<T> => default
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("static_interface_implementation", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        peStream.Seek(0, SeekOrigin.Begin);
+        using var peReader = new PEReader(peStream, PEStreamOptions.PrefetchEntireImage);
+        var metadataReader = peReader.GetMetadataReader();
+        var factoryType = metadataReader.TypeDefinitions
+            .Select(metadataReader.GetTypeDefinition)
+            .Single(type => metadataReader.GetString(type.Name) == "Factory`1");
+
+        Assert.Contains(factoryType.GetMethodImplementations(), handle =>
+        {
+            var implementation = metadataReader.GetMethodImplementation(handle);
+            return IsMethod(metadataReader, implementation.MethodBody, "Factory`1", "Create")
+                && GetMethodName(metadataReader, implementation.MethodDeclaration) == "Create";
+        });
+    }
+
+    [Fact]
     public void Emit_ExplicitInterfaceImplementation_EmitsPrivateOverride()
     {
         var code = """
@@ -1096,6 +1135,16 @@ class Person {
             HandleKind.MethodDefinition => IsMethodDefinition(metadataReader, (MethodDefinitionHandle)handle, containingTypeName, methodName),
             HandleKind.MemberReference => IsMemberReference(metadataReader, (MemberReferenceHandle)handle, containingTypeName, methodName),
             _ => false,
+        };
+    }
+
+    private static string GetMethodName(MetadataReader metadataReader, EntityHandle handle)
+    {
+        return handle.Kind switch
+        {
+            HandleKind.MethodDefinition => metadataReader.GetString(metadataReader.GetMethodDefinition((MethodDefinitionHandle)handle).Name),
+            HandleKind.MemberReference => metadataReader.GetString(metadataReader.GetMemberReference((MemberReferenceHandle)handle).Name),
+            _ => string.Empty,
         };
     }
 

@@ -2349,9 +2349,6 @@ internal class TypeGenerator
         if (TypeSymbol is not INamedTypeSymbol named || named.TypeKind == TypeKind.Interface)
             return false;
 
-        if (methodSymbol.IsStatic)
-            return false;
-
         if (TypeSymbol is SourceUnionSymbol &&
             methodSymbol.MethodKind == MethodKind.PropertyGet &&
             string.Equals(methodSymbol.Name, "get_Value", StringComparison.Ordinal))
@@ -2437,9 +2434,6 @@ internal class TypeGenerator
         {
             foreach (var interfaceMethod in GetInterfaceContractMethods(interfaceType))
             {
-                if (interfaceMethod.IsStatic)
-                    continue;
-
                 if (!TryFindImplementation(interfaceMethod, out var implementation))
                     continue;
 

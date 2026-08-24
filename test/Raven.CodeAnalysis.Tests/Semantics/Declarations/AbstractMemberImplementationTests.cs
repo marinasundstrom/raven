@@ -55,6 +55,46 @@ class Resource : IResource {
     }
 
     [Fact]
+    public void ClassWithoutStaticInterfaceMethod_ReportsDiagnostic()
+    {
+        const string source = """
+interface IFactory<TSelf, TValue> {
+    static func Create(value: TValue) -> TSelf
+}
+
+class Factory : IFactory<Factory, int> {
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult(CompilerDiagnostics.TypeDoesNotImplementAbstractMember.Id)
+                    .WithSpan(5, 7, 5, 14)
+                    .WithArguments("Factory", "Create(value: int)", "IFactory<Factory, int>")
+            ]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void StaticInterfaceMethod_SatisfiesInterfaceContract()
+    {
+        const string source = """
+interface IFactory<TSelf, TValue> {
+    static func Create(value: TValue) -> TSelf
+}
+
+class Factory : IFactory<Factory, int> {
+    init() {}
+    static func Create(value: int) -> Factory => Factory()
+}
+""";
+
+        CreateVerifier(source).Verify();
+    }
+
+    [Fact]
     public void ClassWithoutMetadataInterfaceMethod_ReportsDiagnostic()
     {
         const string source = """
