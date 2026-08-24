@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed clean-checkout compiler builds so syntax, bound-tree, symbol, and
+  diagnostic sources generated during the build are included in the same
+  compilation instead of requiring a second warm build.
 - Simplified iterator control flow to `yield value` and bare `return`. The
   C#-style `yield return value` and `yield break` forms and their syntax and
   operation API nodes have been removed; old source receives direct migration
