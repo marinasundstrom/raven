@@ -70,11 +70,25 @@ The production JavaScript bundle emits to `dist/extension.js` and is referenced
 by the extension manifest.
 
 ## Running inside VS Code
-1. Build the language server: `dotnet build src/Raven.LanguageServer/Raven.LanguageServer.csproj`.
-2. Open the repository in VS Code.
-3. In Run and Debug, launch `Raven: LSP + Extension` to start both the extension host and language server.
-4. If needed, you can launch only `Raven VS Code Extension Host` (extension host only).
-5. Open or create a `.rvn` file to trigger activation and view diagnostics.
+
+The repository provides three deliberately separate development environments:
+
+```bash
+# Child terminal using the repository SDK and commands.
+scripts/development-shell.sh
+
+# Installed extension using repository SDK/compiler/language-server paths.
+scripts/code-development.sh .
+
+# Build and run the repository extension in an isolated Extension Development Host.
+scripts/code-extension-development.sh .
+```
+
+The extension-development launcher runs
+`scripts/build-development-environment.sh` first, so it does not depend on a
+previous terminal or VS Code development session. Pass `--no-build` only when
+the repository outputs are already current. The `Raven: LSP + Extension`
+launch configuration remains useful from an existing repository window.
 
 ## Configuration
 The extension exposes settings to control language-server resolution and debug compilation:
@@ -87,6 +101,12 @@ The extension exposes settings to control language-server resolution and debug c
 - `raven.inlayHints.inferredTypes.enabled` (boolean): Show inferred type annotation hints when Raven inlay hints are enabled.
 - `raven.inlayHints.names.enabled` (boolean): Show name hints for positional invocation arguments and deconstruction elements when Raven inlay hints are enabled.
 - `raven.inlayHints.requestDebounceMilliseconds` (number): Delay inlay requests after document edits so typing can settle before semantic inlay work runs.
+
+The repository launchers set `RAVEN_SDK_ROOT` and
+`RAVEN_LANGUAGE_SERVER_PATH` for the child VS Code process. The extension uses
+those paths when the corresponding explicit setting is absent. This keeps the
+development selection scoped to that process; it does not modify user settings
+or the installed Raven SDK.
 
 When the extension discovers a workspace-built language server, it stages that build into an extension-owned directory before launch. The staged copy runs with the repository root as its working directory so repo-relative assets like `Raven.Core.dll` continue to resolve while the workspace build outputs remain free of language-server file locks.
 

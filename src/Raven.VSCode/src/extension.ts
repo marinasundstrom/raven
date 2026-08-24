@@ -1062,7 +1062,8 @@ function parseDocumentationUriArgument(value: unknown): vscode.Uri | undefined {
 
 function resolveExplicitSdkPath(): string | undefined {
   const configuration = vscode.workspace.getConfiguration('raven');
-  const configuredPath = configuration.get<string>('sdkPath')?.trim();
+  const configuredPath = configuration.get<string>('sdkPath')?.trim()
+    || process.env.RAVEN_SDK_ROOT?.trim();
   if (!configuredPath) {
     return undefined;
   }
@@ -1207,14 +1208,21 @@ async function offerSdkInstallationIfMissing(context: vscode.ExtensionContext): 
 
 function resolveServerPath(context: vscode.ExtensionContext, output: vscode.OutputChannel): ResolvedServerPath {
   const configuration = vscode.workspace.getConfiguration('raven');
-  const configuredPath = configuration.get<string>('languageServerPath')?.trim();
+  const settingPath = configuration.get<string>('languageServerPath')?.trim();
+  const environmentPath = process.env.RAVEN_LANGUAGE_SERVER_PATH?.trim();
+  const configuredPath = settingPath || environmentPath;
 
   const attempts: string[] = [];
 
   if (configuredPath) {
     attempts.push(configuredPath);
     if (fs.existsSync(configuredPath)) {
-      return { path: configuredPath, source: 'explicit raven.languageServerPath' };
+      return {
+        path: configuredPath,
+        source: settingPath
+          ? 'explicit raven.languageServerPath'
+          : 'RAVEN_LANGUAGE_SERVER_PATH environment'
+      };
     }
   }
 

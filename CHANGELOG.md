@@ -37,6 +37,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 - Raven project publishing now reuses project-reference outputs already known
   to MSBuild instead of also publishing the compiler's intermediate runtime
   copy of the same assembly.
+- Added session-isolated repository development launchers for a Raven terminal,
+  an installed VS Code extension using repository toolchain paths, and a built
+  repository extension running in an isolated Extension Development Host.
 
 ## 0.1.0-preview.14 - 2026-08-23
 

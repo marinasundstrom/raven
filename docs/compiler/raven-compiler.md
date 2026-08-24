@@ -48,18 +48,32 @@ During source development there are several supported ways to run the tools:
    dotnet run -f net10.0 --project src/Raven.Compiler -- path/to/file.rvn -o /tmp/app.dll
    ```
 
-2. Session helpers. Build the tool projects once, then source the helper script:
+2. Repository development environment. Build the complete tool and editor
+   environment, then open a child terminal that resolves Raven commands and SDK
+   paths from the checkout:
 
    ```bash
-   dotnet build src/Raven/Raven.csproj -f net10.0
-   dotnet build src/Raven.Compiler/Raven.Compiler.csproj -f net10.0
-   source scripts/raven-env.sh
+   scripts/build-development-environment.sh
+   scripts/development-shell.sh
    rvn dev bound-tree path/to/file.rvn
    rvnc path/to/file.rvn -o /tmp/app.dll
    ```
 
-   The script defines shell functions only for the current terminal session. It
-   does not edit `.zshrc`, `.bashrc`, or global shell profiles.
+   Exiting the child shell returns to the installed toolchain. No shell profile,
+   installed SDK, or persistent environment variable is changed. To activate an
+   existing Bash or Zsh session instead, source `scripts/raven-env.sh`; use
+   `raven-env-info` to inspect the selected paths and `deactivate-raven` to
+   restore the previous environment.
+
+   The matching VS Code commands are:
+
+   ```bash
+   # Installed extension with repository SDK and language-server binaries.
+   scripts/code-development.sh .
+
+   # Built repository extension in an isolated Extension Development Host.
+   scripts/code-extension-development.sh .
+   ```
 
 3. Application builds. Use the .NET SDK surface for project-based apps:
 

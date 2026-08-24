@@ -6,4 +6,4 @@ REPOSITORY_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
 CONFIGURATION=${RAVEN_CONFIGURATION:-Debug}
 FRAMEWORK=${RAVEN_FRAMEWORK:-net11.0}
 
-exec dotnet "$REPOSITORY_ROOT/src/Raven/bin/$CONFIGURATION/$FRAMEWORK/rvn.dll" "$@"
+exec dotnet "$REPOSITORY_ROOT/src/Raven.LanguageServer/bin/$CONFIGURATION/$FRAMEWORK/Raven.LanguageServer.dll" "$@"

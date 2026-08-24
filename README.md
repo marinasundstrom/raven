@@ -222,15 +222,29 @@ dotnet run -f net10.0 --project src/Raven -- dev syntax path/to/file.rav
 dotnet run -f net10.0 --project src/Raven.Compiler -- path/to/file.rav -o /tmp/app.dll
 ```
 
-Or build once and source helper functions for the current shell:
+Build the complete repository development toolchain once, then open a child
+terminal that uses it instead of the SDK installed under `~/.raven`:
 
 ```bash
-dotnet build src/Raven/Raven.csproj -f net10.0
-dotnet build src/Raven.Compiler/Raven.Compiler.csproj -f net10.0
-source scripts/raven-env.sh
+scripts/build-development-environment.sh
+scripts/development-shell.sh
 
 rvn dev syntax path/to/file.rav
 rvnc path/to/file.rav -o /tmp/app.dll
+```
+
+Exiting the child shell restores the ordinary installed environment. Advanced
+shell workflows can source `scripts/raven-env.sh` directly and later run
+`deactivate-raven`.
+
+Two VS Code launchers use the same repository environment:
+
+```bash
+# Installed extension, repository SDK/compiler/language server.
+scripts/code-development.sh .
+
+# Repository extension build in an isolated Extension Development Host.
+scripts/code-extension-development.sh .
 ```
 
 Project commands use the SDK workflow:

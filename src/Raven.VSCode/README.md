@@ -50,12 +50,22 @@ npm run compile
 ```
 
 ## Running in VS Code
-1. Build the language server (`dotnet build src/Raven.LanguageServer/Raven.LanguageServer.csproj`).
-2. Open the repository in VS Code.
-3. In Run and Debug, launch `Raven: LSP + Extension` (recommended) to start both the extension host and the language server.
-4. If you only need the extension host process, launch `Raven VS Code Extension Host`.
 
-`code --extensionDevelopmentPath=_my_extension_folder.`
+From the repository root, choose the environment being tested:
+
+```bash
+# Run the installed extension against repository SDK and server binaries.
+scripts/code-development.sh .
+
+# Build and run the repository extension in an isolated Extension Development Host.
+scripts/code-extension-development.sh .
+```
+
+The second command builds the compiler-facing development toolchain, language
+server, and extension JavaScript before launching. Pass `--no-build` when those
+outputs are already current. The existing `Raven: LSP + Extension` launch
+configuration remains available when debugging from an already-open repository
+window.
 
 ## Configuration
 - `raven.sdkPath`: optional path to a Raven SDK directory containing bundled tools such as `Raven.LanguageServer.dll`, `rvn.dll`, `rvnc.dll`, and `Raven.Core.dll`. This is the easiest way to test different Raven builds with the same VS Code extension.
@@ -63,6 +73,10 @@ npm run compile
 - `raven.autoBuildLanguageServerOnActivate`: opt-in source-development setting that builds `src/Raven.LanguageServer/Raven.LanguageServer.csproj` before activation if the project can be found. It can substantially delay startup and is ignored when `raven.languageServerPath` is set.
 - `raven.compilerProjectPath`: optional fallback override used to locate a prebuilt `rvnc.dll` under `src/Raven.Compiler/bin/Debug/<tfm>` when no bundled compiler driver can be found.
 - `raven.targetFramework`: optional target framework (for example, `net10.0`) passed to Raven debug compilation.
+
+Repository launchers provide `RAVEN_SDK_ROOT` and
+`RAVEN_LANGUAGE_SERVER_PATH` to the new VS Code process. Explicit VS Code
+settings still take precedence over those environment variables.
 
 When the extension launches a language server from a workspace build, it stages that build into an isolated extension-owned directory first, then starts the staged copy with the repository root as its working directory. This avoids file locking on the workspace build outputs while still allowing the language server to discover repo-relative assets such as `Raven.Core.dll`.
 
