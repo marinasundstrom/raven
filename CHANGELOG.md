@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed ILVerify reference resolution for cross-target compilation by supplying
+  the selected target runtime's implementation closure, including framework
+  internals such as `System.Private.Xml.Linq`, instead of the compiler host's
+  runtime assemblies.
 - Fixed repository dependency discovery so Release compiler invocations select
   Release Raven.CodeAnalysis and Raven.Macros fallbacks instead of silently
   mixing in Debug assemblies.

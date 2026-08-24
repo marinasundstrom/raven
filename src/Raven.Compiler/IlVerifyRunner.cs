@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
@@ -304,10 +305,10 @@ public static class IlVerifyRunner
         return false;
     }
 
-    private static IEnumerable<string> GetReferencePaths(Compilation compilation)
+    internal static IEnumerable<string> GetReferencePaths(Compilation compilation)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var runtimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location);
+        var runtimeDirectory = ResolveRuntimeDirectory(compilation);
 
         foreach (var reference in compilation.References.OfType<PortableExecutableReference>())
         {
@@ -331,8 +332,18 @@ public static class IlVerifyRunner
         }
 
         var runtimeAssembly = typeof(object).Assembly.Location;
-        if (!string.IsNullOrEmpty(runtimeAssembly) && seen.Add(runtimeAssembly))
+        if (!string.IsNullOrEmpty(runtimeDirectory))
+        {
+            foreach (var runtimeReference in Directory.EnumerateFiles(runtimeDirectory, "*.dll"))
+            {
+                if (seen.Add(runtimeReference))
+                    yield return runtimeReference;
+            }
+        }
+        else if (!string.IsNullOrEmpty(runtimeAssembly) && seen.Add(runtimeAssembly))
+        {
             yield return runtimeAssembly;
+        }
 
         var ravenCoreAssembly = AppDomain.CurrentDomain.GetAssemblies()
             .FirstOrDefault(assembly => string.Equals(assembly.GetName().Name, "Raven.Core", StringComparison.OrdinalIgnoreCase))
@@ -344,5 +355,77 @@ public static class IlVerifyRunner
         {
             yield return ravenCoreAssembly;
         }
+    }
+
+    internal static string? ResolveRuntimeDirectory(Compilation compilation)
+    {
+        var hostRuntimeDirectory = Path.GetDirectoryName(typeof(object).Assembly.Location);
+        if (string.IsNullOrEmpty(hostRuntimeDirectory))
+            return null;
+
+        var targetRuntimeVersion = compilation.References
+            .OfType<PortableExecutableReference>()
+            .Select(reference => reference.FilePath)
+            .Where(path => string.Equals(Path.GetFileName(path), "System.Runtime.dll", StringComparison.OrdinalIgnoreCase))
+            .Select(TryGetAssemblyVersion)
+            .FirstOrDefault(version => version is not null);
+
+        if (targetRuntimeVersion is null)
+            return hostRuntimeDirectory;
+
+        var hostRuntimeVersion = typeof(object).Assembly.GetName().Version;
+        if (hostRuntimeVersion is not null &&
+            hostRuntimeVersion.Major == targetRuntimeVersion.Major &&
+            hostRuntimeVersion.Minor == targetRuntimeVersion.Minor)
+        {
+            return hostRuntimeDirectory;
+        }
+
+        var sharedFrameworkDirectory = Directory.GetParent(hostRuntimeDirectory)?.FullName;
+        if (string.IsNullOrEmpty(sharedFrameworkDirectory) || !Directory.Exists(sharedFrameworkDirectory))
+            return hostRuntimeDirectory;
+
+        return Directory
+            .EnumerateDirectories(sharedFrameworkDirectory)
+            .Select(path => new
+            {
+                Path = path,
+                Name = Path.GetFileName(path),
+                Version = TryParseRuntimeDirectoryVersion(Path.GetFileName(path))
+            })
+            .Where(candidate => candidate.Version is not null &&
+                candidate.Version.Major == targetRuntimeVersion.Major &&
+                candidate.Version.Minor == targetRuntimeVersion.Minor)
+            .OrderByDescending(candidate => !candidate.Name.Contains('-', StringComparison.Ordinal))
+            .ThenByDescending(candidate => candidate.Version)
+            .ThenByDescending(candidate => candidate.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(candidate => candidate.Path)
+            .FirstOrDefault() ?? hostRuntimeDirectory;
+    }
+
+    private static Version? TryGetAssemblyVersion(string? path)
+    {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return null;
+
+        try
+        {
+            return AssemblyName.GetAssemblyName(path).Version;
+        }
+        catch (BadImageFormatException)
+        {
+            return null;
+        }
+        catch (FileLoadException)
+        {
+            return null;
+        }
+    }
+
+    private static Version? TryParseRuntimeDirectoryVersion(string directoryName)
+    {
+        var suffixIndex = directoryName.IndexOf('-');
+        var versionText = suffixIndex < 0 ? directoryName : directoryName[..suffixIndex];
+        return Version.TryParse(versionText, out var version) ? version : null;
     }
 }
