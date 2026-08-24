@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed Raven project output closure so compiler-discovered runtime dependencies
+  are copied even when their compile-time references are not marked copy-local.
 - Fixed built-in bitwise operators and compound assignments through pointer
   members so they emit valid IL and read and write the pointed-to field, while
   preserving numeric promotion for smaller integral operands.

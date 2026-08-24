@@ -304,11 +304,11 @@
     </ReadLinesFromFile>
     <ItemGroup>
       <_ResolvedRavenReferenceName Include="@(ReferenceCopyLocalPaths->'%(Filename)%(Extension)')" />
+      <_RavenRuntimeDependency
+        Include="@(_RavenRuntimeDependencyName->'$(_RavenRuntimeIntermediatePath)%(Identity)')" />
       <_StaleRavenRuntimeDependencyName Include="@(_PreviousRavenRuntimeDependencyName)" />
       <_StaleRavenRuntimeDependencyName Remove="@(_RavenRuntimeDependencyName)" />
       <_StaleRavenRuntimeDependencyName Remove="@(_ResolvedRavenReferenceName)" />
-      <_RavenRuntimeDependency
-        Include="@(_RavenRuntimeDependencyName->'$(_RavenRuntimeIntermediatePath)%(Identity)')" />
       <_RavenRuntimeDependency
         Remove="@(ReferenceCopyLocalPaths)"
         MatchOnMetadata="Filename;Extension"

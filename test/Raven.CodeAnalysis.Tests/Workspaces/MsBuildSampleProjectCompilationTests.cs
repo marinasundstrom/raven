@@ -1121,7 +1121,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
                     <Compile Include="src/**/*.rvn" />
                     <Reference Include="Raven.CodeAnalysis">
                       <HintPath>{{codeAnalysisPath}}</HintPath>
-                      <Private>true</Private>
+                      <Private>false</Private>
                     </Reference>
                   </ItemGroup>
                 </Project>
