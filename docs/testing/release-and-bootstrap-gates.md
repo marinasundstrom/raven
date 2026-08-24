@@ -20,14 +20,16 @@ scripts/test-runtime-isolated.sh
 FORCE_REBUILD=1 samples/build.sh -f net10.0
 samples/run.sh
 scripts/build-project-samples.sh
+scripts/run-project-samples.sh
 scripts/test-target-framework-matrix.sh
 ```
 
-After the aggregate project build, run every project with `OutputType=Exe`
-through `dotnet run --no-build --project <project>` using the same configuration
-and repository toolchain. Retain a per-project result table alongside the build
-report. The gate must gain an aggregate runner before the `0.1.0` freeze; until
-then, a manual run table is required evidence rather than an implicit pass.
+The aggregate project runner evaluates every project, executes every ordinary
+`OutputType=Exe` project through `dotnet run --no-build` using the same
+configuration and repository toolchain, and writes TSV and Markdown reports
+beside the build report. Non-terminating, hardware, browser, and server projects
+must have a reviewed entry in `samples/projects/run-classifications.tsv`; an
+unlisted executable is always run and cannot silently become build-only.
 
 The standalone and project sample sets are compatibility suites. Every
 standalone sample and every executable project sample must both build and run

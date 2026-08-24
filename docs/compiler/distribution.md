@@ -184,6 +184,7 @@ Then run the release checks against that clean commit:
 ```bash
 scripts/test-target-framework-matrix.sh
 scripts/build-project-samples.sh
+scripts/run-project-samples.sh
 scripts/validate-release.sh VERSION --require-clean
 scripts/package-nuget.sh VERSION
 ```

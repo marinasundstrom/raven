@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Added an aggregate project-sample runtime gate that executes every ordinary
+  executable with repository artifacts, enforces timeouts, records auditable
+  reports, and requires reviewed build-only reasons for non-runnable workloads.
 - Fixed verifiable emission for reference-constrained generic values used by
   nullable declaration patterns, null returns, and default values. These paths
   now use CLR-verifiable typed locals, boxed null tests, and `initobj` defaults.

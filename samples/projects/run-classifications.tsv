@@ -1,0 +1,11 @@
+# project	disposition	timeout_seconds	expected_exit	reason
+samples/projects/aspnet-minimal-api/AspNetMinimalApi.rvnproj	build-only	0	0	Long-running HTTP server; build coverage is the unattended gate until an endpoint smoke harness exists.
+samples/projects/browser-wasm/BrowserWasmSample.rvnproj	build-only	0	0	Browser-hosted WebAssembly application requires wasm tooling, a host, and browser interaction.
+samples/projects/efcore-vehicle-costs/VehicleCostsApi.rvnproj	build-only	0	0	Long-running HTTP server requires PostgreSQL; build coverage is the unattended gate until a containerized smoke harness exists.
+samples/projects/greenhouse-monitor/GreenhouseMonitor.rvnproj	build-only	0	0	Continuous telemetry loop is intentionally non-terminating, including with the simulated device.
+samples/projects/iot-native-aot/IotNativeIot.rvnproj	build-only	0	0	Requires GPIO hardware and is intended for device deployment.
+samples/projects/macro-html-blazor/host/ComponentMacrosShowcase.csproj	build-only	0	0	Long-running Blazor HTTP host; the terminating Raven component renderer remains the unattended runtime smoke test.
+samples/projects/mfrc522-rfid/Mfrc522Rfid.rvnproj	build-only	0	0	Requires SPI/GPIO hardware and continuously polls for cards.
+samples/projects/nanoframework-blinky/NanoFrameworkBlinky.rvnproj	build-only	0	0	nanoFramework image requires a compatible nanoCLR device and runs an infinite hardware loop.
+samples/projects/nanoframework-temperature/NanoFrameworkTemperature.rvnproj	build-only	0	0	nanoFramework image requires sensor/GPIO hardware and a compatible nanoCLR device.
+samples/projects/nanoframework-wifi-http/NanoFrameworkWifiHttp.rvnproj	build-only	0	0	nanoFramework image requires Wi-Fi credentials, GPIO hardware, and a compatible nanoCLR device.
