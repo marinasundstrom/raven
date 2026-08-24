@@ -87,8 +87,10 @@ scripts/code-extension-development.sh .
 The extension-development launcher runs
 `scripts/build-development-environment.sh` first, so it does not depend on a
 previous terminal or VS Code development session. Pass `--no-build` only when
-the repository outputs are already current. The `Raven: LSP + Extension`
-launch configuration remains useful from an existing repository window.
+the repository outputs are already current. From an existing repository
+window, select **Raven: Test Repository Extension** in Run and Debug. That
+configuration performs the same complete build and supplies the repository SDK,
+compiler, and language-server paths to its Extension Development Host.
 
 ## Configuration
 The extension exposes settings to control language-server resolution and debug compilation:

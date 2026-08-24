@@ -64,8 +64,9 @@ scripts/code-extension-development.sh .
 The second command builds the compiler-facing development toolchain, language
 server, and extension JavaScript before launching. Pass `--no-build` when those
 outputs are already current. The existing `Raven: LSP + Extension` launch
-configuration remains available when debugging from an already-open repository
-window.
+configuration has been replaced by **Raven: Test Repository Extension**. It
+performs the same complete build and launches the Extension Development Host
+with the repository SDK, compiler, and language-server environment.
 
 ## Configuration
 - `raven.sdkPath`: optional path to a Raven SDK directory containing bundled tools such as `Raven.LanguageServer.dll`, `rvn.dll`, `rvnc.dll`, and `Raven.Core.dll`. This is the easiest way to test different Raven builds with the same VS Code extension.

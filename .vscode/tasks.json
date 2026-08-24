@@ -2,40 +2,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build",
-            "command": "dotnet",
+            "label": "build:development-environment",
+            "command": "${workspaceFolder}/scripts/build-development-environment.sh",
             "type": "process",
-            "args": [
-                "build",
-                "${workspaceFolder}/Raven.sln",
-                "/property:GenerateFullPaths=true",
-                "/consoleloggerparameters:NoSummary"
-            ],
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "publish",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "publish",
-                "${workspaceFolder}/Raven.Compiler/Raven.Compiler.csproj",
-                "/property:GenerateFullPaths=true",
-                "/consoleloggerparameters:NoSummary"
-            ],
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "watch",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "watch",
-                "run",
-                "${workspaceFolder}/Raven.Compiler/Raven.Compiler.csproj",
-                "/property:GenerateFullPaths=true",
-                "/consoleloggerparameters:NoSummary"
-            ],
             "problemMatcher": "$msCompile"
         },
         {
@@ -45,8 +14,26 @@
             "args": [
                 "build",
                 "${workspaceFolder}/src/Raven.LanguageServer/Raven.LanguageServer.csproj",
-                "/property:GenerateFullPaths=true",
-                "/consoleloggerparameters:NoSummary"
+                "--configuration",
+                "Debug",
+                "--framework",
+                "net11.0",
+                "/property:WarningLevel=0"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build:compiler",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/src/Raven.Compiler/Raven.Compiler.csproj",
+                "--configuration",
+                "Debug",
+                "--framework",
+                "net11.0",
+                "/property:WarningLevel=0"
             ],
             "problemMatcher": "$msCompile"
         },

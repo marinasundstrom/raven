@@ -60,6 +60,16 @@ echo "==> Building repository VS Code extension"
 npm --prefix "$REPOSITORY_ROOT/src/Raven.VSCode" ci
 npm --prefix "$REPOSITORY_ROOT/src/Raven.VSCode" run compile
 
+# Materialize the ignored repository SDK view used by child terminals and VS
+# Code launch configurations. Sourcing in this subshell creates the links
+# without changing the caller's environment.
+(
+  export RAVEN_CONFIGURATION="$CONFIGURATION"
+  export RAVEN_FRAMEWORK="$FRAMEWORK"
+  # shellcheck source=./raven-env.sh
+  source "$REPOSITORY_ROOT/scripts/raven-env.sh" >/dev/null
+)
+
 echo
 echo "Raven development environment build completed."
 echo "  Configuration:  $CONFIGURATION"

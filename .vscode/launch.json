@@ -1,114 +1,62 @@
 {
-    // Use IntelliSense to find out which attributes exist for C# debugging
-    // Use hover for the description of the existing attributes
-    // For further information visit https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Raven: Compile and Debug (active file)",
-            "type": "raven",
+            "name": "Raven: Test Repository Extension",
+            "type": "extensionHost",
             "request": "launch",
-            "target": "${file}"
-        },
-        {
-            "name": "Raven: Compile and Debug (project)",
-            "type": "raven",
-            "request": "launch",
-            "project": "${workspaceFolder}/samples/projects/analyzer-editorconfig/AnalyzerEditorConfig.ravenproj"
-        },
-        {
-            "name": ".NET Core Launch (console)",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build",
-            // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Raven.Compiler/bin/Debug/net10.0/Raven.Compiler.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}/src/Raven.Compiler",
-            // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
-            "console": "internalConsole",
-            "stopAtEntry": false
-        },
-        {
-            "name": ".NET Core Attach",
-            "type": "coreclr",
-            "request": "attach",
-            "processId": "${command:pickProcess}"
-        },
-        {
-            "name": "Raven.Editor (console)",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build",
-            // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Raven.Editor/bin/Debug/net10.0/Raven.Editor.dll",
+            "preLaunchTask": "build:development-environment",
+            "runtimeExecutable": "${execPath}",
             "args": [
-                "../../samples/editor-test.rav"
+                "--extensionDevelopmentPath=${workspaceFolder}/src/Raven.VSCode"
             ],
-            "cwd": "${workspaceFolder}/src/Raven.Editor",
-            // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
-            "console": "externalTerminal",
-            "stopAtEntry": false
+            "env": {
+                "RAVEN_DEVELOPMENT_ENVIRONMENT": "repository",
+                "RAVEN_VSCODE_DEVELOPMENT": "repository",
+                "RAVEN_REPOSITORY_ROOT": "${workspaceFolder}",
+                "RAVEN_CONFIGURATION": "Debug",
+                "RAVEN_FRAMEWORK": "net11.0",
+                "RAVEN_SDK_ROOT": "${workspaceFolder}/artifacts/development/sdk/Debug/net11.0",
+                "RAVEN_LANGUAGE_SERVER_PATH": "${workspaceFolder}/src/Raven.LanguageServer/bin/Debug/net11.0/Raven.LanguageServer.dll",
+                "RavenCompilerHost": "${workspaceFolder}/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll",
+                "RavenBuildConfiguration": "Debug",
+                "RavenCompilerFramework": "net11.0",
+                "PATH": "${workspaceFolder}/eng/development:${env:PATH}"
+            }
         },
         {
-            "name": "Raven.Compiler (console)",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build",
-            // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Raven.Compiler/bin/Debug/net10.0/Raven.Compiler.dll",
-            "args": [
-                "../../Raven.samples/editor-test.rav"
-            ],
-            "cwd": "${workspaceFolder}/src/Raven.Compiler",
-            // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
-            "console": "externalTerminal",
-            "stopAtEntry": false
-        },
-        {
-            "name": "Debug Raven output (test.dll)",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "dotnet",
-            "args": [
-                "${workspaceFolder}/samples/test.dll"
-            ],
-            "cwd": "${workspaceFolder}/samples",
-            "justMyCode": false,
-            "requireExactSource": false
-        },
-        {
-            "name": "Raven.LanguageServer (stdio)",
+            "name": "Raven: Debug Language Server",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build:language-server",
-            "program": "${workspaceFolder}/src/Raven.LanguageServer/bin/Debug/net10.0/Raven.LanguageServer.dll",
+            "program": "${workspaceFolder}/src/Raven.LanguageServer/bin/Debug/net11.0/Raven.LanguageServer.dll",
             "args": [
                 "--stdio"
             ],
-            "cwd": "${workspaceFolder}/src/Raven.LanguageServer",
+            "cwd": "${workspaceFolder}",
             "console": "internalConsole",
             "stopAtEntry": false,
             "justMyCode": false,
             "requireExactSource": false
         },
         {
-            "name": "Raven VS Code Extension Host",
-            "type": "extensionHost",
+            "name": "Raven: Debug Compiler",
+            "type": "coreclr",
             "request": "launch",
-            "preLaunchTask": "compile:vscode-extension",
-            "runtimeExecutable": "${execPath}",
+            "preLaunchTask": "build:compiler",
+            "program": "${workspaceFolder}/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll",
             "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/src/Raven.VSCode"
-            ]
-        }
-    ],
-    "compounds": [
-        {
-            "name": "Raven: LSP + Extension",
-            "configurations": [
-                "Raven VS Code Extension Host"
-            ]
+                "${workspaceFolder}/samples/scripts/hello.rvn",
+                "--framework",
+                "net11.0",
+                "-o",
+                "${workspaceFolder}/artifacts/debug/hello.dll"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopAtEntry": false,
+            "justMyCode": false,
+            "requireExactSource": false
         }
     ]
 }
