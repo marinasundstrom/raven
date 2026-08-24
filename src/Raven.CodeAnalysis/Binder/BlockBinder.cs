@@ -7396,7 +7396,9 @@ partial class BlockBinder : Binder
             if (!CanAssignToField(fieldSymbol, receiver, leftSyntax))
                 return new BoundErrorExpression(fieldSymbol.Type, fieldSymbol, BoundExpressionReason.NotFound);
 
-            var access = new BoundFieldAccess(receiver, fieldSymbol);
+            var access = left is BoundPointerMemberAccessExpression
+                ? left
+                : new BoundFieldAccess(receiver, fieldSymbol);
 
             var fieldRight = BindCompoundAssignmentValue(access, right, fieldSymbol.Type, binaryOperator.Value, rightSyntax);
             return CreateFieldAssignmentExpression(receiver, fieldSymbol, fieldRight);
@@ -7723,7 +7725,9 @@ partial class BlockBinder : Binder
             if (!CanAssignToField(fieldSymbol, receiver, leftSyntax))
                 return new BoundErrorExpression(fieldSymbol.Type, fieldSymbol, BoundExpressionReason.NotFound);
 
-            var access = new BoundFieldAccess(receiver, fieldSymbol);
+            var access = left is BoundPointerMemberAccessExpression
+                ? left
+                : new BoundFieldAccess(receiver, fieldSymbol);
             var fieldRight = BindCompoundAssignmentValue(access, right, fieldSymbol.Type, binaryOperator.Value, rightSyntax);
             return CreateFieldAssignmentExpression(receiver, fieldSymbol, fieldRight);
         }
@@ -9015,6 +9019,17 @@ partial class BlockBinder : Binder
                 if (concatMethod is not null)
                     return new BoundInvocationExpression(concatMethod, [left, right]);
             }
+        }
+
+        // Predefined scalar operators take precedence over inherited
+        // static-abstract generic-math interface members exposed by metadata.
+        var leftScalarType = left.Type.UnwrapLiteralType() ?? left.Type;
+        var rightScalarType = right.Type.UnwrapLiteralType() ?? right.Type;
+        if (leftScalarType.SpecialType != SpecialType.None &&
+            rightScalarType.SpecialType != SpecialType.None &&
+            BoundBinaryOperator.TryLookup(Compilation, opKind, left.Type, right.Type, out var predefinedOperator))
+        {
+            return new BoundBinaryExpression(left, predefinedOperator, right);
         }
 
         // 2. Överlagrade operatorer

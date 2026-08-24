@@ -1054,6 +1054,9 @@ internal partial class BoundBinaryOperator
             SyntaxKind.StarToken => true,
             SyntaxKind.SlashToken => true,
             SyntaxKind.PercentToken => true,
+            SyntaxKind.AmpersandToken => true,
+            SyntaxKind.BarToken => true,
+            SyntaxKind.CaretToken => true,
 
             SyntaxKind.EqualsEqualsToken => true,
             SyntaxKind.NotEqualsToken => true,

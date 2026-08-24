@@ -133,6 +133,46 @@ class PointerAssignment {
     }
 
     [Fact]
+    public void PointerMemberCompoundAssignment_ReadsAndWritesThroughPointer()
+    {
+        const string code = """
+struct Holder {
+    public field Flags: int = 0
+}
+
+class PointerCompoundAssignment {
+    unsafe static func Run() -> int {
+        var holder = Holder()
+        let pointer: *Holder = &holder
+        pointer->Flags |= 1
+        pointer->Flags |= 2
+        pointer->Flags |= (1 << 2)
+        holder.Flags
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("pointer_member_compound_assignment_codegen", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var assembly = loaded.Assembly;
+        var type = assembly.GetType("PointerCompoundAssignment", throwOnError: true)!;
+        var runMethod = type.GetMethod("Run", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+
+        var value = (int)runMethod.Invoke(null, Array.Empty<object>())!;
+        Assert.Equal(7, value);
+    }
+
+    [Fact]
     public void FixedUseInitializer_PinsArrayElementAndWritesThroughPointer()
     {
         const string code = """

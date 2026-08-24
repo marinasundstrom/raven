@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed built-in bitwise operators and compound assignments through pointer
+  members so they emit valid IL and read and write the pointed-to field.
 - Fixed standalone compiler dependency setup so `Raven.CodeAnalysis` remains
   available when the optional standard macro library has not been built or
   installed alongside the compiler.
