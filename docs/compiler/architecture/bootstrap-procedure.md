@@ -377,6 +377,42 @@ language/API rule, missing compiler-writing capability, runtime/library defect,
 macro-authoring defect, tooling defect, or unsuitable use of Raven. Do not hide
 it with repository-only paths or a C# rewrite merely to make a gate green.
 
+## Regression isolation procedure
+
+Every compiler defect found by Core, Macros, compiler-shaped probes, or samples
+must retain a reduced regression. Preserve the original workload as integration
+coverage, but do not rely on it alone: a large program can hide whether the
+first divergence occurred during binding, lowering, emission, or execution.
+
+Use the smallest applicable set of boundary tests:
+
+1. **Syntax and binding** — assert diagnostics, declared and referenced
+   symbols, inferred types, conversions, and operations. This establishes
+   whether the compiler understood the source contract before lowering.
+2. **Lowering** — cover an observable lowering invariant only when the defect
+   first appears there. Prefer stable control-flow or operation behavior over
+   exact lowered-node or instruction sequences.
+3. **Emission** — assert public metadata shape and run `ILVerify` over the
+   emitted assembly. Exact opcode assertions are temporary development aids,
+   not release regressions.
+4. **Reloaded runtime behavior** — load the emitted assembly through the normal
+   runtime boundary and assert results, side effects, exceptions, and lifetime
+   behavior.
+5. **Integration workload** — keep the originating Core, macro, compiler-shaped
+   probe, or sample in the appropriate aggregate gate.
+
+Run the reduced case alone and with its feature/runtime suite. If it passes in
+isolation but fails in the wider suite, investigate shared state, ordering,
+incremental caches, artifact provenance, or a combined lowering/emission path
+instead of weakening the assertion.
+
+Cluster failures by their earliest divergent boundary and semantic shape. A
+family of reduced failures that shares an owner is evidence for repairing or
+refactoring that shared compiler component. A one-off patch is appropriate only
+when the reduced case proves the behavior is genuinely local. Never work around
+a compiler defect in `Raven.Core`, `Raven.Macros`, or a sample merely to make a
+bootstrap gate pass.
+
 ## Defect and backport ledger
 
 Maintain a ledger throughout stabilization and porting. Each entry records:
@@ -390,7 +426,7 @@ Maintain a ledger throughout stabilization and porting. Each entry records:
 | Actual result | Diagnostic, crash, hang, wrong symbol/metadata, or runtime behavior |
 | Classification | Bootstrap-v1 defect, unclear contract, port-only defect, bootstrap accommodation, or deferred capability |
 | Owning layer | Parser, binder, semantic model, lowering, emit, Core, Macros, SDK, or tooling |
-| Fix and regression coverage | Commit and focused tests |
+| Fix and regression coverage | Commit plus syntax/binding, lowering, emit/ILVerify, runtime, and integration boundaries that apply |
 | Backport decision | Evidence for a corrected v1 revision, forward-only fix, or explicit version boundary |
 
 The default decision after the v1 freeze is forward-only. A v1 backport requires

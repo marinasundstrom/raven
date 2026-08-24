@@ -66,6 +66,23 @@ The full project sample build remains required in addition to this focused
 matrix. The focused script makes the cross-target contract quick to reproduce;
 the complete corpus supplies breadth.
 
+## Representative sample IL gate
+
+In addition to build-and-run coverage, IL-verify a reviewed set of
+compiler-shaped standalone and project samples in Release configuration. The
+set must cover at least generic records and unions, pattern-heavy control flow,
+async/state-machine emission, macros, collections and extension methods, and
+.NET interop. Add a sample when a new compiler defect reveals an emitted shape
+not represented by the set.
+
+Treat failures as clusters rather than isolated sample incidents. Reduce each
+failure and determine the earliest divergent boundary using the regression
+isolation procedure in the
+[bootstrap procedure](../compiler/architecture/bootstrap-procedure.md). If
+several samples expose the same emitter or lowering invariant, prefer a shared
+repair or bounded refactoring over per-sample compiler patches. The release
+record identifies every verified assembly and its target framework.
+
 ## Bootstrap defect and backport handling
 
 When porting exposes a new issue, record it in the porting ledger and classify
