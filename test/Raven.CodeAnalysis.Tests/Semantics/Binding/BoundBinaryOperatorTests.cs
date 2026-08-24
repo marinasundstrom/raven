@@ -247,6 +247,8 @@ class Calculator {
         Assert.True(BoundBinaryOperator.TryLookup(compilation, SyntaxKind.PlusToken, typeParameter, typeParameter, out var op));
         Assert.Equal(BinaryOperatorKind.Addition, op.OperatorKind);
         Assert.Same(typeParameter, op.ResultType);
+        Assert.NotNull(op.MethodSymbol);
+        Assert.Equal("op_Addition", op.MethodSymbol.MetadataName);
     }
 
     [Fact]

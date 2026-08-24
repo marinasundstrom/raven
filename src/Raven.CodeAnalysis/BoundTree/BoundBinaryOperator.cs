@@ -101,10 +101,10 @@ internal partial class BoundBinaryOperator
         if (TryLookupPredefinedOperator(compilation, kind, left, right, boolType, out op))
             return true;
 
-        if (TryLookupTypeParameterConstraintOperator(kind, left, right, boolType, out op))
+        if (TryLookupConstrainedInterfaceOperator(kind, left, right, out op))
             return true;
 
-        if (TryLookupConstrainedInterfaceOperator(kind, left, right, out op))
+        if (TryLookupTypeParameterConstraintOperator(kind, left, right, boolType, out op))
             return true;
 
         if (TryLookupUserDefinedOperator(compilation, kind, left, right, out op))
@@ -465,11 +465,23 @@ internal partial class BoundBinaryOperator
             if (!TryMatchConstrainedOperator(kind, candidate, out var operatorKind))
                 continue;
 
+            if (!OperatorFacts.TryGetUserDefinedOperatorInfo(kind, parameterCount: 2, out var operatorInfo))
+                continue;
+
+            var operatorMethod = candidate
+                .GetMembers()
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(method => IsMatchingOperatorMethod(method, operatorInfo.MetadataName));
+
+            if (operatorMethod is null)
+                continue;
+
             op = new BoundBinaryOperator(
                 operatorKind,
                 left,
                 right,
-                GetConstrainedOperatorResultType(operatorKind, candidate.TypeArguments[2], left, right));
+                GetConstrainedOperatorResultType(operatorKind, candidate.TypeArguments[2], left, right),
+                operatorMethod);
             return true;
         }
 

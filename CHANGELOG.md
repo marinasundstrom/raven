@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-23**.
 
 ## Unreleased
 
+- Fixed constrained generic-math operators to emit calls to their static
+  interface contracts instead of invalid primitive numeric IL over type
+  parameters.
 - Added an aggregate project-sample runtime gate that executes every ordinary
   executable with repository artifacts, enforces timeouts, records auditable
   reports, and requires reviewed build-only reasons for non-runnable workloads.

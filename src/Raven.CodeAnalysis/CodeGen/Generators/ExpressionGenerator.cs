@@ -6416,6 +6416,14 @@ internal partial class ExpressionGenerator : Generator
 
         if (op.MethodSymbol is { } operatorMethod)
         {
+            if (operatorMethod.IsStatic &&
+                operatorMethod.IsAbstract &&
+                operatorMethod.ContainingType?.TypeKind == TypeKind.Interface &&
+                op.LeftType is ITypeParameterSymbol)
+            {
+                ILGenerator.Emit(OpCodes.Constrained, ResolveClrType(op.LeftType));
+            }
+
             ILGenerator.Emit(OpCodes.Call, GetMethodInfo(operatorMethod));
             return;
         }
