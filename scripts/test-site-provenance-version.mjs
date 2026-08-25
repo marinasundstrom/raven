@@ -1,13 +1,20 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
-import { nextUnreleasedVersion } from "./site-provenance-version.mjs";
+import { getDocumentedVersionProvenance } from "./site-provenance-version.mjs";
 
-assert.equal(nextUnreleasedVersion("0.1.0"), "0.1.1-preview.1");
-assert.equal(nextUnreleasedVersion("0.1.0-preview.14"), "0.1.0-preview.15");
+assert.deepEqual(
+  getDocumentedVersionProvenance("0.1.1", true),
+  { version: "0.1.1", status: "released" },
+  "A released documented version remains released on later site commits.",
+);
+assert.deepEqual(
+  getDocumentedVersionProvenance("0.1.2-preview.1", false),
+  { version: "0.1.2-preview.1", status: "unreleased" },
+);
 assert.throws(
-  () => nextUnreleasedVersion("0.1.0-rc.1"),
-  /next preview cannot be inferred/,
+  () => getDocumentedVersionProvenance("next", false),
+  /Invalid Raven documentation version/,
 );
 
 console.log("Site provenance version checks passed.");

@@ -27,6 +27,10 @@ on:
       - "tools/**Generator/**"
   workflow_dispatch:
     inputs:
+      documented_version:
+        description: Raven version described by the site (defaults to global.json)
+        required: false
+        type: string
       publish_site:
         description: Publish the validated site to GitHub Pages
         required: true
@@ -77,6 +81,8 @@ jobs:
         run: scripts/build-html-macro-site.sh
 
       - name: Add build provenance
+        env:
+          RAVEN_SITE_VERSION: ${{ inputs.documented_version }}
         run: |
           node scripts/test-site-provenance-version.mjs
           node scripts/add-site-provenance.mjs _site

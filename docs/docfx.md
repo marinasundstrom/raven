@@ -128,10 +128,11 @@ The `.github/workflows/docs.yml` workflow builds and validates the Raven
 language website for relevant pull requests, but pull requests never deploy
 it. Pushes to `main` do not run or publish the website automatically.
 
-Publishing is a separate manual operation. Start `Raven website` from the
-GitHub Actions UI against the intended commit and explicitly enable
-`publish_site`. Only that opt-in run adds production analytics, uploads
-`_site/` as a GitHub Pages artifact, and deploys it to:
+Publishing is a separate manual operation and is independent of Raven package
+and tag releases. Start `Raven website` from the GitHub Actions UI against the
+site content to publish and explicitly enable `publish_site`. Only that opt-in
+run adds production analytics, uploads `_site/` as a GitHub Pages artifact, and
+deploys it to:
 
 <https://marinasundstrom.github.io/raven/>
 
@@ -172,19 +173,18 @@ models.
 After all of these surfaces have been assembled, the workflow runs
 `scripts/add-site-provenance.mjs`. It writes one `site-build.json` manifest at
 the artifact root and injects the matching `site-build.js` into every generated
-HTML page. The script adds the Raven version and a link to the exact source
-commit to each surface's footer, including footers rendered after startup by a
-Blazor WebAssembly application.
+HTML page. The script says which Raven version the documentation describes and
+links to the exact source commit for traceability. These are provenance fields,
+not the website's release identity. They are added to every surface's footer,
+including footers rendered after startup by a Blazor WebAssembly application.
 
-An exact `v<version>` tag on the built commit is presented as a released build.
-An untagged commit is labeled **unreleased** and uses the selected next preview
-line. Local commit-qualified SDK versions such as
-`0.1.1-preview.1-local.<sha>` are displayed as `0.1.1-preview.1`; when the
-configured version already has a release tag on an earlier commit, the script
-advances an existing preview number, or increments the patch and selects
-`preview.1` after a stable release. `RAVEN_SITE_VERSION` can explicitly select
-the unreleased version when it cannot be inferred. A local artifact also says
-`uncommitted changes` when tracked files differ from its source commit.
-The publishing workflow checks out full Git history, including tags; without
-the tags, a post-release `main` build cannot distinguish the published version
-from its next unreleased preview line.
+The documented version defaults to the `Raven.Sdk` selection in `global.json`.
+It is labeled **unreleased** only when no matching `v<version>` tag exists in
+the repository; the tag does not have to point at the site commit. Consequently,
+a docs-only update after a Raven release remains documentation for that release
+instead of being presented as the next unreleased preview. The workflow's
+optional `documented_version` input can select another version, and
+`RAVEN_SITE_VERSION` provides the same override for local builds. Local
+commit-qualified SDK versions such as `0.1.1-preview.1-local.<sha>` are displayed
+as `0.1.1-preview.1`. A local artifact also says `uncommitted changes` when
+tracked files differ from its source commit.

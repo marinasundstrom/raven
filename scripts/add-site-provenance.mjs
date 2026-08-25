@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { nextUnreleasedVersion } from "./site-provenance-version.mjs";
+import { getDocumentedVersionProvenance } from "./site-provenance-version.mjs";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..");
@@ -30,32 +30,16 @@ function hasTag(version) {
 }
 
 function determineVersion() {
-  const exactTags = git("tag", "--points-at", "HEAD", "--list", "v[0-9]*")
-    .split("\n")
-    .filter(Boolean)
-    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
-
-  if (exactTags.length > 0) {
-    return { version: exactTags.at(-1).slice(1), status: "released" };
-  }
-
-  const configuredVersion = process.env.RAVEN_SITE_VERSION
-    ?? JSON.parse(readFileSync(join(repositoryRoot, "global.json"), "utf8"))["msbuild-sdks"]?.["Raven.Sdk"];
+  const requestedVersion = process.env.RAVEN_SITE_VERSION?.trim();
+  const configuredVersion = requestedVersion
+    || JSON.parse(readFileSync(join(repositoryRoot, "global.json"), "utf8"))["msbuild-sdks"]?.["Raven.Sdk"];
 
   if (!configuredVersion) {
     throw new Error("Could not determine the Raven version from RAVEN_SITE_VERSION or global.json.");
   }
 
-  let version = configuredVersion.replace(/-local\..*$/, "");
-  if (hasTag(version)) {
-    version = nextUnreleasedVersion(version);
-  }
-
-  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
-    throw new Error(`Invalid Raven site version: ${version}`);
-  }
-
-  return { version, status: "unreleased" };
+  const version = configuredVersion.replace(/-local\..*$/, "");
+  return getDocumentedVersionProvenance(version, hasTag(version));
 }
 
 function allHtmlFiles(directory) {
@@ -73,7 +57,10 @@ const commit = git("rev-parse", "HEAD");
 const shortCommit = git("rev-parse", "--short=9", "HEAD");
 const dirty = git("status", "--porcelain", "--untracked-files=no").length > 0;
 const { version, status } = determineVersion();
-const provenance = { version, status, commit, shortCommit, dirty };
+const provenance = {
+  documentation: { ravenVersion: version, status },
+  source: { commit, shortCommit, dirty },
+};
 const commitUrl = `https://github.com/marinasundstrom/raven/commit/${commit}`;
 
 writeFileSync(join(siteRoot, "site-build.json"), `${JSON.stringify(provenance, null, 2)}\n`);
@@ -91,15 +78,15 @@ const clientScript = `(() => {
     const label = document.createElement("span");
     label.dataset.ravenBuild = "";
     label.style.cssText = "display:inline-flex;flex-wrap:wrap;gap:.4em;align-items:center;margin-inline-start:auto;font:500 .75rem/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:normal;text-transform:none;opacity:.82";
-    label.append("Raven " + build.version + (build.status === "unreleased" ? " (unreleased)" : "") + " · ");
+    label.append("Docs for Raven " + build.documentation.ravenVersion + (build.documentation.status === "unreleased" ? " (unreleased)" : "") + " · source ");
 
     const link = document.createElement("a");
     link.href = commitUrl;
-    link.textContent = build.shortCommit;
-    link.title = "Source commit " + build.commit;
+    link.textContent = build.source.shortCommit;
+    link.title = "Source commit " + build.source.commit;
     link.style.cssText = "color:inherit;text-decoration:underline;text-underline-offset:.2em";
     label.append(link);
-    if (build.dirty) label.append(" · uncommitted changes");
+    if (build.source.dirty) label.append(" · uncommitted changes");
     container.append(label);
     return true;
   }
@@ -128,4 +115,4 @@ for (const htmlFile of allHtmlFiles(siteRoot)) {
   writeFileSync(htmlFile, html);
 }
 
-console.log(`Added Raven ${version} (${status}) provenance for ${shortCommit}${dirty ? " with uncommitted changes" : ""}.`);
+console.log(`Added Raven ${version} documentation provenance for ${shortCommit}${dirty ? " with uncommitted changes" : ""}.`);

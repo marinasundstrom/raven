@@ -267,15 +267,17 @@ it does not prove that the next stage is ready.
    public release rather than workflow artifacts, exercises the SDK on Windows,
    Linux, and macOS, and installs the checksum-verified VSIX into clean portable
    VS Code instances. Require every matrix job to pass.
-5. Dispatch `Raven website` from `main` with `publish_site` enabled. The
+5. Dispatch `Raven website` from `main` with `publish_site` enabled. Website
+   publication is independent of the package/tag release; leave
+   `documented_version` empty to use `global.json`, or select the Raven version
+   whose behavior the updated documentation describes. The
    `github-pages` environment currently permits `main`, not a release tag; a
    tag-triggered run can build a valid Pages artifact but its deployment will be
-   rejected by environment protection. Verify the deployed footer's version,
-   released or unreleased status, and commit against the source actually built.
-   When `main` contains post-release work, an unreleased next-preview footer is
-   expected even though installation links still target the latest release.
-   The workflow must fetch release tags for that inference; a shallow checkout
-   can incorrectly label the already published release as unreleased.
+   rejected by environment protection. Verify the deployed footer's documented
+   Raven version and source commit. A docs-only commit after a release remains
+   associated with that released version even though it is not the tagged source
+   commit. The workflow fetches release tags to determine whether the documented
+   version is released.
 
 ## NuGet packages
 
