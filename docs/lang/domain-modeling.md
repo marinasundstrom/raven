@@ -287,6 +287,110 @@ compile-time guidance and sequencing, but a real socket or other stateful
 resource must enforce its lifecycle at runtime when aliases or concurrent
 access are possible.
 
+### Separate construction from validity
+
+Several patterns can appear together in a staged construction API, but each
+solves a different problem.
+
+#### Fluent interface
+
+A **fluent interface** makes an operation return an object that offers the next
+useful operation. This allows calls to read as a single chain. For example, an
+invoice API might let a caller describe the recipient, add lines, and then
+issue the invoice:
+
+```raven
+let invoice = InvoiceDraft.Start()
+    .BillTo(customer)
+    .AddLine("Keyboard", 99)
+    .DueInDays(30)
+    .Issue()
+```
+
+Fluency describes how the API is used. It does not by itself guarantee that
+the calls occur in a valid order; every operation could still return the same
+type.
+
+#### Builder pattern
+
+The **builder pattern** separates construction from the resulting object. It is
+useful when creating an object requires several inputs, optional settings, or
+validation that would make one constructor difficult to understand. A report
+builder, for example, can collect a date range, filters, grouping, and output
+format before it creates an immutable `Report`.
+
+A builder does not have to be fluent or staged. Its configuration methods may
+return nothing, and `Build` may validate all required data only at the end.
+
+#### Typestate pattern
+
+The **typestate pattern** represents each valid stage with a distinct
+compile-time type. The methods available on a value therefore depend on its
+current state. A payment workflow might expose `Authorize` only for a pending
+payment and `Capture` only for an authorized payment:
+
+```text
+PendingPayment → AuthorizedPayment → CapturedPayment
+```
+
+The same idea can enforce staged construction:
+
+```text
+NeedsName → NeedsPrice → ReadyToBuild
+```
+
+If `Build` exists only on `ReadyToBuild`, callers cannot skip the required name
+or price while remaining in the typed API. Typestate supplies the ordering and
+safety that a fluent interface or ordinary builder does not provide alone.
+
+#### F-bounded polymorphism
+
+**F-bounded polymorphism**, also called a **recursive generic constraint**,
+lets a reusable base abstraction refer to the concrete type that implements it:
+
+```raven
+abstract class Builder<TSelf>
+    where TSelf: Builder<TSelf> {
+}
+```
+
+For example, purchase-order and shipment builders might inherit common
+operations such as `WithAuditInfo`. The recursive constraint allows that shared
+operation to preserve the appropriate concrete builder family instead of
+falling back to a general `Builder` type in the middle of a fluent chain. This
+technique is closely related to the curiously recurring template pattern
+(CRTP) in C++.
+
+The constraint preserves the concrete family; it does not enforce the order of
+construction steps. Distinct typestate types are responsible for that.
+
+#### Phantom types and marker types
+
+A **phantom type** appears in another type's signature without contributing
+instance data at runtime. For example, `OrderBuilder<NeedsShippingAddress>` and
+`OrderBuilder<ReadyToSubmit>` can have the same stored fields while the type
+argument controls which operations are available. Empty state types can name
+those stages:
+
+```raven
+class NeedsShippingAddress
+class ReadyToSubmit
+```
+
+A **marker type** similarly carries no domain data and exists to classify a
+type, often so that a generic constraint can require a capability or category.
+The terms overlap when an empty builder-state type is used only through a type
+parameter or constraint. Calling it a phantom type emphasizes that it has no
+runtime role; calling it a marker type emphasizes its use in classification.
+
+When these patterns are combined, the result can be described concisely as a
+**staged fluent builder implemented using the typestate pattern, with F-bounded
+polymorphism to preserve the concrete builder type and phantom or marker types
+to encode its construction state**. The builder pattern explains the purpose,
+typestate explains the safety and ordering, and the recursive generic
+constraint explains how the concrete builder remains constrained through the
+chain.
+
 ## Keep rules as functions
 
 Domain rules often need only their inputs. Keeping them as plain functions makes
