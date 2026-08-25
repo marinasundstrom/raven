@@ -139,6 +139,37 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void NanoFrameworkDht22DisplayProject_UsesOnlySensorAndDisplayBindings()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var projectPath = Path.Combine(
+            repoRoot,
+            "samples",
+            "projects",
+            "nanoframework-dht22-display",
+            "NanoFrameworkDht22Display.rvnproj");
+
+        MsBuildLocatorRegistration.EnsureRegistered();
+        var evaluation = MsBuildProjectEvaluator.Evaluate(
+            projectPath,
+            RavenProjectConventions.Default);
+
+        Assert.Equal("netnano1.0", evaluation.TargetFramework);
+        Assert.False(evaluation.UseHostFrameworkReferences);
+        Assert.True(evaluation.CompilationOptions.EmbedCoreTypes);
+        Assert.Contains(
+            evaluation.PackageReferences,
+            static reference => reference.Id == "nanoFramework.Iot.Device.Dhtxx");
+        Assert.Contains(
+            evaluation.PackageReferences,
+            static reference => reference.Id == "nanoFramework.Iot.Device.Ssd13xx");
+        Assert.DoesNotContain(
+            evaluation.PackageReferences,
+            static reference => reference.Id is
+                "nanoFramework.System.Device.Wifi" or "nanoFramework.System.Net.Http");
+    }
+
+    [Fact]
     public void NanoFrameworkProject_ImportsPackagingTarget()
     {
         var repoRoot = GetRepositoryRoot();

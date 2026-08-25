@@ -113,6 +113,8 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
   wiring)
 - `samples/projects/nanoframework-temperature/README.md` (DHT sensor state,
   exhaustive union patterns, GPIO output, and nanoFramework `NFMRK2` packaging)
+- `samples/projects/nanoframework-dht22-display/README.md` (isolated GP2 DHT22
+  polling and SH1106 temperature display for Pico W hardware diagnostics)
 - `samples/projects/nanoframework-blinky/README.md` (minimal Raspberry Pi
   Pico-family GPIO blink, board profiles, nanoFramework packaging and deployment
   commands, and the current RP2350 firmware boundary)

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-25**.
 
 ## Unreleased
 
+- Added an isolated Pico W nanoFramework DHT22 and SH1106 sample that reads GP2
+  every two seconds and continuously refreshes the displayed temperature without
+  involving Wi-Fi, HTTP, or LED status behavior.
+
 ## 0.1.1 - 2026-08-25
 
 - Fixed browser Playground compilation of Raven unions, including the built-in

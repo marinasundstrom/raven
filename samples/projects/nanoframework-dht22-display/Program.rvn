@@ -1,0 +1,83 @@
+import Iot.Device.DHTxx.*
+import Iot.Device.Ssd13xx.*
+import System.Device.I2c.*
+import System.Diagnostics.*
+import System.Threading.*
+
+const Dht22Pin: int = 2
+
+func GetDisplayGlyph(character: char) -> byte[] {
+    match character {
+        ' ' => return [(byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00]
+        '-' => return [(byte)0x00, (byte)0x00, (byte)0x00, (byte)0x3F, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00]
+        '.' => return [(byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x0C, (byte)0x0C, (byte)0x00]
+        ':' => return [(byte)0x00, (byte)0x0C, (byte)0x0C, (byte)0x00, (byte)0x00, (byte)0x0C, (byte)0x0C, (byte)0x00]
+        '0' => return [(byte)0x3E, (byte)0x63, (byte)0x73, (byte)0x7B, (byte)0x6F, (byte)0x67, (byte)0x3E, (byte)0x00]
+        '1' => return [(byte)0x0C, (byte)0x0E, (byte)0x0C, (byte)0x0C, (byte)0x0C, (byte)0x0C, (byte)0x3F, (byte)0x00]
+        '2' => return [(byte)0x1E, (byte)0x33, (byte)0x30, (byte)0x1C, (byte)0x06, (byte)0x33, (byte)0x3F, (byte)0x00]
+        '3' => return [(byte)0x1E, (byte)0x33, (byte)0x30, (byte)0x1C, (byte)0x30, (byte)0x33, (byte)0x1E, (byte)0x00]
+        '4' => return [(byte)0x38, (byte)0x3C, (byte)0x36, (byte)0x33, (byte)0x7F, (byte)0x30, (byte)0x78, (byte)0x00]
+        '5' => return [(byte)0x3F, (byte)0x03, (byte)0x1F, (byte)0x30, (byte)0x30, (byte)0x33, (byte)0x1E, (byte)0x00]
+        '6' => return [(byte)0x1C, (byte)0x06, (byte)0x03, (byte)0x1F, (byte)0x33, (byte)0x33, (byte)0x1E, (byte)0x00]
+        '7' => return [(byte)0x3F, (byte)0x33, (byte)0x30, (byte)0x18, (byte)0x0C, (byte)0x0C, (byte)0x0C, (byte)0x00]
+        '8' => return [(byte)0x1E, (byte)0x33, (byte)0x33, (byte)0x1E, (byte)0x33, (byte)0x33, (byte)0x1E, (byte)0x00]
+        '9' => return [(byte)0x1E, (byte)0x33, (byte)0x33, (byte)0x3E, (byte)0x30, (byte)0x18, (byte)0x0E, (byte)0x00]
+        'C' => return [(byte)0x3C, (byte)0x66, (byte)0x03, (byte)0x03, (byte)0x03, (byte)0x66, (byte)0x3C, (byte)0x00]
+        'D' => return [(byte)0x1F, (byte)0x36, (byte)0x66, (byte)0x66, (byte)0x66, (byte)0x36, (byte)0x1F, (byte)0x00]
+        'H' => return [(byte)0x33, (byte)0x33, (byte)0x33, (byte)0x3F, (byte)0x33, (byte)0x33, (byte)0x33, (byte)0x00]
+        'T' => return [(byte)0x3F, (byte)0x2D, (byte)0x0C, (byte)0x0C, (byte)0x0C, (byte)0x0C, (byte)0x1E, (byte)0x00]
+        'e' => return [(byte)0x00, (byte)0x00, (byte)0x1E, (byte)0x33, (byte)0x3F, (byte)0x03, (byte)0x1E, (byte)0x00]
+        'm' => return [(byte)0x00, (byte)0x00, (byte)0x33, (byte)0x7F, (byte)0x7F, (byte)0x6B, (byte)0x63, (byte)0x00]
+        'p' => return [(byte)0x00, (byte)0x00, (byte)0x3B, (byte)0x66, (byte)0x66, (byte)0x3E, (byte)0x06, (byte)0x0F]
+        _ => return [(byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00]
+    }
+}
+
+func DrawText(display: Sh1106, x: int, y: int, message: string) {
+    var index = 0
+
+    while index < message.Length {
+        display.DrawBitmap(
+            x + (index * 8),
+            y,
+            1,
+            8,
+            GetDisplayGlyph(message[index]),
+            (byte)1)
+        index = index + 1
+    }
+}
+
+func UpdateDisplay(display: Sh1106, temperatureText: string) {
+    display.ClearScreen()
+    DrawText(display, 0, 16, "DHT22")
+    DrawText(display, 0, 36, temperatureText)
+    display.Display()
+}
+
+func Main() {
+    let settings = I2cConnectionSettings(0, 0x3C)
+    use display = Sh1106(I2cDevice.Create(settings), -1)
+    use sensor = Dht22(Dht22Pin)
+
+    UpdateDisplay(display, "Temp: --.- C")
+    Debug.WriteLine("DHT22 display sample started on GP2.")
+
+    loop {
+        // DHT22 measurements must be spaced at least two seconds apart.
+        Thread.Sleep(2000)
+
+        let temperature = sensor.Temperature
+
+        if sensor.IsLastReadSuccessful {
+            let celsius = temperature.DegreesCelsius
+            let temperatureText = "Temp: " + celsius.ToString("0.0") + " C"
+
+            Debug.WriteLine("DHT22: " + celsius.ToString("0.0") + " C")
+            UpdateDisplay(display, temperatureText)
+        } else {
+            Debug.WriteLine("DHT22: read failed.")
+            UpdateDisplay(display, "Temp: --.- C")
+        }
+    }
+}
