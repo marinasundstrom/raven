@@ -6,6 +6,13 @@ time. Their output is an ordinary MAUI control tree and an ordinary public
 `ContentView` subclass; there is no Raven renderer, virtual control tree, or
 runtime component framework between the application and MAUI.
 
+The current implementation intentionally remains smaller than the possible
+component model. The
+[declarative MAUI component proposal](../../../docs/lang/proposals/macros/maui-declarative-components.md)
+records an exploratory direction for persistent component state,
+identity-preserving reconciliation, and native one-way and two-way MAUI
+binding. It is a macro/compiler infrastructure test, not a product roadmap.
+
 ```raven
 public component! CounterView(InitialCount: int = 0) {
     var count = InitialCount
