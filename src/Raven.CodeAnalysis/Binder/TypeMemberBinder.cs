@@ -534,12 +534,9 @@ internal partial class TypeMemberBinder : Binder
             if (decl.Initializer is not null)
             {
                 var exprBinder = new BlockBinder(_containingType, this);
-
-                var targetType = exprBinder.PushTargetType(fieldType, decl.Initializer.Value);
-
-                initializer = exprBinder.BindExpression(decl.Initializer.Value);
-
-                targetType.Dispose();
+                initializer = fieldType is null
+                    ? exprBinder.BindExpression(decl.Initializer.Value)
+                    : exprBinder.BindExpressionWithTargetTypeForSemanticQuery(decl.Initializer.Value, fieldType);
 
                 foreach (var diag in exprBinder.Diagnostics.AsEnumerable())
                     _diagnostics.Report(diag);

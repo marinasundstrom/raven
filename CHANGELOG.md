@@ -10,6 +10,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-26**.
 
 ### Fixed
 
+- Explicitly typed field initializers now apply method-group-to-delegate
+  conversion instead of emitting the delegate's default value.
 - Nested type lookup now respects the authored generic arity consistently in
   type syntax, qualified expressions, aliases, attributes, and semantic-model
   queries, for both source and referenced metadata types.

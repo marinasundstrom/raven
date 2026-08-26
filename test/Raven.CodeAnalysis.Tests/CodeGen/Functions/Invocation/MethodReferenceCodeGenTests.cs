@@ -9,6 +9,43 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class MethodReferenceCodeGenTests
 {
+    [Theory]
+    [InlineData("static val increment: Action = Counter.Increment")]
+    [InlineData("static readonly field increment: Action = Counter.Increment")]
+    public void MethodReference_StaticStoredInitializer_InvokesTarget(string declaration)
+    {
+        var code = $$"""
+import System.*
+
+class Counter {
+    static var value: int = 0
+    static func Increment() { value = value + 1 }
+    {{declaration}}
+
+    public static func Run() -> int {
+        increment()
+        value
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var references = TestMetadataReferences.Default;
+
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(references);
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var run = loaded.Assembly.GetType("Counter", throwOnError: true)!.GetMethod("Run")!;
+
+        Assert.Equal(1, run.Invoke(null, Array.Empty<object>()));
+    }
+
     [Fact]
     public void MethodReference_StaticMethod_InvokesTarget()
     {

@@ -302,11 +302,9 @@ internal partial class TypeMemberBinder : Binder
             if (initializer is null)
             {
                 var exprBinder = new BlockBinder(_containingType, this);
-                var targetType = exprBinder.PushTargetType(propertyType, propertyDecl.Initializer.Value);
-
-                initializer = exprBinder.BindExpression(propertyDecl.Initializer.Value);
-
-                targetType.Dispose();
+                initializer = exprBinder.BindExpressionWithTargetTypeForSemanticQuery(
+                    propertyDecl.Initializer.Value,
+                    propertyType);
 
                 foreach (var diag in exprBinder.Diagnostics.AsEnumerable())
                     _diagnostics.Report(diag);
