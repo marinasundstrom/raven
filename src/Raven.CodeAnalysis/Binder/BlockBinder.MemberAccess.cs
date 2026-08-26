@@ -51,11 +51,23 @@ partial class BlockBinder
             return receiverType;
         }
 
+        Compilation.EnsureSourceTypeDeclarationsDeclared();
+
         var semanticModel = SemanticModel;
-        return semanticModel is not null &&
-            semanticModel.TryEnsureSourceTypeMemberSignatureDeclared(namedReceiverType, memberName, out var ensuredReceiverType)
-                ? ensuredReceiverType
-                : receiverType;
+        if (semanticModel is null)
+            return receiverType;
+
+        var result = receiverType;
+        for (INamedTypeSymbol? current = namedReceiverType; current is not null; current = current.BaseType)
+        {
+            if (!semanticModel.TryEnsureSourceTypeMemberSignatureDeclared(current, memberName, out var ensuredType))
+                continue;
+
+            if (SymbolEqualityComparer.Default.Equals(current, namedReceiverType))
+                result = ensuredType;
+        }
+
+        return result;
     }
 
     private BoundErrorExpression InvocationError(

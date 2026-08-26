@@ -17586,7 +17586,7 @@ partial class BlockBinder : Binder
         memberType = Compilation.ErrorTypeSymbol;
 
         var memberName = assignment.Name.Identifier.ValueText;
-        var members = receiverType.GetMembers(memberName);
+        var members = GetNearestTypeMembers(receiverType, memberName);
 
         var property = members.OfType<IPropertySymbol>().FirstOrDefault();
         if (property is not null)
@@ -17659,7 +17659,7 @@ partial class BlockBinder : Binder
         out ISymbol member)
     {
         member = null!;
-        var members = receiverType.GetMembers(memberName);
+        var members = GetNearestTypeMembers(receiverType, memberName);
 
         foreach (var candidate in members.OfType<IPropertySymbol>())
         {
@@ -17778,7 +17778,7 @@ partial class BlockBinder : Binder
 
             if (instanceType is INamedTypeSymbol namedInstance && namedInstance.TypeKind != TypeKind.Error)
             {
-                foreach (var member in namedInstance.GetMembers("Content"))
+                foreach (var member in GetNearestTypeMembers(namedInstance, "Content"))
                 {
                     if (member is IPropertySymbol { IsStatic: false, IsMutable: true } property)
                     {
@@ -17877,7 +17877,7 @@ partial class BlockBinder : Binder
         }
 
         var name = assignmentName.Identifier.ValueText;
-        var members = named.GetMembers(name);
+        var members = GetNearestTypeMembers(named, name);
 
         IPropertySymbol? property = null;
         IFieldSymbol? field = null;
@@ -18056,6 +18056,21 @@ partial class BlockBinder : Binder
         }
 
         return null;
+    }
+
+    private ImmutableArray<ISymbol> GetNearestTypeMembers(INamedTypeSymbol type, string name)
+    {
+        Compilation.EnsureSourceTypeDeclarationsDeclared();
+
+        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+        {
+            var lookupType = EnsureSourceMemberSignatureDeclaredForExactLookup(current, name) as INamedTypeSymbol ?? current;
+            var members = lookupType.GetMembers(name);
+            if (!members.IsDefaultOrEmpty)
+                return members;
+        }
+
+        return [];
     }
 
     private sealed class TypeSymbolReferenceComparer : IEqualityComparer<ITypeSymbol>

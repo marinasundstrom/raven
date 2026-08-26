@@ -540,4 +540,62 @@ public class ObjectCreationTests : DiagnosticTestBase
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void ObjectInitializer_AssignsInheritedProperty()
+    {
+        const string testCode =
+            """
+            open class View {
+                init() {}
+
+                var Width: int = 0
+            }
+
+            class Button : View {
+                init() {}
+            }
+
+            let button = Button {
+                Width = 42
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ObjectInitializer_UsesInheritedContentProperty()
+    {
+        const string testCode =
+            """
+            open class View {
+                init() {}
+            }
+
+            open class ContentView : View {
+                init() {}
+
+                var Content: View = View()
+            }
+
+            class Page : ContentView {
+                init() {}
+            }
+
+            class Label : View {
+                init() {}
+            }
+
+            let page = Page {
+                Label()
+            }
+            """;
+
+        var verifier = CreateVerifier(testCode);
+
+        verifier.Verify();
+    }
 }

@@ -8,6 +8,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-26**.
 
 - None recorded.
 
+### Fixed
+
+- Fixed member lookup through base classes for object initializers, `with`
+  expressions, inherited content properties, and static members accessed
+  through derived types. This restores ordinary .NET inheritance behavior for
+  framework controls and Raven-authored class hierarchies.
+
 ## 0.1.2 - 2026-08-26
 
 ### Breaking changes

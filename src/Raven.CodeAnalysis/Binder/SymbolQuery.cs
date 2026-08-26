@@ -25,7 +25,7 @@ internal readonly record struct SymbolQuery(
         else if (containingType is not null)
         {
             symbols = IsStatic == true
-                ? containingType.GetMembers(Name)
+                ? ResolveStaticMembersIncludingBaseTypes(containingType, Name)
                 : ResolveInstanceMembersIncludingInterfaces(binder, containingType, Name);
         }
         else
@@ -110,6 +110,30 @@ internal readonly record struct SymbolQuery(
             var objectType = binder.Compilation.GetSpecialType(SpecialType.System_Object);
             if (objectType is not IErrorTypeSymbol)
                 AddFrom(objectType);
+        }
+
+        return results;
+    }
+
+    private static IEnumerable<ISymbol> ResolveStaticMembersIncludingBaseTypes(ITypeSymbol type, string name)
+    {
+        if (type is not INamedTypeSymbol named || named.TypeKind == TypeKind.Interface)
+            return type.GetMembers(name);
+
+        var seenKeys = new HashSet<string>();
+        var results = new List<ISymbol>();
+
+        for (INamedTypeSymbol? current = named; current is not null; current = current.BaseType)
+        {
+            foreach (var member in current.GetMembers(name))
+            {
+                if (IsExplicitInterfaceImplementation(member))
+                    continue;
+
+                var key = GetSignatureKey(member);
+                if (seenKeys.Add(key))
+                    results.Add(member);
+            }
         }
 
         return results;

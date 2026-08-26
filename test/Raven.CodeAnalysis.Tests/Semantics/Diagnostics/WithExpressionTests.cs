@@ -199,4 +199,29 @@ let renamed = newBob with {
 
         verifier.Verify();
     }
+
+    [Fact]
+    public void WithExpression_AssignsInheritedProperty()
+    {
+        const string source = """
+open class Entity {
+    var Name: string = ""
+}
+
+class Person : Entity {
+    func WithName(name: string) -> Person => Person { Name = name }
+}
+
+let person = Person {
+    Name = "Bob"
+}
+let updated = person with {
+    Name = "Ada"
+}
+""";
+
+        var verifier = CreateVerifier(source);
+
+        verifier.Verify();
+    }
 }
