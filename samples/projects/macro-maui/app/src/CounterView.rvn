@@ -1,0 +1,33 @@
+namespace MauiCounter
+
+import Microsoft.Maui.Controls.*
+import Microsoft.Maui.*
+
+public static class CounterView {
+    static func Create(initialCount: int = 0) -> View {
+        var count = initialCount
+        let countLabel = Label {
+            Text = FormatCount(count)
+            FontSize = 32.0
+        }
+        let increment = Command<object?>(func (_) => {
+            count = count + 1
+            countLabel.Text = FormatCount(count)
+        })
+
+        return maui! {
+            <VerticalStackLayout
+                Padding={Thickness(24.0)}
+                Spacing={16.0}
+                VerticalOptions={LayoutOptions.Center}>
+                {countLabel}
+                <Button
+                    Text="Increment"
+                    Command={increment} />
+            </VerticalStackLayout>
+        }
+    }
+
+    private static func FormatCount(count: int) -> string =>
+        "Count: ${count}"
+}

@@ -1,0 +1,11 @@
+<Project Sdk="Raven.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>MauiCounter</AssemblyName>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../macros/MauiMacros.rvnproj" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.100" />
+  </ItemGroup>
+</Project>

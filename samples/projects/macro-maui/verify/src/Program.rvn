@@ -1,0 +1,26 @@
+import System.*
+import Microsoft.Maui.Controls.*
+import MauiCounter.*
+
+func Main() {
+    let layout: VerticalStackLayout = CounterView.Create(2) else {
+        throw InvalidOperationException("CounterView must return a VerticalStackLayout.")
+    }
+    let label: Label = layout.Children[0] else {
+        throw InvalidOperationException("The first child must be the count label.")
+    }
+    let button: Button = layout.Children[1] else {
+        throw InvalidOperationException("The second child must be the increment button.")
+    }
+
+    Require(label.Text == "Count: 2", "CounterView must render the initial count.")
+    Require(button.Text == "Increment", "CounterView must render the action label.")
+    button.Command.Execute(null)
+    Require(label.Text == "Count: 3", "Executing the button command must update the count label.")
+}
+
+func Require(condition: bool, message: string) {
+    if !condition {
+        throw InvalidOperationException(message)
+    }
+}

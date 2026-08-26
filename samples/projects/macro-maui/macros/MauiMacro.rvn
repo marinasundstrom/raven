@@ -1,0 +1,404 @@
+import System.*
+import System.Collections.Immutable.*
+import System.Text.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+import Raven.CodeAnalysis.Text.*
+
+[assembly: RavenCompilerPlugin(typeof(MauiMacro))]
+
+/// Constructs a native MAUI view tree from XML-shaped source.
+///
+/// Attributes assign CLR properties, `{expression}` embeds ordinary Raven
+/// expressions, and `on:Event={handler}` subscribes a native .NET event.
+[MacroAlias("Maui")]
+class MauiMacro : IMacroDefinition, IMacroFragmentProvider, IMacroEmbeddedLanguageProvider {
+    val Name: string => "Maui"
+    val Alias: string? => "maui"
+    val ExpressionResultType: Type? => typeof(Microsoft.Maui.Controls.View)
+
+    func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult {
+        let result = MauiDslParser(context).Parse()
+        if let error: MauiDslError = result.Error {
+            return FreestandingMacroExpansionResult.FromDiagnostic(
+                context.CreateBodyDiagnostic(
+                    error.Span,
+                    error.Message,
+                    code: "MAUI001"))
+        }
+
+        if result.Diagnostics.Length > 0 {
+            return FreestandingMacroExpansionResult.FromDiagnostics(result.Diagnostics)
+        }
+
+        let expression = ParseExpression(
+            result.ExpressionText,
+            context.Syntax.SyntaxTree?.Options)
+        FreestandingMacroExpansionResult.FromExpression(expression)
+    }
+
+    func GetFragmentRegions(
+        context: TokenTreeMacroContext
+    ) -> ImmutableArray<MacroFragmentRegion> {
+        MauiDslParser(context).Parse().Fragments
+    }
+
+    func GetEmbeddedLanguageProjection(
+        context: TokenTreeMacroContext
+    ) -> MacroEmbeddedLanguageProjection? {
+        let result = MauiDslParser(context).Parse()
+        context.CreateEmbeddedLanguageProjection("xml", result.Projection)
+    }
+}
+
+[LocalMacro]
+class MauiDslError(val Span: TextSpan, val Message: string)
+
+[LocalMacro]
+class MauiDslExpansion {
+    val ExpressionText: string
+    val Error: MauiDslError?
+    val Fragments: ImmutableArray<MacroFragmentRegion>
+    val Diagnostics: ImmutableArray<Diagnostic>
+    val Projection: string
+
+    init(
+        expressionText: string,
+        error: MauiDslError?,
+        fragments: ImmutableArray<MacroFragmentRegion>,
+        diagnostics: ImmutableArray<Diagnostic>,
+        projection: string
+    ) {
+        ExpressionText = expressionText
+        Error = error
+        Fragments = fragments
+        Diagnostics = diagnostics
+        Projection = projection
+    }
+}
+
+[LocalMacro]
+class MauiDslParser {
+    private val _context: TokenTreeMacroContext
+    private val _source: string
+    private val _projection: StringBuilder
+    private val _builder = StringBuilder()
+    private var _position: int = 0
+    private var _error: MauiDslError? = null
+    private var _fragments: ImmutableArray<MacroFragmentRegion> = []
+    private var _diagnostics: ImmutableArray<Diagnostic> = []
+
+    init(context: TokenTreeMacroContext) {
+        _context = context
+        _source = context.GetBodyText()
+        _projection = StringBuilder(_source)
+    }
+
+    func Parse() -> MauiDslExpansion {
+        _ = _builder.Append("{")
+        SkipWhitespace()
+        let root = ParseElement()
+        SkipWhitespace()
+        if _error is null && !IsEnd() {
+            ErrorAt(_position, 1, "Expected a single MAUI root view.")
+        }
+        _ = _builder.Append(root + "}")
+
+        MauiDslExpansion(
+            _builder.ToString(),
+            _error,
+            _fragments,
+            _diagnostics,
+            _projection.ToString())
+    }
+
+    private func ParseElement() -> string {
+        let openingPosition = _position
+        if !Consume("<") {
+            ErrorAt(_position, 1, "Expected '<' to start a MAUI view.")
+            return "Microsoft.Maui.Controls.ContentView()"
+        }
+
+        let nameStart = _position
+        let name = ReadName()
+        if name.Length == 0 {
+            ErrorAt(nameStart, 0, "Expected a MAUI view type name.")
+            return "Microsoft.Maui.Controls.ContentView()"
+        }
+        if name.Contains(":") || name.StartsWith(".") || name.EndsWith(".") || name.Contains("..") {
+            ErrorAt(nameStart, name.Length, "MAUI view type names must be simple or dot-qualified names.")
+            return "Microsoft.Maui.Controls.ContentView()"
+        }
+
+        let variableName = _context.CreateUniqueName("mauiView")
+        let typeName = QualifyTypeName(name)
+        let initializer = StringBuilder()
+        SkipWhitespace()
+
+        while _error is null && !IsEnd() && !At(">") && !At("/>") {
+            let attributeStart = _position
+            let attributeName = ReadName()
+            if attributeName.Length == 0 {
+                ErrorAt(_position, 1, "Expected a property, event, or '>'.")
+                return variableName
+            }
+            SkipWhitespace()
+            if !Consume("=") {
+                ErrorAt(_position, 0, "Expected '=' after '" + attributeName + "'.")
+                return variableName
+            }
+            SkipWhitespace()
+
+            var value = ""
+            if At("\"") {
+                value = "\"" + EscapeRavenString(ReadQuotedValue()) + "\""
+            } else if At("{") {
+                value = ParseExpressionSplice()
+            } else {
+                ErrorAt(_position, 1, "Expected a quoted string or Raven expression for '" + attributeName + "'.")
+                return variableName
+            }
+
+            if attributeName.StartsWith("on:", StringComparison.Ordinal) {
+                let eventName = attributeName.Substring(3)
+                if eventName.Length == 0 {
+                    ErrorAt(attributeStart, attributeName.Length, "Expected an event name after 'on:'.")
+                    return variableName
+                }
+                _ = initializer.Append(eventName + " += (" + value + ")\n")
+            } else {
+                _ = initializer.Append(attributeName + " = " + value + "\n")
+            }
+            SkipWhitespace()
+        }
+
+        _ = _builder.Append("let " + variableName + " = " + typeName + " {")
+        _ = _builder.Append(initializer.ToString())
+        _ = _builder.Append("};")
+
+        if Consume("/>") {
+            return variableName
+        }
+        if !Consume(">") {
+            ErrorAt(openingPosition, Math.Max(1, _position - openingPosition), "Expected '>' after MAUI view '" + name + "'.")
+            return variableName
+        }
+
+        var childCount = 0
+        while _error is null && !IsEnd() {
+            SkipWhitespace()
+            if At("</") {
+                Consume("</")
+                let closingStart = _position
+                let closingName = ReadName()
+                SkipWhitespace()
+                if !Consume(">") {
+                    ErrorAt(_position, 0, "Expected '>' after the closing MAUI view name.")
+                } else if closingName != name {
+                    ErrorAt(
+                        closingStart,
+                        closingName.Length,
+                        "Closing MAUI view '" + closingName + "' does not match '" + name + "'.")
+                }
+                return variableName
+            }
+
+            var child = ""
+            if At("<") {
+                child = ParseElement()
+            } else if At("{") {
+                child = ParseExpressionSplice()
+            } else {
+                let textStart = _position
+                let text = ReadText()
+                if !String.IsNullOrWhiteSpace(text) {
+                    ErrorAt(textStart, text.Length, "Text is not implicit MAUI content; use a Label view.")
+                    return variableName
+                }
+                continue
+            }
+
+            childCount = childCount + 1
+            if IsSingleContentContainer(name) {
+                if childCount > 1 {
+                    ErrorAt(openingPosition, name.Length + 1, "MAUI view '" + name + "' accepts only one child in this prototype.")
+                    return variableName
+                }
+                _ = _builder.Append(variableName + ".Content = " + child + ";")
+            } else {
+                _ = _builder.Append(variableName + ".Children.Add(" + child + ");")
+            }
+        }
+
+        if _error is null {
+            ErrorAt(openingPosition, name.Length + 1, "MAUI view '" + name + "' is missing a closing tag.")
+        }
+        variableName
+    }
+
+    private func ParseExpressionSplice() -> string {
+        let spliceStart = _position
+        Consume("{")
+        let expressionStart = _position
+        var expressionEnd = _position
+        var depth = 1
+        var inString = false
+        var escaped = false
+
+        while !IsEnd() && depth > 0 {
+            let current = Current()
+            if inString {
+                if escaped {
+                    escaped = false
+                } else if current == "\\" {
+                    escaped = true
+                } else if current == "\"" {
+                    inString = false
+                }
+                _position = _position + 1
+            } else if current == "\"" {
+                inString = true
+                _position = _position + 1
+            } else if current == "{" {
+                depth = depth + 1
+                _position = _position + 1
+            } else if current == "}" {
+                depth = depth - 1
+                if depth == 0 {
+                    expressionEnd = _position
+                }
+                _position = _position + 1
+            } else {
+                _position = _position + 1
+            }
+        }
+
+        if depth > 0 {
+            ErrorAt(spliceStart, Math.Max(1, _position - spliceStart), "Unterminated Raven expression.")
+            return "null"
+        }
+
+        let untrimmed = _source.Substring(expressionStart, expressionEnd - expressionStart)
+        let expression = untrimmed.Trim()
+        let leadingWhitespace = untrimmed.Length - untrimmed.TrimStart().Length
+        let span = TextSpan(expressionStart + leadingWhitespace, expression.Length)
+        if span.Length == 0 {
+            ErrorAt(spliceStart, _position - spliceStart, "Embedded Raven expressions cannot be empty.")
+            return "null"
+        }
+
+        _fragments = _fragments.Add(_context.CreateFragmentRegion(
+            MacroFragmentKind.Expression,
+            span))
+        Mask(spliceStart, _position)
+        let parsed = _context.ParseExpressionResult(span)
+        _diagnostics = _diagnostics.AddRange(parsed.Diagnostics)
+        expression
+    }
+
+    private func ReadQuotedValue() -> string {
+        Consume("\"")
+        let start = _position
+        while !IsEnd() && !At("\"") {
+            _position = _position + 1
+        }
+        let value = _source.Substring(start, _position - start)
+        if !Consume("\"") {
+            ErrorAt(start - 1, Math.Max(1, _position - start + 1), "Unterminated quoted property value.")
+        }
+        value
+    }
+
+    private func ReadText() -> string {
+        let start = _position
+        while !IsEnd() && !At("<") && !At("{") {
+            _position = _position + 1
+        }
+        _source.Substring(start, _position - start)
+    }
+
+    private func ReadName() -> string {
+        let start = _position
+        while !IsEnd() && IsNameCharacter(Current()) {
+            _position = _position + 1
+        }
+        _source.Substring(start, _position - start)
+    }
+
+    private static func QualifyTypeName(name: string) -> string {
+        if name.Contains(".") { name } else { "Microsoft.Maui.Controls." + name }
+    }
+
+    private static func IsSingleContentContainer(name: string) -> bool {
+        let separator = name.LastIndexOf(".")
+        let simpleName = name.Substring(separator + 1)
+        simpleName == "ContentPage"
+            || simpleName == "ContentView"
+            || simpleName == "ScrollView"
+            || simpleName == "Border"
+    }
+
+    private static func IsNameCharacter(value: string) -> bool {
+        value.Length == 1 && (
+            Char.IsLetterOrDigit(value[0])
+            || value == "-"
+            || value == "_"
+            || value == ":"
+            || value == ".")
+    }
+
+    private func Mask(start: int, end: int) {
+        var position = start
+        while position < end {
+            if _source[position] != '\r' && _source[position] != '\n' {
+                _projection[position] = ' '
+            }
+            position = position + 1
+        }
+    }
+
+    private static func EscapeRavenString(value: string) -> string {
+        value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n")
+    }
+
+    private func SkipWhitespace() {
+        while !IsEnd() && Char.IsWhiteSpace(_source[_position]) {
+            _position = _position + 1
+        }
+    }
+
+    private func At(value: string) -> bool {
+        _position + value.Length <= _source.Length
+            && _source.Substring(_position, value.Length) == value
+    }
+
+    private func Consume(value: string) -> bool {
+        if !At(value) {
+            return false
+        }
+        _position = _position + value.Length
+        true
+    }
+
+    private func Current() -> string {
+        if IsEnd() { "" } else { _source.Substring(_position, 1) }
+    }
+
+    private func IsEnd() -> bool {
+        _position >= _source.Length
+    }
+
+    private func ErrorAt(position: int, length: int, message: string) {
+        if _error is null {
+            _error = MauiDslError(
+                TextSpan(position, Math.Max(0, length)),
+                message)
+        }
+    }
+}
