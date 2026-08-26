@@ -1165,6 +1165,9 @@ internal abstract partial class Binder
     /// <summary>
     /// Lookup a named type by a sequence of name parts (e.g. ["System","Collections","Generic","IEnumerable"]).
     /// The search starts from each provided scope; ambiguity is reported if multiple distinct types match.
+    /// A non-null <paramref name="arity"/> requests an exact terminal-segment arity. A null arity leaves
+    /// the terminal segment open so inference-capable callers can retain a generic definition; when both
+    /// generic and non-generic definitions exist, the non-generic definition is preferred.
     /// </summary>
     protected virtual (INamedTypeSymbol? Definition, bool IsAmbiguous, ImmutableArray<INamedTypeSymbol> Candidates)
         LookupNamedTypeByParts(string[] parts, IReadOnlyList<INamespaceOrTypeSymbol> importedScopes, int? arity = null)
@@ -1213,7 +1216,6 @@ internal abstract partial class Binder
             for (int i = 0; i < nameParts.Length; i++)
             {
                 var part = nameParts[i];
-                var segmentArity = i == nameParts.Length - 1 ? arity ?? 0 : 0;
                 if (string.IsNullOrEmpty(part))
                     return null;
 
@@ -1228,14 +1230,19 @@ internal abstract partial class Binder
                     }
 
                     // Otherwise resolve as a type in this namespace
-                    var named = ns.GetTypeMembers(part, segmentArity);
+                    var named = ns.GetMembers(part).OfType<INamedTypeSymbol>().ToArray();
+                    if (arity is not null && i == nameParts.Length - 1)
+                        named = named.Where(t => t.Arity == arity.Value).ToArray();
                     if (named.Length == 0)
                     {
                         var viaLookupType = LookupTypeInNamespace(ns, part);
                         if (viaLookupType is INamedTypeSymbol lt)
                         {
                             var normalized = NormalizeDefinition(lt);
-                            if (normalized.Arity == segmentArity)
+                            var hasRequestedArity = arity is null ||
+                                i != nameParts.Length - 1 ||
+                                normalized.Arity == arity.Value;
+                            if (hasRequestedArity)
                             {
                                 current = normalized;
                                 continue;
@@ -1267,6 +1274,16 @@ internal abstract partial class Binder
                         continue;
                     }
 
+                    if (arity is null && i == nameParts.Length - 1)
+                    {
+                        var zeroArity = named.FirstOrDefault(static t => t.Arity == 0);
+                        if (zeroArity is not null)
+                        {
+                            current = NormalizeDefinition(zeroArity);
+                            continue;
+                        }
+                    }
+
                     // Multiple types with the same name in the same namespace (possible with metadata + source merges).
                     // Treat as ambiguous by returning null here; caller aggregates ambiguity.
                     return null;
@@ -1274,11 +1291,23 @@ internal abstract partial class Binder
 
                 if (current is ITypeSymbol type)
                 {
-                    var nested = type.GetTypeMembers(part, segmentArity);
+                    var nested = type.GetMembers(part).OfType<INamedTypeSymbol>().ToArray();
+                    if (arity is not null && i == nameParts.Length - 1)
+                        nested = nested.Where(t => t.Arity == arity.Value).ToArray();
                     if (nested.Length == 1)
                     {
                         current = NormalizeDefinition(nested[0]);
                         continue;
+                    }
+
+                    if (arity is null && i == nameParts.Length - 1)
+                    {
+                        var zeroArity = nested.FirstOrDefault(static t => t.Arity == 0);
+                        if (zeroArity is not null)
+                        {
+                            current = NormalizeDefinition(zeroArity);
+                            continue;
+                        }
                     }
 
                     // Not found or ambiguous
