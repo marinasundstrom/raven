@@ -19,6 +19,10 @@ with the standard option:
 dotnet new raven-web -n RavenWeb --framework net10.0
 ```
 
+The Web template selects `Raven.Sdk.Web`, which composes the normal .NET Web
+SDK with Raven's compiler, packages, and ASP.NET Core implicit imports. Other
+desktop templates select the base `Raven.Sdk`.
+
 The browser template is a framework-free .NET WebAssembly application rather
 than a Blazor application. Raven's built-in `[JSImport]`/`[JSExport]` source
 generator demonstrates a typed JavaScript method call, a managed delegate

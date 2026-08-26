@@ -118,7 +118,7 @@ fi
   (cd web && "$SDK_ROOT/bin/rvn" init web --name InstalledWeb)
   (cd nano && "$SDK_ROOT/bin/rvn" init nano --name InstalledNano)
   test -f classlib/src/Library.rvn
-  grep -F '<FrameworkReference Include="Microsoft.AspNetCore.App" />' web/InstalledWeb.rvnproj
+  grep -F "<Project Sdk=\"Raven.Sdk.Web/$SDK_VERSION\">" web/InstalledWeb.rvnproj
   grep -F '<TargetFramework>netnano1.0</TargetFramework>' nano/InstalledNano.rvnproj
 )
 

@@ -90,6 +90,11 @@ dotnet pack "$ROOT_DIR/sdk/Raven.Sdk/Raven.Sdk.csproj" \
   -o "$OUTPUT_DIR" \
   "${COMMON_PROPERTIES[@]}"
 
+dotnet pack "$ROOT_DIR/sdk/Raven.Sdk.Web/Raven.Sdk.Web.csproj" \
+  -c Release \
+  -o "$OUTPUT_DIR" \
+  "${COMMON_PROPERTIES[@]}"
+
 TEMPLATE_STAGE_DIR="$(mktemp -d /tmp/raven-template-package.XXXXXX)"
 cleanup_template_stage() {
   case "$TEMPLATE_STAGE_DIR" in

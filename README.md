@@ -274,9 +274,12 @@ cd HelloRaven
 dotnet run
 ```
 
-The template pins the matching NuGet-resolved `Raven.Sdk`; no compiler or
-MSBuild paths need to be configured. The installed `rvn init`, `rvn build`,
-and `rvn run` commands remain available for the standalone SDK workflow.
+The template pins the matching NuGet-resolved Raven application-model SDK; no
+compiler or MSBuild paths need to be configured. General applications use
+`Raven.Sdk`, while projects created with `raven-web` use `Raven.Sdk.Web` to get
+the normal .NET Web SDK presets through the Raven compiler. The installed
+`rvn init`, `rvn build`, and `rvn run` commands remain available for the
+standalone SDK workflow.
 
 For a framework-free browser app compiled to .NET WebAssembly, install the
 standard `wasm-tools` workload and use `dotnet new raven-browser` or

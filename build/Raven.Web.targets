@@ -1,0 +1,62 @@
+<Project>
+  <!--
+    Microsoft.NET.Sdk.Razor discovers MVC application parts for executable Web
+    projects, then emits their assembly attributes through WriteCodeFragment.
+    CodeDOM has no Raven provider, so preserve the Web SDK discovery contract
+    and replace only the language-specific source-writing portion.
+  -->
+  <Target
+    Name="_DiscoverMvcApplicationParts"
+    Inputs="$(ProjectAssetsFile);$(MSBuildAllProjects)"
+    Outputs="$(_MvcApplicationPartCacheFile)"
+    DependsOnTargets="ResolveAssemblyReferences">
+
+    <ItemGroup>
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.Abstractions" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.ApiExplorer" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.Core" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.Cors" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.DataAnnotations" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.Formatters.Json" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.Formatters.Xml" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.Localization" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.Razor" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.RazorPages" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.TagHelpers" />
+      <_MvcAssemblyName Include="Microsoft.AspNetCore.Mvc.ViewFeatures" />
+    </ItemGroup>
+
+    <FindAssembliesWithReferencesTo Assemblies="@(ReferencePath)" TargetAssemblyNames="@(_MvcAssemblyName)">
+      <Output TaskParameter="ResolvedAssemblies" ItemName="_ApplicationPartAssemblyNames" />
+    </FindAssembliesWithReferencesTo>
+
+    <ItemGroup Condition="'@(_ApplicationPartAssemblyNames)' != ''">
+      <_RavenMvcApplicationPartSourceLine Include="@(_ApplicationPartAssemblyNames->'[assembly: Microsoft.AspNetCore.Mvc.ApplicationParts.ApplicationPart(&quot;%(Identity)&quot;)]')" />
+    </ItemGroup>
+
+    <WriteLinesToFile
+      File="$(_MvcApplicationPartAttributeGeneratedFile)"
+      Lines="@(_RavenMvcApplicationPartSourceLine)"
+      Overwrite="true"
+      WriteOnlyWhenDifferent="true"
+      Condition="'@(_ApplicationPartAssemblyNames)' != ''" />
+
+    <Delete
+      Files="$(_MvcApplicationPartAttributeGeneratedFile)"
+      Condition="'@(_ApplicationPartAssemblyNames)' == '' AND Exists('$(_MvcApplicationPartAttributeGeneratedFile)')" />
+
+    <ItemGroup Condition="Exists('$(_MvcApplicationPartAttributeGeneratedFile)')">
+      <Compile Remove="$(_MvcApplicationPartAttributeGeneratedFile)" />
+      <Compile Include="$(_MvcApplicationPartAttributeGeneratedFile)" />
+      <FileWrites Include="$(_MvcApplicationPartAttributeGeneratedFile)" />
+    </ItemGroup>
+
+    <Touch Files="$(_MvcApplicationPartCacheFile)" AlwaysCreate="true" />
+
+    <ItemGroup>
+      <FileWrites Include="$(_MvcApplicationPartCacheFile)" />
+    </ItemGroup>
+  </Target>
+</Project>

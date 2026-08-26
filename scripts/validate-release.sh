@@ -69,6 +69,12 @@ if [[ "$selected_sdk_version" != "$VERSION" ]]; then
   exit 1
 fi
 
+selected_web_sdk_version="$(sed -n 's/.*"Raven.Sdk.Web"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REPO_ROOT/global.json")"
+if [[ "$selected_web_sdk_version" != "$VERSION" ]]; then
+  echo "global.json selects Raven.Sdk.Web $selected_web_sdk_version, expected $VERSION." >&2
+  exit 1
+fi
+
 assert_contains ".github/workflows/installation.yml" "default: $VERSION"
 assert_contains "README.md" "Raven.Sdk\` version \`$VERSION"
 assert_contains "README.md" "scripts/package-nuget.sh $VERSION"
@@ -111,6 +117,7 @@ if [[ "$CHECK_NUGET_AVAILABLE" == "1" ]]; then
     raven.codeanalysis
     raven.analyzers
     raven.sdk
+    raven.sdk.web
     raven.templates
   )
 

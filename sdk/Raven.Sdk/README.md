@@ -34,6 +34,7 @@ contributes its defaults as ordinary `Import` items:
 </ItemGroup>
 ```
 
-Future SDKs such as `Raven.Sdk.Web` can add their own `Import` items through
-their `Sdk.props`. The compiler consumes the evaluated item collection and does
-not need to recognize individual SDK names.
+Workload SDKs add to the same item model. `Raven.Sdk.Web`, for example, supplies
+the ASP.NET Core and `Microsoft.Extensions` imports associated with
+`Microsoft.NET.Sdk.Web`. The compiler consumes the evaluated item collection
+and does not need to recognize individual SDK names.

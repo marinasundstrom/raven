@@ -1,4 +1,4 @@
-<Project Sdk="Raven.Sdk">
+<Project Sdk="Raven.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <AssemblyName>VehicleCostsApi</AssemblyName>
@@ -6,7 +6,6 @@
     <RunAnalyzers>true</RunAnalyzers>
   </PropertyGroup>
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0-preview.7.26381.103" />
     <PackageReference Include="Microsoft.OpenApi" Version="3.9.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="11.0.0-preview.6.26359.118" />

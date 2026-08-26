@@ -162,6 +162,22 @@ consistent with builds.
 
 Raven project files use the `.rvnproj` extension and the MSBuild-backed project shape.
 
+## Application-model SDKs
+
+The project SDK selects the application's build model and its presets:
+
+| Application model | Project SDK | Underlying .NET SDK |
+| --- | --- | --- |
+| Console, library, and general-purpose applications | `Raven.Sdk` | `Microsoft.NET.Sdk` |
+| ASP.NET Core and Web applications | `Raven.Sdk.Web` | `Microsoft.NET.Sdk.Web` |
+
+ASP.NET Core projects must select `Raven.Sdk.Web`; it supplies the Web SDK's
+framework, build and publish behavior, static-web-assets integration, and
+implicit imports through the Raven compiler pipeline. The `TargetFramework`
+property independently selects the runtime/platform. For example,
+`netnano1.0` remains a target-framework choice under `Raven.Sdk`, not another
+application-model SDK.
+
 ## Generated prelude imports
 
 Raven projects generate a `<ProjectName>.Prelude.g.rvn` source file by default.
@@ -169,9 +185,9 @@ Raven projects generate a `<ProjectName>.Prelude.g.rvn` source file by default.
 `System.Option.*` as evaluated MSBuild `Import` items. Other SDKs selected by
 the project's `Sdk="..."` attribute can contribute additional items, so the
 generated prelude follows the selected application model without compiler-side
-SDK-name checks. Until a dedicated `Raven.Sdk.Web` owns the complete Web preset,
-the web template contributes the same ASP.NET Core and `Microsoft.Extensions`
-namespaces that the .NET Web SDK makes implicit for C#.
+SDK-name checks. `Raven.Sdk.Web` composes `Microsoft.NET.Sdk.Web` and contributes
+the same ASP.NET Core and `Microsoft.Extensions` namespaces that the .NET Web
+SDK makes implicit for C#.
 
 Global imports are hoisted across the compilation, but they still use ordinary
 import binding rules. Namespace imports are the most robust project-file import
@@ -260,8 +276,9 @@ same project properties and explicit package assets. `Raven.Sdk` recognizes
 package, metadata processor, and reduced-runtime compiler defaults missing from
 the stock SDK. Application projects remain standard SDK-style projects and
 contain only their target framework, device package references, and application
-settings. The profile remains a separate build asset so it can later become a
-dedicated `Raven.Sdk.nanoFramework` without changing source or MSBuild items.
+settings. nanoFramework is a target-framework/runtime selection, not a separate
+application-model SDK; its target-specific behavior remains driven by the TFM
+and imported target profile.
 
 See [Getting started with .NET nanoFramework](nanoframework.md) for the build outputs,
 direct `nanoff` deployment commands, and current VS Code debugger integration.
@@ -609,10 +626,11 @@ Raven SDK:
 ```
 
 `Raven.Sdk` composes the standard `Microsoft.NET.Sdk` behavior with Raven's
-compiler targets and implicit lockstep Core and standard-macro packages. A
-generated project therefore uses normal `dotnet restore`, `dotnet build`,
-`dotnet run`, and `dotnet publish` commands without machine-specific MSBuild
-properties.
+compiler targets and implicit lockstep Core and standard-macro packages.
+`Raven.Sdk.Web` provides the same Raven contract on top of
+`Microsoft.NET.Sdk.Web`. A generated project therefore uses normal
+`dotnet restore`, `dotnet build`, `dotnet run`, and `dotnet publish` commands
+without machine-specific MSBuild properties.
 
 Options:
 
@@ -623,8 +641,9 @@ Options:
 - `--list`: list the available scaffold types.
 - `--force`: overwrite scaffold files when they already exist.
 
-The `web` scaffold references the shared ASP.NET Core framework. The `browser`
-scaffold composes `Raven.Sdk` with `Microsoft.NET.Sdk.WebAssembly` and supplies
+The `web` scaffold selects `Raven.Sdk.Web`, which supplies the shared ASP.NET
+Core framework and Web SDK presets. The `browser` scaffold composes `Raven.Sdk`
+with `Microsoft.NET.Sdk.WebAssembly` and supplies
 a framework-free browser host plus Raven's built-in `[JSImport]`/`[JSExport]`
 source generator for calling JavaScript, receiving a managed callback, and
 exposing named Raven methods to JavaScript.

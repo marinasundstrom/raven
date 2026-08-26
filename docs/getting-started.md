@@ -480,7 +480,8 @@ dotnet run
 
 Replace `VERSION` with the Raven release version to install.
 
-The generated `.rvnproj` pins the matching `Raven.Sdk` version. The .NET CLI
+The generated `.rvnproj` pins the matching Raven SDK version; Web projects use
+`Raven.Sdk.Web` and the other desktop templates use `Raven.Sdk`. The .NET CLI
 restores the Raven compiler, Core, and standard macros automatically; no
 `RavenSdkRoot`, `LanguageTargets`, or compiler path needs to be configured.
 
@@ -488,6 +489,10 @@ Use `raven-classlib`, `raven-web`, `raven-browser`, or `raven-nano` for the
 other variants. Console, class-library, and ASP.NET Core templates default to
 `net11.0` in this release. The browser template targets the stable `net10.0`
 WebAssembly toolchain, and the Nano template remains on `netnano1.0`.
+
+The SDK name selects the application model: general projects use `Raven.Sdk`,
+while ASP.NET Core projects must use `Raven.Sdk.Web`. `TargetFramework` is a
+separate choice that selects the runtime/platform.
 
 The installed `rvn` commands select Raven's packaged MSBuild targets before
 delegating to the .NET SDK. A source checkout configures those targets through

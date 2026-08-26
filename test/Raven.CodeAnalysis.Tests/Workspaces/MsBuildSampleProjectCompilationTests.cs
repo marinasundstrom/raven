@@ -35,6 +35,38 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void RavenWebSdk_ComposesDotNetWebSdkAndDeclaresWebImplicitImports()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var sdkDirectory = Path.Combine(repoRoot, "sdk", "Raven.Sdk.Web", "Sdk");
+        var props = XDocument.Load(Path.Combine(sdkDirectory, "Sdk.props"));
+        var targets = XDocument.Load(Path.Combine(sdkDirectory, "Sdk.targets"));
+
+        Assert.Contains(
+            props.Descendants("Import"),
+            static element => element.Attribute("Project")?.Value == "Sdk.props"
+                && element.Attribute("Sdk")?.Value == "Microsoft.NET.Sdk.Web");
+
+        var imports = props.Descendants("Import")
+            .Select(static element => element.Attribute("Include")?.Value)
+            .Where(static value => value is not null)
+            .ToArray();
+
+        Assert.Contains("System", imports);
+        Assert.Contains("System.Net.Http.Json", imports);
+        Assert.Contains("Microsoft.AspNetCore.Builder", imports);
+        Assert.Contains("Microsoft.Extensions.DependencyInjection", imports);
+
+        Assert.Contains(
+            targets.Descendants("Import"),
+            static element => element.Attribute("Project")?.Value == "Sdk.targets"
+                && element.Attribute("Sdk")?.Value == "Microsoft.NET.Sdk.Web");
+        Assert.Contains(
+            targets.Descendants("Import"),
+            static element => element.Attribute("Project")?.Value.EndsWith("Raven.Web.targets", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
     public void RavenLanguageTargets_DisableReferenceAssemblyProduction()
     {
         var repoRoot = GetRepositoryRoot();

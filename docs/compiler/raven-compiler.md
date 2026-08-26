@@ -253,8 +253,9 @@ configuration; the `dotnet new` template adds browser launch settings. See
 The canonical scaffold files are also shipped in the `Raven.Templates` NuGet
 package for `dotnet new raven-console`, `raven-classlib`, `raven-web`,
 `raven-browser`, and `raven-nano`. Both template channels pin the matching
-`Raven.Sdk` package in the generated project so it builds directly through the
-normal .NET CLI.
+Raven SDK package in the generated project so it builds directly through the
+normal .NET CLI. The Web scaffold selects `Raven.Sdk.Web`; other desktop
+scaffolds select `Raven.Sdk`.
 
 ## .NET 11 runtime-async
 

@@ -1,19 +1,7 @@
-<Project Sdk="Raven.Sdk/RavenSdkVersion">
+<Project Sdk="Raven.Sdk.Web/RavenSdkVersion">
   <PropertyGroup>
     <TargetFramework>RavenTargetFramework</TargetFramework>
     <AssemblyName>RavenApp</AssemblyName>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
-  <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <Import Include="System.Net.Http.Json" />
-    <Import Include="Microsoft.AspNetCore.Builder" />
-    <Import Include="Microsoft.AspNetCore.Hosting" />
-    <Import Include="Microsoft.AspNetCore.Http" />
-    <Import Include="Microsoft.AspNetCore.Routing" />
-    <Import Include="Microsoft.Extensions.Configuration" />
-    <Import Include="Microsoft.Extensions.DependencyInjection" />
-    <Import Include="Microsoft.Extensions.Hosting" />
-    <Import Include="Microsoft.Extensions.Logging" />
-  </ItemGroup>
 </Project>

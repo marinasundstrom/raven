@@ -149,6 +149,43 @@ if ! grep -Fq '<packageType name="MSBuildSdk"' <<<"$sdk_nuspec"; then
   exit 1
 fi
 
+web_sdk_package="$PACKAGE_DIR/Raven.Sdk.Web.$VERSION.nupkg"
+if [[ ! -f "$web_sdk_package" ]]; then
+  echo "Missing package: $web_sdk_package" >&2
+  exit 1
+fi
+
+for sdk_entry in \
+  README.md \
+  LICENSE \
+  Sdk/Sdk.props \
+  Sdk/Sdk.targets \
+  build/Raven.Language.targets \
+  build/Raven.Web.targets \
+  tools/rvnc/rvnc.dll \
+  tools/rvnc/rvnc.runtimeconfig.json; do
+  assert_archive_entry "$web_sdk_package" "$sdk_entry"
+done
+
+if ! unzip -p "$web_sdk_package" tools/rvnc/rvnc.runtimeconfig.json | grep -Fq '"tfm": "net11.0"'; then
+  echo "Raven.Sdk.Web does not contain a .NET 11 compiler host." >&2
+  exit 1
+fi
+
+web_sdk_nuspec="$(unzip -p "$web_sdk_package" Raven.Sdk.Web.nuspec)"
+if ! grep -Fq "<version>$VERSION</version>" <<<"$web_sdk_nuspec"; then
+  echo "Incorrect version metadata in $(basename "$web_sdk_package")" >&2
+  exit 1
+fi
+if ! grep -Fq "commit=\"$expected_repository_commit\"" <<<"$web_sdk_nuspec"; then
+  echo "Raven.Sdk.Web was not packed from the current commit $expected_repository_commit." >&2
+  exit 1
+fi
+if ! grep -Fq '<packageType name="MSBuildSdk"' <<<"$web_sdk_nuspec"; then
+  echo "Raven.Sdk.Web is not marked as an MSBuild project SDK." >&2
+  exit 1
+fi
+
 template_package="$PACKAGE_DIR/Raven.Templates.$VERSION.nupkg"
 if [[ ! -f "$template_package" ]]; then
   echo "Missing package: $template_package" >&2
@@ -229,8 +266,12 @@ for template_name in console classlib web browser nano; do
     echo "raven-$template_name left an unsubstituted template token." >&2
     exit 1
   fi
-  if ! grep -Fq "<Project Sdk=\"Raven.Sdk/$VERSION" "$output_dir/$project_name.rvnproj"; then
-    echo "raven-$template_name did not select the matching Raven.Sdk version." >&2
+  expected_sdk="Raven.Sdk"
+  if [[ "$template_name" == "web" ]]; then
+    expected_sdk="Raven.Sdk.Web"
+  fi
+  if ! grep -Fq "<Project Sdk=\"$expected_sdk/$VERSION" "$output_dir/$project_name.rvnproj"; then
+    echo "raven-$template_name did not select the matching $expected_sdk version." >&2
     exit 1
   fi
 done

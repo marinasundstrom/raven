@@ -1,6 +1,4 @@
 import AspNetMinimalApi.Domain.*
-import Microsoft.AspNetCore.Builder.*
-import Microsoft.Extensions.DependencyInjection.*
 
 let builder = WebApplication.CreateBuilder(args)
 builder.Services.AddOpenApi()

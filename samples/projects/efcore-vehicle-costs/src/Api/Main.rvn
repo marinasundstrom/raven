@@ -1,13 +1,6 @@
 namespace Samples.VehicleCosts
 
-import System.*
-import System.Linq.*
-import System.Threading.*
-import System.Threading.Tasks.*
-import Microsoft.AspNetCore.Builder.*
-import Microsoft.AspNetCore.Http.*
 import Microsoft.EntityFrameworkCore.*
-import Microsoft.Extensions.DependencyInjection.*
 
 async func Main(args: string[]) -> Task {
     let builder = WebApplication.CreateBuilder(args)

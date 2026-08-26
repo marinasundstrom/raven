@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RavenPackageReadmePath>$(MSBuildProjectDirectory)\README.md</RavenPackageReadmePath>
+  </PropertyGroup>
+
+  <Import Project="..\..\eng\Package.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageId>Raven.Sdk.Web</PackageId>
+    <Title>Raven Web SDK</Title>
+    <Description>MSBuild project SDK for building Raven ASP.NET Core applications with the .NET Web SDK.</Description>
+    <PackageTags>$(PackageTags);msbuild-sdk;project-sdk;aspnet;web</PackageTags>
+    <PackageType>MSBuildSdk</PackageType>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <IncludeSymbols>false</IncludeSymbols>
+    <RavenCompilerConfiguration Condition="'$(RavenCompilerConfiguration)' == ''">Release</RavenCompilerConfiguration>
+    <!-- The build files are imported by Sdk.props rather than buildTransitive. -->
+    <NoWarn>$(NoWarn);NU5129</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="Sdk\**\*" Pack="true" PackagePath="Sdk" />
+    <None Include="..\..\build\Raven.Language.targets" Pack="true" PackagePath="build" />
+    <None Include="..\..\build\Raven.MSBuild.props" Pack="true" PackagePath="build" />
+    <None Include="..\..\build\Raven.Web.targets" Pack="true" PackagePath="build" />
+    <None Include="..\..\src\Raven.Compiler\bin\$(RavenCompilerConfiguration)\net11.0\**\*"
+          Exclude="..\..\src\Raven.Compiler\bin\$(RavenCompilerConfiguration)\net11.0\linux-*\**;..\..\src\Raven.Compiler\bin\$(RavenCompilerConfiguration)\net11.0\osx-*\**;..\..\src\Raven.Compiler\bin\$(RavenCompilerConfiguration)\net11.0\win-*\**"
+          Pack="true"
+          PackagePath="tools\rvnc" />
+  </ItemGroup>
+
+</Project>

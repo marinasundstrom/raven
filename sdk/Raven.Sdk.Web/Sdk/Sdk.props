@@ -1,0 +1,38 @@
+<Project>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk.Web" />
+
+  <PropertyGroup>
+    <RavenSdkRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))</RavenSdkRoot>
+    <RavenSdkPackageVersion>$([System.IO.Path]::GetFileName('$(RavenSdkRoot)'))</RavenSdkPackageVersion>
+    <ImplicitImports Condition="'$(ImplicitImports)' == '' and '$(ImplicitUsings)' != ''">$(ImplicitUsings)</ImplicitImports>
+    <ImplicitImports Condition="'$(ImplicitImports)' == '' and '$(GeneratePreludeImports)' != ''">$(GeneratePreludeImports)</ImplicitImports>
+    <ImplicitImports Condition="'$(ImplicitImports)' == '' and '$(RavenGeneratePreludeImports)' != ''">$(RavenGeneratePreludeImports)</ImplicitImports>
+    <ImplicitImports Condition="'$(ImplicitImports)' == ''">enable</ImplicitImports>
+    <_RavenSdkProvidesImplicitImports>true</_RavenSdkProvidesImplicitImports>
+    <LanguageTargets>$(RavenSdkRoot)\build\Raven.Language.targets</LanguageTargets>
+    <DefaultLanguageSourceExtension>.rvn</DefaultLanguageSourceExtension>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(ImplicitImports)' == 'true' Or '$(ImplicitImports)' == 'enable'">
+    <Import Include="System" IsImplicitlyDefined="true" />
+    <Import Include="System.Collections" IsImplicitlyDefined="true" />
+    <Import Include="System.Collections.Generic" IsImplicitlyDefined="true" />
+    <Import Include="System.IO" IsImplicitlyDefined="true" />
+    <Import Include="System.Linq" IsImplicitlyDefined="true" />
+    <Import Include="System.Net.Http" Condition="'$(TargetFrameworkIdentifier)' != '.NETFramework'" IsImplicitlyDefined="true" />
+    <Import Include="System.Threading" IsImplicitlyDefined="true" />
+    <Import Include="System.Threading.Tasks" IsImplicitlyDefined="true" />
+    <Import Include="System.Result" Static="true" IsImplicitlyDefined="true" />
+    <Import Include="System.Option" Static="true" IsImplicitlyDefined="true" />
+    <Import Include="System.Net.Http.Json" IsImplicitlyDefined="true" />
+    <Import Include="Microsoft.AspNetCore.Builder" IsImplicitlyDefined="true" />
+    <Import Include="Microsoft.AspNetCore.Hosting" IsImplicitlyDefined="true" />
+    <Import Include="Microsoft.AspNetCore.Http" IsImplicitlyDefined="true" />
+    <Import Include="Microsoft.AspNetCore.Routing" IsImplicitlyDefined="true" />
+    <Import Include="Microsoft.Extensions.Configuration" IsImplicitlyDefined="true" />
+    <Import Include="Microsoft.Extensions.DependencyInjection" IsImplicitlyDefined="true" />
+    <Import Include="Microsoft.Extensions.Hosting" IsImplicitlyDefined="true" />
+    <Import Include="Microsoft.Extensions.Logging" IsImplicitlyDefined="true" />
+  </ItemGroup>
+
+</Project>

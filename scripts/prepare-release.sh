@@ -17,15 +17,17 @@ if [[ -z "$current_version" ]]; then
   exit 1
 fi
 
-if [[ ! "$current_version" =~ ^0\.1\.0-preview\.([0-9]+)(\.[0-9]+)*$ ]]; then
-  echo "Cannot prepare the first stable 0.1.0 release from $current_version." >&2
+if [[ "$current_version" =~ ^0\.1\.0-preview\.([0-9]+)(\.[0-9]+)*$ ]]; then
+  VERSION="0.1.0"
+elif [[ "$current_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+  VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+else
+  echo "Cannot prepare a stable patch release from $current_version." >&2
   exit 1
 fi
 
-VERSION="0.1.0"
-
 if [[ -n "$REQUESTED_VERSION" && "$REQUESTED_VERSION" != "$VERSION" ]]; then
-  echo "The pre-bootstrap release after $current_version is $VERSION, not $REQUESTED_VERSION." >&2
+  echo "The next patch release after $current_version is $VERSION, not $REQUESTED_VERSION." >&2
   exit 2
 fi
 
@@ -50,7 +52,7 @@ fi
 
 release_date="$(date +%F)"
 RELEASE_VERSION="$VERSION" RELEASE_DATE="$release_date" \
-  perl -0pi -e 's/## Unreleased\n/## Unreleased\n\n## $ENV{RELEASE_VERSION} - $ENV{RELEASE_DATE}\n/' \
+  perl -0pi -e 's/## Unreleased\n/## Unreleased\n\n### Breaking changes\n\n- None recorded.\n\n## $ENV{RELEASE_VERSION} - $ENV{RELEASE_DATE}\n\n### Breaking changes\n\n- None.\n/' \
   "$REPO_ROOT/CHANGELOG.md"
 
 "$REPO_ROOT/scripts/validate-release.sh" "$VERSION"
