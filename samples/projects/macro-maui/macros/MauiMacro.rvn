@@ -14,7 +14,7 @@ import Raven.CodeAnalysis.Text.*
 /// Attributes assign CLR properties, `{expression}` embeds ordinary Raven
 /// expressions, and `on:Event={handler}` subscribes a native .NET event.
 [MacroAlias("Maui")]
-class MauiMacro : IMacroDefinition, IMacroFragmentProvider, IMacroEmbeddedLanguageProvider {
+class MauiMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifier, IMacroTokenSymbolProvider, IMacroCompletionProvider, IMacroEmbeddedLanguageProvider {
     val Name: string => "Maui"
     val Alias: string? => "maui"
     val ExpressionResultType: Type? => typeof(Microsoft.Maui.Controls.View)
@@ -45,13 +45,231 @@ class MauiMacro : IMacroDefinition, IMacroFragmentProvider, IMacroEmbeddedLangua
         MauiDslParser(context).Parse().Fragments
     }
 
+    func ClassifyToken(
+        context: TokenTreeMacroContext,
+        token: SyntaxToken
+    ) -> MacroTokenClassification {
+        if token.Kind == SyntaxKind.IdentifierToken {
+            return MacroTokenClassification.Identifier
+        }
+
+        if token.Kind == SyntaxKind.StringLiteralToken
+            || token.Kind == SyntaxKind.MultiLineStringLiteralToken
+            || token.Kind == SyntaxKind.CharacterLiteralToken
+            || token.Kind == SyntaxKind.NumericLiteralToken {
+            return MacroTokenClassification.Literal
+        }
+
+        if token.Kind == SyntaxKind.LessThanToken
+            || token.Kind == SyntaxKind.GreaterThanToken
+            || token.Kind == SyntaxKind.SlashToken
+            || token.Kind == SyntaxKind.EqualsToken
+            || token.Kind == SyntaxKind.OpenBraceToken
+            || token.Kind == SyntaxKind.CloseBraceToken
+            || token.Kind == SyntaxKind.ColonToken
+            || token.Kind == SyntaxKind.MinusToken {
+            return MacroTokenClassification.Punctuation
+        }
+
+        MacroTokenClassification.Default
+    }
+
     func GetEmbeddedLanguageProjection(
         context: TokenTreeMacroContext
     ) -> MacroEmbeddedLanguageProjection? {
         let result = MauiDslParser(context).Parse()
         context.CreateEmbeddedLanguageProjection("xml", result.Projection)
     }
+
+    func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> ISymbol? {
+        if token.Kind != SyntaxKind.IdentifierToken {
+            return null
+        }
+        let body = context.GetBodyText()
+        let tag: MauiOpenTag = FindOpenTag(body, token.Span.Start) else {
+            return null
+        }
+        let controlType: INamedTypeSymbol = FindControlType(context, tag.Name) else {
+            return null
+        }
+        if token.Span.Start >= tag.NameSpan.Start && token.Span.End <= tag.NameSpan.End {
+            return controlType
+        }
+
+        var current: INamedTypeSymbol? = controlType
+        while let currentType: INamedTypeSymbol = current {
+            for member in currentType.GetMembers(token.ValueText) {
+                if member is IPropertySymbol property {
+                    return property
+                }
+                if member is IEventSymbol eventSymbol {
+                    return eventSymbol
+                }
+            }
+            current = currentType.BaseType
+        }
+        null
+    }
+
+    func GetCompletions(
+        context: TokenTreeMacroContext,
+        bodyRelativePosition: int
+    ) -> ImmutableArray<MacroCompletionItem> {
+        let body = context.GetBodyText()
+        let tagSpan: TextSpan = FindTagCompletionSpan(body, bodyRelativePosition) else {
+            return GetAttributeCompletions(context, body, bodyRelativePosition)
+        }
+        let prefix = body.Substring(tagSpan.Start, tagSpan.Length)
+        let controls: INamespaceSymbol = FindNamespace(
+            context.Compilation.GlobalNamespace,
+            "Microsoft.Maui.Controls") else {
+            return []
+        }
+        var items: ImmutableArray<MacroCompletionItem> = []
+        for member in controls.GetMembers() {
+            if member is INamedTypeSymbol type
+                && type.DeclaredAccessibility == Accessibility.Public
+                && !type.IsAbstract
+                && type.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                && IsView(type) {
+                let symbol: ISymbol = type
+                items = items.Add(MacroCompletionItem(
+                    type.Name,
+                    type.Name,
+                    tagSpan,
+                    Description: "MAUI control",
+                    Symbol: symbol))
+            }
+        }
+        items
+    }
+
+    private static func GetAttributeCompletions(
+        context: TokenTreeMacroContext,
+        body: string,
+        position: int
+    ) -> ImmutableArray<MacroCompletionItem> {
+        let span: TextSpan = FindAttributeCompletionSpan(body, position) else {
+            return []
+        }
+        let tag: MauiOpenTag = FindOpenTag(body, span.Start) else {
+            return []
+        }
+        let controlType: INamedTypeSymbol = FindControlType(context, tag.Name) else {
+            return []
+        }
+        let prefix = body.Substring(span.Start, span.Length)
+        var items: ImmutableArray<MacroCompletionItem> = []
+        var current: INamedTypeSymbol? = controlType
+        while let currentType: INamedTypeSymbol = current {
+            for member in currentType.GetMembers() {
+                if member.DeclaredAccessibility != Accessibility.Public {
+                    continue
+                }
+                var label = member.Name
+                var description = "MAUI property"
+                if member is IEventSymbol {
+                    label = "on:" + member.Name
+                    description = "MAUI event"
+                } else if !(member is IPropertySymbol) {
+                    continue
+                }
+                if label.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) {
+                    items = items.Add(MacroCompletionItem(
+                        label,
+                        label,
+                        span,
+                        Description: description,
+                        Symbol: member))
+                }
+            }
+            current = currentType.BaseType
+        }
+        items.Add(MacroCompletionItem("ref", "ref", span, Description: "Typed MAUI control reference"))
+    }
+
+    private static func FindControlType(
+        context: TokenTreeMacroContext,
+        name: string
+    ) -> INamedTypeSymbol? {
+        let metadataName = if name.Contains(".") { name } else { "Microsoft.Maui.Controls." + name }
+        context.Compilation.GetTypeByMetadataName(metadataName)
+    }
+
+    private static func FindNamespace(root: INamespaceSymbol, name: string) -> INamespaceSymbol? {
+        var current: INamespaceSymbol? = root
+        for segment in name.Split(".") {
+            let parent: INamespaceSymbol = current else {
+                return null
+            }
+            current = parent.LookupNamespace(segment)
+        }
+        current
+    }
+
+    private static func IsView(type: INamedTypeSymbol) -> bool {
+        var current: INamedTypeSymbol? = type
+        while let currentType: INamedTypeSymbol = current {
+            if currentType.ToFullyQualifiedMetadataName() == "Microsoft.Maui.Controls.View" {
+                return true
+            }
+            current = currentType.BaseType
+        }
+        false
+    }
+
+    private static func FindOpenTag(body: string, position: int) -> MauiOpenTag? {
+        if body.Length == 0 {
+            return null
+        }
+        let openPosition = body.LastIndexOf("<", Math.Min(position, body.Length - 1))
+        let closePosition = body.LastIndexOf(">", Math.Min(position, body.Length - 1))
+        if 0 > openPosition || closePosition > openPosition || openPosition + 1 >= body.Length || body[openPosition + 1] == '/' {
+            return null
+        }
+        var end = openPosition + 1
+        while end < body.Length && IsMauiNameCharacter(body[end]) {
+            end = end + 1
+        }
+        MauiOpenTag(
+            body.Substring(openPosition + 1, end - openPosition - 1),
+            TextSpan(openPosition + 1, end - openPosition - 1))
+    }
+
+    private static func FindTagCompletionSpan(body: string, position: int) -> TextSpan? {
+        var start = position
+        while start > 0 && IsMauiNameCharacter(body[start - 1]) {
+            start = start - 1
+        }
+        if start == 0 || body[start - 1] != '<' {
+            return null
+        }
+        TextSpan(start, position - start)
+    }
+
+    private static func FindAttributeCompletionSpan(body: string, position: int) -> TextSpan? {
+        if body.Length == 0 {
+            return null
+        }
+        let openPosition = body.LastIndexOf("<", Math.Min(position, body.Length - 1))
+        let closePosition = body.LastIndexOf(">", Math.Min(position, body.Length - 1))
+        if 0 > openPosition || closePosition > openPosition {
+            return null
+        }
+        var start = position
+        while start > openPosition && IsMauiNameCharacter(body[start - 1]) {
+            start = start - 1
+        }
+        TextSpan(start, position - start)
+    }
+
+    private static func IsMauiNameCharacter(value: char) -> bool {
+        Char.IsLetterOrDigit(value) || value == '_' || value == '-' || value == ':' || value == '.'
+    }
 }
+
+[LocalMacro]
+class MauiOpenTag(val Name: string, val NameSpan: TextSpan)
 
 [LocalMacro]
 class MauiDslError(val Span: TextSpan, val Message: string)
@@ -88,7 +306,10 @@ class MauiDslParser {
     private var _position: int = 0
     private var _error: MauiDslError? = null
     private var _fragments: ImmutableArray<MacroFragmentRegion> = []
+    private var _fragmentLocals: ImmutableArray<MacroFragmentLocal> = []
+    private var _referenceNames: ImmutableArray<string> = []
     private var _diagnostics: ImmutableArray<Diagnostic> = []
+    private var _lastSpliceIsCollection = false
 
     init(context: TokenTreeMacroContext) {
         _context = context
@@ -132,9 +353,12 @@ class MauiDslParser {
             return "Microsoft.Maui.Controls.ContentView()"
         }
 
-        let variableName = _context.CreateUniqueName("mauiView")
+        var variableName = _context.CreateUniqueName("mauiView")
         let typeName = QualifyTypeName(name)
         let initializer = StringBuilder()
+        let subscriptions = StringBuilder()
+        var referenceName: string? = null
+        var referenceSpan = TextSpan(0, 0)
         SkipWhitespace()
 
         while _error is null && !IsEnd() && !At(">") && !At("/>") {
@@ -151,32 +375,60 @@ class MauiDslParser {
             }
             SkipWhitespace()
 
-            var value = ""
-            if At("\"") {
-                value = "\"" + EscapeRavenString(ReadQuotedValue()) + "\""
-            } else if At("{") {
-                value = ParseExpressionSplice()
-            } else {
-                ErrorAt(_position, 1, "Expected a quoted string or Raven expression for '" + attributeName + "'.")
-                return variableName
-            }
-
-            if attributeName.StartsWith("on:", StringComparison.Ordinal) {
-                let eventName = attributeName.Substring(3)
-                if eventName.Length == 0 {
-                    ErrorAt(attributeStart, attributeName.Length, "Expected an event name after 'on:'.")
+            if attributeName == "ref" {
+                if referenceName is not null {
+                    ErrorAt(attributeStart, attributeName.Length, "A MAUI view can declare only one ref.")
                     return variableName
                 }
-                _ = initializer.Append(eventName + " += (" + value + ")\n")
+                let parsedReference = ParseReference()
+                referenceName = parsedReference.Name
+                referenceSpan = parsedReference.Span
+                variableName = parsedReference.Name
             } else {
-                _ = initializer.Append(attributeName + " = " + value + "\n")
+                var value = ""
+                if At("\"") {
+                    value = ConvertQuotedValue(typeName, attributeName, ReadQuotedValue())
+                } else if At("{") {
+                    value = ParseExpressionSplice()
+                } else {
+                    ErrorAt(_position, 1, "Expected a quoted string or Raven expression for '" + attributeName + "'.")
+                    return variableName
+                }
+
+                if attributeName.StartsWith("on:", StringComparison.Ordinal) {
+                    let eventName = attributeName.Substring(3)
+                    if eventName.Length == 0 {
+                        ErrorAt(attributeStart, attributeName.Length, "Expected an event name after 'on:'.")
+                        return variableName
+                    }
+                    _ = subscriptions.Append("." + eventName + " += (" + value + ");")
+                } else {
+                    _ = initializer.Append(attributeName + " = " + value + "\n")
+                }
             }
             SkipWhitespace()
+        }
+
+        if let localName: string = referenceName {
+            if _referenceNames.Contains(localName) {
+                ErrorAt(referenceSpan.Start, referenceSpan.Length, "The MAUI ref '" + localName + "' is already declared.")
+                return variableName
+            }
+            _referenceNames = _referenceNames.Add(localName)
+            var referenceType: ITypeSymbol = _context.Compilation.ErrorTypeSymbol
+            if let resolvedType: ITypeSymbol = _context.Compilation.GetTypeByMetadataName(typeName) {
+                referenceType = resolvedType
+            }
+            _fragmentLocals = _fragmentLocals.Add(
+                _context.CreateFragmentLocal(localName, referenceType, referenceSpan))
         }
 
         _ = _builder.Append("let " + variableName + " = " + typeName + " {")
         _ = _builder.Append(initializer.ToString())
         _ = _builder.Append("};")
+        if subscriptions.Length > 0 {
+            _ = _builder.Append(variableName + subscriptions.ToString())
+        }
 
         if Consume("/>") {
             return variableName
@@ -208,6 +460,7 @@ class MauiDslParser {
             var child = ""
             if At("<") {
                 child = ParseElement()
+                _lastSpliceIsCollection = false
             } else if At("{") {
                 child = ParseExpressionSplice()
             } else {
@@ -228,7 +481,14 @@ class MauiDslParser {
                 }
                 _ = _builder.Append(variableName + ".Content = " + child + ";")
             } else {
-                _ = _builder.Append(variableName + ".Children.Add(" + child + ");")
+                if _lastSpliceIsCollection {
+                    let childName = _context.CreateUniqueName("mauiChild")
+                    _ = _builder.Append("for " + childName + " in " + child + " {")
+                    _ = _builder.Append(variableName + ".Children.Add(" + childName + ")")
+                    _ = _builder.Append("};")
+                } else {
+                    _ = _builder.Append(variableName + ".Children.Add(" + child + ");")
+                }
             }
         }
 
@@ -238,7 +498,27 @@ class MauiDslParser {
         variableName
     }
 
+    private func ParseReference() -> MauiReference {
+        let referenceStart = _position
+        if !Consume("{") {
+            ErrorAt(_position, 1, "Expected a Raven identifier in braces for 'ref'.")
+            return MauiReference("mauiRef", TextSpan(_position, 0))
+        }
+        SkipWhitespace()
+        let nameStart = _position
+        let name = ReadName()
+        let nameSpan = TextSpan(nameStart, name.Length)
+        SkipWhitespace()
+        if name.Length == 0 || !IsIdentifier(name) || !Consume("}") {
+            ErrorAt(referenceStart, Math.Max(1, _position - referenceStart), "A MAUI ref must contain one Raven identifier.")
+            return MauiReference("mauiRef", nameSpan)
+        }
+        Mask(referenceStart, _position)
+        MauiReference(name, nameSpan)
+    }
+
     private func ParseExpressionSplice() -> string {
+        _lastSpliceIsCollection = false
         let spliceStart = _position
         Consume("{")
         let expressionStart = _position
@@ -291,10 +571,14 @@ class MauiDslParser {
 
         _fragments = _fragments.Add(_context.CreateFragmentRegion(
             MacroFragmentKind.Expression,
-            span))
+            span,
+            _fragmentLocals))
         Mask(spliceStart, _position)
         let parsed = _context.ParseExpressionResult(span)
         _diagnostics = _diagnostics.AddRange(parsed.Diagnostics)
+        if parsed.Syntax is CollectionExpressionSyntax collection {
+            _lastSpliceIsCollection = true
+        }
         expression
     }
 
@@ -331,6 +615,60 @@ class MauiDslParser {
         if name.Contains(".") { name } else { "Microsoft.Maui.Controls." + name }
     }
 
+    private func ConvertQuotedValue(typeName: string, propertyName: string, value: string) -> string {
+        let escapedValue = "\"" + EscapeRavenString(value) + "\""
+        let controlType: INamedTypeSymbol = _context.Compilation.GetTypeByMetadataName(typeName) else {
+            return escapedValue
+        }
+        let property: IPropertySymbol = FindProperty(controlType, propertyName) else {
+            return escapedValue
+        }
+        let propertyTypeName = property.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
+        if property.Type.SpecialType == SpecialType.System_String {
+            return escapedValue
+        }
+
+        for attribute in property.GetAttributes() {
+            if attribute.AttributeClass.ToFullyQualifiedMetadataName()
+                != "System.ComponentModel.TypeConverterAttribute"
+                || attribute.ConstructorArguments.Length == 0 {
+                continue
+            }
+            let converterType: ITypeSymbol = attribute.ConstructorArguments[0].Value else {
+                continue
+            }
+            return WrapConvertedValue(
+                propertyTypeName,
+                converterType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
+                    + "().ConvertFromInvariantString(" + escapedValue + ")")
+        }
+
+        WrapConvertedValue(
+            propertyTypeName,
+            "System.ComponentModel.TypeDescriptor.GetConverter(typeof("
+                + propertyTypeName + ")).ConvertFromInvariantString(" + escapedValue + ")")
+    }
+
+    private func WrapConvertedValue(typeName: string, expression: string) -> string {
+        let localName = _context.CreateUniqueName("mauiConverted")
+        "{ let " + localName + ": " + typeName + " = " + expression
+            + " else { throw System.InvalidOperationException(\"MAUI value conversion failed.\") }; "
+            + localName + " }"
+    }
+
+    private static func FindProperty(type: INamedTypeSymbol, name: string) -> IPropertySymbol? {
+        var current: INamedTypeSymbol? = type
+        while let currentType: INamedTypeSymbol = current {
+            for member in currentType.GetMembers(name) {
+                if let property: IPropertySymbol = member {
+                    return property
+                }
+            }
+            current = currentType.BaseType
+        }
+        null
+    }
+
     private static func IsSingleContentContainer(name: string) -> bool {
         let separator = name.LastIndexOf(".")
         let simpleName = name.Substring(separator + 1)
@@ -347,6 +685,20 @@ class MauiDslParser {
             || value == "_"
             || value == ":"
             || value == ".")
+    }
+
+    private static func IsIdentifier(value: string) -> bool {
+        if value.Length == 0 || !(Char.IsLetter(value[0]) || value[0] == '_') {
+            return false
+        }
+        var index = 1
+        while index < value.Length {
+            if !(Char.IsLetterOrDigit(value[index]) || value[index] == '_') {
+                return false
+            }
+            index = index + 1
+        }
+        true
     }
 
     private func Mask(start: int, end: int) {
@@ -402,3 +754,6 @@ class MauiDslParser {
         }
     }
 }
+
+[LocalMacro]
+class MauiReference(val Name: string, val Span: TextSpan)

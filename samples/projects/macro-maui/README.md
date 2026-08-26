@@ -1,75 +1,108 @@
-# MAUI view macro
+# Declarative MAUI components
 
-This experimental sample composes native .NET MAUI controls from Raven. The
-`maui!` macro owns an XML-shaped region and expands it into ordinary Raven
-object construction, property assignment, child collection calls, and .NET
-event subscriptions. It does not introduce a second UI runtime or place the
-Blazor component model over MAUI.
+This experimental sample recreates a component-like declarative authoring
+experience on top of the existing .NET MAUI APIs. Both macros run at compile
+time. Their output is an ordinary MAUI control tree and an ordinary public
+`ContentView` subclass; there is no Raven renderer, virtual control tree, or
+runtime component framework between the application and MAUI.
 
 ```raven
-public static class CounterView {
-    static func Create(initialCount: int = 0) -> View {
-        var count = initialCount
-        let countLabel = Label {
-            Text = "Count: ${count}"
-            FontSize = 32.0
-        }
-        let increment = Command<object?>(func (_) => {
-            count = count + 1
-            countLabel.Text = "Count: ${count}"
-        })
+public component! CounterView(InitialCount: int = 0) {
+    var count = InitialCount
 
-        return maui! {
-            <VerticalStackLayout
-                Padding={Thickness(24.0)}
-                Spacing={16.0}>
-                {countLabel}
-                <Button Text="Increment" Command={increment} />
-            </VerticalStackLayout>
-        }
+    maui! {
+        <VerticalStackLayout Spacing="16.0">
+            <Label ref={countLabel} Text={"Count: ${count}"} />
+            {IncrementButton {
+                Increment = func () => {
+                    count = count + 1
+                    countLabel.Text = "Count: ${count}"
+                }
+            }}
+            {[for caption in ["Declarative Raven", "Native MAUI"] =>
+                Label { Text = caption }]}
+        </VerticalStackLayout>
     }
 }
 ```
 
-The function creates a fresh `VerticalStackLayout` for each call. The label is
-ordinary Raven-authored setup code embedded as a child, while the button is
-constructed by the macro. Executing the native MAUI `Command` updates the
-captured count and label directly.
+The two macros have separate responsibilities:
 
-## What the prototype supports
+- `component!` generates a public `ContentView` subclass. Typed inputs become
+  public CLR properties backed by public static MAUI `BindableProperty`
+  identifiers, including native property-changed callbacks.
+- `maui!` expands XML-shaped source into direct control construction, CLR
+  property assignments, native `Children.Add` calls, and .NET event
+  subscriptions.
 
-- a single root MAUI view;
-- simple or fully qualified MAUI control type names;
-- quoted strings for string properties;
-- `{ RavenExpression }` property values and children;
-- multiple children for MAUI layouts through `Children.Add`;
-- one child for `ContentPage`, `ContentView`, `ScrollView`, and `Border`;
-- `on:Event={handler}` for ordinary .NET event subscription; and
-- XML projection plus Raven expression fragments for editor tooling.
+The list comprehension is ordinary Raven. Its resulting controls are projected
+directly into the layout's native child collection. This is the important
+difference from XAML: control flow, list comprehensions, pattern matching, local
+functions, and other Raven expressions can participate in view construction
+without introducing a second UI object model.
 
-The first slice intentionally does not implement bindings, converters, XAML
-markup extensions, resources, styles, data templates, or hot reload. Property
-names are CLR names, so the generated code remains close to the native MAUI
-object model.
+## Attribute conventions
+
+Quoted attributes follow XAML's convenient value syntax:
+
+```raven
+<Label Text="test" FontSize="32.0" />
+<VerticalStackLayout Spacing="16.0" />
+```
+
+The macro resolves the target CLR property and uses its
+`TypeConverterAttribute`, or the property's normal .NET type converter, to
+produce the target value. A braced value is an ordinary Raven expression and is
+not converted from text:
+
+```raven
+<Label Text={formatCount(count)} />
+<VerticalStackLayout Padding={Thickness(24.0)} />
+```
+
+`ref={name}` introduces a typed Raven local for the constructed control, and
+`on:Clicked={handler}` subscribes the native MAUI event. Nested Raven-authored
+components are normal controls and can be inserted with a Raven expression.
+
+## Native MAUI interoperability
+
+The generated component can be created by any .NET application and can also be
+consumed from XAML:
+
+```xml
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:raven="clr-namespace:MauiCounter;assembly=MauiCounter">
+    <raven:CounterView InitialCount="2" />
+</ContentPage>
+```
+
+The host project compiles this XAML against the Raven-generated assembly. That
+keeps the public boundary at the MAUI control ABI: `ContentView`,
+`BindableProperty`, CLR properties, events, and MAUI child collections.
+
+## Editor experience
+
+The `maui!` body is projected as XML while each braced region is registered as
+a Raven expression fragment. The macro also provides MAUI control and
+property/event completion, symbol resolution, and typed `ref` locals. Editors
+therefore retain XML-shaped syntax highlighting without treating embedded Raven
+code as XML text.
 
 ## Projects
 
 ```text
 macro-maui/
-├── macros/   Raven-authored `maui!` compiler plugin
-├── app/      Raven `CounterView` library using native MAUI controls
-├── verify/   headless Raven executable that exercises the generated tree
-└── host/     Android and Mac Catalyst MAUI application shells
+├── macros/   Raven compiler plugins for `component!` and `maui!`
+├── app/      Raven component library
+├── verify/   headless executable testing the generated native tree
+└── host/     MAUI application consuming the component from XAML
 ```
-
-The verifier checks the initial label and button, executes the button command,
-and confirms that the label changes from `Count: 2` to `Count: 3`.
 
 ## Build and verify
 
-This sample depends on inherited .NET member lookup fixed after Raven 0.1.2.
-Until 0.1.3 is available, build it from the repository root with the current
-compiler host:
+This sample depends on compiler fixes made after Raven 0.1.2. Until 0.1.3 is
+available, use the compiler built from this repository:
 
 ```bash
 dotnet build src/Raven.Compiler/Raven.Compiler.csproj --property WarningLevel=0
@@ -80,18 +113,7 @@ dotnet run \
   --property:RavenCompilerHost="$PWD/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll"
 ```
 
-With Raven 0.1.3 or later, the `RavenCompilerHost` override should not be
-needed.
-
-Build the Android host when an Android SDK is installed:
-
-```bash
-dotnet build samples/projects/macro-maui/host/MauiCounter.Host.csproj \
-  --framework net10.0-android \
-  --property:RavenCompilerHost="$PWD/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll"
-```
-
-Build the Mac Catalyst host with a matching Xcode installation:
+Build the Mac Catalyst XAML host with a matching Xcode installation:
 
 ```bash
 dotnet build samples/projects/macro-maui/host/MauiCounter.Host.csproj \
@@ -99,16 +121,15 @@ dotnet build samples/projects/macro-maui/host/MauiCounter.Host.csproj \
   --property:RavenCompilerHost="$PWD/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll"
 ```
 
-For local compile validation when the installed Xcode is older than the MAUI
-workload's recommended version, the host can be built with framework-only
-linking:
+For compile-only validation with an older installed Xcode, add
+`--property:ValidateXcodeVersion=false --property:MtouchLink=SdkOnly`. Those
+overrides are not publishing settings.
 
-```bash
-dotnet build samples/projects/macro-maui/host/MauiCounter.Host.csproj \
-  --framework net10.0-maccatalyst \
-  --property:ValidateXcodeVersion=false \
-  --property:MtouchLink=SdkOnly \
-  --property:RavenCompilerHost="$PWD/src/Raven.Compiler/bin/Debug/net11.0/rvnc.dll"
-```
+## Current scope
 
-That override is for local validation, not a publishing configuration.
+The prototype deliberately generates controls eagerly and rebuilds component
+content when an input bindable property changes. It does not yet provide keyed
+reconciliation, collection-change tracking, bindings, resources, styles, data
+templates, or hot reload. Those features should continue to use native MAUI
+facilities where they fit; helpers should be introduced only for behavior that
+cannot be expressed cleanly through the existing MAUI ABI.

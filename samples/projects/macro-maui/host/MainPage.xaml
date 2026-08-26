@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="MauiCounter.Host.MainPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:raven="clr-namespace:MauiCounter;assembly=MauiCounter"
+    Title="Raven MAUI Counter">
+    <raven:CounterView InitialCount="2" />
+</ContentPage>

@@ -3,31 +3,38 @@ namespace MauiCounter
 import Microsoft.Maui.Controls.*
 import Microsoft.Maui.*
 
-public static class CounterView {
-    static func Create(initialCount: int = 0) -> View {
-        var count = initialCount
-        let countLabel = Label {
-            Text = FormatCount(count)
-            FontSize = 32.0
-        }
-        let increment = Command<object?>(func (_) => {
-            count = count + 1
-            countLabel.Text = FormatCount(count)
-        })
+public component! IncrementButton(Increment: () -> unit = func () => {}) {
+    let increment = Increment
 
-        return maui! {
-            <VerticalStackLayout
-                Padding={Thickness(24.0)}
-                Spacing={16.0}
-                VerticalOptions={LayoutOptions.Center}>
-                {countLabel}
-                <Button
-                    Text="Increment"
-                    Command={increment} />
-            </VerticalStackLayout>
-        }
+    maui! {
+        <Button
+            Text="Increment"
+            on:Clicked={func (_, _) => increment()} />
     }
+}
 
-    private static func FormatCount(count: int) -> string =>
-        "Count: ${count}"
+public component! CounterView(InitialCount: int = 0) {
+    var count = InitialCount
+
+    maui! {
+        <VerticalStackLayout
+            Padding={Thickness(24.0)}
+            Spacing="16.0"
+            VerticalOptions={LayoutOptions.Center}>
+            <Label
+                ref={countLabel}
+                Text={"Count: ${count}"}
+                FontSize="32.0" />
+            {IncrementButton {
+                Increment = func () => {
+                    count = count + 1
+                    countLabel.Text = "Count: ${count}"
+                }
+            }}
+            <HorizontalStackLayout Spacing="8.0">
+                {[for caption in ["Declarative Raven", "Native MAUI"] =>
+                    Label { Text = caption }]}
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+    }
 }

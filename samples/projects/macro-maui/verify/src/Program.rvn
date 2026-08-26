@@ -3,20 +3,52 @@ import Microsoft.Maui.Controls.*
 import MauiCounter.*
 
 func Main() {
-    let layout: VerticalStackLayout = CounterView.Create(2) else {
-        throw InvalidOperationException("CounterView must return a VerticalStackLayout.")
+    let descriptor: System.Reflection.FieldInfo = typeof(CounterView).GetField("InitialCountProperty") else {
+        throw InvalidOperationException(
+            "A component input must expose its native MAUI BindableProperty identifier.")
+    }
+    let property: System.Reflection.PropertyInfo = typeof(CounterView).GetProperty("InitialCount") else {
+        throw InvalidOperationException(
+            "A component input must expose its public CLR property wrapper.")
+    }
+    Require(
+        descriptor.FieldType == typeof(BindableProperty) && descriptor.IsStatic && descriptor.IsInitOnly,
+        "A bindable property identifier must be a static readonly BindableProperty field.")
+    Require(
+        property.PropertyType == typeof(int) && property.CanRead && property.CanWrite,
+        "A component input must expose a readable and writable CLR property of the declared type.")
+
+    let component = CounterView { InitialCount = 2 }
+    let layout: VerticalStackLayout = component.Content else {
+        throw InvalidOperationException("CounterView content must be a VerticalStackLayout.")
     }
     let label: Label = layout.Children[0] else {
         throw InvalidOperationException("The first child must be the count label.")
     }
-    let button: Button = layout.Children[1] else {
-        throw InvalidOperationException("The second child must be the increment button.")
+    let controls: IncrementButton = layout.Children[1] else {
+        throw InvalidOperationException("The second child must be the increment component.")
+    }
+    let button: Button = controls.Content else {
+        throw InvalidOperationException("IncrementButton content must be a Button.")
     }
 
     Require(label.Text == "Count: 2", "CounterView must render the initial count.")
     Require(button.Text == "Increment", "CounterView must render the action label.")
-    button.Command.Execute(null)
-    Require(label.Text == "Count: 3", "Executing the button command must update the count label.")
+    Require(layout.Children.Count == 3, "CounterView must preserve the nested layout as one child.")
+    let captions: HorizontalStackLayout = layout.Children[2] else {
+        throw InvalidOperationException("The third child must contain the projected captions.")
+    }
+    Require(captions.Children.Count == 2, "CounterView must render list-comprehension children.")
+    let firstCaption: Label = captions.Children[0] else {
+        throw InvalidOperationException("The first projected caption must be a Label.")
+    }
+    let secondCaption: Label = captions.Children[1] else {
+        throw InvalidOperationException("The second projected caption must be a Label.")
+    }
+    Require(firstCaption.Text == "Declarative Raven", "The first projected caption must preserve its value.")
+    Require(secondCaption.Text == "Native MAUI", "The second projected caption must preserve its value.")
+    button.SendClicked()
+    Require(label.Text == "Count: 3", "Clicking the button must update the count label.")
 }
 
 func Require(condition: bool, message: string) {

@@ -1,0 +1,185 @@
+import System.Collections.Immutable.*
+import System.Text.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.SyntaxFactory.*
+import Raven.CodeAnalysis.Text.*
+
+[assembly: RavenCompilerPlugin(typeof(MauiComponentMacro))]
+
+/// Declares a function-style MAUI component backed by a native ContentView.
+///
+/// Typed inputs become native MAUI bindable properties. The body is ordinary
+/// Raven code whose final expression supplies the component content. The
+/// generated class forms the native MAUI interoperability boundary rather than
+/// the authored programming model.
+class MauiComponentMacro : IMacroDefinition, IMacroFragmentProvider {
+    val Name: string => "MauiComponent"
+    val Alias: string? => "component"
+
+    func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion> {
+        let declaration: FreestandingMacroDeclarationSyntax = context.Syntax else {
+            return []
+        }
+        var fragmentParameters: ImmutableArray<MacroFragmentLocal> = []
+        if let parameterList: ParameterListSyntax = declaration.ParameterList {
+            for parameter in parameterList.Parameters {
+                let typeAnnotation: TypeAnnotationClauseSyntax = parameter.TypeAnnotation else {
+                    continue
+                }
+                let parameterType: ITypeSymbol = context.SemanticModel.GetTypeInfo(typeAnnotation.Type).ConvertedType else {
+                    continue
+                }
+                fragmentParameters = fragmentParameters.Add(context.CreateFragmentParameter(
+                    parameter.Identifier.ValueText,
+                    parameterType,
+                    parameter.Identifier.Span))
+            }
+        }
+
+        [context.CreateFragmentRegion(
+            MacroFragmentKind.Block,
+            TextSpan(0, context.BodySpan.Length),
+            fragmentParameters)]
+    }
+
+    func Expand(
+        declaration: FreestandingMacroDeclarationSyntax,
+        body: IMacroTokenStream,
+        context: TokenTreeMacroContext
+    ) -> MemberDeclarationSyntax {
+        body.PeekToken()
+
+        let source = StringBuilder()
+        let componentName = declaration.Identifier.ValueText
+        source.Append("public class ")
+        source.Append(componentName)
+        source.Append(" : Microsoft.Maui.Controls.ContentView {")
+
+        if let callbackParameters: ParameterListSyntax = declaration.ParameterList {
+            for parameter in callbackParameters.Parameters {
+                if parameter.TypeAnnotation is null {
+                    continue
+                }
+                let parameterName = parameter.Identifier.ValueText
+                source.Append("private static func On")
+                source.Append(parameterName)
+                source.Append("Changed(bindable: Microsoft.Maui.Controls.BindableObject, oldValue: object?, newValue: object?) {")
+                source.Append("let component: ")
+                source.Append(componentName)
+                source.Append(" = bindable else { return }; component.Rebuild()")
+                source.Append("}")
+            }
+        }
+
+        if let propertyParameters: ParameterListSyntax = declaration.ParameterList {
+            for parameter in propertyParameters.Parameters {
+                let typeAnnotation: TypeAnnotationClauseSyntax = parameter.TypeAnnotation else {
+                    continue
+                }
+                let parameterName = parameter.Identifier.ValueText
+                let typeName = typeAnnotation.Type.ToString()
+                var defaultValue = "default(" + typeName + ")"
+                if let initializer: EqualsValueClauseSyntax = parameter.DefaultValue {
+                    defaultValue = initializer.Value.ToString()
+                }
+
+                source.Append("private static val ")
+                source.Append(parameterName)
+                source.Append("ChangedCallback: Microsoft.Maui.Controls.BindableProperty.BindingPropertyChangedDelegate = ")
+                source.Append(componentName)
+                source.Append(".On")
+                source.Append(parameterName)
+                source.Append("Changed;")
+
+                source.Append("static readonly field ")
+                source.Append(parameterName)
+                source.Append("Property: Microsoft.Maui.Controls.BindableProperty = ")
+                source.Append("Microsoft.Maui.Controls.BindableProperty.Create(")
+                source.Append("\"")
+                source.Append(parameterName)
+                source.Append("\", typeof(")
+                source.Append(typeName)
+                source.Append("), typeof(")
+                source.Append(componentName)
+                source.Append("), ")
+                source.Append(defaultValue)
+                source.Append(", propertyChanged: ")
+                source.Append(parameterName)
+                source.Append("ChangedCallback);")
+
+                source.Append("var ")
+                source.Append(parameterName)
+                source.Append(": ")
+                source.Append(typeName)
+                source.Append(" {")
+                source.Append("get => (")
+                source.Append(typeName)
+                source.Append(")GetValue(")
+                source.Append(parameterName)
+                source.Append("Property); ")
+                source.Append("set { SetValue(")
+                source.Append(parameterName)
+                source.Append("Property, value) }")
+                source.Append("}")
+
+            }
+        }
+
+        source.Append("init() { Rebuild() }")
+        source.Append("private func Rebuild() { Content = BuildContent() }")
+        source.Append("private func BuildContent() -> Microsoft.Maui.Controls.View {")
+
+        let bodyText = context.GetBodyText()
+        let probePrefix = "class __MauiComponentProbe { init() {"
+        let probeTree = ParseSyntaxTree(probePrefix + bodyText + "} }")
+        let probeClass: ClassDeclarationSyntax = probeTree.GetRoot().Members[0] else {
+            return declaration
+        }
+        let probeConstructor: ConstructorDeclarationSyntax = probeClass.Members[0] else {
+            return declaration
+        }
+        let probeBody: BlockStatementSyntax = probeConstructor.Body else {
+            return declaration
+        }
+
+        var contentOffset = -1
+        if probeBody.Statements.Count > 0
+            && probeBody.Statements[probeBody.Statements.Count - 1] is ExpressionStatementSyntax expressionStatement {
+            contentOffset = expressionStatement.Span.Start - probePrefix.Length
+        }
+
+        var buildBody = bodyText
+        if contentOffset >= 0 {
+            buildBody = bodyText.Insert(contentOffset, "return ")
+        }
+        let expandedBodyStart = source.Length
+        source.Append(buildBody)
+        source.Append("}")
+        source.Append("}")
+
+        let tree = ParseSyntaxTree(source.ToString())
+        let component = tree.GetRoot().Members[0]
+
+        var sourceMaps: ImmutableArray<MacroExpansionSourceMap> = []
+        if contentOffset > 0 {
+            sourceMaps = sourceMaps.Add(MacroExpansionSourceMap(
+                TextSpan(expandedBodyStart, contentOffset),
+                TextSpan(0, contentOffset)))
+        }
+        if contentOffset >= 0 {
+            sourceMaps = sourceMaps.Add(MacroExpansionSourceMap(
+                TextSpan(
+                    expandedBodyStart + contentOffset + "return ".Length,
+                    bodyText.Length - contentOffset),
+                TextSpan(contentOffset, bodyText.Length - contentOffset)))
+        } else {
+            sourceMaps = sourceMaps.Add(MacroExpansionSourceMap(
+                TextSpan(expandedBodyStart, bodyText.Length),
+                TextSpan(0, bodyText.Length)))
+        }
+
+        context.WithOrigins(component, sourceMaps)
+    }
+}
