@@ -1,8 +1,10 @@
 using System;
+using System.IO;
 using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
@@ -44,6 +46,52 @@ public class ReflectionTypeLoaderNestedTypeTests : CompilationTestBase
         Assert.Equal(0, Assert.Single(outer.GetTypeMembers("Callback", 0)).Arity);
         Assert.Equal(1, Assert.Single(outer.GetTypeMembers("Callback", 1)).Arity);
         Assert.Empty(outer.GetTypeMembers("Callback", 2));
+    }
+
+    [Fact]
+    public void GetTypeMembers_PreservesAuthoredArityForRavenEmittedNestedGenericType()
+    {
+        const string librarySource = """
+            namespace RavenNestedArityLibrary {
+                public class Outer<TOuter> {
+                    class Inner<TInner> {}
+                }
+            }
+            """;
+        var libraryReference = CreateLibraryReference(
+            SyntaxTree.ParseText(librarySource),
+            "RavenNestedArityLibrary");
+        var compilation = CreateCompilation(
+            references: [.. TestMetadataReferences.Default, libraryReference]);
+        var outer = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName("RavenNestedArityLibrary.Outer`1"));
+        var inner = Assert.Single(outer.GetTypeMembers("Inner"));
+
+        Assert.Equal(1, inner.Arity);
+        Assert.Single(inner.TypeParameters);
+
+        var stringType = compilation.GetSpecialType(SpecialType.System_String);
+        var constructedOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(outer.Construct(stringType));
+        var projectedInner = Assert.Single(constructedOuter.GetTypeMembers("Inner"));
+
+        Assert.Equal(1, projectedInner.Arity);
+        Assert.Single(projectedInner.TypeParameters);
+        Assert.Single(constructedOuter.GetTypeMembers("Inner", 1));
+        Assert.Empty(constructedOuter.GetTypeMembers("Inner", 0));
+    }
+
+    private static MetadataReference CreateLibraryReference(SyntaxTree tree, string assemblyName)
+    {
+        var compilation = Compilation.Create(
+            assemblyName,
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        var emitResult = compilation.Emit(image);
+
+        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+        return MetadataReference.CreateFromImage(image.ToArray());
     }
 
     [Fact]

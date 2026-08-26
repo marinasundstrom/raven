@@ -14,7 +14,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-26**.
   conversion instead of emitting the delegate's default value.
 - Nested type lookup now respects the authored generic arity consistently in
   type syntax, qualified expressions, aliases, attributes, and semantic-model
-  queries, for both source and referenced metadata types.
+  queries, for both source and referenced metadata types, including
+  expression-shaped construction through a generic metadata container.
 - Fixed member lookup through base classes for object initializers, `with`
   expressions, inherited content properties, and static members accessed
   through derived types. This restores ordinary .NET inheritance behavior for

@@ -330,7 +330,10 @@ internal abstract partial class Binder
         var first = parts[0];
         if (first.TypeArguments is not null)
         {
-            var lookup = LookupNamedTypeByParts(new[] { first.Name }, importedScopes);
+            var lookup = LookupNamedTypeByParts(
+                new[] { first.Name },
+                importedScopes,
+                first.TypeArguments.Arguments.Count);
             if (lookup.IsAmbiguous || lookup.Definition is null)
                 return false;
 
