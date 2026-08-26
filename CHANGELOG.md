@@ -14,6 +14,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-26**.
 
 - None.
 
+### Added
+
+- Added an experimental declarative MAUI component sample. Its `component!`
+  and `maui!` macros generate ordinary `ContentView`, `BindableProperty`, CLR
+  property, event, and native child-collection APIs; support XAML-style text
+  conversion and embedded Raven expressions; project collection-comprehension
+  controls; and provide XML/Raven editor regions without a separate UI runtime.
+
 ### Fixed
 
 - Explicitly typed field initializers now apply method-group-to-delegate
@@ -21,7 +29,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-26**.
 - Nested type lookup now respects the authored generic arity consistently in
   type syntax, qualified expressions, aliases, attributes, and semantic-model
   queries, for both source and referenced metadata types, including
-  expression-shaped construction through a generic metadata container.
+  expression-shaped construction through a generic metadata container. An
+  omitted type-argument list remains open for Raven's generic constructor
+  inference, while an explicit list selects its exact arity.
 - Fixed member lookup through base classes for object initializers, `with`
   expressions, inherited content properties, and static members accessed
   through derived types. This restores ordinary .NET inheritance behavior for

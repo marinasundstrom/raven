@@ -101,8 +101,9 @@ macro-maui/
 
 ## Build and verify
 
-This sample depends on compiler fixes made after Raven 0.1.2. Until 0.1.3 is
-available, use the compiler built from this repository:
+This sample requires Raven 0.1.3 or later. When working in this repository, the
+following commands build and use the repository compiler explicitly so local
+compiler changes can be tested without changing the installed SDK:
 
 ```bash
 dotnet build src/Raven.Compiler/Raven.Compiler.csproj --property WarningLevel=0

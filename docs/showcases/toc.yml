@@ -7,5 +7,5 @@
   href: embedded-iot.md
 - name: HTML component macro
   href: html-components.md
-- name: MAUI view macro
+- name: Declarative MAUI components
   href: maui-components.md

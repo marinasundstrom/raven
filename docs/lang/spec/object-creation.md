@@ -34,6 +34,13 @@ let route = GET("/{id:int}", func (id: int) => id.ToString())
 // route: GET<int>
 ```
 
+Omitting the type-argument list intentionally leaves the terminal type name
+open while constructor candidates are considered. This is a Raven-specific
+source rule; the selected result is still an ordinary constructed CLR generic
+type. By contrast, an authored type-argument list always requests its exact
+arity, including on qualified and nested type names. `Container.Item<int>`
+therefore cannot resolve to a non-generic `Item` or to `Item<T1, T2>`.
+
 If generic and non-generic types have the same name, an applicable non-generic
 constructor is preferred. Otherwise Raven selects the one generic type whose
 arguments can be inferred. If several generic candidates succeed, the call is
