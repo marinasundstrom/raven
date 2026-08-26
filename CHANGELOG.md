@@ -10,6 +10,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-26**.
 
 ### Fixed
 
+- Nested type lookup now respects the authored generic arity consistently in
+  type syntax, qualified expressions, aliases, attributes, and semantic-model
+  queries, for both source and referenced metadata types.
 - Fixed member lookup through base classes for object initializers, `with`
   expressions, inherited content properties, and static members accessed
   through derived types. This restores ordinary .NET inheritance behavior for

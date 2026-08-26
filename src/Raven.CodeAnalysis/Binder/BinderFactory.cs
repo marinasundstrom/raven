@@ -341,7 +341,7 @@ class BinderFactory
             var typeName = name[(lastDot + 1)..];
             var ns = ResolveNamespace(current, namespaceName);
             return (!_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed ? ns?.LookupType(typeName) : null)
-                ?? ns?.GetMembers(typeName).OfType<ITypeSymbol>().FirstOrDefault();
+                ?? ns?.GetTypeMembers(typeName, arity: 0).FirstOrDefault();
         }
 
         ITypeSymbol? ResolveTypeFromNamespace(INamespaceSymbol scope, string name)
@@ -357,7 +357,7 @@ class BinderFactory
                 if (current is INamespaceSymbol ns)
                 {
                     var typeMember = (!_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed ? ns.LookupType(part) : null)
-                        ?? ns.GetMembers(part).OfType<ITypeSymbol>().FirstOrDefault();
+                        ?? ns.GetTypeMembers(part, arity: 0).FirstOrDefault();
                     if (typeMember is not null)
                     {
                         current = typeMember;
@@ -375,9 +375,7 @@ class BinderFactory
 
                 if (current is INamedTypeSymbol type)
                 {
-                    var nestedType = type.GetMembers()
-                        .OfType<ITypeSymbol>()
-                        .FirstOrDefault(member => member.Name == part);
+                    var nestedType = type.GetTypeMembers(part, arity: 0).FirstOrDefault();
                     if (nestedType is null)
                         return null;
 
@@ -443,6 +441,13 @@ class BinderFactory
 
                         if (closedTypeMembers.Length > 0)
                             return closedTypeMembers;
+                    }
+
+                    if (qn.Right is IdentifierNameSyntax)
+                    {
+                        members = members
+                            .Where(static member => member is not INamedTypeSymbol type || type.Arity == 0)
+                            .ToArray();
                     }
 
                     if (members.Length > 0)

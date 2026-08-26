@@ -7,10 +7,44 @@ using Raven.CodeAnalysis.Tests;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
+public static class NestedArityMetadataFixtures
+{
+    public class Outer
+    {
+        public class Callback
+        {
+        }
+
+        public class Callback<T>
+        {
+        }
+
+        public class MarkerAttribute : System.Attribute
+        {
+        }
+
+        public class MarkerAttribute<T> : System.Attribute
+        {
+        }
+    }
+}
+
 public class ReflectionTypeLoaderNestedTypeTests : CompilationTestBase
 {
     protected override MetadataReference[] GetMetadataReferences()
         => [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(typeof(ReflectionTypeLoaderNestedTypeTests).Assembly.Location)];
+
+    [Fact]
+    public void GetTypeMembers_FiltersNestedMetadataTypesByArity()
+    {
+        var compilation = CreateCompilation();
+        var outer = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.GetTypeByMetadataName(typeof(NestedArityMetadataFixtures.Outer).FullName!));
+
+        Assert.Equal(0, Assert.Single(outer.GetTypeMembers("Callback", 0)).Arity);
+        Assert.Equal(1, Assert.Single(outer.GetTypeMembers("Callback", 1)).Arity);
+        Assert.Empty(outer.GetTypeMembers("Callback", 2));
+    }
 
     [Fact]
     public void ResolveNestedTypeChain_PreservesContainingTypeForNonGenericInner()

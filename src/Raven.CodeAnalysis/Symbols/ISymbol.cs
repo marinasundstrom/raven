@@ -231,6 +231,8 @@ public interface INamespaceOrTypeSymbol : ISymbol
     ImmutableArray<INamedTypeSymbol> GetTypeMembers() => [.. GetMembers().OfType<INamedTypeSymbol>()];
     ImmutableArray<ISymbol> GetMembers(string name);
     ImmutableArray<INamedTypeSymbol> GetTypeMembers(string name) => [.. GetMembers(name).OfType<INamedTypeSymbol>()];
+    ImmutableArray<INamedTypeSymbol> GetTypeMembers(string name, int arity) =>
+        [.. GetTypeMembers(name).Where(type => type.Arity == arity)];
 
     ITypeSymbol? LookupType(string name);
 

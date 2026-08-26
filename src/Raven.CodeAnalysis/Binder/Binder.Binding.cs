@@ -71,7 +71,7 @@ internal abstract partial class Binder
                 var typeInNs = nsReceiver.Namespace
                     .GetMembers(name)
                     .OfType<INamedTypeSymbol>()
-                    .FirstOrDefault();
+                    .FirstOrDefault(static type => type.Arity == 0);
 
                 if (typeInNs is null)
                     return false;
@@ -83,7 +83,7 @@ internal abstract partial class Binder
             if (current is BoundTypeExpression typeReceiver)
             {
                 // Prefer nested type.
-                var nestedCandidates = typeReceiver.Type.GetTypeMembers(name);
+                var nestedCandidates = typeReceiver.Type.GetTypeMembers(name, arity: 0);
                 if (nestedCandidates.Length == 1)
                 {
                     current = new BoundTypeExpression(nestedCandidates[0]);
@@ -392,14 +392,8 @@ internal abstract partial class Binder
             }
 
             // Nested type chain.
-            var nested = currentType.GetTypeMembers(name);
-            if (part.TypeArguments is not null)
-            {
-                var arity = part.TypeArguments.Arguments.Count;
-                nested = nested
-                    .Where(type => NormalizeDefinition(type).Arity == arity)
-                    .ToImmutableArray();
-            }
+            var nestedArity = part.TypeArguments?.Arguments.Count ?? 0;
+            var nested = currentType.GetTypeMembers(name, nestedArity);
 
             if (nested.Length != 1)
                 return false;
@@ -441,8 +435,14 @@ internal abstract partial class Binder
         INamedTypeSymbol? LookupNamespaceType(INamespaceSymbol namespaceSymbol, string name, TypeArgumentListSyntax? typeArguments)
         {
             var arity = typeArguments?.Arguments.Count ?? 0;
-            var namedType = SelectByArity(namespaceSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), arity)
-                ?? namespaceSymbol.LookupType(name) as INamedTypeSymbol;
+            var namedType = SelectByArity(namespaceSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), arity);
+
+            if (namedType is null && namespaceSymbol.LookupType(name) is INamedTypeSymbol fallback)
+            {
+                var definition = NormalizeDefinition(fallback);
+                if (definition.Arity == arity)
+                    namedType = definition;
+            }
 
             if (namedType is not null)
                 return namedType;

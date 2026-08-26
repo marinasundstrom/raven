@@ -643,6 +643,133 @@ let value: Outer<int>.Inner<string> = null
     }
 
     [Fact]
+    public void BindTypeSyntax_SelectsNestedTypeByAuthoredArity()
+    {
+        const string source = """
+class Outer {
+    class Callback { }
+    class Callback<T> { }
+}
+
+let plain: Outer.Callback = null
+let generic: Outer.Callback<int> = null
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+
+        var plainSyntax = declarators[0].TypeAnnotation!.Type;
+        var plainBinder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(plainSyntax));
+        var plainResult = plainBinder.BindTypeSyntax(plainSyntax);
+
+        Assert.True(plainResult.Success);
+        var plainType = Assert.IsAssignableFrom<INamedTypeSymbol>(plainResult.ResolvedType);
+        Assert.Equal(0, plainType.Arity);
+
+        var genericSyntax = declarators[1].TypeAnnotation!.Type;
+        var genericBinder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(genericSyntax));
+        var genericResult = genericBinder.BindTypeSyntax(genericSyntax);
+
+        Assert.True(genericResult.Success);
+        var genericType = Assert.IsAssignableFrom<INamedTypeSymbol>(genericResult.ResolvedType);
+        Assert.Equal(1, genericType.Arity);
+        Assert.Equal(SpecialType.System_Int32, genericType.TypeArguments[0].SpecialType);
+    }
+
+    [Fact]
+    public void BindTypeSyntax_SelectsReferencedNestedTypeByAuthoredArity()
+    {
+        const string source = """
+let plain: Raven.CodeAnalysis.Semantics.Tests.NestedArityMetadataFixtures.Outer.Callback = null
+let generic: Raven.CodeAnalysis.Semantics.Tests.NestedArityMetadataFixtures.Outer.Callback<int> = null
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references:
+            [
+                .. GetMetadataReferences(),
+                MetadataReference.CreateFromFile(typeof(NestedArityMetadataFixtures).Assembly.Location),
+            ],
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+
+        var plainSyntax = declarators[0].TypeAnnotation!.Type;
+        var plainType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(plainSyntax).Type);
+        Assert.Equal(0, plainType.Arity);
+        Assert.Equal("Callback", model.GetSymbolInfo(plainSyntax).Symbol?.Name);
+
+        var genericSyntax = declarators[1].TypeAnnotation!.Type;
+        var genericType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(genericSyntax).Type);
+        Assert.Equal(1, genericType.Arity);
+        Assert.Equal(SpecialType.System_Int32, genericType.TypeArguments[0].SpecialType);
+        Assert.Equal("Callback", model.GetSymbolInfo(genericSyntax).Symbol?.Name);
+    }
+
+    [Fact]
+    public void QualifiedConstructionAndTypeOf_SelectNestedTypeByAuthoredArity()
+    {
+        const string source = """
+class Outer {
+    class Callback { }
+    class Callback<T> { }
+}
+
+let plain = Outer.Callback()
+let generic = Outer.Callback<int>()
+let plainType = typeof(Outer.Callback)
+let genericType = typeof(Outer.Callback<int>)
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
+        var plainType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(declarators[0].Initializer!.Value).Type);
+        var genericType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(declarators[1].Initializer!.Value).Type);
+
+        Assert.Equal(0, plainType.Arity);
+        Assert.Equal(1, genericType.Arity);
+    }
+
+    [Fact]
+    public void BindTypeSyntax_ReportsMissingNestedTypeArity()
+    {
+        const string source = """
+class Outer {
+    class Callback { }
+    class Callback<T> { }
+}
+
+let invalid: Outer.Callback<int, string> = null
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            options: new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
+        var typeSyntax = declarator.TypeAnnotation!.Type;
+        var binder = Assert.IsAssignableFrom<BlockBinder>(model.GetBinder(typeSyntax));
+        var result = binder.BindTypeSyntax(typeSyntax);
+
+        Assert.False(result.Success);
+        Assert.Contains(Binder.TypeResolutionFailureKind.ArityMismatch, result.FailureKinds);
+    }
+
+    [Fact]
     public void BindTypeSyntax_RejectsNestedGenericTypeFromOpenContainingType()
     {
         const string source = """

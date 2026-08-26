@@ -487,7 +487,7 @@ internal sealed class AttributeBinder : BlockBinder
                         return null;
 
                     var candidateName = AppendAttributeSuffixIfNeeded(rightIdentifier.Identifier.ValueText, appendAttributeSuffix);
-                    return container.LookupType(candidateName) as INamedTypeSymbol;
+                    return TryLookupNestedNamedType(container, candidateName, arity: 0);
                 }
 
             case QualifiedNameSyntax qualified when qualified.Right is GenericNameSyntax rightGeneric:
@@ -511,7 +511,7 @@ internal sealed class AttributeBinder : BlockBinder
                         case IdentifierNameSyntax identifierName:
                             {
                                 var candidateName = AppendAttributeSuffixIfNeeded(identifierName.Identifier.ValueText, appendAttributeSuffix);
-                                return container.LookupType(candidateName) as INamedTypeSymbol;
+                                return TryLookupNestedNamedType(container, candidateName, arity: 0);
                             }
                         case GenericNameSyntax genericName:
                             {
@@ -562,7 +562,7 @@ internal sealed class AttributeBinder : BlockBinder
                             return nestedNamespace;
                     }
 
-                    return left.LookupType(rightIdentifier.Identifier.ValueText);
+                    return TryLookupNestedNamedType(left, rightIdentifier.Identifier.ValueText, arity: 0);
                 }
         }
 
@@ -582,11 +582,9 @@ internal sealed class AttributeBinder : BlockBinder
 
     private static INamedTypeSymbol? TryLookupNestedNamedType(INamespaceOrTypeSymbol container, string name, int arity)
     {
-        if (container.LookupType(name) is not INamedTypeSymbol typeSymbol)
-            return null;
-
-        var candidate = NormalizeDefinition(typeSymbol);
-        return candidate.Arity == arity ? candidate : null;
+        return TypeLookupUtilities.SelectBestNamedTypeByArity(
+            container.GetTypeMembers(name, arity).Select(NormalizeDefinition),
+            arity);
     }
 
     private static int ComputeGenericArity(GenericNameSyntax generic)

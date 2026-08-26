@@ -106,6 +106,67 @@ class C { }
     }
 
     [Fact]
+    public void NestedAttributeName_SelectsSourceTypeByAuthoredArity()
+    {
+        const string source = """
+import System.*
+
+class Outer {
+    class MarkerAttribute : Attribute { }
+    class MarkerAttribute<T> : Attribute { }
+}
+
+[Outer.Marker]
+class Plain { }
+
+[Outer.Marker<int>]
+class Generic { }
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declarations = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+            .Where(static declaration => declaration.Identifier.ValueText is "Plain" or "Generic")
+            .ToArray();
+
+        var plain = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
+        Assert.Equal(0, Assert.Single(plain.GetAttributes()).AttributeClass?.Arity);
+
+        var generic = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
+        Assert.Equal(1, Assert.Single(generic.GetAttributes()).AttributeClass?.Arity);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void NestedAttributeName_SelectsReferencedTypeByAuthoredArity()
+    {
+        const string source = """
+[Raven.CodeAnalysis.Semantics.Tests.NestedArityMetadataFixtures.Outer.Marker]
+class Plain { }
+
+[Raven.CodeAnalysis.Semantics.Tests.NestedArityMetadataFixtures.Outer.Marker<int>]
+class Generic { }
+""";
+
+        var (compilation, tree) = CreateCompilation(
+            source,
+            references:
+            [
+                .. GetMetadataReferences(),
+                MetadataReference.CreateFromFile(typeof(NestedArityMetadataFixtures).Assembly.Location),
+            ]);
+        var model = compilation.GetSemanticModel(tree);
+        var declarations = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().ToArray();
+
+        var plain = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
+        Assert.Equal(0, Assert.Single(plain.GetAttributes()).AttributeClass?.Arity);
+
+        var generic = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
+        Assert.Equal(1, Assert.Single(generic.GetAttributes()).AttributeClass?.Arity);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
     public void AttributeNameIsResolvedAfterTopLevelStatements()
     {
         const string source = """

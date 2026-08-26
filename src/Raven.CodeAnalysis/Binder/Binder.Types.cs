@@ -348,7 +348,7 @@ internal abstract partial class Binder
                 if (q.Right is IdentifierNameSyntax rid)
                 {
                     var nestedName = rid.Identifier.ValueText;
-                    var nestedCandidates = leftNamed.GetTypeMembers(nestedName).ToArray();
+                    var nestedCandidates = leftNamed.GetTypeMembers(nestedName, arity: 0);
 
                     if (nestedCandidates.Length == 1)
                     {
@@ -363,6 +363,9 @@ internal abstract partial class Binder
                     if (nestedCandidates.Length > 1)
                         return Ambiguous(q, nestedCandidates.ToImmutableArray());
 
+                    if (!leftNamed.GetTypeMembers(nestedName).IsEmpty)
+                        return Fail(q, TypeResolutionFailureKind.ArityMismatch);
+
                     // If not found as nested type, fall back to namespace-qualified lookup below.
                 }
 
@@ -371,10 +374,7 @@ internal abstract partial class Binder
                 {
                     var nestedName = rg.Identifier.ValueText;
                     var nestedArity = ComputeGenericArity(rg);
-                    var nestedCandidates = leftNamed
-                        .GetTypeMembers(nestedName)
-                        .Where(t => t.Arity == nestedArity)
-                        .ToArray();
+                    var nestedCandidates = leftNamed.GetTypeMembers(nestedName, nestedArity);
 
                     if (nestedCandidates.Length == 1)
                     {
@@ -398,6 +398,9 @@ internal abstract partial class Binder
 
                     if (nestedCandidates.Length > 1)
                         return Ambiguous(q, nestedCandidates.ToImmutableArray());
+
+                    if (!leftNamed.GetTypeMembers(nestedName).IsEmpty)
+                        return Fail(q, TypeResolutionFailureKind.ArityMismatch);
 
                     // If not found as nested type, fall back to namespace-qualified lookup below.
                 }
@@ -1210,6 +1213,7 @@ internal abstract partial class Binder
             for (int i = 0; i < nameParts.Length; i++)
             {
                 var part = nameParts[i];
+                var segmentArity = i == nameParts.Length - 1 ? arity ?? 0 : 0;
                 if (string.IsNullOrEmpty(part))
                     return null;
 
@@ -1224,20 +1228,14 @@ internal abstract partial class Binder
                     }
 
                     // Otherwise resolve as a type in this namespace
-                    var named = ns.GetMembers(part).OfType<INamedTypeSymbol>().ToArray();
-                    if (arity is not null && i == nameParts.Length - 1)
-                        named = named.Where(t => t.Arity == arity.Value).ToArray();
+                    var named = ns.GetTypeMembers(part, segmentArity);
                     if (named.Length == 0)
                     {
                         var viaLookupType = LookupTypeInNamespace(ns, part);
                         if (viaLookupType is INamedTypeSymbol lt)
                         {
                             var normalized = NormalizeDefinition(lt);
-                            if (arity is not null && i == nameParts.Length - 1 && normalized.Arity != arity.Value)
-                            {
-                                // Mismatched generic arity for the requested terminal segment.
-                            }
-                            else
+                            if (normalized.Arity == segmentArity)
                             {
                                 current = normalized;
                                 continue;
@@ -1269,16 +1267,6 @@ internal abstract partial class Binder
                         continue;
                     }
 
-                    if (arity is null && i == nameParts.Length - 1)
-                    {
-                        var zeroArity = named.FirstOrDefault(static t => t.Arity == 0);
-                        if (zeroArity is not null)
-                        {
-                            current = NormalizeDefinition(zeroArity);
-                            continue;
-                        }
-                    }
-
                     // Multiple types with the same name in the same namespace (possible with metadata + source merges).
                     // Treat as ambiguous by returning null here; caller aggregates ambiguity.
                     return null;
@@ -1286,23 +1274,11 @@ internal abstract partial class Binder
 
                 if (current is ITypeSymbol type)
                 {
-                    var nested = type.GetMembers(part).OfType<INamedTypeSymbol>().ToArray();
-                    if (arity is not null && i == nameParts.Length - 1)
-                        nested = nested.Where(t => t.Arity == arity.Value).ToArray();
+                    var nested = type.GetTypeMembers(part, segmentArity);
                     if (nested.Length == 1)
                     {
                         current = NormalizeDefinition(nested[0]);
                         continue;
-                    }
-
-                    if (arity is null && i == nameParts.Length - 1)
-                    {
-                        var zeroArity = nested.FirstOrDefault(static t => t.Arity == 0);
-                        if (zeroArity is not null)
-                        {
-                            current = NormalizeDefinition(zeroArity);
-                            continue;
-                        }
                     }
 
                     // Not found or ambiguous
