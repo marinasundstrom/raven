@@ -1,8 +1,22 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-08-25**.
+Behavior-focused timeline covering **2025-09-12** to **2026-08-26**.
 
 ## Unreleased
+
+### Breaking changes
+
+- None recorded.
+
+## 0.1.2 - 2026-08-26
+
+### Breaking changes
+
+- SDK-supplied implicit imports are now enabled by default. Existing projects
+  with names that collide with the imported `System` namespaces or standard
+  `Result`/`Option` cases can receive new ambiguity diagnostics. Set
+  `ImplicitImports` to `disable` or remove individual `Import` items to retain
+  the previous scope.
 
 - Aligned generated project preludes with the .NET SDK model. `Raven.Sdk` now
   contributes its defaults as removable MSBuild `Import` items and

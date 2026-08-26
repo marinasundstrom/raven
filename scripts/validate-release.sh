@@ -122,8 +122,22 @@ if [[ "$CHECK_NUGET_AVAILABLE" == "1" ]]; then
   )
 
   for package_id in "${package_ids[@]}"; do
-    versions="$(curl --fail --location --silent --show-error \
-      "https://api.nuget.org/v3-flatcontainer/$package_id/index.json")"
+    if ! response="$(curl --location --silent --show-error \
+      --write-out $'\n%{http_code}' \
+      "https://api.nuget.org/v3-flatcontainer/$package_id/index.json")"; then
+      echo "Could not query NuGet.org for $package_id." >&2
+      exit 1
+    fi
+
+    http_status="${response##*$'\n'}"
+    versions="${response%$'\n'*}"
+    if [[ "$http_status" == "404" ]]; then
+      continue
+    fi
+    if [[ "$http_status" != "200" ]]; then
+      echo "NuGet.org returned HTTP $http_status while checking $package_id." >&2
+      exit 1
+    fi
     if grep -Fq "\"$VERSION\"" <<<"$versions"; then
       echo "NuGet.org already contains $package_id $VERSION; release versions are immutable." >&2
       exit 1

@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { getDocumentedVersionProvenance } from "./site-provenance-version.mjs";
 
 assert.deepEqual(
-  getDocumentedVersionProvenance("0.1.1", true),
-  { version: "0.1.1", status: "released" },
+  getDocumentedVersionProvenance("0.1.2", true),
+  { version: "0.1.2", status: "released" },
   "A released documented version remains released on later site commits.",
 );
 assert.deepEqual(

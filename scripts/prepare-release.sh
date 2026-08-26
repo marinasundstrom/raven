@@ -38,7 +38,7 @@ fi
 
 while IFS= read -r file; do
   OLD_RELEASE_VERSION="$current_version" NEW_RELEASE_VERSION="$VERSION" \
-    perl -pi -e 's/\Q$ENV{OLD_RELEASE_VERSION}\E/$ENV{NEW_RELEASE_VERSION}/g' "$REPO_ROOT/$file"
+    perl -pi -e 's/(?<![0-9.])\Q$ENV{OLD_RELEASE_VERSION}\E(?![0-9.])/$ENV{NEW_RELEASE_VERSION}/g' "$REPO_ROOT/$file"
 done < <(
   git -C "$REPO_ROOT" grep -Il -F "$current_version" -- \
     ':!CHANGELOG.md' \
