@@ -173,9 +173,11 @@ internal static class MsBuildProjectEvaluator
             GetOptionalProperty(project, "EnabledAnalyzers") ??
             GetOptionalProperty(project, "RavenEnabledAnalyzers"));
         var returnedValueHandling = GetReturnedValueHandlingProperty(project);
-        var generatePreludeImports = GetBooleanProperty(project, "GeneratePreludeImports")
+        var implicitImports = GetImplicitImportsProperty(project)
+            ?? GetBooleanProperty(project, "GeneratePreludeImports")
             ?? GetBooleanProperty(project, "RavenGeneratePreludeImports")
             ?? true;
+        var sdkProvidesImplicitImports = GetBooleanProperty(project, "_RavenSdkProvidesImplicitImports") ?? false;
         var emitCoreTypesOnly = GetBooleanProperty(project, "RavenEmitCoreTypesOnly") ?? false;
         var useHostFrameworkReferences = GetBooleanProperty(project, "RavenUseHostFrameworkReferences") ?? true;
         var frameworkProjectionMode = emitCoreTypesOnly
@@ -273,7 +275,9 @@ internal static class MsBuildProjectEvaluator
             generatorReferencePaths,
             packageReferences,
             frameworkReferences,
-            new ProjectPreludeOptions(generatePreludeImports, preludeImports),
+            new ProjectPreludeOptions(
+                GenerateLegacyStandardImports: implicitImports && !sdkProvidesImplicitImports,
+                Imports: preludeImports),
             generatedSourceDirectory,
             documentationOptions,
             isCompilerPlugin,
@@ -457,6 +461,20 @@ internal static class MsBuildProjectEvaluator
     private static bool? GetBooleanProperty(MSBuildProject project, string propertyName)
     {
         var value = project.GetPropertyValue(propertyName);
+        return bool.TryParse(value, out var parsed) ? parsed : null;
+    }
+
+    private static bool? GetImplicitImportsProperty(MSBuildProject project)
+    {
+        var value = project.GetPropertyValue("ImplicitImports");
+        if (string.IsNullOrWhiteSpace(value))
+            value = project.GetPropertyValue("ImplicitUsings");
+
+        if (string.Equals(value, "enable", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (string.Equals(value, "disable", StringComparison.OrdinalIgnoreCase))
+            return false;
+
         return bool.TryParse(value, out var parsed) ? parsed : null;
     }
 

@@ -117,21 +117,30 @@ cases are not automatically available as simple names; use a qualified case
 name, target-typed member syntax, or an explicit wildcard type import such as
 `import FridgeError.*`.
 
-Project files can disable the generated standard imports with
-`GeneratePreludeImports=false`. They can also add generated prelude imports with
-MSBuild `Import` items, including static type-scope imports and generated
-aliases:
+Project SDKs supply implicit imports as evaluated MSBuild `Import` items.
+Projects can disable SDK-supplied items with `ImplicitImports=disable`, add
+their own items, or remove an item contributed by the SDK. `ImplicitUsings` and
+`GeneratePreludeImports` remain compatibility aliases when `ImplicitImports`
+is not set.
 
 ```xml
+<PropertyGroup>
+  <ImplicitImports>enable</ImplicitImports>
+</PropertyGroup>
+
 <ItemGroup>
   <Import Include="SuperheroApp.Models" />
   <Import Include="System.Console" Static="True" />
   <Import Include="System.DateTime" Alias="DT" />
+  <Import Remove="System.Net.Http" />
 </ItemGroup>
 ```
 
-The first two items generate import entries in the global prelude block; the
-alias item generates a project-wide alias from the generated prelude file.
+The first two included items generate import entries in the global prelude
+block; the alias item generates a project-wide alias from the generated prelude
+file. The removal uses ordinary MSBuild item semantics and can remove an import
+declared earlier by the selected SDK. Within an `ItemGroup`, `Import` is an item
+name rather than MSBuild's project-level `<Import Project="..." />` element.
 Repeating an import that is already supplied globally is redundant and may be
 reported as a hidden diagnostic with an editor fix to remove the local import.
 

@@ -17,6 +17,7 @@
 
     <RavenUseHostFrameworkReferences>false</RavenUseHostFrameworkReferences>
     <RavenEmitCoreTypesOnly>true</RavenEmitCoreTypesOnly>
+    <ImplicitImports>disable</ImplicitImports>
     <GeneratePreludeImports>false</GeneratePreludeImports>
     <FrameworkProjections>None</FrameworkProjections>
 

@@ -165,8 +165,13 @@ Raven project files use the `.rvnproj` extension and the MSBuild-backed project 
 ## Generated prelude imports
 
 Raven projects generate a `<ProjectName>.Prelude.g.rvn` source file by default.
-It globally imports the common `System` namespaces plus `System.Result.*` and
-`System.Option.*`.
+`Raven.Sdk` supplies the common `System` namespaces plus `System.Result.*` and
+`System.Option.*` as evaluated MSBuild `Import` items. Other SDKs selected by
+the project's `Sdk="..."` attribute can contribute additional items, so the
+generated prelude follows the selected application model without compiler-side
+SDK-name checks. Until a dedicated `Raven.Sdk.Web` owns the complete Web preset,
+the web template contributes the same ASP.NET Core and `Microsoft.Extensions`
+namespaces that the .NET Web SDK makes implicit for C#.
 
 Global imports are hoisted across the compilation, but they still use ordinary
 import binding rules. Namespace imports are the most robust project-file import
@@ -178,16 +183,20 @@ less flexible than namespace imports and should normally be reserved for stable
 library/prelude cases; user-defined union cases are usually clearer as qualified
 or target-typed `.Case` references.
 
-Set `GeneratePreludeImports` to `false` to disable the generated standard
-imports:
+Set `ImplicitImports` to `disable` to disable SDK-supplied imports:
 
 ```xml
 <PropertyGroup>
-  <GeneratePreludeImports>false</GeneratePreludeImports>
+  <ImplicitImports>disable</ImplicitImports>
 </PropertyGroup>
 ```
 
-Projects can add prelude imports with `Import` items:
+As with the .NET SDK's `ImplicitUsings` property, `true` and `enable` turn the
+feature on, while `false` and `disable` turn it off. `ImplicitUsings`,
+`GeneratePreludeImports`, and `RavenGeneratePreludeImports` remain compatibility
+aliases when `ImplicitImports` is not set.
+
+Projects and composed SDKs add prelude imports with `Import` items:
 
 ```xml
 <ItemGroup>
@@ -199,9 +208,19 @@ Projects can add prelude imports with `Import` items:
 
 Non-aliased items generate global wildcard imports. `Static="True"` is intended
 for type-scope imports such as `System.Console.*`. `Alias` generates a
-project-wide alias in the prelude. If a source file repeats an import that is
-already supplied by a global import, the compiler reports a hidden redundant
-import diagnostic and editors can offer a remove-import fix.
+project-wide alias in the prelude. Standard MSBuild item operations allow a
+project to remove or update imports supplied earlier by its SDK:
+
+```xml
+<ItemGroup>
+  <Import Remove="System.Net.Http" />
+</ItemGroup>
+```
+
+Inside an `ItemGroup`, `Import` is an item name. It is distinct from MSBuild's
+project-level `<Import Project="..." />` element. If a source file repeats an
+import that is already supplied by a global import, the compiler reports a
+hidden redundant import diagnostic and editors can offer a remove-import fix.
 
 ## NuGet package references
 

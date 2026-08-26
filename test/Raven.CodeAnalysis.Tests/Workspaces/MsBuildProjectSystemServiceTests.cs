@@ -479,6 +479,129 @@ public sealed class MsBuildProjectSystemServiceTests
     }
 
     [Fact]
+    public void OpenProject_MsBuildProject_GeneratesPreludeFromSdkImportItems()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "main.rvn"), "class C { }");
+
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                                          <Project Sdk="Microsoft.NET.Sdk">
+                                            <PropertyGroup>
+                                              <TargetFramework>net10.0</TargetFramework>
+                                              <ImplicitImports>enable</ImplicitImports>
+                                              <_RavenSdkProvidesImplicitImports>true</_RavenSdkProvidesImplicitImports>
+                                            </PropertyGroup>
+                                            <ItemGroup>
+                                              <Compile Include="main.rvn" />
+                                              <Import Include="System" IsImplicitlyDefined="true" />
+                                              <Import Include="System.Linq" IsImplicitlyDefined="true" />
+                                              <Import Remove="System.Linq" />
+                                              <Import Include="Microsoft.AspNetCore.Builder" />
+                                              <Import Include="System.Console" Static="true" />
+                                              <Import Include="System.DateTime" Alias="DT" />
+                                            </ItemGroup>
+                                          </Project>
+                                          """);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+            var generated = Assert.Single(
+                project.Documents,
+                static document => document.Name.EndsWith("Prelude.g.rvn", StringComparison.OrdinalIgnoreCase));
+            var source = generated.Text.ToString();
+            Assert.Contains("import System.*", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("import System.Linq.*", source, StringComparison.Ordinal);
+            Assert.Contains("import Microsoft.AspNetCore.Builder.*", source, StringComparison.Ordinal);
+            Assert.Contains("import System.Console.*", source, StringComparison.Ordinal);
+            Assert.Contains("alias DT = System.DateTime", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("import System.Collections.*", source, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void OpenProject_MsBuildProject_DoesNotGeneratePreludeWhenImplicitImportsDisabled()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "main.rvn"), "class C { }");
+
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                                          <Project Sdk="Microsoft.NET.Sdk">
+                                            <PropertyGroup>
+                                              <TargetFramework>net10.0</TargetFramework>
+                                              <ImplicitImports>disable</ImplicitImports>
+                                            </PropertyGroup>
+                                            <ItemGroup>
+                                              <Compile Include="main.rvn" />
+                                            </ItemGroup>
+                                          </Project>
+                                          """);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+            Assert.DoesNotContain(
+                project.Documents,
+                static document => document.Name.EndsWith("Prelude.g.rvn", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void OpenProject_MsBuildProject_GeneratesExplicitImportsWhenImplicitImportsDisabled()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "main.rvn"), "class C { }");
+
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                                          <Project Sdk="Microsoft.NET.Sdk">
+                                            <PropertyGroup>
+                                              <TargetFramework>net10.0</TargetFramework>
+                                              <ImplicitImports>disable</ImplicitImports>
+                                            </PropertyGroup>
+                                            <ItemGroup>
+                                              <Compile Include="main.rvn" />
+                                              <Import Include="System.Result" Static="true" />
+                                            </ItemGroup>
+                                          </Project>
+                                          """);
+
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+            var generated = Assert.Single(
+                project.Documents,
+                static document => document.Name.EndsWith("Prelude.g.rvn", StringComparison.OrdinalIgnoreCase));
+            var source = generated.Text.ToString();
+            Assert.Contains("import System.Result.*", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("import System.Collections.*", source, StringComparison.Ordinal);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void OpenProject_MsBuildProject_DoesNotGeneratePreludeWhenDisabled()
     {
         var root = CreateTempDirectory();

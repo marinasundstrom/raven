@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
+using System.Xml.Linq;
 
 using Mono.Cecil;
 
@@ -10,6 +11,29 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 
 public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper output)
 {
+    [Fact]
+    public void RavenSdkProps_DeclaresImplicitImportItems()
+    {
+        var repoRoot = GetRepositoryRoot();
+        var sdkPropsPath = Path.Combine(repoRoot, "sdk", "Raven.Sdk", "Sdk", "Sdk.props");
+        var document = XDocument.Load(sdkPropsPath);
+
+        var imports = document.Descendants("Import")
+            .Select(static element => new
+            {
+                Include = element.Attribute("Include")?.Value,
+                Static = element.Attribute("Static")?.Value
+            })
+            .ToArray();
+
+        Assert.Contains(imports, static item => item.Include == "System");
+        Assert.Contains(imports, static item => item.Include == "System.Linq");
+        Assert.Contains(imports, static item => item.Include == "System.Result" && item.Static == "true");
+        Assert.Contains(
+            document.Descendants("ImplicitImports"),
+            static property => property.Value == "enable");
+    }
+
     [Fact]
     public void RavenLanguageTargets_DisableReferenceAssemblyProduction()
     {

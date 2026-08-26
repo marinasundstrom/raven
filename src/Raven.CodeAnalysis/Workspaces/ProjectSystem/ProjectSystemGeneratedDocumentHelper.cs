@@ -36,7 +36,7 @@ internal static class ProjectSystemGeneratedDocumentHelper
         if (project is null)
             return solution;
 
-        var importLines = options.GenerateStandardImports
+        var importLines = options.GenerateLegacyStandardImports
             ? s_standardPreludeImports.ToList()
             : [];
         var aliasLines = new List<string>();
@@ -170,7 +170,7 @@ internal static class ProjectSystemGeneratedDocumentHelper
 }
 
 internal sealed record ProjectPreludeOptions(
-    bool GenerateStandardImports,
+    bool GenerateLegacyStandardImports,
     ImmutableArray<ProjectPreludeImportInfo> Imports)
 {
     public static ProjectPreludeOptions Default { get; } = new(true, ImmutableArray<ProjectPreludeImportInfo>.Empty);

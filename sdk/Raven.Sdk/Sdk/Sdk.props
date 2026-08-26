@@ -4,8 +4,26 @@
   <PropertyGroup>
     <RavenSdkRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))</RavenSdkRoot>
     <RavenSdkPackageVersion>$([System.IO.Path]::GetFileName('$(RavenSdkRoot)'))</RavenSdkPackageVersion>
+    <ImplicitImports Condition="'$(ImplicitImports)' == '' and '$(ImplicitUsings)' != ''">$(ImplicitUsings)</ImplicitImports>
+    <ImplicitImports Condition="'$(ImplicitImports)' == '' and '$(GeneratePreludeImports)' != ''">$(GeneratePreludeImports)</ImplicitImports>
+    <ImplicitImports Condition="'$(ImplicitImports)' == '' and '$(RavenGeneratePreludeImports)' != ''">$(RavenGeneratePreludeImports)</ImplicitImports>
+    <ImplicitImports Condition="'$(ImplicitImports)' == ''">enable</ImplicitImports>
+    <_RavenSdkProvidesImplicitImports>true</_RavenSdkProvidesImplicitImports>
     <LanguageTargets>$(RavenSdkRoot)\build\Raven.Language.targets</LanguageTargets>
     <DefaultLanguageSourceExtension>.rvn</DefaultLanguageSourceExtension>
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(ImplicitImports)' == 'true' Or '$(ImplicitImports)' == 'enable'">
+    <Import Include="System" IsImplicitlyDefined="true" />
+    <Import Include="System.Collections" IsImplicitlyDefined="true" />
+    <Import Include="System.Collections.Generic" IsImplicitlyDefined="true" />
+    <Import Include="System.IO" IsImplicitlyDefined="true" />
+    <Import Include="System.Linq" IsImplicitlyDefined="true" />
+    <Import Include="System.Net.Http" Condition="'$(TargetFrameworkIdentifier)' != '.NETFramework'" IsImplicitlyDefined="true" />
+    <Import Include="System.Threading" IsImplicitlyDefined="true" />
+    <Import Include="System.Threading.Tasks" IsImplicitlyDefined="true" />
+    <Import Include="System.Result" Static="true" IsImplicitlyDefined="true" />
+    <Import Include="System.Option" Static="true" IsImplicitlyDefined="true" />
+  </ItemGroup>
 
 </Project>

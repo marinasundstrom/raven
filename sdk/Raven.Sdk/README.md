@@ -16,3 +16,24 @@ dotnet run
 
 The generated project pins the matching SDK version so that normal .NET restore
 and build commands can resolve the complete Raven toolchain.
+
+## Implicit imports
+
+`Raven.Sdk` follows the standard .NET SDK project pattern while using Raven's
+language terminology. `ImplicitImports` defaults to `enable`, and the SDK
+contributes its defaults as ordinary `Import` items:
+
+```xml
+<PropertyGroup>
+  <ImplicitImports>disable</ImplicitImports>
+</PropertyGroup>
+
+<ItemGroup>
+  <Import Include="MyApplication.Models" />
+  <Import Remove="System.Net.Http" />
+</ItemGroup>
+```
+
+Future SDKs such as `Raven.Sdk.Web` can add their own `Import` items through
+their `Sdk.props`. The compiler consumes the evaluated item collection and does
+not need to recognize individual SDK names.

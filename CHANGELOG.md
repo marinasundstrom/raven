@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-25**.
 
 ## Unreleased
 
+- Aligned generated project preludes with the .NET SDK model. `Raven.Sdk` now
+  contributes its defaults as removable MSBuild `Import` items,
+  `ImplicitImports` controls SDK-supplied imports, and the web template adds the
+  standard ASP.NET Core and `Microsoft.Extensions` imports without requiring
+  source-level imports.
 - Added an isolated Pico W nanoFramework DHT22 and SH1106 sample that reads GP2
   every two seconds and continuously refreshes the displayed temperature without
   involving Wi-Fi, HTTP, or LED status behavior.
