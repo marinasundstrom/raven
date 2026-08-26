@@ -8,6 +8,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-26**.
 
 - None recorded.
 
+## 0.1.3 - 2026-08-26
+
+### Breaking changes
+
+- None.
+
 ### Fixed
 
 - Explicitly typed field initializers now apply method-group-to-delegate

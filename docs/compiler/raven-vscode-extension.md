@@ -50,7 +50,7 @@ and hover. HTML formatting, linked editing, and diagnostics are later slices.
 Download and install the VSIX from the matching GitHub release:
 
 ```bash
-curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.2/raven-vscode.vsix
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.3/raven-vscode.vsix
 code --install-extension raven-vscode.vsix --force
 ```
 
