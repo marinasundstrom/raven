@@ -20,12 +20,15 @@ class OrderSubmittedConsumer : IConsumer<OrderSubmitted> {
     }
 }
 
-class CheckOrderStatusConsumer : IConsumer<CheckOrderStatus> {
-    async func Consume(context: ConsumeContext<CheckOrderStatus>) -> Task {
-        let request = context.Message
-        Console.WriteLine("Received CheckOrderStatus ${request.OrderId}")
+[Consumer("check-order-status")]
+public func GetOrderStatus(
+    request: CheckOrderStatus,
+    context: ConsumeContext<CheckOrderStatus>,
+    cancellationToken: CancellationToken) -> Task<OrderStatus> {
+    let (OrderId: orderId) = request
+    Console.WriteLine("Received CheckOrderStatus ${orderId}")
+    Console.WriteLine("Consumer function context order: ${context.Message.OrderId}")
+    Console.WriteLine("Consumer function cancellation requested: ${cancellationToken.IsCancellationRequested}")
 
-        await context.RespondAsync(
-            OrderStatus(request.OrderId, "Accepted"))
-    }
+    return Task.FromResult(OrderStatus(orderId, "Accepted"))
 }

@@ -8,6 +8,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-28**.
 
 - None recorded.
 
+### Added
+
+- Extended the MyServiceBus RabbitMQ showcase with the consumer-method API from
+  `Sundstrom.MyServiceBus.RabbitMq` 0.1.0-preview.5. An attributed Raven
+  namespace-level request function demonstrates message, consume-context, and
+  cancellation-token binding, a `Task<TResponse>` result, and automatic
+  assembly scanning.
+
 ### Fixed
 
 - Attributes on namespace-level functions and constants now emit only on their

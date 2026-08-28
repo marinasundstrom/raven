@@ -8,9 +8,7 @@ async func Main() -> Task {
     let services = ServiceCollection()
 
     services.AddServiceBus(func (bus) => {
-        bus.AddConsumer<SubmitOrderConsumer>()
-        bus.AddConsumer<OrderSubmittedConsumer>()
-        bus.AddConsumer<CheckOrderStatusConsumer>()
+        bus.AddConsumers(typeof(SubmitOrder).Assembly)
 
         bus.UsingRabbitMq(func (context, rabbit) => {
             rabbit.Host("localhost", func (host) => {

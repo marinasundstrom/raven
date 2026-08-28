@@ -4,7 +4,9 @@ This Raven console application exercises a third-party .NET messaging package
 through Raven's ordinary interop surface. It configures MyServiceBus with
 RabbitMQ, registers Raven consumers through dependency injection, publishes an
 order command with a header, publishes a follow-up event from a consumer, and
-performs a request/response exchange.
+performs a request/response exchange. It demonstrates both dedicated
+`IConsumer<T>` classes and a Raven namespace-level function using the consumer
+method request/response model added by MyServiceBus 0.1.0-preview.5.
 
 Because this is a compiler-repository showcase, its project references
 `Raven.Compiler` and explicitly uses that repository build instead of the
@@ -15,6 +17,10 @@ The sample intentionally covers:
 - restoring and referencing a NuGet package from an `.rvnproj`;
 - generic extension methods and nested configuration lambdas;
 - Raven classes implementing generic .NET interfaces;
+- an attributed namespace-level request consumer that binds its message,
+  consume context, and cancellation token, then returns `Task<TResponse>`;
+- automatic assembly scanning that discovers the function together with the
+  interface consumers;
 - dependency-injection construction and service lookup;
 - Raven records serialized as message contracts;
 - asynchronous publish, consume, and request/response operations; and
