@@ -122,6 +122,8 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
           $releaseBase = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/v$env:VERSION"
           $installer = Join-Path $env:RUNNER_TEMP "install-raven.ps1"
           $installRoot = Join-Path $env:RUNNER_TEMP "raven"
@@ -247,6 +249,8 @@ jobs:
           ARCHIVE_TYPE: ${{ matrix.archive }}
           CODE_PATTERN: ${{ matrix.code_pattern }}
         run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
           $releaseBase = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/v$env:VERSION"
           $vsix = Join-Path $env:RUNNER_TEMP "raven-vscode.vsix"
           $checksums = Join-Path $env:RUNNER_TEMP "SHA256SUMS"
