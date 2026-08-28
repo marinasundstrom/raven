@@ -84,6 +84,9 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 
 - `samples/projects/nuget-demo/README.md`
 - `samples/projects/aspnet-minimal-api/README.md`
+- `samples/projects/myservicebus-rabbitmq/README.md` (NuGet messaging interop,
+  dependency-injected Raven consumers, RabbitMQ publish/subscribe and
+  request/response, plus a Docker broker helper)
 - `samples/projects/runtime-async-net11/README.md`
 - `samples/projects/conditional-compilation/README.md` (`DefineConstants`,
   nested conditional branches, and VS Code inactive-code highlighting)

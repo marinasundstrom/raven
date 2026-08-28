@@ -1,0 +1,31 @@
+namespace MyServiceBusRabbitMqSample
+
+import MyServiceBus.*
+
+class SubmitOrderConsumer : IConsumer<SubmitOrder> {
+    async func Consume(context: ConsumeContext<SubmitOrder>) -> Task {
+        let (orderId, customer) = context.Message
+        Console.WriteLine("Received SubmitOrder ${orderId} for ${customer}")
+
+        await context.Publish(
+            OrderSubmitted(orderId, DateTimeOffset.UtcNow))
+    }
+}
+
+class OrderSubmittedConsumer : IConsumer<OrderSubmitted> {
+    func Consume(context: ConsumeContext<OrderSubmitted>) -> Task {
+        let (orderId, acceptedAt) = context.Message
+        Console.WriteLine("Observed OrderSubmitted ${orderId} at ${acceptedAt}")
+        return Task.CompletedTask
+    }
+}
+
+class CheckOrderStatusConsumer : IConsumer<CheckOrderStatus> {
+    async func Consume(context: ConsumeContext<CheckOrderStatus>) -> Task {
+        let request = context.Message
+        Console.WriteLine("Received CheckOrderStatus ${request.OrderId}")
+
+        await context.RespondAsync(
+            OrderStatus(request.OrderId, "Accepted"))
+    }
+}

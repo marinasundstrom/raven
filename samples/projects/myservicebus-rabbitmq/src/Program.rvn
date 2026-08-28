@@ -1,0 +1,48 @@
+namespace MyServiceBusRabbitMqSample
+
+import Microsoft.Extensions.DependencyInjection.*
+import Microsoft.Extensions.Hosting.*
+import MyServiceBus.*
+
+async func Main() -> Task {
+    let services = ServiceCollection()
+
+    services.AddServiceBus(func (bus) => {
+        bus.AddConsumer<SubmitOrderConsumer>()
+        bus.AddConsumer<OrderSubmittedConsumer>()
+        bus.AddConsumer<CheckOrderStatusConsumer>()
+
+        bus.UsingRabbitMq(func (context, rabbit) => {
+            rabbit.Host("localhost", func (host) => {
+                host.Username("guest")
+                host.Password("guest")
+            })
+            rabbit.ConfigureEndpoints(context)
+        })
+    })
+
+    use provider = services.BuildServiceProvider()
+    let hostedService = provider.GetRequiredService<IHostedService>()
+    let messageBus = provider.GetRequiredService<IMessageBus>()
+
+    Console.WriteLine("Connecting to RabbitMQ at localhost:5672...")
+    await hostedService.StartAsync(CancellationToken.None)
+
+    try {
+        let order = SubmitOrder(Guid.NewGuid(), "Raven Outfitters")
+        await messageBus.Publish(order, func (context) => {
+            context.Headers["sample-origin"] = "raven"
+        })
+        Console.WriteLine("Published SubmitOrder ${order.OrderId}")
+
+        let requestClient = provider.GetRequiredService<IRequestClient<CheckOrderStatus>>()
+        let response = await requestClient.GetResponseAsync<OrderStatus>(
+            CheckOrderStatus(order.OrderId))
+        Console.WriteLine("Request response: ${response.Message.Status}")
+
+        Console.WriteLine("Press Enter to stop the bus.")
+        _ = Console.ReadLine()
+    } finally {
+        await hostedService.StopAsync(CancellationToken.None)
+    }
+}
