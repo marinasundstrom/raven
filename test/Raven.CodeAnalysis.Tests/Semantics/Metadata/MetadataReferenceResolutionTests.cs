@@ -102,6 +102,35 @@ WriteLine(message)
     }
 
     [Fact]
+    public void GetDiagnostics_IgnoresNativePortableExecutableReferences()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"raven-native-reference-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var nativeReferencePath = Path.Combine(directory, "native-host.dll");
+        File.WriteAllBytes(nativeReferencePath, "not a managed assembly"u8.ToArray());
+
+        try
+        {
+            var tree = SyntaxTree.ParseText("public func Value() -> int => 42");
+            var nativeReference = MetadataReference.CreateFromFile(nativeReferencePath);
+            var compilation = Compilation.Create(
+                "consumer",
+                [tree],
+                [.. TestMetadataReferences.Default, nativeReference],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            var diagnostics = compilation.GetDiagnostics();
+
+            Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+            Assert.Null(compilation.GetAssemblyOrModuleSymbol(nativeReference));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void MetadataMethods_WithUnreadableSignatures_DoNotBecomeParameterless()
     {
         var dependencyTree = SyntaxTree.ParseText("""

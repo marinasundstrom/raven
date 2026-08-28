@@ -2708,7 +2708,20 @@ public partial class Compilation
             {
                 case PortableExecutableReference per:
                     {
-                        var assembly = LoadMetadataAssembly(per.FilePath);
+                        Assembly assembly;
+                        try
+                        {
+                            assembly = LoadMetadataAssembly(per.FilePath);
+                        }
+                        catch (BadImageFormatException)
+                        {
+                            // MSBuild reference sets can contain native PE files alongside
+                            // managed reference assemblies (for example ASP.NET Core's
+                            // Windows hosting module). They are not metadata references and
+                            // must not prevent the remaining managed references from loading.
+                            return null;
+                        }
+
                         RegisterRuntimeAssembly(assembly, per.FilePath);
                         symbol = GetAssembly(assembly, per.FilePath);
                         break;
