@@ -1,12 +1,27 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-08-28**.
+Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ## Unreleased
 
 ### Breaking changes
 
 - None recorded.
+
+## 0.1.6 - 2026-08-29
+
+### Breaking changes
+
+- None.
+
+### Fixed
+
+- Native PE files included in MSBuild reference sets no longer crash compilation
+  as invalid managed metadata. This restores Raven ASP.NET Core template builds
+  on Windows, where the framework reference set includes native hosting modules.
+- Release installation verification now fails immediately when a Windows native
+  command fails, preventing compiler or template failures from being reported as
+  a successful workflow run.
 
 ## 0.1.5 - 2026-08-28
 

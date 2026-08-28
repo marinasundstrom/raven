@@ -44,8 +44,8 @@ SDK feature band used by `dotnet` and MSBuild.
 On macOS or Linux:
 
 ```bash
-curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.5/install-raven.sh \
-  | sh -s -- 0.1.5
+curl -fsSL https://github.com/marinasundstrom/raven/releases/download/v0.1.6/install-raven.sh \
+  | sh -s -- 0.1.6
 export PATH="$HOME/.raven/bin:$PATH"
 ```
 
@@ -55,7 +55,7 @@ terminals.
 On Windows PowerShell:
 
 ```powershell
-$version = "0.1.5"
+$version = "0.1.6"
 Invoke-WebRequest "https://github.com/marinasundstrom/raven/releases/download/v$version/install-raven.ps1" -OutFile install-raven.ps1
 ./install-raven.ps1 -Version $version
 $env:PATH = "$HOME\.raven\bin;$env:PATH"
@@ -80,7 +80,7 @@ library, and MSBuild assets. `rvn` is the project and developer frontend;
 To install the VS Code extension from the same release:
 
 ```bash
-curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.5/raven-vscode.vsix
+curl -fLO https://github.com/marinasundstrom/raven/releases/download/v0.1.6/raven-vscode.vsix
 code --install-extension raven-vscode.vsix --force
 ```
 
