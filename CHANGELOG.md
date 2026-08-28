@@ -1,12 +1,24 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-08-26**.
+Behavior-focused timeline covering **2025-09-12** to **2026-08-28**.
 
 ## Unreleased
 
 ### Breaking changes
 
 - None recorded.
+
+## 0.1.4 - 2026-08-28
+
+### Breaking changes
+
+- None.
+
+### Added
+
+- Added a MyServiceBus and RabbitMQ showcase with dependency-injected Raven
+  consumers, tuple deconstruction of message records, publish/subscribe,
+  request/response, async shutdown, and a Docker broker helper.
 
 ### Fixed
 
