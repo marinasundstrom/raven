@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -31,4 +33,7 @@ sealed partial class SynthesizedNamespaceMembersClassSymbol : SourceNamedTypeSym
     public override IModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
 
     public override bool IsImplicitlyDeclared => true;
+
+    public override ImmutableArray<AttributeData> GetAttributes()
+        => ImmutableArray<AttributeData>.Empty;
 }

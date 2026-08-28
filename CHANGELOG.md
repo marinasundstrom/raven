@@ -8,6 +8,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-28**.
 
 - None recorded.
 
+### Fixed
+
+- Attributes on namespace-level functions and constants now emit only on their
+  declared method, return value, parameter, or field target instead of leaking
+  onto the synthesized `NamespaceMembers` type.
+
 ## 0.1.4 - 2026-08-28
 
 ### Breaking changes

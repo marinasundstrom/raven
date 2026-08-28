@@ -53,6 +53,200 @@ namespace Utilities {
     }
 
     [Fact]
+    public void NamespaceScopeAttributes_EmitOnlyOnTheirDeclaredMetadataOwners()
+    {
+        const string source = """
+import System.*
+import System.ComponentModel.*
+
+[assembly: Description("assembly")]
+[module: Description("module")]
+
+[Description("type")]
+class Widget { }
+
+[Description("global function")]
+[return: Description("global return")]
+public func TransformGlobal([Description("global parameter")] value: string) -> string => value
+
+[Description("global const")]
+public const GlobalAnswer: int = 41
+
+namespace Utilities {
+    [Description("function")]
+    [return: Description("return")]
+    public func Transform([Description("parameter")] value: string) -> string => value
+
+    [Description("const")]
+    public const Answer: int = 42
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "namespaceMemberAttributes",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, compilation.References);
+        var assembly = loaded.Assembly;
+        Assert.Equal(["assembly"], GetDescriptionLabels(assembly.GetCustomAttributesData()));
+        Assert.Equal(["module"], GetDescriptionLabels(assembly.ManifestModule.GetCustomAttributesData()));
+
+        var widget = assembly.GetType("Widget", throwOnError: true)!;
+        Assert.Equal(["type"], GetDescriptionLabels(widget.GetCustomAttributesData()));
+
+        var globalContainer = assembly.GetType("NamespaceMembers", throwOnError: true)!;
+        Assert.Empty(GetDescriptionLabels(globalContainer.GetCustomAttributesData()));
+
+        var globalMethod = globalContainer.GetMethod("TransformGlobal", BindingFlags.Public | BindingFlags.Static)!;
+        Assert.Equal(["global function"], GetDescriptionLabels(globalMethod.GetCustomAttributesData()));
+        Assert.Equal(["global return"], GetDescriptionLabels(globalMethod.ReturnParameter.GetCustomAttributesData()));
+        Assert.Equal(
+            ["global parameter"],
+            GetDescriptionLabels(Assert.Single(globalMethod.GetParameters()).GetCustomAttributesData()));
+
+        var globalField = globalContainer.GetField("GlobalAnswer", BindingFlags.Public | BindingFlags.Static)!;
+        Assert.Equal(["global const"], GetDescriptionLabels(globalField.GetCustomAttributesData()));
+
+        var container = assembly.GetType("Utilities.NamespaceMembers", throwOnError: true)!;
+        Assert.Empty(GetDescriptionLabels(container.GetCustomAttributesData()));
+
+        var method = container.GetMethod("Transform", BindingFlags.Public | BindingFlags.Static)!;
+        Assert.Equal(["function"], GetDescriptionLabels(method.GetCustomAttributesData()));
+        Assert.Equal(["return"], GetDescriptionLabels(method.ReturnParameter.GetCustomAttributesData()));
+        Assert.Equal(["parameter"], GetDescriptionLabels(Assert.Single(method.GetParameters()).GetCustomAttributesData()));
+
+        var field = container.GetField("Answer", BindingFlags.Public | BindingFlags.Static)!;
+        Assert.Equal(["const"], GetDescriptionLabels(field.GetCustomAttributesData()));
+    }
+
+    [Theory]
+    [InlineData("Utilities.NamespaceMembers", """
+        [Marker("function")]
+        public func Handle(value: string) -> string => value
+
+        [Marker("const")]
+        public const Answer: int = 42
+        """)]
+    [InlineData("Utilities.NamespaceMembers", """
+        [Marker("const")]
+        public const Answer: int = 42
+
+        [Marker("function")]
+        public func Handle(value: string) -> string => value
+        """)]
+    [InlineData("NamespaceMembers", """
+        [Marker("function")]
+        public func Handle(value: string) -> string => value
+
+        [Marker("const")]
+        public const Answer: int = 42
+        """)]
+    [InlineData("NamespaceMembers", """
+        [Marker("const")]
+        public const Answer: int = 42
+
+        [Marker("function")]
+        public func Handle(value: string) -> string => value
+        """)]
+    public void NamespaceMemberDeclarationAttributes_DoNotLeakToSynthesizedContainer(
+        string containerTypeName,
+        string declarations)
+    {
+        var scopedDeclarations = containerTypeName.Contains('.')
+            ? $$"""
+              namespace Utilities {
+              {{declarations}}
+              }
+              """
+            : declarations;
+
+        var source = $$"""
+import System.*
+
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Field, AllowMultiple: true)]
+class MarkerAttribute : Attribute
+{
+    init(label: string) { }
+}
+
+{{scopedDeclarations}}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "namespaceMemberAttributeOrder",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, compilation.References);
+        var container = loaded.Assembly.GetType(containerTypeName, throwOnError: true)!;
+
+        Assert.Empty(GetMarkerLabels(container.GetCustomAttributesData()));
+        Assert.Equal(
+            ["function"],
+            GetMarkerLabels(container.GetMethod("Handle", BindingFlags.Public | BindingFlags.Static)!.GetCustomAttributesData()));
+        Assert.Equal(
+            ["const"],
+            GetMarkerLabels(container.GetField("Answer", BindingFlags.Public | BindingFlags.Static)!.GetCustomAttributesData()));
+    }
+
+    [Fact]
+    public void CompilationUnitFunctionAttributes_AttachToFunctionSymbolAndEmittedMethod()
+    {
+        const string source = """
+import System.ComponentModel.*
+
+[Description("function")]
+[return: Description("return")]
+func Transform([Description("parameter")] value: string) -> string => value
+
+let transformed = Transform("ok")
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create(
+            "compilationUnitFunctionAttributes",
+            [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+
+        Assert.Equal("Program", methodSymbol.ContainingType?.Name);
+        Assert.Equal(["function"], GetDescriptionLabels(methodSymbol.GetAttributes()));
+        Assert.Equal(["return"], GetDescriptionLabels(methodSymbol.GetReturnTypeAttributes()));
+        Assert.Equal(["parameter"], GetDescriptionLabels(Assert.Single(methodSymbol.Parameters).GetAttributes()));
+        Assert.Empty(GetDescriptionLabels(methodSymbol.ContainingType!.GetAttributes()));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, compilation.References);
+        var program = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        Assert.Empty(GetDescriptionLabels(program.GetCustomAttributesData()));
+
+        var method = program.GetMethod("Transform", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Assert.Equal(["function"], GetDescriptionLabels(method.GetCustomAttributesData()));
+        Assert.Equal(["return"], GetDescriptionLabels(method.ReturnParameter.GetCustomAttributesData()));
+        Assert.Equal(["parameter"], GetDescriptionLabels(Assert.Single(method.GetParameters()).GetCustomAttributesData()));
+    }
+
+    [Fact]
     public void NamespaceFunction_LambdaCapturesFunctionParameter()
     {
         const string source = """
@@ -116,4 +310,22 @@ namespace Utilities {
 
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
     }
+
+    private static string[] GetMarkerLabels(IList<CustomAttributeData> attributes)
+        => attributes
+            .Where(static attribute => attribute.AttributeType.Name == "MarkerAttribute")
+            .Select(static attribute => Assert.IsType<string>(attribute.ConstructorArguments[0].Value))
+            .ToArray();
+
+    private static string[] GetDescriptionLabels(IList<CustomAttributeData> attributes)
+        => attributes
+            .Where(static attribute => attribute.AttributeType.Name == "DescriptionAttribute")
+            .Select(static attribute => Assert.IsType<string>(attribute.ConstructorArguments[0].Value))
+            .ToArray();
+
+    private static string[] GetDescriptionLabels(IEnumerable<AttributeData> attributes)
+        => attributes
+            .Where(static attribute => attribute.AttributeClass?.Name == "DescriptionAttribute")
+            .Select(static attribute => Assert.IsType<string>(attribute.ConstructorArguments[0].Value))
+            .ToArray();
 }

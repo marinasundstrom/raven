@@ -54,6 +54,14 @@ diagnoses the modifier rather than treating it as meaningful. `private`,
 top-level function or constant has no source-level containing type or
 inheritance surface.
 
+Attributes on functions and constants declared directly in global scope or a
+named namespace belong to their emitted method or field, including explicit
+return and parameter targets. They are not applied to the synthesized
+`NamespaceMembers` container. Compilation-unit `assembly` and `module` targets
+likewise remain owned by the assembly or module. Raven currently has no syntax
+for attaching an authored attribute to that container; an explicit target such
+as `[class: ...]` can be considered as a separate language feature.
+
 The same assembly-boundary rule applies to namespace-level type declarations:
 classes, structs, records, interfaces, enums, unions, delegates, and extension
 declarations default to `internal`, and `public` explicitly exports them.

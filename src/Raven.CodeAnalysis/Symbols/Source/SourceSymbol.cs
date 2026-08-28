@@ -66,6 +66,7 @@ internal abstract class SourceSymbol : Symbol
 
         var builder = ImmutableArray.CreateBuilder<AttributeData>();
         var seenAttributes = new Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>>();
+        var processedAttributeLocations = new HashSet<(SyntaxTree SyntaxTree, int SpanStart, int SpanLength)>();
         var defaultTarget = AttributeUsageHelper.GetDefaultTargetForOwner(this);
 
         foreach (var syntaxReference in DeclaringSyntaxReferences)
@@ -80,6 +81,9 @@ internal abstract class SourceSymbol : Symbol
 
             foreach (var attribute in attributeLists.SelectMany(static list => list.Attributes))
             {
+                if (!processedAttributeLocations.Add((attribute.SyntaxTree, attribute.Span.Start, attribute.Span.Length)))
+                    continue;
+
                 if (attribute.IsMacroAttribute())
                     continue;
 
