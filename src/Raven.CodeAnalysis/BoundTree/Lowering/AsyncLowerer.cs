@@ -156,6 +156,7 @@ internal static class AsyncLowerer
         if (analysis.ContainsAwait)
         {
             body = LowerBeforeAsyncRewrite(method, body);
+            body = AsyncProtectedRegionLowerer.Rewrite(method, body);
             if (compilation.IsRuntimeAsyncEnabled)
                 body = RuntimeAsyncLowerer.Rewrite(method, body);
         }
@@ -181,6 +182,7 @@ internal static class AsyncLowerer
         if (analysis.ContainsAwait)
         {
             body = LowerBeforeAsyncRewrite(lambda, body);
+            body = AsyncProtectedRegionLowerer.Rewrite(lambda, body);
             if (compilation.IsRuntimeAsyncEnabled)
                 body = RuntimeAsyncLowerer.Rewrite(lambda, body);
         }

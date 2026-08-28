@@ -285,6 +285,9 @@ Sample project:
 Classic async lowering (runtime-async off):
 
 - Raven synthesizes async state-machine types and rewrites `await` into explicit awaiter calls.
+- Await-containing `catch` and `finally` handlers are normalized into resumable
+  ordinary blocks before state-machine generation. Pending returns, branches,
+  and exceptions are restored after every handler suspension completes.
 - Generated IL uses `GetAwaiter` / `GetResult` patterns from compiler-generated machinery.
 - Async return types in this mode include `Task`, `Task<T>`, `ValueTask`, and `ValueTask<T>`.
 
@@ -297,6 +300,9 @@ What this leaves on the compiler side:
 What runtime-async fills:
 
 - Raven marks async methods with runtime async metadata and emits `AsyncHelpers.Await(...)` calls.
+- It shares the same exception-handler normalization as classic lowering, so
+  single or repeated awaits in `catch` and `finally` preserve the same behavior
+  without synthesizing a Raven state-machine type.
 - `Task` and `Task<int>` entry points are bootstrapped with `AsyncHelpers.HandleAsyncEntryPoint(...)` when targeting a .NET 11 runtime surface that exposes it.
 - .NET 11 runtime provides the core async suspension/resume machinery, reducing compiler-generated state-machine complexity.
 - Await support for core BCL shapes is now direct (`Task`, `Task<T>`, `ValueTask`, `ValueTask<T>`, and configured awaitables).

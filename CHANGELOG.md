@@ -8,6 +8,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-26**.
 
 - None recorded.
 
+### Fixed
+
+- Async methods now support one or more `await` expressions in `catch` and
+  `finally` blocks. Classic lowering emits verifiable generated state machines,
+  while .NET 11 runtime async preserves the same return and exception behavior
+  without synthesizing a state-machine type.
+
 ## 0.1.3 - 2026-08-26
 
 ### Breaking changes

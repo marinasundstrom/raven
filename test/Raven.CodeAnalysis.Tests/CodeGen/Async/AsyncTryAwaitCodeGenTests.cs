@@ -5,13 +5,17 @@ using System.Linq;
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Tests.Utilities;
 
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public sealed class AsyncTryAwaitCodeGenTests
+public sealed class AsyncTryAwaitCodeGenTests(ITestOutputHelper output)
 {
+    private readonly ITestOutputHelper _output = output;
+
     [Fact]
     public void TryAwaitExpression_EmitsAndRuns()
     {
@@ -307,6 +311,217 @@ class Program {
     }
 
     [Fact]
+    public void AwaitInFinally_SuspendsAndPreservesReturnAndExceptionFlow()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+class Program {
+    static async func Run(mode: int) -> Task<string> {
+        try {
+            await Task.Delay(1)
+
+            if mode == 1 {
+                throw Exception("try-failure")
+            }
+
+            if mode == 2 {
+                return "early"
+            }
+
+            return "normal"
+        } finally {
+            var step = 0
+            await Task.Delay(1)
+            step = step + 1
+            Console.WriteLine("finally:first:$mode:$step")
+            await Task.Delay(1)
+            step = step + 1
+            Console.WriteLine("finally:second:$mode:$step")
+        }
+    }
+
+    static async func Main() -> Task {
+        Console.WriteLine(await Program.Run(0))
+        Console.WriteLine(await Program.Run(2))
+
+        try {
+            _ = await Program.Run(1)
+        } catch (Exception ex) {
+            Console.WriteLine(ex.Message)
+        }
+    }
+}
+""";
+
+        var output = CompileAndRun(code, verifyIl: true);
+        Assert.Equal(
+            new[]
+            {
+                "finally:first:0:1",
+                "finally:second:0:2",
+                "normal",
+                "finally:first:2:1",
+                "finally:second:2:2",
+                "early",
+                "finally:first:1:1",
+                "finally:second:1:2",
+                "try-failure",
+            },
+            output);
+    }
+
+    [Fact]
+    public void AwaitInFinally_TaskMethodFallsThroughAfterMultipleSuspensions()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+class Program {
+    static async func Run() -> Task {
+        try {
+            await Task.Delay(1)
+            Console.WriteLine("try")
+        } finally {
+            var step = 0
+            await Task.Delay(1)
+            step = step + 1
+            Console.WriteLine("finally:first:$step")
+            await Task.Delay(1)
+            step = step + 1
+            Console.WriteLine("finally:second:$step")
+        }
+    }
+
+    static async func Main() -> Task {
+        await Program.Run()
+        Console.WriteLine("completed")
+    }
+}
+""";
+
+        var output = CompileAndRun(code, verifyIl: true);
+        Assert.Equal(
+            new[] { "try", "finally:first:1", "finally:second:2", "completed" },
+            output);
+    }
+
+    [Fact]
+    public void AwaitInCatch_SuspendsAndPreservesNormalReturnAndExceptionFlow()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+class Program {
+    static async func Run(mode: int) -> Task<string> {
+        try {
+            await Task.Delay(1)
+
+            if mode > 0 {
+                throw Exception("failure:$mode")
+            }
+
+            return "normal"
+        } catch (Exception ex) {
+            var step = 0
+            await Task.Delay(1)
+            step = step + 1
+            Console.WriteLine("catch:first:$mode:$step")
+            await Task.Delay(1)
+            step = step + 1
+            Console.WriteLine("catch:second:$mode:$step")
+
+            if mode == 2 {
+                throw ex
+            }
+
+            return "handled:" + ex.Message
+        }
+    }
+
+    static async func Main() -> Task {
+        Console.WriteLine(await Program.Run(0))
+        Console.WriteLine(await Program.Run(1))
+
+        try {
+            _ = await Program.Run(2)
+        } catch (Exception ex) {
+            Console.WriteLine("outer:" + ex.Message)
+        }
+    }
+}
+""";
+
+        var output = CompileAndRun(code, verifyIl: true);
+        Assert.Equal(
+            new[]
+            {
+                "normal",
+                "catch:first:1:1",
+                "catch:second:1:2",
+                "handled:failure:1",
+                "catch:first:2:1",
+                "catch:second:2:2",
+                "outer:failure:2",
+            },
+            output);
+    }
+
+    [Fact]
+    public void AwaitInCatchAndFinally_SuspendsInBothHandlers()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+class Program {
+    static async func Run() -> Task<string> {
+        try {
+            await Task.Delay(1)
+            throw Exception("failure")
+        } catch (Exception ex) {
+            var catchStep = 0
+            await Task.Delay(1)
+            catchStep = catchStep + 1
+            Console.WriteLine("catch:first:" + ex.Message + ":" + catchStep.ToString())
+            await Task.Delay(1)
+            catchStep = catchStep + 1
+            Console.WriteLine("catch:second:" + ex.Message + ":" + catchStep.ToString())
+            return "handled"
+        } finally {
+            var finallyStep = 0
+            await Task.Delay(1)
+            finallyStep = finallyStep + 1
+            Console.WriteLine("finally:first:$finallyStep")
+            await Task.Delay(1)
+            finallyStep = finallyStep + 1
+            Console.WriteLine("finally:second:$finallyStep")
+        }
+    }
+
+    static async func Main() -> Task {
+        Console.WriteLine(await Program.Run())
+    }
+}
+""";
+
+        var output = CompileAndRun(code, verifyIl: true);
+        Assert.Equal(
+            new[]
+            {
+                "catch:first:failure:1",
+                "catch:second:failure:2",
+                "finally:first:1",
+                "finally:second:2",
+                "handled",
+            },
+            output);
+    }
+
+    [Fact]
     public void Async_ConditionalAccessThenPropagate_UsesSameOutStorage()
     {
         const string code = """
@@ -524,7 +739,7 @@ class Program {
         Assert.Empty(output);
     }
 
-    private static string[] CompileAndRun(string code)
+    private string[] CompileAndRun(string code, bool verifyIl = false)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
         var references = GetReferencesWithRavenCore();
@@ -534,33 +749,52 @@ class Program {
             references,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        using var peStream = new MemoryStream();
-        var emitResult = compilation.Emit(peStream);
-        Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
-
-        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
-        var entryPoint = loaded.Assembly.EntryPoint!;
-
-        var originalOut = Console.Out;
-        using var writer = new StringWriter();
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.dll");
 
         try
         {
-            Console.SetOut(writer);
-            var parameters = entryPoint.GetParameters().Length == 0
-                ? null
-                : new object?[] { Array.Empty<string>() };
-            entryPoint.Invoke(null, parameters);
+            using (var peStream = File.Create(assemblyPath))
+            {
+                var emitResult = compilation.Emit(peStream);
+                Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
+            }
+
+            if (verifyIl && IlVerifyTestHelper.TryResolve(_output))
+            {
+                Assert.True(
+                    IlVerifyRunner.Verify(null, assemblyPath, compilation),
+                    "IL verification failed for an async exception-handler state machine.");
+            }
+
+            using var assemblyStream = File.OpenRead(assemblyPath);
+            using var loaded = TestAssemblyLoader.LoadFromStream(assemblyStream, references);
+            var entryPoint = loaded.Assembly.EntryPoint!;
+            var originalOut = Console.Out;
+            using var writer = new StringWriter();
+
+            try
+            {
+                Console.SetOut(writer);
+                var parameters = entryPoint.GetParameters().Length == 0
+                    ? null
+                    : new object?[] { Array.Empty<string>() };
+                entryPoint.Invoke(null, parameters);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+            }
+
+            return writer.ToString()
+                .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim())
+                .ToArray();
         }
         finally
         {
-            Console.SetOut(originalOut);
+            if (File.Exists(assemblyPath))
+                File.Delete(assemblyPath);
         }
-
-        return writer.ToString()
-            .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
-            .Select(line => line.Trim())
-            .ToArray();
     }
 
     private static void EmitOnly(string code)

@@ -377,6 +377,161 @@ class Program {
     }
 
     [Fact]
+    public void RuntimeAsyncEnabled_AwaitInCatchAndFinally_MatchesStateMachineBehaviorWithoutGeneratedType()
+    {
+        const string code = """
+import System.*
+import System.Threading.Tasks.*
+
+class Program {
+    public static var Trace: string = ""
+
+    public static func ResetTrace() -> unit {
+        Program.Trace = ""
+    }
+
+    public static async func CatchOnly(mode: int) -> Task<string> {
+        try {
+            await Task.Delay(1)
+
+            if mode > 0 {
+                throw Exception("failure:$mode")
+            }
+
+            return "normal"
+        } catch (Exception ex) {
+            var step = 0
+            await Task.Delay(1)
+            step = step + 1
+            Program.Trace = Program.Trace + "catch:first:$mode:$step;"
+            await Task.Delay(1)
+            step = step + 1
+            Program.Trace = Program.Trace + "catch:second:$mode:$step;"
+
+            if mode == 2 {
+                throw ex
+            }
+
+            return "handled:" + ex.Message
+        }
+    }
+
+    public static async func FinallyOnly(mode: int) -> Task<string> {
+        try {
+            await Task.Delay(1)
+
+            if mode == 1 {
+                throw Exception("try-failure")
+            }
+
+            if mode == 2 {
+                return "early"
+            }
+
+            return "normal"
+        } finally {
+            var step = 0
+            await Task.Delay(1)
+            step = step + 1
+            Program.Trace = Program.Trace + "finally:first:$mode:$step;"
+            await Task.Delay(1)
+            step = step + 1
+            Program.Trace = Program.Trace + "finally:second:$mode:$step;"
+        }
+    }
+
+    public static async func Combined() -> Task<string> {
+        try {
+            await Task.Delay(1)
+            throw Exception("combined")
+        } catch (Exception ex) {
+            var catchStep = 0
+            await Task.Delay(1)
+            catchStep = catchStep + 1
+            Program.Trace = Program.Trace + "catch:first:" + ex.Message + ":" + catchStep.ToString() + ";"
+            await Task.Delay(1)
+            catchStep = catchStep + 1
+            Program.Trace = Program.Trace + "catch:second:" + ex.Message + ":" + catchStep.ToString() + ";"
+            return "handled"
+        } finally {
+            var finallyStep = 0
+            await Task.Delay(1)
+            finallyStep = finallyStep + 1
+            Program.Trace = Program.Trace + "finally:first:$finallyStep;"
+            await Task.Delay(1)
+            finallyStep = finallyStep + 1
+            Program.Trace = Program.Trace + "finally:second:$finallyStep;"
+        }
+    }
+
+    public static async func FinallyFallthrough() -> Task {
+        try {
+            await Task.Delay(1)
+            Program.Trace = Program.Trace + "try;"
+        } finally {
+            var step = 0
+            await Task.Delay(1)
+            step = step + 1
+            Program.Trace = Program.Trace + "finally:first:$step;"
+            await Task.Delay(1)
+            step = step + 1
+            Program.Trace = Program.Trace + "finally:second:$step;"
+        }
+    }
+}
+""";
+
+        using var loaded = EmitAssembly(code, useRuntimeAsync: true);
+
+        var programType = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        var methodFlags = BindingFlags.Public | BindingFlags.Static;
+        var traceProperty = programType.GetProperty("Trace", methodFlags)!;
+        var resetTrace = programType.GetMethod("ResetTrace", methodFlags)!;
+        var catchOnly = programType.GetMethod("CatchOnly", methodFlags)!;
+        var finallyOnly = programType.GetMethod("FinallyOnly", methodFlags)!;
+        var combined = programType.GetMethod("Combined", methodFlags)!;
+        var finallyFallthrough = programType.GetMethod("FinallyFallthrough", methodFlags)!;
+
+        Assert.Equal("normal", InvokeTask(catchOnly, 0));
+        Assert.Equal("", traceProperty.GetValue(null));
+
+        Assert.Equal("handled:failure:1", InvokeTask(catchOnly, 1));
+        Assert.Equal("catch:first:1:1;catch:second:1:2;", traceProperty.GetValue(null));
+
+        resetTrace.Invoke(null, null);
+        var catchException = Assert.ThrowsAny<Exception>(() => InvokeTask(catchOnly, 2));
+        Assert.Equal("failure:2", catchException.Message);
+        Assert.Equal("catch:first:2:1;catch:second:2:2;", traceProperty.GetValue(null));
+
+        resetTrace.Invoke(null, null);
+        Assert.Equal("normal", InvokeTask(finallyOnly, 0));
+        Assert.Equal("finally:first:0:1;finally:second:0:2;", traceProperty.GetValue(null));
+
+        resetTrace.Invoke(null, null);
+        var finallyException = Assert.ThrowsAny<Exception>(() => InvokeTask(finallyOnly, 1));
+        Assert.Equal("try-failure", finallyException.Message);
+        Assert.Equal("finally:first:1:1;finally:second:1:2;", traceProperty.GetValue(null));
+
+        resetTrace.Invoke(null, null);
+        Assert.Equal("early", InvokeTask(finallyOnly, 2));
+        Assert.Equal("finally:first:2:1;finally:second:2:2;", traceProperty.GetValue(null));
+
+        resetTrace.Invoke(null, null);
+        Assert.Equal("handled", InvokeTask(combined));
+        Assert.Equal(
+            "catch:first:combined:1;catch:second:combined:2;finally:first:1;finally:second:2;",
+            traceProperty.GetValue(null));
+
+        resetTrace.Invoke(null, null);
+        InvokeVoidTask(finallyFallthrough);
+        Assert.Equal("try;finally:first:1;finally:second:2;", traceProperty.GetValue(null));
+
+        Assert.DoesNotContain(
+            loaded.Assembly.GetTypes(),
+            static type => type.Name.Contains("AsyncStateMachine", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void RuntimeAsyncEnabled_BlockBodiedAsyncLambda_ReturnsExpectedTaskResult()
     {
         const string code = """
@@ -460,6 +615,18 @@ class Program {
         Assert.True(emitResult.Success, string.Join(Environment.NewLine, emitResult.Diagnostics));
 
         return TestAssemblyLoader.LoadFromStream(peStream, references);
+    }
+
+    private static string InvokeTask(MethodInfo method, params object?[] arguments)
+    {
+        var task = Assert.IsAssignableFrom<Task<string>>(method.Invoke(null, arguments));
+        return task.GetAwaiter().GetResult();
+    }
+
+    private static void InvokeVoidTask(MethodInfo method, params object?[] arguments)
+    {
+        var task = Assert.IsAssignableFrom<Task>(method.Invoke(null, arguments));
+        task.GetAwaiter().GetResult();
     }
 
     private static MetadataReference[] GetFrameworkReferences(string targetFramework)

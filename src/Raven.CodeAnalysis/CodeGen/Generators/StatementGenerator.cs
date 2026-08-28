@@ -1311,7 +1311,9 @@ internal class StatementGenerator : Generator
         EmitScopeDisposals(scope, targetScope);
 
         var ilLabel = MethodBodyGenerator.GetOrCreateLabel(gotoStatement.Target);
-        ILGenerator.Emit(OpCodes.Br, ilLabel);
+        ILGenerator.Emit(
+            gotoStatement.Target is AsyncProtectedRegionExitLabelSymbol ? OpCodes.Leave : OpCodes.Br,
+            ilLabel);
     }
 
     private void EmitConditionalGotoStatement(BoundConditionalGotoStatement conditionalGotoStatement)

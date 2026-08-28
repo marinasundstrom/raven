@@ -21,6 +21,27 @@ async func DownloadLength(url: string) -> Task<int> {
 The return type remains a normal .NET `Task<T>`, so Raven functions can call
 and be called by existing .NET libraries.
 
+## Await in exception handlers
+
+An async function may suspend in `catch` and `finally` blocks, including at
+multiple await points in the same handler:
+
+```raven
+try {
+    await ProcessAsync()
+} catch (Exception ex) {
+    await LogAsync(ex)
+    await RecoverAsync()
+} finally {
+    await FlushAsync()
+    await CloseAsync()
+}
+```
+
+Returns, handled and unhandled exceptions, and surrounding control flow keep
+their normal .NET ordering. A `finally` block completes all of its awaits before
+the pending return or exception continues.
+
 ## Consume an async stream
 
 Use `await for` with `IAsyncEnumerable<T>`:
