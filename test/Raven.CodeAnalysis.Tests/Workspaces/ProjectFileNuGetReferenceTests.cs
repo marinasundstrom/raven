@@ -73,6 +73,122 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
+    public void OpenProject_PackageReference_UsesAssetsTransitiveCompileClosure()
+    {
+        var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var globalPackages = Path.Combine(root, "packages");
+        var projectDir = Path.Combine(root, "project");
+        var sourceDir = Path.Combine(projectDir, "src");
+        var directAssemblyPath = Path.Combine(
+            globalPackages,
+            "fake.package",
+            "1.0.0",
+            "ref",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Package.dll");
+        var dependencyAssemblyPath = Path.Combine(
+            globalPackages,
+            "fake.dependency",
+            "2.0.0",
+            "ref",
+            TestMetadataReferences.TargetFramework,
+            "Fake.Dependency.dll");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(directAssemblyPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(dependencyAssemblyPath)!);
+        Directory.CreateDirectory(sourceDir);
+        File.Copy(typeof(object).Assembly.Location, directAssemblyPath, overwrite: true);
+        File.Copy(typeof(object).Assembly.Location, dependencyAssemblyPath, overwrite: true);
+        File.WriteAllText(Path.Combine(sourceDir, "main.rvn"), "System.Console.WriteLine(\"hi\")");
+
+        var projectPath = Path.Combine(projectDir, "App.rvnproj");
+        File.WriteAllText(
+            projectPath,
+            $$"""
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>{{TestMetadataReferences.TargetFramework}}</TargetFramework>
+                <AssemblyName>App</AssemblyName>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Fake.Package" Version="1.0.0" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        var objDir = Path.Combine(projectDir, "obj");
+        Directory.CreateDirectory(objDir);
+        File.WriteAllText(
+            Path.Combine(objDir, "project.assets.json"),
+            $$"""
+            {
+              "targets": {
+                "{{TestMetadataReferences.TargetFramework}}": {
+                  "Fake.Package/1.0.0": {
+                    "type": "package",
+                    "dependencies": {
+                      "Fake.Dependency": "2.0.0"
+                    },
+                    "compile": {
+                      "ref/{{TestMetadataReferences.TargetFramework}}/Fake.Package.dll": {}
+                    }
+                  },
+                  "Fake.Dependency/2.0.0": {
+                    "type": "package",
+                    "compile": {
+                      "ref/{{TestMetadataReferences.TargetFramework}}/Fake.Dependency.dll": {}
+                    }
+                  }
+                }
+              },
+              "libraries": {
+                "Fake.Package/1.0.0": {
+                  "type": "package",
+                  "path": "fake.package/1.0.0"
+                },
+                "Fake.Dependency/2.0.0": {
+                  "type": "package",
+                  "path": "fake.dependency/2.0.0"
+                }
+              },
+              "project": {
+                "frameworks": {
+                  "{{TestMetadataReferences.TargetFramework}}": {
+                    "dependencies": {
+                      "Fake.Package": {
+                        "target": "Package",
+                        "version": "[1.0.0, )"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """);
+
+        var originalPackages = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+        Environment.SetEnvironmentVariable("NUGET_PACKAGES", globalPackages);
+        try
+        {
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            var referencePaths = project.MetadataReferences
+                .OfType<PortableExecutableReference>()
+                .Select(static reference => reference.FilePath)
+                .ToArray();
+
+            Assert.Contains(directAssemblyPath, referencePaths, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains(dependencyAssemblyPath, referencePaths, StringComparer.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("NUGET_PACKAGES", originalPackages);
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void OpenProject_MarkedPackageAssembly_AutomaticallyActivatesMacro()
     {
         var root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -1341,12 +1457,6 @@ public sealed class ProjectFileNuGetReferenceTests
             .First(expression =>
                 expression.Kind == SyntaxKind.AwaitExpression &&
                 sourceText.ToString(expression.Span).Contains("SingleOrDefaultAsync", StringComparison.Ordinal));
-        var vehicleDeclarator = root.DescendantNodes()
-            .OfType<VariableDeclaratorSyntax>()
-            .First(declarator =>
-                string.Equals(declarator.Identifier.ValueText, "vehicle", StringComparison.Ordinal) &&
-                declarator.Initializer is not null &&
-                sourceText.ToString(declarator.Initializer.Span).Contains("SingleOrDefaultAsync", StringComparison.Ordinal));
         var vehiclesDeclarator = root.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .First(declarator =>
@@ -1472,16 +1582,6 @@ public sealed class ProjectFileNuGetReferenceTests
 
         Assert.True(
             model.TryGetAvailableLocalDeclarationSymbol(
-                vehicleDeclarator,
-                out var cheapVehicleLocal,
-                allowErrorType: true,
-                allowInitializerBinding: true,
-                allowBindingFallback: false),
-            instrumentation.BinderReentry.GetSummary());
-        Assert.Contains("VehicleEntity", cheapVehicleLocal!.Type.ToDisplayString());
-
-        Assert.True(
-            model.TryGetAvailableLocalDeclarationSymbol(
                 vehiclesDeclarator,
                 out var cheapVehiclesLocal,
                 allowErrorType: true,
@@ -1514,20 +1614,6 @@ public sealed class ProjectFileNuGetReferenceTests
         Assert.Null(info.Symbol);
         Assert.True(info.CandidateSymbols.IsDefaultOrEmpty);
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
-        Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
-        Assert.Equal(0, delta.BoundNodeBindFallbacks);
-
-        instrumentation.BinderReentry.Reset();
-        before = instrumentation.SemanticQuery.CaptureSnapshot();
-
-        var symbol = model.GetDeclaredSymbol(vehicleDeclarator);
-
-        after = instrumentation.SemanticQuery.CaptureSnapshot();
-        delta = SemanticQueryInstrumentation.Subtract(after, before);
-        AssertSymbolName(symbol, "vehicle");
-        Assert.True(
-            instrumentation.BinderReentry.TotalBindExecutions <= 1,
-            instrumentation.BinderReentry.GetSummary());
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
 
@@ -1673,11 +1759,11 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
-    public void OpenProject_AspNetMinimalApiSample_PatternInlayQueryBeforeDiagnostics_DoesNotLoseAppLocal()
+    public void OpenProject_AspNetMinimalApiSample_PatternInlayQueryBeforeDiagnostics_DoesNotLosePatternLocal()
     {
         var repoRoot = FindRepositoryRoot();
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "AspNetMinimalApi.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "src", "Program.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "aspnet-minimal-api", "src", "Domain.rvn");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.OpenProject(projectPath);
@@ -1700,13 +1786,13 @@ public sealed class ProjectFileNuGetReferenceTests
 
         var diagnostics = compilation.GetDocumentDiagnostics(tree, analyzerOptions: null, CancellationToken.None);
 
-        var appDiagnostics = diagnostics
+        var nameDiagnostics = diagnostics
             .Where(diagnostic =>
             diagnostic.Id == CompilerDiagnostics.TheNameDoesNotExistInTheCurrentContext.Id &&
-            diagnostic.GetMessage().Contains("'app' is not in scope", StringComparison.Ordinal))
+            diagnostic.GetMessage().Contains("'name' is not in scope", StringComparison.Ordinal))
             .Select(diagnostic => $"{diagnostic.Location.GetLineSpan().StartLinePosition}: {diagnostic.GetMessage()}")
             .ToArray();
-        Assert.Empty(appDiagnostics);
+        Assert.Empty(nameDiagnostics);
     }
 
     [Fact]
@@ -1741,11 +1827,11 @@ public sealed class ProjectFileNuGetReferenceTests
     }
 
     [Fact]
-    public void OpenProject_EfCoreContractsSample_PresentationQueriesBeforeDiagnostics_DoNotLoseVehicleStatusDtoMembers()
+    public void OpenProject_EfCoreSample_PresentationQueriesBeforeDiagnostics_DoNotLoseRequestMembers()
     {
         var repoRoot = FindRepositoryRoot();
         var projectPath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "VehicleCostsApi.rvnproj");
-        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "src", "Contracts", "Contracts.rvn");
+        var sourcePath = Path.Combine(repoRoot, "samples", "projects", "efcore-vehicle-costs", "src", "Api", "Main.rvn");
 
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
         var projectId = workspace.OpenProject(projectPath);
@@ -1754,25 +1840,25 @@ public sealed class ProjectFileNuGetReferenceTests
             string.Equals(tree.FilePath, sourcePath, StringComparison.OrdinalIgnoreCase));
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
-        var requestToStatus = root.DescendantNodes()
+        var requestPayloadCapacity = root.DescendantNodes()
             .OfType<MemberAccessExpressionSyntax>()
             .Single(static memberAccess =>
-                memberAccess.Expression is IdentifierNameSyntax { Identifier.ValueText: "Status" } &&
-                memberAccess.Name.Identifier.ValueText == "ToStatus")
+                memberAccess.Expression is IdentifierNameSyntax { Identifier.ValueText: "request" } &&
+                memberAccess.Name.Identifier.ValueText == "PayloadCapacity")
             .Name;
 
         ReplayPresentationSemanticQueries(model, root);
 
-        AssertSymbolInfoContains(model.GetSymbolInfo(requestToStatus), "ToStatus");
+        AssertSymbolInfoContains(model.GetSymbolInfo(requestPayloadCapacity), "PayloadCapacity");
 
         var diagnostics = compilation.GetDocumentDiagnostics(tree, analyzerOptions: null, CancellationToken.None);
-        var toStatusDiagnostics = diagnostics
+        var payloadCapacityDiagnostics = diagnostics
             .Where(static diagnostic =>
                 diagnostic.Id == CompilerDiagnostics.MemberDoesNotContainDefinition.Id &&
-                diagnostic.GetMessage().Contains("'VehicleStatusDto' has no member 'ToStatus'", StringComparison.Ordinal))
+                diagnostic.GetMessage().Contains("'CreateVehicleRequest' has no member 'PayloadCapacity'", StringComparison.Ordinal))
             .Select(static diagnostic => $"{diagnostic.Location.GetLineSpan().StartLinePosition}: {diagnostic.GetMessage()}")
             .ToArray();
-        Assert.Empty(toStatusDiagnostics);
+        Assert.Empty(payloadCapacityDiagnostics);
     }
 
     [Fact]

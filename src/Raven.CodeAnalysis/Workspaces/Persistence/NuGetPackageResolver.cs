@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Xml.Linq;
 
 using Raven.CodeAnalysis.Macros;
 
@@ -32,25 +33,25 @@ internal static class NuGetPackageResolver
         var resolvedMacroDependencyPaths = ImmutableArray.CreateBuilder<string>();
         var resolvedAnalyzerPaths = ImmutableArray.CreateBuilder<string>();
 
-        if (frameworkReferences.IsDefaultOrEmpty &&
-            TryResolveDirectlyFromGlobalCache(globalPackagesFolder, targetFramework, packageReferences, out var directReferences))
-        {
-            resolvedPaths.AddRange(directReferences.PackageReferencePaths);
-            resolvedMacroPaths.AddRange(directReferences.MacroReferencePaths);
-            resolvedMacroDependencyPaths.AddRange(directReferences.MacroDependencyPaths);
-            resolvedAnalyzerPaths.AddRange(directReferences.AnalyzerReferencePaths);
-        }
-        else if (!allowRestore && TryResolveFromExistingAssets(
-                     projectFilePath,
-                     globalPackagesFolder,
-                     targetFramework,
-                     out var existingAssetsResolution))
+        if (TryResolveFromExistingAssets(
+                projectFilePath,
+                globalPackagesFolder,
+                targetFramework,
+                out var existingAssetsResolution))
         {
             resolvedPaths.AddRange(existingAssetsResolution.PackageReferencePaths);
             resolvedPaths.AddRange(existingAssetsResolution.FrameworkPackReferencePaths);
             resolvedMacroPaths.AddRange(existingAssetsResolution.MacroReferencePaths);
             resolvedMacroDependencyPaths.AddRange(existingAssetsResolution.MacroDependencyPaths);
             resolvedAnalyzerPaths.AddRange(existingAssetsResolution.AnalyzerReferencePaths);
+        }
+        else if (frameworkReferences.IsDefaultOrEmpty &&
+            TryResolveDirectlyFromGlobalCache(globalPackagesFolder, targetFramework, packageReferences, out var directReferences))
+        {
+            resolvedPaths.AddRange(directReferences.PackageReferencePaths);
+            resolvedMacroPaths.AddRange(directReferences.MacroReferencePaths);
+            resolvedMacroDependencyPaths.AddRange(directReferences.MacroDependencyPaths);
+            resolvedAnalyzerPaths.AddRange(directReferences.AnalyzerReferencePaths);
         }
         else if (allowRestore)
         {
@@ -84,6 +85,12 @@ internal static class NuGetPackageResolver
         var projectDirectory = Path.GetDirectoryName(projectFilePath) ?? Environment.CurrentDirectory;
         var assetsPath = Path.Combine(projectDirectory, "obj", "project.assets.json");
         if (!File.Exists(assetsPath))
+        {
+            resolution = RestoreResolutionResult.Empty;
+            return false;
+        }
+
+        if (File.GetLastWriteTimeUtc(assetsPath) < File.GetLastWriteTimeUtc(projectFilePath))
         {
             resolution = RestoreResolutionResult.Empty;
             return false;
@@ -157,6 +164,12 @@ internal static class NuGetPackageResolver
                 package.Id.ToLowerInvariant(),
                 packageVersion.ToLowerInvariant());
 
+            if (HasPackageDependencies(packageRoot))
+            {
+                references = RestoreResolutionResult.Empty;
+                return false;
+            }
+
             var packageReferencesForTarget = ResolvePackageAssemblies(packageRoot, targetFramework);
             var analyzerAssemblies = ResolveAnalyzerAssemblies(packageRoot);
             if (packageReferencesForTarget.IsDefaultOrEmpty && analyzerAssemblies.IsDefaultOrEmpty)
@@ -193,6 +206,28 @@ internal static class NuGetPackageResolver
             ImmutableArray<string>.Empty);
 
         return true;
+    }
+
+    private static bool HasPackageDependencies(string packageRoot)
+    {
+        var nuspecPath = Directory.Exists(packageRoot)
+            ? Directory.EnumerateFiles(packageRoot, "*.nuspec", SearchOption.TopDirectoryOnly).FirstOrDefault()
+            : null;
+        if (nuspecPath is null)
+            return false;
+
+        try
+        {
+            return XDocument.Load(nuspecPath)
+                .Descendants()
+                .Any(static element => string.Equals(element.Name.LocalName, "dependency", StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            // An unreadable package manifest cannot prove that resolving only the
+            // direct package assembly is complete. Fall back to NuGet restore.
+            return true;
+        }
     }
 
     private static bool CanResolveMacroDependenciesDirectly(

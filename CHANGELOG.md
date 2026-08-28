@@ -10,6 +10,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-26**.
 
 ### Fixed
 
+- Language-server project loading now consumes the current NuGet assets file
+  before using the direct-package cache and falls back to restore when a package
+  declares dependencies. Transitive compile references are therefore available
+  to diagnostics, hover, and other semantic features instead of producing false
+  missing-import errors and expensive fallback binding.
 - Async methods now support one or more `await` expressions in `catch` and
   `finally` blocks. Classic lowering emits verifiable generated state machines,
   while .NET 11 runtime async preserves the same return and exception behavior

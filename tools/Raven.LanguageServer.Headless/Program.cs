@@ -249,6 +249,11 @@ async Task RunProjectSequenceAsync()
             $"mode={(upsertDocument ? "open" : "switch")} " +
             $"load={loadMs:F1}ms documentDiagnostics={documentDiagnosticsStopwatch.Elapsed.TotalMilliseconds:F1}ms " +
             $"diagnostics={documentDiagnostics.Diagnostics.Count} errors={errorCount} lines={lineCount}");
+        if (options.PrintDiagnostics)
+        {
+            foreach (var diagnostic in documentDiagnostics.Diagnostics.Take(80))
+                Console.WriteLine("project-sequence diagnostic " + FormatDiagnostic(diagnostic));
+        }
 
         if (options.SequenceInlayProbes)
         {
