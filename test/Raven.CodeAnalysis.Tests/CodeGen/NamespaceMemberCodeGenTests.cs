@@ -247,6 +247,100 @@ let transformed = Transform("ok")
     }
 
     [Fact]
+    public void ClassTargetedAttributes_EmitOnRootFileAndBlockScopedNamespaceContainers()
+    {
+        var rootTree = SyntaxTree.ParseText("""
+import System.*
+
+[AttributeUsage(AttributeTargets.Class, AllowMultiple: true)]
+class MarkerAttribute : Attribute
+{
+    init(label: string) { }
+}
+
+[class: Marker("root function")]
+[class: Marker("root function second")]
+
+public func RootFunction() -> int => 1
+
+[class: Marker("root const")]
+
+public const RootAnswer: int = 42
+
+[class: Marker("root type")]
+
+class Anchor { }
+""");
+        var blockScopedTree = SyntaxTree.ParseText("""
+namespace Samples {
+    [class: Marker("block function")]
+
+    public func BlockFunction() -> int => 2
+}
+""");
+        var fileScopedTree = SyntaxTree.ParseText("""
+namespace Samples;
+
+[class: Marker("file const")]
+
+public const FileAnswer: int = 43
+""");
+        var namespaceDeclarationTree = SyntaxTree.ParseText("""
+[class: Marker("root namespace declaration")]
+
+namespace Empty {
+    [class: Marker("empty namespace body")]
+
+    public const Anchor: int = 0
+}
+""");
+        var nestedNamespaceTree = SyntaxTree.ParseText("""
+namespace Outer {
+    [class: Marker("outer namespace")]
+
+    namespace Inner {
+        [class: Marker("inner namespace")]
+
+        public func NestedFunction() -> int => 3
+    }
+}
+""");
+        var compilation = Compilation.Create(
+            "namespaceContainerAttributes",
+            [rootTree, blockScopedTree, fileScopedTree, namespaceDeclarationTree, nestedNamespaceTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, compilation.References);
+        var rootContainer = loaded.Assembly.GetType("NamespaceMembers", throwOnError: true)!;
+        Assert.Equal(
+            ["root function", "root function second", "root const", "root type", "root namespace declaration"],
+            GetMarkerLabels(rootContainer.GetCustomAttributesData()));
+        Assert.Empty(GetMarkerLabels(rootContainer.GetMethod("RootFunction")!.GetCustomAttributesData()));
+        Assert.Empty(GetMarkerLabels(rootContainer.GetField("RootAnswer")!.GetCustomAttributesData()));
+        Assert.Empty(GetMarkerLabels(loaded.Assembly.GetType("Anchor", throwOnError: true)!.GetCustomAttributesData()));
+
+        var samplesContainer = loaded.Assembly.GetType("Samples.NamespaceMembers", throwOnError: true)!;
+        Assert.Equal(["block function", "file const"], GetMarkerLabels(samplesContainer.GetCustomAttributesData()));
+        Assert.Empty(GetMarkerLabels(samplesContainer.GetMethod("BlockFunction")!.GetCustomAttributesData()));
+        Assert.Empty(GetMarkerLabels(samplesContainer.GetField("FileAnswer")!.GetCustomAttributesData()));
+
+        var emptyContainer = loaded.Assembly.GetType("Empty.NamespaceMembers", throwOnError: true)!;
+        Assert.Equal(["empty namespace body"], GetMarkerLabels(emptyContainer.GetCustomAttributesData()));
+
+        var outerContainer = loaded.Assembly.GetType("Outer.NamespaceMembers", throwOnError: true)!;
+        Assert.Equal(["outer namespace"], GetMarkerLabels(outerContainer.GetCustomAttributesData()));
+
+        var innerContainer = loaded.Assembly.GetType("Outer.Inner.NamespaceMembers", throwOnError: true)!;
+        Assert.Equal(["inner namespace"], GetMarkerLabels(innerContainer.GetCustomAttributesData()));
+        Assert.Empty(GetMarkerLabels(innerContainer.GetMethod("NestedFunction")!.GetCustomAttributesData()));
+    }
+
+    [Fact]
     public void NamespaceFunction_LambdaCapturesFunctionParameter()
     {
         const string source = """

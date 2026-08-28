@@ -16,6 +16,10 @@ against declaration position:
 
 * `assembly:` binds only at the compilation-unit level.
 * `return:` binds to callable return metadata, not to declaration-level method attributes.
+* `class:` followed by a blank line at namespace scope binds to the synthesized
+  `NamespaceMembers` class for that lexical namespace. Attribute contributions
+  from block-scoped, file-scoped, and repeated namespace declarations are
+  merged in compilation syntax-tree order before metadata emission.
 * Target prefixes used in an invalid declaration context are rejected with an
   attribute-target diagnostic.
 

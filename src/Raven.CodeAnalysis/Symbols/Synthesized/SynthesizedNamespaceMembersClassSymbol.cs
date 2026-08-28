@@ -35,5 +35,5 @@ sealed partial class SynthesizedNamespaceMembersClassSymbol : SourceNamedTypeSym
     public override bool IsImplicitlyDeclared => true;
 
     public override ImmutableArray<AttributeData> GetAttributes()
-        => ImmutableArray<AttributeData>.Empty;
+        => base.GetAttributes();
 }

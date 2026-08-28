@@ -189,6 +189,24 @@ public partial class SemanticModel
         // are declared later in the same file or namespace.
         foreach (var member in Compilation.GetEffectiveNamespaceMembers(containerNode))
         {
+            var classTargetDeclaration = member switch
+            {
+                GlobalStatementSyntax { Statement: FunctionStatementSyntax function } => (SyntaxNode)function,
+                MemberDeclarationSyntax declaration when declaration is not GlobalStatementSyntax => declaration,
+                _ => null
+            };
+            if (classTargetDeclaration is not null &&
+                GetNamespaceContainerAttributeLists(classTargetDeclaration)
+                    .Any(AttributeUsageHelper.IsNamespaceContainerAttributeDeclaration))
+            {
+                var attributeNamespace = containerNode is CompilationUnitSyntax &&
+                                         member is FileScopedNamespaceDeclarationSyntax
+                    ? Compilation.SourceGlobalNamespace
+                    : parentNamespace.AsSourceNamespace();
+                if (attributeNamespace is not null)
+                    _ = GetOrCreateNamespaceMembersContainer(classTargetDeclaration, attributeNamespace);
+            }
+
             switch (member)
             {
                 case BaseNamespaceDeclarationSyntax nsDecl:
@@ -270,6 +288,14 @@ public partial class SemanticModel
                     }
             }
         }
+
+        static IEnumerable<AttributeListSyntax> GetNamespaceContainerAttributeLists(SyntaxNode declaration)
+            => declaration switch
+            {
+                FunctionStatementSyntax function => function.AttributeLists,
+                MemberDeclarationSyntax member => member.AttributeLists,
+                _ => []
+            };
     }
 
     private void DeclareMacroSymbol(
@@ -2272,7 +2298,7 @@ public partial class SemanticModel
 
         CacheBinder(cu, topLevelBinder);
         if (fileScopedNamespace != null)
-            CacheBinder(fileScopedNamespace, importBinder);
+            CacheBinder(fileScopedNamespace, compilationUnitBinder);
 
         return topLevelBinder;
 

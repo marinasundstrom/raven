@@ -211,6 +211,85 @@ internal static class AttributeUsageHelper
         return string.Equals(list.Target.Identifier.ValueText, targetName, StringComparison.OrdinalIgnoreCase);
     }
 
+    public static bool IsNamespaceContainerAttributeDeclaration(AttributeListSyntax attributeList)
+    {
+        if (!string.Equals(
+                attributeList.Target?.Identifier.ValueText,
+                "class",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var declaration = attributeList.Parent;
+        if (!IsNamespaceScopeDeclaration(declaration))
+            return false;
+
+        IReadOnlyList<AttributeListSyntax> attributeLists = declaration switch
+        {
+            FunctionStatementSyntax function => function.AttributeLists,
+            MemberDeclarationSyntax member => member.AttributeLists,
+            _ => []
+        };
+
+        var index = -1;
+        for (var i = 0; i < attributeLists.Count; i++)
+        {
+            if (attributeLists[i] == attributeList)
+            {
+                index = i;
+                break;
+            }
+        }
+
+        if (index < 0)
+            return false;
+
+        var lastClassTargetIndex = index;
+        while (lastClassTargetIndex + 1 < attributeLists.Count &&
+               string.Equals(
+                   attributeLists[lastClassTargetIndex + 1].Target?.Identifier.ValueText,
+                   "class",
+                   StringComparison.OrdinalIgnoreCase))
+        {
+            lastClassTargetIndex++;
+        }
+
+        var boundaryStart = lastClassTargetIndex + 1 < attributeLists.Count
+            ? attributeLists[lastClassTargetIndex + 1].OpenBracketToken.Span.Start
+            : declaration!
+                .DescendantTokens()
+                .Where(token => token.Span.Start >= attributeLists[lastClassTargetIndex].CloseBracketToken.Span.End)
+                .Select(static token => token.Span.Start)
+                .DefaultIfEmpty(declaration.Span.End)
+                .First();
+        var text = attributeList.SyntaxTree.GetText();
+        var closeLine = text.GetLineAndColumn(attributeLists[lastClassTargetIndex].CloseBracketToken.Span.End).line;
+        var boundaryLine = text.GetLineAndColumn(boundaryStart).line;
+        var lines = text.GetLines();
+        for (var lineIndex = closeLine + 1; lineIndex < boundaryLine; lineIndex++)
+        {
+            if (string.IsNullOrWhiteSpace(lines[lineIndex - 1].ToString()))
+                return true;
+        }
+
+        return false;
+
+        static bool IsNamespaceScopeDeclaration(SyntaxNode? declaration)
+        {
+            if (declaration is FunctionStatementSyntax function)
+            {
+                return function.Parent is GlobalStatementSyntax
+                {
+                    Parent: CompilationUnitSyntax or BaseNamespaceDeclarationSyntax
+                };
+            }
+
+            return declaration is MemberDeclarationSyntax and not GlobalStatementSyntax &&
+                   declaration.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax;
+        }
+    }
+
     private static bool TryResolveAttributeTarget(
         AttributeSyntax attributeSyntax,
         ISymbol owner,
@@ -279,6 +358,15 @@ internal static class AttributeUsageHelper
                 return true;
             case "return":
                 target = AttributeTargets.ReturnValue;
+                return true;
+            case "class":
+                if (owner is not SynthesizedNamespaceMembersClassSymbol)
+                {
+                    target = default;
+                    return false;
+                }
+
+                target = AttributeTargets.Class;
                 return true;
             case "type":
                 if (owner.Kind != SymbolKind.Type)

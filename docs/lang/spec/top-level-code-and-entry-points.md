@@ -58,9 +58,38 @@ Attributes on functions and constants declared directly in global scope or a
 named namespace belong to their emitted method or field, including explicit
 return and parameter targets. They are not applied to the synthesized
 `NamespaceMembers` container. Compilation-unit `assembly` and `module` targets
-likewise remain owned by the assembly or module. Raven currently has no syntax
-for attaching an authored attribute to that container; an explicit target such
-as `[class: ...]` can be considered as a separate language feature.
+likewise remain owned by the assembly or module.
+
+A `class:` attribute separated from the following namespace-scope declaration
+by a blank line applies to the synthesized `NamespaceMembers` class of the
+enclosing lexical namespace:
+
+```raven
+namespace Samples {
+    [class: Marker]
+
+    public func First() -> int => 1
+}
+```
+
+The following declaration is an anchor that locates the namespace-scope
+attribute; the attribute does not apply to that declaration. This form works in
+the root namespace and in file-scoped, block-scoped, and nested namespaces. When
+the anchor is itself a namespace declaration, the attribute targets the
+enclosing namespace, not the namespace being declared. Contributions in
+separate declarations or files are combined on the same emitted container and
+normal `AttributeUsage.AllowMultiple` rules apply across the compilation.
+
+Without the blank line, the attribute remains visually and syntactically
+attached to the following member. `class:` is not a valid member target, so the
+compiler rejects this form rather than silently moving the attribute:
+
+```raven
+namespace Samples {
+    [class: Marker]
+    public func First() -> int => 1 // invalid target
+}
+```
 
 The same assembly-boundary rule applies to namespace-level type declarations:
 classes, structs, records, interfaces, enums, unions, delegates, and extension

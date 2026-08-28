@@ -1591,6 +1591,51 @@ func Run() -> int {
     }
 
     [Fact]
+    public void FileScopedNamespaceContainerAttribute_DoesNotBreakFunctionHoverBinding()
+    {
+        const string code = """
+import System.ComponentModel.*
+
+namespace Utilities;
+
+[class: Description("utilities")]
+
+public func AddOne(value: int) -> int => value + 1
+
+public func Run() -> int => AddOne(1)
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(syntaxTree);
+
+        foreach (var reference in LanguageServerTestReferences.Default)
+            compilation = compilation.AddReferences(reference);
+
+        compilation.GetDiagnostics().ShouldBeEmpty();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var invocation = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single();
+        var symbol = semanticModel.GetSymbolInfo(invocation.Expression).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var container = symbol.ContainingType.ShouldBeAssignableTo<INamedTypeSymbol>();
+        container.Name.ShouldBe("NamespaceMembers");
+
+        var attribute = container.GetAttributes().ShouldHaveSingleItem();
+        attribute.ConstructorArguments.ShouldHaveSingleItem().Value.ShouldBe("utilities");
+
+        var buildKindDisplay = typeof(HoverHandler)
+            .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var buildContainingDisplay = typeof(HoverHandler)
+            .GetMethod("BuildContainingDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        ((string)buildKindDisplay.Invoke(null, [symbol])!).ShouldBe("Function");
+        ((string?)buildContainingDisplay.Invoke(null, [symbol, semanticModel])).ShouldBe("namespace Utilities");
+    }
+
+    [Fact]
     public void LocalHover_InTopLevelFunction_ShowsContainingFunction()
     {
         const string code = """

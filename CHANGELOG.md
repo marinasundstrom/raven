@@ -10,6 +10,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-28**.
 
 ### Added
 
+- Added namespace-scope `[class: ...]` declarations for applying attributes to
+  synthesized `NamespaceMembers` classes. A blank line distinguishes the scope
+  declaration from an attribute attached to the following member, and the form
+  works consistently in root, file-scoped, block-scoped, and nested namespaces.
 - Extended the MyServiceBus RabbitMQ showcase with the consumer-method API from
   `Sundstrom.MyServiceBus.RabbitMq` 0.1.0-preview.5. An attributed Raven
   namespace-level request function demonstrates message, consume-context, and

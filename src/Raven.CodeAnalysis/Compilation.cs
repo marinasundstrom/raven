@@ -1542,7 +1542,16 @@ public partial class Compilation
         var key = targetNamespace.IsGlobalNamespace ? string.Empty : targetNamespace.ToMetadataName();
 
         if (_namespaceMembersContainers.TryGetValue(key, out var existing))
+        {
+            if (!existing.DeclaringSyntaxReferences.Any(reference =>
+                    reference.SyntaxTree == declaration.SyntaxTree &&
+                    reference.Span == declaration.Span))
+            {
+                existing.AddDeclaration(declaration.GetLocation(), declaration.GetReference());
+            }
+
             return existing;
+        }
 
         var container = new SynthesizedNamespaceMembersClassSymbol(
             this,

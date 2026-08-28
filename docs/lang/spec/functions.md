@@ -453,6 +453,10 @@ Explicit attribute targets are validated according to where they appear:
 * `[field: ...]` applies to fields or synthesized backing fields where
   applicable.
 * `[event: ...]` applies to events.
+* `[class: ...]`, when followed by a blank line at namespace scope, applies to
+  the synthesized `NamespaceMembers` class of the enclosing lexical namespace.
+  Without that separation it is treated as a target on the following member
+  and rejected there.
 
 ## .NET delegate interoperability
 

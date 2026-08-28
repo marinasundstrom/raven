@@ -422,6 +422,137 @@ class C
     }
 
     [Fact]
+    public void ClassTargetedAttribute_OnNamespaceFunction_BindsToNamespaceContainerOnly()
+    {
+        const string source = """
+import System.ComponentModel.*
+
+namespace Samples {
+    [class: Description("container")]
+
+    public func Transform(value: string) -> string => value
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+        var container = Assert.IsType<SynthesizedNamespaceMembersClassSymbol>(method.ContainingType);
+
+        Assert.Empty(method.GetAttributes());
+        var attribute = Assert.Single(container.GetAttributes());
+        Assert.Equal("DescriptionAttribute", attribute.AttributeClass?.Name);
+        Assert.Equal("container", attribute.ConstructorArguments.Single().Value);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void ClassTargetedAttribute_WithoutBlankLine_OnCompilationUnitFunction_IsRejected()
+    {
+        const string source = """
+import System.ComponentModel.*
+
+[class: Description("program")]
+func Transform(value: string) -> string => value
+
+let transformed = Transform("ok")
+""";
+
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+
+        Assert.Equal("Program", method.ContainingType?.Name);
+        Assert.Empty(method.GetAttributes());
+        Assert.Contains(compilation.GetDiagnostics(), static diagnostic => diagnostic.Descriptor.Id == "RAV0502");
+    }
+
+    [Fact]
+    public void ClassTargetedAttribute_WithOnlyInterveningComment_OnNamespaceFunction_IsRejected()
+    {
+        const string source = """
+import System.ComponentModel.*
+
+namespace Samples {
+    [class: Description("member target")]
+    // This comment does not constitute a blank separator line.
+    public func Transform(value: string) -> string => value
+}
+""";
+
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+        var container = Assert.IsType<SynthesizedNamespaceMembersClassSymbol>(method.ContainingType);
+
+        Assert.Empty(method.GetAttributes());
+        Assert.Empty(container.GetAttributes());
+        Assert.Contains(compilation.GetDiagnostics(), static diagnostic => diagnostic.Descriptor.Id == "RAV0502");
+    }
+
+    [Fact]
+    public void ClassTargetedScopeDeclaration_BeforeCompilationUnitFunction_BindsToRootNamespaceContainer()
+    {
+        const string source = """
+import System.ComponentModel.*
+
+[class: Description("root container")]
+
+func Transform(value: string) -> string => value
+
+let transformed = Transform("ok")
+""";
+
+        var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+        var rootContainer = Assert.IsType<SynthesizedNamespaceMembersClassSymbol>(
+            compilation.GetNamespaceMembersContainer(compilation.GlobalNamespace));
+
+        Assert.Equal("Program", method.ContainingType?.Name);
+        Assert.Empty(method.GetAttributes());
+        Assert.Empty(method.ContainingType!.GetAttributes());
+        var attribute = Assert.Single(rootContainer.GetAttributes());
+        Assert.Equal("root container", attribute.ConstructorArguments.Single().Value);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void ClassTargetedAttributes_AcrossNamespaceDeclarations_EnforceAllowMultipleOnSharedContainer()
+    {
+        var firstTree = SyntaxTree.ParseText("""
+import System.*
+
+[AttributeUsage(AttributeTargets.Class)]
+class MarkerAttribute : Attribute { }
+
+namespace Samples {
+    [class: Marker]
+
+    public func First() -> int => 1
+}
+""");
+        var secondTree = SyntaxTree.ParseText("""
+namespace Samples;
+
+[class: Marker]
+
+public func Second() -> int => 2
+""");
+        var compilation = CreateCompilation([firstTree, secondTree]);
+
+        var diagnostics = compilation.GetDiagnostics();
+        var container = Assert.IsType<SynthesizedNamespaceMembersClassSymbol>(
+            compilation.GetNamespaceMembersContainer(compilation.GetNamespaceSymbol("Samples")!));
+        Assert.Single(container.GetAttributes());
+        Assert.Single(diagnostics, static diagnostic => diagnostic.Descriptor.Id == "RAV0503");
+    }
+
+    [Fact]
     public void MissingAttributeImport_ReportsNameDiagnostics_InsteadOfCrashing()
     {
         const string source = """

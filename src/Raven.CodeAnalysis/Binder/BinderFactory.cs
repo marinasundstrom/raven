@@ -68,6 +68,21 @@ class BinderFactory
         if (parentNode is null)
             return null;
 
+        if (AttributeUsageHelper.IsNamespaceContainerAttributeDeclaration(attributeList))
+        {
+            var namespaceName = string.Join(
+                ".",
+                parentNode.Ancestors()
+                    .OfType<BaseNamespaceDeclarationSyntax>()
+                    .Reverse()
+                    .Select(static current => current.Name.ToString()));
+            var namespaceSymbol = string.IsNullOrWhiteSpace(namespaceName)
+                ? _compilation.SourceGlobalNamespace
+                : _compilation.GetOrCreateNamespaceSymbol(namespaceName)?.AsSourceNamespace();
+            if (namespaceSymbol is not null)
+                return _compilation.GetOrCreateNamespaceMembersContainer(namespaceSymbol, parentNode);
+        }
+
         if (parentNode is CompilationUnitSyntax)
             return _compilation.Assembly;
 

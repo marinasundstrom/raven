@@ -95,6 +95,12 @@ public partial class SemanticModel
 
     private DiagnosticBag _declarationDiagnostics => _bindingState.DeclarationDiagnostics;
 
+    internal void AddDeclarationDiagnostics(IEnumerable<Diagnostic> diagnostics)
+    {
+        foreach (var diagnostic in diagnostics)
+            _declarationDiagnostics.Report(diagnostic);
+    }
+
     public bool IsDebuggingEnabled { get; set; } = true;
 
     public SemanticModel(Compilation compilation, SyntaxTree syntaxTree)
@@ -1393,6 +1399,12 @@ public partial class SemanticModel
 
                 var attributeListBinder = GetBinderForDiagnostics(attributeList, currentBinder);
                 var owner = ResolveAttributeOwner(declaration, attributeList, currentBinder, attributeListBinder);
+                if (owner is SynthesizedNamespaceMembersClassSymbol namespaceMembersContainer)
+                {
+                    _ = namespaceMembersContainer.GetAttributes();
+                    continue;
+                }
+
                 var defaultTarget = AttributeUsageHelper.GetDefaultTargetForOwner(owner);
 
                 foreach (var attribute in attributeList.Attributes)
@@ -1430,6 +1442,7 @@ public partial class SemanticModel
             => declaration switch
             {
                 CompilationUnitSyntax compilationUnit => compilationUnit.AttributeLists,
+                BaseNamespaceDeclarationSyntax namespaceDeclaration => namespaceDeclaration.AttributeLists,
                 BaseTypeDeclarationSyntax typeDeclaration => typeDeclaration.AttributeLists,
                 DelegateDeclarationSyntax delegateDeclaration => delegateDeclaration.AttributeLists,
                 EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
@@ -1463,6 +1476,25 @@ public partial class SemanticModel
                     return Compilation.Module;
 
                 return Compilation.Assembly;
+            }
+
+            if (HasExplicitAttributeTarget(attributeList, "class"))
+            {
+                if (AttributeUsageHelper.IsNamespaceContainerAttributeDeclaration(attributeList) &&
+                    declaration.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax or GlobalStatementSyntax)
+                {
+                    var namespaceName = string.Join(
+                        ".",
+                        declaration.Ancestors()
+                            .OfType<BaseNamespaceDeclarationSyntax>()
+                            .Reverse()
+                            .Select(static current => current.Name.ToString()));
+                    var namespaceSymbol = string.IsNullOrWhiteSpace(namespaceName)
+                        ? Compilation.SourceGlobalNamespace
+                        : Compilation.GetOrCreateNamespaceSymbol(namespaceName)?.AsSourceNamespace();
+                    if (namespaceSymbol is not null)
+                        return Compilation.GetOrCreateNamespaceMembersContainer(namespaceSymbol, declaration);
+                }
             }
 
             if (declaration is TypeDeclarationSyntax { ParameterList: not null } typeDeclaration &&

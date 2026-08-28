@@ -68,8 +68,18 @@ internal abstract class SourceSymbol : Symbol
         var seenAttributes = new Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>>();
         var processedAttributeLocations = new HashSet<(SyntaxTree SyntaxTree, int SpanStart, int SpanLength)>();
         var defaultTarget = AttributeUsageHelper.GetDefaultTargetForOwner(this);
+        IEnumerable<SyntaxReference> declaringSyntaxReferences = DeclaringSyntaxReferences;
+        if (this is SynthesizedNamespaceMembersClassSymbol)
+        {
+            var syntaxTreeOrder = compilation.SyntaxTrees
+                .Select(static (tree, index) => (tree, index))
+                .ToDictionary(static item => item.tree, static item => item.index);
+            declaringSyntaxReferences = declaringSyntaxReferences
+                .OrderBy(reference => syntaxTreeOrder[reference.SyntaxTree])
+                .ThenBy(static reference => reference.Span.Start);
+        }
 
-        foreach (var syntaxReference in DeclaringSyntaxReferences)
+        foreach (var syntaxReference in declaringSyntaxReferences)
         {
             if (!TryGetCurrentDeclaringSyntax(compilation, syntaxReference, out var syntax, out var semanticModel))
                 continue;
@@ -105,17 +115,19 @@ internal abstract class SourceSymbol : Symbol
                 if (data is null)
                     continue;
 
-                if (AttributeUsageHelper.TryValidateAttribute(
+                var isValid = AttributeUsageHelper.TryValidateAttribute(
                         compilation,
                         attributeBinder,
                         this,
                         attribute,
                         data,
                         defaultTarget,
-                        seenAttributes))
-                {
+                        seenAttributes);
+                if (this is SynthesizedNamespaceMembersClassSymbol)
+                    semanticModel.AddDeclarationDiagnostics(attributeBinder.Diagnostics.AsEnumerable());
+
+                if (isValid)
                     builder.Add(data);
-                }
             }
         }
 
@@ -290,6 +302,10 @@ internal abstract class SourceSymbol : Symbol
                 .AttributeLists
                 .OfType<AttributeListSyntax>()
                 .Where(static list => HasExplicitTarget(list, "module")),
+            BaseNamespaceDeclarationSyntax namespaceDeclaration when this is SynthesizedNamespaceMembersClassSymbol =>
+                namespaceDeclaration.AttributeLists,
+            MemberDeclarationSyntax member when this is SynthesizedNamespaceMembersClassSymbol =>
+                member.AttributeLists,
             TypeDeclarationSyntax { ParameterList: not null } typeDeclaration when this is SourceMethodSymbol { MethodKind: MethodKind.Constructor } =>
                 typeDeclaration.AttributeLists.Where(static list => HasExplicitTarget(list, "method")),
             BaseTypeDeclarationSyntax typeDeclaration when this is ITypeSymbol => typeDeclaration.AttributeLists,
@@ -316,8 +332,17 @@ internal abstract class SourceSymbol : Symbol
 
     private bool ShouldBindAttributeForOwner(AttributeSyntax attribute)
     {
-        if (attribute.Parent is not AttributeListSyntax list || list.Target is null)
+        if (attribute.Parent is not AttributeListSyntax list)
+            return this is not SynthesizedNamespaceMembersClassSymbol;
+
+        if (this is SynthesizedNamespaceMembersClassSymbol)
+            return AttributeUsageHelper.IsNamespaceContainerAttributeDeclaration(list);
+
+        if (list.Target is null)
             return true;
+
+        if (HasExplicitTarget(list, "class"))
+            return false;
 
         if (this is IAssemblySymbol)
             return HasExplicitTarget(list, "assembly") && IsAssemblyAttributeDeclarationContext(list);
