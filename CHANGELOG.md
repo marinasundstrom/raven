@@ -8,6 +8,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-28**.
 
 - None recorded.
 
+## 0.1.5 - 2026-08-28
+
+### Breaking changes
+
+- None.
+
 ### Added
 
 - Added namespace-scope `[class: ...]` declarations for applying attributes to
