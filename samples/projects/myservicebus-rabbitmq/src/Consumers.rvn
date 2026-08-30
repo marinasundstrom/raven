@@ -25,7 +25,7 @@ public func GetOrderStatus(
     request: CheckOrderStatus,
     context: ConsumeContext<CheckOrderStatus>,
     cancellationToken: CancellationToken) -> Task<OrderStatus> {
-    let (OrderId: orderId) = request
+    let (orderId) = request
     Console.WriteLine("Received CheckOrderStatus ${orderId}")
     Console.WriteLine("Consumer function context order: ${context.Message.OrderId}")
     Console.WriteLine("Consumer function cancellation requested: ${cancellationToken.IsCancellationRequested}")

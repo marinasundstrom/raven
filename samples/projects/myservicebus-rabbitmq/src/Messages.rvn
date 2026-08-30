@@ -1,15 +1,16 @@
 namespace MyServiceBusRabbitMqSample
 
 record SubmitOrder(
-    val OrderId: Guid,
-    val Customer: string)
+    OrderId: Guid, 
+    Customer: string)
 
 record OrderSubmitted(
-    val OrderId: Guid,
-    val AcceptedAt: DateTimeOffset)
+    OrderId: Guid, 
+    AcceptedAt: DateTimeOffset)
 
-record CheckOrderStatus(val OrderId: Guid)
+record CheckOrderStatus(
+    OrderId: Guid)
 
 record OrderStatus(
-    val OrderId: Guid,
-    val Status: string)
+    OrderId: Guid, 
+    Status: string)

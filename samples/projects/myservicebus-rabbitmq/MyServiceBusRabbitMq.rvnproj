@@ -1,12 +1,12 @@
 <Project Sdk="Raven.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <AssemblyName>MyServiceBusRabbitMq</AssemblyName>
     <OutputType>Exe</OutputType>
-    <RavenCompilerHost>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\src\Raven.Compiler\bin\$(Configuration)\net10.0\rvnc.dll'))</RavenCompilerHost>
+    <!-- <RavenCompilerHost>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\src\Raven.Compiler\bin\$(Configuration)\net11.0\rvnc.dll'))</RavenCompilerHost> -->
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Sundstrom.MyServiceBus.RabbitMq" Version="0.1.0-preview.5" />
+    <PackageReference Include="Sundstrom.MyServiceBus.RabbitMq" Version="0.1.0-preview.7" />
     <ProjectReference Include="../../../src/Raven.Compiler/Raven.Compiler.csproj"
       ReferenceOutputAssembly="false" />
   </ItemGroup>
