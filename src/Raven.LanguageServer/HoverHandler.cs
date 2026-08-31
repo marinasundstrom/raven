@@ -2928,9 +2928,32 @@ internal sealed class HoverHandler : IHoverHandler
 
         if (symbol is IEventSymbol ev)
         {
-            var eventType = FormatType(ev.Type, plainTypeFormat);
+            var eventType = ev.Type.ContainsErrorType() &&
+                TryGetMemberDeclaredTypeSyntaxDisplay(ev, out var declaredTypeDisplay)
+                    ? declaredTypeDisplay
+                    : FormatType(ev.Type, plainTypeFormat);
             var accessibilityPrefix = GetNonPublicAccessibilityPrefix(ev);
             return $"{accessibilityPrefix}event {ev.Name}: {eventType}";
+        }
+
+        if (symbol is IPropertySymbol { IsIndexer: false } property &&
+            property.Type.ContainsErrorType() &&
+            TryGetMemberDeclaredTypeSyntaxDisplay(property, out var propertyTypeDisplay))
+        {
+            var accessibilityPrefix = GetNonPublicAccessibilityPrefix(property);
+            var staticPrefix = property.IsStatic ? "static " : string.Empty;
+            var binding = property.IsMutable ? "var" : "val";
+            return $"{accessibilityPrefix}{staticPrefix}{binding} {property.Name}: {propertyTypeDisplay}";
+        }
+
+        if (symbol is IFieldSymbol field &&
+            field.Type.ContainsErrorType() &&
+            TryGetMemberDeclaredTypeSyntaxDisplay(field, out var fieldTypeDisplay))
+        {
+            var accessibilityPrefix = GetNonPublicAccessibilityPrefix(field);
+            var staticPrefix = field.IsStatic ? "static " : string.Empty;
+            var constPrefix = field.IsConst ? "const " : string.Empty;
+            return $"{accessibilityPrefix}{staticPrefix}{constPrefix}field {field.Name}: {fieldTypeDisplay}";
         }
 
         if (symbol is IParameterSymbol parameter)
@@ -4881,6 +4904,33 @@ internal sealed class HoverHandler : IHoverHandler
         foreach (var syntaxReference in local.DeclaringSyntaxReferences)
         {
             if (syntaxReference.GetSyntax() is not VariableDeclaratorSyntax { TypeAnnotation.Type: { } typeSyntax })
+                continue;
+
+            typeDisplay = typeSyntax.ToString();
+            return !string.IsNullOrWhiteSpace(typeDisplay);
+        }
+
+        return false;
+    }
+
+    private static bool TryGetMemberDeclaredTypeSyntaxDisplay(
+        ISymbol symbol,
+        out string typeDisplay)
+    {
+        typeDisplay = string.Empty;
+
+        foreach (var syntaxReference in symbol.DeclaringSyntaxReferences)
+        {
+            var typeSyntax = syntaxReference.GetSyntax() switch
+            {
+                PropertyDeclarationSyntax property => property.Type.Type,
+                IndexerDeclarationSyntax indexer => indexer.Type.Type,
+                EventDeclarationSyntax @event => @event.Type.Type,
+                VariableDeclaratorSyntax declarator => declarator.TypeAnnotation?.Type,
+                _ => null
+            };
+
+            if (typeSyntax is null)
                 continue;
 
             typeDisplay = typeSyntax.ToString();

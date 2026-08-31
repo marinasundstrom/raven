@@ -112,6 +112,44 @@ enum PinEventTypes {
     }
 
     [Fact]
+    public void MemberHover_UnresolvedDeclaredTypesUseSourceSyntax()
+    {
+        const string code = """
+class ActivityStore {
+    static val Received: ConcurrentQueue<OrderActivity> {
+        get { return null }
+    }
+
+    event Updated: ActivityChanged
+}
+""";
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            [.. LanguageServerTestReferences.Default],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var buildSignature = typeof(HoverHandler)
+            .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var propertyDeclaration = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var property = semanticModel.GetDeclaredSymbol(propertyDeclaration).ShouldBeAssignableTo<IPropertySymbol>();
+        var propertySignature = (string)buildSignature.Invoke(null, [property, propertyDeclaration, semanticModel])!;
+
+        propertySignature.ShouldBe("static val Received: ConcurrentQueue<OrderActivity>");
+        propertySignature.ShouldNotContain("Error");
+
+        var eventDeclaration = root.DescendantNodes().OfType<EventDeclarationSyntax>().Single();
+        var @event = semanticModel.GetDeclaredSymbol(eventDeclaration).ShouldBeAssignableTo<IEventSymbol>();
+        var eventSignature = (string)buildSignature.Invoke(null, [@event, eventDeclaration, semanticModel])!;
+
+        eventSignature.ShouldBe("event Updated: ActivityChanged");
+        eventSignature.ShouldNotContain("Error");
+    }
+
+    [Fact]
     public void MacroFragmentHover_TargetTypesLambdaParameterFromProvider()
     {
         const string code = """

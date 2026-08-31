@@ -13,6 +13,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 - Language-server workspaces now reload evaluated Raven projects when imported
   MSBuild `.props` or `.targets` files change, keeping project options and
   package properties in sync with `dotnet build`.
+- Hover signatures for properties, fields, and events with unresolved declared
+  types now preserve the authored type annotation instead of displaying the
+  compiler's internal error type.
 
 ## 0.1.6 - 2026-08-29
 
