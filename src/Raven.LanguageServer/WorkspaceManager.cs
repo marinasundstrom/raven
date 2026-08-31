@@ -670,6 +670,8 @@ internal sealed class WorkspaceManager
         return string.Equals(extension, ".rvnproj", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(extension, ".csproj", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(extension, ".fsproj", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(extension, ".props", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(extension, ".targets", StringComparison.OrdinalIgnoreCase) ||
                RavenFileExtensions.HasRavenExtension(path);
     }
 

@@ -598,6 +598,9 @@ Example:
 Current behavior:
 
 - `RavenWorkspace.OpenProject(...)` can open that project through `MsBuildProjectSystemService`.
+- The language server reloads the evaluated project when watched MSBuild
+  `.props` or `.targets` files change, including `Directory.Build.props` and
+  `Directory.Build.targets`.
 - `TargetFramework`, `AssemblyName`, `OutputType`, `AllowUnsafe` /
   `AllowUnsafeBlocks`, and `AllowGlobalStatements` are mapped into Raven
   project state.

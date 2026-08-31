@@ -296,13 +296,17 @@ func Main() {
     }
 
     [Fact]
-    public void ShouldReloadForWatchedFileChanges_ReloadsForSourceAndProjectFiles()
+    public void ShouldReloadForWatchedFileChanges_ReloadsForSourceAndMsBuildFiles()
     {
         var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
         var projectPath = Path.Combine(_tempRoot, "App.rvnproj");
+        var propsPath = Path.Combine(_tempRoot, "Directory.Build.props");
+        var targetsPath = Path.Combine(_tempRoot, "Directory.Build.targets");
 
         WorkspaceManager.ShouldReloadForWatchedFileChanges([sourcePath]).ShouldBeTrue();
         WorkspaceManager.ShouldReloadForWatchedFileChanges([projectPath]).ShouldBeTrue();
+        WorkspaceManager.ShouldReloadForWatchedFileChanges([propsPath]).ShouldBeTrue();
+        WorkspaceManager.ShouldReloadForWatchedFileChanges([targetsPath]).ShouldBeTrue();
     }
 
     [Fact]
@@ -1078,6 +1082,64 @@ func Main() -> unit { }
                    Path.GetFileName(portableReference.FilePath),
                    "Newtonsoft.Json.dll",
                    StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ReloadForWatchedFiles_DirectoryBuildPropsChangeRefreshesEvaluatedProjectOptionsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        _ = WriteProject(_tempRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(_tempRoot, "src", "main.rvn"), "func Main() -> unit { }");
+        var propsPath = Path.Combine(_tempRoot, "Directory.Build.props");
+        File.WriteAllText(propsPath, """
+<Project>
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+</Project>
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        manager.GetProjectsSnapshot().Single().CompilationOptions!.OutputKind
+            .ShouldBe(OutputKind.DynamicallyLinkedLibrary);
+
+        File.WriteAllText(propsPath, """
+<Project>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+</Project>
+""");
+
+        await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = DocumentUri.FromFileSystemPath(propsPath),
+                Type = FileChangeType.Changed
+            }
+        ]);
+
+        manager.GetProjectsSnapshot().Single().CompilationOptions!.OutputKind
+            .ShouldBe(OutputKind.ConsoleApplication);
     }
 
     [Fact]

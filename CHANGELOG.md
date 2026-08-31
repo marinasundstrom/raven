@@ -8,6 +8,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 - None recorded.
 
+### Fixed
+
+- Language-server workspaces now reload evaluated Raven projects when imported
+  MSBuild `.props` or `.targets` files change, keeping project options and
+  package properties in sync with `dotnet build`.
+
 ## 0.1.6 - 2026-08-29
 
 ### Breaking changes
