@@ -205,6 +205,12 @@ internal sealed class HoverHandler : IHoverHandler
             invocationOverrideMs = stageStopwatch.Elapsed.TotalMilliseconds;
 
             var symbol = resolvedValue.Symbol;
+            if (resolvedValue.Kind == SymbolResolutionKind.TypePosition &&
+                symbol is ITypeSymbol { TypeKind: TypeKind.Error })
+            {
+                return null;
+            }
+
             var presentationCacheKey = CreateHoverPresentationCacheKey(
                 request.TextDocument.Uri,
                 context.Value.Document.Version,

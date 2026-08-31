@@ -16,6 +16,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 - Hover signatures for properties, fields, and events with unresolved declared
   types now preserve the authored type annotation instead of displaying the
   compiler's internal error type.
+- Hovering an unresolved name in a type position no longer presents the
+  compiler's internal error-type symbol as Quick Info; the unresolved-name
+  diagnostic remains the user-facing explanation.
 
 ## 0.1.6 - 2026-08-29
 

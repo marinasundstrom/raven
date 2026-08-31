@@ -33,6 +33,35 @@ public sealed class LanguageServerSnapshotConsistencyTests : IDisposable
     }
 
     [Fact]
+    public async Task HoverHandler_UnresolvedTypeNamesDoNotExposeErrorTypeQuickInfoAsync()
+    {
+        const string text = """
+class ActivityStore {
+    static val Received: ConcurrentQueue<OrderActivity> {
+        get { return null }
+    }
+}
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        foreach (var unresolvedTypeName in new[] { "ConcurrentQueue", "OrderActivity" })
+        {
+            var offset = text.IndexOf(unresolvedTypeName, StringComparison.Ordinal) + 1;
+            var position = GetPosition(context.Value.SourceText, offset);
+            var hover = await handler.Handle(new HoverParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Position = position
+            }, CancellationToken.None);
+
+            hover.ShouldBeNull();
+        }
+    }
+
+    [Fact]
     public async Task HoverHandler_LocalMacroDeclaration_UsesMacroSemanticProjectionAsync()
     {
         const string text = """
