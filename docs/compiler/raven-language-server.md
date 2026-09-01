@@ -32,14 +32,15 @@ The language server uses evaluated `.rvnproj` membership when an opened source
 file belongs to a Raven project. Cross-file lookup, diagnostics, navigation,
 and other semantic features then use that project snapshot.
 
-When an opened workspace folder contains one or more standard `.sln` files,
-the Raven projects listed by those solutions form the workspace project group.
-Relative solution paths may point outside the opened folder. Solution folders
-and non-Raven projects are ignored, while project-to-project compiler references
-continue to come from evaluated MSBuild `ProjectReference` items. If no solution
-contains a usable Raven project, the server recursively discovers projects as
-before, so a solution file is never required. Creating, changing, or deleting a
-`.sln` file reloads the group while preserving open document text.
+When an opened workspace folder contains one or more standard `.sln` or XML
+`.slnx` files, the Raven projects listed by those solutions form the workspace
+project group. Relative solution paths may point outside the opened folder.
+Solution folders and non-Raven projects are ignored, while project-to-project
+compiler references continue to come from evaluated MSBuild `ProjectReference`
+items. If no solution contains a usable Raven project, the server recursively
+discovers projects as before, so a solution file is never required. Creating,
+changing, or deleting a `.sln` or `.slnx` file reloads the group while
+preserving open document text.
 
 A source file that is not included by an evaluated project is treated as the
 root of its own file-based application. It receives an isolated ephemeral

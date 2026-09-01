@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using System.Xml;
+using System.Xml.Linq;
 
 using Microsoft.Extensions.Logging;
 
@@ -626,20 +628,13 @@ internal sealed class WorkspaceManager
             var solutionDirectory = Path.GetDirectoryName(solutionPath) ?? root;
             try
             {
-                foreach (var line in File.ReadLines(solutionPath))
+                if (string.Equals(Path.GetExtension(solutionPath), ".slnx", StringComparison.OrdinalIgnoreCase))
                 {
-                    var match = SolutionProjectLinePattern.Match(line);
-                    if (!match.Success)
-                        continue;
-
-                    var relativeProjectPath = match.Groups["path"].Value
-                        .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
-                        .Replace('\\', Path.DirectorySeparatorChar);
-                    var projectPath = Path.IsPathRooted(relativeProjectPath)
-                        ? NormalizePath(relativeProjectPath)
-                        : NormalizePath(Path.Combine(solutionDirectory, relativeProjectPath));
-                    if (projectSystem.CanOpenProject(projectPath))
-                        candidates.Add(projectPath);
+                    AddSlnxProjects(solutionPath, solutionDirectory, projectSystem, candidates);
+                }
+                else
+                {
+                    AddSlnProjects(solutionPath, solutionDirectory, projectSystem, candidates);
                 }
             }
             catch (IOException)
@@ -654,11 +649,66 @@ internal sealed class WorkspaceManager
             catch (NotSupportedException)
             {
             }
+            catch (XmlException)
+            {
+            }
         }
 
         return candidates
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static void AddSlnProjects(
+        string solutionPath,
+        string solutionDirectory,
+        IProjectSystemService projectSystem,
+        HashSet<string> candidates)
+    {
+        foreach (var line in File.ReadLines(solutionPath))
+        {
+            var match = SolutionProjectLinePattern.Match(line);
+            if (match.Success)
+                TryAddSolutionProject(match.Groups["path"].Value, solutionDirectory, projectSystem, candidates);
+        }
+    }
+
+    private static void AddSlnxProjects(
+        string solutionPath,
+        string solutionDirectory,
+        IProjectSystemService projectSystem,
+        HashSet<string> candidates)
+    {
+        var document = XDocument.Load(solutionPath, LoadOptions.None);
+        if (!string.Equals(document.Root?.Name.LocalName, "Solution", StringComparison.Ordinal))
+            return;
+
+        foreach (var project in document.Descendants().Where(static element =>
+                     string.Equals(element.Name.LocalName, "Project", StringComparison.Ordinal)))
+        {
+            var projectPath = project.Attributes().FirstOrDefault(static attribute =>
+                string.Equals(attribute.Name.LocalName, "Path", StringComparison.Ordinal))?.Value;
+            TryAddSolutionProject(projectPath, solutionDirectory, projectSystem, candidates);
+        }
+    }
+
+    private static void TryAddSolutionProject(
+        string? solutionProjectPath,
+        string solutionDirectory,
+        IProjectSystemService projectSystem,
+        HashSet<string> candidates)
+    {
+        if (string.IsNullOrWhiteSpace(solutionProjectPath))
+            return;
+
+        var normalizedSeparators = solutionProjectPath
+            .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+            .Replace('\\', Path.DirectorySeparatorChar);
+        var projectPath = Path.IsPathRooted(normalizedSeparators)
+            ? NormalizePath(normalizedSeparators)
+            : NormalizePath(Path.Combine(solutionDirectory, normalizedSeparators));
+        if (projectSystem.CanOpenProject(projectPath))
+            candidates.Add(projectPath);
     }
 
     private static string[] FindWorkspaceSolutionFiles(string root)
@@ -675,7 +725,9 @@ internal sealed class WorkspaceManager
 
             try
             {
-                files = Directory.GetFiles(directory, "*.sln", SearchOption.TopDirectoryOnly);
+                files = Directory.GetFiles(directory, "*", SearchOption.TopDirectoryOnly)
+                    .Where(IsSolutionFilePath)
+                    .ToArray();
                 directories = Directory.GetDirectories(directory, "*", SearchOption.TopDirectoryOnly);
             }
             catch (IOException)
@@ -769,6 +821,7 @@ internal sealed class WorkspaceManager
                string.Equals(extension, ".csproj", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(extension, ".fsproj", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(extension, ".sln", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(extension, ".slnx", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(extension, ".props", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(extension, ".targets", StringComparison.OrdinalIgnoreCase) ||
                RavenFileExtensions.HasRavenExtension(path);
@@ -783,7 +836,8 @@ internal sealed class WorkspaceManager
 
     private static bool IsSolutionFilePath(string? path)
         => !string.IsNullOrWhiteSpace(path) &&
-           string.Equals(Path.GetExtension(path), ".sln", StringComparison.OrdinalIgnoreCase);
+           (string.Equals(Path.GetExtension(path), ".sln", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(Path.GetExtension(path), ".slnx", StringComparison.OrdinalIgnoreCase));
 
     private ImmutableDictionary<string, ReportDiagnostic> GetTrackedEditorConfigDiagnosticOptions(Project project)
     {

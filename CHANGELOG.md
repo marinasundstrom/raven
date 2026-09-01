@@ -10,10 +10,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Added
 
-- Language-server workspaces now use standard `.sln` files to group Raven
-  projects, including projects referenced by relative paths outside the opened
-  folder, while retaining recursive project discovery when no usable solution
-  grouping exists.
+- Language-server workspaces now use standard `.sln` and XML `.slnx` files to
+  group Raven projects, including projects referenced by relative paths outside
+  the opened folder, while retaining recursive project discovery when no usable
+  solution grouping exists.
 
 ### Fixed
 
