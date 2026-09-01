@@ -85,6 +85,78 @@ public sealed class WorkspaceManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task HoverHandler_ProjectTypesResolveInsideGenericTypeArgumentsAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var projectRoot = Path.Combine(_tempRoot, "RavenOrderService");
+        _ = WriteProject(projectRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(projectRoot, "src", "Contracts.rvn"), """
+namespace TestApp
+
+class OrderActivity
+""");
+        var filePath = Path.Combine(projectRoot, "src", "Consumers.rvn");
+        var text = """
+namespace Demo
+
+import System.Collections.Concurrent.*
+import TestApp.*
+
+class ActivityStore {
+    val Received: ConcurrentQueue<OrderActivity> = ConcurrentQueue<OrderActivity>()
+    val Pending: MissingGeneric<OrderActivity> = null
+}
+""";
+        WriteRavenFile(filePath, text);
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(filePath);
+        _ = await store.UpsertDocumentAsync(uri, text);
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var sourceText = SourceText.From(text);
+
+        var concurrentQueueHover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(
+                sourceText,
+                new TextSpan(text.IndexOf("ConcurrentQueue", StringComparison.Ordinal) + 1, 0)).Start
+        }, CancellationToken.None);
+        concurrentQueueHover.ShouldNotBeNull();
+        concurrentQueueHover!.Contents.MarkupContent.ShouldNotBeNull();
+        concurrentQueueHover.Contents.MarkupContent!.Value.ShouldContain("ConcurrentQueue");
+
+        var sourceTypeOffset = text.LastIndexOf("OrderActivity", StringComparison.Ordinal) + 1;
+        var sourceTypeHover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new TextSpan(sourceTypeOffset, 0)).Start
+        }, CancellationToken.None);
+        sourceTypeHover.ShouldNotBeNull();
+        sourceTypeHover!.Contents.MarkupContent.ShouldNotBeNull();
+        sourceTypeHover.Contents.MarkupContent!.Value.ShouldContain("class OrderActivity");
+    }
+
+    [Fact]
     public async Task OpenProject_AddsStandardMacroLibraryAsMetadataAndMacroReferenceAsync()
     {
         Directory.CreateDirectory(_tempRoot);

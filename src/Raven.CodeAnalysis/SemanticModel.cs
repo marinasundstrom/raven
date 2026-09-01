@@ -13774,6 +13774,7 @@ public partial class SemanticModel
             null => false,
             TypeAnnotationClauseSyntax => true,
             ArrowTypeClauseSyntax => true,
+            TypeArgumentSyntax => true,
             TypeSyntax => true,
             TypeOfExpressionSyntax => true,
             SizeOfExpressionSyntax => true,

@@ -19,6 +19,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 - Hovering an unresolved name in a type position no longer presents the
   compiler's internal error-type symbol as Quick Info; the unresolved-name
   diagnostic remains the user-facing explanation.
+- Type arguments are now resolved independently when their enclosing generic
+  type is unresolved, so semantic features still recognize known types in
+  annotations such as `MissingGeneric<KnownType>`.
 
 ## 0.1.6 - 2026-08-29
 

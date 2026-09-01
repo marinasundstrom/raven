@@ -145,6 +145,39 @@ class Sample {
     }
 
     [Fact]
+    public void TypeInfo_UnresolvedGenericNameStillResolvesSourceTypeArgument()
+    {
+        var declarationTree = SyntaxTree.ParseText("""
+namespace TestApp
+
+class KnownSourceType
+""", path: "/workspace/KnownSourceType.rvn");
+
+        var useTree = SyntaxTree.ParseText("""
+namespace Demo
+
+import TestApp.*
+
+class Sample {
+    val Value: MissingGeneric<KnownSourceType> = null
+}
+""", path: "/workspace/Sample.rvn");
+
+        var compilation = CreateCompilation([declarationTree, useTree]);
+        var model = compilation.GetSemanticModel(useTree);
+        var genericName = useTree.GetRoot().DescendantNodes().OfType<GenericNameSyntax>().Single();
+        var typeArgument = genericName.TypeArgumentList.Arguments.Single().Type;
+
+        Assert.Null(model.GetTypeInfo(genericName).Type);
+
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(typeArgument).Type);
+        Assert.Equal("KnownSourceType", type.Name);
+
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(typeArgument).Symbol);
+        Assert.Same(type, symbol);
+    }
+
+    [Fact]
     public void TypeDisplay_ConstructedMetadataGenericUsesTypeArguments()
     {
         var references = GetMetadataReferences()

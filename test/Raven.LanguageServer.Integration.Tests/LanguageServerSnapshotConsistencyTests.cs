@@ -62,6 +62,45 @@ class ActivityStore {
     }
 
     [Fact]
+    public async Task HoverHandler_UnresolvedGenericNameStillResolvesKnownTypeArgumentAsync()
+    {
+        const string text = """
+class OrderActivity
+
+class ActivityStore {
+    static val Received: MissingGeneric<OrderActivity> {
+        get { return null }
+    }
+}
+""";
+        var (store, _, uri) = await CreateWorkspaceAsync(text);
+        var context = await store.GetAnalysisContextAsync(uri, CancellationToken.None);
+        context.ShouldNotBeNull();
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+
+        var missingGenericPosition = GetPosition(
+            context.Value.SourceText,
+            text.IndexOf("MissingGeneric", StringComparison.Ordinal) + 1);
+        var missingGenericHover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = missingGenericPosition
+        }, CancellationToken.None);
+        missingGenericHover.ShouldBeNull();
+
+        var orderActivityReference = text.LastIndexOf("OrderActivity", StringComparison.Ordinal) + 1;
+        var orderActivityHover = await handler.Handle(new HoverParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = GetPosition(context.Value.SourceText, orderActivityReference)
+        }, CancellationToken.None);
+
+        orderActivityHover.ShouldNotBeNull();
+        orderActivityHover!.Contents.MarkupContent.ShouldNotBeNull();
+        orderActivityHover.Contents.MarkupContent!.Value.ShouldContain("class OrderActivity");
+    }
+
+    [Fact]
     public async Task HoverHandler_LocalMacroDeclaration_UsesMacroSemanticProjectionAsync()
     {
         const string text = """
