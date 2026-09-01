@@ -8,7 +8,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 - None recorded.
 
-## 0.1.7 - 2026-09-01
+## 0.1.7 - 2026-09-02
 
 ### Breaking changes
 
