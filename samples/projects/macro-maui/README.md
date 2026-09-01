@@ -108,7 +108,7 @@ macro-maui/
 
 ## Build and verify
 
-This sample requires Raven 0.1.6 or later. When working in this repository, the
+This sample requires Raven 0.1.7 or later. When working in this repository, the
 following commands build and use the repository compiler explicitly so local
 compiler changes can be tested without changing the installed SDK:
 
