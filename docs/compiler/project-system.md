@@ -598,6 +598,10 @@ Example:
 Current behavior:
 
 - `RavenWorkspace.OpenProject(...)` can open that project through `MsBuildProjectSystemService`.
+- The language server uses standard `.sln` entries to group workspace projects
+  when at least one listed project is a Raven project, and otherwise falls back
+  to recursive project discovery. MSBuild `ProjectReference` remains the source
+  of compilation dependency edges.
 - The language server reloads the evaluated project when watched MSBuild
   `.props` or `.targets` files change, including `Directory.Build.props` and
   `Directory.Build.targets`.

@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 
 using Microsoft.Extensions.Logging;
 
@@ -25,6 +26,9 @@ internal sealed class WorkspaceManager
 
     private static readonly string MacroShadowOutputRoot = Path.Combine(Path.GetTempPath(), "raven-ls-macros");
     private static readonly TimeSpan ProjectOpenFailureRetryDelay = TimeSpan.FromSeconds(30);
+    private static readonly Regex SolutionProjectLinePattern = new(
+        @"^\s*Project\(""[^""]+""\)\s*=\s*""[^""]*"",\s*""(?<path>[^""]+)"",\s*""[^""]+""",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly HashSet<string> WorkspaceDiscoveryExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
     {
         ".git",
@@ -144,8 +148,10 @@ internal sealed class WorkspaceManager
         {
             var affectedProjectIds = new HashSet<ProjectId>();
             var requiresWorkspaceReload = false;
+            var solutionGroupingChanged = false;
             foreach (var change in relevantChanges)
             {
+                solutionGroupingChanged |= IsSolutionFilePath(change.Uri?.GetFileSystemPath());
                 if (!TryApplyKnownSourceFileChange(change, affectedProjectIds))
                     requiresWorkspaceReload = true;
             }
@@ -173,7 +179,7 @@ internal sealed class WorkspaceManager
             var reloadSnapshot = CaptureReloadSnapshot();
             InitializeCore(_workspaceRoots);
 
-            if (ReloadDroppedExistingProject(reloadSnapshot.Solution))
+            if (!solutionGroupingChanged && ReloadDroppedExistingProject(reloadSnapshot.Solution))
             {
                 RestoreReloadSnapshot(reloadSnapshot);
                 _logger.LogWarning(
@@ -605,6 +611,98 @@ internal sealed class WorkspaceManager
         if (!Directory.Exists(root))
             return [];
 
+        var solutionProjects = FindWorkspaceSolutionProjectFiles(root, projectSystem);
+        if (solutionProjects.Length > 0)
+            return solutionProjects;
+
+        return FindWorkspaceProjectFilesByDirectory(root, projectSystem);
+    }
+
+    private static string[] FindWorkspaceSolutionProjectFiles(string root, IProjectSystemService projectSystem)
+    {
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var solutionPath in FindWorkspaceSolutionFiles(root))
+        {
+            var solutionDirectory = Path.GetDirectoryName(solutionPath) ?? root;
+            try
+            {
+                foreach (var line in File.ReadLines(solutionPath))
+                {
+                    var match = SolutionProjectLinePattern.Match(line);
+                    if (!match.Success)
+                        continue;
+
+                    var relativeProjectPath = match.Groups["path"].Value
+                        .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+                        .Replace('\\', Path.DirectorySeparatorChar);
+                    var projectPath = Path.IsPathRooted(relativeProjectPath)
+                        ? NormalizePath(relativeProjectPath)
+                        : NormalizePath(Path.Combine(solutionDirectory, relativeProjectPath));
+                    if (projectSystem.CanOpenProject(projectPath))
+                        candidates.Add(projectPath);
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+            catch (ArgumentException)
+            {
+            }
+            catch (NotSupportedException)
+            {
+            }
+        }
+
+        return candidates
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string[] FindWorkspaceSolutionFiles(string root)
+    {
+        var candidates = new List<string>();
+        var pending = new Stack<string>();
+        pending.Push(root);
+
+        while (pending.Count > 0)
+        {
+            var directory = pending.Pop();
+            string[] files;
+            string[] directories;
+
+            try
+            {
+                files = Directory.GetFiles(directory, "*.sln", SearchOption.TopDirectoryOnly);
+                directories = Directory.GetDirectories(directory, "*", SearchOption.TopDirectoryOnly);
+            }
+            catch (IOException)
+            {
+                continue;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            candidates.AddRange(files);
+
+            foreach (var childDirectory in directories)
+            {
+                if (!IsWorkspaceDiscoveryDirectoryExcluded(childDirectory))
+                    pending.Push(childDirectory);
+            }
+        }
+
+        return candidates
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string[] FindWorkspaceProjectFilesByDirectory(string root, IProjectSystemService projectSystem)
+    {
         var candidates = new List<string>();
         var pending = new Stack<string>();
         pending.Push(root);
@@ -670,6 +768,7 @@ internal sealed class WorkspaceManager
         return string.Equals(extension, ".rvnproj", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(extension, ".csproj", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(extension, ".fsproj", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(extension, ".sln", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(extension, ".props", StringComparison.OrdinalIgnoreCase) ||
                string.Equals(extension, ".targets", StringComparison.OrdinalIgnoreCase) ||
                RavenFileExtensions.HasRavenExtension(path);
@@ -681,6 +780,10 @@ internal sealed class WorkspaceManager
             "project.assets.json",
             StringComparison.OrdinalIgnoreCase) &&
            EnumeratePathSegments(path).Contains("obj", StringComparer.OrdinalIgnoreCase);
+
+    private static bool IsSolutionFilePath(string? path)
+        => !string.IsNullOrWhiteSpace(path) &&
+           string.Equals(Path.GetExtension(path), ".sln", StringComparison.OrdinalIgnoreCase);
 
     private ImmutableDictionary<string, ReportDiagnostic> GetTrackedEditorConfigDiagnosticOptions(Project project)
     {

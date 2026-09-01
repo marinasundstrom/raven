@@ -304,6 +304,66 @@ func Main() {
     }
 
     [Fact]
+    public void FindWorkspaceProjectFiles_SolutionGroupsListedProjects()
+    {
+        var workspaceRoot = Path.Combine(_tempRoot, "workspace");
+        Directory.CreateDirectory(workspaceRoot);
+        var appProjectPath = WriteProject(Path.Combine(workspaceRoot, "apps", "App"), "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+""");
+        var sharedProjectPath = WriteProject(Path.Combine(_tempRoot, "shared"), "Shared", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+""");
+        var unlistedProjectPath = WriteProject(Path.Combine(workspaceRoot, "other"), "Other", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+""");
+        _ = WriteSolution(
+            workspaceRoot,
+            "Workspace",
+            ("App", Path.Combine("apps", "App", "App.rvnproj")),
+            ("Shared", Path.Combine("..", "shared", "Shared.rvnproj")));
+
+        var candidates = WorkspaceManager.FindWorkspaceProjectFiles(
+            workspaceRoot,
+            new MsBuildProjectSystemService());
+
+        candidates.ShouldBe([appProjectPath, sharedProjectPath], ignoreOrder: true);
+        candidates.ShouldNotContain(unlistedProjectPath);
+    }
+
+    [Fact]
+    public void FindWorkspaceProjectFiles_SolutionWithoutRavenProjectsFallsBackToDirectoryDiscovery()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var projectPath = WriteProject(Path.Combine(_tempRoot, "app"), "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+""");
+        File.WriteAllText(Path.Combine(_tempRoot, "Workspace.sln"), "not a valid solution");
+
+        var candidates = WorkspaceManager.FindWorkspaceProjectFiles(
+            _tempRoot,
+            new MsBuildProjectSystemService());
+
+        candidates.ShouldBe([projectPath]);
+    }
+
+    [Fact]
     public void FindWorkspaceProjectFiles_SkipsGeneratedAndTemporaryDirectories()
     {
         Directory.CreateDirectory(_tempRoot);
@@ -368,15 +428,17 @@ func Main() {
     }
 
     [Fact]
-    public void ShouldReloadForWatchedFileChanges_ReloadsForSourceAndMsBuildFiles()
+    public void ShouldReloadForWatchedFileChanges_ReloadsForSourceSolutionAndMsBuildFiles()
     {
         var sourcePath = Path.Combine(_tempRoot, "src", "main.rvn");
         var projectPath = Path.Combine(_tempRoot, "App.rvnproj");
+        var solutionPath = Path.Combine(_tempRoot, "Workspace.sln");
         var propsPath = Path.Combine(_tempRoot, "Directory.Build.props");
         var targetsPath = Path.Combine(_tempRoot, "Directory.Build.targets");
 
         WorkspaceManager.ShouldReloadForWatchedFileChanges([sourcePath]).ShouldBeTrue();
         WorkspaceManager.ShouldReloadForWatchedFileChanges([projectPath]).ShouldBeTrue();
+        WorkspaceManager.ShouldReloadForWatchedFileChanges([solutionPath]).ShouldBeTrue();
         WorkspaceManager.ShouldReloadForWatchedFileChanges([propsPath]).ShouldBeTrue();
         WorkspaceManager.ShouldReloadForWatchedFileChanges([targetsPath]).ShouldBeTrue();
     }
@@ -435,6 +497,106 @@ class MacroPlugin { }
         });
 
         manager.GetProjectsSnapshot().Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void Initialize_UsesSolutionToGroupWorkspaceProjects()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var appRoot = Path.Combine(_tempRoot, "app");
+        _ = WriteProject(appRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var appSourcePath = Path.Combine(appRoot, "src", "main.rvn");
+        WriteRavenFile(appSourcePath, "class AppType");
+        var otherRoot = Path.Combine(_tempRoot, "other");
+        _ = WriteProject(otherRoot, "Other", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/**/*.rvn" />
+  </ItemGroup>
+</Project>
+""");
+        var otherSourcePath = Path.Combine(otherRoot, "src", "main.rvn");
+        WriteRavenFile(otherSourcePath, "class OtherType");
+        _ = WriteSolution(_tempRoot, "Workspace", ("App", Path.Combine("app", "App.rvnproj")));
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        manager.GetProjectsSnapshot().Single().FilePath.ShouldBe(Path.Combine(appRoot, "App.rvnproj"));
+        manager.TryGetDocument(DocumentUri.FromFileSystemPath(appSourcePath), out _).ShouldBeTrue();
+        manager.TryGetDocument(DocumentUri.FromFileSystemPath(otherSourcePath), out _).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ReloadForWatchedFiles_SolutionChangeRefreshesProjectGroupAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var appRoot = Path.Combine(_tempRoot, "app");
+        _ = WriteProject(appRoot, "App", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+""");
+        var sharedRoot = Path.Combine(_tempRoot, "shared");
+        _ = WriteProject(sharedRoot, "Shared", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+</Project>
+""");
+        var solutionPath = WriteSolution(
+            _tempRoot,
+            "Workspace",
+            ("App", Path.Combine("app", "App.rvnproj")),
+            ("Shared", Path.Combine("shared", "Shared.rvnproj")));
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+        manager.GetProjectsSnapshot().Count.ShouldBe(2);
+
+        _ = WriteSolution(
+            _tempRoot,
+            "Workspace",
+            ("App", Path.Combine("app", "App.rvnproj")));
+        _ = await manager.ReloadForWatchedFilesAsync([
+            new FileEvent
+            {
+                Uri = DocumentUri.FromFileSystemPath(solutionPath),
+                Type = FileChangeType.Changed
+            }
+        ]);
+
+        manager.GetProjectsSnapshot().Single().FilePath.ShouldBe(Path.Combine(appRoot, "App.rvnproj"));
     }
 
     [Fact]
@@ -2169,6 +2331,24 @@ func Main() -> unit {
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, $"{name}.rvnproj");
         File.WriteAllText(path, contents);
+        return path;
+    }
+
+    private static string WriteSolution(
+        string directory,
+        string name,
+        params (string Name, string RelativePath)[] projects)
+    {
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, $"{name}.sln");
+        var projectLines = projects.Select((project, index) =>
+            $"Project(\"{{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}}\") = \"{project.Name}\", \"{project.RelativePath}\", \"{{00000000-0000-0000-0000-{index + 1:D12}}}\"{Environment.NewLine}EndProject");
+        File.WriteAllText(path, $$"""
+Microsoft Visual Studio Solution File, Format Version 12.00
+{{string.Join(Environment.NewLine, projectLines)}}
+Global
+EndGlobal
+""");
         return path;
     }
 
