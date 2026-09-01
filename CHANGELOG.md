@@ -35,6 +35,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 - Type arguments are now resolved independently when their enclosing generic
   type is unresolved, so semantic features still recognize known types in
   annotations such as `MissingGeneric<KnownType>`.
+- The target-framework release gate now stops when a representative project
+  fails to build instead of continuing with stale binaries.
 
 ## 0.1.6 - 2026-08-29
 

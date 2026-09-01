@@ -182,12 +182,15 @@ Review the diff, finish the changelog, and commit every intended release change.
 Then run the release checks against that clean commit:
 
 ```bash
+scripts/validate-release.sh VERSION --require-clean
+scripts/package-nuget.sh VERSION
 scripts/test-target-framework-matrix.sh
 scripts/build-project-samples.sh
 scripts/run-project-samples.sh
-scripts/validate-release.sh VERSION --require-clean
-scripts/package-nuget.sh VERSION
 ```
+
+Pack the candidate family first so projects that select the new SDK version can
+resolve it from the repository-local feed during the remaining checks.
 
 For the stable pre-bootstrap release and every release that establishes or
 advances a bootstrap stage, also retain the full baseline, isolated runtime,

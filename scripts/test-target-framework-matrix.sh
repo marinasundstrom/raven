@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Verify that Raven's .NET 11 compiler host can build and run supported targets.
 
-set -Euo pipefail
+set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_CONFIG="${BUILD_CONFIG:-Debug}"
