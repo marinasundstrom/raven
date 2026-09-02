@@ -96,7 +96,12 @@ internal class UnionDeclarationParser : SyntaxParser
                         ListSeparatorStyle.Comma,
                         ref reportedInconsistentSeparator,
                         GetSpanOfLastToken());
-                    members.Add(commaToken);
+                    var skippedToken = CreateSkippedToken([commaToken], GetSpanOfLastToken());
+                    members.Add(IncompleteMemberDeclaration(
+                        SyntaxList.Empty,
+                        SyntaxList.Empty,
+                        skippedToken,
+                        Token(SyntaxKind.None)));
                 }
                 else if (!PeekToken().IsKind(SyntaxKind.CloseBraceToken) &&
                          !PeekToken().IsKind(SyntaxKind.EndOfFileToken))

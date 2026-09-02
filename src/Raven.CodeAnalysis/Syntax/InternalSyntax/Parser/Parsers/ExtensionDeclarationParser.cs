@@ -60,8 +60,13 @@ internal sealed class ExtensionDeclarationParser : SyntaxParser
             var separator = PeekToken();
             if (separator.IsKind(SyntaxKind.CommaToken))
             {
-                ReadToken();
-                members.Add(separator);
+                separator = ReadToken();
+                var skippedToken = CreateSkippedToken([separator], GetSpanOfLastToken());
+                members.Add(IncompleteMemberDeclaration(
+                    SyntaxList.Empty,
+                    SyntaxList.Empty,
+                    skippedToken,
+                    Token(SyntaxKind.None)));
             }
 
             if (Position == memberStart)

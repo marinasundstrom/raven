@@ -275,6 +275,18 @@ namespace Hardware {
         children.ShouldNotContain(symbol => symbol.Name == "<top-level code>");
     }
 
+    [Fact]
+    public void Outline_IncompleteTypeMemberWithStrayComma_DoesNotThrow()
+    {
+        const string code = "record ItemId(Value: int) { , static func Create() -> int => 1 }";
+
+        var itemId = GetDocumentSymbols(code).ShouldHaveSingleItem();
+
+        itemId.Name.ShouldBe("ItemId");
+        itemId.Children.ShouldNotBeNull();
+        itemId.Children.Select(static child => child.Name).ShouldContain("Create");
+    }
+
     private static IReadOnlyList<DocumentSymbol> GetDocumentSymbols(string code)
     {
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");

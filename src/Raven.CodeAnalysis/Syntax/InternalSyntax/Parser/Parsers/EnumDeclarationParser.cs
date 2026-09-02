@@ -41,7 +41,7 @@ internal class EnumDeclarationParser : SyntaxParser
         {
             var t = PeekToken();
 
-            if (t.IsKind(SyntaxKind.CloseBraceToken))
+            if (t.IsKind(SyntaxKind.CloseBraceToken) || t.IsKind(SyntaxKind.EndOfFileToken))
                 break;
 
             var member = ParseMember();

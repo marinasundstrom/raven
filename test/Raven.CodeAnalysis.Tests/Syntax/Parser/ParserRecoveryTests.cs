@@ -12,6 +12,20 @@ namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 
 public class ParserRecoveryTests
 {
+    [Theory]
+    [InlineData("class C { , func M() { } }")]
+    [InlineData("union U { , func M() { } }")]
+    public void TypeMemberLists_RepresentUnexpectedCommaAsIncompleteMember(string source)
+    {
+        var tree = SyntaxTree.ParseText(source);
+        var root = tree.GetRoot();
+
+        Assert.Contains(root.DescendantNodes(), node => node is IncompleteMemberDeclarationSyntax);
+        Assert.Contains(
+            tree.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnexpectedTokenInIncompleteSyntax);
+    }
+
     [Fact]
     public void StatementBlock_MissingCloseBrace_ProducesMissingToken()
     {

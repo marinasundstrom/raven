@@ -8,6 +8,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 - None recorded.
 
+### Fixed
+
+- Parser recovery during live editing no longer loops at end-of-file for incomplete
+  enum declarations, throws when an incrementally reparsed type is removed before a
+  newline, or places stray separator tokens directly in typed member lists. This
+  keeps completion, diagnostics, semantic tokens, and document symbols responsive
+  while declarations are being typed.
+
 ## 0.1.7 - 2026-09-02
 
 ### Breaking changes

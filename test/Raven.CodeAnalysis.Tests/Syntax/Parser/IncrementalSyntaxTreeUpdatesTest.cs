@@ -220,6 +220,70 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
         }
     }
 
+    [Fact]
+    public void TypingIncompleteEnumDeclaration_MatchesFullParseAtEveryStep()
+    {
+        var text = SourceText.From("func Main() { }\n");
+        var tree = SyntaxTree.ParseText(text);
+
+        foreach (var character in "enum Status {\n    Ok")
+        {
+            text = text.Replace(text.Length, 0, character.ToString());
+            AssertIncrementalStepMatchesFullParse(tree, text, $"typed '{character}'", out tree);
+        }
+    }
+
+    [Fact]
+    public void RemovingTypeNameBeforeNewLine_MatchesFullParse()
+    {
+        var original = SourceText.From("class C {\n    val value: int\n}\n");
+        var tree = SyntaxTree.ParseText(original);
+        var typePosition = original.ToString().IndexOf("int", StringComparison.Ordinal);
+        var updated = original.Replace(typePosition, "int".Length, string.Empty);
+
+        AssertIncrementalStepMatchesFullParse(tree, updated, "removed type name", out _);
+    }
+
+    [Fact]
+    public void InsertingClassCloseBraceBeforeFollowingDeclarations_DoesNotCreateExecutableGlobalStatement()
+    {
+        var text = SourceText.From("""
+func Main() {
+    val message = "Hello from Raven"
+    System.Console.WriteLine(message)
+}
+
+record ItemId(Value: Guid)
+
+record Item(Id: ItemId, Name: string)
+
+class ItemRepository : IRepository<Item, ItemId> {
+    func getById(id: ItemId) -> Result<Item, RepositoryError> {
+        return Error(RepositoryError.NotFound)
+    }
+
+interface IRepository<T, TId> {
+    func getById(id: TId) -> Result<T, RepositoryError> {
+        return Error(RepositoryError.NotFound)
+    }
+}
+
+union RepositoryError {
+    case NotFound
+}
+""");
+        var tree = SyntaxTree.ParseText(text);
+        var interfacePosition = text.ToString().IndexOf("interface", StringComparison.Ordinal);
+        text = text.Replace(interfacePosition, 0, "}\n\n");
+
+        AssertIncrementalStepMatchesFullParse(tree, text, "closed class", out tree);
+
+        var root = tree.GetRoot();
+        var globalStatement = Assert.Single(root.Members.OfType<GlobalStatementSyntax>());
+        Assert.IsType<FunctionStatementSyntax>(globalStatement.Statement);
+        Assert.Equal(text.ToString(), root.ToFullString());
+    }
+
     [Theory]
     [InlineData("declaration", "component! Greeting() {\n}\n", "component")]
     [InlineData("expression", "func Run() {\n    let value = answer!()\n}\n", "answer")]

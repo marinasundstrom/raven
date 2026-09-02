@@ -243,7 +243,7 @@ internal class NameSyntaxParser : SyntaxParser
         if (!IsIdentifierToken(name)
             && HasLeadingEndOfLineTrivia(name))
         {
-            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetSpanOfLastToken()));
+            AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.IdentifierExpected, GetInsertionSpanBeforePeekedToken()));
             return IdentifierName(
                 MissingToken(SyntaxKind.IdentifierToken));
         }

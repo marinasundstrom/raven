@@ -117,4 +117,17 @@ public class EnumDeclarationParserTests
         Assert.Equal(SyntaxKind.SemicolonToken, declaration.Members.GetSeparator(1).Kind);
         Assert.Contains(tree.GetDiagnostics(), diagnostic => diagnostic.Descriptor == CompilerDiagnostics.CharacterExpected);
     }
+
+    [Theory]
+    [InlineData("enum Status")]
+    [InlineData("enum Status {")]
+    [InlineData("enum Status { Ok")]
+    public void EnumDeclaration_AtEndOfFile_RecoversWithoutLooping(string source)
+    {
+        var tree = SyntaxTree.ParseText(source);
+        var declaration = Assert.IsType<EnumDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
+
+        Assert.True(declaration.CloseBraceToken.IsMissing);
+        Assert.Equal(source, tree.GetRoot().ToFullString());
+    }
 }

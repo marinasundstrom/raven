@@ -140,8 +140,13 @@ internal class TypeDeclarationParser : SyntaxParser
                 var commaToken = PeekToken();
                 if (commaToken.IsKind(SyntaxKind.CommaToken))
                 {
-                    ReadToken();
-                    memberList.Add(commaToken);
+                    commaToken = ReadToken();
+                    var skippedToken = CreateSkippedToken([commaToken], GetSpanOfLastToken());
+                    memberList.Add(IncompleteMemberDeclaration(
+                        SyntaxList.Empty,
+                        SyntaxList.Empty,
+                        skippedToken,
+                        Token(SyntaxKind.None)));
                 }
             }
 
