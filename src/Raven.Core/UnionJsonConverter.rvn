@@ -22,7 +22,7 @@ public class RavenTaggedUnionJsonConverterAttribute : JsonConverterAttribute {
     }
 
     /// Creates a tagged-union converter for the specified union type.
-    override func CreateConverter(typeToConvert: Type) -> JsonConverter {
+    override func CreateConverter(typeToConvert: Type) -> JsonConverter? {
         return RavenTaggedUnionJsonConverterFactory.CreateUnionConverter(typeToConvert, _caseDiscriminatorPropertyName)
     }
 }
@@ -68,7 +68,7 @@ public class RavenTaggedUnionJsonConverterFactory : JsonConverterFactory {
     override func CreateConverter(
         typeToConvert: Type,
         options: JsonSerializerOptions
-    ) -> JsonConverter {
+    ) -> JsonConverter? {
         return CreateUnionConverter(typeToConvert, _caseDiscriminatorPropertyName)
     }
 
@@ -130,7 +130,7 @@ public class RavenTaggedUnionJsonConverter<TUnion> : JsonConverter<TUnion> {
         reader: &Utf8JsonReader,
         typeToConvert: Type,
         options: JsonSerializerOptions
-    ) -> TUnion {
+    ) -> TUnion? {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
 
@@ -342,7 +342,7 @@ public class RavenParenthesizedUnionJsonConverterFactory : JsonConverterFactory 
     override func CreateConverter(
         typeToConvert: Type,
         options: JsonSerializerOptions
-    ) -> JsonConverter {
+    ) -> JsonConverter? {
         val converterType =
             typeof(RavenParenthesizedUnionJsonConverter<>).MakeGenericType([typeToConvert])!
 
@@ -375,7 +375,7 @@ public class RavenParenthesizedUnionJsonConverter<TUnion> : JsonConverter<TUnion
         reader: &Utf8JsonReader,
         typeToConvert: Type,
         options: JsonSerializerOptions
-    ) -> TUnion {
+    ) -> TUnion? {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
 

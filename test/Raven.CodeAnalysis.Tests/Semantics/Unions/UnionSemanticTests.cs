@@ -1789,7 +1789,7 @@ union Result<T, E> {
 union class Result<T> {
     case Ok(value: T)
 
-    override func ToString() -> string {
+    override func ToString() -> string? {
         return "custom"
     }
 }

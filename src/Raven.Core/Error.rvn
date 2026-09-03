@@ -33,7 +33,7 @@ public record ContextError<TError: IError>(
     val IError.Cause: IError? => Cause
 
     /// Returns the contextual error message.
-    override func ToString() -> string => Message
+    override func ToString() -> string? => Message
 }
 
 /// Provides context-building operations for strongly typed errors.

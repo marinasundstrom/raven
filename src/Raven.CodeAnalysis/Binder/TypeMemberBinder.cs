@@ -758,7 +758,8 @@ internal partial class TypeMemberBinder : Binder
         var isStatic = hasStaticModifier;
         var isAsync = modifiers.Any(m => m.Kind == SyntaxKind.AsyncKeyword);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
-        var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
+        var hasOverrideModifier = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
+        var isOverride = hasOverrideModifier;
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
         var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
         var isExtern = modifiers.Any(m => m.Kind == SyntaxKind.ExternKeyword);
@@ -1067,7 +1068,7 @@ internal partial class TypeMemberBinder : Binder
 
         if (explicitInterfaceType is null && isOverride)
         {
-            var candidate = FindOverrideCandidate(name, signatureArray);
+            var candidate = FindOverrideCandidate(name, returnType, signatureArray);
 
             var name2 = CreateSignature(name, returnType, signatureArray);
 
@@ -1094,7 +1095,7 @@ internal partial class TypeMemberBinder : Binder
 
         methodSymbol.UpdateModifiers(isVirtual, isOverride, isSealed, isAbstract);
 
-        if (explicitInterfaceType is null && !isOverride && !isExtensionContainer)
+        if (explicitInterfaceType is null && !isOverride && !hasOverrideModifier && !isExtensionContainer)
         {
             var hiddenMember = FindHidingMethodCandidate(name, isStatic, signatureArray);
             ReportMemberHidingIfNeeded(hiddenMember, name, hasNewModifier, identifierToken.GetLocation());
@@ -3991,18 +3992,39 @@ internal partial class TypeMemberBinder : Binder
         return true;
     }
 
-    private IMethodSymbol? FindOverrideCandidate(string name, (ITypeSymbol type, RefKind refKind)[] parameters)
+    private IMethodSymbol? FindOverrideCandidate(
+        string name,
+        ITypeSymbol returnType,
+        (ITypeSymbol type, RefKind refKind)[] parameters)
     {
         for (var baseType = _containingType.BaseType; baseType is not null; baseType = baseType.BaseType)
         {
             foreach (var method in baseType.GetMembers(name).OfType<IMethodSymbol>())
             {
-                if (SignaturesMatch(method, parameters))
+                if (OverrideReturnTypesMatch(method.ReturnType, returnType) &&
+                    SignaturesMatch(method, parameters))
                     return method;
             }
         }
 
         return null;
+    }
+
+    private static bool OverrideReturnTypesMatch(ITypeSymbol overriddenReturnType, ITypeSymbol overridingReturnType)
+    {
+        if (overriddenReturnType.TypeKind == TypeKind.Error || overridingReturnType.TypeKind == TypeKind.Error)
+            return true;
+
+        if (overriddenReturnType.IsNullable != overridingReturnType.IsNullable)
+            return false;
+
+        if (TypesMatchForExplicitImplementation(overriddenReturnType, overridingReturnType))
+            return true;
+
+        return overriddenReturnType.SpecialType == SpecialType.System_Void &&
+               overridingReturnType.SpecialType == SpecialType.System_Unit ||
+               overriddenReturnType.SpecialType == SpecialType.System_Unit &&
+               overridingReturnType.SpecialType == SpecialType.System_Void;
     }
 
     private IMethodSymbol? FindHidingMethodCandidate(string name, bool isStatic, (ITypeSymbol type, RefKind refKind)[] parameters)

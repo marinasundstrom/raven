@@ -8,6 +8,22 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class VirtualMemberTests : CompilationTestBase
 {
     [Fact]
+    public void OverrideWithDifferentReturnNullability_ProducesDiagnostic()
+    {
+        const string source = """
+record ItemId(Value: int) {
+    override func ToString() -> string => Value.ToString()
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+
+        Assert.Equal(CompilerDiagnostics.OverrideMemberNotFound.Id, diagnostic.Descriptor.Id);
+    }
+
+    [Fact]
     public void VirtualMethodOnSealedType_ProducesDiagnostic()
     {
         const string source = """

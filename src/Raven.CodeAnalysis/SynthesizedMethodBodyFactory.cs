@@ -1,6 +1,7 @@
 using System;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
@@ -154,7 +155,8 @@ internal static partial class SynthesizedMethodBodyFactory
 
         if (method.Name == nameof(object.ToString) &&
             method.Parameters.Length == 0 &&
-            method.ReturnType.SpecialType == SpecialType.System_String)
+            method.ReturnType.SpecialType == SpecialType.System_String &&
+            !HasMethodDeclarationSyntax(method))
         {
             switch (method.ContainingType)
             {
@@ -223,6 +225,17 @@ internal static partial class SynthesizedMethodBodyFactory
         }
 
         body = null!;
+        return false;
+    }
+
+    private static bool HasMethodDeclarationSyntax(IMethodSymbol method)
+    {
+        foreach (var reference in method.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is MethodDeclarationSyntax)
+                return true;
+        }
+
         return false;
     }
 }

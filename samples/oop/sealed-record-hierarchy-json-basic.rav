@@ -33,23 +33,23 @@ expr |> WriteLine
 sealed record Expr
 
 record Lit(Value: int) : Expr {
-    override func ToString() -> string => "$Value"
+    override func ToString() -> string? => "$Value"
 }
 
 sealed record BinaryExpr(Left: Expr, Right: Expr) : Expr
 
 record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right) {
-    override func ToString() -> string => "($Left + $Right)"
+    override func ToString() -> string? => "($Left + $Right)"
 }
 
 record Sub(Left: Expr, Right: Expr) : BinaryExpr(Left, Right) {
-    override func ToString() -> string => "($Left - $Right)"
+    override func ToString() -> string? => "($Left - $Right)"
 }
 
 record Mul(Left: Expr, Right: Expr) : BinaryExpr(Left, Right) {
-    override func ToString() -> string => "($Left * $Right)"
+    override func ToString() -> string? => "($Left * $Right)"
 }
 
 record Div(Left: Expr, Right: Expr) : BinaryExpr(Left, Right) {
-    override func ToString() -> string => "($Left / $Right)"
+    override func ToString() -> string? => "($Left / $Right)"
 }

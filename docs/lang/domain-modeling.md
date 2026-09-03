@@ -126,7 +126,7 @@ class AccessToken private (private val value: string) {
 
     func Matches(candidate: string) -> bool => value == candidate
 
-    override func ToString() -> string => "<access-token>"
+    override func ToString() -> string? => "<access-token>"
 }
 ```
 

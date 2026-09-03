@@ -28,5 +28,5 @@ record Person(
 )
 
 record CustomError(val Message: string) {
-    override func ToString() -> string => Message
+    override func ToString() -> string? => Message
 }

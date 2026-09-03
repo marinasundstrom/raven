@@ -1418,6 +1418,42 @@ union Message(string | int)
     }
 
     [Fact]
+    public void Union_ToStringOverride_UsesDeclaredImplementation()
+    {
+        const string code = """
+union class Result {
+    case Ok(value: int)
+
+    override func ToString() -> string? => "custom"
+}
+
+class Runner {
+    public static func Run() -> string? {
+        let result: Result = .Ok(42)
+        return result.ToString()
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create(
+            "union-tostring-override",
+            [syntaxTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var runnerType = loaded.Assembly.GetType("Runner", throwOnError: true)!;
+        var runMethod = runnerType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+
+        Assert.Equal("custom", runMethod.Invoke(null, null));
+    }
+
+    [Fact]
     public void ParenthesizedUnion_ToString_UsesPayloadToStringWithoutReflection()
     {
         const string code = """

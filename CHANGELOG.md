@@ -16,6 +16,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Source-declared `ToString` overrides on records and unions now retain their
+  bodies instead of being replaced by synthesized structural formatting, and
+  overrides with incompatible return nullability report `RAV0307`.
 - Parser recovery during live editing no longer loops at end-of-file for incomplete
   enum declarations, throws when an incrementally reparsed type is removed before a
   newline, or places stray separator tokens directly in typed member lists. This

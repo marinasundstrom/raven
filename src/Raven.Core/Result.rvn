@@ -225,7 +225,7 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
 public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
 
     /// Reads a tagged JSON object as an `Ok` or `Error` result.
-    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Result<T, E> {
+    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Result<T, E>? {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
 
@@ -279,7 +279,7 @@ public class ResultJsonConverterFactory : JsonConverterFactory {
     }
 
     /// Creates a converter for the specified constructed `Result` type.
-    override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter {
+    override func CreateConverter(typeToConvert: Type, options: JsonSerializerOptions) -> JsonConverter? {
         val tArgs = typeToConvert.GetGenericArguments()
         val converterType = typeof(ResultJsonConverter<,>).MakeGenericType([tArgs[0], tArgs[1]])
         return (JsonConverter)(

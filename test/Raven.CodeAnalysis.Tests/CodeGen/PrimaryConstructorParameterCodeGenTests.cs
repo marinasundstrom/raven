@@ -13,6 +13,39 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public sealed class PrimaryConstructorParameterCodeGenTests : CompilationTestBase
 {
     [Fact]
+    public void Emit_RecordToStringOverride_UsesDeclaredImplementation()
+    {
+        const string source = """
+record ItemId private (Value: int) {
+    static func Create(value: int) -> ItemId => ItemId(value)
+
+    override func ToString() -> string? => Value.ToString()
+}
+
+class Runner {
+    public static func Run() -> string? => ItemId.Create(42).ToString()
+}
+""";
+
+        var (compilation, _) = CreateCompilation(source);
+        compilation.EnsureSetup();
+
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+
+        Assert.True(
+            result.Success,
+            string.Join(Environment.NewLine, result.Diagnostics.Select(diagnostic => diagnostic.ToString())));
+
+        peStream.Position = 0;
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, TestMetadataReferences.Default);
+        var runnerType = loaded.Assembly.GetType("Runner", throwOnError: true)!;
+        var runMethod = runnerType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+
+        Assert.Equal("42", runMethod.Invoke(null, null));
+    }
+
+    [Fact]
     public void Emit_PrivateRecordStructPrimaryConstructor_HasPrivateMetadataAccessibility()
     {
         const string source = """
