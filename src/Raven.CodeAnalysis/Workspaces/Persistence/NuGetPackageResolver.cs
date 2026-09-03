@@ -367,7 +367,7 @@ internal static class NuGetPackageResolver
         startInfo.ArgumentList.Add("--verbosity");
         startInfo.ArgumentList.Add("quiet");
         startInfo.Environment["NUGET_PACKAGES"] = globalPackagesFolder;
-        ClearInheritedMsBuildSdkResolverEnvironment(startInfo);
+        ClearInheritedMsBuildEnvironment(startInfo);
 
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Unable to start 'dotnet restore'.");
@@ -384,11 +384,15 @@ internal static class NuGetPackageResolver
         }
     }
 
-    private static void ClearInheritedMsBuildSdkResolverEnvironment(ProcessStartInfo startInfo)
+    internal static void ClearInheritedMsBuildEnvironment(ProcessStartInfo startInfo)
     {
-        // When Raven is invoked from an SDK build, MSBuild may pass resolver
-        // state for the parent build into child processes. A nested dotnet
-        // restore must resolve its SDK from normal dotnet discovery instead.
+        // In-process MSBuild registration and SDK builds may pin MSBuild paths
+        // in the parent environment. A nested dotnet restore must resolve all
+        // MSBuild components from the SDK selected by normal dotnet discovery.
+        startInfo.Environment.Remove("MSBUILD_EXE_PATH");
+        startInfo.Environment.Remove("MSBuildExtensionsPath");
+        startInfo.Environment.Remove("MSBuildExtensionsPath32");
+        startInfo.Environment.Remove("MSBuildExtensionsPath64");
         startInfo.Environment.Remove("MSBuildSDKsPath");
         startInfo.Environment.Remove("DOTNET_MSBUILD_SDK_RESOLVER_CLI_DIR");
         startInfo.Environment.Remove("DOTNET_MSBUILD_SDK_RESOLVER_SDKS_DIR");

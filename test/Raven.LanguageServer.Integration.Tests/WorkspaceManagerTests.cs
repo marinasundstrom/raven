@@ -506,6 +506,44 @@ class MacroPlugin { }
         manager.GetProjectsSnapshot().Count.ShouldBe(2);
     }
 
+    [Fact]
+    public void Initialize_OpensNestedProjectWhenFrameworkRestoreIsRequired()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var projectRoot = Path.Combine(_tempRoot, "RavenOrderService");
+        _ = WriteProject(projectRoot, "OrderIntake", """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/**/*.rvn" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+</Project>
+""");
+        WriteRavenFile(Path.Combine(projectRoot, "src", "Program.rvn"), """
+func Main() -> unit { }
+""");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+
+        var project = manager.GetProjectsSnapshot().Single();
+        project.FilePath.ShouldBe(Path.Combine(projectRoot, "OrderIntake.rvnproj"));
+        project.Documents.ShouldContain(document =>
+            string.Equals(document.Name, "Program.rvn", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Theory]
     [InlineData("sln")]
     [InlineData("slnx")]

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -13,6 +14,32 @@ namespace Raven.CodeAnalysis.Tests;
 
 public sealed class ProjectFileNuGetReferenceTests
 {
+    [Fact]
+    public void ClearInheritedMsBuildEnvironment_RemovesPinnedSdkPaths()
+    {
+        var startInfo = new ProcessStartInfo();
+        var pinnedVariables = new[]
+        {
+            "MSBUILD_EXE_PATH",
+            "MSBuildExtensionsPath",
+            "MSBuildExtensionsPath32",
+            "MSBuildExtensionsPath64",
+            "MSBuildSDKsPath",
+            "DOTNET_MSBUILD_SDK_RESOLVER_CLI_DIR",
+            "DOTNET_MSBUILD_SDK_RESOLVER_SDKS_DIR",
+            "DOTNET_MSBUILD_SDK_RESOLVER_SDKS_VER"
+        };
+        foreach (var variable in pinnedVariables)
+            startInfo.Environment[variable] = Path.Combine("pinned", variable);
+        startInfo.Environment["NUGET_PACKAGES"] = "packages";
+
+        NuGetPackageResolver.ClearInheritedMsBuildEnvironment(startInfo);
+
+        foreach (var variable in pinnedVariables)
+            Assert.False(startInfo.Environment.ContainsKey(variable));
+        Assert.Equal("packages", startInfo.Environment["NUGET_PACKAGES"]);
+    }
+
     [Fact]
     public void OpenProject_PackageReference_ResolvesFromGlobalCache()
     {

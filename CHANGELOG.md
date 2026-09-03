@@ -16,6 +16,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Language-server project loading now isolates nested NuGet restores from the
+  MSBuild instance registered in the server process, preventing SDK assembly
+  mismatches when a workspace-level `global.json` selects a different .NET SDK.
 - Match exhaustiveness now recognizes qualified parameterless union cases nested
   inside constructed generic union cases, including across source and metadata.
 - Union declarations now report an error when a body-form union has no cases or
