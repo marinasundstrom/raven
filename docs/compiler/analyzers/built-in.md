@@ -72,6 +72,7 @@ member accesses.
 | Initialization | `RAV9032` | Default | Warning | Initialize a field in storage or a constructor. |
 | Usage | `RAV9033` | Default | Warning | Dispose a disposable value before leaving its scope. |
 | Usage | `RAV9034` | Default | Warning | Make an unused expression result explicit. This includes value-forming expressions and a non-`unit` tail value in a `unit` callable; full mode also checks bare calls and member accesses. |
+| Error handling | `RAV9037` | Default | Warning | Avoid partial `Option` and `Result` extraction with `Unwrap`, `UnwrapOrThrow`, `UnwrapError`, or `Expect`; handle both cases explicitly. |
 
 ### Recommended analyzer package
 

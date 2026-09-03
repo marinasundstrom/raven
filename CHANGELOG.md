@@ -8,6 +8,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 - None recorded.
 
+### Added
+
+- Added the default `UnsafeUnwrapAnalyzer` (`RAV9037`) warning for partial
+  `Option` and `Result` extraction through `Unwrap`, `UnwrapOrThrow`,
+  `UnwrapError`, and `Expect`.
+
 ### Fixed
 
 - Parser recovery during live editing no longer loops at end-of-file for incomplete

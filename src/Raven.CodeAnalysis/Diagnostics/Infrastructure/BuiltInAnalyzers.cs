@@ -69,6 +69,7 @@ public static class BuiltInAnalyzers
 
     private static Project AddErrorHandlingAnalyzers(Project project)
     {
+        project = AddAnalyzerIfMissing<UnsafeUnwrapAnalyzer>(project);
         project = AddOptionalAnalyzerIfEnabled<ThrowStatementUseResultAnalyzer>(project, ErrorHandlingCategory);
         project = AddOptionalAnalyzerIfEnabled<PreferDuLinqExtensionsAnalyzer>(project, ErrorHandlingCategory);
 

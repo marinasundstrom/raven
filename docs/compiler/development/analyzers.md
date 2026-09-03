@@ -69,6 +69,10 @@ Raven currently provides analyzers for two different contexts:
   without a matching `use` declaration or direct `Dispose()` call before scope exit. The
   analyzer intentionally starts with conservative local flow and does not attempt ownership
   inference through arbitrary calls.
+- **UnsafeUnwrapAnalyzer** (Raven, `RAV9037`) – reports calls to partial extraction methods
+  on `Option<T>` and `Result<T, E>`: `Unwrap`, `UnwrapOrThrow`, `UnwrapError`, and `Expect`.
+  These methods can throw for a valid union state. Fallback-bearing methods such as
+  `UnwrapOr`, `UnwrapOrElse`, and `UnwrapOrDefault` are not reported.
 
 The `Raven.Compiler` CLI uses `RavenWorkspace` to attach analyzers during compilation. Any
 analyzer diagnostics appear alongside regular compilation errors and warnings.
@@ -99,6 +103,7 @@ Core and packaged analyzers that should remain diagnostic-backed include:
 - `UnusedImportDirectiveAnalyzer`
 - `UnusedExpressionResultAnalyzer`
 - `DisposableObjectAnalyzer`
+- `UnsafeUnwrapAnalyzer`
 - `PreferDuLinqExtensionsAnalyzer`
 - `PreferIsNullOverEqualityAnalyzer`
 - `ConstructorParameterNamingAnalyzer`
