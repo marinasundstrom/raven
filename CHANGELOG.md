@@ -16,6 +16,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Match exhaustiveness now recognizes qualified parameterless union cases nested
+  inside constructed generic union cases, including across source and metadata.
 - Union declarations now report an error when a body-form union has no cases or
   a parenthesized union has fewer than two variant types.
 - Source-declared `ToString` overrides on records and unions now retain their

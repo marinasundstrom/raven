@@ -491,12 +491,19 @@ internal sealed class MatchExhaustivenessEvaluator
 
     private bool PatternCoversPayloadType(ITypeSymbol payloadType, BoundPattern pattern)
     {
+        if (NestedUnionPatternCoverage.TryGetParameterlessUnionCaseValue(pattern, out var constantCase) &&
+            payloadType.TryGetUnionCase() is { } constantPayloadCase &&
+            NestedUnionPatternCoverage.AreSameCase(constantPayloadCase, constantCase))
+        {
+            return true;
+        }
+
         if (pattern is BoundCasePattern casePattern &&
             payloadType.TryGetUnionCase() is { } payloadCase &&
             payloadCase.Ordinal == casePattern.CaseSymbol.Ordinal &&
             AreSameUnionPatternTarget(UnwrapAlias(payloadCase.Union), UnwrapAlias(casePattern.CaseSymbol.Union)))
         {
-            return CasePatternCoversAllArguments(casePattern);
+            return CasePatternCoversAllArguments(payloadCase, casePattern);
         }
 
         return GetTypePatternCoverage(payloadType, pattern) == TypePatternCoverage.All;
@@ -1289,16 +1296,18 @@ internal sealed class MatchExhaustivenessEvaluator
                     break;
                 }
             case BoundCasePattern casePattern:
-                if (AreSameUnionPatternTarget(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
-                    CasePatternCoversAllArguments(casePattern))
                 {
-                    var matchedCase = casePattern.CaseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? casePattern.CaseSymbol;
-                    remaining.RemoveWhere(candidate =>
-                        candidate.Ordinal == matchedCase.Ordinal ||
-                        SymbolEqualityComparer.Default.Equals(candidate, matchedCase));
-                }
+                    var matchedCase = union.DeclaredCaseTypes.FirstOrDefault(candidate =>
+                        NestedUnionPatternCoverage.AreSameCase(candidate, casePattern.CaseSymbol));
+                    if (matchedCase is not null &&
+                        CasePatternCoversAllArguments(matchedCase, casePattern))
+                    {
+                        remaining.RemoveWhere(candidate =>
+                            NestedUnionPatternCoverage.AreSameCase(candidate, matchedCase));
+                    }
 
-                break;
+                    break;
+                }
             case BoundUnionMemberPattern unionMemberPattern:
                 {
                     var matchedCase = TryResolveCoveredUnionCase(union, unionMemberPattern.MemberType, unionMemberPattern.TryGetMethod);
@@ -1442,8 +1451,13 @@ internal sealed class MatchExhaustivenessEvaluator
     }
 
     private bool CasePatternCoversAllArguments(BoundCasePattern casePattern)
+        => CasePatternCoversAllArguments(casePattern.CaseSymbol, casePattern);
+
+    private bool CasePatternCoversAllArguments(
+        IUnionCaseTypeSymbol caseSymbol,
+        BoundCasePattern casePattern)
     {
-        var parameters = casePattern.CaseSymbol.ConstructorParameters;
+        var parameters = caseSymbol.ConstructorParameters;
         var argumentCount = Math.Min(parameters.Length, casePattern.Arguments.Length);
 
         for (var i = 0; i < argumentCount; i++)

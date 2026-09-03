@@ -3096,6 +3096,88 @@ func Describe(result: LoginResult) -> string {
         Assert.Empty(info.MissingCases);
     }
 
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public void MatchExpression_WithNestedMetadataUnionPayload_TracksAllCases(
+        bool qualifyCases,
+        bool omitSecondCase,
+        bool diagnosticsFirst)
+    {
+        const string librarySource = """
+public union Container<T, E> {
+    case Value(value: T)
+    case Problem(error: E)
+}
+""";
+        var issueTree = SyntaxTree.ParseText("""
+union Issue {
+    case First
+    case Second
+}
+""");
+        var firstPattern = qualifyCases ? "Issue.First" : ".First";
+        var secondArm = omitSecondCase
+            ? string.Empty
+            : $"        .Problem({(qualifyCases ? "Issue.Second" : ".Second")}) => \"second\"";
+        var consumerTree = SyntaxTree.ParseText($$"""
+func describe(result: Container<int, Issue>) -> string {
+    return match result {
+        .Value(let value) => value.ToString()
+        .Problem({{firstPattern}}) => "first"
+{{secondArm}}
+    }
+}
+""");
+        var compilation = Compilation.Create(
+            "match_expression_nested_metadata_union_payload_coverage",
+            [issueTree, consumerTree],
+            [.. TestMetadataReferences.Default,
+                TestMetadataFactory.CreateFromSource(librarySource, "match_expression_outer_union_library")],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        compilation.EnsureSetup();
+        var match = consumerTree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var model = compilation.GetSemanticModel(consumerTree);
+        MatchExhaustivenessInfo info;
+        Diagnostic[] diagnostics;
+        if (diagnosticsFirst)
+        {
+            diagnostics = compilation.GetDiagnostics().ToArray();
+            info = model.GetMatchExhaustiveness(match);
+        }
+        else
+        {
+            info = model.GetMatchExhaustiveness(match);
+            diagnostics = compilation.GetDiagnostics().ToArray();
+        }
+
+        var exhaustivenessDiagnostics = diagnostics
+            .Where(diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive)
+            .ToArray();
+        Assert.Empty(diagnostics.Except(exhaustivenessDiagnostics));
+
+        if (omitSecondCase)
+        {
+            var diagnostic = Assert.Single(exhaustivenessDiagnostics);
+            Assert.Contains("Problem(.Second)", diagnostic.GetMessage(), StringComparison.Ordinal);
+            Assert.False(info.IsExhaustive);
+            Assert.Collection(info.MissingCases, missing => Assert.Equal("Problem(.Second)", missing));
+        }
+        else
+        {
+            Assert.Empty(exhaustivenessDiagnostics);
+            Assert.True(info.IsExhaustive);
+            Assert.Empty(info.MissingCases);
+        }
+    }
+
     [Fact]
     public void MatchExpression_WithNestedUnionCasePatternMissingPayloadCase_IsNotExhaustive()
     {

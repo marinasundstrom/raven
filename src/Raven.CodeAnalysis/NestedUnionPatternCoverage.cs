@@ -33,11 +33,12 @@ internal static class NestedUnionPatternCoverage
     {
         foreach (var casePattern in EnumerateCasePatterns(pattern))
         {
-            if (!AreSameUnion(casePattern.CaseSymbol.Union, union))
+            var matchedCase = union.DeclaredCaseTypes.FirstOrDefault(candidate =>
+                AreSameCase(candidate, casePattern.CaseSymbol));
+            if (matchedCase is null)
                 continue;
 
-            var matchedCase = Normalize(casePattern.CaseSymbol);
-            var entry = patternsByCase.FirstOrDefault(pair => SameCase(pair.Key, matchedCase));
+            var entry = patternsByCase.FirstOrDefault(pair => AreSameCase(pair.Key, matchedCase));
             if (entry.Key is null)
             {
                 entry = new KeyValuePair<IUnionCaseTypeSymbol, List<BoundCasePattern>>(
@@ -49,7 +50,7 @@ internal static class NestedUnionPatternCoverage
             entry.Value.Add(casePattern);
 
             if (CaseArgumentsAreCollectivelyCovered(matchedCase, entry.Value, isTotalPattern))
-                remaining.RemoveWhere(candidate => SameCase(candidate, matchedCase));
+                remaining.RemoveWhere(candidate => AreSameCase(candidate, matchedCase));
         }
     }
 
@@ -202,10 +203,17 @@ internal static class NestedUnionPatternCoverage
             return TryGetEnumField(enumPattern.Expression, out var patternField) &&
                    SymbolEqualityComparer.Default.Equals(patternField, enumValue.Field);
 
+        if (value is UnionCaseFiniteValue constantUnionValue &&
+            TryGetParameterlessUnionCaseValue(pattern, out var constantCase))
+        {
+            return constantUnionValue.Arguments.IsEmpty &&
+                   AreSameCase(constantCase, constantUnionValue.CaseSymbol);
+        }
+
         if (value is not UnionCaseFiniteValue unionValue || pattern is not BoundCasePattern casePattern)
             return false;
 
-        if (!SameCase(casePattern.CaseSymbol, unionValue.CaseSymbol) ||
+        if (!AreSameCase(casePattern.CaseSymbol, unionValue.CaseSymbol) ||
             casePattern.Arguments.Length != unionValue.Arguments.Length)
         {
             return false;
@@ -398,7 +406,7 @@ internal static class NestedUnionPatternCoverage
                 .OfType<BoundCasePattern>()
                 .Where(pattern =>
                     AreSameUnion(pattern.CaseSymbol.Union, union) &&
-                    SameCase(pattern.CaseSymbol, nestedCase))
+                    AreSameCase(pattern.CaseSymbol, nestedCase))
                 .ToArray();
 
             if (matchingPatterns.Length == 0 ||
@@ -512,7 +520,40 @@ internal static class NestedUnionPatternCoverage
     private static IUnionCaseTypeSymbol Normalize(IUnionCaseTypeSymbol caseSymbol)
         => caseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? caseSymbol;
 
-    private static bool SameCase(IUnionCaseTypeSymbol left, IUnionCaseTypeSymbol right)
+    public static bool TryGetParameterlessUnionCaseValue(
+        BoundPattern pattern,
+        out IUnionCaseTypeSymbol caseSymbol)
+    {
+        if (pattern is BoundConstantPattern { Expression: { } expression } &&
+            TryGetUnionCaseExpression(expression, out var unionCase) &&
+            unionCase.CaseType.TryGetUnionCase() is { ConstructorParameters.IsEmpty: true } resolvedCase)
+        {
+            caseSymbol = resolvedCase;
+            return true;
+        }
+
+        caseSymbol = null!;
+        return false;
+    }
+
+    private static bool TryGetUnionCaseExpression(
+        BoundExpression expression,
+        out BoundUnionCaseExpression unionCase)
+    {
+        if (expression is BoundUnionCaseExpression directUnionCase)
+        {
+            unionCase = directUnionCase;
+            return true;
+        }
+
+        if (expression is BoundConversionExpression conversion)
+            return TryGetUnionCaseExpression(conversion.Expression, out unionCase);
+
+        unionCase = null!;
+        return false;
+    }
+
+    public static bool AreSameCase(IUnionCaseTypeSymbol left, IUnionCaseTypeSymbol right)
     {
         left = Normalize(left);
         right = Normalize(right);
