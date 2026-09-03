@@ -16,6 +16,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Union declarations now report an error when a body-form union has no cases or
+  a parenthesized union has fewer than two variant types.
 - Source-declared `ToString` overrides on records and unions now retain their
   bodies instead of being replaced by synthesized structural formatting, and
   overrides with incompatible return nullability report `RAV0307`.

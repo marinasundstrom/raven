@@ -73,6 +73,8 @@ let paidByCard: Payment = Card("4242")
 ```
 
 * Each listed type declares one variant in the carrier's closed variant set.
+* A parenthesized union must declare at least two variant types. A single type
+  does not form a union.
 * `null` cannot declare a variant. Use nullable annotations such as `T?` when
   a parenthesized type variant may actively carry null.
 * Pattern matching uses ordinary patterns over those variant types. Nullable
@@ -107,6 +109,8 @@ let missing: LookupResult = Missing
 ```
 
 * Each `case` declaration declares one synthesized case type.
+* A body-form union must declare at least one case. Other members do not count
+  as variants.
 * A case payload uses either positional types (`case Pair(int, string)`) or
   named members (`case Range(start: int, end: int)`). A single case cannot mix
   the two forms.

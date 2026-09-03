@@ -13,6 +13,99 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class UnionSemanticTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("union Message {}")]
+    [InlineData("union Message { func Describe() -> string => \"message\" }")]
+    public void BodyUnion_WithoutCases_ReportsDiagnostic(string source)
+    {
+        var (compilation, _) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.UnionRequiresCase, diagnostic.Descriptor);
+        Assert.Equal("Union 'Message' must declare at least one case", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void BodyUnion_WithOneCase_DoesNotReportVariantCardinalityDiagnostic()
+    {
+        const string source = "union Message { case SubmitOrder(orderId: string) }";
+        var (compilation, _) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnionRequiresCase);
+    }
+
+    [Theory]
+    [InlineData("union Message()")]
+    [InlineData("union Message(SubmitOrder)")]
+    public void ParenthesizedUnion_WithFewerThanTwoVariants_ReportsDiagnostic(string declaration)
+    {
+        var source = $$"""
+record SubmitOrder
+{{declaration}}
+""";
+        var (compilation, _) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal(CompilerDiagnostics.ParenthesizedUnionRequiresTwoVariants, diagnostic.Descriptor);
+        Assert.Equal("Parenthesized union 'Message' must declare at least two variant types", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void ParenthesizedUnion_WithTwoVariants_DoesNotReportVariantCardinalityDiagnostic()
+    {
+        const string source = """
+record SubmitOrder
+record CancelOrder
+union Message(SubmitOrder | CancelOrder)
+""";
+        var (compilation, _) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.ParenthesizedUnionRequiresTwoVariants);
+    }
+
+    [Fact]
+    public void PartialBodyUnion_WithCaseInAnotherFile_DoesNotReportVariantCardinalityDiagnostic()
+    {
+        var emptyPart = SyntaxTree.ParseText("partial union Message {}", path: "Empty.rav");
+        var casePart = SyntaxTree.ParseText(
+            "partial union Message { case SubmitOrder(orderId: string) }",
+            path: "SubmitOrder.rav");
+        var compilation = CreateCompilation(
+            [emptyPart, casePart],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.DoesNotContain(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnionRequiresCase);
+    }
+
+    [Fact]
+    public void PartialBodyUnion_WithoutCases_ReportsOneDiagnosticForTheCombinedUnion()
+    {
+        var firstPart = SyntaxTree.ParseText("partial union Message {}", path: "First.rav");
+        var secondPart = SyntaxTree.ParseText("partial union Message {}", path: "Second.rav");
+        var compilation = CreateCompilation(
+            [firstPart, secondPart],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var diagnostic = Assert.Single(
+            compilation.GetDiagnostics(),
+            static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnionRequiresCase);
+        Assert.Equal(firstPart, diagnostic.Location.SourceTree);
+    }
+
     [Fact]
     public void UnionCasePayloads_WithUnresolvedTypes_ReportDiagnostics()
     {
@@ -668,12 +761,13 @@ func Test(x2: Test2) -> int {
     let r = match x2 {
         42 => 3
         null => 2
+        string => 4
     }
 
     return r
 }
 
-union Test2(int?)
+union Test2(int? | string)
 """;
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
@@ -697,12 +791,13 @@ func Test() -> int {
 
     let r = match x2 {
         null => 2
+        string => 3
     }
 
     return r
 }
 
-union Test2(int?)
+union Test2(int? | string)
 """;
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
@@ -732,10 +827,11 @@ func Test() -> int {
     return match x2 {
         int value => value
         null => 2
+        string => 3
     }
 }
 
-union Test2(int?)
+union Test2(int? | string)
 """;
 
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));

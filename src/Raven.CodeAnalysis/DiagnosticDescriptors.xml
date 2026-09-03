@@ -1078,6 +1078,14 @@
     Title="Union properties cannot add storage"
     Message="Union '{unionName}' cannot declare storage property '{memberName}'; use a computed property"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2116" Identifier="UnionRequiresCase"
+    Title="Union requires a case"
+    Message="Union '{unionName}' must declare at least one case"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2117" Identifier="ParenthesizedUnionRequiresTwoVariants"
+    Title="Parenthesized union requires two variants"
+    Message="Parenthesized union '{unionName}' must declare at least two variant types"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2500" Identifier="LabelAlreadyDefined" Title="Label already defined"
     Message="A label named '{name}' is already defined in this scope" Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

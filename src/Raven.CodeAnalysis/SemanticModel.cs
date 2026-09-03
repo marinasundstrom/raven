@@ -750,6 +750,7 @@ public partial class SemanticModel
                 cancellationToken.ThrowIfCancellationRequested();
                 phaseStart = Stopwatch.GetTimestamp();
                 AnalyzeIndexerDeclarationDiagnostics(root, diagnosticsBuilder);
+                AnalyzeUnionVariantCardinalityDiagnostics(root, diagnosticsBuilder, requireCompleteDeclarations);
                 diagnosticsBuilder.AddRange(_declarationDiagnostics.AsEnumerable());
                 var diagnostics = diagnosticsBuilder
                     .Distinct()
@@ -2123,6 +2124,59 @@ public partial class SemanticModel
                     ?? new AttributeBinder(binderForAttribute.ContainingSymbol, binderForAttribute);
 
                 _ = attributeBinder.BindAttribute(attributeSyntax);
+            }
+        }
+    }
+
+    private void AnalyzeUnionVariantCardinalityDiagnostics(
+        SyntaxNode root,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        bool declarationsAreComplete)
+    {
+        foreach (var declaration in root.DescendantNodes().OfType<UnionDeclarationSyntax>())
+        {
+            if (!TryGetUnionSymbol(declaration, out var unionSymbol))
+                continue;
+
+            var declarations = unionSymbol.DeclaringSyntaxReferences
+                .Select(static reference => reference.GetSyntax())
+                .OfType<UnionDeclarationSyntax>()
+                .ToArray();
+            var primaryDeclaration = declarations.FirstOrDefault();
+            if (primaryDeclaration is null ||
+                primaryDeclaration.SyntaxTree != declaration.SyntaxTree ||
+                primaryDeclaration.Span != declaration.Span)
+            {
+                continue;
+            }
+
+            var hasMacroAttributes = declarations.Any(static candidate =>
+                candidate.AttributeLists
+                    .SelectMany(static list => list.Attributes)
+                    .Any(static attribute => attribute.IsMacroAttribute()));
+            if (hasMacroAttributes && !declarationsAreComplete)
+                continue;
+
+            var isParenthesized = primaryDeclaration.MemberTypes is not null;
+            var variantCount = hasMacroAttributes
+                ? unionSymbol.Variants.Length
+                : isParenthesized
+                    ? declarations.Sum(static candidate => candidate.MemberTypes?.Types.Count ?? 0)
+                    : declarations.Sum(static candidate => candidate.Members.OfType<CaseDeclarationSyntax>().Count());
+
+            if (isParenthesized && variantCount < 2)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    CompilerDiagnostics.ParenthesizedUnionRequiresTwoVariants,
+                    primaryDeclaration.MemberTypes!.GetLocation(),
+                    unionSymbol.Name));
+            }
+            else if (!isParenthesized && variantCount < 1)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    CompilerDiagnostics.UnionRequiresCase,
+                    primaryDeclaration.Identifier.GetLocation(),
+                    unionSymbol.Name));
             }
         }
     }

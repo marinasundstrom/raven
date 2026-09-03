@@ -251,6 +251,8 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV2110` | Warning | Match arm pattern does not fully cover subtype/case | Pattern for '{typeName}' does not cover all values. Add broader sub-patterns or a catch-all arm. | `samples/oop/sealed-record-hierarchy-json-basic.rav`, `samples/unions/union-basic.rav` |
 | `RAV2111` | Error | Union member name is reserved | Union '{unionName}' reserves the member name '{memberName}' for synthesized members. | — |
 | `RAV2112` | Error | Union special member not supported | Union '{unionName}' does not support authored member '{memberName}'. | — |
+| `RAV2116` | Error | Union requires a case | Union '{unionName}' must declare at least one case | — |
+| `RAV2117` | Error | Parenthesized union requires two variants | Parenthesized union '{unionName}' must declare at least two variant types | — |
 | `RAV2200` | Error | Lambda parameter type cannot be inferred | Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context | — |
 | `RAV2201` | Error | Method group requires delegate type | Method group '{methodName}' cannot be used as a value without a delegate type. Specify a delegate annotation or use the method in a target-typed context | — |
 | `RAV2202` | Error | Method group conversion is ambiguous | Method group '{methodName}' is ambiguous in this context. Specify a delegate type to disambiguate the target overload | — |
