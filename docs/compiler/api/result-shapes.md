@@ -159,15 +159,16 @@ name with an ordinary parenthesized union declaration:
 union BindTarget(ExpressionSyntax | PatternSyntax)
 ```
 
-Use a body-form union instead when the alternatives are named cases that need
-their own case-specific payloads. Naming is a modeling choice, not a default
-requirement imposed merely because a value can have multiple possible types.
+Use the case-declaration form of a nominal union instead when the alternatives
+are named cases that need their own case-specific payloads. Naming is a
+modeling choice, not a default requirement imposed merely because a value can
+have multiple possible types.
 
 This distinction should be applied throughout bootstrap design reviews. Ask
 first whether the state is a closed set of existing types, then whether that
 set itself has a durable domain identity. The answers determine whether the
-natural Raven shape is an ad hoc union, a named parenthesized union, or a
-body-form union.
+natural Raven shape is an ad hoc union or a nominal union, using either the
+parenthesized or case-declaration form.
 
 ## Interoperability
 

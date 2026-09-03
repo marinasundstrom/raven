@@ -5,26 +5,37 @@ that can take one of several known forms, with each form able to carry its own
 data. Their closed set of alternatives works directly with pattern matching and
 exhaustiveness checking.
 
-## Standard union types
+Raven uses two complementary terms for its existing union forms:
 
-Standard union types combine existing types when a value may have one of
+* An **ad-hoc union** is written directly as a type expression, such as
+  `string | null`. It does not introduce a new declared name.
+* A **nominal union** is introduced by a `union` declaration. It is a named,
+  declared type and comes in parenthesized and case-declaration forms.
+
+This terminology describes the existing forms; it does not introduce another
+kind of union or change their semantics.
+
+## Ad-hoc unions
+
+Ad-hoc unions combine existing types directly when a value may have one of
 several forms.
 
 The type syntax `T1 | T2` is shorthand for `System.Union<T1, T2>`. The same
-spelling supports three, four, and five alternatives. These standard unions are
-provided by `Raven.Core` as a temporary bridge until .NET adopts a standard
-union type.
+spelling supports three, four, and five alternatives. The standard union
+carriers are provided by `Raven.Core` as a temporary bridge until .NET adopts a
+standard union type.
 
-## Union declarations
+## Nominal unions
 
-Use a union to model a fixed set of variants, especially when each variant can
-carry different data.
+Use a nominal union when a fixed set of variants has a domain identity of its
+own, especially when each variant can carry different data.
 
-Unions define nominal carrier types with a fixed set of variants. Variants are
-declared in one of two syntactic forms: as types in the parenthesized form, or
-by `case` declarations in the body form. A union value is always stored as the
-declared carrier type, and variant values convert to that carrier implicitly
-when required.
+Nominal unions define carrier types with a fixed set of variants. Variants
+are declared in one of two syntactic forms: as types in the parenthesized form,
+or by `case` declarations in the case-declaration form. The latter is also
+called the body form when discussing its syntax. A nominal union value is
+always stored as the declared carrier type, and variant values convert to that
+carrier implicitly when required.
 
 Plain `union` declarations synthesize struct carriers by default. Use
 `union class` when a reference carrier is intended, such as for APIs that must
@@ -51,7 +62,7 @@ The interface belongs to the union carrier. Generated case types do not each
 declare the interface independently. The carrier must implement every required
 interface member in the same way as an ordinary class or struct.
 
-| Form | Syntax | Variant declarations | Resulting variants | Typical pattern form |
+| Nominal union form | Syntax | Variant declarations | Resulting variants | Typical pattern form |
 | --- | --- | --- | --- | --- |
 | Parenthesized | `union Payment(Cash \| Card)` | parenthesized types | existing types (`Cash`, `Card`) | `Cash(...)`, `Card(...)` |
 | Body form | `union LookupResult { case Found(id: int) case Missing }` | `case` declarations | synthesized case types (`Found`, `Missing`) | `Found(...)`, `Missing` |
@@ -83,13 +94,14 @@ let paidByCard: Payment = Card("4242")
 * Construction occurs by constructing a listed variant type and then converting it
   to the carrier when needed.
 
-### Body-form unions
+### Case-declaration unions
 
-The body form declares a carrier with an ordinary member body. That member body
-may contain `case` declarations alongside other members such as methods and
-properties. Each `case` declaration declares one variant and synthesizes its
-named case type. This form is also known as a tagged union because each value
-belongs to one named variant in the union's closed variant set.
+The case-declaration form declares a carrier with an ordinary member body. That
+member body may contain `case` declarations alongside other members such as
+methods and properties. Each `case` declaration declares one variant and
+synthesizes its named case type. This form is also called the body form or a
+tagged union because each value belongs to one named variant in the union's
+closed variant set.
 
 ```raven
 union LookupResult {
@@ -109,8 +121,8 @@ let missing: LookupResult = Missing
 ```
 
 * Each `case` declaration declares one synthesized case type.
-* A body-form union must declare at least one case. Other members do not count
-  as variants.
+* A case-declaration union must declare at least one case. Other members do not
+  count as variants.
 * A case payload uses either positional types (`case Pair(int, string)`) or
   named members (`case Range(start: int, end: int)`). A single case cannot mix
   the two forms.
@@ -118,8 +130,8 @@ let missing: LookupResult = Missing
   exposed as `Value`, while multiple values are exposed as `Item1`, `Item2`,
   and so on. Normal Raven signatures preserve the declaration spelling and do
   not display those generated names.
-* Body-form unions may also declare computed properties, indexers, and ordinary
-  methods in the same body. Computed static properties are permitted.
+* Case-declaration unions may also declare computed properties, indexers, and
+  ordinary methods in the same body. Computed static properties are permitted.
 * Additional members may project information from, or act on, the value held by
   the union. They cannot modify the union value itself. The compiler-generated
   `Value` representation is the union's only instance storage.

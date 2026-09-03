@@ -5,7 +5,7 @@ This document outlines the API of the Raven compiler, providing guidance on synt
 For analyzer, source-generator, refactoring, and language-server hot paths, see
 the [Compiler API performance guidance](performance.md).
 
-For the staged adoption of `Option`, `Result`, ad hoc unions, and named unions
+For the staged adoption of `Option`, `Result`, ad hoc unions, and nominal unions
 in compiler APIs before a Raven source port, see
 [Raven-native Compiler API result shapes and pre-bootstrap
 adoption](result-shapes.md).

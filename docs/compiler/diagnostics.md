@@ -322,8 +322,8 @@ action. It chooses an editable pattern suited to the scrutinee:
 
 * sealed class hierarchies use typed bindings, such as `Identifier identifier`
 * sealed record hierarchies use positional bindings, such as `Case(let no)`
-* standard unions use typed bindings, such as `int value`
-* case-declared unions use target-typed cases, such as `.Success(let value)`
+* ad-hoc unions use typed bindings, such as `int value`
+* nominal case-declaration unions use target-typed cases, such as `.Success(let value)`
 * enums use target-typed constants, such as `.None`
 * finite literal cases retain their literal, such as `false` or `null`
 

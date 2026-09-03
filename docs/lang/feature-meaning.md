@@ -148,10 +148,10 @@ What Raven removes is the requirement to place every operation inside a class.
 Create an object when the problem contains an object boundary, not merely to
 provide a home for a function.
 
-## Unions represent closed alternatives
+## Nominal unions represent closed alternatives
 
-A union says that a value belongs to one of a known set of alternatives. Each
-case may carry exactly the data that is valid for that alternative.
+A nominal union says that a value belongs to one of a known set of alternatives.
+Each case may carry exactly the data that is valid for that alternative.
 
 ```raven
 union DeliveryStatus {
@@ -160,6 +160,11 @@ union DeliveryStatus {
     case Failed(reason: string)
 }
 ```
+
+Nominal unions come in the case-declaration form shown above and a parenthesized
+form that gives a union of existing types a declared name. When the alternatives
+do not need a new domain name, write an ad-hoc union directly, such as
+`string | null`.
 
 Case payloads may instead be positional when their names add no domain meaning,
 for example `case Some(T)` or `case Pair(int, string)`. Positional cases remain

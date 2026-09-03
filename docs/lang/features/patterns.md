@@ -34,7 +34,7 @@ let category = match statusCode {
 ```
 
 Use `_` when the remaining values genuinely share one meaning. Avoid a broad
-fallback when named union cases should force future code changes.
+fallback when named cases of nominal unions should force future code changes.
 
 ## Use patterns to narrow a value
 

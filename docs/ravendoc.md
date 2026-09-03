@@ -115,7 +115,7 @@ Metadata ownership is not automatically presentation ownership: emitted
 containers, marker types, and helper members remain implementation details,
 while Raven declarations are projected using Raven names, signatures, and
 grouping. For example, namespace functions appear under their namespace and
-named union cases appear as cases on their declaring union rather than as
+named cases of nominal unions appear on their declaring union rather than as
 separate emitted case types.
 
 ## Generating a site

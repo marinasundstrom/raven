@@ -7,7 +7,7 @@
 ## Context
 
 Raven is approaching the point where its compiler APIs should use Raven-native
-domain shapes such as `Option<T>`, `Result<T, TError>`, named unions, and ad hoc
+domain shapes such as `Option<T>`, `Result<T, TError>`, nominal unions, and ad hoc
 unions. Those types are authored in `Raven.Core`. Standard macro providers are
 in the version-matched `Raven.Macros` library and increasingly exercise the
 same public compiler APIs that external tools use.

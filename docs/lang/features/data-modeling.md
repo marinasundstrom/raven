@@ -18,10 +18,10 @@ record class Shipment(
 Use `record struct` when value-type storage fits. Use `record class` when
 reference storage fits while structural value behavior remains useful.
 
-## Use a union for closed alternatives
+## Use a nominal union for closed alternatives
 
-A union models a value that can be exactly one of a known set of states. Each
-state carries only the data valid for that state:
+A nominal union models a value that can be exactly one of a known set of states.
+Each state carries only the data valid for that state:
 
 ```raven
 union QuoteResult {
@@ -32,6 +32,10 @@ union QuoteResult {
 
 This is more expressive than an enum plus nullable detail fields: a quoted
 result must have an amount, and a rejected result must have a reason.
+
+Nominal unions use either parenthesized variant types or `case` declarations. If
+the alternatives do not need a reusable domain name, use an ad-hoc union type
+directly, such as `string | null`.
 
 Use an enum when alternatives are only named constants. Use an interface or an
 open class hierarchy when other code must add implementations.
