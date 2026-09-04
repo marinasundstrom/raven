@@ -81,6 +81,10 @@ class C {
         var code = """
 import System.Threading.Tasks.*
 
+interface IWorker {
+    func Work() -> Task<int>
+}
+
 class C {
     async func Work() -> Task<int> {
         await Task.Delay(1)
@@ -103,7 +107,7 @@ class C {
 
         AssertMethodHasOnlyHiddenSequencePoints(pdbReader, kickoff);
         AssertMethodHasVisibleSequencePoint(metadataReader, pdbReader, moveNext);
-        Assert.Equal([5, 6], GetVisibleSequencePointStartLines(pdbReader, moveNext).Distinct().ToArray());
+        Assert.Equal([9, 10], GetVisibleSequencePointStartLines(pdbReader, moveNext).Distinct().ToArray());
         AssertMethodHasNoOverlappingVisibleSequencePoints(pdbReader, moveNext);
         Assert.Empty(GetVisibleSequencePoints(pdbReader, setStateMachine));
 
@@ -421,6 +425,46 @@ class C {
 
         AssertMethodHasVisibleSequencePoint(pdbReader, method);
         AssertMethodHasNoWideVisibleSequencePoint(pdbReader, method, maximumLineSpan: 2);
+
+        peReader.Dispose();
+    }
+
+    [Fact]
+    public void AbstractMethod_DoesNotShiftLaterSequencePointsToEarlierMethods()
+    {
+        var code = """
+import System.*
+
+interface IWorker {
+    func AddOne(value: int) -> int
+}
+
+class Worker : IWorker {
+    func AddOne(value: int) -> int {
+        let result = value + 1
+        return result
+    }
+}
+
+func Main() {
+    let result = Worker().AddOne(41)
+    Console.WriteLine(result)
+}
+""";
+
+        var (peReader, metadataReader, pdbReader) = EmitWithPortablePdb(
+            code,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        var abstractMethod = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName == "IWorker" && methodName == "AddOne");
+        var workerMethod = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName == "Worker" && methodName == "AddOne");
+        var mainMethod = FindMethod(metadataReader, static (typeName, methodName) =>
+            typeName == "NamespaceMembers" && methodName == "Main");
+
+        Assert.Empty(GetVisibleSequencePoints(pdbReader, abstractMethod));
+        Assert.Equal([9, 10], GetVisibleSequencePointStartLines(pdbReader, workerMethod));
+        Assert.Equal([15, 16], GetVisibleSequencePointStartLines(pdbReader, mainMethod));
 
         peReader.Dispose();
     }

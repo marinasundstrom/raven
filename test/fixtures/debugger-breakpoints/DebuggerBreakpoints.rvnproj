@@ -1,0 +1,7 @@
+<Project Sdk="Raven.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <AssemblyName>DebuggerBreakpoints</AssemblyName>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+</Project>

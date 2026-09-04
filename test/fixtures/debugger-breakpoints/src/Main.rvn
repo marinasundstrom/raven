@@ -1,0 +1,17 @@
+import System.*
+
+interface IWorker {
+    func AddOne(value: int) -> int
+}
+
+class Worker : IWorker {
+    func AddOne(value: int) -> int {
+        let result = value + 1
+        return result
+    }
+}
+
+func Main() {
+    let result = Worker().AddOne(41)
+    Console.WriteLine(result)
+}

@@ -16,6 +16,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Portable PDB emission now inserts the missing debug-information rows for
+  abstract and interface methods before assembly-reference rewriting. This keeps
+  later sequence points and local scopes attached to their actual methods, so
+  breakpoints reliably bind and stop in multi-file applications.
 - Match exhaustiveness once again treats inferred payload bindings as complete
   when matching imported cases inside their generic union, without regressing
   nested-union coverage.

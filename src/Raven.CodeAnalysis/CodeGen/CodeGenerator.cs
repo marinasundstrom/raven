@@ -1515,7 +1515,7 @@ internal class CodeGenerator
                 entryPointHandle,
                 provisionalPdbStream,
                 pdbFileName,
-                out _);
+                out var pdbContentId);
 
             Characteristics imageCharacteristics = _compilation.Options.OutputKind switch
             {
@@ -1547,9 +1547,37 @@ internal class CodeGenerator
             }
             else
             {
+                using var alignedPdbStream = new MemoryStream();
                 provisionalPdbStream.Position = 0;
                 rawPeStream.Position = 0;
-                WriteFinalPe(rawPeStream, peStream, provisionalPdbStream, pdbStream);
+                using var rawPeReader = new PEReader(rawPeStream, PEStreamOptions.LeaveOpen);
+                var rawMetadataReader = rawPeReader.GetMetadataReader();
+                var methodCount = rawMetadataReader.GetTableRowCount(TableIndex.MethodDef);
+                var debugInformationRows = GetMethodDebugInformationRows(
+                    rawMetadataReader,
+                    provisionalPdbStream);
+
+                if (debugInformationRows.Count == 0)
+                {
+                    provisionalPdbStream.CopyTo(alignedPdbStream);
+                }
+                else
+                {
+                    var identityCorrections = Enumerable.Range(1, methodCount)
+                        .ToDictionary(static row => row);
+                    EmitCorrectedPdb(
+                        provisionalPdbStream,
+                        metadataBuilder.GetRowCounts(),
+                        entryPointHandle,
+                        identityCorrections,
+                        pdbContentId,
+                        alignedPdbStream,
+                        debugInformationRows);
+                }
+
+                alignedPdbStream.Position = 0;
+                rawPeStream.Position = 0;
+                WriteFinalPe(rawPeStream, peStream, alignedPdbStream, pdbStream);
             }
         }
         catch (Exception ex)
@@ -2640,6 +2668,45 @@ internal class CodeGenerator
             : corrections;
     }
 
+    private static Dictionary<int, int> GetMethodDebugInformationRows(
+        MetadataReader metadataReader,
+        Stream pdbStream)
+    {
+        pdbStream.Position = 0;
+        using var provider = MetadataReaderProvider.FromPortablePdbStream(
+            pdbStream,
+            MetadataStreamOptions.LeaveOpen);
+        var pdbReader = provider.GetMetadataReader();
+        var methodCount = metadataReader.GetTableRowCount(TableIndex.MethodDef);
+        var debugInformationCount = pdbReader.GetTableRowCount(TableIndex.MethodDebugInformation);
+        if (debugInformationCount == methodCount)
+        {
+            pdbStream.Position = 0;
+            return [];
+        }
+
+        var rows = new Dictionary<int, int>();
+        var debugInformationRow = 0;
+        foreach (var methodHandle in metadataReader.MethodDefinitions)
+        {
+            var method = metadataReader.GetMethodDefinition(methodHandle);
+            if (method.RelativeVirtualAddress == 0)
+                continue;
+
+            rows[MetadataTokens.GetRowNumber(methodHandle)] = ++debugInformationRow;
+        }
+
+        if (debugInformationRow != debugInformationCount)
+        {
+            throw new InvalidOperationException(
+                $"Portable PDB contains {debugInformationCount} method debug rows for " +
+                $"{debugInformationRow} emitted method bodies and {methodCount} method definitions.");
+        }
+
+        pdbStream.Position = 0;
+        return rows;
+    }
+
     private static Dictionary<string, List<MethodDefinitionHandle>> GetMethodsByName(
         MetadataReader reader,
         TypeDefinitionHandle typeHandle)
@@ -2702,7 +2769,8 @@ internal class CodeGenerator
         MethodDefinitionHandle entryPointHandle,
         IReadOnlyDictionary<int, int> corrections,
         BlobContentId contentId,
-        Stream outputStream)
+        Stream outputStream,
+        IReadOnlyDictionary<int, int>? debugInformationRows = null)
     {
         if (corrections.Count == 0)
         {
@@ -2731,13 +2799,17 @@ internal class CodeGenerator
         for (var row = 1; row <= methodCount; row++)
         {
             var sourceRow = corrections[row];
-            if (sourceRow > debugInformationCount)
+            var sourceDebugInformationRow = debugInformationRows is null
+                ? sourceRow
+                : debugInformationRows.GetValueOrDefault(sourceRow);
+            if (sourceDebugInformationRow == 0 || sourceDebugInformationRow > debugInformationCount)
             {
                 builder.AddMethodDebugInformation(default, default);
                 continue;
             }
 
-            var info = reader.GetMethodDebugInformation(MetadataTokens.MethodDebugInformationHandle(sourceRow));
+            var info = reader.GetMethodDebugInformation(
+                MetadataTokens.MethodDebugInformationHandle(sourceDebugInformationRow));
             builder.AddMethodDebugInformation(
                 info.Document,
                 CopyBlob(reader, builder, info.SequencePointsBlob));
@@ -2749,23 +2821,6 @@ internal class CodeGenerator
             builder.AddImportScope(
                 importScope.Parent,
                 CopyBlob(reader, builder, importScope.ImportsBlob));
-        }
-
-        foreach (var handle in reader.LocalVariables)
-        {
-            var local = reader.GetLocalVariable(handle);
-            builder.AddLocalVariable(
-                local.Attributes,
-                local.Index,
-                CopyString(reader, builder, local.Name));
-        }
-
-        foreach (var handle in reader.LocalConstants)
-        {
-            var constant = reader.GetLocalConstant(handle);
-            builder.AddLocalConstant(
-                CopyString(reader, builder, constant.Name),
-                CopyBlob(reader, builder, constant.Signature));
         }
 
         var ownerToTarget = corrections.ToDictionary(static pair => pair.Value, static pair => pair.Key);
@@ -2785,26 +2840,52 @@ internal class CodeGenerator
         foreach (var item in localScopes)
         {
             var localScope = item.Scope;
+            var variableList = MetadataTokens.LocalVariableHandle(
+                builder.GetRowCount(TableIndex.LocalVariable) + 1);
+            foreach (var handle in localScope.GetLocalVariables())
+            {
+                var local = reader.GetLocalVariable(handle);
+                builder.AddLocalVariable(
+                    local.Attributes,
+                    local.Index,
+                    CopyString(reader, builder, local.Name));
+            }
+
+            var constantList = MetadataTokens.LocalConstantHandle(
+                builder.GetRowCount(TableIndex.LocalConstant) + 1);
+            foreach (var handle in localScope.GetLocalConstants())
+            {
+                var constant = reader.GetLocalConstant(handle);
+                builder.AddLocalConstant(
+                    CopyString(reader, builder, constant.Name),
+                    CopyBlob(reader, builder, constant.Signature));
+            }
+
             builder.AddLocalScope(
                 item.Method,
                 localScope.ImportScope,
-                localScope.GetLocalVariables().FirstOrDefault(),
-                localScope.GetLocalConstants().FirstOrDefault(),
+                variableList,
+                constantList,
                 localScope.StartOffset,
                 localScope.Length);
         }
 
-        for (var row = 1; row <= debugInformationCount; row++)
+        for (var row = 1; row <= methodCount; row++)
         {
-            var info = reader.GetMethodDebugInformation(MetadataTokens.MethodDebugInformationHandle(row));
+            var sourceRow = corrections[row];
+            var sourceDebugInformationRow = debugInformationRows is null
+                ? sourceRow
+                : debugInformationRows.GetValueOrDefault(sourceRow);
+            if (sourceDebugInformationRow == 0 || sourceDebugInformationRow > debugInformationCount)
+                continue;
+
+            var info = reader.GetMethodDebugInformation(
+                MetadataTokens.MethodDebugInformationHandle(sourceDebugInformationRow));
             var kickoffMethod = info.GetStateMachineKickoffMethod();
             if (!kickoffMethod.IsNil)
             {
-                var moveNextRow = ownerToTarget.TryGetValue(row, out var correctedRow)
-                    ? correctedRow
-                    : row;
                 builder.AddStateMachineMethod(
-                    MetadataTokens.MethodDefinitionHandle(moveNextRow),
+                    MetadataTokens.MethodDefinitionHandle(row),
                     RemapMethod(kickoffMethod, ownerToTarget));
             }
         }

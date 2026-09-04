@@ -26,6 +26,7 @@ FullyQualifiedName~.MethodOverloadTests.|
 FullyQualifiedName~.ImportBindingSemanticTests.|
 FullyQualifiedName~.CompilerDiagnosticsLookupTests.|
 FullyQualifiedName~.AnalyzerDiagnosticIdUniquenessTests.|
+FullyQualifiedName~.PdbSequencePointTests.AbstractMethod_DoesNotShiftLaterSequencePointsToEarlierMethods|
 FullyQualifiedName~.CompletionExistingBehaviorTests.
 )'
 compiler_contract_filter="${compiler_contract_filter//$'\n'/}"
