@@ -361,6 +361,37 @@ public partial class SemanticModel
         var declaredParameters = parameters.ToImmutable();
         symbol.SetParameters(declaredParameters);
 
+        TypeMemberBinder.ValidateTypeParameterConstraintAccessibility(
+            symbol.TypeParameters,
+            symbol.DeclaredAccessibility,
+            containingType: null,
+            "macro",
+            symbol.Name,
+            _declarationDiagnostics);
+        TypeMemberBinder.ValidateTypeAccessibility(
+            symbol.ReturnType,
+            symbol.DeclaredAccessibility,
+            containingType: null,
+            "macro",
+            symbol.Name,
+            "return",
+            _declarationDiagnostics,
+            declaration.ReturnType?.Type.GetLocation() ?? declaration.Identifier.GetLocation());
+        for (var i = 0; i < declaredParameters.Length; i++)
+        {
+            var parameter = declaredParameters[i];
+            var parameterSyntax = declaration.ParameterList.Parameters[i];
+            TypeMemberBinder.ValidateTypeAccessibility(
+                parameter.Type,
+                symbol.DeclaredAccessibility,
+                containingType: null,
+                "macro",
+                symbol.Name,
+                $"parameter '{parameter.Name}'",
+                _declarationDiagnostics,
+                parameterSyntax.TypeAnnotation?.Type.GetLocation() ?? parameterSyntax.GetLocation());
+        }
+
         var targetParameters = declaration.ParameterList.Parameters
             .Select((syntax, index) => (Syntax: syntax, Symbol: declaredParameters[index]))
             .Where(static parameter => parameter.Syntax.OnKeyword.Kind != SyntaxKind.None)
@@ -3268,6 +3299,7 @@ public partial class SemanticModel
 
                         var interfaceBinder = new InterfaceDeclarationBinder(parentBinder, interfaceSymbol, interfaceDecl);
                         interfaceBinder.EnsureTypeParameterConstraintTypesResolved(interfaceSymbol.TypeParameters);
+                        ValidateTypeDeclarationConstraintAccessibility(interfaceSymbol, "type", interfaceBinder.Diagnostics);
                         CacheBinder(interfaceDecl, interfaceBinder);
                         if (interfaceSymbol.IsSealedHierarchy)
                             ResolveSealedHierarchyPermits(interfaceDecl, interfaceSymbol, interfaceBinder);
@@ -3282,6 +3314,7 @@ public partial class SemanticModel
 
                         var extensionBinder = new ExtensionDeclarationBinder(parentBinder, extensionSymbol, extensionDecl);
                         extensionBinder.EnsureTypeParameterConstraintTypesResolved(extensionSymbol.TypeParameters);
+                        ValidateTypeDeclarationConstraintAccessibility(extensionSymbol, "extension", extensionBinder.Diagnostics);
                         CacheBinder(extensionDecl, extensionBinder);
 
                         extensionBinders.Add((extensionDecl, extensionBinder));
@@ -3296,6 +3329,13 @@ public partial class SemanticModel
                         // Binder for attributes/type parameter constraints
                         var delegateBinder = new DelegateDeclarationBinder(parentBinder, delegateSymbol, delegateDecl);
                         delegateBinder.EnsureTypeParameterConstraintTypesResolved(delegateSymbol.TypeParameters);
+                        TypeMemberBinder.ValidateTypeParameterConstraintAccessibility(
+                            delegateSymbol.TypeParameters,
+                            delegateSymbol.DeclaredAccessibility,
+                            delegateSymbol.ContainingType,
+                            "delegate",
+                            delegateSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            delegateBinder.Diagnostics);
                         CacheBinder(delegateDecl, delegateBinder);
 
                         EnsureDelegateMembers(delegateSymbol, delegateDecl, delegateBinder);
@@ -4006,6 +4046,20 @@ public partial class SemanticModel
                 builder.Add(type);
 
         return builder.ToImmutable();
+    }
+
+    private static void ValidateTypeDeclarationConstraintAccessibility(
+        INamedTypeSymbol typeSymbol,
+        string typeKind,
+        DiagnosticBag diagnostics)
+    {
+        TypeMemberBinder.ValidateTypeParameterConstraintAccessibility(
+            typeSymbol.TypeParameters,
+            typeSymbol.DeclaredAccessibility,
+            typeSymbol.ContainingType,
+            typeKind,
+            typeSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            diagnostics);
     }
 
     private void EnsureDelegateMembers(SourceNamedTypeSymbol delegateSymbol, DelegateDeclarationSyntax delegateDecl, Binder binder)
@@ -5282,6 +5336,7 @@ public partial class SemanticModel
 
         var unionBinder = new UnionDeclarationBinder(parentBinder, unionSymbol, unionDecl);
         unionBinder.EnsureTypeParameterConstraintTypesResolved(unionSymbol.TypeParameters);
+        ValidateTypeDeclarationConstraintAccessibility(unionSymbol, "union", unionBinder.Diagnostics);
         CacheBinder(unionDecl, unionBinder);
 
         var interfaces = ResolveUnionInterfaceTypes(unionShape, unionBinder);
@@ -5474,6 +5529,7 @@ public partial class SemanticModel
 
             var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
             nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
+            ValidateTypeDeclarationConstraintAccessibility(nestedInterfaceSymbol, "type", nestedInterfaceBinder.Diagnostics);
             CacheBinder(nestedInterface, nestedInterfaceBinder);
             if (originalSyntax is not null)
                 CacheBinder(originalSyntax, nestedInterfaceBinder);
@@ -6186,6 +6242,7 @@ public partial class SemanticModel
 
             var nestedInterfaceBinder = new InterfaceDeclarationBinder(interfaceBinder, nestedInterfaceSymbol, nestedInterface);
             nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
+            ValidateTypeDeclarationConstraintAccessibility(nestedInterfaceSymbol, "type", nestedInterfaceBinder.Diagnostics);
             CacheBinder(nestedInterface, nestedInterfaceBinder);
             if (nestedInterfaceSymbol.IsSealedHierarchy)
                 ResolveSealedHierarchyPermits(nestedInterface, nestedInterfaceSymbol, nestedInterfaceBinder);

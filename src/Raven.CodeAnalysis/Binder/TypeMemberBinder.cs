@@ -969,6 +969,15 @@ internal partial class TypeMemberBinder : Binder
         var methodBinder = new MethodBinder(methodSymbol, this);
         methodBinder.EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
 
+        var declaredMethodTypeParameterCount = methodDecl.TypeParameterList?.Parameters.Count ?? 0;
+        ValidateTypeParameterConstraintAccessibility(
+            methodSymbol.TypeParameters.Skip(methodSymbol.TypeParameters.Length - declaredMethodTypeParameterCount),
+            methodAccessibility,
+            _containingType,
+            GetMethodKindDisplay(methodKind),
+            GetMemberDisplayName(displayName),
+            _diagnostics);
+
         var signatureTypeResolutionOptions = CreateMemberSignatureTypeResolutionOptions(
             methodSymbol.TypeParameters,
             extensionTypeParameterSubstitutions);
@@ -2385,6 +2394,13 @@ internal partial class TypeMemberBinder : Binder
 
         var binder = new DelegateDeclarationBinder(this, delegateSymbol, delegateDecl);
         binder.EnsureTypeParameterConstraintTypesResolved(delegateSymbol.TypeParameters);
+        ValidateTypeParameterConstraintAccessibility(
+            delegateSymbol.TypeParameters,
+            delegateSymbol.DeclaredAccessibility,
+            delegateSymbol.ContainingType,
+            "delegate",
+            delegateSymbol.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat),
+            _diagnostics);
         EnsureDelegateMembers(delegateSymbol, delegateDecl, binder);
         return binder;
     }
@@ -4405,6 +4421,37 @@ internal partial class TypeMemberBinder : Binder
         {
             var typeDisplay = inaccessibleType.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat);
             diagnostics.ReportTypeIsLessAccessibleThanMember(typeRole, typeDisplay, memberKind, memberName, location);
+        }
+    }
+
+    internal static void ValidateTypeParameterConstraintAccessibility(
+        IEnumerable<ITypeParameterSymbol> typeParameters,
+        Accessibility memberAccessibility,
+        INamedTypeSymbol? containingType,
+        string memberKind,
+        string memberName,
+        DiagnosticBag diagnostics)
+    {
+        foreach (var typeParameter in typeParameters.OfType<SourceTypeParameterSymbol>())
+        {
+            for (var i = 0; i < typeParameter.ConstraintTypes.Length; i++)
+            {
+                var constraintType = typeParameter.ConstraintTypes[i];
+                var location = i < typeParameter.ConstraintTypeReferences.Length &&
+                    typeParameter.ConstraintTypeReferences[i].GetSyntax() is TypeConstraintSyntax constraintSyntax
+                        ? constraintSyntax.Type.GetLocation()
+                        : typeParameter.Locations.FirstOrDefault() ?? Location.None;
+
+                ValidateTypeAccessibility(
+                    constraintType,
+                    memberAccessibility,
+                    containingType,
+                    memberKind,
+                    memberName,
+                    "constraint",
+                    diagnostics,
+                    location);
+            }
         }
     }
 
