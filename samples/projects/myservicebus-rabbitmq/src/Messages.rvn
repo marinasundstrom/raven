@@ -8,9 +8,9 @@ record OrderSubmitted(
     OrderId: Guid, 
     AcceptedAt: DateTimeOffset)
 
-record CheckOrderStatus(
+public record CheckOrderStatus(
     OrderId: Guid)
 
-record OrderStatus(
+public record OrderStatus(
     OrderId: Guid, 
     Status: string)
