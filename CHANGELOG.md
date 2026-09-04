@@ -18,6 +18,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Full and incremental parser recovery now preserve closing braces around
+  incomplete argument and parameter lists, escaped text in interpolated strings,
+  and stray union-body braces. Malformed union payload lists no longer crash
+  semantic binding, and declaration-unstable edits use a logged full semantic
+  rebind so undo cannot retain stale overrides or lose top-level declarations.
 - Parser recovery now retains unexpected tokens and their boundary whitespace in
   the syntax tree. Malformed edits no longer shift later source positions, so
   diagnostics and language-service responses remain aligned with unchanged code

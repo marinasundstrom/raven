@@ -1,0 +1,13 @@
+interface IRepository<T, TId> {
+    func GetById(id: TId) -> Result<T, RepositoryError>
+}
+
+union RepositoryError {
+    case NotFound
+    case DataAccessFailure(DataAccessError)
+}
+
+union DataAccessError {
+    case TransportIssues(message: string)
+    case Unknown
+}

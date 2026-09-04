@@ -14,9 +14,19 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
+        var changedTreeRequiresFullSemanticRebind = plan.RequiresFullSemanticRebind;
         var blockReusedDeclarationSensitiveState =
             plan.BlocksSemanticDiagnosticTransfer ||
             plan.ChangedSyntaxTrees.Any(static tree => tree.BlocksSemanticDiagnosticTransfer);
+
+        // Recovery-shaped edits and trivia-only changes outside executable
+        // bodies require a genuinely fresh semantic compilation. Reusing
+        // metadata symbols, declaration tables, or owner-relative descriptors
+        // here can make an undo retain stale overrides or lose top-level
+        // declarations. Other edits continue through the fine-grained path.
+        if (changedTreeRequiresFullSemanticRebind)
+            return;
+
         InitializeIncrementalState(previousCompilation.CreateIncrementalState(
             plan.ReusedSyntaxTrees,
             plan.MatchedSyntaxTrees,

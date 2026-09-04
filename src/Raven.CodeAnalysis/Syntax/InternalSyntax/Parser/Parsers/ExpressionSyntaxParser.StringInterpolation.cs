@@ -108,11 +108,10 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             }
 
             var decoded = SyntaxFacts.DecodeStringLiteralContent(segmentRaw.AsSpan(), out _);
-            var interned = string.Intern(decoded);
             contents.Add(InterpolatedStringText(new SyntaxToken(
                 SyntaxKind.StringLiteralToken,
-                interned,
-                interned,
+                segmentRaw,
+                string.Intern(decoded),
                 segmentRaw.Length)));
         }
     }

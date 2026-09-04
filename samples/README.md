@@ -90,6 +90,8 @@ For `.rvnproj` + NuGet restore/cache behavior, see:
 - `samples/projects/runtime-async-net11/README.md`
 - `samples/projects/conditional-compilation/README.md` (`DefineConstants`,
   nested conditional branches, and VS Code inactive-code highlighting)
+- `samples/projects/repository-result-patterns/README.md` (multi-file repository,
+  generic `Result`, union errors, and incremental-compilation recovery coverage)
 - `samples/projects/analyzer-editorconfig/README.md` (project-local `.editorconfig` analyzer severity overrides)
 - `samples/projects/custom-analyzer/README.md` (custom diagnostics loaded through an `<Analyzer>` project item)
 - `samples/projects/source-generator/README.md` (generated Raven source loaded through a `<SourceGenerator>` project item)

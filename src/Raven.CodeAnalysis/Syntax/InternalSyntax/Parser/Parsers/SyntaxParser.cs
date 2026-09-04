@@ -102,6 +102,7 @@ internal class SyntaxParser : ParseContext
         => token.Kind is SyntaxKind.ArrowToken or
             SyntaxKind.FatArrowToken or
             SyntaxKind.OpenBraceToken or
+            SyntaxKind.CloseBraceToken or
             SyntaxKind.WhereKeyword;
 
     protected static SyntaxToken ToIdentifierToken(SyntaxToken token)

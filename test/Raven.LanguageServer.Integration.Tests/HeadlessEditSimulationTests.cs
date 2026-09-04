@@ -12,6 +12,8 @@ using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
 using Raven.LanguageServer;
 
+using Xunit.Abstractions;
+
 using LspDiagnostic = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;
 using LspDiagnosticSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
 
@@ -20,6 +22,12 @@ namespace Raven.LanguageServer.Integration.Tests;
 public sealed class HeadlessEditSimulationTests : IDisposable
 {
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-headless-edit-{Guid.NewGuid():N}");
+    private readonly ITestOutputHelper _output;
+
+    public HeadlessEditSimulationTests(ITestOutputHelper output)
+    {
+        _output = output;
+    }
 
     [Fact]
     public async Task BodyEdit_ReparsesBindsHoversAndReusesUnchangedCompilationTreesAsync()
@@ -207,7 +215,7 @@ public sealed class HeadlessEditSimulationTests : IDisposable
             message.Contains("reason=NewRecoverySyntax", StringComparison.Ordinal));
         await ApplyValidEditAsync(InitialMainText, "undo unexpected character");
         simulation.LogMessages.ShouldContain(message =>
-            message.Contains("reason=ExistingRecoverySyntax", StringComparison.Ordinal));
+            message.Contains("reason=PreviousFallback", StringComparison.Ordinal));
 
         await simulation.UpsertAdditionalDocumentAsync("empty.rvn", string.Empty);
         await simulation.AssertDocumentCompilerDiagnosticsMatchOneShotAsync();
@@ -378,6 +386,91 @@ public sealed class HeadlessEditSimulationTests : IDisposable
         hover.HasHover.ShouldBeTrue();
     }
 
+    public static TheoryData<string> IncrementalProjectMatrix => new()
+    {
+        "hello-world",
+        "conditional-compilation",
+        "top-level-members",
+        "repository-result-patterns"
+    };
+
+    [Theory]
+    [MemberData(nameof(IncrementalProjectMatrix))]
+    public async Task SampleProjectMatrix_EditorEditsAndUndoRecoverAsync(string sampleName)
+    {
+        var sampleRoot = Path.Combine(FindRepoRoot(), "samples", "projects", sampleName);
+        var sourceRoot = Path.Combine(sampleRoot, "src");
+        var sourceFiles = Directory.GetFiles(sourceRoot, "*.rvn", SearchOption.AllDirectories)
+            .OrderByDescending(static path => string.Equals(Path.GetFileName(path), "Main.rvn", StringComparison.OrdinalIgnoreCase))
+            .ThenBy(static path => path, StringComparer.Ordinal)
+            .ToArray();
+        sourceFiles.ShouldNotBeEmpty();
+
+        var mainSource = await File.ReadAllTextAsync(sourceFiles[0]);
+        var coldRootText = SyntaxTree.ParseText(mainSource).GetRoot().ToFullString();
+        Assert.True(
+            string.Equals(mainSource, coldRootText, StringComparison.Ordinal),
+            $"{sampleName}: one-shot parser did not round-trip the baseline. " +
+            $"Expected length {mainSource.Length}, actual length {coldRootText.Length}. " +
+            $"Actual source:\n{coldRootText}");
+        await using var simulation = HeadlessEditSimulation.Create(
+            _tempRoot,
+            mainSource,
+            includeStableDocument: false);
+
+        foreach (var sourceFile in sourceFiles.Skip(1))
+        {
+            await simulation.UpsertAdditionalDocumentAsync(
+                Path.GetFileName(sourceFile),
+                await File.ReadAllTextAsync(sourceFile));
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        var snapshots = 0;
+        await AssertSnapshotAsync(mainSource, "baseline");
+        var baselineDiagnostics = await simulation.GetDocumentCompilerDiagnosticSignaturesAsync();
+        var baselineSemantics = await simulation.GetPublicSemanticSignaturesAsync();
+        await AssertSnapshotAsync(mainSource + Environment.NewLine, "append whitespace");
+        await AssertSnapshotAsync(mainSource, "undo whitespace");
+        await AssertRecoveredAsync("undo whitespace");
+
+        foreach (var insertion in new[] { "@", "]" })
+        {
+            await AssertSnapshotAsync(mainSource + insertion, $"insert {insertion} at end of file");
+            await AssertSnapshotAsync(mainSource, $"undo {insertion}");
+            await AssertRecoveredAsync($"undo {insertion}");
+        }
+
+        await simulation.UpsertAdditionalDocumentAsync("empty.rvn", string.Empty);
+        await AssertRecoveredAsync("add empty file");
+        snapshots++;
+        stopwatch.Stop();
+
+        _output.WriteLine(
+            $"{sampleName}: files={sourceFiles.Length}, chars={sourceFiles.Sum(static path => new FileInfo(path).Length)}, " +
+            $"snapshots={snapshots}, elapsedMs={stopwatch.Elapsed.TotalMilliseconds:F1}");
+
+        async Task AssertSnapshotAsync(string text, string label)
+        {
+            var coldRoot = SyntaxTree.ParseText(text).GetRoot();
+            coldRoot.ToFullString().ShouldBe(text, $"{sampleName}: one-shot parse for {label}");
+
+            var result = await simulation.ApplyEditAndProbeAsync(SourceText.From(text));
+            result.SyntaxRootMatchesText.ShouldBeTrue(
+                $"{sampleName}: {label}; expected {text.Length} source characters");
+            _ = await simulation.GetDocumentCompilerDiagnosticSignaturesAsync();
+            snapshots++;
+        }
+
+        async Task AssertRecoveredAsync(string label)
+        {
+            (await simulation.GetDocumentCompilerDiagnosticSignaturesAsync())
+                .ShouldBe(baselineDiagnostics, $"{sampleName}: diagnostics after {label}");
+            (await simulation.GetPublicSemanticSignaturesAsync())
+                .ShouldBe(baselineSemantics, $"{sampleName}: semantics after {label}");
+        }
+    }
+
     private const string InitialMainText =
         """
         class Runner {
@@ -406,6 +499,25 @@ public sealed class HeadlessEditSimulationTests : IDisposable
         start.ShouldBeGreaterThanOrEqualTo(0);
 
         return sourceText.Replace(new TextSpan(start, oldText.Length), newText);
+    }
+
+    private static string FindRepoRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (current is not null)
+        {
+            if (Directory.Exists(Path.Combine(current.FullName, "samples")) &&
+                Directory.Exists(Path.Combine(current.FullName, "src")) &&
+                Directory.Exists(Path.Combine(current.FullName, "test")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new InvalidOperationException("Unable to locate the Raven repository root.");
     }
 
     private sealed class HeadlessEditSimulation : IAsyncDisposable
@@ -507,6 +619,26 @@ public sealed class HeadlessEditSimulationTests : IDisposable
                 shouldSkipWork: null,
                 CancellationToken.None);
 
+        public async Task<string[]> GetDocumentCompilerDiagnosticSignaturesAsync()
+        {
+            var result = await GetDocumentCompilerDiagnosticsAsync();
+            result.WasSkipped.ShouldBeFalse();
+            return result.Diagnostics
+                .Select(static diagnostic =>
+                    $"{diagnostic.Code?.String}@{diagnostic.Range.Start}-{diagnostic.Range.End}:{diagnostic.Message}")
+                .OrderBy(static signature => signature, StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        public async Task<string[]> GetPublicSemanticSignaturesAsync()
+        {
+            var context = await _store.GetAnalysisContextAsync(_mainUri, CancellationToken.None);
+            context.ShouldNotBeNull();
+            var model = await _store.GetSemanticModelAsync(_mainUri, CancellationToken.None);
+            model.ShouldNotBeNull();
+            return CapturePublicSemanticSignatures(model!, context.Value.SyntaxTree);
+        }
+
         public async Task AssertDocumentCompilerDiagnosticsMatchOneShotAsync(string? snapshotContext = null)
         {
             var context = await _store.GetAnalysisContextAsync(_mainUri, CancellationToken.None);
@@ -517,13 +649,21 @@ public sealed class HeadlessEditSimulationTests : IDisposable
 
             var incrementalCompilation = context.Value.Compilation;
             var coldTrees = incrementalCompilation.SyntaxTrees
-                .Select(tree => SyntaxTree.ParseText(tree.GetText(), path: tree.FilePath))
+                .Select(tree => SyntaxTree.ParseText(tree.GetText(), tree.Options, path: tree.FilePath))
                 .ToArray();
             var coldCompilation = Compilation.Create(
                 $"{incrementalCompilation.AssemblyName}.cold",
                 coldTrees,
                 incrementalCompilation.References.ToArray(),
+                incrementalCompilation.MacroReferences.ToArray(),
                 incrementalCompilation.Options);
+            if (incrementalCompilation.MacroSyntaxTrees.Length > 0)
+            {
+                var coldMacroTrees = incrementalCompilation.MacroSyntaxTrees
+                    .Select(tree => SyntaxTree.ParseText(tree.GetText(), tree.Options, path: tree.FilePath))
+                    .ToArray();
+                coldCompilation = coldCompilation.AddMacroSyntaxTrees(coldMacroTrees);
+            }
             var coldMainTree = GetCompilationTree(coldCompilation, _mainPath);
             var coldDiagnostics = coldCompilation.GetDiagnostics()
                 .Where(diagnostic => ReferenceEquals(diagnostic.Location.SourceTree, coldMainTree));

@@ -135,6 +135,18 @@ macro Inspect(expression: ExpressionSyntax) {
         parseTask.GetAwaiter().GetResult();
     }
 
+    [Theory]
+    [InlineData("func Main() { let item = Item(newId, \"Foo\" }")]
+    [InlineData("func Main() { @match value { _ => 0 } }")]
+    [InlineData("union Result { { case Success case Failure }")]
+    [InlineData("union Error { case DataAccessFailur(e(DataAccessError) }")]
+    public void MalformedDeveloperEdits_PreserveAllSourceText(string source)
+    {
+        var tree = SyntaxTree.ParseText(source);
+
+        Assert.Equal(source, tree.GetRoot().ToFullString());
+    }
+
     private static string Mutate(string source, int seed, bool insertMode)
     {
         var random = new Random(seed);

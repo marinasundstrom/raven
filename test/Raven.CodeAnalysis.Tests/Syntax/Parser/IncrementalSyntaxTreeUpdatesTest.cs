@@ -626,6 +626,31 @@ union RepositoryError {
     }
 
     [Fact]
+    public void UndoAfterFallback_MatchesFullParse()
+    {
+        var original = SourceText.From(
+            """
+            union RepositoryError {
+                case NotFound
+            }
+
+            func GetError() -> RepositoryError {
+                return RepositoryError.NotFound
+            }
+            """);
+        var memberAccessPosition = original.ToString().LastIndexOf("NotFound", StringComparison.Ordinal);
+        var insertionPosition = memberAccessPosition + 4;
+        var malformed = original.Replace(insertionPosition, 0, "@");
+
+        var malformedTree = SyntaxTree.ParseText(original).WithChangedText(malformed);
+        var restoredTree = malformedTree.WithChangedText(original);
+
+        Assert.NotEqual(IncrementalParseFallbackReason.None, malformedTree.IncrementalParseFallbackReason);
+        Assert.Equal(IncrementalParseFallbackReason.PreviousFallback, restoredTree.IncrementalParseFallbackReason);
+        AssertEquivalentSyntaxAndDiagnostics(SyntaxTree.ParseText(original), restoredTree);
+    }
+
+    [Fact]
     public void StrictIncrementalParsing_ThrowsWithFallbackReason()
     {
         var original = SourceText.From(

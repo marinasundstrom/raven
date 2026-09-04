@@ -46,7 +46,8 @@ public partial class Compilation
         ImmutableArray<ExecutableOwnerDescriptor> ChangedOwners,
         ImmutableArray<MatchedExecutableOwner> MatchedOwners,
         ImmutableDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange> OwnerChanges,
-        bool BlocksSemanticDiagnosticTransfer)
+        bool BlocksSemanticDiagnosticTransfer,
+        bool RequiresFullSemanticRebind)
     {
         public IncrementalMatchedSyntaxTree ToMatchedSyntaxTree()
             => new(CurrentTree, PreviousTree, MatchedOwners, OwnerChanges, BlocksSemanticDiagnosticTransfer);
@@ -62,6 +63,9 @@ public partial class Compilation
                 .Where(static tree => !tree.MatchedOwners.IsDefaultOrEmpty)
                 .Select(static tree => tree.ToMatchedSyntaxTree())
                 .ToImmutableArray();
+
+        public bool RequiresFullSemanticRebind
+            => ChangedSyntaxTrees.Any(static tree => tree.RequiresFullSemanticRebind);
     }
 
     internal enum OwnerRelativeChangeKind

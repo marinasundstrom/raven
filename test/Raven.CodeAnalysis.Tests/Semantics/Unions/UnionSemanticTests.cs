@@ -134,6 +134,27 @@ union KettleState {
             water => Assert.Contains("Water", water.GetMessage(), StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void MalformedUnionCasePayload_ReportsDiagnosticsWithoutThrowing()
+    {
+        const string source = """
+union RepositoryError {
+    case NotFound
+    case DataAccessFailur(e(DataAccessError)
+}
+
+union DataAccessError {
+    case Unknown
+}
+""";
+
+        var (compilation, _) = CreateCompilation(
+            source,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.NotEmpty(compilation.GetDiagnostics());
+    }
+
     [Theory]
     [InlineData("private field _state: int = 0", "field declarations")]
     [InlineData("static field Instances: int = 0", "field declarations")]

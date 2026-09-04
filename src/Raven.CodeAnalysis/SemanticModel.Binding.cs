@@ -4795,8 +4795,9 @@ public partial class SemanticModel
 
                 if (caseClause.ParameterList is { } parameterList)
                 {
-                    var hasNamedPayloads = parameterList.Parameters.Any(static parameter => !parameter.Identifier.IsMissing);
-                    var hasUnnamedPayloads = parameterList.Parameters.Any(static parameter => parameter.Identifier.IsMissing);
+                    var caseParameters = parameterList.Parameters.ToArray();
+                    var hasNamedPayloads = caseParameters.Any(static parameter => !parameter.Identifier.IsMissing);
+                    var hasUnnamedPayloads = caseParameters.Any(static parameter => parameter.Identifier.IsMissing);
                     if (hasNamedPayloads && hasUnnamedPayloads)
                     {
                         _declarationDiagnostics.ReportUnionCasePayloadStyleMixed(
@@ -4804,15 +4805,15 @@ public partial class SemanticModel
                             parameterList.GetLocation());
                     }
 
-                    for (var parameterOrdinal = 0; parameterOrdinal < parameterList.Parameters.Count; parameterOrdinal++)
+                    for (var parameterOrdinal = 0; parameterOrdinal < caseParameters.Length; parameterOrdinal++)
                     {
-                        var parameterSyntax = parameterList.Parameters[parameterOrdinal];
+                        var parameterSyntax = caseParameters[parameterOrdinal];
                         var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
                         var refKind = ParameterSyntaxUtilities.GetRefKind(parameterSyntax);
                         var parameterName = UnionFacts.GetCaseParameterName(
                             parameterSyntax.Identifier.ValueText,
                             parameterOrdinal,
-                            parameterList.Parameters.Count);
+                            caseParameters.Length);
                         var parameterLocation = parameterSyntax.Identifier.IsMissing
                             ? typeSyntax?.GetLocation() ?? parameterSyntax.GetLocation()
                             : parameterSyntax.Identifier.GetLocation();

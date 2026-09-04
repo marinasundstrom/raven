@@ -1768,7 +1768,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
                 // End of argument list
                 if (t.IsKind(SyntaxKind.EndOfFileToken) ||
-                    t.IsKind(SyntaxKind.CloseParenToken))
+                    t.IsKind(SyntaxKind.CloseParenToken) ||
+                    t.IsKind(SyntaxKind.CloseBraceToken))
                 {
                     break;
                 }

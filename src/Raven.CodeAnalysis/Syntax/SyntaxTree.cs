@@ -9,6 +9,7 @@ internal enum IncrementalParseFallbackReason
 {
     None,
     ConditionalDirectives,
+    PreviousFallback,
     ExistingRecoverySyntax,
     ChangePolicy,
     NodeParseFailure,
@@ -233,6 +234,17 @@ public partial class SyntaxTree
             return this;
 
         var root = GetRoot();
+
+        // A fallback tree is correct but does not carry incremental identity
+        // guarantees for the malformed region. Give the next edit one clean
+        // full parse before resuming incremental replacement. PreviousFallback
+        // is deliberately not sticky, so recovery does not disable incremental
+        // parsing for all later edits.
+        if (IncrementalParseFallbackReason is not IncrementalParseFallbackReason.None and
+            not IncrementalParseFallbackReason.PreviousFallback)
+        {
+            return ParseTextWithFallback(newText, IncrementalParseFallbackReason.PreviousFallback);
+        }
 
         if (ContainsConditionalDirectives(oldText) || ContainsConditionalDirectives(newText))
             return ParseTextWithFallback(newText, IncrementalParseFallbackReason.ConditionalDirectives);

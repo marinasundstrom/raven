@@ -10,7 +10,8 @@ internal static class IncrementalExecutableOwnerAnalyzer
         ImmutableArray<Compilation.ExecutableOwnerDescriptor> ChangedOwners,
         ImmutableArray<Compilation.MatchedExecutableOwner> MatchedOwners,
         ImmutableDictionary<Compilation.ExecutableOwnerDescriptor, Compilation.OwnerRelativeTextChange> OwnerChanges,
-        bool BlocksSemanticDiagnosticTransfer);
+        bool BlocksSemanticDiagnosticTransfer,
+        bool RequiresFullSemanticRebind);
 
     public static Result Analyze(
         SyntaxTree previousTree,
@@ -102,13 +103,19 @@ internal static class IncrementalExecutableOwnerAnalyzer
             }
         }
 
+        var hasSemanticShapeUnstableSyntax =
+            HasSemanticShapeUnstableSyntax(previousTree) ||
+            HasSemanticShapeUnstableSyntax(currentTree);
+        var hasChangeOutsideExecutableBody = HasChangeOutsideExecutableBody(previousTree, currentTree);
+        var isTriviaOnlyTreeChange = AreEquivalentIgnoringTrivia(previousTree.GetRoot(), currentTree.GetRoot());
+
         return new Result(
             changedBuilder.ToImmutable(),
             matchedBuilder.ToImmutable(),
             ownerChanges.ToImmutable(),
-            HasSemanticShapeUnstableSyntax(previousTree) ||
-            HasSemanticShapeUnstableSyntax(currentTree) ||
-            HasChangeOutsideExecutableBody(previousTree, currentTree));
+            hasSemanticShapeUnstableSyntax || hasChangeOutsideExecutableBody,
+            hasSemanticShapeUnstableSyntax ||
+            (hasChangeOutsideExecutableBody && isTriviaOnlyTreeChange));
     }
 
     private static (SyntaxKind Kind, string Identity) CreateReusableOwnerMatchKey(SyntaxNode owner)

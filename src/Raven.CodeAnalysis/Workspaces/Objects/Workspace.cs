@@ -304,14 +304,15 @@ public class Workspace
                 syntaxTrees.Add(tree);
                 if (docState is not null)
                 {
-                    var (changedOwners, matchedOwners, ownerChanges, blocksSemanticDiagnosticTransfer) = IncrementalExecutableOwnerAnalyzer.Analyze(docState.SyntaxTree, tree);
+                    var (changedOwners, matchedOwners, ownerChanges, blocksSemanticDiagnosticTransfer, requiresFullSemanticRebind) = IncrementalExecutableOwnerAnalyzer.Analyze(docState.SyntaxTree, tree);
                     changedSyntaxTrees.Add(new Compilation.IncrementalChangedSyntaxTree(
                         tree,
                         docState.SyntaxTree,
                         changedOwners,
                         matchedOwners,
                         ownerChanges,
-                        blocksSemanticDiagnosticTransfer));
+                        blocksSemanticDiagnosticTransfer,
+                        requiresFullSemanticRebind));
                 }
                 else if (previousCompilation is not null)
                 {
@@ -367,12 +368,32 @@ public class Workspace
 
         if (previousCompilation is not null)
         {
-            compilation.InitializeIncrementalStateFrom(
-                previousCompilation,
-                new Compilation.IncrementalCompilationPlan(
-                    reusedSyntaxTrees.ToImmutable(),
-                    changedSyntaxTrees.ToImmutable(),
-                    BlocksSemanticDiagnosticTransfer: documentSetChanged || projectReferencesChanged));
+            var plan = new Compilation.IncrementalCompilationPlan(
+                reusedSyntaxTrees.ToImmutable(),
+                changedSyntaxTrees.ToImmutable(),
+                BlocksSemanticDiagnosticTransfer: documentSetChanged || projectReferencesChanged);
+            var blocksSemanticStateReuse =
+                plan.BlocksSemanticDiagnosticTransfer ||
+                plan.ChangedSyntaxTrees.Any(static tree => tree.BlocksSemanticDiagnosticTransfer);
+            if (blocksSemanticStateReuse)
+            {
+                var reason = plan.ChangedSyntaxTrees.Any(static tree =>
+                    tree.CurrentTree.IncrementalParseFallbackReason != IncrementalParseFallbackReason.None)
+                    ? "ParserRecovery"
+                    : documentSetChanged
+                        ? "DocumentSetChanged"
+                        : projectReferencesChanged
+                            ? "ProjectReferencesChanged"
+                            : "DeclarationShapeChanged";
+                Services.WorkspaceEventSink?.Report(new WorkspaceEvent(
+                    "compilation.incrementalFallback",
+                    project.Name,
+                    project.FilePath,
+                    0,
+                    $"reason={reason}, changedTrees={plan.ChangedSyntaxTrees.Length}"));
+            }
+
+            compilation.InitializeIncrementalStateFrom(previousCompilation, plan);
         }
 
         state.Version = project.Version;

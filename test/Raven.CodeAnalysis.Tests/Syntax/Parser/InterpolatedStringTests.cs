@@ -163,6 +163,8 @@ union VehicleStatus {
         var root = tree.GetRoot();
         var interpolated = root.DescendantNodes().OfType<InterpolatedStringExpressionSyntax>().Single();
 
+        Assert.Equal(source, root.ToFullString());
+
         Assert.Collection(
             interpolated.Contents,
             first =>

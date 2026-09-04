@@ -3614,6 +3614,63 @@ public sealed class IncrementalCompilationReuseTests
     }
 
     [Fact]
+    public void WorkspaceCompilation_UndoAfterMalformedMemberAccess_MatchesColdCompilation()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        const string source = """
+            union RepositoryError {
+                case NotFound
+            }
+
+            func GetError() -> RepositoryError {
+                return RepositoryError.NotFound
+            }
+            """;
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(source),
+            "/tmp/edited.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        var malformedSource = source.Replace("NotFound\n", "NotF@ound\n", StringComparison.Ordinal);
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(malformedSource)));
+
+        _ = workspace.GetCompilation(projectId).GetDiagnostics();
+
+        document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(source)));
+
+        var restoredDiagnostics = workspace.GetCompilation(projectId).GetDiagnostics();
+        var coldTree = SyntaxTree.ParseText(source, path: "/tmp/edited.rav");
+        var coldCompilation = Compilation.Create(
+            "cold",
+            [coldTree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var coldDiagnostics = coldCompilation.GetDiagnostics();
+
+        restoredDiagnostics.Select(ToComparableDiagnostic)
+            .ShouldBe(coldDiagnostics.Select(ToComparableDiagnostic));
+
+        static string ToComparableDiagnostic(Diagnostic diagnostic)
+            => $"{diagnostic.Descriptor.Id}:{diagnostic.Location.SourceSpan}:{diagnostic.GetMessage()}";
+    }
+
+    [Fact]
     public void WorkspaceCompilation_DocumentDiagnosticsAfterBodyEdit_DeclaresSourceTypesOnDemand()
     {
         const int stableDocumentCount = 30;

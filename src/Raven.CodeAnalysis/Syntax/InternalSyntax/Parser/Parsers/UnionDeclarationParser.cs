@@ -65,6 +65,21 @@ internal class UnionDeclarationParser : SyntaxParser
                     break;
                 }
 
+                // A bare block is not a valid union member. Treat only its opening
+                // brace as skipped input so subsequent cases remain independently
+                // parseable while the developer is repairing the declaration.
+                if (next.IsKind(SyntaxKind.OpenBraceToken))
+                {
+                    var skippedSpan = GetSpanOfPeekedToken();
+                    var skippedToken = CreateSkippedToken([ReadToken()], skippedSpan);
+                    members.Add(IncompleteMemberDeclaration(
+                        SyntaxList.Empty,
+                        SyntaxList.Empty,
+                        skippedToken,
+                        Token(SyntaxKind.None)));
+                    continue;
+                }
+
                 var memberStart = memberParser.Position;
                 var member = memberParser.ParseMember();
 

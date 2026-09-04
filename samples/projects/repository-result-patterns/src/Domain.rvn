@@ -1,0 +1,28 @@
+public class Item(
+    val Id: ItemId,
+    var Name: string)
+
+public record ItemId private (Value: int) {
+    static func Create(value: int) -> Result<ItemId, ItemIdError> {
+        if value < 1 {
+            return Error(ItemIdError.OutOfRange)
+        }
+        return Ok(ItemId(value))
+    }
+
+    override func ToString() -> string? => Value.ToString()
+}
+
+union ItemIdError {
+    case OutOfRange
+}
+
+class ItemRepository : IRepository<Item, ItemId> {
+    func GetById(id: ItemId) -> Result<Item, RepositoryError> {
+        if id.Value == 42 {
+            let newId = ItemId.Create(42).UnwrapOrThrow()
+            return Ok(Item(newId, "Foo"))
+        }
+        return Error(RepositoryError.NotFound)
+    }
+}
