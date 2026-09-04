@@ -125,6 +125,26 @@ public class Exposer {
     }
 
     [Fact]
+    public void PublicMethodConstructedParameterWithInternalTypeArgument_ReportsSpecificTypeArgument()
+    {
+        const string source = """
+public class Wrapper<T> {}
+internal class Hidden {}
+
+public class Exposer {
+    public func Call(value: Wrapper<Hidden>) {}
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("parameter 'value'", "Hidden", "method", "Exposer.Call")],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void PublicPrimaryConstructorAndPromotedPropertyWithInternalType_ReportRAV0501()
     {
         const string source = """
@@ -180,6 +200,23 @@ internal class Container {
         var verifier = CreateVerifier(
             source,
             [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicDelegateWithInternalConstraint_ReportsRAV0501()
+    {
+        const string source = """
+internal interface Hidden {}
+
+public delegate Factory<T>() where T: Hidden
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("constraint", "Hidden", "delegate", "Factory<T>")],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();
@@ -303,6 +340,156 @@ public class Exposer {
                 new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("property", "FirstHidden", "property", "Exposer.Value"),
                 new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("property", "SecondHidden", "property", "Exposer.Value"),
             ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicEventAndIndexerReportInaccessibleConstructedComponents()
+    {
+        const string source = """
+public class Wrapper<T> {}
+public delegate Handler<T>()
+internal class HiddenEvent {}
+internal class HiddenKey {}
+internal class HiddenValue {}
+
+public class Exposer {
+    public event Changed: Handler<HiddenEvent>?
+
+    public val self[key: HiddenKey]: Wrapper<HiddenValue> {
+        get => Wrapper<HiddenValue>()
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("event", "HiddenEvent", "event", "Exposer.Changed"),
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("indexer", "HiddenValue", "indexer", "Exposer.Item"),
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("parameter 'key'", "HiddenKey", "indexer", "Exposer.Item"),
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicTypeWithConstructedInternalConstraint_ReportsSpecificTypeArgument()
+    {
+        const string source = """
+public interface Constraint<T> {}
+internal class Hidden {}
+
+public class Container<T> where T: Constraint<Hidden> {}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("constraint", "Hidden", "type", "Container<T>")],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicInterfaceAndUnionWithInternalConstraints_ReportRAV0501()
+    {
+        const string source = """
+internal interface Hidden {}
+
+public interface Contract<T> where T: Hidden {}
+
+public union Outcome<T> where T: Hidden {
+    case Value(value: T)
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("constraint", "Hidden", "type", "Contract<T>"),
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("constraint", "Hidden", "union", "Outcome<T>"),
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicMethodAndNamespaceFunctionWithInternalConstraints_ReportRAV0501()
+    {
+        const string source = """
+internal interface Hidden {}
+
+public class Exposer {
+    public func Method<T>() where T: Hidden {}
+}
+
+public func Function<T>() where T: Hidden {}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("constraint", "Hidden", "method", "Exposer.Method"),
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("constraint", "Hidden", "function", "Function"),
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicMethodInInternalType_CanUseInternalConstraint()
+    {
+        const string source = """
+internal interface Hidden {}
+
+internal class Exposer {
+    public func Method<T>() where T: Hidden {}
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicMacroWithInternalConstraint_ReportsRAV0501()
+    {
+        const string source = """
+internal interface Hidden {}
+
+public macro Generate<T>() where T: Hidden {}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("constraint", "Hidden", "macro", "Generate")],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicMacroWithInternalParameterType_ReportsRAV0501()
+    {
+        const string source = """
+internal class Hidden {}
+
+public macro Generate(value: Hidden) {}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("parameter 'value'", "Hidden", "macro", "Generate")],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();

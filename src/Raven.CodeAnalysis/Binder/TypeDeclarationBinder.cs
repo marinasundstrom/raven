@@ -75,6 +75,15 @@ internal abstract class TypeDeclarationBinder : Binder
         INamedTypeSymbol? defaultBaseType,
         ImmutableArray<INamedTypeSymbol> defaultInterfaces)
     {
+        EnsureTypeParameterConstraintTypesResolved(ContainingSymbol.TypeParameters);
+        TypeMemberBinder.ValidateTypeParameterConstraintAccessibility(
+            ContainingSymbol.TypeParameters,
+            ContainingSymbol.DeclaredAccessibility,
+            ContainingSymbol.ContainingType,
+            "type",
+            ContainingSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            Diagnostics);
+
         var baseType = defaultBaseType;
         var interfaces = defaultInterfaces;
         var baseList = GetBaseList(declaration);

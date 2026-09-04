@@ -4224,4 +4224,58 @@ public sealed class IncrementalCompilationReuseTests
             .ShouldBeEmpty();
     }
 
+    [Fact]
+    public void WorkspaceCompilation_AccessibilityConstraintDiagnostic_RecoversAfterUndo()
+    {
+        const string validSource = """
+            internal interface Hidden {}
+
+            internal class Exposer {
+                public func Method<T>() where T: Hidden {}
+            }
+            """;
+        const string invalidSource = """
+            internal interface Hidden {}
+
+            public class Exposer {
+                public func Method<T>() where T: Hidden {}
+            }
+            """;
+
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        var document = project.AddDocument(
+            "edited.rav",
+            SourceText.From(validSource),
+            "/tmp/edited.rav");
+        workspace.TryApplyChanges(document.Project.Solution);
+
+        workspace.GetCompilation(projectId).GetDiagnostics()
+            .ShouldNotContain(static diagnostic => diagnostic.Id == "RAV0501");
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(invalidSource)));
+
+        workspace.GetCompilation(projectId).GetDiagnostics()
+            .ShouldContain(static diagnostic =>
+                diagnostic.Id == "RAV0501" &&
+                diagnostic.GetMessage().Contains("Hidden", StringComparison.Ordinal));
+
+        workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id,
+            SourceText.From(validSource)));
+
+        workspace.GetCompilation(projectId).GetDiagnostics()
+            .ShouldNotContain(static diagnostic => diagnostic.Id == "RAV0501");
+    }
+
 }

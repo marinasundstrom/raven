@@ -227,6 +227,15 @@ class FunctionBinder : Binder
         if (!IsNamespaceLevelFunctionMember(_syntax) || method.IsSignatureSkeleton)
             return;
 
+        EnsureTypeParameterConstraintTypesResolved(method.TypeParameters);
+        TypeMemberBinder.ValidateTypeParameterConstraintAccessibility(
+            method.TypeParameters,
+            method.DeclaredAccessibility,
+            containingType: null,
+            "function",
+            method.Name,
+            _diagnostics);
+
         TypeMemberBinder.ValidateTypeAccessibility(
             method.ReturnType,
             method.DeclaredAccessibility,
