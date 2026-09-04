@@ -963,19 +963,19 @@ func Inspect(value: Person?) -> unit {
         outsideSignature.ShouldBe("value: Person?");
     }
 
-    [Fact]
-    public void RecordDeclarationHoverSignature_IndentsMultiLinePrimaryConstructorParameters()
+    [Theory]
+    [InlineData("public record ItemId private (Value: int)", "record ItemId")]
+    [InlineData("public record struct ItemId private (Value: int)", "record struct ItemId")]
+    [InlineData("public class ItemId(Value: int) {}", "class ItemId")]
+    [InlineData("public struct ItemId(Value: int) {}", "struct ItemId")]
+    public void TypeDeclarationHoverSignature_IsIndependentOfPrimaryConstructor(
+        string declarationText,
+        string expectedSignature)
     {
-        const string code = """
-record Person(
-val Name: string
-val Age: int
-val Items: string[]
-)
-""";
+        var code = declarationText;
 
         var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
-        var declaration = syntaxTree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
+        var declaration = syntaxTree.GetRoot().DescendantNodes().OfType<BaseTypeDeclarationSyntax>().Single();
         var tryBuildTypeDeclarationSyntaxSignature = typeof(HoverHandler)
             .GetMethod("TryBuildTypeDeclarationSyntaxSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
         object?[] args = [syntaxTree.GetText(), declaration, null];
@@ -984,13 +984,35 @@ val Items: string[]
         var signature = (string)args[2]!;
 
         built.ShouldBeTrue();
-        signature.ShouldBe("""
-record Person(
-    val Name: string
-    val Age: int
-    val Items: string[]
-)
-""");
+        signature.ShouldBe(expectedSignature);
+    }
+
+    [Fact]
+    public void KnownTypeInvocationSyntaxHover_DefersToConstructorResolution()
+    {
+        const string code = """
+public record ItemId private (Value: int)
+
+func Create(value: int) -> ItemId {
+    ItemId(value)
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rvn");
+        var root = syntaxTree.GetRoot();
+        var sourceText = syntaxTree.GetText();
+        var invocationIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "ItemId" &&
+                                  identifier.Parent is InvocationExpressionSyntax);
+        var tryBuildKnownTypeIdentifierSyntaxHover = typeof(HoverHandler)
+            .GetMethod("TryBuildKnownTypeIdentifierSyntaxHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var hover = tryBuildKnownTypeIdentifierSyntaxHover.Invoke(
+            null,
+            [sourceText, root, invocationIdentifier.Identifier.SpanStart + 1]);
+
+        hover.ShouldBeNull();
     }
 
     [Fact]
@@ -4867,12 +4889,12 @@ class Runner {
     }
 
     [Fact]
-    public void ConstructorInvocationHover_UsesConstructorSignatureInsteadOfType()
+    public void ConstructorInvocationHover_UsesCompactConstructorSignature()
     {
         const string code = """
 import System.*
 
-class PingResult(val Message: int)
+public record PingResult private (Message: int)
 
 class Api {
     func ping(value: int) -> PingResult {
@@ -4906,8 +4928,7 @@ class Api {
             .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
 
         var signature = (string)buildSignatureForHover.Invoke(null, [resolution.Value.Symbol, resolution.Value.Node, semanticModel, root, hoverOffset])!;
-        signature.ShouldContain("PingResult(");
-        signature.ShouldNotBe("()");
+        signature.ShouldBe("PingResult(Message: int)");
     }
 
     [Fact]
