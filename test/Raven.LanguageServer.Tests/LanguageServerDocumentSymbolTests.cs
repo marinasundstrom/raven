@@ -54,6 +54,8 @@ component! Greeting(Name: string) {
             var symbols = result!.ToArray();
             symbols.Select(static symbol => symbol.DocumentSymbol!.Name).ShouldContain("<top-level code>");
             symbols.Select(static symbol => symbol.DocumentSymbol!.Name).ShouldContain("PingResult");
+            symbols.Select(static symbol => symbol.DocumentSymbol!.Name).ShouldNotContain("builder");
+            symbols.Select(static symbol => symbol.DocumentSymbol!.Name).ShouldNotContain("app");
             var greeting = symbols
                 .Select(static symbol => symbol.DocumentSymbol!)
                 .Single(symbol => symbol.Name == "Greeting");
@@ -68,7 +70,7 @@ component! Greeting(Name: string) {
     }
 
     [Fact]
-    public void Outline_IncludesVariablesAndSyntheticTopLevelCodeForExecutableGlobalStatements()
+    public void Outline_GroupsTopLevelVariablesUnderSyntheticTopLevelCode()
     {
         const string code = """
 let port = 8080
@@ -77,9 +79,8 @@ print(port)
 
         var symbols = GetDocumentSymbols(code);
 
-        symbols.Count.ShouldBe(2);
-        symbols.Single(symbol => symbol.Name == "port").Kind.ShouldBe(SymbolKind.Variable);
-        var topLevelCode = symbols.Single(symbol => symbol.Name == "<top-level code>");
+        var topLevelCode = symbols.ShouldHaveSingleItem();
+        topLevelCode.Name.ShouldBe("<top-level code>");
         topLevelCode.Kind.ShouldBe(SymbolKind.Function);
         topLevelCode.Children.ShouldBeNull();
     }
@@ -250,7 +251,7 @@ class Dashboard {
     }
 
     [Fact]
-    public void Outline_IncludesNamespaceScopedConstantsAndVariables()
+    public void Outline_IncludesExternConstantsButNotOrdinaryConstantsOrVariables()
     {
         const string code = """
 namespace Hardware {
@@ -268,11 +269,10 @@ namespace Hardware {
         var children = hardware.Children.ToArray();
 
         children.Single(symbol => symbol.Name == "LedPin").Kind.ShouldBe(SymbolKind.Constant);
-        children.Single(symbol => symbol.Name == "DefaultPin").Kind.ShouldBe(SymbolKind.Constant);
-        children.Single(symbol => symbol.Name == "currentPin").Kind.ShouldBe(SymbolKind.Variable);
-        children.Single(symbol => symbol.Name == "mutablePin").Kind.ShouldBe(SymbolKind.Variable);
+        children.ShouldNotContain(symbol => symbol.Name == "DefaultPin");
+        children.ShouldNotContain(symbol => symbol.Name == "currentPin");
+        children.ShouldNotContain(symbol => symbol.Name == "mutablePin");
         children.Single(symbol => symbol.Name == "Read").Kind.ShouldBe(SymbolKind.Function);
-        children.ShouldNotContain(symbol => symbol.Name == "<top-level code>");
     }
 
     [Fact]

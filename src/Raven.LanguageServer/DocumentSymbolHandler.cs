@@ -182,27 +182,11 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
         foreach (var member in members)
         {
-            if (member is ConstDeclarationSyntax constDeclaration)
+            if (member is ConstDeclarationSyntax constDeclaration &&
+                constDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.ExternKeyword))
             {
-                foreach (var variableSymbol in CreateVariableSymbols(
+                foreach (var variableSymbol in CreateExternConstantSymbols(
                     constDeclaration.Declaration,
-                    SymbolKind.Constant,
-                    text))
-                {
-                    yield return variableSymbol;
-                }
-
-                continue;
-            }
-
-            if (member is GlobalStatementSyntax
-                {
-                    Statement: LocalDeclarationStatementSyntax localDeclaration
-                })
-            {
-                foreach (var variableSymbol in CreateVariableSymbols(
-                    localDeclaration.Declaration,
-                    SymbolKind.Variable,
                     text))
                 {
                     yield return variableSymbol;
@@ -227,9 +211,8 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
             yield return CreateTopLevelCodeSymbol(topLevelStatements, text);
     }
 
-    private static IEnumerable<DocumentSymbol> CreateVariableSymbols(
+    private static IEnumerable<DocumentSymbol> CreateExternConstantSymbols(
         VariableDeclarationSyntax declaration,
-        SymbolKind kind,
         SourceText text)
     {
         foreach (var declarator in declaration.Declarators)
@@ -239,7 +222,7 @@ internal sealed class DocumentSymbolHandler : IDocumentSymbolHandler
 
             yield return CreateSymbol(
                 declarator.Identifier.Text,
-                kind,
+                SymbolKind.Constant,
                 declarator.Span,
                 declarator.Identifier.Span,
                 text);
