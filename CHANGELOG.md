@@ -16,6 +16,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Standalone file-based applications opened in the language server now activate
+  the standard `Raven.Macros` compiler plugin as well as referencing its metadata.
+  Their editor compilation includes `Raven.Core` and the generated Prelude,
+  matching one-shot script compilation.
 - Language-server project loading now isolates nested NuGet restores from the
   MSBuild instance registered in the server process, preventing SDK assembly
   mismatches when a workspace-level `global.json` selects a different .NET SDK.

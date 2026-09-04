@@ -2324,6 +2324,10 @@ internal sealed class WorkspaceManager
                 solution,
                 projectId,
                 typeof(Compilation).Assembly.Location);
+            solution = ReplaceMacroReferenceByFileName(
+                solution,
+                projectId,
+                ravenMacrosReferencePath);
             _logger.LogDebug(
                 "Added Raven.Macros and its compiler contract reference for project '{ProjectName}'.",
                 name);

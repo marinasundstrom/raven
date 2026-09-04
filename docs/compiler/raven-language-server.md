@@ -44,10 +44,11 @@ preserving open document text.
 
 A source file that is not included by an evaluated project is treated as the
 root of its own file-based application. It receives an isolated ephemeral
-project with the standard Raven prelude and framework references. Other loose
-files in the same directory or workspace do not enter that compilation merely
-because they are open. This matches `rvn run <file.rvn>` and prevents unrelated
-scripts from contributing declarations or entry points to one another.
+project with the standard Raven prelude, framework references, `Raven.Core`,
+and the standard `Raven.Macros` compiler plugin. Other loose files in the same
+directory or workspace do not enter that compilation merely because they are
+open. This matches `rvn run <file.rvn>` and prevents unrelated scripts from
+contributing declarations or entry points to one another.
 
 Closing a standalone root removes its ephemeral project. Future file-based
 source directives will extend this project with explicitly resolved documents

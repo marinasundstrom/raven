@@ -2052,12 +2052,28 @@ func Test() {
     }
 
     [Fact]
-    public async Task TryGetDiagnosticsAsync_StandaloneFileUsesDefaultPreludeAsync()
+    public async Task TryGetDiagnosticsAsync_StandaloneFileUsesStandardLibrariesAndDefaultPreludeAsync()
     {
         Directory.CreateDirectory(_tempRoot);
 
         var sourcePath = Path.Combine(_tempRoot, "main.rvn");
-        const string source = """Console.WriteLine("Hello")""";
+        const string source = """
+#!/usr/bin/env rvn
+
+import Raven.Macros.*
+
+func Main(args: string[]) {
+    Console.WriteLine("Hello from Raven!")
+
+    for argument in args {
+        Console.WriteLine("Argument: ${argument}")
+    }
+
+    let syntax = quote! { 40 + 2 }
+}
+
+func CreateResult() -> Result<int, string> => Ok(42)
+""";
         File.WriteAllText(sourcePath, source);
 
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
@@ -2082,10 +2098,28 @@ func Test() {
             cancellationToken: CancellationToken.None);
 
         result.WasSkipped.ShouldBeFalse();
-        result.Diagnostics.Any(diagnostic =>
-            string.Equals(diagnostic.Code?.String, "RAV0103", StringComparison.Ordinal)).ShouldBeFalse();
-        workspace.CurrentSolution.Projects.Single().Documents
+        result.Diagnostics.ShouldNotContain(diagnostic =>
+            diagnostic.Severity == LspDiagnosticSeverity.Error);
+        var project = workspace.CurrentSolution.Projects.Single();
+        project.Documents
             .ShouldContain(document => document.Name.EndsWith(".Prelude.g.rvn", StringComparison.Ordinal));
+        project.MetadataReferences
+            .OfType<PortableExecutableReference>()
+            .ShouldContain(reference => string.Equals(
+                Path.GetFileName(reference.FilePath),
+                "Raven.Core.dll",
+                StringComparison.OrdinalIgnoreCase));
+        project.MetadataReferences
+            .OfType<PortableExecutableReference>()
+            .ShouldContain(reference => string.Equals(
+                Path.GetFileName(reference.FilePath),
+                "Raven.Macros.dll",
+                StringComparison.OrdinalIgnoreCase));
+        workspace.GetCompilation(project.Id).MacroReferences
+            .ShouldContain(reference => string.Equals(
+                Path.GetFileName(reference.Display),
+                "Raven.Macros.dll",
+                StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
