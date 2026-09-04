@@ -79,6 +79,31 @@ public class Container {
     }
 
     [Fact]
+    public void PublicMethodReturningInternalGenericWithInternalTypeArgument_ReportsBothTypes()
+    {
+        const string source = """
+internal class Wrapper<T> {}
+internal class Hidden {}
+
+public class Exposer {
+    public func GetValue() -> Wrapper<Hidden> {
+        return Wrapper<Hidden>()
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("return", "Wrapper<Hidden>", "method", "Exposer.GetValue"),
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("return", "Hidden", "method", "Exposer.GetValue"),
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void PublicMethodParameterWithInternalType_ReportsRAV0501()
     {
         const string source = """

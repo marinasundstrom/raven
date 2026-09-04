@@ -251,8 +251,6 @@ internal static class AccessibilityUtilities
             {
                 if (reported.Add(type))
                     inaccessibleTypes.Add(type);
-
-                return;
             }
 
             if (type.ContainingType is { } containingType)
