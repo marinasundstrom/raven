@@ -41,28 +41,42 @@ public class ParseOptions
 
     public IEnumerable<string> PreprocessorSymbolNames { get; init; }
 
+    /// <summary>
+    /// Gets whether an incremental parse that would normally recover by reparsing the
+    /// complete document should fail instead. This is intended for compiler stabilization
+    /// tests so production callers can retain the resilient fallback behavior.
+    /// </summary>
+    internal bool ThrowOnIncrementalParseFallback { get; init; }
+
     public ParseOptions WithPreprocessorSymbols(IEnumerable<string> preprocessorSymbolNames)
-        => new(
+        => new ParseOptions(
             DocumentationMode,
             Errors,
             Features,
             Kind,
             preprocessorSymbolNames,
-            DocumentationFormat);
+            DocumentationFormat)
+        {
+            ThrowOnIncrementalParseFallback = ThrowOnIncrementalParseFallback
+        };
 
     internal ParseOptions Snapshot()
-        => new(
+        => new ParseOptions(
             DocumentationMode,
             Errors,
             Features.ToImmutableDictionary(StringComparer.Ordinal),
             Kind,
             PreprocessorSymbolNames,
-            DocumentationFormat);
+            DocumentationFormat)
+        {
+            ThrowOnIncrementalParseFallback = ThrowOnIncrementalParseFallback
+        };
 
     internal bool IsEquivalentTo(ParseOptions other)
         => DocumentationMode == other.DocumentationMode &&
            DocumentationFormat == other.DocumentationFormat &&
            Kind == other.Kind &&
+           ThrowOnIncrementalParseFallback == other.ThrowOnIncrementalParseFallback &&
            Errors.SequenceEqual(other.Errors) &&
            PreprocessorSymbolNames.SequenceEqual(other.PreprocessorSymbolNames, StringComparer.Ordinal) &&
            Features.Count == other.Features.Count &&

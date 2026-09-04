@@ -209,7 +209,21 @@ internal sealed class DocumentStore
         bool deferMacroConsumerRefresh)
     {
         if (result.TextChanged)
+        {
             RemoveCachedDocumentDiagnostics(uri);
+
+            var syntaxTree = result.Document.SyntaxTree;
+            if (syntaxTree is { IncrementalParseFallbackReason: not IncrementalParseFallbackReason.None })
+            {
+                _logger.LogDebug(
+                    "Incremental parse fallback for {Uri}: reason={Reason} documentVersion={DocumentVersion} projectVersion={ProjectVersion} length={Length}.",
+                    uri,
+                    syntaxTree.IncrementalParseFallbackReason,
+                    result.Document.Version,
+                    result.Document.Project.Version,
+                    syntaxTree.Length);
+            }
+        }
 
         if (result.ProjectChanged)
             RemoveStaleCachedDocumentDiagnostics(result.Document.Project.Id, result.Document.Project.Version);

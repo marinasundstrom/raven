@@ -1423,8 +1423,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
             if (HasLineBreakBeforePeekToken())
             {
-                AddSkippedTokensToPending(skippedTokens);
-                return Token(SyntaxKind.None);
+                return CreateMissingTerminatorWithSkippedTokens(skippedTokens);
             }
 
             if (current.Kind == SyntaxKind.SemicolonToken)
@@ -1436,8 +1435,6 @@ internal class StatementSyntaxParser : SyntaxParser
 
             if (current.Kind == SyntaxKind.EndOfFileToken || current.Kind == SyntaxKind.CloseBraceToken)
             {
-                AddSkippedTokensToPending(skippedTokens);
-
                 if (addSemicolonDiagnostic && skippedTokens.Count > 0 && !reportedDiagnostic)
                 {
                     AddDiagnostic(
@@ -1446,7 +1443,7 @@ internal class StatementSyntaxParser : SyntaxParser
                             GetEndOfLastToken()));
                 }
 
-                return Token(SyntaxKind.None);
+                return CreateMissingTerminatorWithSkippedTokens(skippedTokens);
             }
 
             if (addSemicolonDiagnostic && !reportedDiagnostic)
@@ -1484,16 +1481,20 @@ internal class StatementSyntaxParser : SyntaxParser
             return newToken;
         }
 
-        void AddSkippedTokensToPending(List<SyntaxToken> skippedTokens)
+        SyntaxToken CreateMissingTerminatorWithSkippedTokens(List<SyntaxToken> skippedTokens)
         {
             if (skippedTokens.Count == 0)
-                return;
+                return Token(SyntaxKind.None);
 
             var trivia = new SyntaxTrivia(
                 new SkippedTokensTrivia(new SyntaxList(skippedTokens.ToArray()))
             );
 
-            GetBaseContext()._pendingTrivia.Add(trivia);
+            return new SyntaxToken(
+                SyntaxKind.None,
+                string.Empty,
+                SyntaxTriviaList.Create([trivia]),
+                SyntaxTriviaList.Empty);
         }
     }
 

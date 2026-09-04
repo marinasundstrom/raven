@@ -574,6 +574,103 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void WorkspaceCompilation_MalformedAndStructuralEditSequence_MatchesColdSemanticQueriesAtEverySnapshot()
+    {
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject(
+            "test",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+
+        const string initialSource =
+            """
+            class Edited {
+                func Compute(value: int) -> int {
+                    let copy = value
+                    return copy
+                }
+
+                func Stable(item: string) -> string {
+                    return item
+                }
+            }
+            """;
+        string[] snapshots =
+        [
+            initialSource,
+            initialSource.Replace("let copy = value", "let copy = ]value", StringComparison.Ordinal),
+            initialSource,
+            initialSource.Replace("        let copy = value\n", string.Empty, StringComparison.Ordinal),
+            initialSource,
+            initialSource.Replace("value: int", "text: string", StringComparison.Ordinal),
+            initialSource
+                .Replace("value: int", "text: string", StringComparison.Ordinal)
+                .Replace("let copy = value", "let copy = text", StringComparison.Ordinal),
+            initialSource
+                .Replace("value: int", "text: string", StringComparison.Ordinal)
+                .Replace(
+                    "let copy = value\n        return copy",
+                    "let result = copy\n        let copy = text\n        return result",
+                    StringComparison.Ordinal),
+            initialSource
+                .Replace("value: int", "text: string", StringComparison.Ordinal)
+                .Replace(
+                    "let copy = value\n        return copy",
+                    "let copy = text\n        let result = copy\n        return result",
+                    StringComparison.Ordinal),
+            initialSource
+        ];
+
+        project = project.AddDocument(
+            "edited.rav",
+            SourceText.From(snapshots[0]),
+            "/tmp/edited.rav").Project;
+        workspace.TryApplyChanges(project.Solution);
+
+        for (var index = 0; index < snapshots.Length; index++)
+        {
+            if (index > 0)
+            {
+                var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
+                workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+                    document.Id,
+                    SourceText.From(snapshots[index])));
+            }
+
+            var incrementalCompilation = workspace.GetCompilation(projectId);
+            var incrementalTree = incrementalCompilation.SyntaxTrees.Single();
+            var incrementalModel = incrementalCompilation.GetSemanticModel(incrementalTree);
+            var coldTree = SyntaxTree.ParseText(
+                SourceText.From(snapshots[index]),
+                incrementalTree.Options,
+                incrementalTree.FilePath);
+            var coldCompilation = Compilation.Create(
+                $"cold-{index}",
+                [coldTree],
+                TestMetadataReferences.Default,
+                incrementalCompilation.Options);
+            var coldModel = coldCompilation.GetSemanticModel(coldTree);
+
+            var incrementalSnapshot = CaptureSemanticSnapshot(
+                incrementalModel,
+                incrementalTree,
+                diagnosticsFirst: index % 2 == 0);
+            var coldSnapshot = CaptureSemanticSnapshot(
+                coldModel,
+                coldTree,
+                diagnosticsFirst: index % 2 != 0);
+
+            incrementalTree.GetRoot().GetSyntaxTreeRepresentation(s_treeDumpOptions)
+                .ShouldBe(coldTree.GetRoot().GetSyntaxTreeRepresentation(s_treeDumpOptions), $"syntax snapshot {index}");
+            incrementalSnapshot.ShouldBe(coldSnapshot, $"semantic snapshot {index}");
+        }
+    }
+
+    [Fact]
     public void GetDeclaredSymbol_ForTopLevelLaterLocal_AfterEdit_UsesIncrementalBinderState()
     {
         var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
@@ -2535,6 +2632,72 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         model.RootBinderCreated.ShouldBeFalse();
 
         return source;
+    }
+
+    private static string[] CaptureSemanticSnapshot(
+        SemanticModel model,
+        SyntaxTree tree,
+        bool diagnosticsFirst)
+    {
+        var root = tree.GetRoot();
+        string[]? diagnosticsBeforeQueries = diagnosticsFirst ? GetDiagnostics() : null;
+        var entries = new List<string>();
+
+        foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
+            entries.Add($"method@{method.Span}:{GetSymbolShape(model.GetDeclaredSymbol(method))}");
+
+        foreach (var parameter in root.DescendantNodes().OfType<ParameterSyntax>())
+            entries.Add($"parameter@{parameter.Span}:{GetSymbolShape(model.GetDeclaredSymbol(parameter))}");
+
+        foreach (var declarator in root.DescendantNodes().OfType<VariableDeclaratorSyntax>())
+            entries.Add($"declarator@{declarator.Span}:{GetSymbolShape(model.GetDeclaredSymbol(declarator))}");
+
+        foreach (var identifier in root.DescendantNodes().OfType<IdentifierNameSyntax>())
+        {
+            var symbolInfo = model.GetSymbolInfo(identifier);
+            var candidates = symbolInfo.CandidateSymbols
+                .Select(GetSymbolShape)
+                .OrderBy(static candidate => candidate, StringComparer.Ordinal);
+            var typeInfo = model.GetTypeInfo(identifier);
+            entries.Add(
+                $"identifier@{identifier.Span}:{identifier.Identifier.ValueText}" +
+                $":symbol={GetSymbolShape(symbolInfo.Symbol)}" +
+                $":reason={symbolInfo.CandidateReason}" +
+                $":candidates=[{string.Join(",", candidates)}]" +
+                $":type={GetTypeShape(typeInfo.Type)}" +
+                $":converted={GetTypeShape(typeInfo.ConvertedType)}");
+        }
+
+        var diagnosticsAfterQueries = GetDiagnostics();
+        if (diagnosticsBeforeQueries is not null)
+            diagnosticsAfterQueries.ShouldBe(diagnosticsBeforeQueries);
+
+        entries.AddRange(diagnosticsAfterQueries.Select(static diagnostic => $"diagnostic:{diagnostic}"));
+        return entries.ToArray();
+
+        string[] GetDiagnostics() => model.GetDocumentDiagnostics()
+            .Select(static diagnostic =>
+                $"{diagnostic.Id}@{diagnostic.Location.SourceSpan}:{diagnostic.GetMessage()}")
+            .OrderBy(static diagnostic => diagnostic, StringComparer.Ordinal)
+            .ToArray();
+
+        static string GetSymbolShape(ISymbol? symbol)
+        {
+            if (symbol is null)
+                return "<null>";
+
+            var type = symbol switch
+            {
+                ILocalSymbol local => local.Type,
+                IParameterSymbol parameter => parameter.Type,
+                IMethodSymbol method => method.ReturnType,
+                _ => null
+            };
+            return $"{symbol.Kind}:{symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}:{GetTypeShape(type)}";
+        }
+
+        static string GetTypeShape(ITypeSymbol? type)
+            => type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "<null>";
     }
 
     private static void AssertSameLocalShape(ISymbol? actualSymbol, ILocalSymbol expectedLocal)

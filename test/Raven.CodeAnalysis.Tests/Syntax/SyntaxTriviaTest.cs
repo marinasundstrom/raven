@@ -130,4 +130,17 @@ public class StructuredSyntaxTriviaTest
         skipped.Tokens[0].Kind.ShouldBe(SyntaxKind.IdentifierToken);
         skipped.Tokens[0].Text.ShouldBe("Foo");
     }
+
+    [Fact]
+    public void StructuredTrivia_PreservesTokenBoundaryTrivia()
+    {
+        var trivia = Trivia(
+            SkippedTokensTrivia(
+                TokenList(
+                    Identifier("Foo")
+                        .WithLeadingTrivia(Whitespace(" "))
+                        .WithTrailingTrivia(LineFeed))));
+
+        trivia.ToString().ShouldBe(" Foo\n");
+    }
 }

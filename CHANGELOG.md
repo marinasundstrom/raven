@@ -16,6 +16,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Parser recovery now retains unexpected tokens and their boundary whitespace in
+  the syntax tree. Malformed edits no longer shift later source positions, so
+  diagnostics and language-service responses remain aligned with unchanged code
+  and recover correctly after undo.
 - Portable PDB emission now inserts the missing debug-information rows for
   abstract and interface methods before assembly-reference rewriting. This keeps
   later sequence points and local scopes attached to their actual methods, so
@@ -1874,7 +1878,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
   after edits. Green-node replacement also preserves unchanged sibling
   identities instead of rebuilding the entire tree. Incremental parser tests
   compare exact syntax shape and diagnostics with an authoritative full parse,
-  including incomplete macro declarations and repair edits.
+  including incomplete macro declarations and repair edits. Recovery-sensitive
+  edits now fall back to an authoritative full-document parse, record and log a
+  reason-coded event for stabilization, and support a strict test mode that
+  throws rather than hiding an unexpected fallback.
 - Raven's nullability and control-flow code actions are usable through the
   language server again: structured diagnostic arguments now survive the LSP
   round trip, null-identity guidance is registered by default, nullable-to-Option

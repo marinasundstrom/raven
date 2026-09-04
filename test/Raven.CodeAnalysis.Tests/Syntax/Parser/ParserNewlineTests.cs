@@ -1042,6 +1042,44 @@ class Test {
         Assert.IsType<LocalDeclarationStatementSyntax>(trailingStatement.Statement);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SkippedTokensBeforeNewline_PreserveFollowingMemberPositionsAndFullText(bool useCarriageReturns)
+    {
+        const string lineFeedSource =
+            """
+            class Runner {
+                func Broken(value: int) -> int {
+                    let baseValue = value + 1
+                    let answer = ]baseValue * 2
+                    return answer
+                }
+
+                func Stable(item: int) -> int {
+                    return item
+                }
+            }
+            """;
+        var source = useCarriageReturns
+            ? lineFeedSource.Replace("\n", "\r\n", StringComparison.Ordinal)
+            : lineFeedSource;
+
+        var syntaxTree = SyntaxTree.ParseText(source);
+        var root = Assert.IsType<CompilationUnitSyntax>(syntaxTree.GetRoot());
+        var stableMethod = root.DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(method => method.Identifier.ValueText == "Stable");
+        var itemReference = stableMethod.Body!.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(identifier => identifier.Identifier.ValueText == "item");
+
+        root.ToFullString().ShouldBe(source);
+        root.FullSpan.Length.ShouldBe(source.Length);
+        stableMethod.Identifier.Span.Start.ShouldBe(source.IndexOf("Stable", StringComparison.Ordinal));
+        itemReference.Identifier.Span.Start.ShouldBe(source.LastIndexOf("item", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void SkipUntil_StopsAtClosingBrace_WhenInsideBlock()
     {

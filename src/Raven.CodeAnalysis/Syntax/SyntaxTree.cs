@@ -5,6 +5,30 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Syntax;
 
+internal enum IncrementalParseFallbackReason
+{
+    None,
+    ConditionalDirectives,
+    ExistingRecoverySyntax,
+    ChangePolicy,
+    NodeParseFailure,
+    NewRecoverySyntax,
+    ReconstructedTextMismatch
+}
+
+internal sealed class IncrementalParseFallbackException : InvalidOperationException
+{
+    internal IncrementalParseFallbackException(
+        IncrementalParseFallbackReason reason,
+        string filePath)
+        : base($"Incremental parsing required a full-document fallback for '{filePath}': {reason}.")
+    {
+        Reason = reason;
+    }
+
+    internal IncrementalParseFallbackReason Reason { get; }
+}
+
 public partial class SyntaxTree
 {
     internal const int IncrementalParseMaxChangeLength = 4096;
@@ -26,6 +50,7 @@ public partial class SyntaxTree
     public bool HasCompilationUnit => _compilationUnit is not null;
     public int Length => _sourceText.Length;
     public ParseOptions Options => _options;
+    internal IncrementalParseFallbackReason IncrementalParseFallbackReason { get; private set; }
 
     public CompilationUnitSyntax GetRoot(CancellationToken cancellationToken = default) =>
         _compilationUnit ?? throw new InvalidOperationException("The syntax root has not been attached.");
@@ -207,15 +232,15 @@ public partial class SyntaxTree
         if (changeRanges.Count == 0)
             return this;
 
+        var root = GetRoot();
+
         if (ContainsConditionalDirectives(oldText) || ContainsConditionalDirectives(newText))
-            return ParseText(newText, _options, FilePath);
+            return ParseTextWithFallback(newText, IncrementalParseFallbackReason.ConditionalDirectives);
 
         if (ShouldFullyReparseChangedText(oldText, newText, changeRanges))
-            return ParseText(newText, _options, FilePath);
+            return ParseTextWithFallback(newText, IncrementalParseFallbackReason.ChangePolicy);
 
         var changes = newText.GetTextChanges(oldText);
-
-        var root = GetRoot();
 
         CompilationUnitSyntax newCompilationUnit = root;
         var updatedDiagnostics = GetDiagnostics()
@@ -225,7 +250,7 @@ public partial class SyntaxTree
                 diagnostic.GetMessageArgs()))
             .ToList();
 
-        bool reparse = false;
+        var fallbackReason = IncrementalParseFallbackReason.None;
 
         foreach (var change in changes)
         {
@@ -234,29 +259,45 @@ public partial class SyntaxTree
             if (changedNode is null)
                 continue;
 
+            // Recovery nodes can own text outside the construct that originally
+            // triggered them. Only edits whose replacement region contains recovery
+            // syntax need the conservative full-document parse; unrelated malformed
+            // siblings must not defeat incremental identity reuse.
+            if (ContainsRecoverySyntax(changedNode))
+            {
+                fallbackReason = IncrementalParseFallbackReason.ExistingRecoverySyntax;
+                break;
+            }
+
             var parseResult = ParseNodeFromText(change.Span, newText, changedNode);
 
             if (parseResult is null)
             {
                 // Failed to resolve target syntax type
-                reparse = true;
+                fallbackReason = IncrementalParseFallbackReason.NodeParseFailure;
+                break;
+            }
+
+            if (ContainsRecoverySyntax(parseResult.Value.Node))
+            {
+                fallbackReason = IncrementalParseFallbackReason.NewRecoverySyntax;
                 break;
             }
 
             newCompilationUnit = newCompilationUnit
-                .ReplaceNode(changedNode, parseResult.Value.Node);
+                .ReplaceNode(parseResult.Value.ReplacedNode, parseResult.Value.Node);
 
             updatedDiagnostics = UpdateDiagnostics(
                 updatedDiagnostics,
-                changedNode.FullSpan,
+                parseResult.Value.ReplacedNode.FullSpan,
                 change,
                 parseResult.Value.Diagnostics);
         }
 
-        if (reparse)
+        if (fallbackReason != IncrementalParseFallbackReason.None)
         {
             // Fallback: Reparse the entire tree
-            return ParseText(newText, _options, FilePath);
+            return ParseTextWithFallback(newText, fallbackReason);
         }
 
         var updatedTree = Create(
@@ -267,10 +308,25 @@ public partial class SyntaxTree
             updatedDiagnostics.OrderBy(static diagnostic => diagnostic.Span.Start));
         if (!string.Equals(updatedTree.GetRoot().ToFullString(), newText.ToString(), StringComparison.Ordinal))
         {
-            return ParseText(newText, _options, FilePath);
+            return ParseTextWithFallback(newText, IncrementalParseFallbackReason.ReconstructedTextMismatch);
         }
 
         return updatedTree;
+    }
+
+    private static bool ContainsRecoverySyntax(SyntaxNode node)
+        => node.DescendantNodesAndSelf().Any(static descendant => descendant.IsMissing) ||
+           node.DescendantTokens().Any(static token => token.IsMissing) ||
+           node.DescendantTrivia().Any(static trivia => trivia.Kind == SyntaxKind.SkippedTokensTrivia);
+
+    private SyntaxTree ParseTextWithFallback(SourceText newText, IncrementalParseFallbackReason reason)
+    {
+        if (_options.ThrowOnIncrementalParseFallback)
+            throw new IncrementalParseFallbackException(reason, FilePath);
+
+        var tree = ParseText(newText, _options, FilePath);
+        tree.IncrementalParseFallbackReason = reason;
+        return tree;
     }
 
     private static List<InternalSyntax.DiagnosticInfo> UpdateDiagnostics(
@@ -353,67 +409,57 @@ public partial class SyntaxTree
 
     private IncrementalParseResult? ParseNodeFromText(TextSpan changeSpan, SourceText newText, SyntaxNode nodeToReplace)
     {
-        Type requestedSyntaxType;
-
-        if (changeSpan.Length == 0)
+        for (var candidate = nodeToReplace; candidate.Parent is not null; candidate = candidate.Parent)
         {
-            requestedSyntaxType = nodeToReplace.GetType();
-        }
-        else
-        {
-            var parent = nodeToReplace.Parent;
+            Type requestedSyntaxType;
+            var parent = candidate.Parent;
 
-            if (parent is null)
+            if (changeSpan.Length == 0 && ReferenceEquals(candidate, nodeToReplace))
             {
-                return null;
+                requestedSyntaxType = candidate.GetType();
             }
-
-            if (parent is TypeDeclarationSyntax && nodeToReplace is MemberDeclarationSyntax)
+            else if (parent is TypeDeclarationSyntax && candidate is MemberDeclarationSyntax)
             {
                 // A standalone MemberDeclaration parse has compilation-unit context and may
                 // classify a method-shaped declaration as a global statement. Preserve the
                 // concrete member category while reparsing inside a type. If an edit truly
                 // changes the declaration category, the type check below triggers the safe
                 // full-tree fallback.
-                requestedSyntaxType = nodeToReplace.GetType();
+                requestedSyntaxType = candidate.GetType();
             }
             else if (parent is BlockStatementSyntax)
             {
-                //block.ReplaceNode(nodeToReplace, );
-
                 requestedSyntaxType = typeof(StatementSyntax);
             }
             else
             {
-                requestedSyntaxType = parent.GetPropertyTypeForChild(nodeToReplace)!;
+                var childType = parent.GetPropertyTypeForChild(candidate);
+                if (childType is null)
+                    continue;
+
+                requestedSyntaxType = childType;
             }
+
+            var parser = new InternalSyntax.Parser.LanguageParser(string.Empty, _options);
+            var parseResult = parser.ParseSyntaxWithDiagnostics(
+                requestedSyntaxType,
+                newText,
+                candidate.FullSpan.Start);
+            if (parseResult is null)
+                continue;
+
+            var newNode = parseResult.Value.Root.CreateRed();
+            if (!requestedSyntaxType.IsInstanceOfType(newNode) || newNode.IsMissing)
+                continue;
+
+            return new IncrementalParseResult(candidate, newNode, parseResult.Value.Diagnostics);
         }
 
-        var position = nodeToReplace.FullSpan.Start;
-
-        var parser = new InternalSyntax.Parser.LanguageParser(string.Empty, _options);
-
-        var parseResult = parser.ParseSyntaxWithDiagnostics(requestedSyntaxType, newText, position);
-        if (parseResult is null)
-        {
-            return null;
-        }
-
-        var newNode = parseResult.Value.Root.CreateRed();
-        if (!requestedSyntaxType.IsInstanceOfType(newNode))
-        {
-            return null;
-        }
-
-        if (newNode.IsMissing)
-        {
-            return null;
-        }
-
-        return new IncrementalParseResult(newNode, parseResult.Value.Diagnostics);
+        return null;
     }
 
     private readonly record struct IncrementalParseResult(
+        SyntaxNode ReplacedNode,
         SyntaxNode Node,
         IReadOnlyList<InternalSyntax.DiagnosticInfo> Diagnostics);
 }

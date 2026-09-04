@@ -80,3 +80,38 @@ While this approach simplifies handling such scenarios, there is room for future
 
 Additional factors must be accounted for, such as determining when it’s necessary to re-parse the entire syntax tree.
 
+## Fallback policy and stabilization
+
+Incremental parsing is an optimization; a fallback must produce the same syntax
+and diagnostics as parsing the current document from scratch. Released editor
+hosts therefore reparse the complete document when the incremental parser cannot
+safely update a fragment. The resulting tree records a reason such as an existing
+recovery node, a fragment parse failure, or a reconstructed-text mismatch. The
+language server logs that reason together with the document and project versions
+so fallback frequency and reproducible edit sequences remain visible during
+stabilization.
+
+Compiler tests can set the internal
+`ParseOptions.ThrowOnIncrementalParseFallback` option. In that strict mode a
+required fallback throws `IncrementalParseFallbackException`, including its
+reason, instead of reparsing. Use strict mode in focused incremental tests to
+surface unexpected fallback paths; keep ordinary product and parity tests in the
+default resilient mode to verify that users still receive authoritative results.
+
+### Ownership boundaries
+
+`SyntaxTree.WithChangedText` owns syntax integration. It first widens an edit to
+the nearest ancestor that the fragment parser can parse and replace exactly. If
+that still cannot reconstruct the current source, the syntax tree owns the
+full-document parse. Workspace and editor code must not duplicate this decision.
+
+The workspace owns immutable document and project snapshots and tells the
+compilation which trees changed or were reused. The compilation owns semantic
+state transfer and invalidation: unchanged trees and matched executable owners
+may retain reusable descriptors, while declaration-sensitive changes block
+unsafe transfer and are rebound lazily. A syntax fallback does not by itself
+justify reparsing or eagerly rebinding the entire solution.
+
+The language server is an observer at this boundary. It logs the compiler-owned
+fallback reason and presents the resulting diagnostics and semantic answers; it
+does not select parse regions or bypass compiler binding APIs.

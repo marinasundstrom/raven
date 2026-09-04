@@ -82,7 +82,7 @@ public struct SyntaxTrivia
     {
         if (HasStructure)
         {
-            return GetStructure()!.ToString();
+            return GetStructure()!.ToFullString();
         }
         return Text;
     }

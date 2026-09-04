@@ -180,15 +180,33 @@ public class IncrementalSyntaxTreeUpdatesTest(ITestOutputHelper output)
 
             """;
 
-        foreach (var character in insertedText)
+        for (var index = 0; index < insertedText.Length; index++)
         {
+            var character = insertedText[index];
             text = text.Replace(insertionPosition, 0, character.ToString());
             tree = tree.WithChangedText(text);
             insertionPosition++;
 
             var fullParse = SyntaxTree.ParseText(text);
-            AssertEquivalentSyntaxAndDiagnostics(fullParse, tree);
+            try
+            {
+                AssertEquivalentSyntaxAndDiagnostics(fullParse, tree);
+            }
+            catch
+            {
+                output.WriteLine($"Mismatch after character {index}: {FormatCharacter(character)}");
+                output.WriteLine(text.ToString());
+                throw;
+            }
         }
+
+        static string FormatCharacter(char character) => character switch
+        {
+            '\n' => "\\n",
+            '\r' => "\\r",
+            '\t' => "\\t",
+            _ => character.ToString()
+        };
     }
 
     [Fact]
@@ -553,9 +571,10 @@ union RepositoryError {
         var incrementalTree = tree.WithChangedText(updated);
         var fullParse = SyntaxTree.ParseText(updated);
 
+        AssertEquivalentSyntaxAndDiagnostics(fullParse, incrementalTree);
         Assert.Equal(
-            fullParse.GetRoot().ToFullString(),
-            incrementalTree.GetRoot().ToFullString());
+            IncrementalParseFallbackReason.None,
+            incrementalTree.IncrementalParseFallbackReason);
     }
 
     [Fact]
@@ -578,9 +597,97 @@ union RepositoryError {
         var incrementalTree = tree.WithChangedText(updated);
         var fullParse = SyntaxTree.ParseText(updated);
 
+        AssertEquivalentSyntaxAndDiagnostics(fullParse, incrementalTree);
         Assert.Equal(
-            fullParse.GetRoot().ToFullString(),
-            incrementalTree.GetRoot().ToFullString());
+            IncrementalParseFallbackReason.None,
+            incrementalTree.IncrementalParseFallbackReason);
+    }
+
+    [Fact]
+    public void EditProducingSkippedTokens_RecordsNewRecoveryFallback()
+    {
+        var original = SourceText.From(
+            """
+            func Compute(value: int) -> int {
+                let answer = value
+                return answer
+            }
+            """);
+        var insertionPosition = original.ToString().IndexOf("value\n", StringComparison.Ordinal);
+        var updated = original.Replace(insertionPosition, 0, "]");
+
+        var incrementalTree = SyntaxTree.ParseText(original).WithChangedText(updated);
+        var fullParse = SyntaxTree.ParseText(updated);
+
+        AssertEquivalentSyntaxAndDiagnostics(fullParse, incrementalTree);
+        Assert.Equal(
+            IncrementalParseFallbackReason.NewRecoverySyntax,
+            incrementalTree.IncrementalParseFallbackReason);
+    }
+
+    [Fact]
+    public void StrictIncrementalParsing_ThrowsWithFallbackReason()
+    {
+        var original = SourceText.From(
+            """
+            func Compute(value: int) -> int {
+                return value
+            }
+            """);
+        var insertionPosition = original.ToString().IndexOf("value\n", StringComparison.Ordinal);
+        var updated = original.Replace(insertionPosition, 0, "]");
+        var options = new ParseOptions
+        {
+            ThrowOnIncrementalParseFallback = true
+        };
+        var tree = SyntaxTree.ParseText(original, options);
+
+        var exception = Assert.Throws<IncrementalParseFallbackException>(() => tree.WithChangedText(updated));
+
+        Assert.Equal(IncrementalParseFallbackReason.NewRecoverySyntax, exception.Reason);
+        Assert.Contains("NewRecoverySyntax", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StrictIncrementalParsing_AllowsCommonDeveloperEditsWithoutFallback()
+    {
+        var options = new ParseOptions
+        {
+            ThrowOnIncrementalParseFallback = true
+        };
+        var text = SourceText.From(
+            """
+            func Compute(value: int) -> int {
+                let baseValue = value + 1
+                let answer = baseValue * 2
+                return answer
+            }
+            """);
+        string[] snapshots =
+        [
+            text.ToString().Replace("value + 1", "value  + 1", StringComparison.Ordinal),
+            text.ToString().Replace("value + 1", "value + 2", StringComparison.Ordinal),
+            text.ToString().Replace("baseValue * 2", "baseValue * 3", StringComparison.Ordinal)
+        ];
+
+        foreach (var snapshot in snapshots)
+        {
+            var updated = SourceText.From(snapshot);
+            SyntaxTree tree;
+            try
+            {
+                tree = SyntaxTree.ParseText(text, options).WithChangedText(updated);
+            }
+            catch (IncrementalParseFallbackException exception)
+            {
+                throw new InvalidOperationException(
+                    $"Common edit unexpectedly required {exception.Reason}:\n{snapshot}",
+                    exception);
+            }
+
+            Assert.Equal(IncrementalParseFallbackReason.None, tree.IncrementalParseFallbackReason);
+            AssertEquivalentSyntaxAndDiagnostics(SyntaxTree.ParseText(updated, options), tree);
+        }
     }
 
     [Fact]
