@@ -156,6 +156,206 @@ public sealed class MsBuildProjectSystemServiceTests
     }
 
     [Fact]
+    public void EvaluationCache_ProjectGraphLoad_EvaluatesEachProjectOncePerLifecycle()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var (appProjectPath, _) = WriteProjectGraph(root);
+            var instrumentation = new ProjectSystemPerformanceInstrumentation();
+            var service = new MsBuildProjectSystemService(
+                RavenProjectConventions.Default,
+                resolvePackageReferences: false,
+                instrumentation);
+
+            Assert.Single(service.GetProjectReferencePaths(appProjectPath));
+            var firstWorkspace = RavenWorkspace.Create(
+                targetFramework: TestMetadataReferences.TargetFramework,
+                projectSystemService: service);
+            firstWorkspace.OpenProject(appProjectPath);
+
+            var cold = instrumentation.CaptureSnapshot();
+            Assert.Equal(4, cold.EvaluationRequests);
+            Assert.Equal(2, cold.Evaluations);
+            Assert.Equal(2, cold.EvaluationCacheHits);
+            Assert.Equal(0, cold.EvaluationCacheInvalidations);
+            Assert.Equal(0, cold.EvaluationFailures);
+
+            Assert.Single(service.GetProjectReferencePaths(appProjectPath));
+            var secondWorkspace = RavenWorkspace.Create(
+                targetFramework: TestMetadataReferences.TargetFramework,
+                projectSystemService: service);
+            secondWorkspace.OpenProject(appProjectPath);
+
+            var warm = instrumentation.CaptureSnapshot();
+            Assert.Equal(8, warm.EvaluationRequests);
+            Assert.Equal(4, warm.Evaluations);
+            Assert.Equal(4, warm.EvaluationCacheHits);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void EvaluationCache_NewServiceStartsCold()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var (appProjectPath, _) = WriteProjectGraph(root);
+            var firstService = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var secondService = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+
+            Assert.Single(firstService.GetProjectReferencePaths(appProjectPath));
+            Assert.Single(secondService.GetProjectReferencePaths(appProjectPath));
+
+            Assert.Equal(1, firstService.PerformanceInstrumentation.CaptureSnapshot().Evaluations);
+            Assert.Equal(1, secondService.PerformanceInstrumentation.CaptureSnapshot().Evaluations);
+            Assert.Equal(0, secondService.PerformanceInstrumentation.CaptureSnapshot().EvaluationCacheHits);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void EvaluationCache_ProjectEdit_InvalidatesCachedEvaluation()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var (appProjectPath, libraryProjectPath) = WriteProjectGraph(root);
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+
+            Assert.Single(service.GetProjectReferencePaths(appProjectPath));
+            File.WriteAllText(appProjectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>EditedApplication</AssemblyName>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            Assert.Empty(service.GetProjectReferencePaths(appProjectPath));
+            var snapshot = service.PerformanceInstrumentation.CaptureSnapshot();
+            Assert.Equal(2, snapshot.Evaluations);
+            Assert.Equal(1, snapshot.EvaluationCacheInvalidations);
+            Assert.DoesNotContain(
+                service.GetProjectReferencePaths(appProjectPath),
+                path => PathsEqual(path, libraryProjectPath));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void EvaluationCache_ImportedProjectEdit_InvalidatesCachedEvaluation()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var sourcePath = Path.Combine(root, "main.rvn");
+            var importPath = Path.Combine(root, "Project.Options.props");
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(sourcePath, "class C { }");
+            File.WriteAllText(importPath, "<Project><PropertyGroup><AssemblyName>Before</AssemblyName></PropertyGroup></Project>");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+                  <Import Project="Project.Options.props" />
+                </Project>
+                """);
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+
+            service.GetProjectReferencePaths(projectPath);
+            File.WriteAllText(importPath, "<Project><PropertyGroup><AssemblyName>AfterX</AssemblyName></PropertyGroup></Project>");
+            service.GetProjectReferencePaths(projectPath);
+
+            var snapshot = service.PerformanceInstrumentation.CaptureSnapshot();
+            Assert.Equal(2, snapshot.Evaluations);
+            Assert.Equal(1, snapshot.EvaluationCacheInvalidations);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void EvaluationCache_SourceEdit_InvalidatesCachedDocumentText()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var sourcePath = Path.Combine(root, "main.rvn");
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(sourcePath, "class Before { }");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+                </Project>
+                """);
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            Assert.Empty(service.GetProjectReferencePaths(projectPath));
+            var firstWorkspace = RavenWorkspace.Create(
+                targetFramework: TestMetadataReferences.TargetFramework,
+                projectSystemService: service);
+
+            File.WriteAllText(sourcePath, "class AfterX { }");
+            var projectId = firstWorkspace.OpenProject(projectPath);
+
+            Assert.Contains("AfterX", firstWorkspace.CurrentSolution.GetProject(projectId)!.Documents.Single(static document => document.Name == "main.rvn").Text.ToString());
+            var snapshot = service.PerformanceInstrumentation.CaptureSnapshot();
+            Assert.Equal(2, snapshot.Evaluations);
+            Assert.Equal(1, snapshot.EvaluationCacheInvalidations);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
+    public void EvaluationCache_FailedEvaluation_IsRetriedAfterProjectRepair()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+                  <ItemGroup><RavenMacro Include="Old.rvnproj" /></ItemGroup>
+                </Project>
+                """);
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+
+            Assert.Throws<InvalidDataException>(() => service.GetProjectReferencePaths(projectPath));
+            File.WriteAllText(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+                </Project>
+                """);
+
+            Assert.Empty(service.GetProjectReferencePaths(projectPath));
+            var snapshot = service.PerformanceInstrumentation.CaptureSnapshot();
+            Assert.Equal(2, snapshot.Evaluations);
+            Assert.Equal(1, snapshot.EvaluationFailures);
+            Assert.Equal(0, snapshot.EvaluationCacheHits);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Fact]
     public void OpenProject_MsBuildProject_LoadsCompileItemsAndOptions()
     {
         var root = CreateTempDirectory();
@@ -1531,6 +1731,33 @@ func Main() {
         var directory = Path.Combine(Path.GetTempPath(), "raven-msbuild-project-system-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         return directory;
+    }
+
+    private static (string AppProjectPath, string LibraryProjectPath) WriteProjectGraph(string root)
+    {
+        var libraryDirectory = Path.Combine(root, "Library");
+        var appDirectory = Path.Combine(root, "App");
+        Directory.CreateDirectory(libraryDirectory);
+        Directory.CreateDirectory(appDirectory);
+        File.WriteAllText(Path.Combine(libraryDirectory, "library.rvn"), "public class LibraryType { }");
+        File.WriteAllText(Path.Combine(appDirectory, "main.rvn"), "class Application { }");
+
+        var libraryProjectPath = Path.Combine(libraryDirectory, "Library.rvnproj");
+        File.WriteAllText(libraryProjectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        var appProjectPath = Path.Combine(appDirectory, "App.rvnproj");
+        File.WriteAllText(appProjectPath, $$"""
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup>
+                <ProjectReference Include="{{Path.GetRelativePath(appDirectory, libraryProjectPath)}}" />
+              </ItemGroup>
+            </Project>
+            """);
+        return (appProjectPath, libraryProjectPath);
     }
 
     private static void DeleteDirectoryIfExists(string path)

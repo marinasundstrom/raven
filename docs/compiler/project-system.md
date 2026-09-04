@@ -572,6 +572,31 @@ project files.
 - `MsBuildProjectSystemService` opens Raven projects authored as MSBuild-backed `.rvnproj` files.
 - `RavenWorkspace.Create(..., projectSystemService: ...)` still allows overriding the project-system implementation explicitly.
 
+During one project-loading lifecycle, `MsBuildProjectSystemService` reuses an
+evaluated project snapshot across reference discovery, graph traversal, and
+nested Raven compiler-plugin loading. Cache entries are keyed by project,
+target framework, and configuration and validate the project, imported MSBuild
+files, and source inputs before reuse. The cache is cleared after the graph is
+opened so a later reload starts a fresh lifecycle. Hosts can inspect
+`PerformanceInstrumentation.CaptureSnapshot()` on the service for evaluation
+request, execution, hit, invalidation, failure, and elapsed-time measurements.
+
+When a source compiler-plugin project changes, the language server emits a
+shadow macro assembly for its consumers. Shadow outputs are keyed by the full
+compiler input snapshot—including source and generated trees, parse and
+compilation options, referenced-project inputs, metadata file fingerprints,
+and the compiler build identity. An unchanged snapshot reuses its existing DLL
+and PDB without running emit again, including after restarting the language
+server.
+
+File-backed macro references also share the loaded assembly and its discovered
+exports across projects and compilation snapshots when the plugin assembly and
+explicit dependency contents match. Each reference creates fresh macro
+instances, and the shared export entry is weak so an unused collectible plugin
+load context can be reclaimed. Replacing the plugin or any explicit dependency
+selects a new load context; a failed load is never retained as a successful
+cache entry.
+
 ### MSBuild-backed Raven projects
 
 The workspace loads `.rvnproj` projects and MSBuild projects whose evaluated

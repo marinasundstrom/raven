@@ -259,6 +259,15 @@ internal static class MsBuildProjectEvaluator
             LocalMacroSyntaxClassifier.IsCompilerPluginTree(
                 SyntaxTree.ParseText(document.Text, path: document.FilePath ?? document.Name))) ||
             managedSourcePaths.Any(IsCSharpCompilerPluginSource);
+        var evaluationInputPaths = project.Imports
+            .Select(static import => import.ImportedProject.FullPath)
+            .Append(projectFilePath)
+            .Concat(documents.Select(static document => document.FilePath))
+            .Concat(managedSourcePaths)
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Select(static path => Path.GetFullPath(path!))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
 
         return new MsBuildProjectEvaluationResult(
             name,
@@ -282,7 +291,8 @@ internal static class MsBuildProjectEvaluator
             documentationOptions,
             isCompilerPlugin,
             parseOptions,
-            useHostFrameworkReferences);
+            useHostFrameworkReferences,
+            evaluationInputPaths);
     }
 
     private static bool IsCSharpCompilerPluginSource(string sourcePath)
@@ -579,4 +589,5 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     ProjectDocumentationOptions DocumentationOptions,
     bool IsCompilerPlugin,
     ParseOptions ParseOptions,
-    bool UseHostFrameworkReferences);
+    bool UseHostFrameworkReferences,
+    ImmutableArray<string> EvaluationInputPaths);

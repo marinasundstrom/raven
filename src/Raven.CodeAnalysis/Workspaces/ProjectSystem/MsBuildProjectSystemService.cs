@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Xml.Linq;
 
 using Raven.CodeAnalysis.Macros;
@@ -24,6 +26,9 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     private readonly bool? _useHostFrameworkReferences;
     private readonly ProjectReferenceLoadMode _projectReferenceLoadMode;
     private readonly string[] _compilerSupportReferencePaths;
+    private readonly ProjectSystemPerformanceInstrumentation _performanceInstrumentation;
+    private readonly Dictionary<ProjectEvaluationCacheKey, ProjectEvaluationCacheEntry> _evaluationCache = [];
+    private readonly object _evaluationCacheGate = new();
 
     public MsBuildProjectSystemService()
         : this(RavenProjectConventions.Default, resolvePackageReferences: true)
@@ -50,12 +55,52 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     public MsBuildProjectSystemService(
         RavenProjectConventions conventions,
         bool resolvePackageReferences,
+        ProjectSystemPerformanceInstrumentation performanceInstrumentation)
+        : this(
+            conventions,
+            resolvePackageReferences,
+            requestedConfiguration: null,
+            requestedTargetFramework: null,
+            useHostFrameworkReferences: null,
+            compilerSupportReferencePaths: null,
+            allowPackageRestore: true,
+            projectReferenceLoadMode: ProjectReferenceLoadMode.Source,
+            performanceInstrumentation: performanceInstrumentation)
+    {
+    }
+
+    public MsBuildProjectSystemService(
+        RavenProjectConventions conventions,
+        bool resolvePackageReferences,
         string? requestedConfiguration,
         string? requestedTargetFramework,
         bool? useHostFrameworkReferences = null,
         IEnumerable<string>? compilerSupportReferencePaths = null,
         bool allowPackageRestore = true,
         ProjectReferenceLoadMode projectReferenceLoadMode = ProjectReferenceLoadMode.Source)
+        : this(
+            conventions,
+            resolvePackageReferences,
+            requestedConfiguration,
+            requestedTargetFramework,
+            useHostFrameworkReferences,
+            compilerSupportReferencePaths,
+            allowPackageRestore,
+            projectReferenceLoadMode,
+            new ProjectSystemPerformanceInstrumentation())
+    {
+    }
+
+    private MsBuildProjectSystemService(
+        RavenProjectConventions conventions,
+        bool resolvePackageReferences,
+        string? requestedConfiguration,
+        string? requestedTargetFramework,
+        bool? useHostFrameworkReferences,
+        IEnumerable<string>? compilerSupportReferencePaths,
+        bool allowPackageRestore,
+        ProjectReferenceLoadMode projectReferenceLoadMode,
+        ProjectSystemPerformanceInstrumentation performanceInstrumentation)
     {
         _conventions = conventions ?? throw new ArgumentNullException(nameof(conventions));
         _resolvePackageReferences = resolvePackageReferences;
@@ -64,6 +109,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         _requestedTargetFramework = requestedTargetFramework;
         _useHostFrameworkReferences = useHostFrameworkReferences;
         _projectReferenceLoadMode = projectReferenceLoadMode;
+        _performanceInstrumentation = performanceInstrumentation;
         _compilerSupportReferencePaths = compilerSupportReferencePaths?
             .Where(static path => !string.IsNullOrWhiteSpace(path))
             .Select(Path.GetFullPath)
@@ -71,6 +117,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray() ?? [];
     }
+
+    public ProjectSystemPerformanceInstrumentation PerformanceInstrumentation => _performanceInstrumentation;
 
     public bool CanOpenProject(string projectFilePath)
     {
@@ -98,20 +146,32 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         if (workspace is not RavenWorkspace raven)
             throw new NotSupportedException("Project persistence requires a RavenWorkspace.");
 
-        var (solution, projectId) = LoadProjectGraph(
-            raven,
-            workspace.CurrentSolution,
-            projectFilePath,
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-        workspace.TryApplyChanges(solution);
-        return projectId;
+        try
+        {
+            var (solution, projectId) = LoadProjectGraph(
+                raven,
+                workspace.CurrentSolution,
+                projectFilePath,
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                _requestedTargetFramework,
+                _requestedConfiguration);
+            workspace.TryApplyChanges(solution);
+            return projectId;
+        }
+        finally
+        {
+            lock (_evaluationCacheGate)
+                _evaluationCache.Clear();
+        }
     }
 
     private (Solution Solution, ProjectId ProjectId) LoadProjectGraph(
         RavenWorkspace raven,
         Solution solution,
         string projectFilePath,
-        HashSet<string> loadingProjectPaths)
+        HashSet<string> loadingProjectPaths,
+        string? requestedTargetFramework,
+        string? requestedConfiguration)
     {
         var normalizedProjectPath = Path.GetFullPath(projectFilePath);
         if (!loadingProjectPaths.Add(normalizedProjectPath))
@@ -126,7 +186,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         }
 
         MsBuildLocatorRegistration.EnsureRegistered();
-        var evaluation = EvaluateProject(projectFilePath);
+        var evaluation = EvaluateProject(projectFilePath, requestedTargetFramework, requestedConfiguration);
         var projectId = ProjectId.CreateNew(solution.Id);
         solution = solution.AddProject(
             projectId,
@@ -207,9 +267,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 
         foreach (var referencedProjectPath in evaluation.ProjectReferencePaths)
         {
-            var referencedEvaluation = MsBuildProjectEvaluator.Evaluate(
+            var referencedEvaluation = EvaluateProject(
                 referencedProjectPath,
-                _conventions,
                 evaluation.TargetFramework,
                 evaluation.Configuration);
             if (referencedEvaluation.IsCompilerPlugin)
@@ -265,7 +324,9 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
                     raven,
                     solution,
                     referencedProjectPath,
-                    loadingProjectPaths);
+                    loadingProjectPaths,
+                    evaluation.TargetFramework,
+                    evaluation.Configuration);
                 solution = loadedGraph.Solution;
                 var loadedProjectId = loadedGraph.ProjectId;
                 solution = solution.AddProjectReference(projectId, new ProjectReference(loadedProjectId));
@@ -439,9 +500,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         MsBuildProjectEvaluationResult requestingProject,
         RavenWorkspace workspace)
     {
-        var macroEvaluation = MsBuildProjectEvaluator.Evaluate(
+        var macroEvaluation = EvaluateProject(
             projectFilePath,
-            _conventions,
             requestingProject.TargetFramework,
             requestingProject.Configuration);
         var effectiveTargetFramework = macroEvaluation.TargetFramework ?? requestingProject.TargetFramework ?? workspace.DefaultTargetFramework;
@@ -452,14 +512,24 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         {
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
+            var macroProjectSystem = new MsBuildProjectSystemService(
+                _conventions,
+                resolvePackageReferences: true,
+                requestedConfiguration: macroEvaluation.Configuration,
+                requestedTargetFramework: effectiveTargetFramework,
+                useHostFrameworkReferences: null,
+                compilerSupportReferencePaths: _compilerSupportReferencePaths,
+                allowPackageRestore: true,
+                projectReferenceLoadMode: ProjectReferenceLoadMode.Source,
+                performanceInstrumentation: _performanceInstrumentation);
+            macroProjectSystem.CacheEvaluation(
+                projectFilePath,
+                macroEvaluation.TargetFramework,
+                macroEvaluation.Configuration,
+                macroEvaluation);
             var macroWorkspace = RavenWorkspace.Create(
                 targetFramework: requestingProject.TargetFramework ?? workspace.DefaultTargetFramework,
-                projectSystemService: new MsBuildProjectSystemService(
-                    _conventions,
-                    resolvePackageReferences: true,
-                    requestedConfiguration: macroEvaluation.Configuration,
-                    requestedTargetFramework: effectiveTargetFramework,
-                    compilerSupportReferencePaths: _compilerSupportReferencePaths));
+                projectSystemService: macroProjectSystem);
 
             var macroProjectId = macroWorkspace.OpenProject(projectFilePath);
             var macroProject = macroWorkspace.CurrentSolution.GetProject(macroProjectId)!;
@@ -622,11 +692,121 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     }
 
     private MsBuildProjectEvaluationResult EvaluateProject(string projectFilePath)
-        => MsBuildProjectEvaluator.Evaluate(
+        => EvaluateProject(projectFilePath, _requestedTargetFramework, _requestedConfiguration);
+
+    private MsBuildProjectEvaluationResult EvaluateProject(
+        string projectFilePath,
+        string? requestedTargetFramework,
+        string? requestedConfiguration)
+    {
+        var key = ProjectEvaluationCacheKey.Create(
             projectFilePath,
-            _conventions,
-            _requestedTargetFramework,
-            _requestedConfiguration);
+            requestedTargetFramework,
+            requestedConfiguration);
+        _performanceInstrumentation.RecordEvaluationRequest();
+
+        lock (_evaluationCacheGate)
+        {
+            if (_evaluationCache.TryGetValue(key, out var cached))
+            {
+                if (cached.IsCurrent())
+                {
+                    _performanceInstrumentation.RecordEvaluationCacheHit();
+                    return cached.Evaluation;
+                }
+
+                _evaluationCache.Remove(key);
+                _performanceInstrumentation.RecordEvaluationCacheInvalidation();
+            }
+
+            var started = Stopwatch.GetTimestamp();
+            try
+            {
+                var evaluation = MsBuildProjectEvaluator.Evaluate(
+                    key.ProjectFilePath,
+                    _conventions,
+                    requestedTargetFramework,
+                    requestedConfiguration);
+                CacheEvaluation(key, evaluation);
+                return evaluation;
+            }
+            catch
+            {
+                _performanceInstrumentation.RecordEvaluationFailure();
+                throw;
+            }
+            finally
+            {
+                _performanceInstrumentation.RecordEvaluation(Stopwatch.GetTimestamp() - started);
+            }
+        }
+    }
+
+    private void CacheEvaluation(
+        string projectFilePath,
+        string? requestedTargetFramework,
+        string? requestedConfiguration,
+        MsBuildProjectEvaluationResult evaluation)
+    {
+        var key = ProjectEvaluationCacheKey.Create(
+            projectFilePath,
+            requestedTargetFramework,
+            requestedConfiguration);
+        lock (_evaluationCacheGate)
+            CacheEvaluation(key, evaluation);
+    }
+
+    private void CacheEvaluation(ProjectEvaluationCacheKey key, MsBuildProjectEvaluationResult evaluation)
+        => _evaluationCache[key] = ProjectEvaluationCacheEntry.Create(evaluation);
+
+    private readonly record struct ProjectEvaluationCacheKey(
+        string ProjectFilePath,
+        string? TargetFramework,
+        string? Configuration)
+    {
+        public static ProjectEvaluationCacheKey Create(
+            string projectFilePath,
+            string? targetFramework,
+            string? configuration)
+            => new(
+                Path.GetFullPath(projectFilePath),
+                Normalize(targetFramework),
+                Normalize(configuration));
+
+        private static string? Normalize(string? value)
+            => string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
+    }
+
+    private sealed record ProjectEvaluationCacheEntry(
+        MsBuildProjectEvaluationResult Evaluation,
+        FileStamp[] InputStamps)
+    {
+        public static ProjectEvaluationCacheEntry Create(MsBuildProjectEvaluationResult evaluation)
+            => new(
+                evaluation,
+                evaluation.EvaluationInputPaths.Select(FileStamp.Create).ToArray());
+
+        public bool IsCurrent()
+            => InputStamps.All(static stamp => stamp.IsCurrent());
+    }
+
+    private readonly record struct FileStamp(string Path, string? ContentHash)
+    {
+        public static FileStamp Create(string path)
+            => new(path, ComputeContentHash(path));
+
+        public bool IsCurrent()
+            => string.Equals(ContentHash, ComputeContentHash(Path), StringComparison.Ordinal);
+
+        private static string? ComputeContentHash(string path)
+        {
+            if (!File.Exists(path))
+                return null;
+
+            using var stream = File.OpenRead(path);
+            return Convert.ToHexString(SHA256.HashData(stream));
+        }
+    }
 
     internal static IEnumerable<string> GetCompilerPluginRebuildInputs(MsBuildProjectEvaluationResult evaluation)
     {

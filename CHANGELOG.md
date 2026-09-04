@@ -12,6 +12,18 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 - Hovering a property or field name in an object initializer now shows the
   assigned member instead of returning no hover or only its inferred type.
+- Project-backed workspace loading now reuses MSBuild evaluation snapshots
+  across reference discovery, recursive graph loading, and nested Raven macro
+  builds. Imported project files and source changes invalidate the snapshot,
+  while evaluation counters and elapsed time are available for performance
+  verification.
+- File-backed macro references now reuse the loaded plugin assembly and export
+  discovery across consumers when the plugin and dependency content is
+  unchanged. Macro instances remain consumer-local, changed binaries load in a
+  new collectible context, and failed loads remain retryable.
+- Language-server macro refreshes now reuse persistent shadow assemblies from
+  unchanged compiler inputs instead of recompiling and only detecting the
+  cache hit after emission.
 - `RAV9037` now identifies the exact `Option` or `Result` state in which a
   partial extraction can throw, together with the cases that should be handled.
 - Hover presentation now treats types with primary constructors like every

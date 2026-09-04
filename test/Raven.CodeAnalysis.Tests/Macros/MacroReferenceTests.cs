@@ -671,6 +671,146 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void MacroReference_FromUnchangedFile_ReusesLoadedAssemblyAcrossReferences()
+    {
+        var macroImage = EmitMacroAssembly("""
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin(typeof(SharedMacro))]
+
+            class SharedMacro : IMacroDefinition {
+                val Name: string => "shared"
+                val Kind: MacroKind => MacroKind.Freestanding
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+            """);
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"RavenSharedMacro_{System.Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllBytes(assemblyPath, macroImage);
+
+            var firstReference = MacroReference.CreateFromFile(assemblyPath);
+            var first = Assert.Single(firstReference.Macros);
+            System.GC.Collect();
+            System.GC.WaitForPendingFinalizers();
+            System.GC.Collect();
+            var second = Assert.Single(MacroReference.CreateFromFile(assemblyPath).Macros);
+
+            Assert.NotSame(first, second);
+            Assert.Same(first.GetType(), second.GetType());
+            Assert.Same(first.GetType().Assembly, second.GetType().Assembly);
+            System.GC.KeepAlive(firstReference);
+        }
+        finally
+        {
+            File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void MacroReference_ConcurrentFileLoads_ShareOneAssembly()
+    {
+        var macroImage = EmitNamedMacroAssembly("concurrent");
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"RavenConcurrentMacro_{System.Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllBytes(assemblyPath, macroImage);
+            var loads = Enumerable.Range(0, 8)
+                .Select(_ => System.Threading.Tasks.Task.Run(
+                    () => Assert.Single(MacroReference.CreateFromFile(assemblyPath).Macros).GetType().Assembly))
+                .ToArray();
+
+            var assemblies = System.Threading.Tasks.Task.WhenAll(loads).GetAwaiter().GetResult();
+
+            Assert.All(assemblies, assembly => Assert.Same(assemblies[0], assembly));
+        }
+        finally
+        {
+            File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void MacroReference_ChangedFile_LoadsNewAssemblyIdentity()
+    {
+        var firstImage = EmitNamedMacroAssembly("stable");
+        var secondImage = EmitNamedMacroAssembly("stable");
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"RavenChangedMacro_{System.Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllBytes(assemblyPath, firstImage);
+            var first = Assert.Single(MacroReference.CreateFromFile(assemblyPath).Macros);
+
+            var replacementPath = assemblyPath + ".replacement";
+            File.WriteAllBytes(replacementPath, secondImage);
+            File.Delete(assemblyPath);
+            File.Move(replacementPath, assemblyPath);
+            var second = Assert.Single(MacroReference.CreateFromFile(assemblyPath).Macros);
+
+            Assert.Equal("stable", first.Name);
+            Assert.Equal("stable", second.Name);
+            Assert.NotSame(first.GetType().Assembly, second.GetType().Assembly);
+        }
+        finally
+        {
+            File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
+    public void MacroReference_ChangedExplicitDependency_LoadsNewAssemblyIdentity()
+    {
+        var macroImage = EmitNamedMacroAssembly("dependency-sensitive");
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"RavenDependencyMacro_{System.Guid.NewGuid():N}.dll");
+        var dependencyPath = Path.Combine(Path.GetTempPath(), $"RavenDependency_{System.Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllBytes(assemblyPath, macroImage);
+            File.WriteAllText(dependencyPath, "first dependency state");
+            var first = Assert.Single(MacroReference.CreateFromFile(assemblyPath, null, [dependencyPath]).Macros);
+
+            File.WriteAllText(dependencyPath, "second dependency state with different content");
+            var second = Assert.Single(MacroReference.CreateFromFile(assemblyPath, null, [dependencyPath]).Macros);
+
+            Assert.NotSame(first.GetType().Assembly, second.GetType().Assembly);
+        }
+        finally
+        {
+            File.Delete(assemblyPath);
+            File.Delete(dependencyPath);
+        }
+    }
+
+    [Fact]
+    public void MacroReference_FailedFileLoad_DoesNotPoisonReusableExports()
+    {
+        var macroImage = EmitNamedMacroAssembly("recovered");
+        var assemblyPath = Path.Combine(Path.GetTempPath(), $"RavenRecoveredMacro_{System.Guid.NewGuid():N}.dll");
+
+        try
+        {
+            File.WriteAllText(assemblyPath, "not an assembly");
+            var invalidReference = MacroReference.CreateFromFile(assemblyPath);
+            Assert.Throws<System.BadImageFormatException>(() => invalidReference.Macros);
+
+            File.WriteAllBytes(assemblyPath, macroImage);
+            var recovered = Assert.Single(MacroReference.CreateFromFile(assemblyPath).Macros);
+
+            Assert.Equal("recovered", recovered.Name);
+        }
+        finally
+        {
+            File.Delete(assemblyPath);
+        }
+    }
+
+    [Fact]
     public void Compilation_MarkedMetadataReference_AutomaticallyActivatesMacro()
     {
         var macroImage = EmitMacroAssembly("""
@@ -1109,4 +1249,19 @@ public sealed class MacroReferenceTests
         Assert.True(macroEmit.Success, string.Join(System.Environment.NewLine, macroEmit.Diagnostics));
         return macroImage.ToArray();
     }
+
+    private static byte[] EmitNamedMacroAssembly(string name)
+        => EmitMacroAssembly($$"""
+            import Raven.CodeAnalysis.Macros.*
+
+            [assembly: RavenCompilerPlugin]
+
+            public class NamedMacro : IMacroDefinition {
+                val Name: string => "{{name}}"
+                val Kind: MacroKind => MacroKind.Freestanding
+
+                func Expand(context: TokenTreeMacroContext) -> FreestandingMacroExpansionResult
+                    => FreestandingMacroExpansionResult.Empty
+            }
+            """);
 }

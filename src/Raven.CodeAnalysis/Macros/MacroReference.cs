@@ -1,22 +1,28 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 
 namespace Raven.CodeAnalysis.Macros;
 
 public sealed class MacroReference
 {
+    private static readonly ConcurrentDictionary<string, FileMacroExportsCacheEntry> s_fileExports =
+        new(StringComparer.OrdinalIgnoreCase);
+    private static int s_fileExportsAccesses;
     private readonly Lazy<MacroSnapshot> _snapshot;
     private readonly string? _display;
     private readonly string? _sourceProjectFilePath;
 
     public MacroReference(IMacroDefinition macro)
         : this(
-            () => new MacroSnapshot([macro], LoadContext: null),
+            () => new MacroSnapshot([macro], Exports: null),
             macro.GetType().Assembly.FullName,
             sourceProjectFilePath: null)
     {
@@ -134,18 +140,63 @@ public sealed class MacroReference
         string fullPath,
         ImmutableArray<string> dependencyAssemblyPaths)
     {
-        var exports = new Lazy<MacroAssemblyExports>(
-            () =>
-            {
-                var loadContext = new MacroAssemblyLoadContext(
-                    fullPath,
-                    dependencyAssemblyPaths);
-                var assembly = loadContext.LoadFromAssemblyPath(fullPath);
-                return GetExports(assembly, loadContext);
-            },
+        var exports = new Lazy<MacroAssemblyExports>(() =>
+        {
+            if ((Interlocked.Increment(ref s_fileExportsAccesses) & 31) == 0)
+                TrimFileExportsCache();
+
+            return s_fileExports.GetOrAdd(
+                CreateFileCacheKey(fullPath, dependencyAssemblyPaths),
+                static _ => new FileMacroExportsCacheEntry())
+                .GetOrCreate(() =>
+                {
+                    var loadContext = new MacroAssemblyLoadContext(
+                        fullPath,
+                        dependencyAssemblyPaths);
+                    var assembly = loadContext.LoadFromAssemblyPath(fullPath);
+                    return GetExports(assembly, loadContext);
+                });
+        },
             LazyThreadSafetyMode.ExecutionAndPublication);
 
         return () => exports.Value.CreateSnapshot();
+    }
+
+    private static void TrimFileExportsCache()
+    {
+        foreach (var entry in s_fileExports)
+        {
+            if (!entry.Value.IsAlive)
+                s_fileExports.TryRemove(entry.Key, out _);
+        }
+    }
+
+    private static string CreateFileCacheKey(
+        string fullPath,
+        ImmutableArray<string> dependencyAssemblyPaths)
+    {
+        var builder = new StringBuilder();
+        AppendFileIdentity(builder, fullPath);
+        foreach (var dependencyPath in dependencyAssemblyPaths.Order(StringComparer.OrdinalIgnoreCase))
+            AppendFileIdentity(builder, dependencyPath);
+        return builder.ToString();
+    }
+
+    private static void AppendFileIdentity(StringBuilder builder, string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        builder.Append(fullPath);
+        builder.Append('|');
+        if (File.Exists(fullPath))
+        {
+            using var stream = File.OpenRead(fullPath);
+            builder.Append(Convert.ToHexString(SHA256.HashData(stream)));
+        }
+        else
+        {
+            builder.Append("missing");
+        }
+        builder.Append(';');
     }
 
     private static Func<MacroSnapshot> CreateImageMacroFactory(byte[] assemblyImage)
@@ -175,7 +226,7 @@ public sealed class MacroReference
 
         return () => new MacroSnapshot(
             [CreateMacroInstance(exportedType)],
-            LoadContext: null);
+            Exports: null);
     }
 
     private static IMacroDefinition CreateMacroInstance(Type macroType)
@@ -280,12 +331,33 @@ public sealed class MacroReference
                 MacroTypes
                     .Select(CreateMacroInstance)
                     .ToImmutableArray(),
-                LoadContext);
+                this);
     }
 
     private sealed record MacroSnapshot(
         ImmutableArray<IMacroDefinition> Macros,
-        AssemblyLoadContext? LoadContext);
+        MacroAssemblyExports? Exports);
+
+    private sealed class FileMacroExportsCacheEntry
+    {
+        private readonly object _gate = new();
+        private WeakReference<MacroAssemblyExports>? _exports;
+
+        public bool IsAlive => _exports is null || _exports.TryGetTarget(out _);
+
+        public MacroAssemblyExports GetOrCreate(Func<MacroAssemblyExports> factory)
+        {
+            lock (_gate)
+            {
+                if (_exports is not null && _exports.TryGetTarget(out var cached))
+                    return cached;
+
+                var created = factory();
+                _exports = new WeakReference<MacroAssemblyExports>(created);
+                return created;
+            }
+        }
+    }
 
     private sealed class MacroAssemblyLoadContext : AssemblyLoadContext
     {
