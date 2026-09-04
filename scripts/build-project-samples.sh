@@ -157,6 +157,27 @@ fail_count=0
 repository_compiler=""
 repository_targets=""
 repository_macros_project=""
+
+resolve_repository_core() {
+  local project_path="$1"
+  local target_framework
+  local target_frameworks
+  local core_framework
+  local candidate
+
+  target_framework="$(dotnet msbuild "$project_path" -getProperty:TargetFramework)"
+  if [[ -z "$target_framework" ]]; then
+    target_frameworks="$(dotnet msbuild "$project_path" -getProperty:TargetFrameworks)"
+    target_framework="${target_frameworks%%;*}"
+  fi
+
+  core_framework="${target_framework%%-*}"
+  candidate="$ROOT_DIR/src/Raven.Core/bin/$BUILD_CONFIG/$core_framework/Raven.Core.dll"
+  if [[ -f "$candidate" ]]; then
+    printf '%s\n' "$candidate"
+  fi
+}
+
 case "$SAMPLE_TOOLCHAIN" in
   repository)
     repository_compiler="$ROOT_DIR/src/Raven.Compiler/bin/$BUILD_CONFIG/net11.0/rvnc.dll"
@@ -199,7 +220,11 @@ for project in "${PROJECTS[@]}"; do
 
   dotnet_build_args=()
   if [[ "$SAMPLE_TOOLCHAIN" == "repository" ]]; then
+    repository_core="$(resolve_repository_core "$ROOT_DIR/$project")"
     dotnet_build_args+=("/property:RavenCompilerHost=$repository_compiler")
+    if [[ -n "$repository_core" ]]; then
+      dotnet_build_args+=("/property:RavenCoreReferencePath=$repository_core")
+    fi
     if [[ "$project" == *.rvnproj ]]; then
       dotnet_build_args+=("/property:LanguageTargets=$repository_targets")
     fi

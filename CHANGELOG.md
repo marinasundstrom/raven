@@ -10,6 +10,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Repository sample build and run matrices now propagate the target-specific
+  `Raven.Core` assembly together with the repository compiler host. Nested
+  Raven project references no longer fall back to the host framework's core
+  assembly when their `LanguageTargets` override is intentionally removed.
 - `RAV0501` now names each inaccessible constituent type in a public
   constructed contract instead of blaming the whole constructed type. This
   applies across return types, parameters, properties, events, indexers, base
