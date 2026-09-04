@@ -8,6 +8,7 @@ public static class BuiltInCodeFixProviders
     {
         return
         [
+            new ImplementInterfaceMembersCodeFixProvider(),
             new MissingReturnTypeAnnotationCodeFixProvider(),
             new VarCanBeLetCodeFixProvider(),
             new MemberCanBePrivateCodeFixProvider(),

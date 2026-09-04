@@ -10,6 +10,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Added
 
+- Added a code action that generates throwing stubs for missing interface
+  methods, properties, and indexers.
 - Added the default `UnsafeUnwrapAnalyzer` (`RAV9037`) warning for partial
   `Option` and `Result` extraction through `Unwrap`, `UnwrapOrThrow`,
   `UnwrapError`, and `Expect`.

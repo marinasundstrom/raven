@@ -3923,6 +3923,33 @@ internal partial class TypeMemberBinder : Binder
                     [_extensionReceiverTypeSyntax.GetReference()]);
                 parameters.Add(selfParameter);
             }
+
+            foreach (var param in indexerParameters)
+            {
+                parameters.Add(new SourceParameterSymbol(
+                    param.Syntax.Identifier.ValueText,
+                    param.Type,
+                    methodSymbol,
+                    _containingType,
+                    CurrentNamespace!.AsSourceNamespace(),
+                    [param.Syntax.GetLocation()],
+                    [param.Syntax.GetReference()],
+                    param.RefKind,
+                    param.HasDefaultValue,
+                    param.DefaultValue,
+                    param.IsMutable,
+                    param.IsVarParams,
+                    ParameterSyntaxUtilities.GetScopedKind(param.Syntax, param.Type, _diagnostics)));
+            }
+
+            methodSymbol.SetParameters(parameters);
+            binder ??= new MethodBinder(methodSymbol, this);
+            var bodyBinder = new MethodBodyBinder(methodSymbol, binder);
+            _ = bodyBinder.GetOrBind(indexerDecl.ExpressionBody);
+            foreach (var diagnostic in bodyBinder.Diagnostics.AsEnumerable())
+                _diagnostics.Report(diagnostic);
+
+            getMethod = methodSymbol;
         }
 
         propertySymbol.SetAccessors(getMethod, setMethod);

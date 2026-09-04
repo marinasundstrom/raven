@@ -7559,7 +7559,43 @@ public partial class SemanticModel
             return false;
 
         return interfaceProperty.GetMethod is { IsAbstract: true } ||
-               interfaceProperty.SetMethod is { IsAbstract: true };
+               interfaceProperty.SetMethod is { IsAbstract: true } ||
+               IsSourceInterfacePropertyWithoutImplementation(interfaceProperty);
+    }
+
+    private static bool IsSourceInterfacePropertyWithoutImplementation(IPropertySymbol interfaceProperty)
+    {
+        if (interfaceProperty.ContainingType?.TypeKind != TypeKind.Interface)
+            return false;
+
+        var sourceProperty = interfaceProperty as SourcePropertySymbol
+            ?? interfaceProperty.OriginalDefinition as SourcePropertySymbol
+            ?? interfaceProperty.UnderlyingSymbol as SourcePropertySymbol;
+        if (sourceProperty is null)
+            return false;
+
+        foreach (var reference in sourceProperty.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not BasePropertyDeclarationSyntax declaration)
+                continue;
+
+            var hasExpressionBody = declaration switch
+            {
+                PropertyDeclarationSyntax property => property.ExpressionBody is not null,
+                IndexerDeclarationSyntax indexer => indexer.ExpressionBody is not null,
+                _ => false
+            };
+            if (hasExpressionBody)
+                continue;
+
+            if (declaration.AccessorList is null || declaration.AccessorList.Accessors.Any(
+                    static accessor => accessor.Body is null && accessor.ExpressionBody is null))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool ImplementsInterfaceMethod(INamedTypeSymbol typeSymbol, IMethodSymbol interfaceMethod)
@@ -7603,8 +7639,11 @@ public partial class SemanticModel
                 return true;
             }
 
-            if (candidate.Name != interfaceProperty.Name)
+            if (candidate.Name != interfaceProperty.Name &&
+                !(candidate.IsIndexer && interfaceProperty.IsIndexer))
+            {
                 continue;
+            }
 
             if (PropertySignaturesMatch(candidate, interfaceProperty))
             {
@@ -7735,9 +7774,10 @@ public partial class SemanticModel
 
     private static bool MethodSignaturesMatch(IMethodSymbol candidate, IMethodSymbol abstractMember)
     {
-        if (!SymbolEqualityComparer.Default.Equals(
-                StripNullableReference(candidate.ReturnType),
-                StripNullableReference(abstractMember.ReturnType)))
+        if (candidate.TypeParameters.Length != abstractMember.TypeParameters.Length)
+            return false;
+
+        if (!SignatureTypesMatch(candidate.ReturnType, abstractMember.ReturnType))
         {
             return false;
         }
@@ -7753,15 +7793,59 @@ public partial class SemanticModel
             if (candidateParameter.RefKind != abstractParameter.RefKind)
                 return false;
 
-            if (!SymbolEqualityComparer.Default.Equals(
-                    StripNullableReference(candidateParameter.Type),
-                    StripNullableReference(abstractParameter.Type)))
+            if (!SignatureTypesMatch(candidateParameter.Type, abstractParameter.Type))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private static bool SignatureTypesMatch(ITypeSymbol candidate, ITypeSymbol contract)
+    {
+        candidate = StripNullableReference(candidate);
+        contract = StripNullableReference(contract);
+
+        if (SymbolEqualityComparer.Default.Equals(candidate, contract))
+            return true;
+
+        if (candidate is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } candidateParameter &&
+            contract is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } contractParameter)
+        {
+            return candidateParameter.Ordinal == contractParameter.Ordinal;
+        }
+
+        if (candidate is INamedTypeSymbol candidateNamed && contract is INamedTypeSymbol contractNamed)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(candidateNamed.ConstructedFrom, contractNamed.ConstructedFrom) ||
+                candidateNamed.TypeArguments.Length != contractNamed.TypeArguments.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < candidateNamed.TypeArguments.Length; i++)
+            {
+                if (!SignatureTypesMatch(candidateNamed.TypeArguments[i], contractNamed.TypeArguments[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        if (candidate is IArrayTypeSymbol candidateArray && contract is IArrayTypeSymbol contractArray)
+        {
+            return candidateArray.Rank == contractArray.Rank &&
+                   SignatureTypesMatch(candidateArray.ElementType, contractArray.ElementType);
+        }
+
+        if (candidate is IPointerTypeSymbol candidatePointer && contract is IPointerTypeSymbol contractPointer)
+            return SignatureTypesMatch(candidatePointer.PointedAtType, contractPointer.PointedAtType);
+
+        if (candidate is IAddressTypeSymbol candidateAddress && contract is IAddressTypeSymbol contractAddress)
+            return SignatureTypesMatch(candidateAddress.ReferencedType, contractAddress.ReferencedType);
+
+        return false;
     }
 
     private static ITypeSymbol StripNullableReference(ITypeSymbol type)
