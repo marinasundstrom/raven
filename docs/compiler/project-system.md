@@ -572,6 +572,14 @@ project files.
 - `MsBuildProjectSystemService` opens Raven projects authored as MSBuild-backed `.rvnproj` files.
 - `RavenWorkspace.Create(..., projectSystemService: ...)` still allows overriding the project-system implementation explicitly.
 
+When a source compiler-plugin project changes, the language server emits a
+shadow macro assembly for its consumers. Shadow outputs are keyed by the full
+compiler input snapshot—including source and generated trees, parse and
+compilation options, referenced-project inputs, metadata file fingerprints,
+and the compiler build identity. An unchanged snapshot reuses its existing DLL
+and PDB without running emit again, including after restarting the language
+server.
+
 ### MSBuild-backed Raven projects
 
 The workspace loads `.rvnproj` projects and MSBuild projects whose evaluated

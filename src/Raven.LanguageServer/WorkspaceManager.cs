@@ -1,8 +1,10 @@
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
@@ -2011,7 +2013,17 @@ internal sealed class WorkspaceManager
             throw new InvalidOperationException("Macro project file path is required.");
 
         var evaluation = MsBuildProjectEvaluator.Evaluate(macroProject.FilePath, RavenProjectConventions.Default, macroProject.TargetFramework);
+        var compilation = _workspace.GetCompilation(macroProject.Id);
+        var inputHash = ComputeMacroProjectInputHash(macroProject, compilation);
         var outputDirectory = GetShadowMacroOutputDirectory(macroProject);
+        var outputPath = GetShadowMacroOutputPath(macroProject, evaluation.AssemblyName, inputHash);
+        var outputPdbPath = Path.ChangeExtension(outputPath, ".pdb");
+        if (File.Exists(outputPath) && File.Exists(outputPdbPath))
+        {
+            compilation.PerformanceInstrumentation.Macros.RecordShadowOutputCacheHit();
+            return outputPath;
+        }
+
         var tempOutputPath = Path.Combine(
             outputDirectory,
             $"{evaluation.AssemblyName}.{Guid.NewGuid():N}.tmp.dll");
@@ -2025,27 +2037,15 @@ internal sealed class WorkspaceManager
             using (var peStream = File.Create(tempOutputPath))
             using (var pdbStream = File.Create(tempPdbPath))
             {
-                emitResult = _workspace.GetCompilation(macroProject.Id).Emit(peStream, pdbStream);
+                emitResult = compilation.Emit(peStream, pdbStream);
             }
 
             if (!emitResult.Success)
                 throw new InvalidOperationException(string.Join(Environment.NewLine, emitResult.Diagnostics.Select(static diagnostic => diagnostic.ToString())));
 
-            var contentHash = ComputeFileHash(tempOutputPath);
-            var outputPath = GetShadowMacroOutputPath(macroProject, evaluation.AssemblyName, contentHash);
-            var outputPdbPath = Path.ChangeExtension(outputPath, ".pdb");
-            if (!File.Exists(outputPath))
-            {
-                _workspace.GetCompilation(macroProject.Id).PerformanceInstrumentation.Macros.RecordShadowOutputCacheMiss();
-                File.Move(tempOutputPath, outputPath);
-                File.Move(tempPdbPath, outputPdbPath);
-            }
-            else
-            {
-                _workspace.GetCompilation(macroProject.Id).PerformanceInstrumentation.Macros.RecordShadowOutputCacheHit();
-                TryDeleteFile(tempOutputPath);
-                TryDeleteFile(tempPdbPath);
-            }
+            compilation.PerformanceInstrumentation.Macros.RecordShadowOutputCacheMiss();
+            File.Move(tempOutputPath, outputPath, overwrite: true);
+            File.Move(tempPdbPath, outputPdbPath, overwrite: true);
 
             return outputPath;
         }
@@ -2064,10 +2064,10 @@ internal sealed class WorkspaceManager
         return Path.Combine(MacroShadowOutputRoot, projectIdentity);
     }
 
-    private static string GetShadowMacroOutputPath(Project macroProject, string assemblyName, string contentHash)
+    private static string GetShadowMacroOutputPath(Project macroProject, string assemblyName, string inputHash)
     {
         var directory = GetShadowMacroOutputDirectory(macroProject);
-        return Path.Combine(directory, $"{assemblyName}.{contentHash}.dll");
+        return Path.Combine(directory, $"{assemblyName}.{inputHash}.dll");
     }
 
     private static bool MacroReferencesMatch(
@@ -2101,11 +2101,153 @@ internal sealed class WorkspaceManager
         }
     }
 
-    private static string ComputeFileHash(string path)
+    private static string ComputeMacroProjectInputHash(Project project, Compilation compilation)
     {
-        using var stream = File.OpenRead(path);
-        var hash = SHA256.HashData(stream);
-        return Convert.ToHexString(hash[..8]).ToLowerInvariant();
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var visitedCompilations = new HashSet<Compilation>(ReferenceEqualityComparer.Instance);
+
+        AppendString(hash, "raven-macro-shadow-v1");
+        AppendString(hash, typeof(Compilation).Assembly.ManifestModule.ModuleVersionId.ToString("N"));
+        AppendString(hash, Path.GetFullPath(project.FilePath!));
+        AppendCompilation(hash, compilation, visitedCompilations);
+
+        foreach (var reference in project.MacroReferences
+                     .OrderBy(static reference => reference.Display, StringComparer.OrdinalIgnoreCase))
+        {
+            AppendString(hash, reference.Display);
+            AppendString(hash, reference.SourceProjectFilePath);
+            AppendFileFingerprint(hash, reference.Display);
+        }
+
+        var digest = hash.GetHashAndReset();
+        return Convert.ToHexString(digest[..8]).ToLowerInvariant();
+    }
+
+    private static void AppendCompilation(
+        IncrementalHash hash,
+        Compilation compilation,
+        HashSet<Compilation> visitedCompilations)
+    {
+        if (!visitedCompilations.Add(compilation))
+            return;
+
+        AppendString(hash, compilation.AssemblyName);
+        AppendCompilationOptions(hash, compilation.Options);
+
+        foreach (var tree in compilation.SyntaxTrees
+                     .Concat(compilation.MacroSyntaxTrees)
+                     .OrderBy(static tree => tree.FilePath, StringComparer.OrdinalIgnoreCase))
+        {
+            AppendString(hash, tree.FilePath);
+            AppendParseOptions(hash, tree.Options);
+            AppendString(hash, tree.GetRoot().ToFullString());
+        }
+
+        foreach (var reference in compilation.References
+                     .OrderBy(GetMetadataReferenceSortKey, StringComparer.OrdinalIgnoreCase))
+        {
+            switch (reference)
+            {
+                case PortableExecutableReference portable:
+                    AppendString(hash, portable.FilePath);
+                    AppendFileFingerprint(hash, portable.FilePath);
+                    break;
+                case CompilationReference compilationReference:
+                    AppendCompilation(hash, compilationReference.Compilation, visitedCompilations);
+                    break;
+                default:
+                    AppendString(hash, reference.GetType().FullName);
+                    AppendString(hash, reference.GetHashCode().ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    break;
+            }
+        }
+    }
+
+    private static string GetMetadataReferenceSortKey(MetadataReference reference)
+        => reference switch
+        {
+            PortableExecutableReference portable => $"file:{portable.FilePath}",
+            CompilationReference compilation => $"compilation:{compilation.Compilation.AssemblyName}",
+            _ => $"other:{reference.GetType().FullName}:{reference.GetHashCode()}"
+        };
+
+    private static void AppendCompilationOptions(IncrementalHash hash, CompilationOptions options)
+    {
+        AppendString(hash, options.OutputKind.ToString());
+        AppendString(hash, options.OptimizationLevel.ToString());
+        AppendString(hash, options.FrameworkProjectionMode.ToString());
+        AppendString(hash, options.ReturnedValueHandlingMode.ToString());
+        AppendString(hash, options.ReturnedValueHandlingModeConfigured.ToString());
+        AppendString(hash, options.RunAnalyzers.ToString());
+        AppendString(hash, options.EmbedCoreTypes.ToString());
+        AppendString(hash, options.AllowUnsafe.ToString());
+        AppendString(hash, options.UseRuntimeAsync.ToString());
+        AppendString(hash, options.AllowGlobalStatements.ToString());
+        AppendString(hash, options.AllowNamespaceMembers.ToString());
+        AppendString(hash, options.AllowNamespaceMemberImports.ToString());
+        AppendString(hash, options.EnableSuggestions.ToString());
+        AppendString(hash, options.EnableIsNotNullNarrowing.ToString());
+        AppendString(hash, options.SynthesizeStructuralToString.ToString());
+
+        foreach (var (name, value) in options.SpecificDiagnosticOptions.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+        {
+            AppendString(hash, name);
+            AppendString(hash, value.ToString());
+        }
+
+        foreach (var name in options.DisabledAnalyzers.Order(StringComparer.OrdinalIgnoreCase))
+            AppendString(hash, name);
+        foreach (var name in options.EnabledAnalyzers.Order(StringComparer.OrdinalIgnoreCase))
+            AppendString(hash, name);
+        foreach (var (name, value) in options.ExternalConstantValues.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+        {
+            AppendString(hash, name);
+            AppendString(hash, value);
+        }
+    }
+
+    private static void AppendParseOptions(IncrementalHash hash, ParseOptions options)
+    {
+        AppendString(hash, options.Kind.ToString());
+        AppendString(hash, options.DocumentationMode.ToString());
+        AppendString(hash, options.DocumentationFormat.ToString());
+        foreach (var symbol in options.PreprocessorSymbolNames.OrderBy(static symbol => symbol, StringComparer.Ordinal))
+            AppendString(hash, symbol);
+        foreach (var (name, value) in options.Features.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+        {
+            AppendString(hash, name);
+            AppendString(hash, value);
+        }
+    }
+
+    private static void AppendFileFingerprint(IncrementalHash hash, string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
+            return;
+
+        var file = new FileInfo(path);
+        if (!file.Exists)
+            return;
+
+        AppendString(hash, file.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        AppendString(hash, file.LastWriteTimeUtc.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    private static void AppendString(IncrementalHash hash, string? value)
+    {
+        if (value is null)
+        {
+            Span<byte> nullLength = stackalloc byte[sizeof(int)];
+            BinaryPrimitives.WriteInt32LittleEndian(nullLength, -1);
+            hash.AppendData(nullLength);
+            return;
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(value);
+        Span<byte> length = stackalloc byte[sizeof(int)];
+        BinaryPrimitives.WriteInt32LittleEndian(length, bytes.Length);
+        hash.AppendData(length);
+        hash.AppendData(bytes);
     }
 
     private bool TryResolveOwnedDocument(DocumentUri uri, out OwnedDocument ownedDocument)

@@ -10,6 +10,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Language-server macro refreshes now reuse persistent shadow assemblies from
+  unchanged compiler inputs instead of recompiling and only detecting the
+  cache hit after emission.
 - `RAV9037` now identifies the exact `Option` or `Result` state in which a
   partial extraction can throw, together with the cases that should be handled.
 - Hover presentation now treats types with primary constructors like every

@@ -2359,7 +2359,7 @@ func Main() -> unit {
     }
 
     [Fact]
-    public void MacroShadowOutputPath_ChangesWhenContentHashChanges()
+    public void MacroShadowOutputPath_ChangesWhenInputHashChanges()
     {
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
         var projectId = workspace.AddProject("Macros", targetFramework: "net10.0");
@@ -2373,6 +2373,156 @@ func Main() -> unit {
 
         firstPath.ShouldNotBe(secondPath);
         Path.GetDirectoryName(firstPath).ShouldBe(Path.GetDirectoryName(secondPath));
+    }
+
+    [Fact]
+    public async Task MacroShadowOutputCache_CoversColdWarmRestartEditAndRevertLifecycleAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        WriteFreestandingMacroExpansionLayout(_tempRoot, "1");
+
+        var macroProjectPath = Path.Combine(_tempRoot, "macros", "FreestandingMacros.rvnproj");
+        var macroPath = Path.Combine(_tempRoot, "macros", "main.rvn");
+        var appPath = Path.Combine(_tempRoot, "app", "src", "main.rvn");
+        var macroUri = DocumentUri.FromFileSystemPath(macroPath);
+        var appUri = DocumentUri.FromFileSystemPath(appPath);
+        var emitMacroProjectOutput = typeof(WorkspaceManager)
+            .GetMethod("EmitMacroProjectOutput", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = CreateWorkspaceManager(workspace, _tempRoot);
+        var macroProject = GetProject(manager, macroProjectPath);
+        var compilation = workspace.GetCompilation(macroProject.Id);
+        compilation.PerformanceInstrumentation.Macros.Reset();
+
+        var firstPath = (string)emitMacroProjectOutput.Invoke(manager, [macroProject])!;
+        var warmPath = (string)emitMacroProjectOutput.Invoke(manager, [macroProject])!;
+
+        warmPath.ShouldBe(firstPath);
+        compilation.PerformanceInstrumentation.Macros.ShadowOutputCacheMisses.ShouldBe(1);
+        compilation.PerformanceInstrumentation.Macros.ShadowOutputCacheHits.ShouldBe(1);
+
+        var pdbPath = Path.ChangeExtension(firstPath, ".pdb");
+        File.Delete(pdbPath);
+        compilation.PerformanceInstrumentation.Macros.Reset();
+
+        var repairedPath = (string)emitMacroProjectOutput.Invoke(manager, [macroProject])!;
+
+        repairedPath.ShouldBe(firstPath);
+        File.Exists(pdbPath).ShouldBeTrue();
+        compilation.PerformanceInstrumentation.Macros.ShadowOutputCacheMisses.ShouldBe(1);
+        compilation.PerformanceInstrumentation.Macros.ShadowOutputCacheHits.ShouldBe(0);
+
+        workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        manager = CreateWorkspaceManager(workspace, _tempRoot);
+        macroProject = GetProject(manager, macroProjectPath);
+        compilation = workspace.GetCompilation(macroProject.Id);
+        compilation.PerformanceInstrumentation.Macros.Reset();
+
+        var restartedPath = (string)emitMacroProjectOutput.Invoke(manager, [macroProject])!;
+
+        restartedPath.ShouldBe(firstPath);
+        compilation.PerformanceInstrumentation.Macros.ShadowOutputCacheMisses.ShouldBe(0);
+        compilation.PerformanceInstrumentation.Macros.ShadowOutputCacheHits.ShouldBe(1);
+
+        var initialConsumerSource = File.ReadAllText(appPath);
+        _ = await manager.UpsertDocumentAsync(appUri, initialConsumerSource);
+        var initialReferencePath = GetSourceMacroReferencePath(manager, appUri);
+        compilation.PerformanceInstrumentation.Macros.Reset();
+
+        _ = await manager.UpsertDocumentAsync(
+            appUri,
+            SourceText.From(initialConsumerSource + Environment.NewLine),
+            deferMacroConsumerRefresh: true);
+        await manager.FlushPendingMacroConsumerRefreshesAsync();
+
+        GetSourceMacroReferencePath(manager, appUri).ShouldBe(initialReferencePath);
+        compilation.PerformanceInstrumentation.Macros.ShadowOutputCacheMisses.ShouldBe(0);
+        compilation.PerformanceInstrumentation.Macros.ShadowOutputCacheHits.ShouldBe(0);
+        (await GetFreestandingMacroExpansionTextAsync(manager, appUri)).ShouldBe("1");
+
+        _ = await manager.UpsertDocumentAsync(
+            macroUri,
+            SourceText.From(CreateFreestandingMacroExpansionSource("2")),
+            deferMacroConsumerRefresh: true);
+        macroProject = GetProject(manager, macroProjectPath);
+        compilation = workspace.GetCompilation(macroProject.Id);
+        compilation.PerformanceInstrumentation.Macros.Reset();
+
+        await manager.FlushPendingMacroConsumerRefreshesAsync();
+
+        var editedReferencePath = GetSourceMacroReferencePath(manager, appUri);
+        editedReferencePath.ShouldNotBe(firstPath);
+        compilation.PerformanceInstrumentation.Macros.ShadowOutputCacheMisses.ShouldBe(1);
+        compilation.PerformanceInstrumentation.Macros.ShadowOutputCacheHits.ShouldBe(0);
+        (await GetFreestandingMacroExpansionTextAsync(manager, appUri)).ShouldBe("2");
+
+        _ = await manager.UpsertDocumentAsync(
+            macroUri,
+            SourceText.From(CreateFreestandingMacroExpansionSource("1")),
+            deferMacroConsumerRefresh: true);
+        macroProject = GetProject(manager, macroProjectPath);
+        compilation = workspace.GetCompilation(macroProject.Id);
+        compilation.PerformanceInstrumentation.Macros.Reset();
+
+        await manager.FlushPendingMacroConsumerRefreshesAsync();
+
+        GetSourceMacroReferencePath(manager, appUri).ShouldBe(firstPath);
+        compilation.PerformanceInstrumentation.Macros.ShadowOutputCacheMisses.ShouldBe(0);
+        compilation.PerformanceInstrumentation.Macros.ShadowOutputCacheHits.ShouldBe(1);
+        (await GetFreestandingMacroExpansionTextAsync(manager, appUri)).ShouldBe("1");
+    }
+
+    [Fact]
+    public void MacroShadowOutputCacheKey_InvalidatesWhenReferencedAssemblyChanges()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        WriteFreestandingMacroExpansionLayout(_tempRoot, "1");
+
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = CreateWorkspaceManager(workspace, _tempRoot);
+        var macroProjectPath = Path.Combine(_tempRoot, "macros", "FreestandingMacros.rvnproj");
+        var macroProject = GetProject(manager, macroProjectPath);
+        var dependencyPath = Path.Combine(_tempRoot, "MacroDependency.dll");
+        File.Copy(typeof(object).Assembly.Location, dependencyPath);
+        var compilation = Compilation.Create(
+                "FingerprintProbe",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(MetadataReference.CreateFromFile(dependencyPath))
+            .AddSyntaxTrees(SyntaxTree.ParseText("class Probe {}", path: "Probe.rvn"));
+        var computeInputHash = typeof(WorkspaceManager)
+            .GetMethod("ComputeMacroProjectInputHash", BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var firstHash = (string)computeInputHash.Invoke(null, [macroProject, compilation])!;
+        File.SetLastWriteTimeUtc(dependencyPath, File.GetLastWriteTimeUtc(dependencyPath).AddSeconds(1));
+        var secondHash = (string)computeInputHash.Invoke(null, [macroProject, compilation])!;
+
+        secondHash.ShouldNotBe(firstHash);
+    }
+
+    private static WorkspaceManager CreateWorkspaceManager(RavenWorkspace workspace, string root)
+    {
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(root)
+            })
+        });
+        return manager;
+    }
+
+    private static Project GetProject(WorkspaceManager manager, string projectPath)
+        => manager.GetProjectsSnapshot().Single(project =>
+            string.Equals(project.FilePath, projectPath, StringComparison.OrdinalIgnoreCase));
+
+    private static string GetSourceMacroReferencePath(WorkspaceManager manager, DocumentUri appUri)
+    {
+        manager.TryGetDocumentContext(appUri, out var document, out _).ShouldBeTrue();
+        return document!.Project.MacroReferences.Single(
+            reference => reference.SourceProjectFilePath is not null).Display;
     }
 
     public void Dispose()
