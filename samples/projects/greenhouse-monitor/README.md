@@ -12,7 +12,7 @@ The example demonstrates:
 - `Result` propagation with `?`
 - an `IAsyncEnumerable` polling interface and `await for` consumption
 - a mock and real implementation behind one device boundary
-- Raspberry Pi I2C interop through the .NET IoT libraries
+- Raspberry Pi I2C interop through the trim-safe `System.Device.Gpio` package
 - cancellation propagated across the device boundary
 - arrays, mutable accumulators, and collection interop
 - expression-oriented `if` and string interpolation
@@ -72,8 +72,10 @@ GREENHOUSE_ZONE=Propagation \
 dotnet bin/Debug/net10.0/GreenhouseMonitor.dll
 ```
 
-The adapter uses Raspberry Pi I2C bus 1 and reports connection, protocol, and
-CRC failures as `TelemetryError.SensorUnavailable`. Stop it with Ctrl+C. Remove
+The adapter contains a small direct implementation of the documented SCD4x I2C
+commands, temperature/humidity conversions, and Sensirion CRC-8 validation. It
+uses Raspberry Pi I2C bus 1 and reports connection, protocol, timeout, and CRC
+failures as `TelemetryError.SensorUnavailable`. Stop it with Ctrl+C. Remove
 `GREENHOUSE_TELEMETRY` (or give it any value other than `scd4x`) to use the
 simulated source again.
 

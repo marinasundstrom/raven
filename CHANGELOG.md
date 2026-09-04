@@ -18,6 +18,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Closed generic overrides now compare their emitted CLR return shape as well
+  as Raven nullability. An unconstrained `T?` instantiated with a value type
+  correctly overrides through the underlying value-type ABI, while a true
+  `Nullable<T>` return remains distinct. This restores the `Raven.Core`
+  `Option` and `Result` JSON converters on `net10.0`.
+- The greenhouse Native AOT sample now talks to SCD4x sensors through a small
+  direct `System.Device.Gpio` I2C driver instead of the reflection-heavy
+  `Iot.Device.Bindings` and UnitsNet dependency chain. Its isolated package
+  cache is explicitly restored before compiler validation, and Native AOT
+  publishing is warning-free without suppressing trim diagnostics.
 - Full and incremental parser recovery now preserve closing braces around
   incomplete argument and parameter lists, escaped text in interpolated strings,
   and stray union-body braces. Malformed union payload lists no longer crash

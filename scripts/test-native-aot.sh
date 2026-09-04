@@ -80,6 +80,10 @@ export NUGET_PACKAGES="$package_cache_directory"
 
 dotnet tool restore --tool-manifest "$repo_root/.config/dotnet-tools.json"
 
+dotnet restore "$project" \
+  --property RavenBuildConfiguration=Debug \
+  --property WarningLevel=0
+
 dotnet "$compiler" \
   "$repo_root/src/Raven.Core/Raven.Core.rvnproj" \
   --configuration Release \

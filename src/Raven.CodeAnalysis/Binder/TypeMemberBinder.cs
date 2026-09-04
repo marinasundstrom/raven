@@ -4062,8 +4062,24 @@ internal partial class TypeMemberBinder : Binder
         if (overriddenReturnType.TypeKind == TypeKind.Error || overridingReturnType.TypeKind == TypeKind.Error)
             return true;
 
-        if (overriddenReturnType.IsNullable != overridingReturnType.IsNullable)
+        var overriddenProjection = overriddenReturnType.GetNullableAbiProjection();
+        var overridingProjection = overridingReturnType.GetNullableAbiProjection();
+
+        if (overriddenProjection == NullableAbiProjection.NullableValueType ||
+            overridingProjection == NullableAbiProjection.NullableValueType)
+        {
+            if (overriddenProjection != overridingProjection)
+                return false;
+        }
+        else if (overriddenReturnType.IsNullable != overridingReturnType.IsNullable &&
+                 !IsAnnotatedValueTypeProjection(overriddenReturnType) &&
+                 !IsAnnotatedValueTypeProjection(overridingReturnType))
+        {
             return false;
+        }
+
+        overriddenReturnType = GetOverrideAbiType(overriddenReturnType);
+        overridingReturnType = GetOverrideAbiType(overridingReturnType);
 
         if (TypesMatchForExplicitImplementation(overriddenReturnType, overridingReturnType))
             return true;
@@ -4073,6 +4089,17 @@ internal partial class TypeMemberBinder : Binder
                overriddenReturnType.SpecialType == SpecialType.System_Unit &&
                overridingReturnType.SpecialType == SpecialType.System_Void;
     }
+
+    private static bool IsAnnotatedValueTypeProjection(ITypeSymbol type)
+        => type is NullableTypeSymbol nullable &&
+           nullable.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType &&
+           nullable.UnderlyingType.IsValueType;
+
+    private static ITypeSymbol GetOverrideAbiType(ITypeSymbol type)
+        => type is NullableTypeSymbol nullable &&
+           nullable.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType
+            ? nullable.UnderlyingType
+            : type;
 
     private IMethodSymbol? FindHidingMethodCandidate(string name, bool isStatic, (ITypeSymbol type, RefKind refKind)[] parameters)
     {

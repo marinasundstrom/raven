@@ -225,7 +225,7 @@ public union Result<T, E>: IPropagatable<Result<T, E>, T, E> {
 public class ResultJsonConverter<T, E> : JsonConverter<Result<T, E>> {
 
     /// Reads a tagged JSON object as an `Ok` or `Error` result.
-    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Result<T, E>? {
+    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Result<T, E> {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
 

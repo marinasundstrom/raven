@@ -6,7 +6,6 @@ import System.Device.I2c.*
 import System.Runtime.CompilerServices.*
 import System.Threading.*
 import System.Threading.Tasks.*
-import Iot.Device.Scd4x.*
 
 interface ITelemetrySource {
     func Poll(cancellationToken: CancellationToken) -> IAsyncEnumerable<Result<SensorReading[], TelemetryError>>
@@ -70,28 +69,17 @@ func ReadScd4xSnapshot(
     try {
         cancellationToken.ThrowIfCancellationRequested()
 
-        let settings = I2cConnectionSettings(i2cBusId, Scd4x.DefaultI2cAddress)
+        let settings = I2cConnectionSettings(i2cBusId, 0x62)
         use device = I2cDevice.Create(settings)
-        use sensor = Scd4x(device)
-        let measurement = sensor.ReadPeriodicMeasurement()
+        let measurement = ReadScd4xMeasurement(device, cancellationToken)
+        let reading = SensorReading(
+            zone,
+            measurement.TemperatureCelsius,
+            measurement.HumidityPercent,
+            measurement.CarbonDioxidePpm
+        )
 
-        if let carbonDioxide: UnitsNet.VolumeConcentration = measurement.Item1 {
-            if let humidity: UnitsNet.RelativeHumidity = measurement.Item2 {
-                if let temperature: UnitsNet.Temperature = measurement.Item3 {
-                    let reading = SensorReading(
-                        zone,
-                        temperature.DegreesCelsius,
-                        humidity.Percent,
-                        Convert.ToInt32(carbonDioxide.PartsPerMillion)
-                    )
-
-                    return ValidateSnapshot([reading])
-                }
-            }
-        }
-
-        let error: TelemetryError = .SensorUnavailable("sensor measurement failed its CRC check")
-        return Error(error)
+        return ValidateSnapshot([reading])
     } catch (OperationCanceledException) {
         throw
     } catch (Exception ex) {
@@ -99,6 +87,92 @@ func ReadScd4xSnapshot(
         return Error(error)
     }
 }
+
+func ReadScd4xMeasurement(
+    device: I2cDevice,
+    cancellationToken: CancellationToken
+) -> Scd4xMeasurement {
+    device.Write([(byte)0x3F, (byte)0x86])
+    Task.Delay(500, cancellationToken).GetAwaiter().GetResult()
+    device.Write([(byte)0x36, (byte)0x46])
+    Task.Delay(20, cancellationToken).GetAwaiter().GetResult()
+    device.Write([(byte)0x21, (byte)0xB1])
+
+    try {
+        WaitForScd4xMeasurement(device, cancellationToken)
+        device.Write([(byte)0xEC, (byte)0x05])
+        Task.Delay(2, cancellationToken).GetAwaiter().GetResult()
+
+        let response: byte[] = [(byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0, (byte)0]
+        device.Read(response)
+
+        if !HasValidScd4xWord(response, 0) ||
+           !HasValidScd4xWord(response, 3) ||
+           !HasValidScd4xWord(response, 6) {
+            throw InvalidOperationException("sensor measurement failed its CRC check")
+        }
+
+        let carbonDioxidePpm = ReadScd4xWord(response, 0)
+        let rawTemperature = ReadScd4xWord(response, 3)
+        let rawHumidity = ReadScd4xWord(response, 6)
+        let temperatureCelsius = -45.0 + 175.0 * rawTemperature / 65535.0
+        let humidityPercent = 100.0 * rawHumidity / 65535.0
+
+        return Scd4xMeasurement(carbonDioxidePpm, temperatureCelsius, humidityPercent)
+    } finally {
+        device.Write([(byte)0x3F, (byte)0x86])
+        Task.Delay(500).GetAwaiter().GetResult()
+    }
+}
+
+func WaitForScd4xMeasurement(device: I2cDevice, cancellationToken: CancellationToken) {
+    var attempts = 0
+
+    while attempts < 60 {
+        cancellationToken.ThrowIfCancellationRequested()
+        Task.Delay(100, cancellationToken).GetAwaiter().GetResult()
+        device.Write([(byte)0xE4, (byte)0xB8])
+        Task.Delay(1, cancellationToken).GetAwaiter().GetResult()
+
+        let response: byte[] = [(byte)0, (byte)0, (byte)0]
+        device.Read(response)
+        if HasValidScd4xWord(response, 0) && (ReadScd4xWord(response, 0) & 0x7FF) != 0 {
+            return
+        }
+
+        attempts = attempts + 1
+    }
+
+    throw InvalidOperationException("SCD4x did not produce a measurement within six seconds")
+}
+
+func ReadScd4xWord(data: byte[], offset: int) -> int {
+    return (Convert.ToInt32(data[offset]) << 8) | Convert.ToInt32(data[offset + 1])
+}
+
+func HasValidScd4xWord(data: byte[], offset: int) -> bool {
+    var crc = 0xFF
+
+    for index in offset ..< offset + 2 {
+        crc = crc ^ Convert.ToInt32(data[index])
+
+        for _ in 0 ..< 8 {
+            crc = if (crc & 0x80) != 0 {
+                ((crc << 1) ^ 0x31) & 0xFF
+            } else {
+                (crc << 1) & 0xFF
+            }
+        }
+    }
+
+    return crc == Convert.ToInt32(data[offset + 2])
+}
+
+record Scd4xMeasurement(
+    CarbonDioxidePpm: int,
+    TemperatureCelsius: double,
+    HumidityPercent: double
+)
 
 func ValidateSnapshot(received: SensorReading[]) -> Result<SensorReading[], TelemetryError> {
     if received.Length == 0 {

@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 using Xunit;
@@ -21,6 +22,55 @@ record ItemId(Value: int) {
         var diagnostic = Assert.Single(compilation.GetDiagnostics());
 
         Assert.Equal(CompilerDiagnostics.OverrideMemberNotFound.Id, diagnostic.Descriptor.Id);
+    }
+
+    [Fact]
+    public void OverrideOfNullableUnconstrainedGenericReturningValueType_UsesUnderlyingAbiType()
+    {
+        const string source = """
+open class Base<T> {
+    virtual func GetValue() -> T? => default(T)
+}
+
+record struct Payload(Value: int)
+
+class Derived : Base<Payload> {
+    override func GetValue() -> Payload => Payload(42)
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var derived = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Derived"));
+        var method = Assert.IsType<SourceMethodSymbol>(Assert.Single(derived.GetMembers("GetValue").OfType<IMethodSymbol>()));
+        Assert.NotNull(method.OverriddenMethod);
+        Assert.Equal(NullableAbiProjection.AnnotatedUnderlyingType, method.OverriddenMethod!.ReturnType.GetNullableAbiProjection());
+        Assert.Equal(NullableAbiProjection.None, method.ReturnType.GetNullableAbiProjection());
+    }
+
+    [Fact]
+    public void OverrideOfNullableUnconstrainedGenericReturningNullableValueType_ProducesDiagnostic()
+    {
+        const string source = """
+open class Base<T> {
+    virtual func GetValue() -> T? => default(T)
+}
+
+record struct Payload(Value: int)
+
+class Derived : Base<Payload> {
+    override func GetValue() -> Payload? => Payload(42)
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
+
+        Assert.Contains(
+            compilation.GetDiagnostics(),
+            diagnostic => diagnostic.Descriptor == CompilerDiagnostics.OverrideMemberNotFound);
     }
 
     [Fact]

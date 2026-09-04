@@ -269,7 +269,7 @@ public class OptionJsonConverter<T> : JsonConverter<Option<T>> {
     override val HandleNull: bool { get; } = true
 
     /// Reads `null` as `None` and any other JSON value as `Some`.
-    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Option<T>? {
+    override func Read(reader: &Utf8JsonReader, typeToConvert: Type, options: JsonSerializerOptions) -> Option<T> {
         use doc = JsonDocument.ParseValue(reader)
         val root = doc.RootElement
 
