@@ -25,7 +25,7 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
         title: "Unsafe Option or Result extraction",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "Call to '{0}' can throw for a valid Option or Result state. Handle both cases explicitly.",
+        messageFormat: "Call to '{0}' can throw when {1} is {2}. Handle {3} explicitly.",
         category: "ErrorHandling",
         defaultSeverity: DiagnosticSeverity.Warning);
 
@@ -38,7 +38,7 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
     {
         if (context.Operation is not IInvocationOperation invocation ||
             !UnsafeMethodNames.Contains(invocation.TargetMethod.Name) ||
-            !HasOptionOrResultReceiver(invocation.TargetMethod))
+            !TryGetReceiverKind(invocation.TargetMethod, out var receiverKind))
         {
             return;
         }
@@ -54,29 +54,56 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(
             Descriptor,
             location,
-            invocation.TargetMethod.Name));
+            invocation.TargetMethod.Name,
+            receiverKind,
+            GetThrowingState(invocation.TargetMethod.Name, receiverKind),
+            receiverKind == ReceiverKind.Option ? "Some and None" : "Ok and Error"));
     }
 
-    private static bool HasOptionOrResultReceiver(IMethodSymbol method)
+    private static string GetThrowingState(string methodName, ReceiverKind receiverKind)
+        => receiverKind == ReceiverKind.Result && methodName == "UnwrapError" ? "Ok" :
+            receiverKind == ReceiverKind.Option ? "None" : "Error";
+
+    private static bool TryGetReceiverKind(IMethodSymbol method, out ReceiverKind receiverKind)
     {
         if (!method.IsStatic)
-            return IsOptionOrResult(method.ContainingType);
+            return TryGetReceiverKind(method.ContainingType, out receiverKind);
 
-        return method.IsExtensionMethod &&
-               method.Parameters.Length > 0 &&
-               IsOptionOrResult(method.Parameters[0].Type);
+        if (method.IsExtensionMethod && method.Parameters.Length > 0)
+            return TryGetReceiverKind(method.Parameters[0].Type, out receiverKind);
+
+        receiverKind = ReceiverKind.None;
+        return false;
     }
 
-    private static bool IsOptionOrResult(ITypeSymbol? type)
+    private static bool TryGetReceiverKind(ITypeSymbol? type, out ReceiverKind receiverKind)
     {
         if (type is not INamedTypeSymbol namedType)
+        {
+            receiverKind = ReceiverKind.None;
             return false;
+        }
 
         var definition = namedType.OriginalDefinition as INamedTypeSymbol ?? namedType;
         if (!string.Equals(definition.ContainingNamespace?.ToMetadataName(), "System", StringComparison.Ordinal))
+        {
+            receiverKind = ReceiverKind.None;
             return false;
+        }
 
-        return (definition.Name == "Option" && definition.Arity == 1) ||
-               (definition.Name == "Result" && definition.Arity == 2);
+        receiverKind = (definition.Name, definition.Arity) switch
+        {
+            ("Option", 1) => ReceiverKind.Option,
+            ("Result", 2) => ReceiverKind.Result,
+            _ => ReceiverKind.None,
+        };
+        return receiverKind != ReceiverKind.None;
+    }
+
+    private enum ReceiverKind
+    {
+        None,
+        Option,
+        Result,
     }
 }
