@@ -10,6 +10,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- `RAV9037` now identifies the exact `Option` or `Result` state in which a
+  partial extraction can throw, together with the cases that should be handled.
 - Hover presentation now treats types with primary constructors like every
   other type: a type hover shows the compact type identity, while a constructor
   call hover shows the parameter list without constructor accessibility.
