@@ -1458,12 +1458,28 @@ internal sealed class MatchExhaustivenessEvaluator
         BoundCasePattern casePattern)
     {
         var parameters = caseSymbol.ConstructorParameters;
+        var boundCaseParameters = casePattern.CaseSymbol.ConstructorParameters;
         var argumentCount = Math.Min(parameters.Length, casePattern.Arguments.Length);
 
         for (var i = 0; i < argumentCount; i++)
         {
-            if (!IsTotalPattern(parameters[i].Type, casePattern.Arguments[i]))
-                return false;
+            var argument = casePattern.Arguments[i];
+            if (IsTotalPattern(parameters[i].Type, argument))
+                continue;
+
+            // A case pattern inside its generic union can bind an inferred
+            // declaration to the case's projected type parameter, while the
+            // exhaustiveness domain carries the union's type parameter. They
+            // describe the same complete payload pattern even though those
+            // parameter symbols have different owners.
+            if (argument is BoundDeclarationPattern &&
+                i < boundCaseParameters.Length &&
+                IsTotalPattern(boundCaseParameters[i].Type, argument))
+            {
+                continue;
+            }
+
+            return false;
         }
 
         return true;

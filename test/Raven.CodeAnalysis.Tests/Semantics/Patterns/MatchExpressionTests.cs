@@ -2743,6 +2743,57 @@ union class Result<T, E> {
     }
 
     [Fact]
+    public void MatchExpression_WithImportedGenericUnionCases_IsExhaustive()
+    {
+        const string code = """
+import Result.*
+
+let value: Result<int, string> = .Ok(1)
+
+let result = match value {
+    Ok(let payload) => payload
+    Error(_) => 0
+}
+
+union class Result<T, E> {
+    case Ok(value: T)
+    case Error(message: E)
+}
+""";
+
+        var verifier = CreateVerifier(code);
+
+        verifier.Verify();
+        AssertMatchDiagnosticsAgreeWithSemanticModel(code);
+    }
+
+    [Fact]
+    public void MatchExpression_InsideGenericUnionWithInferredPayloadBindings_IsExhaustive()
+    {
+        const string code = """
+import Option.*
+
+union Option<T> {
+    case Some(T)
+    case None
+
+    func Map<TResult>(mapper: T -> TResult) -> Option<TResult> {
+        self match {
+            Some(val value) => Some(mapper(value))
+            None => None
+        }
+    }
+}
+""";
+
+        var verifier = CreateVerifier(
+            code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void MatchExpression_WithPartiallyCoveredTypeUnionPayload_ReportsMissingPayloadAlternative()
     {
         const string code = """

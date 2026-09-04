@@ -16,6 +16,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Match exhaustiveness once again treats inferred payload bindings as complete
+  when matching imported cases inside their generic union, without regressing
+  nested-union coverage.
 - Inconsistent accessibility is now rejected with `RAV0501` across primary
   constructors and promoted properties, delegates, inherited types, namespace
   functions, union payloads, constructed signature types, and protected APIs
