@@ -2134,6 +2134,14 @@ internal sealed class HoverHandler : IHoverHandler
                 continue;
             }
 
+            var invocation = identifier.AncestorsAndSelf().OfType<InvocationExpressionSyntax>().FirstOrDefault();
+            if (invocation is not null &&
+                GetInvocationTargetIdentifier(invocation) is { } invocationTarget &&
+                invocationTarget.Identifier.Span == identifier.Identifier.Span)
+            {
+                continue;
+            }
+
             var declaration = root.DescendantNodes()
                 .OfType<BaseTypeDeclarationSyntax>()
                 .FirstOrDefault(candidate => string.Equals(
@@ -2492,68 +2500,52 @@ internal sealed class HoverHandler : IHoverHandler
     }
 
     private static bool TryBuildTypeDeclarationSyntaxSignature(
-        SourceText sourceText,
+        SourceText _,
         BaseTypeDeclarationSyntax declaration,
         out string signature)
     {
-        signature = string.Empty;
+        var modifiers = declaration.Modifiers
+            .Where(static modifier => !modifier.IsMissing && !IsTypeAccessibilityModifier(modifier.Kind))
+            .Select(static modifier => modifier.Text);
+        var modifierPrefix = string.Join(" ", modifiers);
+        if (modifierPrefix.Length > 0)
+            modifierPrefix += " ";
 
-        var start = GetDeclarationHeaderStart(declaration);
-        var end = GetDeclarationHeaderEnd(declaration);
-        if (start < 0 || end <= start || start >= sourceText.Length)
-            return false;
-
-        end = Math.Min(end, sourceText.Length);
-        signature = NormalizeHoverSignatureText(sourceText.ToString(TextSpan.FromBounds(start, end)));
-        if (declaration is RecordDeclarationSyntax recordDeclaration)
-            signature = IndentRecordPrimaryConstructorParameters(signature, recordDeclaration);
-
-        return !string.IsNullOrWhiteSpace(signature);
-    }
-
-    private static int GetDeclarationHeaderStart(BaseTypeDeclarationSyntax declaration)
-    {
-        foreach (var modifier in declaration.Modifiers)
+        var kind = declaration switch
         {
-            if (!modifier.IsMissing)
-                return modifier.Span.Start;
-        }
-
-        return declaration switch
-        {
-            TypeDeclarationSyntax typeDeclaration when !typeDeclaration.Keyword.IsMissing => typeDeclaration.Keyword.Span.Start,
-            EnumDeclarationSyntax enumDeclaration when !enumDeclaration.EnumKeyword.IsMissing => enumDeclaration.EnumKeyword.Span.Start,
-            UnionDeclarationSyntax unionDeclaration when !unionDeclaration.UnionKeyword.IsMissing => unionDeclaration.UnionKeyword.Span.Start,
-            _ => declaration.Identifier.Span.Start
+            RecordDeclarationSyntax record => "record" + FormatOptionalTypeShape(record.ClassOrStructKeyword),
+            ClassDeclarationSyntax => "class",
+            StructDeclarationSyntax => "struct",
+            InterfaceDeclarationSyntax => "interface",
+            UnionDeclarationSyntax union => "union" + FormatOptionalTypeShape(union.ClassOrStructKeyword),
+            EnumDeclarationSyntax => "enum",
+            _ => string.Empty
         };
-    }
-
-    private static int GetDeclarationHeaderEnd(BaseTypeDeclarationSyntax declaration)
-    {
-        var end = declaration.Identifier.Span.End;
-
-        switch (declaration)
+        if (kind.Length == 0 || declaration.Identifier.IsMissing)
         {
-            case TypeDeclarationSyntax typeDeclaration:
-                end = MaxSpanEnd(end, GetTypeDeclarationTypeParameterList(typeDeclaration));
-                end = MaxSpanEnd(end, typeDeclaration.ParameterList);
-                end = MaxSpanEnd(end, GetTypeDeclarationBaseList(typeDeclaration));
-                end = MaxSpanEnd(end, GetTypeDeclarationPermitsClause(typeDeclaration));
-                break;
-            case UnionDeclarationSyntax unionDeclaration:
-                end = MaxSpanEnd(end, unionDeclaration.TypeParameterList);
-                end = MaxSpanEnd(end, unionDeclaration.MemberTypes);
-                break;
-            case EnumDeclarationSyntax enumDeclaration:
-                end = MaxSpanEnd(end, enumDeclaration.BaseList);
-                break;
+            signature = string.Empty;
+            return false;
         }
 
-        if (declaration.OpenBraceToken is { IsMissing: false, Kind: SyntaxKind.OpenBraceToken } openBrace)
-            end = Math.Min(end, openBrace.Span.Start);
-
-        return end;
+        var typeParameters = declaration switch
+        {
+            TypeDeclarationSyntax typeDeclaration => GetTypeDeclarationTypeParameterList(typeDeclaration)?.ToString(),
+            UnionDeclarationSyntax unionDeclaration => unionDeclaration.TypeParameterList?.ToString(),
+            _ => null
+        };
+        signature = $"{modifierPrefix}{kind} {declaration.Identifier.ValueText}{typeParameters}";
+        return true;
     }
+
+    private static string FormatOptionalTypeShape(SyntaxToken token)
+        => token.IsMissing || token.Kind == SyntaxKind.None ? string.Empty : $" {token.Text}";
+
+    private static bool IsTypeAccessibilityModifier(SyntaxKind kind)
+        => kind is SyntaxKind.PublicKeyword
+            or SyntaxKind.InternalKeyword
+            or SyntaxKind.PrivateKeyword
+            or SyntaxKind.ProtectedKeyword
+            or SyntaxKind.FileprivateKeyword;
 
     private static TypeParameterListSyntax? GetTypeDeclarationTypeParameterList(TypeDeclarationSyntax declaration)
         => declaration switch
@@ -2565,28 +2557,6 @@ internal sealed class HoverHandler : IHoverHandler
             _ => null
         };
 
-    private static BaseListSyntax? GetTypeDeclarationBaseList(TypeDeclarationSyntax declaration)
-        => declaration switch
-        {
-            ClassDeclarationSyntax classDeclaration => classDeclaration.BaseList,
-            RecordDeclarationSyntax recordDeclaration => recordDeclaration.BaseList,
-            StructDeclarationSyntax structDeclaration => structDeclaration.BaseList,
-            InterfaceDeclarationSyntax interfaceDeclaration => interfaceDeclaration.BaseList,
-            _ => null
-        };
-
-    private static PermitsClauseSyntax? GetTypeDeclarationPermitsClause(TypeDeclarationSyntax declaration)
-        => declaration switch
-        {
-            ClassDeclarationSyntax classDeclaration => classDeclaration.PermitsClause,
-            RecordDeclarationSyntax recordDeclaration => recordDeclaration.PermitsClause,
-            InterfaceDeclarationSyntax interfaceDeclaration => interfaceDeclaration.PermitsClause,
-            _ => null
-        };
-
-    private static int MaxSpanEnd(int current, SyntaxNode? node)
-        => node is null || node.IsMissing ? current : Math.Max(current, node.Span.End);
-
     private static string NormalizeHoverSignatureText(string text)
     {
         var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
@@ -2597,34 +2567,8 @@ internal sealed class HoverHandler : IHoverHandler
         return string.Join("\n", trimmedLines).Trim();
     }
 
-    private static string IndentRecordPrimaryConstructorParameters(string signature, RecordDeclarationSyntax declaration)
-    {
-        if (declaration.ParameterList is null)
-            return signature;
-
-        var lines = signature.Split('\n');
-        if (lines.Length < 3)
-            return signature;
-
-        var openLineIndex = Array.FindIndex(lines, static line => line.Contains('('));
-        if (openLineIndex < 0)
-            return signature;
-
-        var closeLineIndex = Array.FindIndex(
-            lines,
-            openLineIndex + 1,
-            static line => line.StartsWith(")", StringComparison.Ordinal));
-        if (closeLineIndex <= openLineIndex + 1)
-            return signature;
-
-        for (var i = openLineIndex + 1; i < closeLineIndex; i++)
-        {
-            if (lines[i].Length > 0 && !char.IsWhiteSpace(lines[i][0]))
-                lines[i] = "    " + lines[i];
-        }
-
-        return string.Join("\n", lines);
-    }
+    private static int MaxSpanEnd(int current, SyntaxNode? node)
+        => node is null || node.IsMissing ? current : Math.Max(current, node.Span.End);
 
     private static string GetTypeDeclarationSyntaxKindDisplay(BaseTypeDeclarationSyntax declaration)
         => declaration switch
@@ -2874,7 +2818,6 @@ internal sealed class HoverHandler : IHoverHandler
         {
             var containingType = constructor.ContainingType;
             var parameters = FormatParameters(constructor.Parameters, plainTypeFormat);
-            var accessibilityPrefix = GetNonPublicAccessibilityPrefix(constructor);
 
             if (containingType?.IsUnion == true)
             {
@@ -2884,7 +2827,7 @@ internal sealed class HoverHandler : IHoverHandler
                         CreatePlainTypeFormat().MiscellaneousOptions |
                         SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes);
                 var unionDisplay = FormatType(containingType, declarationTypeFormat);
-                return $"{accessibilityPrefix}{unionDisplay}({parameters})";
+                return $"{unionDisplay}({parameters})";
             }
 
             var constructorName = containingType?.Name ?? constructor.Name;
@@ -2895,7 +2838,7 @@ internal sealed class HoverHandler : IHoverHandler
                     ? $"<{string.Join(", ", containingType.TypeArguments.Select(argument => FormatType(argument, plainTypeFormat)))}>"
                     : $"<{string.Join(", ", containingType.TypeParameters.Select(static tp => tp.Name))}>"
                 : string.Empty;
-            return $"{accessibilityPrefix}{constructorName}{typeParams}({parameters})";
+            return $"{constructorName}{typeParams}({parameters})";
         }
 
         if (symbol is IMethodSymbol method)

@@ -10,6 +10,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Hover presentation now treats types with primary constructors like every
+  other type: a type hover shows the compact type identity, while a constructor
+  call hover shows the parameter list without constructor accessibility.
 - Repository sample build and run matrices now propagate the target-specific
   `Raven.Core` assembly together with the repository compiler host. Nested
   Raven project references no longer fall back to the host framework's core
