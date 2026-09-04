@@ -10,6 +10,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Hovering a property or field name in an object initializer now shows the
+  assigned member instead of returning no hover or only its inferred type.
 - `RAV9037` now identifies the exact `Option` or `Result` state in which a
   partial extraction can throw, together with the cases that should be handled.
 - Hover presentation now treats types with primary constructors like every

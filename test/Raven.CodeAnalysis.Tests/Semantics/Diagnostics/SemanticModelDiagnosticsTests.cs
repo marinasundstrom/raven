@@ -88,6 +88,77 @@ func Create() -> Widget {
         Assert.Empty(compilation.GetDiagnostics());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ObjectInitializer_AssignmentNameHasPropertySymbolInfo(bool diagnosticsFirst)
+    {
+        const string source = """
+class Widget {
+    init() {}
+    var Name: string = ""
+}
+
+func Create() -> Widget {
+    return Widget() {
+        Name = "Raven"
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var assignmentName = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<ObjectInitializerAssignmentEntrySyntax>()
+            .Single()
+            .Name;
+
+        var property = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(assignmentName).Symbol);
+
+        Assert.Equal("Name", property.Name);
+        Assert.Equal(SpecialType.System_String, property.Type.SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void WithInitializer_AssignmentNameHasPropertySymbolInfo(bool diagnosticsFirst)
+    {
+        const string source = """
+record Widget(val Name: string)
+
+func Rename(widget: Widget) -> Widget {
+    return widget with {
+        Name = "Raven"
+    }
+}
+""";
+
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var model = compilation.GetSemanticModel(tree);
+        if (diagnosticsFirst)
+            Assert.Empty(compilation.GetDiagnostics());
+
+        var assignmentName = tree.GetRoot()
+            .DescendantNodes()
+            .OfType<WithAssignmentSyntax>()
+            .Single()
+            .Name;
+
+        var property = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(assignmentName).Symbol);
+
+        Assert.Equal("Name", property.Name);
+        Assert.Equal(SpecialType.System_String, property.Type.SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void GetDiagnostics_CollectsMethodBodyDiagnostics()
     {

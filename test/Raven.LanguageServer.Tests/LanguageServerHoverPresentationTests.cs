@@ -4511,7 +4511,7 @@ class C {
     }
 
     [Fact]
-    public void SymbolResolver_ObjectInitializerHover_DoesNotThrow()
+    public void SymbolResolver_ObjectInitializerPropertyNameHover_ResolvesProperty()
     {
         const string code = """
 class Person {
@@ -4541,11 +4541,26 @@ class C {
             t.ValueText == "Name" &&
             t.Parent?.AncestorsAndSelf().Any(static n => n is ObjectInitializerAssignmentEntrySyntax) == true);
 
-        Should.NotThrow(() => SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1));
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
+
+        resolution.ShouldNotBeNull();
+        var property = resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>();
+        property.Name.ShouldBe("Name");
+
+        var buildSignatureForHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignatureForHover.Invoke(
+            null,
+            [property, resolution.Value.Node, semanticModel, root, token.SpanStart + 1])!;
+
+        signature.ShouldContain("Name:");
+        signature.ShouldContain("string");
     }
 
-    [Fact]
-    public void SymbolResolver_WithInitializerPropertyNameHover_ResolvesProperty()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SymbolResolver_WithInitializerPropertyNameHover_ResolvesProperty(bool diagnosticsFirst)
     {
         const string code = """
 record Options(val WriteIndented: bool)
@@ -4566,7 +4581,8 @@ class C {
         foreach (var reference in LanguageServerTestReferences.Default)
             compilation = compilation.AddReferences(reference);
 
-        _ = compilation.GetDiagnostics();
+        if (diagnosticsFirst)
+            _ = compilation.GetDiagnostics();
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();

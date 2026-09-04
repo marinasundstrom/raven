@@ -17916,7 +17916,8 @@ partial class BlockBinder : Binder
             }
         }
 
-        if (property is null && field is null && @event is null)
+        var resolvedMember = (ISymbol?)property ?? (ISymbol?)field ?? @event;
+        if (resolvedMember is null)
         {
             // Unknown member. RHS already bound for diagnostics.
             var memberName = assignmentName.Identifier.ValueText;
@@ -17927,6 +17928,11 @@ partial class BlockBinder : Binder
             _ = BindExpression(assignmentExpression, allowReturn: false);
             return null;
         }
+
+        // The initializer name is semantically a member reference even though it has no
+        // explicit receiver in source. Preserve that relationship for public semantic
+        // queries used by hover, definition, and other language-service features.
+        CacheBoundNode(assignmentName, new BoundMemberAccessExpression(receiver: null, resolvedMember));
 
         var operatorTokenKind = operatorToken.Kind;
 
