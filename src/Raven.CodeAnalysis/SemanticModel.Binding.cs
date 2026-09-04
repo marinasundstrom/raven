@@ -3261,7 +3261,7 @@ public partial class SemanticModel
                         if (!Compilation.TryGetDeclaredTypeSymbol(interfaceDecl, out var interfaceSymbol))
                             break;
 
-                        var interfaceList = ResolveInterfaceBaseTypes(interfaceDecl, parentBinder);
+                        var interfaceList = ResolveInterfaceBaseTypes(interfaceDecl, interfaceSymbol, parentBinder);
 
                         if (!interfaceList.IsDefaultOrEmpty)
                             interfaceSymbol.SetInterfaces(MergeInterfaceSets(interfaceSymbol.Interfaces, interfaceList));
@@ -4075,6 +4075,16 @@ public partial class SemanticModel
             ? unitType!
             : ResolveTypeSyntaxForSignature(delegateDecl.ReturnType.Type, RefKind.None);
 
+        TypeMemberBinder.ValidateTypeAccessibility(
+            returnType,
+            delegateSymbol.DeclaredAccessibility,
+            delegateSymbol.ContainingType,
+            "delegate",
+            delegateSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            "return",
+            binder.Diagnostics,
+            delegateDecl.ReturnType?.Type.GetLocation() ?? delegateDecl.Identifier.GetLocation());
+
         var invoke = new SourceMethodSymbol(
             "Invoke",
             returnType,
@@ -4094,6 +4104,16 @@ public partial class SemanticModel
             var refKind = ParameterSyntaxUtilities.GetRefKind(p);
             var typeSyntax = p.TypeAnnotation!.Type;
             var pType = ResolveParameterTypeSyntaxForSignature(typeSyntax, refKind);
+
+            TypeMemberBinder.ValidateTypeAccessibility(
+                pType,
+                delegateSymbol.DeclaredAccessibility,
+                delegateSymbol.ContainingType,
+                "delegate",
+                delegateSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                $"parameter '{p.Identifier.ValueText}'",
+                binder.Diagnostics,
+                typeSyntax.GetLocation());
 
             invokeParams.Add(new SourceParameterSymbol(
                 p.Identifier.ValueText,
@@ -4697,6 +4717,15 @@ public partial class SemanticModel
                 }
 
                 var memberType = unionBinder.BindTypeSyntaxAndReport(memberTypeSyntax);
+                TypeMemberBinder.ValidateTypeAccessibility(
+                    memberType,
+                    unionAccessibility,
+                    unionSymbol.ContainingType,
+                    "union",
+                    unionSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    "member",
+                    _declarationDiagnostics,
+                    memberTypeSyntax.GetLocation());
                 boundMemberTypes.Add((GetUnionContentMemberType(memberType), memberType, memberTypeSyntax.GetLocation(), memberTypeSyntax.GetReference()));
             }
 
@@ -4811,6 +4840,16 @@ public partial class SemanticModel
                             unionBinder.Diagnostics,
                             out var isVarParams);
 
+                        TypeMemberBinder.ValidateTypeAccessibility(
+                            parameterType,
+                            unionAccessibility,
+                            unionSymbol.ContainingType,
+                            "union case",
+                            $"{unionSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}.{caseClause.Identifier.ValueText}",
+                            $"parameter '{parameterName}'",
+                            _declarationDiagnostics,
+                            typeSyntax?.GetLocation() ?? parameterLocation);
+
                         var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                             parameterSyntax,
                             parameterType,
@@ -4839,6 +4878,15 @@ public partial class SemanticModel
                         var parameterType = unionBinder.BindTypeSyntaxAndReport(
                             fieldSyntax.TypeAnnotation.Type,
                             additionalDiagnostics: _declarationDiagnostics);
+                        TypeMemberBinder.ValidateTypeAccessibility(
+                            parameterType,
+                            unionAccessibility,
+                            unionSymbol.ContainingType,
+                            "union case",
+                            $"{unionSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}.{caseClause.Identifier.ValueText}",
+                            $"field '{fieldSyntax.Identifier.ValueText}'",
+                            _declarationDiagnostics,
+                            fieldSyntax.TypeAnnotation.Type.GetLocation());
                         var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                             fieldSyntax.Initializer,
                             parameterType,
@@ -6129,8 +6177,8 @@ public partial class SemanticModel
             if (member is not InterfaceDeclarationSyntax nestedInterface)
                 continue;
 
-            var parentInterfaces = ResolveInterfaceBaseTypes(nestedInterface, interfaceBinder);
             var nestedInterfaceSymbol = GetDeclaredTypeSymbol(nestedInterface);
+            var parentInterfaces = ResolveInterfaceBaseTypes(nestedInterface, nestedInterfaceSymbol, interfaceBinder);
 
             if (!parentInterfaces.IsDefaultOrEmpty)
                 nestedInterfaceSymbol.SetInterfaces(MergeInterfaceSets(nestedInterfaceSymbol.Interfaces, parentInterfaces));
@@ -6238,7 +6286,10 @@ public partial class SemanticModel
         ValidatePermitsListEntries(nestedClassBinders, nestedInterfaceBinders);
     }
 
-    private ImmutableArray<INamedTypeSymbol> ResolveInterfaceBaseTypes(InterfaceDeclarationSyntax interfaceDecl, Binder binder)
+    private ImmutableArray<INamedTypeSymbol> ResolveInterfaceBaseTypes(
+        InterfaceDeclarationSyntax interfaceDecl,
+        INamedTypeSymbol interfaceSymbol,
+        Binder binder)
     {
         if (interfaceDecl.BaseList is null)
             return ImmutableArray<INamedTypeSymbol>.Empty;
@@ -6250,6 +6301,16 @@ public partial class SemanticModel
                 resolved is not null &&
                 resolved.TypeKind == TypeKind.Interface)
             {
+                TypeMemberBinder.ValidateTypeAccessibility(
+                    resolved,
+                    interfaceSymbol.DeclaredAccessibility,
+                    interfaceSymbol.ContainingType,
+                    "type",
+                    interfaceSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    "base interface",
+                    binder.Diagnostics,
+                    t.Type.GetLocation());
+
                 if (binder is TypeDeclarationBinder typeDeclarationBinder)
                     typeDeclarationBinder.ReportInvalidInheritedInterfaceType(interfaceDecl, t, resolved);
                 builder.Add(resolved);
@@ -6489,6 +6550,17 @@ public partial class SemanticModel
                 classBinder.Diagnostics,
                 out var isVarParams);
 
+            var parameterTypeLocation = typeSyntax?.GetLocation() ?? parameterSyntax.Identifier.GetLocation();
+            TypeMemberBinder.ValidateTypeAccessibility(
+                parameterType,
+                constructorAccessibility,
+                classSymbol,
+                "constructor",
+                $"{classSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}..ctor",
+                $"parameter '{parameterSyntax.Identifier.ValueText}'",
+                classBinder.Diagnostics,
+                parameterTypeLocation);
+
             var defaultResult = TypeMemberBinder.ProcessParameterDefault(
                 parameterSyntax,
                 parameterType,
@@ -6547,6 +6619,15 @@ public partial class SemanticModel
                     }
 
                     var promotedPropertyAccessibility = GetPrimaryConstructorPropertyAccessibility(accessibilityKeywordKind);
+                    TypeMemberBinder.ValidateTypeAccessibility(
+                        parameterType,
+                        promotedPropertyAccessibility,
+                        classSymbol,
+                        "property",
+                        $"{classSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}.{parameterSymbol.Name}",
+                        "property",
+                        classBinder.Diagnostics,
+                        parameterTypeLocation);
                     var propertySymbol = CreatePrimaryConstructorProperty(
                         classSymbol,
                         parameterSymbol,

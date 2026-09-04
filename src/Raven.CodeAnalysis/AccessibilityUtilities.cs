@@ -219,7 +219,7 @@ internal static class AccessibilityUtilities
             return false;
 
         var typeAccessibility = GetEffectiveAccessibility(type);
-        return GetAccessibilityRank(typeAccessibility) < GetAccessibilityRank(requiredAccessibility);
+        return !IsAtLeastAsAccessibleAs(typeAccessibility, NormalizeAccessibility(requiredAccessibility));
     }
 
     public static Accessibility GetEffectiveAccessibility(Accessibility accessibility, INamedTypeSymbol? containingType)
@@ -229,7 +229,7 @@ internal static class AccessibilityUtilities
         for (var current = containingType; current is not null; current = current.ContainingType)
         {
             var currentAccessibility = NormalizeAccessibility(current.DeclaredAccessibility);
-            effectiveAccessibility = Min(effectiveAccessibility, currentAccessibility);
+            effectiveAccessibility = Intersect(effectiveAccessibility, currentAccessibility);
         }
 
         return effectiveAccessibility;
@@ -256,18 +256,24 @@ internal static class AccessibilityUtilities
         if (!visiting.Add(type))
             return accessibility;
 
-        // Avoid forcing constructed type-argument expansion here. Certain recursive
-        // generic substitutions (e.g. nested option extensions) can synthesize
-        // self-referential argument graphs during early binding.
-
         if (type is IArrayTypeSymbol arrayType)
-            accessibility = Min(accessibility, GetEffectiveAccessibility(arrayType.ElementType, cache, visiting));
+            accessibility = Intersect(accessibility, GetEffectiveAccessibility(arrayType.ElementType, cache, visiting));
         else if (type is IPointerTypeSymbol pointerType)
-            accessibility = Min(accessibility, GetEffectiveAccessibility(pointerType.PointedAtType, cache, visiting));
+            accessibility = Intersect(accessibility, GetEffectiveAccessibility(pointerType.PointedAtType, cache, visiting));
         else if (type is IAddressTypeSymbol addressType)
-            accessibility = Min(accessibility, GetEffectiveAccessibility(addressType.ReferencedType, cache, visiting));
+            accessibility = Intersect(accessibility, GetEffectiveAccessibility(addressType.ReferencedType, cache, visiting));
+        else if (type is NullableTypeSymbol nullableType)
+            accessibility = Intersect(accessibility, GetEffectiveAccessibility(nullableType.UnderlyingType, cache, visiting));
+        else if (type is RefTypeSymbol refType)
+            accessibility = Intersect(accessibility, GetEffectiveAccessibility(refType.ElementType, cache, visiting));
+        else if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
+        {
+            foreach (var typeArgument in namedType.TypeArguments)
+                accessibility = Intersect(accessibility, GetEffectiveAccessibility(typeArgument, cache, visiting));
+        }
+
         if (type.ContainingType is { } containingType)
-            accessibility = Min(accessibility, GetEffectiveAccessibility(containingType, cache, visiting));
+            accessibility = Intersect(accessibility, GetEffectiveAccessibility(containingType, cache, visiting));
 
         visiting.Remove(type);
         cache[type] = accessibility;
@@ -283,9 +289,32 @@ internal static class AccessibilityUtilities
         public int GetHashCode(ITypeSymbol obj) => RuntimeHelpers.GetHashCode(obj);
     }
 
-    private static Accessibility Min(Accessibility first, Accessibility second)
+    private static Accessibility Intersect(Accessibility first, Accessibility second)
     {
-        return GetAccessibilityRank(first) <= GetAccessibilityRank(second) ? first : second;
+        first = NormalizeAccessibility(first);
+        second = NormalizeAccessibility(second);
+
+        if (first == second || second == Accessibility.Public)
+            return first;
+
+        if (first == Accessibility.Public)
+            return second;
+
+        if (first == Accessibility.Private || second == Accessibility.Private)
+            return Accessibility.Private;
+
+        if (first == Accessibility.ProtectedAndInternal || second == Accessibility.ProtectedAndInternal)
+            return Accessibility.ProtectedAndInternal;
+
+        if (first == Accessibility.ProtectedOrInternal)
+            return second;
+
+        if (second == Accessibility.ProtectedOrInternal)
+            return first;
+
+        // The only remaining unequal pair is protected and internal. Their
+        // intersection is private protected.
+        return Accessibility.ProtectedAndInternal;
     }
 
     private static Accessibility NormalizeAccessibility(Accessibility accessibility)
@@ -296,16 +325,21 @@ internal static class AccessibilityUtilities
         return accessibility;
     }
 
-    private static int GetAccessibilityRank(Accessibility accessibility)
+    private static bool IsAtLeastAsAccessibleAs(Accessibility candidate, Accessibility required)
     {
-        return accessibility switch
+        return required switch
         {
-            Accessibility.Private => 0,
-            Accessibility.ProtectedAndInternal => 1,
-            Accessibility.ProtectedAndProtected => 2,
-            Accessibility.Internal => 3,
-            Accessibility.ProtectedOrInternal => 4,
-            _ => 5,
+            Accessibility.Private => true,
+            Accessibility.ProtectedAndInternal => candidate != Accessibility.Private,
+            Accessibility.ProtectedAndProtected => candidate is Accessibility.Public
+                or Accessibility.ProtectedAndProtected
+                or Accessibility.ProtectedOrInternal,
+            Accessibility.Internal => candidate is Accessibility.Public
+                or Accessibility.Internal
+                or Accessibility.ProtectedOrInternal,
+            Accessibility.ProtectedOrInternal => candidate is Accessibility.Public
+                or Accessibility.ProtectedOrInternal,
+            _ => candidate == Accessibility.Public,
         };
     }
 }

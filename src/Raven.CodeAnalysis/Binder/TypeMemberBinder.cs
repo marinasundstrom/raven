@@ -2443,6 +2443,16 @@ internal partial class TypeMemberBinder : Binder
             ? unitType!
             : ResolveTypeSyntaxForSignature(binder, delegateDecl.ReturnType.Type, RefKind.None);
 
+        ValidateTypeAccessibility(
+            returnType,
+            delegateSymbol.DeclaredAccessibility,
+            delegateSymbol.ContainingType,
+            "delegate",
+            delegateSymbol.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat),
+            "return",
+            _diagnostics,
+            delegateDecl.ReturnType?.Type.GetLocation() ?? delegateDecl.Identifier.GetLocation());
+
         var invoke = new SourceMethodSymbol(
             "Invoke",
             returnType,
@@ -2462,6 +2472,16 @@ internal partial class TypeMemberBinder : Binder
             var refKind = ParameterSyntaxUtilities.GetRefKind(p);
             var typeSyntax = p.TypeAnnotation!.Type;
             var pType = ResolveParameterTypeSyntaxForSignature(binder, typeSyntax, refKind);
+
+            ValidateTypeAccessibility(
+                pType,
+                delegateSymbol.DeclaredAccessibility,
+                delegateSymbol.ContainingType,
+                "delegate",
+                delegateSymbol.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat),
+                $"parameter '{p.Identifier.ValueText}'",
+                _diagnostics,
+                typeSyntax.GetLocation());
 
             invokeParams.Add(new SourceParameterSymbol(
                 p.Identifier.ValueText,
@@ -4312,6 +4332,28 @@ internal partial class TypeMemberBinder : Binder
         };
     }
 
+    internal static void ValidateTypeAccessibility(
+        ITypeSymbol type,
+        Accessibility memberAccessibility,
+        INamedTypeSymbol? containingType,
+        string memberKind,
+        string memberName,
+        string typeRole,
+        DiagnosticBag diagnostics,
+        Location location)
+    {
+        if (type.TypeKind == TypeKind.Error)
+            return;
+
+        var effectiveMemberAccessibility = AccessibilityUtilities.GetEffectiveAccessibility(memberAccessibility, containingType);
+
+        if (AccessibilityUtilities.IsTypeLessAccessibleThan(type, effectiveMemberAccessibility))
+        {
+            var typeDisplay = type.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat);
+            diagnostics.ReportTypeIsLessAccessibleThanMember(typeRole, typeDisplay, memberKind, memberName, location);
+        }
+    }
+
     private void ValidateTypeAccessibility(
         ITypeSymbol type,
         Accessibility memberAccessibility,
@@ -4319,18 +4361,15 @@ internal partial class TypeMemberBinder : Binder
         string memberName,
         string typeRole,
         Location location)
-    {
-        if (type.TypeKind == TypeKind.Error)
-            return;
-
-        var effectiveMemberAccessibility = AccessibilityUtilities.GetEffectiveAccessibility(memberAccessibility, _containingType);
-
-        if (AccessibilityUtilities.IsTypeLessAccessibleThan(type, effectiveMemberAccessibility))
-        {
-            var typeDisplay = type.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat);
-            _diagnostics.ReportTypeIsLessAccessibleThanMember(typeRole, typeDisplay, memberKind, memberName, location);
-        }
-    }
+        => ValidateTypeAccessibility(
+            type,
+            memberAccessibility,
+            _containingType,
+            memberKind,
+            memberName,
+            typeRole,
+            _diagnostics,
+            location);
 
     internal static ParameterDefaultEvaluationResult EvaluateParameterDefaultValue(
         ParameterSyntax parameterSyntax,

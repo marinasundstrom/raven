@@ -100,6 +100,178 @@ public class Exposer {
     }
 
     [Fact]
+    public void PublicPrimaryConstructorAndPromotedPropertyWithInternalType_ReportRAV0501()
+    {
+        const string source = """
+public class Item(
+    val Id: ItemId,
+    var Name: string)
+
+record ItemId private (Value: int)
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("parameter 'Id'", "ItemId", "constructor", "Item..ctor"),
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("property", "ItemId", "property", "Item.Id"),
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicDelegateWithInternalSignatureTypes_ReportsRAV0501()
+    {
+        const string source = """
+internal class Hidden {}
+
+public delegate Factory(value: Hidden) -> Hidden
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("return", "Hidden", "delegate", "Factory"),
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("parameter 'value'", "Hidden", "delegate", "Factory"),
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicDelegateNestedInInternalType_CanUseInternalSignatureTypes()
+    {
+        const string source = """
+internal class Hidden {}
+
+internal class Container {
+    public delegate Factory(value: Hidden) -> Hidden
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void ProtectedMethodWithInternalParameterType_ReportsRAV0501()
+    {
+        const string source = """
+internal class Hidden {}
+
+public class Exposer {
+    protected func Call(value: Hidden) {}
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("parameter 'value'", "Hidden", "method", "Exposer.Call")],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicTypeWithInternalBaseType_ReportsRAV0501()
+    {
+        const string source = """
+internal open class Hidden {}
+public class Visible : Hidden {}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("base", "Hidden", "type", "Visible")],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicInterfaceWithInternalBaseInterface_ReportsRAV0501()
+    {
+        const string source = """
+internal interface Hidden {}
+public interface Visible : Hidden {}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("base interface", "Hidden", "type", "Visible")],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicMemberWithInternalGenericTypeArgument_ReportsRAV0501()
+    {
+        const string source = """
+public class Wrapper<T> {}
+internal class Hidden {}
+
+public class Exposer {
+    public val Value: Wrapper<Hidden>
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("property", "Wrapper<Hidden>", "property", "Exposer.Value")],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicNamespaceFunctionWithInternalSignatureTypes_ReportsRAV0501()
+    {
+        const string source = """
+internal class Hidden {}
+
+public func Transform(value: Hidden) -> Hidden => value
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("return", "Hidden", "function", "Transform"),
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("parameter 'value'", "Hidden", "function", "Transform"),
+            ],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicUnionCaseWithInternalPayloadType_ReportsRAV0501()
+    {
+        const string source = """
+internal class Hidden {}
+
+public union Outcome {
+    case Success(value: int)
+    case Failure(error: Hidden)
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("parameter 'error'", "Hidden", "union case", "Outcome.Failure")],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
     public void ExtensionAccessingPrivatePromotedProperty_ReportsRAV0500()
     {
         const string source = """

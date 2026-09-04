@@ -32,7 +32,10 @@ class FunctionBinder : Binder
     public IMethodSymbol GetMethodSymbol()
     {
         if (_methodSymbol is not null)
+        {
+            ValidateNamespaceFunctionAccessibility(_methodSymbol);
             return _methodSymbol;
+        }
 
         var isNamespaceMember = IsNamespaceLevelFunctionMember(_syntax);
 
@@ -41,6 +44,7 @@ class FunctionBinder : Binder
         {
             _methodSymbol = cachedCompletedMethod;
             _methodBodyBinder ??= new MethodBinder(_methodSymbol, this);
+            ValidateNamespaceFunctionAccessibility(_methodSymbol);
             return _methodSymbol;
         }
 
@@ -57,6 +61,7 @@ class FunctionBinder : Binder
         {
             _methodSymbol = existingSource;
             Compilation.RegisterMethodSymbol(_syntax, _methodSymbol);
+            ValidateNamespaceFunctionAccessibility(_methodSymbol);
             return _methodSymbol;
         }
 
@@ -205,6 +210,9 @@ class FunctionBinder : Binder
         }
 
         _methodSymbol.SetParameters(parameters);
+
+        ValidateNamespaceFunctionAccessibility(_methodSymbol);
+
         _methodSymbol.MarkSignatureBindingComplete();
         Compilation.RegisterMethodSymbol(_syntax, _methodSymbol);
 
@@ -212,6 +220,37 @@ class FunctionBinder : Binder
             sourceSymbol.MarkFileScoped(_syntax.SyntaxTree?.FilePath);
 
         return _methodSymbol;
+    }
+
+    private void ValidateNamespaceFunctionAccessibility(SourceMethodSymbol method)
+    {
+        if (!IsNamespaceLevelFunctionMember(_syntax) || method.IsSignatureSkeleton)
+            return;
+
+        TypeMemberBinder.ValidateTypeAccessibility(
+            method.ReturnType,
+            method.DeclaredAccessibility,
+            containingType: null,
+            "function",
+            method.Name,
+            "return",
+            _diagnostics,
+            _syntax.ReturnType?.Type.GetLocation() ?? _syntax.Identifier.GetLocation());
+
+        for (var i = 0; i < method.Parameters.Length; i++)
+        {
+            var parameter = method.Parameters[i];
+            var parameterSyntax = _syntax.ParameterList.Parameters[i];
+            TypeMemberBinder.ValidateTypeAccessibility(
+                parameter.Type,
+                method.DeclaredAccessibility,
+                containingType: null,
+                "function",
+                method.Name,
+                $"parameter '{parameter.Name}'",
+                _diagnostics,
+                parameterSyntax.TypeAnnotation?.Type.GetLocation() ?? parameterSyntax.Identifier.GetLocation());
+        }
     }
 
     private INamedTypeSymbol? ResolveContainingType()

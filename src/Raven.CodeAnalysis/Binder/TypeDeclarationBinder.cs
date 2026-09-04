@@ -89,6 +89,16 @@ internal abstract class TypeDeclarationBinder : Binder
                 if (!TryBindNamedTypeFromTypeSyntax(baseTypeSyntax.Type, out var resolved, reportDiagnostics: true) || resolved is null)
                     continue;
 
+                TypeMemberBinder.ValidateTypeAccessibility(
+                    resolved,
+                    ContainingSymbol.DeclaredAccessibility,
+                    ContainingSymbol.ContainingType,
+                    "type",
+                    ContainingSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                    resolved.TypeKind == TypeKind.Interface ? "base interface" : "base",
+                    Diagnostics,
+                    baseTypeSyntax.Type.GetLocation());
+
                 if (resolved.ConstructedFrom is INamedTypeSymbol genericDefinition &&
                     !SymbolEqualityComparer.Default.Equals(genericDefinition, resolved) &&
                     !resolved.TypeArguments.IsDefaultOrEmpty)

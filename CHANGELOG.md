@@ -16,6 +16,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Inconsistent accessibility is now rejected with `RAV0501` across primary
+  constructors and promoted properties, delegates, inherited types, namespace
+  functions, union payloads, constructed signature types, and protected APIs
+  that expose internal types.
 - Standalone file-based applications opened in the language server now activate
   the standard `Raven.Macros` compiler plugin as well as referencing its metadata.
   Their editor compilation includes `Raven.Core` and the generated Prelude,
