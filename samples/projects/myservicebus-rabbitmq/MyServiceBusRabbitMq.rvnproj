@@ -6,7 +6,7 @@
     <!-- <RavenCompilerHost>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\..\src\Raven.Compiler\bin\$(Configuration)\net11.0\rvnc.dll'))</RavenCompilerHost> -->
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Sundstrom.MyServiceBus.RabbitMq" Version="0.1.0-preview.7" />
+    <PackageReference Include="Sundstrom.MyServiceBus.RabbitMq" Version="0.1.0-preview.10" />
     <ProjectReference Include="../../../src/Raven.Compiler/Raven.Compiler.csproj"
       ReferenceOutputAssembly="false" />
   </ItemGroup>
