@@ -52,7 +52,7 @@ fi
 
 release_date="$(date +%F)"
 RELEASE_VERSION="$VERSION" RELEASE_DATE="$release_date" \
-  perl -0pi -e 's/## Unreleased\n/## Unreleased\n\n### Breaking changes\n\n- None recorded.\n\n## $ENV{RELEASE_VERSION} - $ENV{RELEASE_DATE}\n\n### Breaking changes\n\n- None.\n/' \
+  perl -0pi -e 's/## Unreleased\n(?:\n### Breaking changes\n\n- None recorded\.\n)?/## Unreleased\n\n### Breaking changes\n\n- None recorded.\n\n## $ENV{RELEASE_VERSION} - $ENV{RELEASE_DATE}\n\n### Breaking changes\n\n- None.\n/' \
   "$REPO_ROOT/CHANGELOG.md"
 
 "$REPO_ROOT/scripts/validate-release.sh" "$VERSION"

@@ -8,6 +8,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 - None recorded.
 
+## 0.1.8 - 2026-09-04
+
+### Breaking changes
+
+- None.
+
 ### Added
 
 - Added a code action that generates throwing stubs for missing interface
@@ -28,6 +34,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
   `Iot.Device.Bindings` and UnitsNet dependency chain. Its isolated package
   cache is explicitly restored before compiler validation, and Native AOT
   publishing is warning-free without suppressing trim diagnostics.
+- Stable release preparation now consumes the standard `Unreleased` breaking-
+  change scaffold before opening the versioned section, avoiding duplicate
+  headings in generated changelog entries.
 - Full and incremental parser recovery now preserve closing braces around
   incomplete argument and parameter lists, escaped text in interpolated strings,
   and stray union-body braces. Malformed union payload lists no longer crash
