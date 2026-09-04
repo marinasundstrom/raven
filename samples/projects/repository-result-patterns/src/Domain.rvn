@@ -13,7 +13,7 @@ public record ItemId private (Value: int) {
     override func ToString() -> string? => Value.ToString()
 }
 
-union ItemIdError {
+public union ItemIdError {
     case OutOfRange
 }
 

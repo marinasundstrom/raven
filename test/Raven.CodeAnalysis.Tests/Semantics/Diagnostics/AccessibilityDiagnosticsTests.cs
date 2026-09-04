@@ -225,7 +225,59 @@ public class Exposer {
 
         var verifier = CreateVerifier(
             source,
-            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("property", "Wrapper<Hidden>", "property", "Exposer.Value")],
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("property", "Hidden", "property", "Exposer.Value")],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicMethodReturningPublicGenericWithInternalTypeArgument_ReportsSpecificTypeArgument()
+    {
+        const string source = """
+public union Result<T, E> {
+    case Ok(value: T)
+    case Error(error: E)
+}
+
+public record ItemId private (Value: int) {
+    static func Create(value: int) -> Result<ItemId, ItemIdError> {
+        return .Error(.OutOfRange)
+    }
+}
+
+union ItemIdError {
+    case OutOfRange
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("return", "ItemIdError", "method", "ItemId.Create")],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void PublicMemberUsingMultipleInternalGenericTypeArguments_ReportsEachSpecificTypeArgument()
+    {
+        const string source = """
+public class Pair<TFirst, TSecond> {}
+internal class FirstHidden {}
+internal class SecondHidden {}
+
+public class Exposer {
+    public val Value: Pair<FirstHidden, SecondHidden>
+}
+""";
+
+        var verifier = CreateVerifier(
+            source,
+            [
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("property", "FirstHidden", "property", "Exposer.Value"),
+                new DiagnosticResult("RAV0501").WithAnySpan().WithArguments("property", "SecondHidden", "property", "Exposer.Value"),
+            ],
             disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
 
         verifier.Verify();

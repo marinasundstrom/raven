@@ -8,6 +8,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 - None recorded.
 
+### Fixed
+
+- `RAV0501` now names each inaccessible constituent type in a public
+  constructed signature instead of blaming the whole constructed type. For
+  example, `Result<ItemId, ItemIdError>` identifies `ItemIdError` when that
+  error union is the inaccessible component.
+
 ## 0.1.8 - 2026-09-04
 
 ### Breaking changes

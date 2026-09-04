@@ -211,15 +211,97 @@ internal static class AccessibilityUtilities
     }
 
     public static bool IsTypeLessAccessibleThan(ITypeSymbol type, Accessibility requiredAccessibility)
+        => GetLessAccessibleConstituentTypes(type, requiredAccessibility).Count != 0;
+
+    public static IReadOnlyList<ITypeSymbol> GetLessAccessibleConstituentTypes(
+        ITypeSymbol type,
+        Accessibility requiredAccessibility)
     {
         if (type is null)
-            return false;
+            return [];
 
         if (type.TypeKind == TypeKind.Error)
-            return false;
+            return [];
 
-        var typeAccessibility = GetEffectiveAccessibility(type);
-        return !IsAtLeastAsAccessibleAs(typeAccessibility, NormalizeAccessibility(requiredAccessibility));
+        var visiting = new HashSet<ITypeSymbol>(TypeSymbolReferenceComparer.Instance);
+        var reported = new HashSet<ITypeSymbol>(TypeSymbolReferenceComparer.Instance);
+        var inaccessibleTypes = new List<ITypeSymbol>();
+        AddLessAccessibleConstituentTypes(
+            type,
+            NormalizeAccessibility(requiredAccessibility),
+            visiting,
+            reported,
+            inaccessibleTypes);
+        return inaccessibleTypes;
+    }
+
+    private static void AddLessAccessibleConstituentTypes(
+        ITypeSymbol type,
+        Accessibility requiredAccessibility,
+        HashSet<ITypeSymbol> visiting,
+        HashSet<ITypeSymbol> reported,
+        List<ITypeSymbol> inaccessibleTypes)
+    {
+        if (type.TypeKind == TypeKind.Error || !visiting.Add(type))
+            return;
+
+        try
+        {
+            if (!IsAtLeastAsAccessibleAs(NormalizeAccessibility(type.DeclaredAccessibility), requiredAccessibility))
+            {
+                if (reported.Add(type))
+                    inaccessibleTypes.Add(type);
+
+                return;
+            }
+
+            if (type.ContainingType is { } containingType)
+            {
+                AddLessAccessibleConstituentTypes(
+                    containingType,
+                    requiredAccessibility,
+                    visiting,
+                    reported,
+                    inaccessibleTypes);
+            }
+
+            ITypeSymbol? wrappedType = type switch
+            {
+                IArrayTypeSymbol arrayType => arrayType.ElementType,
+                IPointerTypeSymbol pointerType => pointerType.PointedAtType,
+                IAddressTypeSymbol addressType => addressType.ReferencedType,
+                NullableTypeSymbol nullableType => nullableType.UnderlyingType,
+                RefTypeSymbol refType => refType.ElementType,
+                _ => null,
+            };
+
+            if (wrappedType is not null)
+            {
+                AddLessAccessibleConstituentTypes(
+                    wrappedType,
+                    requiredAccessibility,
+                    visiting,
+                    reported,
+                    inaccessibleTypes);
+            }
+
+            if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
+            {
+                foreach (var typeArgument in namedType.TypeArguments)
+                {
+                    AddLessAccessibleConstituentTypes(
+                        typeArgument,
+                        requiredAccessibility,
+                        visiting,
+                        reported,
+                        inaccessibleTypes);
+                }
+            }
+        }
+        finally
+        {
+            visiting.Remove(type);
+        }
     }
 
     public static Accessibility GetEffectiveAccessibility(Accessibility accessibility, INamedTypeSymbol? containingType)
@@ -233,51 +315,6 @@ internal static class AccessibilityUtilities
         }
 
         return effectiveAccessibility;
-    }
-
-    private static Accessibility GetEffectiveAccessibility(ITypeSymbol type)
-    {
-        var cache = new Dictionary<ITypeSymbol, Accessibility>(TypeSymbolReferenceComparer.Instance);
-        var visiting = new HashSet<ITypeSymbol>(TypeSymbolReferenceComparer.Instance);
-
-        return GetEffectiveAccessibility(type, cache, visiting);
-    }
-
-    private static Accessibility GetEffectiveAccessibility(
-        ITypeSymbol type,
-        Dictionary<ITypeSymbol, Accessibility> cache,
-        HashSet<ITypeSymbol> visiting)
-    {
-        if (cache.TryGetValue(type, out var cached))
-            return cached;
-
-        var accessibility = NormalizeAccessibility(type.DeclaredAccessibility);
-
-        if (!visiting.Add(type))
-            return accessibility;
-
-        if (type is IArrayTypeSymbol arrayType)
-            accessibility = Intersect(accessibility, GetEffectiveAccessibility(arrayType.ElementType, cache, visiting));
-        else if (type is IPointerTypeSymbol pointerType)
-            accessibility = Intersect(accessibility, GetEffectiveAccessibility(pointerType.PointedAtType, cache, visiting));
-        else if (type is IAddressTypeSymbol addressType)
-            accessibility = Intersect(accessibility, GetEffectiveAccessibility(addressType.ReferencedType, cache, visiting));
-        else if (type is NullableTypeSymbol nullableType)
-            accessibility = Intersect(accessibility, GetEffectiveAccessibility(nullableType.UnderlyingType, cache, visiting));
-        else if (type is RefTypeSymbol refType)
-            accessibility = Intersect(accessibility, GetEffectiveAccessibility(refType.ElementType, cache, visiting));
-        else if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
-        {
-            foreach (var typeArgument in namedType.TypeArguments)
-                accessibility = Intersect(accessibility, GetEffectiveAccessibility(typeArgument, cache, visiting));
-        }
-
-        if (type.ContainingType is { } containingType)
-            accessibility = Intersect(accessibility, GetEffectiveAccessibility(containingType, cache, visiting));
-
-        visiting.Remove(type);
-        cache[type] = accessibility;
-        return accessibility;
     }
 
     private sealed class TypeSymbolReferenceComparer : IEqualityComparer<ITypeSymbol>

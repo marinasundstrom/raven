@@ -4401,9 +4401,9 @@ internal partial class TypeMemberBinder : Binder
 
         var effectiveMemberAccessibility = AccessibilityUtilities.GetEffectiveAccessibility(memberAccessibility, containingType);
 
-        if (AccessibilityUtilities.IsTypeLessAccessibleThan(type, effectiveMemberAccessibility))
+        foreach (var inaccessibleType in AccessibilityUtilities.GetLessAccessibleConstituentTypes(type, effectiveMemberAccessibility))
         {
-            var typeDisplay = type.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat);
+            var typeDisplay = inaccessibleType.ToDisplayStringKeywordAware(TypeNameDiagnosticFormat);
             diagnostics.ReportTypeIsLessAccessibleThanMember(typeRole, typeDisplay, memberKind, memberName, location);
         }
     }
