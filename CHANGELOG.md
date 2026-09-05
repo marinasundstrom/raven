@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ## Unreleased
 
+### Fixed
+
+- Hover, inlay hints, and semantic coloring no longer fail on argument-list
+  macros such as `subscribe!(...)`. Hover resolves the macro name and ordinary
+  symbols inside its arguments and callback.
+
 ### Breaking changes
 
 - None recorded.

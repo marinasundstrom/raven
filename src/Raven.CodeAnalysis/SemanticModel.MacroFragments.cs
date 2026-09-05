@@ -81,13 +81,17 @@ public partial class SemanticModel
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
 
+        var regions = GetMacroInputSnapshotCore(syntax, cancellationToken).FragmentRegions;
+        if (regions.IsDefaultOrEmpty)
+            return ImmutableArray<MacroFragmentInferredTypeAnnotation>.Empty;
+
         var annotations = ImmutableArray.CreateBuilder<MacroFragmentInferredTypeAnnotation>();
         var context = CreateTokenTreeMacroContext(syntax, cancellationToken);
         var parentBinder = GetBinder(syntax);
         var visibleSymbols = MacroFragmentBinder.CreateVisibleSymbols(
             GetVisibleValueSymbols(syntax, allowBindingFallback: true));
 
-        foreach (var region in GetMacroInputSnapshotCore(syntax, cancellationToken).FragmentRegions)
+        foreach (var region in regions)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -148,6 +152,10 @@ public partial class SemanticModel
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
 
+        var regions = GetMacroInputSnapshotCore(syntax, cancellationToken).FragmentRegions;
+        if (regions.IsDefaultOrEmpty)
+            return new SemanticClassificationResult([], []);
+
         var tokenMap = new Dictionary<SyntaxToken, SemanticClassification>();
         var triviaMap = new Dictionary<SyntaxTrivia, SemanticClassification>();
         var context = CreateTokenTreeMacroContext(syntax, cancellationToken);
@@ -155,7 +163,7 @@ public partial class SemanticModel
         var visibleSymbols = MacroFragmentBinder.CreateVisibleSymbols(
             GetVisibleValueSymbols(syntax, allowBindingFallback: true));
 
-        foreach (var region in GetMacroInputSnapshotCore(syntax, cancellationToken).FragmentRegions)
+        foreach (var region in regions)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -240,6 +248,9 @@ public partial class SemanticModel
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (!FreestandingMacroInvocation.TryCreate(syntax, out var invocation) || invocation.TokenTree is null)
+            return null;
 
         var context = CreateTokenTreeMacroContext(syntax, cancellationToken);
         var snapshot = nestingDepth == 0

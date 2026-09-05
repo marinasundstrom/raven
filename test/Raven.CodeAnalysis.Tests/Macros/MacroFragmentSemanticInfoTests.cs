@@ -11,6 +11,40 @@ namespace Raven.CodeAnalysis.Tests.Macros;
 
 public sealed class MacroFragmentSemanticInfoTests
 {
+    [Theory]
+    [InlineData("token")]
+    [InlineData("fragment")]
+    [InlineData("annotations")]
+    [InlineData("classifications")]
+    public void TokenTreeQueries_ArgumentListMacro_ReturnEmpty(string query)
+    {
+        var tree = SyntaxTree.ParseText("let value = identity!(42)");
+        var compilation = Compilation.Create("ArgumentListMacro").AddSyntaxTrees(tree);
+        var model = compilation.GetSemanticModel(tree);
+        var invocation = tree.GetRoot().DescendantNodes()
+            .OfType<FreestandingMacroExpressionSyntax>().Single();
+
+        Assert.Null(invocation.TokenTree);
+        switch (query)
+        {
+            case "token":
+                Assert.Null(model.GetMacroTokenInfo(invocation, invocation.Name.Span.Start));
+                Assert.Null(model.GetMacroTokenInfo(invocation, invocation.ArgumentList!.Arguments[0].Span.Start));
+                break;
+            case "fragment":
+                Assert.Null(model.GetMacroFragmentSemanticInfo(invocation, invocation.Name.Span.Start));
+                break;
+            case "annotations":
+                Assert.Empty(model.GetMacroFragmentInferredTypeAnnotations(invocation));
+                break;
+            case "classifications":
+                var classifications = model.GetMacroFragmentClassifications(invocation);
+                Assert.Empty(classifications.Tokens);
+                Assert.Empty(classifications.Trivia);
+                break;
+        }
+    }
+
     [Fact]
     public void GetMacroFragmentSemanticInfo_ResolvesCallerLocalAndMember()
     {

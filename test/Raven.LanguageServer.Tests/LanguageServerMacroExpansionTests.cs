@@ -22,6 +22,65 @@ using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 public sealed class LanguageServerMacroExpansionTests
 {
     [Fact]
+    public async Task HoverHandler_ArgumentListMacro_ResolvesNameArgumentsAndCallback()
+    {
+        const string code = """
+import System.*
+import Raven.LanguageServer.Tests.*
+
+class ObservableInt {
+    func Subscribe(handler: (int) -> unit) -> unit { }
+}
+class CounterViewModel {
+    var Count: int = 0
+    val CountChanged: ObservableInt = ObservableInt()
+}
+class Harness {
+    func WriteLine(value: int) -> unit { }
+    func Run(viewModel: CounterViewModel) -> unit {
+        let subscription = subscribe!(viewModel.Count, func (value) => {
+            WriteLine(value)
+        })
+    }
+}
+""";
+        var documentPath = Path.Combine(Path.GetTempPath(), $"raven-subscribe-{Guid.NewGuid():N}.rvn");
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams());
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(documentPath);
+        var document = await store.UpsertDocumentAsync(uri, code);
+        workspace.TryApplyChanges(workspace.CurrentSolution.AddMacroReference(
+            document.Project.Id,
+            new MacroReference(new SubscribeMacro()))).ShouldBeTrue();
+        var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
+        var sourceText = SourceText.From(code);
+
+        foreach (var (marker, expected) in new[]
+        {
+            ("subscribe!", "subscribe"),
+            ("viewModel.Count", "CounterViewModel"),
+            ("Count,", "int"),
+            ("value) =>", "int"),
+            ("WriteLine(value)", "WriteLine"),
+            ("value)\n", "int")
+        })
+        {
+            var offset = code.LastIndexOf(marker, StringComparison.Ordinal);
+            offset.ShouldBeGreaterThanOrEqualTo(0);
+            var hover = await handler.Handle(new HoverParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Position = PositionHelper.ToRange(sourceText, new TextSpan(offset + 1, 0)).Start
+            }, CancellationToken.None);
+
+            hover.ShouldNotBeNull(marker);
+            hover!.Contents.MarkupContent!.Value.ShouldContain(expected);
+        }
+    }
+
+    [Fact]
     public async Task ComponentMacro_RemainsExpandableAfterAppendingBlankLinesAsync()
     {
         const string code = """
