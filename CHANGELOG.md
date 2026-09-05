@@ -8,6 +8,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 - None recorded.
 
+## 0.1.9 - 2026-09-05
+
+### Breaking changes
+
+- None.
+
 ### Fixed
 
 - Bare type names in expression statements now report a compiler error instead
