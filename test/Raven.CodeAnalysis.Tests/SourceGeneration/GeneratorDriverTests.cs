@@ -5,6 +5,34 @@ namespace Raven.CodeAnalysis.Tests.SourceGeneration;
 
 public class GeneratorDriverTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Workspace_DocumentDiagnosticsResolveGeneratedTypes(bool querySymbolFirst)
+    {
+        var workspace = new AdhocWorkspace();
+        var projectId = ProjectId.CreateNew(workspace.CurrentSolution.Id);
+        var solution = workspace.CurrentSolution.AddProject(projectId, "GeneratorConsumer")
+            .AddGeneratorReference(projectId, new GeneratorReference(new QualifiedGenerator()));
+        foreach (var reference in TestMetadataReferences.Default)
+            solution = solution.AddMetadataReference(projectId, reference);
+        var documentId = DocumentId.CreateNew(projectId);
+        solution = solution.AddDocument(documentId, "Consumer.rvn",
+            Raven.CodeAnalysis.Text.SourceText.From("class Consumer { func Create() -> Generated.HomeControllerRoute? => null }"), "/tmp/Consumer.rvn");
+        workspace.TryApplyChanges(solution).ShouldBeTrue();
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single(tree => tree.FilePath == "/tmp/Consumer.rvn");
+        if (querySymbolFirst)
+        {
+            var name = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
+                .Single(name => name.Identifier.ValueText == "HomeControllerRoute");
+            compilation.GetSemanticModel(tree).GetSymbolInfo(name).Symbol.ShouldNotBeNull();
+        }
+
+        compilation.GetDocumentDiagnostics(tree)
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+    }
+
     [Fact]
     public void RunGeneratorsAndUpdateCompilation_AddsGeneratedSyntaxTree()
     {
@@ -86,6 +114,13 @@ public class GeneratorDriverTests
         ReferenceEquals(firstCompilation, secondCompilation).ShouldBeFalse();
         secondCompilation.SyntaxTrees.ShouldContain(tree => tree.FilePath.EndsWith("Second.rvn", StringComparison.Ordinal));
         secondCompilation.SyntaxTrees.ShouldNotContain(tree => tree.FilePath.EndsWith("First.rvn", StringComparison.Ordinal));
+    }
+
+    private sealed class QualifiedGenerator : ISourceGenerator
+    {
+        public void Initialize(GeneratorInitializationContext context) { }
+        public void Execute(GeneratorExecutionContext context)
+            => context.AddSource("HomeControllerRoute", "namespace Generated\nclass HomeControllerRoute {}");
     }
 
     private sealed class TestGenerator : ISourceGenerator

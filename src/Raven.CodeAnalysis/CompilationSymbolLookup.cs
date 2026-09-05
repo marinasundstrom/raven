@@ -155,6 +155,12 @@ internal sealed class CompilationSymbolLookup
         if (string.IsNullOrWhiteSpace(name))
             return null;
 
+        if (_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
+        {
+            _compilation.DeclareIndexedSourceNamespace(currentNamespace, name);
+            _compilation.DeclareIndexedSourceNamespace(null, name);
+        }
+
         var candidates = ImmutableArray.CreateBuilder<INamespaceSymbol>();
 
         var sourceCurrent = currentNamespace is SourceNamespaceSymbol sourceNamespace

@@ -1634,6 +1634,14 @@ public partial class Compilation
         return SourceDeclarationIndex.GetNamespaceFunctions(GetNamespaceMetadataName(namespaceSymbol), name);
     }
 
+    internal void DeclareIndexedSourceNamespace(INamespaceSymbol? parent, string name)
+    {
+        var parentName = parent is null ? string.Empty : GetNamespaceMetadataName(parent);
+        var metadataName = string.IsNullOrEmpty(parentName) ? name : parentName + "." + name;
+        if (SourceDeclarationIndex.ContainsNamespace(metadataName))
+            GetOrCreateNamespaceSymbol(metadataName);
+    }
+
     internal bool TryDeclareIndexedSourceType(
         INamespaceSymbol? namespaceSymbol,
         string name,

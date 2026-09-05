@@ -6,6 +6,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Document diagnostics resolve qualified types from generated source before any
+  hover or symbol query, avoiding false missing-type errors in generator consumers.
+
 - Document diagnostics now validate attributes against declarations replaced by
   attached macros, preventing property attributes such as `[Required]` from
   being incorrectly rejected as class attributes after `#[Observable]`.

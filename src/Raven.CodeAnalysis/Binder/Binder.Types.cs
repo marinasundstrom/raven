@@ -466,6 +466,15 @@ internal abstract partial class Binder
         IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
+        var memberName = right switch
+        {
+            IdentifierNameSyntax name => name.Identifier.ValueText,
+            GenericNameSyntax name => name.Identifier.ValueText,
+            _ => null
+        };
+        if (memberName is not null && Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
+            Compilation.TryDeclareIndexedSourceType(namespaceSymbol, memberName, out _);
+
         if (right is IdentifierNameSyntax identifier)
         {
             var definition = SelectByArity(
