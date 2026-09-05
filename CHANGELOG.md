@@ -22,6 +22,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Empty partial-union diagnostics now consistently point to the first declaration
+  in compilation source order, regardless of which file is queried first.
 - Bare type names in expression statements now report a compiler error instead
   of the unused-result discard warning (`RAV9034`).
 

@@ -151,7 +151,9 @@ let missing: LookupResult = Missing
 * Generic unions are allowed in both forms, for example
   `union Result<T, E> { case Ok(value: T) case Error(error: E) }`.
 * `union` declarations may be `partial`. Cases and ordinary members may be
-  distributed across partial declarations of the same union.
+  distributed across partial declarations of the same union. A union with no
+  cases reports one cardinality diagnostic on its first declaration in
+  compilation source order.
 * The carrier reserves the member names `Value` and `HasValue` for synthesized
   members.
 * As with records, an authored `override ToString()` suppresses the synthesized

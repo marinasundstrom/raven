@@ -91,19 +91,32 @@ union Message(SubmitOrder | CancelOrder)
             static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnionRequiresCase);
     }
 
-    [Fact]
-    public void PartialBodyUnion_WithoutCases_ReportsOneDiagnosticForTheCombinedUnion()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void PartialBodyUnion_WithoutCases_ReportsOneDiagnosticForTheCombinedUnion(
+        bool reverseTreeOrder,
+        bool bindSecondPartFirst)
     {
         var firstPart = SyntaxTree.ParseText("partial union Message {}", path: "First.rav");
         var secondPart = SyntaxTree.ParseText("partial union Message {}", path: "Second.rav");
+        var trees = reverseTreeOrder ? new[] { secondPart, firstPart } : [firstPart, secondPart];
         var compilation = CreateCompilation(
-            [firstPart, secondPart],
+            trees,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        if (bindSecondPartFirst)
+        {
+            var declaration = trees[1].GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+            _ = compilation.GetSemanticModel(trees[1]).GetDeclaredSymbol(declaration);
+        }
 
         var diagnostic = Assert.Single(
             compilation.GetDiagnostics(),
             static diagnostic => diagnostic.Descriptor == CompilerDiagnostics.UnionRequiresCase);
-        Assert.Equal(firstPart, diagnostic.Location.SourceTree);
+        Assert.Equal(trees[0], diagnostic.Location.SourceTree);
     }
 
     [Fact]

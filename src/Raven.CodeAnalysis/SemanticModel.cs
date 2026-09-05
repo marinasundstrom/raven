@@ -2141,6 +2141,14 @@ public partial class SemanticModel
             var declarations = unionSymbol.DeclaringSyntaxReferences
                 .Select(static reference => reference.GetSyntax())
                 .OfType<UnionDeclarationSyntax>()
+                .OrderBy(candidate =>
+                {
+                    var treeIndex = Array.IndexOf(Compilation.SyntaxTrees, candidate.SyntaxTree);
+                    return treeIndex >= 0
+                        ? treeIndex
+                        : Compilation.SyntaxTrees.Length + Array.IndexOf(Compilation.MacroSyntaxTrees, candidate.SyntaxTree);
+                })
+                .ThenBy(static candidate => candidate.Span.Start)
                 .ToArray();
             var primaryDeclaration = declarations.FirstOrDefault();
             if (primaryDeclaration is null ||
