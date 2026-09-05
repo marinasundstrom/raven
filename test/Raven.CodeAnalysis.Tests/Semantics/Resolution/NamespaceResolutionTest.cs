@@ -10,7 +10,7 @@ public class NamespaceResolutionTest : DiagnosticTestBase
     {
         string testCode =
             """
-            System.String;
+            let resolvedType = typeof(System.String);
             """;
 
         var verifier = CreateVerifier(testCode);
