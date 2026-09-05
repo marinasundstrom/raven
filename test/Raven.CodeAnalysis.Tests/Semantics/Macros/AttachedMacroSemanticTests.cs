@@ -29,6 +29,104 @@ public sealed class AttachedMacroSemanticTests : CompilationTestBase
             tree);
     }
 
+    [Theory]
+    [InlineData(false, false, "Property")]
+    [InlineData(true, false, "Property")]
+    [InlineData(false, true, "Property")]
+    [InlineData(false, true, "Class")]
+    [InlineData(true, true, "Property")]
+    [InlineData(true, true, "Class")]
+    public void ReplacedProperty_ValidatesAttributesAgainstProperty(bool querySymbolFirst, bool documentDiagnostics, string target)
+    {
+        var (compilation, tree) = CreateCompilation($$"""
+            import System.*
+
+            [AttributeUsage(AttributeTargets.{{target}})]
+            class TargetedAttribute : Attribute { }
+
+            class ViewModel {
+                #[KeepPropertyAttributes]
+                [Targeted]
+                var Count: int = 0
+            }
+            """);
+        compilation = compilation.AddMacroReferences(new MacroReference(new KeepPropertyAttributesMacro()));
+        var model = compilation.GetSemanticModel(tree);
+        var property = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        if (querySymbolFirst)
+            Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(property));
+
+        var diagnostics = documentDiagnostics ? compilation.GetDocumentDiagnostics(tree) : compilation.GetDiagnostics();
+        if (target == "Property")
+            Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "RAV0502");
+        else
+        {
+            var diagnostic = Assert.Single(diagnostics.Where(diagnostic => diagnostic.Id == "RAV0502"));
+            Assert.Contains("not valid on target 'property'", diagnostic.GetMessage());
+        }
+        var symbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(property));
+        if (target == "Property")
+            Assert.Contains(symbol.GetAttributes(), attribute => attribute.AttributeClass?.Name == "TargetedAttribute");
+    }
+
+    [Fact]
+    public void ReplacedProperty_AttributeDiagnosticRecoversAfterUsageChanges()
+    {
+        const string source = """
+            import System.*
+            import Raven.CodeAnalysis.Tests.Semantics.Macros.*
+            [AttributeUsage(AttributeTargets.Class)]
+            class PropertyOnlyAttribute : Attribute { }
+
+            class ViewModel {
+                #[KeepPropertyAttributes]
+                [PropertyOnly]
+                var Count: int = 0
+            }
+            """;
+        var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+        var projectId = workspace.AddProject("AttributeEdit",
+            compilationOptions: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary),
+            targetFramework: TestMetadataReferences.TargetFramework);
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        foreach (var reference in TestMetadataReferences.Default)
+            project = project.AddMetadataReference(reference);
+        project = project.AddMacroReference(new MacroReference(new KeepPropertyAttributesMacro()));
+        var document = project.AddDocument("ViewModel.rvn", Raven.CodeAnalysis.Text.SourceText.From(source), "/tmp/ViewModel.rvn");
+        Assert.True(workspace.TryApplyChanges(document.Project.Solution));
+        var compilation = workspace.GetCompilation(projectId);
+        var tree = compilation.SyntaxTrees.Single();
+        Assert.Contains(compilation.GetDocumentDiagnostics(tree), diagnostic => diagnostic.Id == "RAV0502");
+
+        var updatedSource = source.Replace("AttributeTargets.Class", "AttributeTargets.Property");
+        Assert.True(workspace.TryApplyChanges(workspace.CurrentSolution.WithDocumentText(
+            document.Id, Raven.CodeAnalysis.Text.SourceText.From(updatedSource))));
+        var updatedCompilation = workspace.GetCompilation(projectId);
+        var updatedTree = updatedCompilation.SyntaxTrees.Single();
+
+        Assert.DoesNotContain(updatedCompilation.GetDocumentDiagnostics(updatedTree), diagnostic => diagnostic.Id == "RAV0502");
+        Assert.DoesNotContain(updatedCompilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0502");
+    }
+
+    public sealed class KeepPropertyAttributesMacro : IMacroDefinition
+    {
+        public string Name => "KeepPropertyAttributes";
+
+        public MacroExpansionResult Expand(PropertyDeclarationSyntax property, AttachedMacroContext context)
+        {
+            var replacement = (PropertyDeclarationSyntax)ParseMembers("""
+                class Generated {
+                    var Count: int { get => 0 set { } }
+                }
+                """)[0];
+            return new MacroExpansionResult
+            {
+                ReplacementDeclaration = replacement.WithAttributeLists(SyntaxFactory.List(
+                    property.AttributeLists.Where(list => !list.Attributes.Any(attribute => attribute.IsMacroAttribute()))))
+            };
+        }
+    }
+
     [Fact]
     public void UnknownMacroAttribute_ReportsUnknownMacroDiagnostic_AndDoesNotBindAsClrAttribute()
     {

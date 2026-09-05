@@ -1516,6 +1516,11 @@ public partial class SemanticModel
                 return GetDeclaredTypeSymbol(declaration);
             }
 
+            // Resolve member ownership through attached-macro replacement, just
+            // as member body traversal does, while retaining authored attributes.
+            if (TryGetMacroReplacementSyntax(declaration, out var replacementDeclaration))
+                declaration = replacementDeclaration;
+
             if (declaration is PropertyDeclarationSyntax &&
                 HasExplicitAttributeTarget(attributeList, "field") &&
                 currentBinder.BindDeclaredSymbol(declaration) is SourcePropertySymbol { BackingField: { } backingField })

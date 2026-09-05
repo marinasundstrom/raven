@@ -6,6 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Document diagnostics now validate attributes against declarations replaced by
+  attached macros, preventing property attributes such as `[Required]` from
+  being incorrectly rejected as class attributes after `#[Observable]`.
+
 - Macros invoked directly in a type member list now participate in signature
   help, hover, definition, inlay hints, semantic coloring, and expansion
   previews, including Raven fragments inside their token-tree bodies.

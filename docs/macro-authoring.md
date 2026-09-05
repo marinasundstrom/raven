@@ -1442,6 +1442,11 @@ do not need the macro's syntax-tree representation.
 An explicit DSL token-symbol association takes precedence over semantic
 inference from a broader embedded Raven fragment containing the same position.
 
+Document diagnostics validate CLR attributes on the effective declaration after
+attached macro replacement. A property attribute retained by a replacement
+property remains a property attribute rather than falling back to the
+containing class as its owner.
+
 The token, fragment, and snapshot semantic APIs accept expression, declaration,
 and type-member macro invocations. Tooling supports macros written directly in
 a type's member list, including signature help for their argument lists and
