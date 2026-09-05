@@ -38,6 +38,10 @@ internal static class MacroExpansionDisplayService
         if (macroExpression is not null)
             return TryCreateDisplay(semanticModel, macroExpression, out display);
 
+        var memberMacro = FindFreestandingMemberMacro(root, offset);
+        if (memberMacro is not null)
+            return TryCreateDisplay(semanticModel, memberMacro, out display);
+
         var macroDeclaration = FindFreestandingMacroDeclaration(root, offset);
         return macroDeclaration is not null &&
             TryCreateDisplay(semanticModel, macroDeclaration, out display);
@@ -81,6 +85,13 @@ internal static class MacroExpansionDisplayService
 
         if (macroExpression is not null)
             return TryCreateDisplay(semanticModel, macroExpression, out display);
+
+        var memberMacro = FindFreestandingMemberMacro(root, start)
+            ?? FindFreestandingMemberMacro(root, end)
+            ?? root.DescendantNodes().OfType<FreestandingMacroMemberDeclarationSyntax>()
+                .FirstOrDefault(member => Intersects(member.Name.Span, start, end));
+        if (memberMacro is not null)
+            return TryCreateDisplay(semanticModel, memberMacro, out display);
 
         var macroDeclaration = FindFreestandingMacroDeclaration(root, start)
             ?? FindFreestandingMacroDeclaration(root, start + ((end - start) / 2))
@@ -181,6 +192,42 @@ internal static class MacroExpansionDisplayService
         return true;
     }
 
+    private static bool TryCreateDisplay(
+        SemanticModel semanticModel,
+        FreestandingMacroMemberDeclarationSyntax macroDeclaration,
+        out MacroExpansionDisplay display)
+    {
+        display = default;
+
+        var expansion = semanticModel.GetMacroExpansion(macroDeclaration);
+        var nodes = expansion?.HasMemberExpansion == true
+            ? expansion.Members.Cast<SyntaxNode>()
+            : expansion?.Node is { } node
+                ? [node]
+                : [];
+        var fullText = string.Join("\n\n", nodes.Select(FormatNode));
+        if (string.IsNullOrWhiteSpace(fullText))
+            return false;
+
+        if (!macroDeclaration.TryGetMacroName(out var macroName))
+            macroName = macroDeclaration.Name.ToString();
+
+        var input = macroDeclaration.Carrier switch
+        {
+            ParenthesizedMacroCarrierSyntax => "(...)",
+            ExpressionHeaderMacroCarrierSyntax header => $" {header.Expression}",
+            _ => string.Empty
+        };
+        var body = macroDeclaration.TokenTree is null ? string.Empty : " { ... }";
+        display = new MacroExpansionDisplay(
+            macroName,
+            $"{macroName}!{input}{body}",
+            macroDeclaration.Name.Span,
+            CreatePreview(fullText),
+            fullText);
+        return true;
+    }
+
     private static string CreateInvocationDisplay(
         FreestandingMacroExpressionSyntax expression,
         string macroName)
@@ -274,6 +321,30 @@ internal static class MacroExpansionDisplayService
 
             var declaration = token.Parent?.AncestorsAndSelf()
                 .OfType<FreestandingMacroDeclarationSyntax>()
+                .FirstOrDefault();
+            if (declaration is not null && declaration.Name.Span.Contains(candidateOffset))
+                return declaration;
+        }
+
+        return null;
+    }
+
+    private static FreestandingMacroMemberDeclarationSyntax? FindFreestandingMemberMacro(SyntaxNode root, int offset)
+    {
+        foreach (var candidateOffset in NormalizeOffsets(offset, root.FullSpan.End))
+        {
+            SyntaxToken token;
+            try
+            {
+                token = root.FindToken(candidateOffset);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var declaration = token.Parent?.AncestorsAndSelf()
+                .OfType<FreestandingMacroMemberDeclarationSyntax>()
                 .FirstOrDefault();
             if (declaration is not null && declaration.Name.Span.Contains(candidateOffset))
                 return declaration;

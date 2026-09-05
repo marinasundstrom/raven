@@ -636,6 +636,7 @@ internal sealed class HoverHandler : IHoverHandler
         {
             FreestandingMacroExpressionSyntax expression => expression.Name,
             FreestandingMacroDeclarationSyntax declaration => declaration.Name,
+            FreestandingMacroMemberDeclarationSyntax member => member.Name,
             _ => null
         };
         if (invocationName is null || !invocationName.Span.Contains(token.Span))
@@ -752,12 +753,13 @@ internal sealed class HoverHandler : IHoverHandler
 
         foreach (var invocation in token.Parent?.AncestorsAndSelf()
                      .Where(static node =>
-                         node is FreestandingMacroExpressionSyntax or FreestandingMacroDeclarationSyntax) ?? [])
+                         node is FreestandingMacroExpressionSyntax or FreestandingMacroDeclarationSyntax or FreestandingMacroMemberDeclarationSyntax) ?? [])
         {
             var tokenTree = invocation switch
             {
                 FreestandingMacroExpressionSyntax expression => expression.TokenTree,
                 FreestandingMacroDeclarationSyntax declaration => declaration.TokenTree,
+                FreestandingMacroMemberDeclarationSyntax member => member.TokenTree,
                 _ => null
             };
             if (tokenTree is null)
@@ -810,6 +812,7 @@ internal sealed class HoverHandler : IHoverHandler
             {
                 FreestandingMacroExpressionSyntax expression => semanticModel.GetMacroFragmentSemanticInfo(expression, candidateOffset, cancellationToken),
                 FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroFragmentSemanticInfo(declaration, candidateOffset, cancellationToken),
+                FreestandingMacroMemberDeclarationSyntax member => semanticModel.GetMacroFragmentSemanticInfo(member, candidateOffset, cancellationToken),
                 _ => null
             };
             var symbol = info?.SymbolInfo.Symbol ?? info?.SymbolInfo.CandidateSymbols.FirstOrDefault();
@@ -853,6 +856,7 @@ internal sealed class HoverHandler : IHoverHandler
             {
                 FreestandingMacroExpressionSyntax expression => semanticModel.GetMacroTokenInfo(expression, candidateOffset, cancellationToken),
                 FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroTokenInfo(declaration, candidateOffset, cancellationToken),
+                FreestandingMacroMemberDeclarationSyntax member => semanticModel.GetMacroTokenInfo(member, candidateOffset, cancellationToken),
                 _ => null
             };
             if (tokenInfo?.Symbol is not { } symbol)
@@ -871,7 +875,7 @@ internal sealed class HoverHandler : IHoverHandler
     private static SyntaxNode? FindFreestandingMacroCarrier(SyntaxToken token)
         => token.Parent?.AncestorsAndSelf().FirstOrDefault(static node =>
             node is FreestandingMacroExpressionSyntax or
-                FreestandingMacroDeclarationSyntax);
+                FreestandingMacroDeclarationSyntax or FreestandingMacroMemberDeclarationSyntax);
 
     private static bool TryGetMacroHint(Compilation compilation, string macroName, out string hint)
     {

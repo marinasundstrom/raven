@@ -415,6 +415,11 @@ public partial class SemanticModel
         CancellationToken cancellationToken = default)
         => GetMacroFragmentRegionsCore(declaration, cancellationToken);
 
+    public ImmutableArray<MacroFragmentRegion> GetMacroFragmentRegions(
+        FreestandingMacroMemberDeclarationSyntax member,
+        CancellationToken cancellationToken = default)
+        => GetMacroFragmentRegionsCore(member, cancellationToken);
+
     internal ImmutableArray<MacroFragmentRegion> GetMacroFragmentRegionsCore(
         SyntaxNode syntax,
         CancellationToken cancellationToken)
@@ -425,12 +430,7 @@ public partial class SemanticModel
         if (_macroFragmentRegionCache.TryGetValue(syntax, out var cached))
             return cached;
 
-        var regions = syntax switch
-        {
-            FreestandingMacroExpressionSyntax expression => MacroFragmentRegionService.GetFragmentRegions(this, expression, cancellationToken),
-            FreestandingMacroDeclarationSyntax declaration => MacroFragmentRegionService.GetFragmentRegions(this, declaration, cancellationToken),
-            _ => ImmutableArray<MacroFragmentRegion>.Empty
-        };
+        var regions = MacroFragmentRegionService.GetFragmentRegions(this, syntax, syntax, cancellationToken);
         return _macroFragmentRegionCache.GetOrAdd(syntax, regions);
     }
 
@@ -447,6 +447,11 @@ public partial class SemanticModel
         CancellationToken cancellationToken = default)
         => GetMacroTokensCore(declaration, cancellationToken);
 
+    public ImmutableArray<MacroTokenInfo> GetMacroTokens(
+        FreestandingMacroMemberDeclarationSyntax member,
+        CancellationToken cancellationToken = default)
+        => GetMacroTokensCore(member, cancellationToken);
+
     internal ImmutableArray<MacroTokenInfo> GetMacroTokensCore(
         SyntaxNode syntax,
         CancellationToken cancellationToken)
@@ -457,12 +462,7 @@ public partial class SemanticModel
         if (_macroTokenInfoCache.TryGetValue(syntax, out var cached))
             return cached;
 
-        var tokens = syntax switch
-        {
-            FreestandingMacroExpressionSyntax expression => MacroTokenInfoService.GetTokens(this, expression, cancellationToken),
-            FreestandingMacroDeclarationSyntax declaration => MacroTokenInfoService.GetTokens(this, declaration, cancellationToken),
-            _ => ImmutableArray<MacroTokenInfo>.Empty
-        };
+        var tokens = MacroTokenInfoService.GetTokens(this, syntax, syntax, cancellationToken);
         return _macroTokenInfoCache.GetOrAdd(syntax, tokens);
     }
 
@@ -478,6 +478,11 @@ public partial class SemanticModel
         FreestandingMacroDeclarationSyntax declaration,
         CancellationToken cancellationToken = default)
         => GetMacroInputSnapshotCore(declaration, cancellationToken);
+
+    public MacroInputSnapshot GetMacroInputSnapshot(
+        FreestandingMacroMemberDeclarationSyntax member,
+        CancellationToken cancellationToken = default)
+        => GetMacroInputSnapshotCore(member, cancellationToken);
 
     /// <summary>
     /// Gets a position-preserving embedded-language projection for a token-tree macro invocation.

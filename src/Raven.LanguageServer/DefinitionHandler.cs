@@ -190,6 +190,7 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         {
             FreestandingMacroExpressionSyntax expression => semanticModel.GetMacroFragmentSemanticInfo(expression, offset, cancellationToken),
             FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroFragmentSemanticInfo(declaration, offset, cancellationToken),
+            FreestandingMacroMemberDeclarationSyntax member => semanticModel.GetMacroFragmentSemanticInfo(member, offset, cancellationToken),
             _ => null
         };
     }
@@ -215,6 +216,7 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         {
             FreestandingMacroExpressionSyntax expression => semanticModel.GetMacroTokenInfo(expression, offset, cancellationToken),
             FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroTokenInfo(declaration, offset, cancellationToken),
+            FreestandingMacroMemberDeclarationSyntax member => semanticModel.GetMacroTokenInfo(member, offset, cancellationToken),
             _ => null
         };
     }
@@ -251,17 +253,19 @@ internal sealed class DefinitionHandler : IDefinitionHandler
         else
         {
             var freestandingMacro = token.Parent?.AncestorsAndSelf().FirstOrDefault(static node =>
-                node is FreestandingMacroExpressionSyntax or FreestandingMacroDeclarationSyntax);
+                node is FreestandingMacroExpressionSyntax or FreestandingMacroDeclarationSyntax or FreestandingMacroMemberDeclarationSyntax);
             var freestandingName = freestandingMacro switch
             {
                 FreestandingMacroExpressionSyntax expression => expression.Name,
                 FreestandingMacroDeclarationSyntax declaration => declaration.Name,
+                FreestandingMacroMemberDeclarationSyntax member => member.Name,
                 _ => null
             };
             var hasMacroName = freestandingMacro switch
             {
                 FreestandingMacroExpressionSyntax expression => expression.TryGetMacroName(out macroName),
                 FreestandingMacroDeclarationSyntax declaration => declaration.TryGetMacroName(out macroName),
+                FreestandingMacroMemberDeclarationSyntax member => member.TryGetMacroName(out macroName),
                 _ => false
             };
             if (!hasMacroName || freestandingName is null || !freestandingName.Span.Contains(token.Span))
@@ -314,7 +318,8 @@ internal sealed class DefinitionHandler : IDefinitionHandler
     private static SyntaxNode? FindFreestandingMacroCarrier(SyntaxToken token)
         => token.Parent?.AncestorsAndSelf().FirstOrDefault(static node =>
             node is FreestandingMacroExpressionSyntax { TokenTree: not null } or
-                FreestandingMacroDeclarationSyntax { TokenTree: not null });
+                FreestandingMacroDeclarationSyntax { TokenTree: not null } or
+                FreestandingMacroMemberDeclarationSyntax { TokenTree: not null });
 
     private static IEnumerable<IMacroDefinition> TryGetMacros(MacroReference macroReference, string macroName)
     {

@@ -6,6 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Macros invoked directly in a type member list now participate in signature
+  help, hover, definition, inlay hints, semantic coloring, and expansion
+  previews, including Raven fragments inside their token-tree bodies.
+
 - Hover, inlay hints, and semantic coloring no longer fail on argument-list
   macros such as `subscribe!(...)`. Hover resolves the macro name and ordinary
   symbols inside its arguments and callback.

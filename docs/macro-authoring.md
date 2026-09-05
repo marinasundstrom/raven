@@ -1442,6 +1442,11 @@ do not need the macro's syntax-tree representation.
 An explicit DSL token-symbol association takes precedence over semantic
 inference from a broader embedded Raven fragment containing the same position.
 
+The token, fragment, and snapshot semantic APIs accept expression, declaration,
+and type-member macro invocations. Tooling supports macros written directly in
+a type's member list, including signature help for their argument lists and
+ordinary Raven semantic information inside reported body fragments.
+
 Token-tree semantic queries return no token or fragment information for an
 argument-list invocation such as `subscribe!(source, callback)`. Editors can
 query mixed macro forms safely, then use ordinary symbol and type queries for

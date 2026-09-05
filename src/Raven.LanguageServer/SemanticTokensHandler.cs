@@ -469,7 +469,8 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         var invocations = root.DescendantNodesAndSelf()
             .Where(static node =>
                 node is FreestandingMacroExpressionSyntax { TokenTree: not null } or
-                    FreestandingMacroDeclarationSyntax { TokenTree: not null });
+                    FreestandingMacroDeclarationSyntax { TokenTree: not null } or
+                FreestandingMacroMemberDeclarationSyntax { TokenTree: not null });
         foreach (var invocation in invocations)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -477,6 +478,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             {
                 FreestandingMacroExpressionSyntax expression => semanticModel.GetMacroInputSnapshot(expression, cancellationToken),
                 FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroInputSnapshot(declaration, cancellationToken),
+                FreestandingMacroMemberDeclarationSyntax member => semanticModel.GetMacroInputSnapshot(member, cancellationToken),
                 _ => throw new InvalidOperationException("Unsupported macro carrier.")
             };
             foreach (var token in snapshot.Tokens)
@@ -501,6 +503,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             {
                 FreestandingMacroExpressionSyntax expression => semanticModel.GetMacroFragmentClassifications(expression, cancellationToken),
                 FreestandingMacroDeclarationSyntax declaration => semanticModel.GetMacroFragmentClassifications(declaration, cancellationToken),
+                FreestandingMacroMemberDeclarationSyntax member => semanticModel.GetMacroFragmentClassifications(member, cancellationToken),
                 _ => throw new InvalidOperationException("Unsupported macro carrier.")
             };
             foreach (var pair in fragmentClassifications.Tokens)

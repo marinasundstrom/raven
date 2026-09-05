@@ -255,7 +255,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                 continue;
 
             var token = root.FindToken(candidatePosition);
-            if (token.Parent?.AncestorsAndSelf().OfType<FreestandingMacroExpressionSyntax>().Any() == true)
+            if (token.Parent?.AncestorsAndSelf().Any(static node =>
+                node is FreestandingMacroExpressionSyntax or FreestandingMacroMemberDeclarationSyntax or FreestandingMacroDeclarationSyntax) == true)
                 return true;
         }
 

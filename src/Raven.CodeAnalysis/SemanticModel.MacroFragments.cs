@@ -30,6 +30,12 @@ public partial class SemanticModel
         CancellationToken cancellationToken = default)
         => GetMacroFragmentSemanticInfoCore(declaration, position, cancellationToken);
 
+    public MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfo(
+        FreestandingMacroMemberDeclarationSyntax member,
+        int position,
+        CancellationToken cancellationToken = default)
+        => GetMacroFragmentSemanticInfoCore(member, position, cancellationToken);
+
     internal MacroFragmentSemanticInfo? GetMacroFragmentSemanticInfoCore(
         SyntaxNode syntax,
         int position,
@@ -71,6 +77,11 @@ public partial class SemanticModel
         FreestandingMacroDeclarationSyntax declaration,
         CancellationToken cancellationToken = default)
         => GetMacroFragmentInferredTypeAnnotationsCore(declaration, cancellationToken);
+
+    public ImmutableArray<MacroFragmentInferredTypeAnnotation> GetMacroFragmentInferredTypeAnnotations(
+        FreestandingMacroMemberDeclarationSyntax member,
+        CancellationToken cancellationToken = default)
+        => GetMacroFragmentInferredTypeAnnotationsCore(member, cancellationToken);
 
     private ImmutableArray<MacroFragmentInferredTypeAnnotation> GetMacroFragmentInferredTypeAnnotationsCore(
         SyntaxNode syntax,
@@ -142,6 +153,11 @@ public partial class SemanticModel
         FreestandingMacroDeclarationSyntax declaration,
         CancellationToken cancellationToken = default)
         => GetMacroFragmentClassificationsCore(declaration, cancellationToken);
+
+    public SemanticClassificationResult GetMacroFragmentClassifications(
+        FreestandingMacroMemberDeclarationSyntax member,
+        CancellationToken cancellationToken = default)
+        => GetMacroFragmentClassificationsCore(member, cancellationToken);
 
     private SemanticClassificationResult GetMacroFragmentClassificationsCore(
         SyntaxNode syntax,
@@ -221,6 +237,12 @@ public partial class SemanticModel
         int position,
         CancellationToken cancellationToken = default)
         => GetMacroTokenInfoCore(declaration, position, cancellationToken);
+
+    public MacroTokenInfo? GetMacroTokenInfo(
+        FreestandingMacroMemberDeclarationSyntax member,
+        int position,
+        CancellationToken cancellationToken = default)
+        => GetMacroTokenInfoCore(member, position, cancellationToken);
 
     internal MacroTokenInfo? GetMacroTokenInfoCore(
         SyntaxNode syntax,
@@ -490,6 +512,7 @@ public partial class SemanticModel
         => syntax switch
         {
             FreestandingMacroExpressionSyntax expression => new TokenTreeMacroContext(Compilation, this, expression, cancellationToken),
+            FreestandingMacroMemberDeclarationSyntax member => new TokenTreeMacroContext(Compilation, this, member, cancellationToken),
             FreestandingMacroDeclarationSyntax declaration => new TokenTreeMacroContext(Compilation, this, declaration, cancellationToken),
             _ => throw new ArgumentException("Syntax is not a supported token-tree macro carrier.", nameof(syntax))
         };

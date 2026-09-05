@@ -27,10 +27,11 @@ internal static class MacroSignatureHelpService
                 expectedKind = MacroKind.AttachedDeclaration;
                 break;
 
-            case ParenthesizedMacroCarrierSyntax { Parent: FreestandingMacroExpressionSyntax expression }
-                when expression.TryGetMacroName(out name):
-                nameSyntax = expression.Name;
-                invocation = expression;
+            case ParenthesizedMacroCarrierSyntax { Parent: { } carrier }
+                when FreestandingMacroInvocation.TryCreate(carrier, out var macroInvocation) &&
+                    macroInvocation.TryGetMacroName(out name):
+                nameSyntax = macroInvocation.Name;
+                invocation = carrier;
                 expectedKind = MacroKind.Freestanding;
                 break;
 
@@ -109,10 +110,10 @@ internal static class MacroSignatureHelpService
         }
 
         if (expectedKind == MacroKind.Freestanding &&
-            invocation is FreestandingMacroExpressionSyntax expression &&
+            FreestandingMacroInvocation.TryCreate(invocation, out _) &&
             registry.TryResolveFreestandingMacro(
                 semanticModel.Compilation,
-                expression,
+                invocation,
                 name,
                 out var freestanding,
                 out _))

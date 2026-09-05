@@ -534,6 +534,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         var invocations = DescendantNodesInSpan<FreestandingMacroExpressionSyntax>(root, requestSpan)
             .Cast<SyntaxNode>()
             .Concat(DescendantNodesInSpan<FreestandingMacroDeclarationSyntax>(root, requestSpan))
+            .Concat(DescendantNodesInSpan<FreestandingMacroMemberDeclarationSyntax>(root, requestSpan))
             .Concat(GetEnclosingMacroInvocations(root, requestSpan))
             .Distinct()
             .OrderBy(static invocation => invocation.Span.Start);
@@ -549,6 +550,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                     semanticModel.GetMacroFragmentInferredTypeAnnotations(expression, cancellationToken),
                 FreestandingMacroDeclarationSyntax declaration =>
                     semanticModel.GetMacroFragmentInferredTypeAnnotations(declaration, cancellationToken),
+                FreestandingMacroMemberDeclarationSyntax member =>
+                    semanticModel.GetMacroFragmentInferredTypeAnnotations(member, cancellationToken),
                 _ => []
             };
 
@@ -585,7 +588,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             var token = root.FindToken(Math.Clamp(position, root.FullSpan.Start, root.FullSpan.End));
             foreach (var invocation in token.Parent?.AncestorsAndSelf() ?? [])
             {
-                if (invocation is FreestandingMacroExpressionSyntax or FreestandingMacroDeclarationSyntax &&
+                if (invocation is FreestandingMacroExpressionSyntax or FreestandingMacroDeclarationSyntax or FreestandingMacroMemberDeclarationSyntax &&
                     MacroInvocationIntersectsRequest(invocation, requestSpan))
                 {
                     yield return invocation;
@@ -603,6 +606,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         {
             FreestandingMacroExpressionSyntax expression => expression.TokenTree,
             FreestandingMacroDeclarationSyntax declaration => declaration.TokenTree,
+            FreestandingMacroMemberDeclarationSyntax member => member.TokenTree,
             _ => null
         };
 
