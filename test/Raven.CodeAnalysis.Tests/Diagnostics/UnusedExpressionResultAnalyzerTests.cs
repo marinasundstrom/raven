@@ -5,6 +5,90 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 
 public sealed class UnusedExpressionResultAnalyzerTests : AnalyzerTestBase
 {
+    [Theory]
+    [InlineData("Console", "Console")]
+    [InlineData("System.Console", "Console")]
+    [InlineData("System.Collections.Generic.List<int>", "List<int>")]
+    public void TypeExpressionStatement_ReportsOnlyCompilerError(string expression, string typeName)
+    {
+        var code = $$"""
+import System.*
+func Main() -> () {
+    {{expression}}
+}
+""";
+
+        var verifier = CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.TypeUsedAsValue.Id)
+                    .WithArguments(typeName)
+                    .WithSpan(3, 5, 3, 5 + expression.Length)
+            ]);
+        verifier.Verify();
+    }
+
+    [Fact]
+    public void TypeExpressionStatement_BeforeAnotherStatement_ReportsOnlyCompilerError()
+    {
+        const string code = """
+import System.*
+func Main() -> () {
+    Console
+    Console.WriteLine("hello")
+}
+""";
+
+        CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.TypeUsedAsValue.Id)
+                    .WithArguments("Console")
+                    .WithSpan(3, 5, 3, 12)
+            ]).Verify();
+    }
+
+    [Fact]
+    public void LocalNamedConsole_StillReportsUnusedValue()
+    {
+        const string code = """
+func Main() -> () {
+    let Console = 42
+    Console
+}
+""";
+
+        CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(UnusedExpressionResultAnalyzer.DiagnosticId)
+                    .WithSpan(3, 5, 3, 12)
+            ]).Verify();
+    }
+
+    [Fact]
+    public void UserDefinedTypeExpressionStatement_ReportsOnlyCompilerError()
+    {
+        const string code = """
+class Widget {}
+func Main() -> () {
+    Widget
+}
+""";
+
+        CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(
+            code,
+            expectedDiagnostics:
+            [
+                new DiagnosticResult(CompilerDiagnostics.TypeUsedAsValue.Id)
+                    .WithArguments("Widget")
+                    .WithSpan(3, 5, 3, 11)
+            ]).Verify();
+    }
+
     [Fact]
     public void BinaryExpressionStatement_InImplicitUnitFunction_ReportsDiagnostic()
     {

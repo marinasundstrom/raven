@@ -10,6 +10,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Bare type names in expression statements now report a compiler error instead
+  of the unused-result discard warning (`RAV9034`).
+
 - Ordinary code completion now stays quiet inside comments and string or
   character text, including an unfinished opening quote. Completion remains
   available inside interpolated expressions and after member-access operators.

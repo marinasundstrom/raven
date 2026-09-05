@@ -36,6 +36,9 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        if (Unwrap(operation).Kind is OperationKind.TypeExpression or OperationKind.NamespaceExpression or OperationKind.Invalid)
+            return;
+
         if (IsImplicitValueReturnTarget(expressionStatement, context.SemanticModel))
             return;
 

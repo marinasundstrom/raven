@@ -57,6 +57,9 @@
   <Descriptor Id="RAV0118" Identifier="VariableUsedLikeAType" Title="Value used as a type"
     Message="'{name}' is a value, not a type." Category="compiler" Severity="Error"
     EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0120" Identifier="TypeUsedAsValue" Title="Type used as a value"
+    Message="'{name}' is a type, which is not valid in this context." Category="compiler" Severity="Error"
+    EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0121" Identifier="CallIsAmbiguous" Title="Ambiguous call"
     Message="This call matches both '{method1}' and '{method2}'." Category="compiler"
     Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

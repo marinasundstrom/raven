@@ -63,6 +63,17 @@ partial class BlockBinder
             ? BindExpressionWithTargetType(expressionStmt.Expression, expressionTargetType)
             : BindExpression(expressionStmt.Expression, allowReturn: true);
 
+        var valueExpression = expr;
+        while (valueExpression is BoundParenthesizedExpression parenthesized)
+            valueExpression = parenthesized.Expression;
+
+        if (valueExpression is BoundTypeExpression { Type: not NullTypeSymbol } typeExpression)
+        {
+            _diagnostics.ReportTypeUsedAsValue(typeExpression.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), expressionStmt.Expression.GetLocation());
+            expr = ErrorExpression(reason: BoundExpressionReason.OtherError);
+            CacheBoundNode(expressionStmt.Expression, expr);
+        }
+
         if (isImplicitReturnTarget && _containingSymbol is IMethodSymbol implicitReturnMethod)
         {
             var targetType = GetReturnTargetType(implicitReturnMethod);

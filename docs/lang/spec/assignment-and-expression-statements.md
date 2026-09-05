@@ -62,6 +62,12 @@ The expression is evaluated for its effects and the statement has type `unit`.
 Its value does not become an implicit return value merely because the statement
 appears at the end of a function.
 
+A type name such as `Console` or `System.Console` does not produce a value.
+Using it alone as an expression statement is a compiler error (`RAV0120`).
+It does not trigger the unused-result warning.
+Type names remain valid as receivers for static members, as in
+`Console.WriteLine("saved")`.
+
 A final non-`unit` expression in a `unit`-returning function is still discarded,
 but diagnostic `RAV9034` warns because it can resemble an accidental implicit
 result. Use `_ = expression` to make an intentional discard clear, change the
