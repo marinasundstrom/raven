@@ -393,6 +393,14 @@ internal sealed class DocumentStore
 
     internal async Task<DocumentSyntaxContext?> GetDocumentSyntaxContextAsync(DocumentUri uri, CancellationToken cancellationToken)
     {
+        if (GeneratedSourceDocument.TryParse(uri, out _, out _))
+        {
+            var context = await GetAnalysisContextAsync(uri, cancellationToken).ConfigureAwait(false);
+            return context is { } generated
+                ? new DocumentSyntaxContext(generated.Document, generated.SyntaxTree, generated.SourceText)
+                : null;
+        }
+
         await FlushPendingDocumentChangeAsync(uri, cancellationToken).ConfigureAwait(false);
 
         if (!TryGetDocument(uri, out var document) || document is null)
@@ -439,6 +447,17 @@ internal sealed class DocumentStore
         Position? position,
         CancellationToken cancellationToken)
     {
+        if (GeneratedSourceDocument.TryParse(uri, out var origin, out var generatedPath))
+        {
+            var sourceContext = await CreateDocumentAnalysisContextAsync(origin, null, cancellationToken).ConfigureAwait(false);
+            if (sourceContext is null)
+                return null;
+            var generatedTree = sourceContext.Value.Compilation.SyntaxTrees.FirstOrDefault(tree => tree.FilePath == generatedPath);
+            if (generatedTree is null || sourceContext.Value.Document.Project.Documents.Any(document => document.FilePath == generatedPath))
+                return null;
+            return sourceContext.Value with { SyntaxTree = generatedTree, SourceText = generatedTree.GetText() };
+        }
+
         await FlushPendingDocumentChangeAsync(uri, cancellationToken).ConfigureAwait(false);
 
         var stopwatch = Stopwatch.StartNew();

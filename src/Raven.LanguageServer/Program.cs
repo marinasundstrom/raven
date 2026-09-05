@@ -54,6 +54,7 @@ internal static class Program
             .WithHandler<MacroEmbeddedLanguageProjectionHandler>()
             .WithHandler<SignatureHelpHandler>()
             .WithHandler<DefinitionHandler>()
+            .WithHandler<GeneratedSourceHandler>()
             .WithHandler<ReferencesHandler>()
             .WithHandler<RenameHandler>()
             .WithHandler<HoverHandler>()

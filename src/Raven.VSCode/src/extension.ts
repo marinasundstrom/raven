@@ -770,7 +770,7 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
   };
 
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ scheme: 'file', language: 'raven' }],
+    documentSelector: [{ scheme: 'file', language: 'raven' }, { scheme: 'raven-generated', language: 'raven' }],
     synchronize: {
       configurationSection: 'raven',
       fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{rvn,rav,rvnproj,csproj,fsproj}')
@@ -2342,6 +2342,36 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.registerTextDocumentContentProvider(
       macroEmbeddedDocumentScheme,
       macroEmbeddedDocuments)
+  );
+
+  const generatedSourceChanged = new vscode.EventEmitter<vscode.Uri>();
+  let generatedSourceRefresh: ReturnType<typeof setTimeout> | undefined;
+  context.subscriptions.push(
+    generatedSourceChanged,
+    { dispose: () => clearTimeout(generatedSourceRefresh) },
+    vscode.workspace.registerTextDocumentContentProvider('raven-generated', {
+      onDidChange: generatedSourceChanged.event,
+      async provideTextDocumentContent(uri, token): Promise<string> {
+        if (clientStartPromise) {
+          await clientStartPromise;
+        }
+        const text = await client?.sendRequest<string | null>('raven/generatedSource', { uri: uri.toString() }, token);
+        return text ?? '// This generated source is no longer available.\n';
+      }
+    }),
+    vscode.workspace.onDidChangeTextDocument(event => {
+      if (event.document.uri.scheme !== 'file' || event.document.languageId !== 'raven') {
+        return;
+      }
+      clearTimeout(generatedSourceRefresh);
+      generatedSourceRefresh = setTimeout(() => {
+        for (const document of vscode.workspace.textDocuments) {
+          if (document.uri.scheme === 'raven-generated') {
+            generatedSourceChanged.fire(document.uri);
+          }
+        }
+      }, 300);
+    })
   );
 
   void startClient(context, 'activate');

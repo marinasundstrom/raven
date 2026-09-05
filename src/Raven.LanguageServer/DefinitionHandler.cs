@@ -93,7 +93,8 @@ internal sealed class DefinitionHandler : IDefinitionHandler
                 var tokenLinks = DefinitionLocationMapper.BuildLocationLinks(
                         ReferenceSearchService.NormalizeSymbol(macroTokenSymbol.UnderlyingSymbol),
                         sourceText,
-                        macroTokenInfo.Span)
+                        macroTokenInfo.Span,
+                        tree => GeneratedSourceDocument.GetUri(context.Value, request.TextDocument.Uri, tree))
                     .Select(static location => (LocationOrLocationLink)location)
                     .ToArray();
                 resultCount = tokenLinks.Length;
@@ -112,7 +113,8 @@ internal sealed class DefinitionHandler : IDefinitionHandler
                 var fragmentLinks = DefinitionLocationMapper.BuildLocationLinks(
                         ReferenceSearchService.NormalizeSymbol(macroFragmentSymbol.UnderlyingSymbol),
                         sourceText,
-                        macroFragmentInfo.Span)
+                        macroFragmentInfo.Span,
+                        tree => GeneratedSourceDocument.GetUri(context.Value, request.TextDocument.Uri, tree))
                     .Select(static location => (LocationOrLocationLink)location)
                     .ToArray();
                 resultCount = fragmentLinks.Length;
@@ -128,7 +130,8 @@ internal sealed class DefinitionHandler : IDefinitionHandler
             var links = DefinitionLocationMapper.BuildLocationLinks(
                     SymbolResolutionHelpers.GetNavigationTargetSymbol(resolution.Value),
                     sourceText,
-                    resolution.Value.Node.Span)
+                    resolution.Value.Node.Span,
+                    tree => GeneratedSourceDocument.GetUri(context.Value, request.TextDocument.Uri, tree))
                 .Select(location => (LocationOrLocationLink)location)
                 .ToArray();
             resultCount = links.Length;
@@ -338,7 +341,7 @@ internal sealed class DefinitionHandler : IDefinitionHandler
 
 internal static class DefinitionLocationMapper
 {
-    public static IEnumerable<LocationLink> BuildLocationLinks(ISymbol symbol, SourceText sourceText, TextSpan originSpan)
+    public static IEnumerable<LocationLink> BuildLocationLinks(ISymbol symbol, SourceText sourceText, TextSpan originSpan, Func<SyntaxTree, DocumentUri>? getUri = null)
     {
         var originSelectionRange = PositionHelper.ToRange(sourceText, originSpan);
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -347,7 +350,7 @@ internal static class DefinitionLocationMapper
         {
             var selectionSpan = syntaxReference.Span;
             var targetSpan = syntaxReference.GetSyntax().Span;
-            if (TryCreateLocationLink(syntaxReference.SyntaxTree, targetSpan, selectionSpan, originSelectionRange, out var locationLink) &&
+            if (TryCreateLocationLink(syntaxReference.SyntaxTree, targetSpan, selectionSpan, originSelectionRange, getUri, out var locationLink) &&
                 seen.Add($"{locationLink.TargetUri}|{locationLink.TargetSelectionRange.Start.Line}:{locationLink.TargetSelectionRange.Start.Character}:{locationLink.TargetSelectionRange.End.Line}:{locationLink.TargetSelectionRange.End.Character}"))
             {
                 yield return locationLink;
@@ -359,7 +362,7 @@ internal static class DefinitionLocationMapper
             if (!location.IsInSource || location.SourceTree is null)
                 continue;
 
-            if (TryCreateLocationLink(location.SourceTree, location.SourceSpan, location.SourceSpan, originSelectionRange, out var mappedLocationLink) &&
+            if (TryCreateLocationLink(location.SourceTree, location.SourceSpan, location.SourceSpan, originSelectionRange, getUri, out var mappedLocationLink) &&
                 seen.Add($"{mappedLocationLink.TargetUri}|{mappedLocationLink.TargetSelectionRange.Start.Line}:{mappedLocationLink.TargetSelectionRange.Start.Character}:{mappedLocationLink.TargetSelectionRange.End.Line}:{mappedLocationLink.TargetSelectionRange.End.Character}"))
             {
                 yield return mappedLocationLink;
@@ -372,6 +375,7 @@ internal static class DefinitionLocationMapper
         TextSpan targetSpan,
         TextSpan selectionSpan,
         OmniSharp.Extensions.LanguageServer.Protocol.Models.Range originSelectionRange,
+        Func<SyntaxTree, DocumentUri>? getUri,
         out LocationLink locationLink)
     {
         var path = syntaxTree.FilePath;
@@ -382,7 +386,7 @@ internal static class DefinitionLocationMapper
             return false;
         }
 
-        var uri = DocumentUri.FromFileSystemPath(path);
+        var uri = getUri?.Invoke(syntaxTree) ?? DocumentUri.FromFileSystemPath(path);
 
         var text = syntaxTree.GetText();
         if (text is null)

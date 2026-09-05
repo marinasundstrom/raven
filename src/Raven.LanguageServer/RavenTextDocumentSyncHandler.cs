@@ -814,7 +814,7 @@ internal sealed class RavenTextDocumentSyncHandler : TextDocumentSyncHandlerBase
     protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities)
         => new()
         {
-            DocumentSelector = TextDocumentSelector.ForLanguage("raven"),
+            DocumentSelector = new TextDocumentSelector(new TextDocumentFilter { Language = "raven", Scheme = "file" }),
             Change = TextDocumentSyncKind.Incremental,
             Save = new SaveOptions
             {

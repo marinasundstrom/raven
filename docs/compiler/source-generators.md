@@ -116,3 +116,8 @@ Disk output is for inspection; generators still contribute their trees directly
 to the compilation. Workspace analysis does not write these files. Keep a custom
 output directory out of `Compile` items to avoid compiling the generated files
 twice on subsequent builds. The default `obj` directory is already excluded.
+
+In VS Code, Go to Definition opens generated declarations in a read-only
+`raven-generated` document backed by the current compilation. Hover and further
+definition navigation work inside that document. Open generated documents refresh
+after Raven source edits; enabling disk output is not required for navigation.

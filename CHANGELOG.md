@@ -6,6 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Go to Definition opens source-generator output as a read-only, live Raven
+  document, including hover and navigation back to handwritten source, without
+  requiring generated files on disk.
+
 - Source-generator builds honor `EmitCompilerGeneratedFiles` and
   `CompilerGeneratedFilesOutputPath`, with opt-in output under `obj` by default.
 
