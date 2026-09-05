@@ -18,11 +18,12 @@ namespace Raven.LanguageServer.Tests;
 public class LanguageServerCompletionMappingTests
 {
     [Theory]
-    [InlineData("    Con|soel", "Console", "Console", 4, 11)]
-    [InlineData("    Console.Wri|", "WriteLine", "WriteLine($0)", 12, 15)]
-    [InlineData("    Console.Wri|(\"hello\")", "WriteLine", "WriteLine", 12, 15)]
+    [InlineData("    Con|soel", "Console", "Console", 4, 11, 2)]
+    [InlineData("    Console.Wri|", "WriteLine", "WriteLine($0)", 12, 15, 2)]
+    [InlineData("    Console.Wri|(\"hello\")", "WriteLine", "WriteLine", 12, 15, 2)]
+    [InlineData("    Console.Out\n    |", "return", "return", 4, 4, 3)]
     public void ToLspCompletion_CompilerCompletion_PreservesReplacementRangeAndCaret(
-        string markedLine, string label, string expectedText, int start, int end)
+        string markedLine, string label, string expectedText, int start, int end, int line)
     {
         var markedSource = "import System.*\nfunc Main() {\n" + markedLine + "\n}";
         var position = markedSource.IndexOf('|');
@@ -36,9 +37,9 @@ public class LanguageServerCompletionMappingTests
         var mapped = CompletionItemMapper.ToLspCompletion(item, SourceText.From(source));
         var edit = mapped.TextEdit!.TextEdit!;
 
-        edit.Range.Start.Line.ShouldBe(2);
+        edit.Range.Start.Line.ShouldBe(line);
         edit.Range.Start.Character.ShouldBe(start);
-        edit.Range.End.Line.ShouldBe(2);
+        edit.Range.End.Line.ShouldBe(line);
         edit.Range.End.Character.ShouldBe(end);
         edit.NewText.ShouldBe(expectedText);
         mapped.InsertTextFormat.ShouldBe(expectedText.Contains("$0") ? InsertTextFormat.Snippet : InsertTextFormat.PlainText);

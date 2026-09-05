@@ -699,6 +699,9 @@ public static class CompletionProvider
 
         string GetSelfCompletionPrefix()
         {
+            if (forceInsertionAtCaret)
+                return string.Empty;
+
             if (token.IsKind(SyntaxKind.IdentifierToken))
                 return token.ValueText;
 
@@ -2227,6 +2230,7 @@ public static class CompletionProvider
 
         var targetTypedMemberBinding = token.GetAncestor<MemberBindingExpressionSyntax>();
         if (targetTypedMemberBinding is not null &&
+            (!forceInsertionAtCaret || targetTypedMemberBinding.Name.Identifier.IsMissing) &&
             targetTypedMemberBinding.Parent is not ConditionalAccessExpressionSyntax &&
             position >= targetTypedMemberBinding.OperatorToken.Span.End &&
             TryGetTargetTypedMemberCompletionType(targetTypedMemberBinding) is INamedTypeSymbol { TypeKind: TypeKind.Enum } targetEnum)
@@ -2536,6 +2540,7 @@ public static class CompletionProvider
         // Conditional member access: value?.Member
         var memberBinding = token.GetAncestor<MemberBindingExpressionSyntax>();
         if (memberBinding is not null &&
+            (!forceInsertionAtCaret || memberBinding.Name.Identifier.IsMissing) &&
             memberBinding.Parent is ConditionalAccessExpressionSyntax conditionalAccess)
         {
             var operatorToken = memberBinding.OperatorToken;
@@ -2627,7 +2632,7 @@ public static class CompletionProvider
 
         // Member access: Console.Wri
         var memberAccess = token.GetAncestor<MemberAccessExpressionSyntax>();
-        if (memberAccess is not null)
+        if (memberAccess is not null && (!forceInsertionAtCaret || memberAccess.Name.Identifier.IsMissing))
         {
             var dotToken = memberAccess.OperatorToken;
 
@@ -2759,7 +2764,8 @@ public static class CompletionProvider
         }
 
         var qualifiedName = token.GetAncestor<QualifiedNameSyntax>();
-        if (qualifiedName is not null && qualifiedName.Right is SimpleNameSyntax simple)
+        if (qualifiedName is not null && qualifiedName.Right is SimpleNameSyntax simple &&
+            (!forceInsertionAtCaret || simple.Identifier.IsMissing))
         {
             var isImportLineCompletion = IsImportLineCompletionContext(qualifiedName);
             var symbol = (ISymbol?)(isImportLineCompletion
@@ -2899,7 +2905,8 @@ public static class CompletionProvider
         }
 
         // Visible symbols (locals, globals, etc.)
-        var offerValueCompletions = token.Parent is IdentifierNameSyntax { Parent: BlockStatementSyntax or ExpressionStatementSyntax }
+        var offerValueCompletions = forceInsertionAtCaret
+            || token.Parent is IdentifierNameSyntax { Parent: BlockStatementSyntax or ExpressionStatementSyntax }
             || token.IsKind(SyntaxKind.IdentifierToken)
             || token.IsKind(SyntaxKind.EndOfFileToken)
             || (semanticContext is not null && token.Kind == SyntaxKind.None)
@@ -2996,7 +3003,7 @@ public static class CompletionProvider
         }
 
         // Language keywords (added after symbol completions so escaped identifiers win on duplicates)
-        var shouldOfferKeywords =
+        var shouldOfferKeywords = forceInsertionAtCaret ||
             token.GetAncestor<MemberAccessExpressionSyntax>() is null &&
             token.GetAncestor<QualifiedNameSyntax>() is null &&
             !token.IsKind(SyntaxKind.DotToken);

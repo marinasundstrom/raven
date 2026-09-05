@@ -7,6 +7,10 @@ When editing inside an identifier, suggestions use the prefix before the caret
 and acceptance replaces the entire identifier. Method completion adds parentheses
 and places the caret inside them when starting a new call. If an argument list
 already exists, completion preserves it and leaves the caret after the method name.
+On an indented blank line, completion offers visible values and statement keywords.
+A completed member expression on the previous line does not restrict these
+suggestions; an unfinished access such as `Console.` still offers members when
+continued on the next line.
 
 The Explorer also contains an opt-in **Raven Syntax Tree** debugging view. It
 renders nodes, tokens, trivia, syntax property roles, raw kinds, spans, missing

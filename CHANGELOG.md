@@ -10,6 +10,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Completion on an indented blank line now offers visible locals and statement
+  keywords after a completed member expression, while preserving member
+  completion when continuing an unfinished access on the next line.
 - Completion now uses the identifier prefix before the caret when editing in
   the middle of a word, and preserves existing method argument lists instead
   of inserting duplicate parentheses.
