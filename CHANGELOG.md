@@ -10,6 +10,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Accepting a completion now preserves leading indentation and comments by
+  replacing only the identifier text.
 - VS Code Outline now omits ordinary `const`, `let`, and `var` declarations;
   external constants declared with `extern const` remain visible.
 - Hovering a property or field name in an object initializer now shows the

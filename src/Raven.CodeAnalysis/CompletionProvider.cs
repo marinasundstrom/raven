@@ -654,11 +654,10 @@ public static class CompletionProvider
             return GetContextualType(expression);
         }
 
-        var tokenText = forceInsertionAtCaret ? string.Empty : token.Text;
         var tokenValueText = forceInsertionAtCaret ? string.Empty : token.ValueText;
         var replacementSpan = forceInsertionAtCaret
             ? new TextSpan(position, 0)
-            : new TextSpan(token.Position, tokenText.Length);
+            : token.Span;
         var literalReplacementSpan = new TextSpan(position, 0);
         var isInvocationArgumentStartToken =
             token.Parent is ArgumentListSyntax argumentList &&

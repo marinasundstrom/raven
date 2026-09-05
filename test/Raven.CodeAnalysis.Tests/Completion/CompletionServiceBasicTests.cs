@@ -9,6 +9,30 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 
 public class CompletionServiceBasicTests
 {
+    [Theory]
+    [InlineData("    ", "Console", "")]
+    [InlineData("    ", "Con", "")]
+    [InlineData("\t", "Con", "")]
+    [InlineData("    /* keep */ ", "Con", " // keep too")]
+    public void GetCompletions_AcceptingConsole_PreservesSurroundingTrivia(
+        string leadingTrivia, string prefix, string trailingTrivia)
+    {
+        var code = "import System.*\n\nfunc Main() {\n" + leadingTrivia + prefix + trailingTrivia + "\n}";
+        var position = code.LastIndexOf(prefix, System.StringComparison.Ordinal) + prefix.Length;
+        var syntaxTree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(syntaxTree)
+            .AddReferences(TestMetadataReferences.Default);
+
+        var item = Assert.Single(new CompletionService().GetCompletions(compilation, syntaxTree, position),
+            item => item.DisplayText == "Console");
+        var completedCode = code.Remove(item.ReplacementSpan.Start, item.ReplacementSpan.Length)
+            .Insert(item.ReplacementSpan.Start, item.InsertionText);
+
+        Assert.Equal("import System.*\n\nfunc Main() {\n" + leadingTrivia + "Console" + trailingTrivia + "\n}",
+            completedCode);
+    }
+
     [Fact]
     public void GetCompletions_WithoutMetadataReferences_ReturnsBasicKeywordCompletions()
     {

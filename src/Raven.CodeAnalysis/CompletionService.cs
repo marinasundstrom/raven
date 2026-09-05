@@ -600,18 +600,13 @@ public class CompletionService
             out var fragmentLocals);
         if (hasMacroFragment)
         {
-            var completions = CompletionProvider.GetCompletionsForMacroFragment(
+            return CompletionProvider.GetCompletionsForMacroFragment(
                 fragmentToken,
                 semanticModel,
                 invocation!,
                 fragmentLocals,
                 position,
                 forceInsertionAtCaret || fragmentToken.Kind == SyntaxKind.None);
-            var tokenReplacementSpan = new TextSpan(fragmentToken.Position, fragmentToken.Text.Length);
-            return completions.Select(completion =>
-                completion.ReplacementSpan == tokenReplacementSpan
-                    ? completion with { ReplacementSpan = fragmentToken.Span }
-                    : completion);
         }
 
         if (invocation is not null && resolutionContext is not null &&
