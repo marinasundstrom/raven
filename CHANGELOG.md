@@ -14,6 +14,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 - None.
 
+### Added
+
+- Added the default `RAV9038` warning for ignored calls returning `Task` or
+  `ValueTask`, including their generic forms. Await, return, store, or explicitly
+  discard the task to make its handling clear.
+
 ### Fixed
 
 - Bare type names in expression statements now report a compiler error instead

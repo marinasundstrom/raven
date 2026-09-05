@@ -115,7 +115,10 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool IsImplicitValueReturnTarget(ExpressionStatementSyntax expressionStatement, SemanticModel semanticModel)
+    internal static bool IsImplicitValueReturnTarget(
+        ExpressionStatementSyntax expressionStatement,
+        SemanticModel semanticModel,
+        bool useAsyncResultType = false)
     {
         SyntaxNode? blockNode = expressionStatement.Parent;
         SyntaxList<StatementSyntax> statements;
@@ -148,7 +151,15 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        return GetCallableOwner(blockNode) switch
+        var owner = GetCallableOwner(blockNode);
+        if (useAsyncResultType && owner is not null &&
+            semanticModel.GetDeclaredSymbol(owner) is IMethodSymbol { IsAsync: true } asyncMethod)
+        {
+            return ReturnsValue(AsyncReturnTypeUtilities.ExtractAsyncResultType(
+                semanticModel.Compilation, asyncMethod.ReturnType));
+        }
+
+        return owner switch
         {
             BaseMethodDeclarationSyntax method => ReturnsValue(semanticModel.GetDeclaredSymbol(method) as IMethodSymbol),
             FunctionStatementSyntax function => ReturnsValue(semanticModel.GetDeclaredSymbol(function) as IMethodSymbol),

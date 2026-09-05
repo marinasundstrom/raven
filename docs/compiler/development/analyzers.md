@@ -64,6 +64,10 @@ Raven currently provides analyzers for two different contexts:
   diagnostic to bare calls and member accesses. Assign to `_` to make an intentional discard
   explicit. This is analyzer guidance rather than a language restriction; set
   `dotnet_diagnostic.RAV9034.severity = none` in `.editorconfig` to disable it.
+- **UnawaitedTaskAnalyzer** (Raven, `RAV9038`) – reports ignored calls returning
+  `Task`, `Task<T>`, `ValueTask`, or `ValueTask<T>` by default, independently of
+  returned-value handling mode. Await, return, store, or explicitly discard the
+  task to handle the result.
 - **DisposableObjectAnalyzer** (Raven, `RAV9033`) – reports disposable objects produced
   by calls or object creation when they are assigned to an ordinary local or discarded
   without a matching `use` declaration or direct `Dispose()` call before scope exit. The

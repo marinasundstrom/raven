@@ -190,6 +190,21 @@ Property and indexer accessors may also be async. Async getters must expose a
 task-shaped return type, while async setters may await asynchronous work before
 storing a value.
 
+## Unawaited calls
+
+An ignored call returning `Task`, `Task<T>`, `ValueTask`, or `ValueTask<T>`
+reports the default analyzer warning `RAV9038`, in both async and ordinary
+functions. Await the operation to observe its completion and exceptions:
+
+```raven
+await Save()
+```
+
+Returning or storing the task handles its result without requiring an immediate
+`await`. Use `_ = Save()` to mark an intentional discard. This warning is
+independent of the returned-value handling mode and the disposable-value
+analyzer. Configure `dotnet_diagnostic.RAV9038.severity` to change its severity.
+
 ## Exceptions
 
 Exceptions raised during asynchronous execution are propagated through the

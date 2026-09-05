@@ -63,6 +63,7 @@ public static class BuiltInAnalyzers
         project = AddAnalyzerIfMissing<UnusedImportDirectiveAnalyzer>(project);
         project = AddAnalyzerIfMissing<DisposableObjectAnalyzer>(project);
         project = AddAnalyzerIfMissing<UnusedExpressionResultAnalyzer>(project);
+        project = AddAnalyzerIfMissing<UnawaitedTaskAnalyzer>(project);
 
         return project;
     }
