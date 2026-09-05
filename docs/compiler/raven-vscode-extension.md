@@ -11,6 +11,10 @@ On an indented blank line, completion offers visible values and statement keywor
 A completed member expression on the previous line does not restrict these
 suggestions; an unfinished access such as `Console.` still offers members when
 continued on the next line.
+Ordinary code suggestions are suppressed inside comments and literal text,
+including unfinished strings. Embedded expressions such as `${Console.}` retain
+code completion. Parentheses, quotes, and newlines are not automatic completion
+trigger characters.
 
 The Explorer also contains an opt-in **Raven Syntax Tree** debugging view. It
 renders nodes, tokens, trivia, syntax property roles, raw kinds, spans, missing

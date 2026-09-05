@@ -39,6 +39,9 @@ public static class CompletionProvider
         SyntaxNode? semanticContext,
         ImmutableArray<MacroFragmentLocal> fragmentLocals = default)
     {
+        if (IsNonCodePosition(model.SyntaxTree, position))
+            return [];
+
         var sourceText = model.SyntaxTree.GetText();
 
         if (TryGetMacroCompletionContext(token, sourceText, position, out var macroContext))
@@ -3025,6 +3028,44 @@ public static class CompletionProvider
         }
 
         return completions;
+    }
+
+    private static bool IsNonCodePosition(SyntaxTree tree, int position)
+    {
+        if (position <= 0)
+            return false;
+
+        var token = tree.GetRoot().FindToken(position - 1);
+        foreach (var trivia in token.LeadingTrivia.Concat(token.TrailingTrivia))
+        {
+            if (position <= trivia.Span.Start || position > trivia.Span.End)
+                continue;
+
+            if (trivia.Kind is SyntaxKind.SingleLineCommentTrivia or SyntaxKind.DocumentationCommentTrivia)
+                return true;
+
+            if (trivia.Kind == SyntaxKind.MultiLineCommentTrivia &&
+                (position < trivia.Span.End || !trivia.Text.EndsWith("*/", StringComparison.Ordinal)))
+                return true;
+        }
+
+        if (position <= token.Span.Start || position > token.Span.End)
+            return false;
+
+        if (token.Parent is InterpolatedStringTextSyntax || token.Kind == SyntaxKind.StringStartToken)
+            return true;
+
+        if (token.Kind == SyntaxKind.MultiLineStringLiteralToken)
+            return position < token.Span.End || token.Text.Length < 6 ||
+                !token.Text.EndsWith("\"\"\"", StringComparison.Ordinal);
+
+        if (token.Kind is SyntaxKind.StringLiteralToken or SyntaxKind.CharacterLiteralToken)
+        {
+            var delimiter = token.Kind == SyntaxKind.CharacterLiteralToken ? '\'' : '"';
+            return position < token.Span.End || token.Text.Length < 2 || token.Text[^1] != delimiter;
+        }
+
+        return false;
     }
 
     private static bool TryGetMacroCompletionContext(
