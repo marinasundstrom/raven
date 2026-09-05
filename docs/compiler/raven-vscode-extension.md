@@ -2,6 +2,12 @@
 
 The Raven VS Code extension wires the editor to the `Raven.LanguageServer` LSP process so `.rvn` files, with legacy `.rav` compatibility, can surface diagnostics, completions, and inlay hints. The language server publishes syntax diagnostics immediately after edits and keeps previous semantic diagnostics and inlays visible for unchanged ranges while newer snapshot results are pending. It auto-discovers the language server build output and starts it with `dotnet` when the extension activates.
 
+Accepting identifier completion preserves surrounding indentation and comments.
+When editing inside an identifier, suggestions use the prefix before the caret
+and acceptance replaces the entire identifier. Method completion adds parentheses
+and places the caret inside them when starting a new call. If an argument list
+already exists, completion preserves it and leaves the caret after the method name.
+
 The Explorer also contains an opt-in **Raven Syntax Tree** debugging view. It
 renders nodes, tokens, trivia, syntax property roles, raw kinds, spans, missing
 elements, and diagnostics from the machine-readable `rvn dev syntax json`

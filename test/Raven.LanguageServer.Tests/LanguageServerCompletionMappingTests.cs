@@ -17,6 +17,33 @@ namespace Raven.LanguageServer.Tests;
 
 public class LanguageServerCompletionMappingTests
 {
+    [Theory]
+    [InlineData("    Con|soel", "Console", "Console", 4, 11)]
+    [InlineData("    Console.Wri|", "WriteLine", "WriteLine($0)", 12, 15)]
+    [InlineData("    Console.Wri|(\"hello\")", "WriteLine", "WriteLine", 12, 15)]
+    public void ToLspCompletion_CompilerCompletion_PreservesReplacementRangeAndCaret(
+        string markedLine, string label, string expectedText, int start, int end)
+    {
+        var markedSource = "import System.*\nfunc Main() {\n" + markedLine + "\n}";
+        var position = markedSource.IndexOf('|');
+        var source = markedSource.Remove(position, 1);
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(LanguageServerTestReferences.Default);
+        var item = Assert.Single(compilation.GetCompletions(tree, position), item => item.DisplayText == label);
+
+        var mapped = CompletionItemMapper.ToLspCompletion(item, SourceText.From(source));
+        var edit = mapped.TextEdit!.TextEdit!;
+
+        edit.Range.Start.Line.ShouldBe(2);
+        edit.Range.Start.Character.ShouldBe(start);
+        edit.Range.End.Line.ShouldBe(2);
+        edit.Range.End.Character.ShouldBe(end);
+        edit.NewText.ShouldBe(expectedText);
+        mapped.InsertTextFormat.ShouldBe(expectedText.Contains("$0") ? InsertTextFormat.Snippet : InsertTextFormat.PlainText);
+    }
+
     [Fact]
     public void ToLspCompletion_MethodCompletion_UsesSnippetAndCaretPlaceholder()
     {

@@ -10,6 +10,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Completion now uses the identifier prefix before the caret when editing in
+  the middle of a word, and preserves existing method argument lists instead
+  of inserting duplicate parentheses.
 - Accepting a completion now preserves leading indentation and comments by
   replacing only the identifier text.
 - VS Code Outline now omits ordinary `const`, `let`, and `var` declarations;

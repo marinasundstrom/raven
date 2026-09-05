@@ -654,7 +654,11 @@ public static class CompletionProvider
             return GetContextualType(expression);
         }
 
-        var tokenValueText = forceInsertionAtCaret ? string.Empty : token.ValueText;
+        var tokenValueText = forceInsertionAtCaret ? string.Empty : GetCompletionPrefix(token);
+        var hasExistingArgumentList = token.Parent?.AncestorsAndSelf()
+            .OfType<InvocationExpressionSyntax>()
+            .Any(invocation => invocation.Expression.Span.End == token.Span.End &&
+                !invocation.ArgumentList.OpenParenToken.IsMissing) == true;
         var replacementSpan = forceInsertionAtCaret
             ? new TextSpan(position, 0)
             : token.Span;
@@ -728,10 +732,19 @@ public static class CompletionProvider
                 : identifier;
         }
 
-        static (string displayText, string insertionText, string dedupKey) CreateCompletionParts(ISymbol symbol)
+        string GetCompletionPrefix(SyntaxToken identifier)
+        {
+            if (position < identifier.SpanStart || position >= identifier.Span.End)
+                return identifier.ValueText;
+
+            var prefix = identifier.Text[..(position - identifier.SpanStart)];
+            return prefix.StartsWith('@') ? prefix[1..] : prefix;
+        }
+
+        (string displayText, string insertionText, string dedupKey) CreateCompletionParts(ISymbol symbol)
         {
             var escapedName = EscapeIdentifierForInsertion(symbol.Name);
-            var insertionText = symbol is IMethodSymbol
+            var insertionText = symbol is IMethodSymbol && !hasExistingArgumentList
                 ? escapedName + "()"
                 : escapedName;
             var displayText = symbol is IUnionCaseTypeSymbol unionCase
@@ -761,7 +774,7 @@ public static class CompletionProvider
         {
             return symbol switch
             {
-                IMethodSymbol => insertionText.Length - 1,
+                IMethodSymbol when insertionText.EndsWith("()", StringComparison.Ordinal) => insertionText.Length - 1,
                 _ => (int?)null
             };
         }
@@ -2221,7 +2234,7 @@ public static class CompletionProvider
             var hasNameAtCaret = !targetTypedMemberBinding.Name.Identifier.IsMissing &&
                 position > targetTypedMemberBinding.Name.Identifier.Span.Start;
             var prefix = hasNameAtCaret
-                ? targetTypedMemberBinding.Name.Identifier.ValueText
+                ? GetCompletionPrefix(targetTypedMemberBinding.Name.Identifier)
                 : string.Empty;
             var nameSpan = hasNameAtCaret
                 ? targetTypedMemberBinding.Name.Identifier.Span
@@ -2588,7 +2601,7 @@ public static class CompletionProvider
                     var hasNameAtCaret = !memberBinding.Name.Identifier.IsMissing &&
                         position > memberBinding.Name.Identifier.Span.Start;
                     var prefix = hasNameAtCaret
-                        ? memberBinding.Name.Identifier.ValueText
+                        ? GetCompletionPrefix(memberBinding.Name.Identifier)
                         : string.Empty;
                     var nameSpan = hasNameAtCaret
                         ? memberBinding.Name.Identifier.Span
@@ -2634,7 +2647,7 @@ public static class CompletionProvider
                         var hasNameAtCaret = !memberAccess.Name.Identifier.IsMissing &&
                             position > memberAccess.Name.Identifier.Span.Start;
                         var prefix = hasNameAtCaret
-                            ? memberAccess.Name.Identifier.ValueText
+                            ? GetCompletionPrefix(memberAccess.Name.Identifier)
                             : string.Empty;
                         var nameSpan = hasNameAtCaret
                             ? memberAccess.Name.Identifier.Span
@@ -2721,7 +2734,7 @@ public static class CompletionProvider
                     var hasNameAtCaret = !memberAccess.Name.Identifier.IsMissing &&
                         position > memberAccess.Name.Identifier.Span.Start;
                     var prefix = hasNameAtCaret
-                        ? memberAccess.Name.Identifier.ValueText
+                        ? GetCompletionPrefix(memberAccess.Name.Identifier)
                         : string.Empty;
                     var nameSpan = hasNameAtCaret
                         ? memberAccess.Name.Identifier.Span
@@ -2752,7 +2765,7 @@ public static class CompletionProvider
             var symbol = (ISymbol?)(isImportLineCompletion
                 ? TryResolveImportNamespaceOrType(qualifiedName.Left)
                 : TryResolveNamespaceOrType(qualifiedName.Left));
-            var prefix = simple.Identifier.ValueText;
+            var prefix = GetCompletionPrefix(simple.Identifier);
             var nameSpan = isImportLineCompletion
                 ? GetImportCompletionReplacementSpan(simple.Identifier, position)
                 : simple.Identifier.Span;
