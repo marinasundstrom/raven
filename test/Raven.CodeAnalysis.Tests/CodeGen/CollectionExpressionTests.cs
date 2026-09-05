@@ -108,7 +108,7 @@ class JsonObjectConverter : JsonConverter<JsonObject> {
         reader: &Utf8JsonReader,
         typeToConvert: Type,
         options: JsonSerializerOptions
-    ) -> JsonObject {
+    ) -> JsonObject? {
         use doc = JsonDocument.ParseValue(reader)
         let root = doc.RootElement
 

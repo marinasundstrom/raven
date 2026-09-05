@@ -28,7 +28,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import System.*
 
-            String
+            let resolvedType = typeof(String)
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -62,7 +62,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import System.Collections.Generic.*
 
-            List<string>
+            let resolvedType = typeof(List<string>)
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -75,7 +75,7 @@ public class ImportResolutionTest : DiagnosticTestBase
     {
         string testCode =
             """
-            System.Collections.Generic.List<string>
+            let resolvedType = typeof(System.Collections.Generic.List<string>)
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -88,7 +88,7 @@ public class ImportResolutionTest : DiagnosticTestBase
     {
         string testCode =
             """
-            System.Func<int, string>
+            let resolvedType = typeof(System.Func<int, string>)
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -103,7 +103,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import System.Collections.Generic.List<>
 
-            List<int>
+            let resolvedType = typeof(List<int>)
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -120,7 +120,7 @@ public class ImportResolutionTest : DiagnosticTestBase
 
             import System.Collections.Generic.List<>
 
-            List<int>
+            let resolvedType = typeof(List<int>)
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -135,7 +135,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import System.*
 
-            Func<int, string>
+            let resolvedType = typeof(Func<int, string>)
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -188,7 +188,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import System.Text.StringBuilder
 
-            StringBuilder
+            let resolvedType = typeof(StringBuilder)
             """;
 
         var verifier = CreateVerifier(testCode);
@@ -203,7 +203,7 @@ public class ImportResolutionTest : DiagnosticTestBase
             """
             import System.Text.*
 
-            StringBuilder
+            let resolvedType = typeof(StringBuilder)
             """;
 
         var verifier = CreateVerifier(testCode);
