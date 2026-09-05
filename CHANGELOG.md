@@ -6,6 +6,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-08-29**.
 
 ### Fixed
 
+- Source-generator builds honor `EmitCompilerGeneratedFiles` and
+  `CompilerGeneratedFilesOutputPath`, with opt-in output under `obj` by default.
+
 - Document diagnostics resolve qualified types from generated source before any
   hover or symbol query, avoiding false missing-type errors in generator consumers.
 

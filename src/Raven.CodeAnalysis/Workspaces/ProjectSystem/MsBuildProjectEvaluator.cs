@@ -292,7 +292,11 @@ internal static class MsBuildProjectEvaluator
             isCompilerPlugin,
             parseOptions,
             useHostFrameworkReferences,
-            evaluationInputPaths);
+            evaluationInputPaths,
+            GetBooleanProperty(project, "EmitCompilerGeneratedFiles") == true
+                ? Path.GetFullPath(NormalizePathSeparators(GetOptionalProperty(project, "CompilerGeneratedFilesOutputPath")
+                    ?? Path.Combine(intermediateOutputPath, "generated")), projectDirectory)
+                : null);
     }
 
     private static bool IsCSharpCompilerPluginSource(string sourcePath)
@@ -590,4 +594,5 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     bool IsCompilerPlugin,
     ParseOptions ParseOptions,
     bool UseHostFrameworkReferences,
-    ImmutableArray<string> EvaluationInputPaths);
+    ImmutableArray<string> EvaluationInputPaths,
+    string? CompilerGeneratedFilesOutputPath);

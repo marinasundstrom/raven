@@ -3,6 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Library</OutputType>
     <RavenRunAnalyzers>false</RavenRunAnalyzers>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     <DefaultItemExcludes>$(DefaultItemExcludes);extension/**</DefaultItemExcludes>
   </PropertyGroup>
 

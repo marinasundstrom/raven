@@ -580,6 +580,38 @@ public sealed class MsBuildProjectSystemServiceTests
         }
     }
 
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(false, "custom/generated")]
+    [InlineData(true, null)]
+    [InlineData(true, "custom/generated")]
+    public void OpenProject_CompilerGeneratedFilesOutputPath(bool emit, string? outputPath)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <EmitCompilerGeneratedFiles>{{emit.ToString().ToLowerInvariant()}}</EmitCompilerGeneratedFiles>
+                    <CompilerGeneratedFilesOutputPath>{{outputPath}}</CompilerGeneratedFilesOutputPath>
+                  </PropertyGroup>
+                </Project>
+                """);
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            Assert.Equal(emit ? Path.Combine(root, outputPath ?? "obj/Debug/net10.0/generated") : null,
+                project.CompilerGeneratedFilesOutputPath);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
     [Fact]
     public void OpenProject_MsBuildProject_LoadsAnalyzerAndSourceGeneratorItems()
     {

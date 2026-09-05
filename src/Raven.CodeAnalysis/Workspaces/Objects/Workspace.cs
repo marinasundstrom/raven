@@ -358,7 +358,7 @@ public class Workspace
             .ToArray();
         if (orderedGenerators.Length > 0)
         {
-            var driver = GeneratorDriver.Create(orderedGenerators).RunGeneratorsAndUpdateCompilation(
+            var driver = GeneratorDriver.Create(orderedGenerators, project.CompilerGeneratedFilesOutputPath).RunGeneratorsAndUpdateCompilation(
                 compilation,
                 out compilation,
                 out _);

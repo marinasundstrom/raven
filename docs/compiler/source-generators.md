@@ -103,3 +103,16 @@ the workspace.
 
 Hint names are relative paths. The `.rvn` extension is supplied when omitted,
 and duplicate hint names from the same generator are rejected.
+
+Generated trees are in memory by default, as with C# source generators. To also
+write them during a build, set `<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>`.
+The default directory is `$(IntermediateOutputPath)generated`, normally
+`obj/Debug/<target-framework>/generated`. `CompilerGeneratedFilesOutputPath`
+can override it with an absolute path or a path relative to the project. Files
+are grouped by generator type name and hint name. The compiler driver also
+accepts `--generated-files-output-path <directory>`.
+
+Disk output is for inspection; generators still contribute their trees directly
+to the compilation. Workspace analysis does not write these files. Keep a custom
+output directory out of `Compile` items to avoid compiling the generated files
+twice on subsequent builds. The default `obj` directory is already excluded.

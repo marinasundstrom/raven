@@ -205,6 +205,19 @@ public sealed class Solution
         return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
     }
 
+    public Solution WithCompilerGeneratedFilesOutputPath(ProjectId projectId, string? path)
+    {
+        if (!_projectInfos.TryGetValue(projectId, out var projInfo))
+            throw new InvalidOperationException("Project not found");
+
+        projInfo = projInfo
+            .WithCompilerGeneratedFilesOutputPath(path)
+            .WithVersion(projInfo.Version.GetNewerVersion());
+        var newProjInfos = _projectInfos.SetItem(projectId, projInfo);
+        var newInfo = _info.WithProjects(newProjInfos.Values).WithVersion(_info.Version.GetNewerVersion());
+        return new Solution(newInfo, Services, Workspace, ImmutableDictionary<ProjectId, Project>.Empty);
+    }
+
     public Solution WithParseOptions(ProjectId projectId, ParseOptions? parseOptions)
     {
         if (!_projectInfos.TryGetValue(projectId, out var projInfo))

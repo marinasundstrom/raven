@@ -34,6 +34,25 @@ public class GeneratorDriverTests
     }
 
     [Fact]
+    public void ConfiguredOutputPath_PreservesInMemoryGenerationAndProjectSnapshots()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "generated");
+        var workspace = new AdhocWorkspace();
+        var projectId = ProjectId.CreateNew(workspace.CurrentSolution.Id);
+        var solution = workspace.CurrentSolution.AddProject(projectId, "Consumer")
+            .WithCompilerGeneratedFilesOutputPath(projectId, directory)
+            .AddGeneratorReference(projectId, new GeneratorReference(new QualifiedGenerator()))
+            .AddDocument(DocumentId.CreateNew(projectId), "Input.rvn", Raven.CodeAnalysis.Text.SourceText.From("class Input {}"));
+        workspace.TryApplyChanges(solution).ShouldBeTrue();
+        var project = workspace.CurrentSolution.GetProject(projectId)!;
+        project.CompilerGeneratedFilesOutputPath.ShouldBe(directory);
+        var tree = workspace.GetCompilation(projectId).SyntaxTrees.Single(tree => tree.FilePath.EndsWith("HomeControllerRoute.rvn"));
+        tree.FilePath.ShouldStartWith(directory + Path.DirectorySeparatorChar);
+        tree.GetText().ToString().ShouldContain("class HomeControllerRoute");
+        Directory.Exists(directory).ShouldBeFalse();
+    }
+
+    [Fact]
     public void RunGeneratorsAndUpdateCompilation_AddsGeneratedSyntaxTree()
     {
         var compilation = Compilation.Create("generator-test", [SyntaxTree.ParseText("class Input {}")]);

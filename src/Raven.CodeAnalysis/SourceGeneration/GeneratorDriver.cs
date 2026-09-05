@@ -15,10 +15,12 @@ public sealed class GeneratorDriver
 
     private readonly ImmutableArray<ISourceGenerator> _generators;
     private GeneratorDriverRunResult _runResult;
+    private readonly string? _generatedFilesOutputPath;
 
-    private GeneratorDriver(ImmutableArray<ISourceGenerator> generators)
+    private GeneratorDriver(ImmutableArray<ISourceGenerator> generators, string? generatedFilesOutputPath = null)
     {
         _generators = generators;
+        _generatedFilesOutputPath = generatedFilesOutputPath;
         _runResult = new GeneratorDriverRunResult([], [], []);
     }
 
@@ -29,6 +31,12 @@ public sealed class GeneratorDriver
             throw new ArgumentException("Generators cannot contain null.", nameof(generators));
 
         return new GeneratorDriver(generators.ToImmutableArray());
+    }
+
+    public static GeneratorDriver Create(ISourceGenerator[] generators, string? generatedFilesOutputPath)
+    {
+        var driver = Create(generators);
+        return new GeneratorDriver(driver._generators, generatedFilesOutputPath);
     }
 
     public GeneratorDriver RunGeneratorsAndUpdateCompilation(
@@ -69,7 +77,7 @@ public sealed class GeneratorDriver
                     ex.Message));
             }
 
-            var sources = context.GetGeneratedSources(generatorName);
+            var sources = context.GetGeneratedSources(generatorName, _generatedFilesOutputPath);
             var generatorDiagnostics = context.GetDiagnostics();
             allSources.AddRange(sources);
             allDiagnostics.AddRange(generatorDiagnostics);
@@ -83,7 +91,7 @@ public sealed class GeneratorDriver
             : compilation.AddSyntaxTrees(generatedSources.Select(static source => source.SyntaxTree).ToArray());
         outputCompilation = outputCompilation.WithGeneratorDiagnostics(diagnostics);
 
-        var driver = new GeneratorDriver(_generators);
+        var driver = new GeneratorDriver(_generators, _generatedFilesOutputPath);
         driver._runResult = new GeneratorDriverRunResult(results.ToImmutable(), diagnostics, generatedSources);
         return driver;
     }

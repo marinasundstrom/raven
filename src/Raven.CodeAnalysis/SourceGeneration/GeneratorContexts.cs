@@ -55,7 +55,7 @@ public sealed class GeneratorExecutionContext
         _diagnostics.Add(diagnostic);
     }
 
-    internal ImmutableArray<GeneratedSourceResult> GetGeneratedSources(string generatorName)
+    internal ImmutableArray<GeneratedSourceResult> GetGeneratedSources(string generatorName, string? outputPath = null)
         => _sources
             .OrderBy(static item => item.Key, StringComparer.Ordinal)
             .Select(item => new GeneratedSourceResult(
@@ -63,7 +63,7 @@ public sealed class GeneratorExecutionContext
                 item.Value,
                 Syntax.SyntaxTree.ParseText(
                     item.Value,
-                    path: Path.Combine("generated", SanitizePathSegment(generatorName), item.Key))))
+                    path: Path.Combine(outputPath ?? "generated", SanitizePathSegment(generatorName), item.Key))))
             .ToImmutableArray();
 
     internal ImmutableArray<Diagnostic> GetDiagnostics() => _diagnostics.ToImmutableArray();

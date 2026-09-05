@@ -99,6 +99,8 @@ var includeFrameworkReferences = true;
 string? requestedConfiguration = null;
 string? outputPath = null;
 string? dependencyFilePath = null;
+string? generatedFilesOutputPath = null;
+var generatedFilesOutputPathSpecified = false;
 var outputKind = OutputKind.ConsoleApplication;
 string? ravenCorePath = null;
 var ravenCoreExplicitlyProvided = false;
@@ -170,6 +172,15 @@ for (int i = 0; i < args.Length; i++)
         case "--output":
             if (i + 1 < args.Length)
                 outputPath = args[++i];
+            break;
+        case "--generated-files-output-path":
+            if (i + 1 < args.Length)
+            {
+                generatedFilesOutputPath = args[++i];
+                generatedFilesOutputPathSpecified = true;
+            }
+            else
+                hasInvalidOption = true;
             break;
         case "--dependency-file":
             if (i + 1 < args.Length)
@@ -1280,6 +1291,10 @@ if (targetFrameworkTfm?.StartsWith("netnano", StringComparison.OrdinalIgnoreCase
 project = project.WithCompilationOptions(options);
 project = AddDefaultAnalyzers(project, options.EnableSuggestions);
 
+if (generatedFilesOutputPathSpecified)
+    project = project.WithCompilerGeneratedFilesOutputPath(string.IsNullOrWhiteSpace(generatedFilesOutputPath)
+        ? null
+        : Path.GetFullPath(generatedFilesOutputPath));
 workspace.TryApplyChanges(project.Solution);
 project = workspace.CurrentSolution.GetProject(projectId)!;
 
@@ -1355,6 +1370,30 @@ if (allowConsoleOutputPreBinding && (printSyntaxTree || printSyntaxTreeInternal)
 }
 
 var compilation = workspace.GetCompilation(projectId);
+
+if (!noEmit && project.CompilerGeneratedFilesOutputPath is { } generatedOutputDirectory)
+{
+    try
+    {
+        var documentPaths = project.Documents.Select(document => document.FilePath).ToHashSet(StringComparer.Ordinal);
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            if (documentPaths.Contains(tree.FilePath))
+                continue;
+            var relativePath = Path.GetRelativePath(generatedOutputDirectory, tree.FilePath);
+            if (Path.IsPathRooted(relativePath) || relativePath == ".." || relativePath.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                continue;
+            Directory.CreateDirectory(Path.GetDirectoryName(tree.FilePath)!);
+            File.WriteAllText(tree.FilePath, tree.GetText().ToString(), tree.GetText().Encoding ?? System.Text.Encoding.UTF8);
+        }
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+    {
+        Console.Error.WriteLine($"Failed to write compiler-generated files: {ex.Message}");
+        Environment.ExitCode = 1;
+        return;
+    }
+}
 
 var projectDocumentationOptions = project.DocumentationOptions;
 var automaticDocumentationOutputs = new List<(DocumentationFormat Format, string OutputPath)>();
@@ -2683,6 +2722,7 @@ static void PrintHelp(bool compilerDriverOnly)
         Console.WriteLine("  --emit-core-types-only Embed Raven.Core shims even when Raven.Core.dll is available");
         Console.WriteLine("  --output-type <console|classlib>");
         Console.WriteLine("                     Output kind for the produced assembly.");
+        Console.WriteLine("  --generated-files-output-path <path>  Write source-generator output to this directory.");
         Console.WriteLine("  --dependency-file <path>");
         Console.WriteLine("                     Write observed compile-time file dependencies.");
         Console.WriteLine("  --unsafe           Enable unsafe mode (required for pointer declarations/usages)");

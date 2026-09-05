@@ -56,6 +56,12 @@ public sealed class Project
     /// <summary>Documentation emission settings for this project, if any.</summary>
     public ProjectDocumentationOptions? DocumentationOptions => _info.DocumentationOptions;
 
+    /// <summary>The optional directory for emitted source-generator files.</summary>
+    public string? CompilerGeneratedFilesOutputPath => _info.CompilerGeneratedFilesOutputPath;
+
+    public Project WithCompilerGeneratedFilesOutputPath(string? path) =>
+        Solution.WithCompilerGeneratedFilesOutputPath(Id, path).GetProject(Id)!;
+
     /// <summary>All documents in the project.</summary>
     public IEnumerable<Document> Documents => _documentInfos.Values.Select(info => GetDocument(info.Id)!);
 

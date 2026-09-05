@@ -197,6 +197,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             evaluation.DocumentationOptions,
             evaluation.ParseOptions);
         solution = solution.WithTargetFramework(projectId, evaluation.TargetFramework);
+        solution = solution.WithCompilerGeneratedFilesOutputPath(projectId, evaluation.CompilerGeneratedFilesOutputPath);
         foreach (var document in evaluation.Documents)
         {
             var documentId = DocumentId.CreateNew(projectId);

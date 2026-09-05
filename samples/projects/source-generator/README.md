@@ -20,8 +20,11 @@ class HomeControllerRoute {}
 ```
 
 The maintained `src/Controllers.rvn` file uses `Generated.HomeControllerRoute`, proving
-that generated source participates in normal binding without being written
-into the source directory.
+that generated source participates in normal binding. This sample enables
+`EmitCompilerGeneratedFiles` so a build also writes the source to
+`obj/Debug/net10.0/generated/SourceGeneratorSample.RouteGenerator/HomeControllerRoute.rvn`.
+Remove that property to keep generation entirely in memory. Use
+`CompilerGeneratedFilesOutputPath` to choose another output directory.
 
 Run:
 
