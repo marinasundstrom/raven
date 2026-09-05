@@ -388,7 +388,7 @@ namespace Utilities {
         return System.Result<string, LookupError>.Ok(selected)
     }
 
-    record LookupError(Value: string)
+    public record LookupError(Value: string)
 }
 """;
 
