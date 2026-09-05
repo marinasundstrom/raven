@@ -106,6 +106,7 @@ Core and packaged analyzers that should remain diagnostic-backed include:
 - `UnusedMethodAnalyzer`
 - `UnusedImportDirectiveAnalyzer`
 - `UnusedExpressionResultAnalyzer`
+- `UnawaitedTaskAnalyzer`
 - `DisposableObjectAnalyzer`
 - `UnsafeUnwrapAnalyzer`
 - `PreferDuLinqExtensionsAnalyzer`
