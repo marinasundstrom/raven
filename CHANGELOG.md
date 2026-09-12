@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Integrate opt-in explicit-only metadata imports as reusable target
+  support. Callers select the metadata core and supply all references; default .NET
+  discovery retains reference-pack core selection and host-assisted dependency lookup.
+  Changing the policy invalidates incremental metadata/semantic reuse. Compiler API
+  consumers must rebuild after the optional constructor parameter addition.
+
 - **2026-09-14:** Report unresolved function return annotations even when the method
   signature was bound before diagnostic traversal. Invalid namespace-function
   signatures now prevent emission instead of silently producing Object returns.

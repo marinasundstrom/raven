@@ -697,7 +697,7 @@ public partial class Compilation
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, MetadataReference[] references, CompilationOptions? options = null)
     {
-        if (references.Length == 0)
+        if (references.Length == 0 && options?.MetadataImportOptions is null)
             references = [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)];
         return new Compilation(assemblyName, syntaxTrees, [], references, [], options);
     }
@@ -709,7 +709,7 @@ public partial class Compilation
         MacroReference[] macroReferences,
         CompilationOptions? options = null)
     {
-        if (references.Length == 0)
+        if (references.Length == 0 && options?.MetadataImportOptions is null)
             references = [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)];
         return new Compilation(assemblyName, syntaxTrees, [], references, macroReferences, options);
     }
@@ -734,7 +734,7 @@ public partial class Compilation
             throw new ArgumentException("A previous submission reference requires a previous script compilation.", nameof(previousScriptCompilationReference));
 
         references ??= [];
-        if (references.Length == 0)
+        if (references.Length == 0 && options?.MetadataImportOptions is null)
             references = [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)];
 
         if (previousScriptCompilation is not null)
@@ -893,7 +893,7 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
-        if (ReferenceEquals(this, previousCompilation))
+        if (ReferenceEquals(this, previousCompilation) || Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions)
             return;
 
         // Retain only reusable, compilation-independent state. Keeping the whole
@@ -904,7 +904,7 @@ public partial class Compilation
 
     private void AdoptMetadataReuseFrom(Compilation previousCompilation)
     {
-        if (previousCompilation.setup)
+        if (previousCompilation.setup && Options.MetadataImportOptions == previousCompilation.Options.MetadataImportOptions)
         {
             _previousMetadataLoadContextForReuse = previousCompilation._metadataLoadContext;
             _previousPortableReferenceFingerprints = previousCompilation._portableReferenceFingerprints;
@@ -957,22 +957,23 @@ public partial class Compilation
             .Select(portableExecutableReference => portableExecutableReference.FilePath)
             .ToList();
 
-        // Select the metadata type universe before adding host-only fallback paths.
-        // Reference packs may define Object/ValueType in a different assembly from
-        // the compiler host; mixing those identities makes imported structs classes.
-        var coreAssemblyName = FindReferenceCoreAssemblyIdentity(paths) ?? typeof(object).Assembly.GetName().FullName;
-
-        var runtimeCorePath = typeof(object).Assembly.Location;
-        if (!string.IsNullOrEmpty(runtimeCorePath) && !paths.Contains(runtimeCorePath, StringComparer.OrdinalIgnoreCase))
-            paths.Add(runtimeCorePath);
-
-        // Seed the metadata resolver with framework/runtime assemblies so MetadataLoadContext
-        // can resolve transitive framework dependencies (for example System.Reflection.MetadataLoadContext).
-        EnsureTrustedPlatformAssembliesCached();
-        foreach (var knownPath in _assemblyPathMap.Values)
+        var importOptions = Options.MetadataImportOptions;
+        // Select the target universe before adding host fallback paths.
+        var coreAssemblyName = importOptions?.CoreAssemblyName
+            ?? FindReferenceCoreAssemblyIdentity(paths) ?? typeof(object).Assembly.GetName().FullName;
+        if (importOptions is null)
         {
-            if (!string.IsNullOrEmpty(knownPath) && File.Exists(knownPath) && !paths.Contains(knownPath, StringComparer.OrdinalIgnoreCase))
-                paths.Add(knownPath);
+            var runtimeCorePath = typeof(object).Assembly.Location;
+            if (!string.IsNullOrEmpty(runtimeCorePath) && !paths.Contains(runtimeCorePath, StringComparer.OrdinalIgnoreCase))
+                paths.Add(runtimeCorePath);
+
+            // Default .NET targeting retains host-assisted transitive dependency lookup.
+            EnsureTrustedPlatformAssembliesCached();
+            foreach (var knownPath in _assemblyPathMap.Values)
+            {
+                if (!string.IsNullOrEmpty(knownPath) && File.Exists(knownPath) && !paths.Contains(knownPath, StringComparer.OrdinalIgnoreCase))
+                    paths.Add(knownPath);
+            }
         }
 
         _portableReferenceFingerprints = CapturePortableReferenceFingerprints(_references);
