@@ -919,7 +919,7 @@ internal abstract class Generator
     public ConstructorInfo GetConstructorInfo(IMethodSymbol constructorSymbol)
     {
         constructorSymbol = SubstituteAsyncStateMachineMethodTypeParameters(constructorSymbol);
-        return MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetConstructorInfo(constructorSymbol);
+        return MethodGenerator.TypeGenerator.CodeGen.GetConstructorInfoOrMetadataProxy(constructorSymbol);
     }
 
     private IMethodSymbol SubstituteAsyncStateMachineMethodTypeParameters(IMethodSymbol methodSymbol)

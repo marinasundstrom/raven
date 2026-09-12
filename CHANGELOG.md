@@ -10,7 +10,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   generic carriers and nested cases, without loading target implementations into the
   compiler host. Metadata method proxies preserve byref parameters and definition
   signatures on constructed owners. Added generic signature/property/union extraction
-  regression coverage. This remains a bounded alternative-target emission path.
+  regression coverage. Retargeted metadata constructors now use temporary token
+  proxies too, preserving closed generic case/carrier signatures without mixing host
+  and target types. Proxies are removed from the final assembly; constructor metadata
+  regression coverage was added. This remains a bounded alternative-target emission path.
 
 - Added opt-in explicit-only metadata import through `MetadataImportOptions`, with
   a caller-selected metadata core assembly. Missing references no longer fall back

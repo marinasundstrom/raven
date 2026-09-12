@@ -4960,6 +4960,9 @@ internal partial class ExpressionGenerator : Generator
         if (targetType is null)
             return constructorInfo;
 
+        if (MethodGenerator.TypeGenerator.CodeGen.IsMetadataConstructorProxy(constructorInfo))
+            return constructorInfo;
+
         var targetRuntimeType = Generator.InstantiateType(ResolveClrType(targetType));
         var declaringType = constructorInfo.DeclaringType;
         if (declaringType is null)

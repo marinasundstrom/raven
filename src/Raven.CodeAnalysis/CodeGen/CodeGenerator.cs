@@ -34,6 +34,7 @@ internal class CodeGenerator
     readonly Dictionary<string, IMethodSymbol> _metadataMethodProxies = new(StringComparer.Ordinal);
     readonly EmitOptions? _emitOptions;
     TypeBuilder? _metadataMethodProxyType;
+    readonly List<TypeBuilder> _metadataConstructorProxyTypes = new();
     int _metadataMethodProxyOrdinal;
 
     public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
@@ -1451,6 +1452,9 @@ internal class CodeGenerator
             PrintDebug("Member IL bodies emitted.");
 
             CreateTypes();
+            foreach (var constructorProxy in _metadataConstructorProxyTypes)
+                constructorProxy.CreateType();
+
             if (_metadataMethodProxyType is { } metadataMethodProxyType && !metadataMethodProxyType.IsCreated())
                 metadataMethodProxyType.CreateType();
             PrintDebug("All types created.");
@@ -1659,6 +1663,28 @@ internal class CodeGenerator
             metadataMethodProxies: _metadataMethodProxies,
             pdbInput: provisionalPdbStream,
             pdbOutput: pdbOutputStream);
+    }
+
+    internal bool IsMetadataConstructorProxy(ConstructorInfo constructor)
+        => constructor.DeclaringType is TypeBuilder builder && _metadataConstructorProxyTypes.Contains(builder);
+
+    internal ConstructorInfo GetConstructorInfoOrMetadataProxy(IMethodSymbol constructor)
+    {
+        if (!UsesTargetMetadata || !TryGetMetadataMethod(constructor, out var metadataConstructor))
+            return RuntimeSymbolResolver.GetConstructorInfo(constructor);
+
+        // Allocate a token without asking Reflection.Emit to inspect modified generic
+        // types from MetadataLoadContext. The final PE receives the original signature.
+        var name = $"<RavenMetadataConstructorReference{++_metadataMethodProxyOrdinal}>";
+        var type = ModuleBuilder.DefineType(name, TypeAttributes.NotPublic | TypeAttributes.Class, typeof(object));
+        var parameters = metadataConstructor.Parameters.Select(parameter => parameter.RefKind == RefKind.None
+            ? GetMetadataProxySignatureType(parameter.Type)
+            : GetMetadataProxySignatureType(parameter.Type).MakeByRefType()).ToArray();
+        var proxy = type.DefineConstructor(MethodAttributes.Assembly, CallingConventions.Standard, parameters);
+        proxy.GetILGenerator().Emit(OpCodes.Ret);
+        _metadataConstructorProxyTypes.Add(type);
+        _metadataMethodProxies.Add(name, metadataConstructor);
+        return proxy;
     }
 
     internal bool UsesTargetMetadata => _emitOptions?.TargetCoreLibraryIdentity is not null;

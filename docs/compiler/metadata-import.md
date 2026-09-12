@@ -37,6 +37,10 @@ named metadata types and closed constructions of metadata types directly. Target
 reference assemblies need not be loaded as executable assemblies into the compiler
 host. Generic member references retain the definition's generic parameters even when
 the declaring type is constructed; metadata proxies retain `ref`/`out`/`in` addressing.
+Retargeted constructors use the same temporary-token approach as methods: the final
+PE references the target constructor and retains its definition signature. Temporary
+constructor types are removed before writing the artifact. This also avoids asking
+Reflection.Emit to encode modified generic types from MetadataLoadContext directly.
 Default emission and the separate metadata-import policy remain unchanged.
 
 This does not claim complete cross-target emission: mixed source/metadata generic
