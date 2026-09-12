@@ -29,3 +29,17 @@ core-library emission or execution on another runtime.
 
 Compiler API consumers must rebuild: the optional constructor argument preserves
 existing source calls, but changes the constructor's binary signature in this preview.
+
+## Target-only types during emission
+
+When `EmitOptions.TargetCoreLibraryIdentity` is specified, persisted emission can use
+named metadata types and closed constructions of metadata types directly. Target-only
+reference assemblies need not be loaded as executable assemblies into the compiler
+host. Generic member references retain the definition's generic parameters even when
+the declaring type is constructed; metadata proxies retain `ref`/`out`/`in` addressing.
+Default emission and the separate metadata-import policy remain unchanged.
+
+This does not claim complete cross-target emission: mixed source/metadata generic
+constructions, generic methods, and the entire framework surface need further coverage.
+A successful emit is not runtime validation. Consumers should check dependency closure
+and execute against their actual target. No language syntax or editor API changed.

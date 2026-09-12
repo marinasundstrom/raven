@@ -6,6 +6,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-12
 
+- Retargeted emission now preserves reference-only metadata types, including closed
+  generic carriers and nested cases, without loading target implementations into the
+  compiler host. Metadata method proxies preserve byref parameters and definition
+  signatures on constructed owners. Added generic signature/property/union extraction
+  regression coverage. This remains a bounded alternative-target emission path.
+
 - Added opt-in explicit-only metadata import through `MetadataImportOptions`, with
   a caller-selected metadata core assembly. Missing references no longer fall back
   to host assemblies in this mode; default .NET import behavior is unchanged.

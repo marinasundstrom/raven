@@ -212,6 +212,15 @@ internal static class AssemblyReferenceNormalizer
         IMethodSymbol method,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
     {
+        if (method is not PEMethodSymbol && method.OriginalDefinition is PEMethodSymbol definition)
+        {
+            // A MemberRef on a constructed owner still uses the definition's !n
+            // signature; substituting concrete arguments changes the member identity.
+            var imported = module.ImportReference(definition.GetMethodBase());
+            imported.DeclaringType = CreateTypeReference(module, method.ContainingType!, targetReferences);
+            return imported;
+        }
+
         var reference = new MethodReference(
             method.MetadataName,
             CreateTypeReference(module, method.ReturnType, targetReferences),
@@ -292,7 +301,8 @@ internal static class AssemblyReferenceNormalizer
         {
             return new TypeReference(string.Empty, named.MetadataName, module, scope)
             {
-                DeclaringType = CreateTypeReference(module, containingType, targetReferences)
+                DeclaringType = CreateTypeReference(module, containingType, targetReferences),
+                IsValueType = named.IsValueType
             };
         }
 
