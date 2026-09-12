@@ -10,6 +10,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   target metadata. Project loading disables automatic host framework references and
   the language server preserves that policy instead of adding Raven.Core/Macros.
   Default .NET project behavior is unchanged; target emission remains separate.
+  Explicit-core projects also omit the inferred .NET TargetFrameworkAttribute source,
+  so the host TFM is not stamped onto another runtime target.
 
 - Retargeted emission now preserves reference-only metadata types, including closed
   generic carriers and nested cases, without loading target implementations into the

@@ -77,3 +77,8 @@ server. It is not an SDK target, a retargeted emit setting, or a new build pipel
 In particular, naming a neoCLR core does not make ordinary `dotnet build` execute on
 neoCLR. A target-specific emitter/importer is still required. The configured project
 provides target-aware completion using the same semantic APIs as other Raven projects.
+
+Explicit metadata-core projects also omit the automatically generated .NET
+TargetFrameworkAttribute source. Their host/tooling TFM does not establish a guest
+framework identity or guarantee that System.Runtime.Versioning exists. Target authors
+may supply their own assembly attributes when supported by their reference surface.

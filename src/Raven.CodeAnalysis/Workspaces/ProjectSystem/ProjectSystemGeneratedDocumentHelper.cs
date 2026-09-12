@@ -106,7 +106,8 @@ internal static class ProjectSystemGeneratedDocumentHelper
             return solution;
 
         var project = solution.GetProject(projectId);
-        if (project is null || ContainsAssemblyTargetFrameworkAttribute(project))
+        if (project is null || project.CompilationOptions?.MetadataImportOptions is not null
+            || ContainsAssemblyTargetFrameworkAttribute(project))
             return solution;
 
         if (!TargetFrameworkMoniker.TryParse(targetFramework, out var tfm) || tfm is null)

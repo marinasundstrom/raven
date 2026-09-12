@@ -35,6 +35,7 @@ public sealed class MsBuildProjectSystemServiceTests
             var project = workspace.CurrentSolution.GetProject(projectId)!;
             Assert.Equal("Target.Core", project.CompilationOptions!.MetadataImportOptions!.CoreAssemblyName);
             Assert.Empty(project.MetadataReferences);
+            Assert.DoesNotContain(project.Documents, d => d.Name.Contains("TargetFrameworkAttribute"));
         }
         finally
         {
