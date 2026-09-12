@@ -43,6 +43,43 @@ public sealed class MsBuildProjectSystemServiceTests
         }
     }
 
+    [Theory]
+    [InlineData("", null)]
+    [InlineData("<RavenIterationAssemblyName>Target.Core</RavenIterationAssemblyName><RavenIterationIterableType>Contracts.Iterable`1</RavenIterationIterableType><RavenIterationIteratorType>Contracts.Iterator`1</RavenIterationIteratorType>", "GetIterator")]
+    [InlineData("<RavenIterationAssemblyName>Target.Core</RavenIterationAssemblyName><RavenIterationIterableType>Contracts.Iterable`1</RavenIterationIterableType><RavenIterationIteratorType>Contracts.Iterator`1</RavenIterationIteratorType><RavenIterationAcquisitionMethod>Open</RavenIterationAcquisitionMethod><RavenIterationAdvanceMethod>Advance</RavenIterationAdvanceMethod><RavenIterationCurrentProperty>Item</RavenIterationCurrentProperty>", "Open")]
+    [InlineData("<RavenIterationAcquisitionMethod>Open</RavenIterationAcquisitionMethod>", "Open")]
+    public void OpenProject_RuntimeIterationContract_ComesFromEvaluatedProperties(string properties, string? acquisition)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(path, $"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework><RavenMetadataCoreAssemblyName>Target.Core</RavenMetadataCoreAssemblyName>{properties}</PropertyGroup></Project>");
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework, projectSystemService: service);
+            var id = workspace.OpenProject(path);
+            var contract = workspace.CurrentSolution.GetProject(id)!.CompilationOptions!.RuntimeIterationContract;
+            if (acquisition is null) { Assert.Null(contract); return; }
+            Assert.NotNull(contract);
+            Assert.Equal(acquisition, contract.AcquisitionMethod);
+            if (properties.Contains("RavenIterationAssemblyName"))
+            {
+                Assert.Equal("Target.Core", contract.AssemblyName);
+                Assert.Equal("Contracts.Iterable`1", contract.IterableTypeName);
+                Assert.Equal("Contracts.Iterator`1", contract.IteratorTypeName);
+                Assert.Equal(acquisition == "Open" ? "Advance" : "MoveNext", contract.AdvanceMethod);
+                Assert.Equal(acquisition == "Open" ? "Item" : "Current", contract.CurrentProperty);
+            }
+            else
+            {
+                Assert.Empty(contract.AssemblyName);
+                Assert.Empty(contract.IterableTypeName);
+                Assert.Empty(contract.IteratorTypeName);
+            }
+        }
+        finally { DeleteDirectoryIfExists(root); }
+    }
+
     [Fact]
     public void Evaluate_DoesNotExposeSdkImplicitCoreFrameworkReference()
     {

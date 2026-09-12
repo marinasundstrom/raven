@@ -6,6 +6,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-12
 
+- Added evaluated RavenIteration* project properties for the opt-in runtime iteration
+  contract, shared by workspace builds and the language server. Absent settings retain
+  .NET behavior; partial settings remain explicit for binding diagnostics. Four project
+  tests cover absent, default-member, custom-member and partial configuration. Recorded
+  that future neoCLR cleanup must not change default CLR support.
+
 - Added opt-in RuntimeIterationContract compiler options for alternative-runtime
   synchronous for loops. Binding validates the selected iterable/cursor interfaces
   and acquisition/advance/current signatures, reports RAVT001 for incompatible

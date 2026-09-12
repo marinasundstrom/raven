@@ -15,8 +15,8 @@ options = options.WithRuntimeIterationContract(new RuntimeIterationContract(
 
 The record also configures acquisition, advance and element-property names, defaulting
 to GetIterator, MoveNext and Current. The compiler contains no neoCLR-specific type
-names. This is compiler-API configuration; project-file and CLI switches are not yet
-implemented.
+names. The same option is available through evaluated project properties; there are no
+standalone CLI switches.
 
 For `for value in values`, the collection must implement exactly one instantiation
 of the selected iterable interface. The selected declarations must be accessible
@@ -58,3 +58,28 @@ and [CLI endfinally](https://learn.microsoft.com/en-us/dotnet/api/system.reflect
 (primary sources consulted 2026-09-12). Which faults unwind, and what happens if cleanup
 faults, remain open. Defer could lower onto that shared mechanism after its contract is
 settled, rather than being treated as a substitute for it.
+
+## Project configuration
+
+A project can select the protocol for both workspace compilation and the language server:
+
+```xml
+<PropertyGroup>
+  <RavenIterationAssemblyName>NeoCLR.CoreProbe</RavenIterationAssemblyName>
+  <RavenIterationIterableType>System.Collections.Iterable`1</RavenIterationIterableType>
+  <RavenIterationIteratorType>System.Collections.Iterator`1</RavenIterationIteratorType>
+</PropertyGroup>
+```
+
+Optional `RavenIterationAcquisitionMethod`, `RavenIterationAdvanceMethod` and
+`RavenIterationCurrentProperty` override GetIterator, MoveNext and Current. With all
+six properties absent, existing .NET selection is unchanged. Partial configuration is
+retained and diagnosed when binding an affected loop, rather than silently falling back.
+These properties select compiler contracts; they do not install a target runtime or
+configure an executable importer.
+
+Future deterministic resource cleanup for neoCLR must be target-specific and opt-in.
+It must not change existing .NET/CLR behavior as a side effect. Any correction to the
+existing .NET disposal gap is a separate work item. Scope cleanup, object destruction,
+and deconstruction are distinct; Disposable/Closable are candidate hooks, not a newly
+implemented lifetime rule. Aliases alone do not establish cleanup ownership.

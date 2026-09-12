@@ -231,6 +231,22 @@ internal static class MsBuildProjectEvaluator
         if (metadataCoreAssemblyName is not null)
             compilationOptions = compilationOptions.WithMetadataImportOptions(new MetadataImportOptions(metadataCoreAssemblyName));
 
+        var iterationAssembly = GetOptionalProperty(project, "RavenIterationAssemblyName");
+        var iterableType = GetOptionalProperty(project, "RavenIterationIterableType");
+        var iteratorType = GetOptionalProperty(project, "RavenIterationIteratorType");
+        var acquisitionMethod = GetOptionalProperty(project, "RavenIterationAcquisitionMethod");
+        var advanceMethod = GetOptionalProperty(project, "RavenIterationAdvanceMethod");
+        var currentProperty = GetOptionalProperty(project, "RavenIterationCurrentProperty");
+        if (iterationAssembly is not null || iterableType is not null || iteratorType is not null
+            || acquisitionMethod is not null || advanceMethod is not null || currentProperty is not null)
+        {
+            // Preserve partial configuration so binding reports RAVT001 instead of
+            // silently choosing the default .NET protocol.
+            compilationOptions = compilationOptions.WithRuntimeIterationContract(new RuntimeIterationContract(
+                iterationAssembly ?? "", iterableType ?? "", iteratorType ?? "",
+                acquisitionMethod ?? "GetIterator", advanceMethod ?? "MoveNext", currentProperty ?? "Current"));
+        }
+
         if (emitCoreTypesOnly)
             compilationOptions = compilationOptions.WithEmbedCoreTypes(true);
 
