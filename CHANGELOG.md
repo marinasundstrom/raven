@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-12
 
+- Preserve System.Void metadata identity inside generic arguments, including nested
+  types and value/out parameters, while ordinary void returns still project to Unit.
+  This fixes emission of imported Result<Void,E> calls in the neoCLR experiment; it does not enable Void
+  generic execution on the .NET CLR. Added cache-order/type-identity regressions.
+
 - Fixed discarded Void-output propagation for the selected alternative-runtime
   contract: statement lowering no longer leaves an unused value on the evaluation
   stack. Default .NET lowering is unchanged. The neoCLR bridge verifies a

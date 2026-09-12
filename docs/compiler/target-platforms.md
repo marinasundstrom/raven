@@ -353,3 +353,13 @@ The intended separation is:
 
 This separation lets target work strengthen the compiler's overall portability
 instead of accumulating special cases for each runtime.
+
+### Generic Void metadata in the neoCLR experiment
+
+The metadata loader preserves `System.Void` as a named type when it occurs inside
+constructed generic arguments (including nested types) and value/out parameters. A method's ordinary void
+return still projects to Raven Unit. Keeping these contexts separate allows the
+experimental neoCLR bridge to handle library-returned `Result<Void, E>` without
+substituting a synthesized Unit type from a different emission context. The bridge
+continues to encode named Void storage separately from the CLI no-result marker.
+This does not make Void a supported generic argument for execution on the .NET CLR.

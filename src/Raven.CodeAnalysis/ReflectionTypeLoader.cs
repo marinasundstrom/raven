@@ -26,13 +26,15 @@ internal class ReflectionTypeLoader(Compilation compilation)
         var parameterType = parameterInfo.ParameterType;
         var useWriteState = parameterInfo.Position < 0 || parameterInfo.IsOut;
         if (IsRuntimeVoid(parameterType))
-            return compilation.GetSpecialType(SpecialType.System_Unit);
+            return parameterInfo.Position < 0
+                ? compilation.GetSpecialType(SpecialType.System_Unit)
+                : ResolveTypeArgument(parameterType, methodContext);
 
         var attributes = parameterInfo.GetCustomAttributesData();
 
         if (parameterType.IsByRef)
         {
-            var elementType = ResolveType(parameterType.GetElementType()!, methodContext);
+            var elementType = ResolveTypeArgument(parameterType.GetElementType()!, methodContext);
             if (elementType is null)
                 return null;
 
@@ -260,7 +262,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
             if (genericTypeDefinition is null)
                 return null;
 
-            var args = type.GetGenericArguments().Select(x => ResolveType(x, methodContext)!).ToArray();
+            var args = type.GetGenericArguments().Select(x => ResolveTypeArgument(x, methodContext)!).ToArray();
             var constructed = TryConstructNamedType(genericTypeDefinition, args);
             if (constructed is null)
                 return compilation.ErrorTypeSymbol;
@@ -304,6 +306,13 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
         return symbol;
     }
+
+    // A generic argument names a type; it is not a method's no-result marker.
+    // Keep Void's metadata identity here, even though void returns project to Unit.
+    private ITypeSymbol? ResolveTypeArgument(Type type, MethodBase? methodContext)
+        => IsRuntimeVoid(type)
+            ? CanonicalizeSpecialTypeDefinition(ResolveTypeCore(type))
+            : ResolveType(type, methodContext);
 
     internal ITypeParameterSymbol ResolveTypeParameter(Type type, INamedTypeSymbol declaringType)
     {
@@ -371,7 +380,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
         if (slices[0].Length > 0)
         {
-            var constructedOuter = TryConstructNamedType(current, slices[0].Select(x => ResolveType(x, methodContext)!).ToArray());
+            var constructedOuter = TryConstructNamedType(current, slices[0].Select(x => ResolveTypeArgument(x, methodContext)!).ToArray());
             if (constructedOuter is null)
                 return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
 
@@ -393,7 +402,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
             if (slices[i].Length > 0)
             {
-                var constructedNested = TryConstructNamedType(current, slices[i].Select(x => ResolveType(x, methodContext)!).ToArray());
+                var constructedNested = TryConstructNamedType(current, slices[i].Select(x => ResolveTypeArgument(x, methodContext)!).ToArray());
                 if (constructedNested is null)
                     return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
 
