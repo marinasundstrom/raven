@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-12
 
+- Added opt-in RavenMetadataCoreAssemblyName project configuration for explicit-only
+  target metadata. Project loading disables automatic host framework references and
+  the language server preserves that policy instead of adding Raven.Core/Macros.
+  Default .NET project behavior is unchanged; target emission remains separate.
+
 - Retargeted emission now preserves reference-only metadata types, including closed
   generic carriers and nested cases, without loading target implementations into the
   compiler host. Metadata method proxies preserve byref parameters and definition

@@ -10,6 +10,38 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 
 public sealed class MsBuildProjectSystemServiceTests
 {
+    [Theory]
+    [InlineData("true")]
+    [InlineData("false")]
+    public void OpenProject_ExplicitMetadataCore_UsesOnlySuppliedReferences(string hostReferences)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <RavenMetadataCoreAssemblyName>Target.Core</RavenMetadataCoreAssemblyName>
+                    <RavenUseHostFrameworkReferences>{{hostReferences}}</RavenUseHostFrameworkReferences>
+                    <ImplicitImports>disable</ImplicitImports>
+                  </PropertyGroup>
+                </Project>
+                """);
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework, projectSystemService: service);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            Assert.Equal("Target.Core", project.CompilationOptions!.MetadataImportOptions!.CoreAssemblyName);
+            Assert.Empty(project.MetadataReferences);
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
     [Fact]
     public void Evaluate_DoesNotExposeSdkImplicitCoreFrameworkReference()
     {

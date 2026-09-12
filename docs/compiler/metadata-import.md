@@ -47,3 +47,33 @@ This does not claim complete cross-target emission: mixed source/metadata generi
 constructions, generic methods, and the entire framework surface need further coverage.
 A successful emit is not runtime validation. Consumers should check dependency closure
 and execute against their actual target. No language syntax or editor API changed.
+
+## Project-backed editor imports
+
+`RavenMetadataCoreAssemblyName` opts an MSBuild Raven project into the same explicit-only
+metadata policy. Supply the named core and its dependencies as project references:
+
+```xml
+<PropertyGroup>
+  <RavenMetadataCoreAssemblyName>Target.Core</RavenMetadataCoreAssemblyName>
+  <ImplicitImports>disable</ImplicitImports>
+  <RavenFrameworkProjections>None</RavenFrameworkProjections>
+</PropertyGroup>
+<ItemGroup>
+  <Reference Include="Target.Core"><HintPath>refs/Target.Core.dll</HintPath></Reference>
+</ItemGroup>
+```
+
+The project evaluator disables automatic host framework references when this property
+is set, even if RavenUseHostFrameworkReferences is true. Explicit reference/package
+items still belong to the project's supplied input set; callers must supply the correct
+artifacts. The language server also stops automatically adding host Raven.Core,
+Raven.Macros and their support references. Missing target references remain missing;
+there is no silent fallback to the host library. Leaving the property unset preserves
+existing project behavior.
+
+This carries the existing compiler policy across project loading and the language
+server. It is not an SDK target, a retargeted emit setting, or a new build pipeline.
+In particular, naming a neoCLR core does not make ordinary `dotnet build` execute on
+neoCLR. A target-specific emitter/importer is still required. The configured project
+provides target-aware completion using the same semantic APIs as other Raven projects.
