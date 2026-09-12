@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-12
 
+- Fixed discarded Void-output propagation for the selected alternative-runtime
+  contract: statement lowering no longer leaves an unused value on the evaluation
+  stack. Default .NET lowering is unchanged. The neoCLR bridge verifies a
+  Result<Void, OverflowError> success/early-error program; 18 propagation tests pass.
+
 - Added experimental RuntimePropagationContract and evaluated RavenPropagationAssemblyName/
   RavenPropagationInterfaceType project properties. Selected-target `?` validates the
   carrier protocol and propagates residuals without implicit exception capture; absent

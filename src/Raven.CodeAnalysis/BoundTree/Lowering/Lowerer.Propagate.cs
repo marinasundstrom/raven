@@ -99,7 +99,11 @@ internal sealed partial class Lowerer
             return false;
 
         statements.AddRange(lowering.Statements);
-        statements.Add(new BoundExpressionStatement(lowering.SuccessExpression));
+        // A target Void payload has a logical value, but an unused propagation result
+        // must not load storage when codegen treats its expression type as no-result.
+        if (GetCompilation().Options.RuntimePropagationContract is null
+            || lowering.SuccessExpression.Type?.SpecialType != SpecialType.System_Void)
+            statements.Add(new BoundExpressionStatement(lowering.SuccessExpression));
         return true;
     }
 

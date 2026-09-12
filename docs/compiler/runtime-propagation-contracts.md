@@ -27,6 +27,8 @@ behavior are unchanged. Option copies and incremental semantic reuse account for
 selection. There is no new language syntax. This is an experimental target hook, not
 an automatic retargeting of arbitrary .NET programs.
 
-The neoCLR bridge currently demonstrates `Result<int, OverflowError>` success and
-early error return. The installed `0.1.12-neoclr.3` tools predate this feature; use a
-source build of the experimental branch. Option/Void residual projection is pending.
+The neoCLR bridge demonstrates `Result<int, OverflowError>`, `Option<int>` and
+`Result<Void, OverflowError>` success and early residual return. Discarding a selected
+Void-output propagation does not leave storage on the evaluation stack. The installed `0.1.12-neoclr.3` tools predate this feature; use a
+source build of the experimental branch. Void as a type denotes a unit value; ordinary void-returning calls retain the
+CLR no-result convention. The target bridge projects value-storage signatures separately.
