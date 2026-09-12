@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Integrate the opt-in RuntimeIterationContract for selecting an
+  assembly's iterable/iterator interfaces and acquisition, advance and current
+  members. Default .NET iteration remains unchanged; malformed selected contracts
+  report diagnostics rather than falling back to another protocol.
+
 - **2026-09-14:** Integrate opt-in explicit-only metadata imports as reusable target
   support. Callers select the metadata core and supply all references; default .NET
   discovery retains reference-pack core selection and host-assisted dependency lookup.

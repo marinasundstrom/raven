@@ -14,7 +14,8 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
-        if (Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions)
+        if (Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
+            || Options.RuntimeIterationContract != previousCompilation.Options.RuntimeIterationContract)
             return;
 
         var changedTreeRequiresFullSemanticRebind = plan.RequiresFullSemanticRebind;
