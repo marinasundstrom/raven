@@ -145,10 +145,12 @@ internal sealed partial class Lowerer
 
         var exceptionBaseType = compilation.GetSpecialType(SpecialType.System_Exception);
         var exceptionLocal = CreateTempLocal("propagateException", exceptionBaseType, isMutable: false);
-        var caughtErrorExpression = CreatePropagateCaughtExceptionExpression(
+        var caughtErrorExpression = compilation.Options.RuntimePropagationContract is null
+            ? CreatePropagateCaughtExceptionExpression(
             propagate,
             new BoundLocalAccess(exceptionLocal),
-            compilation);
+            compilation)
+            : null;
 
         if (caughtErrorExpression is not null)
         {

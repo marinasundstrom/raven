@@ -11,6 +11,27 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class MsBuildProjectSystemServiceTests
 {
     [Theory]
+    [InlineData("", null)]
+    [InlineData("<RavenPropagationAssemblyName>Target</RavenPropagationAssemblyName><RavenPropagationInterfaceType>System.Propagatable`3</RavenPropagationInterfaceType>", "Target")]
+    [InlineData("<RavenPropagationInterfaceType>System.Propagatable`3</RavenPropagationInterfaceType>", "")]
+    public void OpenProject_RuntimePropagationContract_PreservesExplicitSelection(string properties, string? assembly)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(path, $"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework><RavenMetadataCoreAssemblyName>Target</RavenMetadataCoreAssemblyName>{properties}</PropertyGroup></Project>");
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework, projectSystemService: service);
+            var id = workspace.OpenProject(path);
+            var contract = workspace.CurrentSolution.GetProject(id)!.CompilationOptions!.RuntimePropagationContract;
+            if (assembly is null) { Assert.Null(contract); return; }
+            Assert.Equal(new RuntimePropagationContract(assembly, "System.Propagatable`3"), contract);
+        }
+        finally { DeleteDirectoryIfExists(root); }
+    }
+
+    [Theory]
     [InlineData("true")]
     [InlineData("false")]
     public void OpenProject_ExplicitMetadataCore_UsesOnlySuppliedReferences(string hostReferences)

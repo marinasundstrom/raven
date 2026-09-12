@@ -6,6 +6,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-12
 
+- Added experimental RuntimePropagationContract and evaluated RavenPropagationAssemblyName/
+  RavenPropagationInterfaceType project properties. Selected-target `?` validates the
+  carrier protocol and propagates residuals without implicit exception capture; absent
+  settings preserve default .NET behavior. Option copying and semantic reuse respect
+  the selection. Target contract/project tests and existing propagation tests pass.
+
 - Added evaluated RavenIteration* project properties for the opt-in runtime iteration
   contract, shared by workspace builds and the language server. Absent settings retain
   .NET behavior; partial settings remain explicit for binding diagnostics. Four project

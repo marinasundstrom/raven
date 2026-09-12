@@ -4884,33 +4884,52 @@ partial class BlockBinder : Binder
     private static bool PropagationKindsAreCompatible(PropagationInfo operand, PropagationInfo enclosing)
         => operand.Kind == enclosing.Kind || (operand.UsesContract && enclosing.UsesContract);
 
-    private static bool TryGetPropagationInfo(INamedTypeSymbol typeSymbol, out PropagationInfo info)
+    private bool TryGetPropagationInfo(INamedTypeSymbol typeSymbol, out PropagationInfo info)
     {
         info = null!;
 
-        var propagationInterface = typeSymbol.AllInterfaces.FirstOrDefault(@interface =>
-            @interface.ContainingNamespace?.ToDisplayString() == "System" &&
-            @interface.MetadataName == "IPropagatable`3" &&
-            @interface.TypeArguments.Length == 3 &&
-            SymbolEqualityComparer.Default.Equals(@interface.TypeArguments[0], typeSymbol));
+        var contract = Compilation.Options.RuntimePropagationContract;
+        var candidates = typeSymbol.AllInterfaces.Where(@interface =>
+            (contract is null
+                ? @interface.ContainingNamespace?.ToDisplayString() == "System" && @interface.MetadataName == "IPropagatable`3"
+                : @interface.ContainingAssembly?.Name == contract.AssemblyName &&
+                    (@interface.ContainingNamespace?.ToDisplayString() + "." + @interface.MetadataName) == contract.InterfaceTypeName)
+            && @interface.TypeArguments.Length == 3
+            && SymbolEqualityComparer.Default.Equals(@interface.TypeArguments[0], typeSymbol)).ToArray();
+        if (contract is not null && candidates.Length != 1) return false;
+        var propagationInterface = candidates.FirstOrDefault();
 
         if (propagationInterface is not null)
         {
             var outputType = propagationInterface.TypeArguments[1];
             var residualType = propagationInterface.TypeArguments[2];
+            if (contract is not null)
+            {
+                bool HasExtraction(string name, ITypeSymbol payload) => propagationInterface.GetMembers(name)
+                    .OfType<IMethodSymbol>().Count(method => !method.IsStatic && !method.IsGenericMethod
+                        && method.DeclaredAccessibility == Accessibility.Public && method.Parameters.Length == 1
+                        && method.Parameters[0].RefKind == RefKind.Out
+                        && method.ReturnType.SpecialType == SpecialType.System_Boolean
+                        && SymbolEqualityComparer.Default.Equals(method.Parameters[0].GetByRefElementType(), payload)) == 1;
+                if (!HasExtraction("TryGetOutput", outputType) || !HasExtraction("TryGetResidual", residualType)) return false;
+            }
+
             var tryGetOutputMethod = typeSymbol.GetMembers("TryGetOutput").OfType<IMethodSymbol>().FirstOrDefault(method =>
+                (contract is null || method.DeclaredAccessibility == Accessibility.Public && !method.IsGenericMethod) &&
                 !method.IsStatic &&
                 method.Parameters.Length == 1 &&
                 method.Parameters[0].RefKind == RefKind.Out &&
                 method.ReturnType.SpecialType == SpecialType.System_Boolean &&
                 SymbolEqualityComparer.Default.Equals(method.Parameters[0].GetByRefElementType(), outputType));
             var tryGetResidualMethod = typeSymbol.GetMembers("TryGetResidual").OfType<IMethodSymbol>().FirstOrDefault(method =>
+                (contract is null || method.DeclaredAccessibility == Accessibility.Public && !method.IsGenericMethod) &&
                 !method.IsStatic &&
                 method.Parameters.Length == 1 &&
                 method.Parameters[0].RefKind == RefKind.Out &&
                 method.ReturnType.SpecialType == SpecialType.System_Boolean &&
                 SymbolEqualityComparer.Default.Equals(method.Parameters[0].GetByRefElementType(), residualType));
             var fromResidualMethod = typeSymbol.GetMembers("FromResidual").OfType<IMethodSymbol>().FirstOrDefault(method =>
+                (contract is null || method.DeclaredAccessibility == Accessibility.Public && !method.IsGenericMethod) &&
                 method.IsStatic &&
                 method.Parameters.Length == 1 &&
                 SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, residualType) &&
@@ -4945,6 +4964,8 @@ partial class BlockBinder : Binder
                 return true;
             }
         }
+
+        if (contract is not null) return false; // An explicit target must not fall back to union conventions.
 
         if (!UnionFacts.UsesCarrierRepresentation(typeSymbol))
             return false;

@@ -318,3 +318,10 @@ See
   - `ToHashSetOrError(errorFactory: Exception -> E) -> Result<HashSet<T>, E>`
   - `ToDictionaryOrError(keySelector, errorFactory) -> Result<Dictionary<TKey, T>, E>`
   - `ToDictionaryOrError(keySelector, elementSelector, errorFactory) -> Result<Dictionary<TKey, TValue>, E>`
+
+## Experimental runtime target selection
+
+An explicit [runtime propagation contract](../../compiler/runtime-propagation-contracts.md)
+selects the target's carrier interface and uses result-only propagation without implicit
+exception capture. This opt-in compiler setting leaves default .NET behavior unchanged;
+it does not introduce syntax or make exception-handling constructs portable.
