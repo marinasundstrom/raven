@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+### 2026-09-13
+
+- Admit explicit casts between all fixed-width integral types, including signed,
+  unsigned and Char types previously missing from conversion classification. Preserve
+  source signedness when widening to 64 bits. Added observable narrowing/widening
+  regressions; implicit-conversion policy and native integers are unchanged. Developed
+  on the neoCLR experiment branch; the correction also applies to ordinary CLR output.
+
 ### 2026-09-12
 
 - Preserve System.Void metadata identity inside generic arguments, including nested

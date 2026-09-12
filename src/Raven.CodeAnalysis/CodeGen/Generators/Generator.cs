@@ -759,6 +759,17 @@ internal abstract class Generator
             return;
         }
 
+        // CLI widening uses the source signedness, independently of whether the
+        // destination stores the resulting 64 bits as signed or unsigned.
+        if (to.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
+            && from.SpecialType is SpecialType.System_SByte or SpecialType.System_Byte
+                or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Char
+                or SpecialType.System_Int32 or SpecialType.System_UInt32)
+        {
+            ILGenerator.Emit(from.SpecialType == SpecialType.System_UInt32 ? OpCodes.Conv_U8 : OpCodes.Conv_I8);
+            return;
+        }
+
         // existing conv.* path
         EmitPrimitiveNumericConversion(to);
     }

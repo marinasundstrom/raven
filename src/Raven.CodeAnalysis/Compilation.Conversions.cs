@@ -1793,6 +1793,11 @@ public partial class Compilation
         var sourceType = source.SpecialType;
         var destType = destination.SpecialType;
 
+        // Every fixed-width integral pair has an explicit conversion when no
+        // implicit conversion was selected above. Native integers are separate.
+        if (IsIntegralType(source) && IsIntegralType(destination))
+            return true;
+
         return (sourceType, destType) switch
         {
             // -------- to byte --------
