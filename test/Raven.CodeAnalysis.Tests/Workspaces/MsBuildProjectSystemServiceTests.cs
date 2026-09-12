@@ -10,6 +10,97 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 
 public sealed class MsBuildProjectSystemServiceTests
 {
+    [Theory]
+    [InlineData("", null)]
+    [InlineData("<RavenPropagationAssemblyName>Target</RavenPropagationAssemblyName><RavenPropagationInterfaceType>System.Propagatable`3</RavenPropagationInterfaceType>", "Target")]
+    [InlineData("<RavenPropagationInterfaceType>System.Propagatable`3</RavenPropagationInterfaceType>", "")]
+    public void OpenProject_RuntimePropagationContract_PreservesExplicitSelection(string properties, string? assembly)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(path, $"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework><RavenMetadataCoreAssemblyName>Target</RavenMetadataCoreAssemblyName>{properties}</PropertyGroup></Project>");
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework, projectSystemService: service);
+            var id = workspace.OpenProject(path);
+            var contract = workspace.CurrentSolution.GetProject(id)!.CompilationOptions!.RuntimePropagationContract;
+            if (assembly is null) { Assert.Null(contract); return; }
+            Assert.Equal(new RuntimePropagationContract(assembly, "System.Propagatable`3"), contract);
+        }
+        finally { DeleteDirectoryIfExists(root); }
+    }
+
+    [Theory]
+    [InlineData("true")]
+    [InlineData("false")]
+    public void OpenProject_ExplicitMetadataCore_UsesOnlySuppliedReferences(string hostReferences)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var projectPath = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <RavenMetadataCoreAssemblyName>Target.Core</RavenMetadataCoreAssemblyName>
+                    <RavenUseHostFrameworkReferences>{{hostReferences}}</RavenUseHostFrameworkReferences>
+                    <ImplicitImports>disable</ImplicitImports>
+                  </PropertyGroup>
+                </Project>
+                """);
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework, projectSystemService: service);
+            var projectId = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(projectId)!;
+            Assert.Equal("Target.Core", project.CompilationOptions!.MetadataImportOptions!.CoreAssemblyName);
+            Assert.Empty(project.MetadataReferences);
+            Assert.DoesNotContain(project.Documents, d => d.Name.Contains("TargetFrameworkAttribute"));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
+    [Theory]
+    [InlineData("", null)]
+    [InlineData("<RavenIterationAssemblyName>Target.Core</RavenIterationAssemblyName><RavenIterationIterableType>Contracts.Iterable`1</RavenIterationIterableType><RavenIterationIteratorType>Contracts.Iterator`1</RavenIterationIteratorType>", "GetIterator")]
+    [InlineData("<RavenIterationAssemblyName>Target.Core</RavenIterationAssemblyName><RavenIterationIterableType>Contracts.Iterable`1</RavenIterationIterableType><RavenIterationIteratorType>Contracts.Iterator`1</RavenIterationIteratorType><RavenIterationAcquisitionMethod>Open</RavenIterationAcquisitionMethod><RavenIterationAdvanceMethod>Advance</RavenIterationAdvanceMethod><RavenIterationCurrentProperty>Item</RavenIterationCurrentProperty>", "Open")]
+    [InlineData("<RavenIterationAcquisitionMethod>Open</RavenIterationAcquisitionMethod>", "Open")]
+    public void OpenProject_RuntimeIterationContract_ComesFromEvaluatedProperties(string properties, string? acquisition)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(path, $"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework><RavenMetadataCoreAssemblyName>Target.Core</RavenMetadataCoreAssemblyName>{properties}</PropertyGroup></Project>");
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework, projectSystemService: service);
+            var id = workspace.OpenProject(path);
+            var contract = workspace.CurrentSolution.GetProject(id)!.CompilationOptions!.RuntimeIterationContract;
+            if (acquisition is null) { Assert.Null(contract); return; }
+            Assert.NotNull(contract);
+            Assert.Equal(acquisition, contract.AcquisitionMethod);
+            if (properties.Contains("RavenIterationAssemblyName"))
+            {
+                Assert.Equal("Target.Core", contract.AssemblyName);
+                Assert.Equal("Contracts.Iterable`1", contract.IterableTypeName);
+                Assert.Equal("Contracts.Iterator`1", contract.IteratorTypeName);
+                Assert.Equal(acquisition == "Open" ? "Advance" : "MoveNext", contract.AdvanceMethod);
+                Assert.Equal(acquisition == "Open" ? "Item" : "Current", contract.CurrentProperty);
+            }
+            else
+            {
+                Assert.Empty(contract.AssemblyName);
+                Assert.Empty(contract.IterableTypeName);
+                Assert.Empty(contract.IteratorTypeName);
+            }
+        }
+        finally { DeleteDirectoryIfExists(root); }
+    }
+
     [Fact]
     public void Evaluate_DoesNotExposeSdkImplicitCoreFrameworkReference()
     {

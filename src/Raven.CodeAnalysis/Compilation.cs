@@ -894,7 +894,8 @@ public partial class Compilation
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
         if (ReferenceEquals(this, previousCompilation) || Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
-            || Options.RuntimeIterationContract != previousCompilation.Options.RuntimeIterationContract)
+            || Options.RuntimeIterationContract != previousCompilation.Options.RuntimeIterationContract
+            || Options.RuntimePropagationContract != previousCompilation.Options.RuntimePropagationContract)
             return;
 
         // Retain only reusable, compilation-independent state. Keeping the whole

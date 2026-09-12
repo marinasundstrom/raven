@@ -14,8 +14,10 @@ options = options.WithRuntimeIterationContract(new RuntimeIterationContract(
 ```
 
 The record also configures acquisition, advance and element-property names, defaulting
-to GetIterator, MoveNext and Current. The compiler resolves these names from supplied CLI metadata. This is compiler-API configuration; project-file and CLI switches are not yet
-implemented.
+to GetIterator, MoveNext and Current. The compiler resolves these names from supplied CLI metadata. MSBuild projects can select the contract with `RavenIterationAssemblyName`,
+`RavenIterationIterableType`, `RavenIterationIteratorType`, and optional
+`RavenIterationAcquisitionMethod`, `RavenIterationAdvanceMethod`, and
+`RavenIterationCurrentProperty` properties.
 
 For `for value in values`, the collection must implement exactly one instantiation
 of the selected iterable interface. The selected declarations must be accessible

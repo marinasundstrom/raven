@@ -36,10 +36,12 @@ public class CompilationOptions
         bool synthesizeStructuralToString = true,
         ImmutableDictionary<string, bool>? generatedCodeOptions = null,
         MetadataImportOptions? metadataImportOptions = null,
-        RuntimeIterationContract? runtimeIterationContract = null)
+        RuntimeIterationContract? runtimeIterationContract = null,
+        RuntimePropagationContract? runtimePropagationContract = null)
     {
         MetadataImportOptions = metadataImportOptions;
         RuntimeIterationContract = runtimeIterationContract;
+        RuntimePropagationContract = runtimePropagationContract;
         OutputKind = outputKind;
         SpecificDiagnosticOptions = specificDiagnosticOptions ?? ImmutableDictionary<string, ReportDiagnostic>.Empty;
         RunAnalyzers = runAnalyzers;
@@ -70,14 +72,19 @@ public class CompilationOptions
     /// </summary>
     public MetadataImportOptions? MetadataImportOptions { get; }
 
+    public RuntimePropagationContract? RuntimePropagationContract { get; }
+
+    public CompilationOptions WithRuntimePropagationContract(RuntimePropagationContract? contract)
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, contract);
+
     public RuntimeIterationContract? RuntimeIterationContract { get; }
 
     public CompilationOptions WithRuntimeIterationContract(RuntimeIterationContract? contract)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, contract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, contract, RuntimePropagationContract);
 
 
     public CompilationOptions WithMetadataImportOptions(MetadataImportOptions? options)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, options, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, options, RuntimeIterationContract, RuntimePropagationContract);
 
     public OutputKind OutputKind { get; }
 
@@ -85,7 +92,7 @@ public class CompilationOptions
     /// Creates options with the specified output kind.
     /// </summary>
     public CompilationOptions WithOutputKind(OutputKind outputKind)
-        => new(outputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(outputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public ImmutableDictionary<string, ReportDiagnostic> SpecificDiagnosticOptions { get; }
 
@@ -98,7 +105,7 @@ public class CompilationOptions
     internal ImmutableDictionary<string, bool> GeneratedCodeOptions { get; }
 
     internal CompilationOptions WithGeneratedCodeOptions(ImmutableDictionary<string, bool> options)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, options, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, options, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     /// <summary>
     /// Gets the optimization policy used when lowering and emitting code.
@@ -112,86 +119,86 @@ public class CompilationOptions
     public bool SynthesizeStructuralToString { get; }
 
     public CompilationOptions WithSynthesizeStructuralToString(bool enabled)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, enabled, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, enabled, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     /// <summary>
     /// Creates options with the specified optimization policy.
     /// </summary>
     public CompilationOptions WithOptimizationLevel(OptimizationLevel optimizationLevel)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, optimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, optimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public CompilationOptions WithSpecificDiagnosticOptions(IDictionary<string, ReportDiagnostic> options)
-        => new(OutputKind, SpecificDiagnosticOptions.SetItems(options), RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions.SetItems(options), RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public CompilationOptions WithExactSpecificDiagnosticOptions(ImmutableDictionary<string, ReportDiagnostic> options)
-        => new(OutputKind, options, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, options, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public CompilationOptions WithSpecificDiagnosticOption(string diagnosticId, ReportDiagnostic option)
-        => new(OutputKind, SpecificDiagnosticOptions.SetItem(diagnosticId, option), RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions.SetItem(diagnosticId, option), RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public CompilationOptions WithRunAnalyzers(bool runAnalyzers)
-        => new(OutputKind, SpecificDiagnosticOptions, runAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, runAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public CompilationOptions WithDisabledAnalyzers(IEnumerable<string> disabledAnalyzers)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, AnalyzerOptionUtilities.ParseAnalyzerNameSet(disabledAnalyzers), PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, AnalyzerOptionUtilities.ParseAnalyzerNameSet(disabledAnalyzers), PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public CompilationOptions WithEnabledAnalyzers(IEnumerable<string> enabledAnalyzers)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, AnalyzerOptionUtilities.ParseAnalyzerNameSet(enabledAnalyzers), OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, AnalyzerOptionUtilities.ParseAnalyzerNameSet(enabledAnalyzers), OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public PerformanceInstrumentation PerformanceInstrumentation { get; }
 
     public CompilationOptions WithPerformanceInstrumentation(PerformanceInstrumentation? instrumentation)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, instrumentation ?? PerformanceInstrumentation.Disabled, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, instrumentation ?? PerformanceInstrumentation.Disabled, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public ILoweringTraceSink? LoweringTrace { get; }
 
     public CompilationOptions WithLoweringTrace(ILoweringTraceSink? loweringTrace)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, loweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, loweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public AsyncInvestigationOptions AsyncInvestigation { get; }
 
     public CompilationOptions WithAsyncInvestigation(AsyncInvestigationOptions? asyncInvestigation)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, asyncInvestigation ?? AsyncInvestigationOptions.Disabled, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, asyncInvestigation ?? AsyncInvestigationOptions.Disabled, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public IOverloadResolutionLogger? OverloadResolutionLogger { get; }
 
     public CompilationOptions WithOverloadResolutionLogger(IOverloadResolutionLogger? overloadResolutionLogger)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, overloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, overloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public bool EmbedCoreTypes { get; }
 
     public CompilationOptions WithEmbedCoreTypes(bool embedCoreTypes)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, embedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, embedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public bool AllowUnsafe { get; }
 
     public CompilationOptions WithAllowUnsafe(bool allowUnsafe)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, allowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, allowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public bool UseRuntimeAsync { get; }
 
     public CompilationOptions WithRuntimeAsync(bool useRuntimeAsync)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, useRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, useRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public bool AllowGlobalStatements { get; }
 
     public CompilationOptions WithAllowGlobalStatements(bool allowGlobalStatements)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, allowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, allowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public bool AllowNamespaceMembers { get; }
 
     public CompilationOptions WithAllowNamespaceMembers(bool allowNamespaceMembers)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, allowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, allowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public bool AllowNamespaceMemberImports { get; }
 
     public CompilationOptions WithAllowNamespaceMemberImports(bool allowNamespaceMemberImports)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, allowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, allowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public bool EnableSuggestions { get; }
 
     public CompilationOptions WithEnableSuggestions(bool enableSuggestions)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, enableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, enableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     private readonly ReturnedValueHandlingMode? _returnedValueHandlingMode;
 
@@ -200,12 +207,12 @@ public class CompilationOptions
     public bool ReturnedValueHandlingModeConfigured => _returnedValueHandlingMode.HasValue;
 
     public CompilationOptions WithReturnedValueHandlingMode(ReturnedValueHandlingMode mode)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, mode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, mode, FrameworkProjectionMode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public FrameworkProjectionMode FrameworkProjectionMode { get; }
 
     public CompilationOptions WithFrameworkProjectionMode(FrameworkProjectionMode mode)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, mode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, mode, EnableIsNotNullNarrowing, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     /// <summary>
     /// Gets whether direct <c>value is not null</c> checks narrow the value in
@@ -215,12 +222,12 @@ public class CompilationOptions
     public bool EnableIsNotNullNarrowing { get; }
 
     public CompilationOptions WithEnableIsNotNullNarrowing(bool enabled)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, enabled, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, enabled, ExternalConstantValues, EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 
     public ImmutableDictionary<string, string> ExternalConstantValues { get; }
 
     public CompilationOptions WithExternalConstantValues(IEnumerable<KeyValuePair<string, string>> values)
-        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, values.ToImmutableDictionary(StringComparer.Ordinal), EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract);
+        => new(OutputKind, SpecificDiagnosticOptions, RunAnalyzers, DisabledAnalyzers, PerformanceInstrumentation, LoweringTrace, AsyncInvestigation, OverloadResolutionLogger, EmbedCoreTypes, AllowUnsafe, UseRuntimeAsync, AllowGlobalStatements, AllowNamespaceMembers, AllowNamespaceMemberImports, EnableSuggestions, _returnedValueHandlingMode, FrameworkProjectionMode, EnableIsNotNullNarrowing, values.ToImmutableDictionary(StringComparer.Ordinal), EnabledAnalyzers, OptimizationLevel, SynthesizeStructuralToString, GeneratedCodeOptions, MetadataImportOptions, RuntimeIterationContract, RuntimePropagationContract);
 }
 
 public enum FrameworkProjectionMode

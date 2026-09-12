@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Integrate RuntimePropagationContract and evaluated MSBuild
+  properties for metadata, iteration and propagation selection. Contract lookup is
+  based on supplied CLI interfaces; default .NET propagation and exception capture
+  remain unchanged. The experiment's no-exception policy is excluded from main.
+
 - **2026-09-14:** Integrate the opt-in RuntimeIterationContract for selecting an
   assembly's iterable/iterator interfaces and acquisition, advance and current
   members. Default .NET iteration remains unchanged; malformed selected contracts
