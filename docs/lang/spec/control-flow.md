@@ -111,3 +111,10 @@ on the continued line is whitespace and does not change its meaning.
 * [Match forms](match-forms.md)
 * [Return and yield](returns-and-yield.md)
 * [Jumps and labels](jumps-and-labels.md)
+
+### Alternative runtime iteration
+
+Compiler hosts can select a nominal synchronous iterable/cursor protocol through
+`CompilationOptions.RuntimeIterationContract`; see [runtime iteration contracts](../../compiler/runtime-iteration-contracts.md).
+The source syntax is unchanged. This option does not add automatic iterator disposal;
+the linked document records that existing behavior gap and the planned correction.

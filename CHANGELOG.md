@@ -6,6 +6,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-12
 
+- Added opt-in RuntimeIterationContract compiler options for alternative-runtime
+  synchronous for loops. Binding validates the selected iterable/cursor interfaces
+  and acquisition/advance/current signatures, reports RAVT001 for incompatible
+  contracts and passes resolved symbols to existing codegen. Default .NET behavior
+  remains unchanged; option copies and semantic-state reuse respect the contract.
+  Documented the existing missing automatic iterator Dispose behavior as a separate
+  correction to consider. Project switches, async/yield targeting and cleanup are
+  not implemented by this change. Seven new tests and 34 existing iteration/target
+  metadata tests pass.
+
 - Added opt-in RavenMetadataCoreAssemblyName project configuration for explicit-only
   target metadata. Project loading disables automatic host framework references and
   the language server preserves that policy instead of adding Raven.Core/Macros.
