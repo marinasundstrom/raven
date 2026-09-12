@@ -4,9 +4,18 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+### 2026-09-12
+
+- Added opt-in explicit-only metadata import through `MetadataImportOptions`, with
+  a caller-selected metadata core assembly. Missing references no longer fall back
+  to host assemblies in this mode; default .NET import behavior is unchanged.
+  Import-policy changes prevent incremental context/state reuse. This is compiler
+  API groundwork for restricted targets, not a complete alternative runtime target.
+
 ### Breaking changes
 
-- None recorded.
+- Compiler API consumers must rebuild against the new `CompilationOptions`
+  constructor signature; the added metadata-import argument is optional in source.
 
 ## 0.1.12 - 2026-09-12
 

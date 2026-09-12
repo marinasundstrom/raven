@@ -14,6 +14,9 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
+        if (Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions)
+            return;
+
         var changedTreeRequiresFullSemanticRebind = plan.RequiresFullSemanticRebind;
         var blockReusedDeclarationSensitiveState =
             plan.BlocksSemanticDiagnosticTransfer ||
