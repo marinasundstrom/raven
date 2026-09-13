@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -67,9 +68,18 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
         !_allInterfaces.IsDefault ? _allInterfaces : _allInterfaces = ComputeAllInterfaces();
 
-    public ImmutableArray<ISymbol> GetMembers() => BaseType!.GetMembers();
+    public ImmutableArray<ISymbol> GetMembers()
+    {
+        var members = BaseType!.GetMembers();
+        if (Rank != 1 || BaseType is not PENamedTypeSymbol metadataBase ||
+            metadataBase.Compilation.Options.RuntimeIterationContract?.ArrayShapeTypeName is null)
+            return members;
+        // Interface members keep their interface owner so calls use normal dispatch.
+        return members.AddRange(GetArraySpecificInterfaces().SelectMany(i => i.GetMembers())
+            .Where(m => !m.IsStatic && !members.Any(existing => existing.Name == m.Name)));
+    }
 
-    public ImmutableArray<ISymbol> GetMembers(string name) => BaseType!.GetMembers(name);
+    public ImmutableArray<ISymbol> GetMembers(string name) => GetMembers().Where(m => m.Name == name).ToImmutableArray();
 
     public ITypeSymbol? LookupType(string name) => BaseType?.LookupType(name);
 
@@ -77,11 +87,8 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
-        if (BaseType is not null)
-            return BaseType.IsMemberDefined(name, out symbol);
-
-        symbol = null;
-        return false;
+        symbol = GetMembers(name).FirstOrDefault();
+        return symbol is not null;
     }
 
     private ImmutableArray<INamedTypeSymbol> ComputeInterfaces()

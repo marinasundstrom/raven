@@ -116,6 +116,64 @@ public class RuntimeIterationContractTests
         });
     }
 
+    [Fact]
+    public void ConfiguredArrayShapeAndVectorShareSourceAndMetadataSemantics()
+    {
+        WithContracts("bool", (references, _) =>
+        {
+            var tree = SyntaxTree.ParseText("""
+                import Contracts.*
+                func Pass(values: ArrayShape<int>) -> int[] { return values }
+                func Reverse(values: int[]) -> ArrayShape<int> { return values }
+                func Imported() -> int[] { return Factory.Shaped() }
+                func Element(values: ArrayShape<int>) -> int {
+                    values[0] = 42
+                    return values[0]
+                }
+                func Iterator(values: ArrayShape<int>) -> Contracts.Iterator<int> {
+                    return values.GetIterator()
+                }
+                func Shape() -> System.Type { return typeof(ArrayShape<int>) }
+                func Nested(values: ArrayShape<ArrayShape<int>>) -> int[][] { return values }
+                """);
+            var compilation = Compilation.Create("UnifiedArrays", [tree], references,
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                    runtimeIterationContract: Contract with { ArrayShapeTypeName = "Contracts.ArrayShape`1" }));
+            Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+            using var stream = new MemoryStream();
+            var emitted = compilation.Emit(stream);
+            Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+            stream.Position = 0;
+            using var image = Mono.Cecil.AssemblyDefinition.ReadAssembly(stream);
+            var functions = image.MainModule.Types.SelectMany(t => t.Methods).ToArray();
+            foreach (var name in new[] { "Pass", "Reverse" })
+            {
+                var method = Assert.Single(functions, m => m.Name == name);
+                Assert.Equal("System.Int32[]", method.Parameters[0].ParameterType.FullName);
+                Assert.Equal("System.Int32[]", method.ReturnType.FullName);
+            }
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ArrayShapeAliasIsOptInAndRetainsArrayInvariance(bool configured)
+    {
+        WithContracts("bool", (references, _) =>
+        {
+            var compilation = Compilation.Create("AliasPolicy", [SyntaxTree.ParseText("""
+                import Contracts.*
+                func Pass(values: ArrayShape<string>) -> string[] { return values }
+                func Widen(values: ArrayShape<string>) -> object[] { return values }
+                """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                    runtimeIterationContract: configured ? Contract with { ArrayShapeTypeName = "Contracts.ArrayShape`1" } : null)
+                    .WithAllowArrayCovariance(false));
+            var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            Assert.Equal(configured ? 1 : 2, errors.Length);
+        });
+    }
+
     private static Compilation Create(MetadataReference[] references, RuntimeIterationContract? contract) =>
         Compilation.Create("Consumer", [SyntaxTree.ParseText("""
             import Contracts.*
@@ -143,6 +201,7 @@ public class RuntimeIterationContractTests
                     }
                     public static class Factory {
                         public static int[] Values() => null;
+                        public static ArrayShape<int> Shaped() => null;
                     }
                     public interface Iterable<T> {
                         Iterator<T> {{(renamed ? "Open" : "GetIterator")}}();

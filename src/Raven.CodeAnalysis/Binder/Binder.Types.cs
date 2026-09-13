@@ -1027,7 +1027,9 @@ internal abstract partial class Binder
 
         return new ResolveTypeResult
         {
-            ResolvedType = definition.Construct(args.ToArray()),
+            ResolvedType = Compilation.IsRuntimeArrayShape(definition)
+                ? Compilation.CreateArrayTypeSymbol(args[0])
+                : definition.Construct(args.ToArray()),
             ResolvedNamedDefinition = definition,
             ResolvedTypeArguments = args
         };

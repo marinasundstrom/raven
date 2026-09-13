@@ -2538,6 +2538,16 @@ public partial class Compilation
         }
     }
 
+    internal bool IsRuntimeArrayShape(INamedTypeSymbol definition)
+    {
+        var contract = Options.RuntimeIterationContract;
+        return contract?.ArrayShapeTypeName is { } name &&
+            definition is { TypeKind: TypeKind.Class, Arity: 1, ContainingType: null } &&
+            definition.ContainingAssembly?.Name == contract.AssemblyName &&
+            SymbolEqualityComparer.Default.Equals(definition.OriginalDefinition,
+                GetTypeByMetadataName(name));
+    }
+
     public ITypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType, int rank = 1, int? fixedLength = null)
     {
         var ns = SymbolLookup.GetNamespace("System");

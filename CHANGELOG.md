@@ -8,7 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   configured generic array class in reference metadata. Element substitution and
   inherited interfaces drive conversions and extension lookup; malformed shapes
   do not invent vector interfaces. Default .NET behavior and indexed loops remain
-  unchanged. Includes source/imported-array and evaluated-project regressions.
+  unchanged. The configured generic shape now resolves to ordinary vector semantics
+  in source annotations and imported signatures, including indexing, nested arrays,
+  typeof and interface member access. Includes emitted-signature, opt-in/invariance,
+  source/imported-array and evaluated-project regressions.
 
 - **2026-09-13:** Preserve pointer signatures when rewriting metadata-only method
   references for target frameworks. Native void-pointer parameters and returns

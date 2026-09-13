@@ -108,6 +108,11 @@ vector-specific interfaces, so incompatible conversions fail normally.
 The neoCLR experiment uses this path. It lets a target add array contracts in its
 reference metadata without adding compiler rules for each interface. The cost is
 that the target must keep the declaration and runtime implementations aligned.
-It does not make `System.Array<T>` a source alias for `T[]`, project its class members,
-change indexed array loops, or alter default .NET array interfaces and variance.
+The configured generic class is also a source/signature spelling of the vector:
+`System.Array<T>` and `T[]` resolve to the same array semantics and emit CLI vector
+signatures. Ordinary array members and the declared interface members are available;
+interface member calls retain their interface owner and dispatch normally. Allocation
+uses array expressions, not a constructor on the generic metadata declaration.
+This does not project arbitrary class members, change indexed array loops, or alter
+default .NET array interfaces and variance.
 Interfaces declared by the ordinary array base type remain visible in either mode.

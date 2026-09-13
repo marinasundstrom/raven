@@ -263,7 +263,9 @@ internal class ReflectionTypeLoader(Compilation compilation)
                 return null;
 
             var args = type.GetGenericArguments().Select(x => ResolveTypeArgument(x, methodContext)!).ToArray();
-            var constructed = TryConstructNamedType(genericTypeDefinition, args);
+            ITypeSymbol? constructed = compilation.IsRuntimeArrayShape(genericTypeDefinition)
+                ? compilation.CreateArrayTypeSymbol(args[0])
+                : TryConstructNamedType(genericTypeDefinition, args);
             if (constructed is null)
                 return compilation.ErrorTypeSymbol;
 
