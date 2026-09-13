@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-13:** Require implicit operand conversions when selecting binary
+  user-defined operators. An explicit numeric conversion no longer makes otherwise
+  invalid mixed `ulong`/signed operations applicable through .NET numeric metadata.
+  Explicit casts and supported implicit conversions remain accepted. Includes
+  both operand orders, operator-family and user-defined-operator regressions.
+
 - **2026-09-13:** Correct primitive relational emission for unsigned integers and
   floating-point NaN. Select unsigned comparison opcodes from converted operand
   types; inclusive floating comparisons invert unordered comparisons so NaN remains
