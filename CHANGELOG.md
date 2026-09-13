@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-13:** Preserve pointer signatures when rewriting metadata-only method
+  references for target frameworks. Native void-pointer parameters and returns
+  no longer fail target metadata emission. Includes a metadata-only API regression;
+  this does not change native numeric or pointer conversion rules.
+
 - **2026-09-13:** Add target-configurable array covariance through
   CompilationOptions.AllowArrayCovariance and RavenAllowArrayCovariance. Disabling
   it rejects nonidentity array-element conversions in normal binding and editor

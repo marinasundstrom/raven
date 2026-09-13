@@ -361,6 +361,9 @@ internal static class AssemblyReferenceNormalizer
         if (primitive is not null)
             return primitive;
 
+        if (symbol is IPointerTypeSymbol pointer)
+            return new PointerType(CreateTypeReference(module, pointer.PointedAtType, targetReferences));
+
         if (symbol is IArrayTypeSymbol array)
             return new ArrayType(CreateTypeReference(module, array.ElementType, targetReferences), array.Rank);
 

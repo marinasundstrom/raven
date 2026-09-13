@@ -237,3 +237,10 @@ if !TryParse(arg, out total) {
     Console.WriteLine("Expected number")
 }
 ```
+
+### Target metadata emission
+
+Metadata-only method references preserve pointer signatures when rewritten for a
+target framework, including native void-pointer parameters and return values.
+This is an emission guarantee; it does not add otherwise unsupported native-sized
+numeric or pointer conversions to the language.
