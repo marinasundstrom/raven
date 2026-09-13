@@ -6,6 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-13
 
+- Emit empty array literals directly when targeting a separate core library instead
+  of injecting the host Array.Empty factory. The target need not define that helper;
+  ordinary CLR emission retains cached empty arrays. Added a target dependency regression.
+
 - Preserve closed generic target-library calls as MethodSpec metadata when emitting
   against a reference-only target. Retain generic definition signatures and target
   assembly identities instead of resolving host framework implementations. Added

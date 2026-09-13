@@ -9,6 +9,28 @@ namespace Raven.CodeAnalysis.Tests;
 public class TargetMetadataEmissionTests
 {
     [Fact]
+    public void RetargetedEmptyArrayDoesNotRequireHostArrayFactory()
+    {
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var compilation = Compilation.Create("EmptyArrayConsumer", [SyntaxTree.ParseText("""
+            func Empty() -> int[] { return [] }
+            """)], paths.Select(MetadataReference.CreateFromFile).ToArray(),
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                metadataImportOptions: new MetadataImportOptions("System.Runtime")));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output, null,
+            new EmitOptions(AssemblyName.GetAssemblyName(paths.Single(p => Path.GetFileName(p) == "System.Runtime.dll"))));
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        output.Position = 0;
+        using var assembly = AssemblyDefinition.ReadAssembly(output);
+        Assert.DoesNotContain(assembly.MainModule.GetMemberReferences(),
+            member => member.DeclaringType.FullName == "System.Array" && member.Name == "Empty");
+        var method = assembly.MainModule.Types.SelectMany(t => t.Methods).Single(m => m.Name == "Empty");
+        Assert.Equal("System.Int32", Assert.IsType<ArrayType>(method.ReturnType).ElementType.FullName);
+    }
+
+    [Fact]
     public void RetargetedEmissionPreservesClosedGenericMethodSpecification()
     {
         var directory = Path.Combine(Path.GetTempPath(), "raven-target-delegate", Guid.NewGuid().ToString("N"));

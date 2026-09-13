@@ -4398,14 +4398,14 @@ internal partial class ExpressionGenerator : Generator
         {
             var elementType = named.TypeArguments[0];
             var elementClrType = ResolveClrType(elementType);
-            ILGenerator.Emit(OpCodes.Call, ArrayEmptyGenericMethod.MakeGenericMethod(elementClrType));
+            EmitEmptyArray(elementClrType);
             return;
         }
 
         if (target is IArrayTypeSymbol arrayTypeSymbol)
         {
             var elementClrType = ResolveClrType(arrayTypeSymbol.ElementType);
-            ILGenerator.Emit(OpCodes.Call, ArrayEmptyGenericMethod.MakeGenericMethod(elementClrType));
+            EmitEmptyArray(elementClrType);
         }
         else if (target is INamedTypeSymbol namedType)
         {
@@ -4429,6 +4429,18 @@ internal partial class ExpressionGenerator : Generator
 
             ILGenerator.Emit(OpCodes.Newobj, ctorInfo);
         }
+    }
+
+    private void EmitEmptyArray(Type elementType)
+    {
+        if (MethodGenerator.TypeGenerator.CodeGen.UsesTargetMetadata)
+        {
+            // A target core library need not expose the host's cached-array helper.
+            ILGenerator.Emit(OpCodes.Ldc_I4_0);
+            ILGenerator.Emit(OpCodes.Newarr, elementType);
+            return;
+        }
+        ILGenerator.Emit(OpCodes.Call, ArrayEmptyGenericMethod.MakeGenericMethod(elementType));
     }
 
     private bool TryEmitEmptyCollectionExpressionViaImmutableList(INamedTypeSymbol targetType)
