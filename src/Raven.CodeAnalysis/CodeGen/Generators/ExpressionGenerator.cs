@@ -996,7 +996,7 @@ internal partial class ExpressionGenerator : Generator
         }
 
         il.Emit(OpCodes.Call, methodInfo);
-        EmitBridgeReturnConversion(il, method.ReturnType, invoke.ReturnType);
+        EmitBridgeReturnConversion(il, method.ReturnType, invoke.ReturnType, methodInfo.ReturnType.FullName != "System.Void");
         il.Emit(OpCodes.Ret);
 
         return bridgeBuilder;
@@ -1066,11 +1066,13 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitBridgeReturnConversion(ILGenerator il, ITypeSymbol methodReturnType, ITypeSymbol delegateReturnType)
+    private void EmitBridgeReturnConversion(ILGenerator il, ITypeSymbol methodReturnType, ITypeSymbol delegateReturnType, bool methodReturnsValue)
     {
         if (delegateReturnType.SpecialType == SpecialType.System_Void)
         {
-            if (methodReturnType.SpecialType == SpecialType.System_Unit)
+            // A Unit-returning source function can emit a CLI void return.
+            // Only discard a value when the called signature actually produces one.
+            if (methodReturnType.SpecialType == SpecialType.System_Unit && methodReturnsValue)
                 il.Emit(OpCodes.Pop);
 
             return;

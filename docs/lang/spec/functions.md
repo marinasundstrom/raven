@@ -516,3 +516,8 @@ Imported methods may also use
 `System.Runtime.CompilerServices.OverloadResolutionPriorityAttribute`. When
 multiple applicable candidates belong to the same overload set, Raven keeps the
 highest-priority candidates before applying normal overload comparison.
+
+
+Delegate bridges use the emitted return signature when adapting Unit and explicit
+`System.Void` returns. A source function returning Unit can emit a CLI no-result
+method; invoking it must not discard a stack value that was never produced.

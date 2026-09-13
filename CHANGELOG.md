@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-13
 
+- Fix bridges from no-result functions to explicitly Void-returning delegates: only
+  discard a Unit result when the emitted method signature produces a value. This
+  prevents InvalidProgramException on ordinary CLR execution and supports the
+  neoCLR completion-callback experiment. Added an observable execution regression.
+
 - Preserve target-metadata constructor proxies when emitting function-to-delegate
   conversions. Reference-only generic delegate contracts no longer rebind through
   incompatible host reflection types. Added a retargeted metadata regression and
