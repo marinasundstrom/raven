@@ -224,7 +224,8 @@ internal static class MsBuildProjectEvaluator
             .WithDisabledAnalyzers(disabledAnalyzers)
             .WithEnabledAnalyzers(enabledAnalyzers)
             .WithFrameworkProjectionMode(frameworkProjectionMode)
-            .WithExternalConstantValues(externalConstantValues);
+            .WithExternalConstantValues(externalConstantValues)
+            .WithTargetCoreAssemblyName(GetOptionalProperty(project, "RavenTargetCoreAssemblyName"));
 
         var metadataCoreAssemblyName = GetOptionalProperty(project, "RavenMetadataCoreAssemblyName");
         if (metadataCoreAssemblyName is not null)

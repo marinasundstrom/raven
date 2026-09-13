@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Integrate consistent target-core selection for compiler APIs,
+  project builds and editor context. Explicit reference sets stay isolated from
+  host-framework defaults; inconsistent import/emission selections are diagnosed.
+  Array variance and alternative array-shape policies remain outside this integration.
+
 - **2026-09-14:** Integrate RuntimePropagationContract and evaluated MSBuild
   properties for metadata, iteration and propagation selection. Contract lookup is
   based on supplied CLI interfaces; default .NET propagation and exception capture

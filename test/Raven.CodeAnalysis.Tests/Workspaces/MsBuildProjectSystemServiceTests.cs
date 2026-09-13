@@ -45,16 +45,20 @@ public sealed class MsBuildProjectSystemServiceTests
                   <PropertyGroup>
                     <TargetFramework>net10.0</TargetFramework>
                     <RavenMetadataCoreAssemblyName>Target.Core</RavenMetadataCoreAssemblyName>
+                    <RavenTargetCoreAssemblyName>Target.Core</RavenTargetCoreAssemblyName>
                     <RavenUseHostFrameworkReferences>{{hostReferences}}</RavenUseHostFrameworkReferences>
                     <ImplicitImports>disable</ImplicitImports>
                   </PropertyGroup>
                 </Project>
                 """);
-            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false,
+                requestedConfiguration: null, requestedTargetFramework: null, useHostFrameworkReferences: true,
+                compilerSupportReferencePaths: [typeof(Compilation).Assembly.Location]);
             var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework, projectSystemService: service);
             var projectId = workspace.OpenProject(projectPath);
             var project = workspace.CurrentSolution.GetProject(projectId)!;
             Assert.Equal("Target.Core", project.CompilationOptions!.MetadataImportOptions!.CoreAssemblyName);
+            Assert.Equal("Target.Core", project.CompilationOptions.TargetCoreAssemblyName);
             Assert.Empty(project.MetadataReferences);
             Assert.DoesNotContain(project.Documents, d => d.Name.Contains("TargetFrameworkAttribute"));
         }
