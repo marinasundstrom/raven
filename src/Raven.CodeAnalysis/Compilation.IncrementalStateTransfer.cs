@@ -16,7 +16,8 @@ public partial class Compilation
 
         if (Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
             || Options.RuntimeIterationContract != previousCompilation.Options.RuntimeIterationContract
-            || Options.RuntimePropagationContract != previousCompilation.Options.RuntimePropagationContract)
+            || Options.RuntimePropagationContract != previousCompilation.Options.RuntimePropagationContract
+            || Options.TargetCoreAssemblyName != previousCompilation.Options.TargetCoreAssemblyName)
             return;
 
         var changedTreeRequiresFullSemanticRebind = plan.RequiresFullSemanticRebind;

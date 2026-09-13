@@ -4,6 +4,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Let evaluated projects select the emission core with
+  RavenTargetCoreAssemblyName and CompilationOptions.WithTargetCoreAssemblyName.
+  Normal Emit/rvnc calls resolve it from the explicitly supplied metadata core;
+  RAVT003 rejects inconsistent selection or conflicting emission options. Preserve
+  option copies and the existing public constructor signature. Explicit metadata
+  targets now resist service/CLI host-reference injection and host-derived core-shim
+  or runtime-async defaults. Default .NET targeting is unchanged. Covered by target
+  metadata/configuration tests, a normal compiler-driver regression, the .NET 10/11
+  target matrix and independent neoCLR compile/import/execute checks.
+
 - **2026-09-13:** Resolve inherited interface indexers with substituted element
   types. Respect more-derived accessor declarations without exposing a hidden
   setter, and reject ambiguous inherited indexers. Includes metadata-interface

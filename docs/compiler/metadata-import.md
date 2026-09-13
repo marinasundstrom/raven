@@ -82,3 +82,43 @@ Explicit metadata-core projects also omit the automatically generated .NET
 TargetFrameworkAttribute source. Their host/tooling TFM does not establish a guest
 framework identity or guarantee that System.Runtime.Versioning exists. Target authors
 may supply their own assembly attributes when supported by their reference surface.
+
+## Project-owned emission core
+
+`CompilationOptions.WithTargetCoreAssemblyName("Target.Core")` selects the emission
+core from the assembly already resolved by explicit metadata import. Configure both
+from an evaluated project (or an imported target-pack `.props` file):
+
+```xml
+<PropertyGroup>
+  <RavenMetadataCoreAssemblyName>Target.Core</RavenMetadataCoreAssemblyName>
+  <RavenTargetCoreAssemblyName>Target.Core</RavenTargetCoreAssemblyName>
+</PropertyGroup>
+```
+
+With this opt-in, ordinary `Compilation.Emit` and `rvnc project.rvnproj` use that
+core identity without an external runner constructing EmitOptions. RAVT003 rejects
+inconsistent import/emission selection and conflicting explicit EmitOptions before
+writing the assembly. Missing or unusable core references still follow the existing
+metadata-loader configuration failure path. Import-only callers retain the old
+behavior when the emission setting is absent; default .NET emission and explicit
+`--target-core-library` use without a project selection remain available.
+
+Option copies preserve the selection; incremental semantic reuse accounts for changes.
+The existing public CompilationOptions constructor signature is retained. Editor and
+compiler configuration diagnostics come from the same compilation rather than an LSP
+special case. A new compiler is required to interpret the new project property.
+
+Explicit metadata projects also take precedence over a project-system service's host
+framework override. Automatic compiler-support references are omitted; project/package
+references remain explicit inputs. The command-line driver does not add host frameworks,
+Raven.Core, Raven.Macros or Raven.CodeAnalysis back after project evaluation. It keeps
+the project's embedded core-shim and runtime-async defaults instead of deriving them
+from the compiler host. Explicit command-line reference and runtime-async selections
+remain explicit inputs; this is not a sandbox for compiler plugins.
+
+This closes a CLI/editor inconsistency while retaining .NET's separation between
+reference metadata and executable code. It does not implement a complete target-pack
+schema, binary loading in another runtime, or removal of every downstream adapter.
+The neoCLR experiment independently verifies emitted dependency closure and execution;
+Raven retains normal metadata/CIL emission rather than a neoCLR-specific backend.

@@ -37,6 +37,9 @@ public partial class Compilation
             return new EmitResult(false, effectiveDiagnostics);
         }
 
+        if (!TryResolveTargetEmitOptions(emitOptions, out emitOptions, out var targetDiagnostic))
+            return new EmitResult(false, effectiveDiagnostics.Add(targetDiagnostic!));
+
         if (_macroSyntaxTrees.Length > 0 &&
             _syntaxTrees.Concat(_macroSyntaxTrees).Any(LocalMacroSyntaxClassifier.IsCompilerPluginTree))
         {

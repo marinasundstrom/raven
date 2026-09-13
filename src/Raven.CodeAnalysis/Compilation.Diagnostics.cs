@@ -17,6 +17,9 @@ public partial class Compilation
 
         EnsureSetup();
 
+        if (GetTargetCoreConfigurationDiagnostic() is { } targetDiagnostic)
+            Add(targetDiagnostic);
+
         foreach (var diagnostic in _generatorDiagnostics)
             Add(diagnostic);
 

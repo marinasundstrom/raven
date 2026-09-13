@@ -219,7 +219,9 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             evaluation.TargetFramework);
 
         var tfm = evaluation.TargetFramework ?? raven.DefaultTargetFramework;
-        var useHostFrameworkReferences = _useHostFrameworkReferences ?? evaluation.UseHostFrameworkReferences;
+        var explicitMetadataTarget = evaluation.CompilationOptions.MetadataImportOptions is not null;
+        var useHostFrameworkReferences = !explicitMetadataTarget &&
+            (_useHostFrameworkReferences ?? evaluation.UseHostFrameworkReferences);
         if (useHostFrameworkReferences)
         {
             foreach (var reference in raven.GetFrameworkReferences(tfm))
@@ -233,7 +235,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataReferencePath));
 
         var compilerSupportReferenceNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var compilerSupportReferencePath in _compilerSupportReferencePaths)
+        foreach (var compilerSupportReferencePath in explicitMetadataTarget ? [] : _compilerSupportReferencePaths)
         {
             var referenceName = Path.GetFileNameWithoutExtension(compilerSupportReferencePath);
             if (string.Equals(referenceName, evaluation.AssemblyName, StringComparison.OrdinalIgnoreCase) ||

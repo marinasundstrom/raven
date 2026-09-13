@@ -1133,7 +1133,8 @@ if (projectFileInput is not null)
             (project.ParseOptions?.PreprocessorSymbolNames ?? [])
             .Concat(conditionalSymbols)));
 
-    if (targetFrameworkTfm is not null && includeFrameworkReferences)
+    if (targetFrameworkTfm is not null && includeFrameworkReferences &&
+        project.CompilationOptions?.MetadataImportOptions is null)
     {
         var frameworkReferences = TargetFrameworkResolver.GetReferenceAssemblies(version)
             .Select(MetadataReference.CreateFromFile)
@@ -1185,7 +1186,8 @@ else
     }
 }
 
-if (!string.IsNullOrWhiteSpace(ravenCorePath))
+if (!string.IsNullOrWhiteSpace(ravenCorePath) &&
+    (project.CompilationOptions?.MetadataImportOptions is null || ravenCoreExplicitlyProvided))
 {
     project = ReplaceMetadataReferenceByAssemblyIdentity(project, ravenCorePath);
 }
@@ -1208,10 +1210,11 @@ if (!string.IsNullOrWhiteSpace(targetCoreLibraryPath))
     project = ReplaceMetadataReferenceByAssemblyIdentity(project, targetCoreLibraryPath);
 }
 
-if (!string.IsNullOrWhiteSpace(ravenCodeAnalysisPath))
+if (project.CompilationOptions?.MetadataImportOptions is null && !string.IsNullOrWhiteSpace(ravenCodeAnalysisPath))
     project = ReplaceMetadataReferenceByAssemblyIdentity(project, ravenCodeAnalysisPath);
 
-if (!string.Equals(assemblyName, "Raven.Macros", StringComparison.OrdinalIgnoreCase) &&
+if (project.CompilationOptions?.MetadataImportOptions is null &&
+    !string.Equals(assemblyName, "Raven.Macros", StringComparison.OrdinalIgnoreCase) &&
     !string.IsNullOrWhiteSpace(ravenMacrosPath))
 {
     project = ReplaceMetadataReferenceByAssemblyIdentity(project, ravenMacrosPath);
@@ -1235,11 +1238,13 @@ if (projectFileInput is not null)
             .WithLoweringTrace(options.LoweringTrace)
             .WithAsyncInvestigation(options.AsyncInvestigation)
             .WithOverloadResolutionLogger(options.OverloadResolutionLogger)
-            .WithEmbedCoreTypes(options.EmbedCoreTypes)
+            .WithEmbedCoreTypes(projectOptions.MetadataImportOptions is not null && !ravenCoreExplicitlyProvided
+                ? projectOptions.EmbedCoreTypes : options.EmbedCoreTypes)
             .WithAllowUnsafe(options.AllowUnsafe)
             .WithAllowGlobalStatements(options.AllowGlobalStatements)
             .WithEnableSuggestions(options.EnableSuggestions)
-            .WithRuntimeAsync(options.UseRuntimeAsync)
+            .WithRuntimeAsync(projectOptions.MetadataImportOptions is not null
+                ? runtimeAsyncOverride ?? projectOptions.UseRuntimeAsync : options.UseRuntimeAsync)
             .WithEnableIsNotNullNarrowing(projectOptions.EnableIsNotNullNarrowing)
             .WithExternalConstantValues(
                 projectOptions.ExternalConstantValues.SetItems(options.ExternalConstantValues));
