@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- Preserve declared abstract/virtual/override flags for implicit interface
+  implementations instead of forcing a final virtual method. Covered for both
+  ordinary and experimental target metadata emission.
+
 - Experimental target metadata emission supports library generics containing
   application class/value types and keeps those arguments in the current module
   instead of adding an unresolved self-assembly reference. No target-specific type

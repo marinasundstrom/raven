@@ -90,7 +90,8 @@ internal class MethodGenerator
             }
             else
             {
-                if (!MethodSymbol.IsStatic && TypeGenerator.ImplementsInterfaceMethod(MethodSymbol))
+                if (!MethodSymbol.IsStatic && !MethodSymbol.IsAbstract && !MethodSymbol.IsVirtual &&
+                    !MethodSymbol.IsOverride && TypeGenerator.ImplementsInterfaceMethod(MethodSymbol))
                 {
                     attributes |= MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
                 }
