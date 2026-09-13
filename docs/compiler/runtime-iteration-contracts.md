@@ -96,3 +96,18 @@ rectangular arrays, add covariance, or implement the contract in the target runt
 In this mode standard .NET vector-specific generic collection interfaces are not
 advertised in place of the selected contract. Default .NET targeting is unchanged.
 The neoCLR experiment supplies the runtime dispatch and iterator library support.
+
+A target with a generic array metadata shape can instead set `ArrayShapeTypeName`
+(or ``<RavenIterationArrayShapeType>System.Array`1</RavenIterationArrayShapeType>``).
+Raven resolves that one-parameter class in the selected contract assembly and
+projects its implemented interfaces, substituting the vector element type. The
+interface inheritance closure is included. This takes precedence over the Boolean
+capability; missing, wrong-assembly, wrong-kind or wrong-arity shapes contribute no
+vector-specific interfaces, so incompatible conversions fail normally.
+
+The neoCLR experiment uses this path. It lets a target add array contracts in its
+reference metadata without adding compiler rules for each interface. The cost is
+that the target must keep the declaration and runtime implementations aligned.
+It does not make `System.Array<T>` a source alias for `T[]`, project its class members,
+change indexed array loops, or alter default .NET array interfaces and variance.
+Interfaces declared by the ordinary array base type remain visible in either mode.

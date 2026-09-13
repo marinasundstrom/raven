@@ -56,10 +56,10 @@ public class RuntimeIterationContractTests
     [Fact]
     public void OptionCopiesRetainContractAndItCanBeReset()
     {
-        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary, runtimeIterationContract: Contract)
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary, runtimeIterationContract: Contract with { ArrayShapeTypeName = "Contracts.ArrayShape`1" })
             .WithOutputKind(OutputKind.ConsoleApplication).WithRunAnalyzers(false)
             .WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"));
-        Assert.Equal(Contract, options.RuntimeIterationContract);
+        Assert.Equal(Contract with { ArrayShapeTypeName = "Contracts.ArrayShape`1" }, options.RuntimeIterationContract);
         Assert.Null(options.WithRuntimeIterationContract(null).RuntimeIterationContract);
     }
 
@@ -84,6 +84,38 @@ public class RuntimeIterationContractTests
         });
     }
 
+    [Theory]
+    [InlineData("Contracts.ArrayShape`1", "IterationContracts", true)]
+    [InlineData("Contracts.WrongArity`2", "IterationContracts", false)]
+    [InlineData("Contracts.ValueShape`1", "IterationContracts", false)]
+    [InlineData("Contracts.Missing`1", "IterationContracts", false)]
+    [InlineData("Contracts.Iterable`1", "IterationContracts", false)]
+    [InlineData("Contracts.ArrayShape`1", "Missing", false)]
+    public void ArrayShapeProjectsDeclaredInterfaces(string shapeName, string assemblyName, bool valid)
+    {
+        WithContracts("bool", (references, _) =>
+        {
+            var contract = Contract with { ArrayShapeTypeName = shapeName, AssemblyName = assemblyName, ArraysImplementIterable = true };
+            var compilation = Compilation.Create("ShapeConsumer", [SyntaxTree.ParseText("""
+                import Contracts.*
+                func Pass(values: int[]) -> View<int> { return values }
+                func Read() -> View<int> { return Factory.Values() }
+                """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                    runtimeIterationContract: contract));
+            var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
+            if (valid) Assert.Empty(errors); else Assert.NotEmpty(errors);
+            var vector = Assert.IsAssignableFrom<IArrayTypeSymbol>(compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32)));
+            Assert.Equal(valid, vector.AllInterfaces.Any(i => i.Name == "View"));
+            Assert.Equal(valid, vector.AllInterfaces.Any(i => i.Name == "Iterable"));
+            if (valid)
+                Assert.All(vector.AllInterfaces.Where(i => i.Name is "View" or "Iterable"),
+                    i => Assert.Equal(SpecialType.System_Int32, i.TypeArguments.Single().SpecialType));
+            Assert.DoesNotContain(vector.AllInterfaces, i => i.Name == "IList" && i.Arity == 1);
+            var rectangular = Assert.IsAssignableFrom<IArrayTypeSymbol>(compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32), 2));
+            Assert.DoesNotContain(rectangular.AllInterfaces, i => i.Name == "View");
+        });
+    }
+
     private static Compilation Create(MetadataReference[] references, RuntimeIterationContract? contract) =>
         Compilation.Create("Consumer", [SyntaxTree.ParseText("""
             import Contracts.*
@@ -101,7 +133,27 @@ public class RuntimeIterationContractTests
         {
             var path = Path.Combine(directory, "IterationContracts.dll");
             var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
-            var source = $"namespace Contracts {{ public interface Iterable<T> {{ Iterator<T> {(renamed ? "Open" : "GetIterator")}(); }} public interface Iterator<T> {{ {advanceType} {(renamed ? "Advance" : "MoveNext")}(); T {(renamed ? "Item" : "Current")} {{ get; }} }} public interface List<T> : Iterable<T> {{ }} }}";
+            var source = $$"""
+                namespace Contracts {
+                    public class WrongArity<T, U> { }
+                    public struct ValueShape<T> { }
+                    public interface View<T> : Iterable<T> { }
+                    public abstract class ArrayShape<T> : View<T> {
+                        public abstract Iterator<T> {{(renamed ? "Open" : "GetIterator")}}();
+                    }
+                    public static class Factory {
+                        public static int[] Values() => null;
+                    }
+                    public interface Iterable<T> {
+                        Iterator<T> {{(renamed ? "Open" : "GetIterator")}}();
+                    }
+                    public interface Iterator<T> {
+                        {{advanceType}} {{(renamed ? "Advance" : "MoveNext")}}();
+                        T {{(renamed ? "Item" : "Current")}} { get; }
+                    }
+                    public interface List<T> : Iterable<T> { }
+                }
+                """;
             var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("IterationContracts",
                 [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(source)],
                 paths.Select(p => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(p)),

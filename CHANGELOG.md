@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-13:** Allow alternative targets to project vector interfaces from a
+  configured generic array class in reference metadata. Element substitution and
+  inherited interfaces drive conversions and extension lookup; malformed shapes
+  do not invent vector interfaces. Default .NET behavior and indexed loops remain
+  unchanged. Includes source/imported-array and evaluated-project regressions.
+
 - **2026-09-13:** Preserve pointer signatures when rewriting metadata-only method
   references for target frameworks. Native void-pointer parameters and returns
   no longer fail target metadata emission. Includes a metadata-only API regression;

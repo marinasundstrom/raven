@@ -89,6 +89,7 @@ public sealed class MsBuildProjectSystemServiceTests
     [InlineData("<RavenIterationAssemblyName>Target.Core</RavenIterationAssemblyName><RavenIterationIterableType>Contracts.Iterable`1</RavenIterationIterableType><RavenIterationIteratorType>Contracts.Iterator`1</RavenIterationIteratorType><RavenIterationAcquisitionMethod>Open</RavenIterationAcquisitionMethod><RavenIterationAdvanceMethod>Advance</RavenIterationAdvanceMethod><RavenIterationCurrentProperty>Item</RavenIterationCurrentProperty>", "Open")]
     [InlineData("<RavenIterationAcquisitionMethod>Open</RavenIterationAcquisitionMethod>", "Open")]
     [InlineData("<RavenIterationAssemblyName>Target.Core</RavenIterationAssemblyName><RavenIterationIterableType>Contracts.Iterable`1</RavenIterationIterableType><RavenIterationIteratorType>Contracts.Iterator`1</RavenIterationIteratorType><RavenIterationArraysImplementIterable>true</RavenIterationArraysImplementIterable>", "GetIterator")]
+    [InlineData("<RavenIterationArrayShapeType>System.Array`1</RavenIterationArrayShapeType>", "GetIterator")]
     public void OpenProject_RuntimeIterationContract_ComesFromEvaluatedProperties(string properties, string? acquisition)
     {
         var root = CreateTempDirectory();
@@ -103,6 +104,7 @@ public sealed class MsBuildProjectSystemServiceTests
             if (acquisition is null) { Assert.Null(contract); return; }
             Assert.NotNull(contract);
             Assert.Equal(acquisition, contract.AcquisitionMethod);
+            Assert.Equal(properties.Contains("RavenIterationArrayShapeType") ? "System.Array`1" : null, contract.ArrayShapeTypeName);
             Assert.Equal(properties.Contains("<RavenIterationArraysImplementIterable>true"), contract.ArraysImplementIterable);
             if (properties.Contains("RavenIterationAssemblyName"))
             {

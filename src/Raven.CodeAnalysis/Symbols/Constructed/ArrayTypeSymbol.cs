@@ -128,6 +128,23 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
 
         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
 
+        // A target can describe its vector interfaces on a regular generic class.
+        // Explicit but invalid metadata must not invent host-runtime interfaces.
+        if (BaseType is PENamedTypeSymbol shapeBase &&
+            shapeBase.Compilation.Options.RuntimeIterationContract is { ArrayShapeTypeName: not null } shapeContract)
+        {
+            var shape = shapeBase.Compilation.GetTypeByMetadataName(shapeContract.ArrayShapeTypeName);
+            if (shape is { TypeKind: TypeKind.Class, Arity: 1 } &&
+                shape.ContainingAssembly?.Name == shapeContract.AssemblyName &&
+                shape.Construct(ElementType) is INamedTypeSymbol constructedShape)
+            {
+                foreach (var implemented in constructedShape.AllInterfaces)
+                    AddUnique(builder, implemented);
+            }
+            _arraySpecificInterfaces = builder.ToImmutable();
+            return _arraySpecificInterfaces;
+        }
+
         if (BaseType is PENamedTypeSymbol metadataBase &&
             metadataBase.Compilation.Options.RuntimeIterationContract is { ArraysImplementIterable: true } contract)
         {

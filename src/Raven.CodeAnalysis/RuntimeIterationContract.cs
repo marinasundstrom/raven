@@ -12,4 +12,5 @@ public sealed record RuntimeIterationContract(
     string AcquisitionMethod = "GetIterator",
     string AdvanceMethod = "MoveNext",
     string CurrentProperty = "Current",
-    bool ArraysImplementIterable = false);
+    bool ArraysImplementIterable = false,
+    string? ArrayShapeTypeName = null);
