@@ -162,6 +162,7 @@ public class TargetMetadataEmissionTests
                 [assembly: System.Runtime.CompilerServices.ReferenceAssembly]
                 namespace System.Runtime.CompilerServices { public sealed class UnionAttribute : System.Attribute { } }
                 namespace Contracts {
+                    public class Value { }
                     public static class Cases {
                         public struct Item<T> { public Item(T value) { Value = value; } public T Value { get; } }
                     }
@@ -190,6 +191,7 @@ public class TargetMetadataEmissionTests
             func Wrap(value: Cases.Item<int>) -> Container<int> { return Container<int>(value) }
             func Make(value: int) -> Cases.Item<int> { return Cases.Item<int>(value) }
             func Read(value: Cases.Item<int>) -> int { return value.Value }
+            func ReadReturned() -> int { return Make(42).Value }
             func ReadContainer(value: Container<int>) -> int {
                 if value is Cases.Item<int> item { return item.Value }
                 return 0

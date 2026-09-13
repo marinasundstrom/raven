@@ -6,6 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-13
 
+- Keep member access on call/indexer receivers as expressions when an imported type
+  shares the member name. Type-name lookup now requires a complete name chain; a
+  regression covers a returned generic case Value property alongside a Value type.
+
 - Load unsigned array elements with unsigned CLI instructions so widening Byte,
   UInt16 and Char preserves their magnitude instead of sign-extending high bits.
   Added execution regressions, including UInt32; applies to both target profiles.
