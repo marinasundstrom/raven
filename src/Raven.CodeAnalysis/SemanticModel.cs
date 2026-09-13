@@ -15890,6 +15890,13 @@ public partial class SemanticModel
         {
             MethodDeclarationSyntax methodDeclaration => TryResolveOrdinaryMethodSymbolForDeclaration(methodDeclaration, out methodSymbol),
             FunctionStatementSyntax functionStatement => TryResolveFunctionStatementSymbolForDeclaration(functionStatement, out methodSymbol),
+            BaseConstructorDeclarationSyntax constructorDeclaration => TryResolveSpecialMethodSymbolForDeclaration(
+                constructorDeclaration,
+                HasStaticModifier(constructorDeclaration.Modifiers) ? ".cctor" : ".ctor",
+                constructorDeclaration.ParameterList?.Parameters.Count ?? 0,
+                arity: 0,
+                out methodSymbol),
+            ParameterlessConstructorDeclarationSyntax constructorDeclaration => TryResolveShallowParameterlessConstructorSymbol(constructorDeclaration, out methodSymbol),
             OperatorDeclarationSyntax operatorDeclaration => TryResolveOperatorMethodSymbolForDeclaration(operatorDeclaration, out methodSymbol),
             ConversionOperatorDeclarationSyntax conversionDeclaration => TryResolveConversionMethodSymbolForDeclaration(conversionDeclaration, out methodSymbol),
             AccessorDeclarationSyntax accessorDeclaration => TryResolveShallowAccessorSymbol(accessorDeclaration, out methodSymbol),

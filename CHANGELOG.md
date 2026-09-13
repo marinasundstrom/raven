@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- Resolve constructor method scopes during on-demand semantic queries, restoring
+  qualified static-member completion inside instance and static constructors.
+
 - Resolve interface and abstract method-group delegates virtually, while keeping
   explicit base method groups bound to the selected base implementation. Regression
   coverage checks invocation and null failure at binding under the ordinary CLR.
