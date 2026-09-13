@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-13:** Preserve unsigned operand semantics for primitive division,
+  remainder and right shift. Emit the unsigned CLI forms using the converted left
+  operand type; signed and floating operations keep their existing forms. Added
+  executable UInt32/UInt64 high-bit regressions and signed-shift coverage.
+
 - **2026-09-13:** Complete fixed-width implicit numeric conversions, following the
   C# conversion table for integral types, Char, Single, Double and Decimal. Preserve
   unsigned high bits when emitting UInt32/UInt64-to-floating conversions. Includes

@@ -12,6 +12,39 @@ namespace Raven.CodeAnalysis.Tests;
 public class PredefinedOperatorCodeGenTests
 {
     [Fact]
+    public void UnsignedArithmetic_PreservesMagnitudeAndZeroFillsRightShift()
+    {
+        const string source = """
+class Arithmetic {
+    func Divide32(a: uint, b: uint) -> uint { return a / b }
+    func Remainder32(a: uint, b: uint) -> uint { return a % b }
+    func Shift32(a: uint, count: int) -> uint { return a >> count }
+    func Divide64(a: ulong, b: ulong) -> ulong { return a / b }
+    func Remainder64(a: ulong, b: ulong) -> ulong { return a % b }
+    func Shift64(a: ulong, count: int) -> ulong { return a >> count }
+    func Signed(a: long, count: int) -> long { return a >> count }
+}
+""";
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("unsigned_arithmetic", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText(source)).AddReferences(references);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
+        var type = loaded.Assembly.GetType("Arithmetic", true)!;
+        var instance = Activator.CreateInstance(type)!;
+        object? Invoke(string name, object left, object right) => type.GetMethod(name)!.Invoke(instance, [left, right]);
+        Assert.Equal(uint.MaxValue / 2, Invoke("Divide32", uint.MaxValue, 2u));
+        Assert.Equal(uint.MaxValue % 2, Invoke("Remainder32", uint.MaxValue, 2u));
+        Assert.Equal(uint.MaxValue >> 1, Invoke("Shift32", uint.MaxValue, 1));
+        Assert.Equal(ulong.MaxValue / 2, Invoke("Divide64", ulong.MaxValue, 2UL));
+        Assert.Equal(ulong.MaxValue % 2, Invoke("Remainder64", ulong.MaxValue, 2UL));
+        Assert.Equal(ulong.MaxValue >> 1, Invoke("Shift64", ulong.MaxValue, 1));
+        Assert.Equal(-1L, Invoke("Signed", -1L, 1));
+    }
+
+    [Fact]
     public void NumericComparisons_PreserveUnsignedAndUnorderedSemantics()
     {
         (string Type, object Left, object Right, bool[] Expected)[] cases =
