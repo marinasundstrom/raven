@@ -295,3 +295,15 @@ fields use the CLR `BYREF` signature form.
 The `allows ref struct` anti-constraint sets the standard CLI
 `AllowByRefLike` (`0x20`) generic-parameter flag. Scoped parameters imported
 from .NET honor `ScopedRefAttribute`, matching Raven's `scoped` lifetime rules.
+
+
+### Target-metadata interface implementation references
+
+When emitting against an explicit target core library, interface MethodImpl
+references follow the same semantic signature/proxy normalization as calls. This
+preserves constructed interface owners with definition-relative generic signatures
+and accounts for the resulting references when retaining assembly scopes. Ordinary
+CLR emission remains on its existing reflection path. This also avoids passing
+metadata-load-context modified generic return types to the persisted metadata
+writer (observed with .NET SDK 11.0.100-rc.1.26425.128). Tests load and invoke the
+resulting implementations on .NET in both emission modes.

@@ -222,6 +222,14 @@ internal static class AssemblyReferenceNormalizer
         {
             foreach (var method in type.Methods)
             {
+                for (var i = 0; i < method.Overrides.Count; i++)
+                {
+                    var declaration = method.Overrides[i];
+                    if (declaration.DeclaringType.Name == proxyType?.Name &&
+                        replacements.TryGetValue(declaration.Name, out var replacement))
+                        method.Overrides[i] = replacement;
+                }
+
                 if (!method.HasBody)
                     continue;
 
@@ -629,6 +637,10 @@ internal static class AssemblyReferenceNormalizer
     {
         foreach (var member in module.GetMemberReferences())
             yield return member;
+        // MethodImpl declarations can also be installed after reading the original tables.
+        foreach (var method in module.GetTypes().SelectMany(type => type.Methods))
+            foreach (var declaration in method.Overrides)
+                yield return declaration;
         // Proxy replacement adds operands that are absent from the original metadata tables.
         foreach (var method in module.GetTypes().SelectMany(type => type.Methods).Where(method => method.HasBody))
             foreach (var instruction in method.Body.Instructions)

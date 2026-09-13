@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-13:** Preserve generic metadata interface implementation signatures in
+  target emission. MethodImpl declarations now use the existing semantic method
+  proxy/normalization path, including scope tracking, avoiding persisted writer
+  failures on generic return types. Regression tests execute interface dispatch
+  under both ordinary CLR and target-metadata emission.
+
 - Match imported member unions through their existing TryGetValue/Deconstruct
   contracts using target-typed case patterns and inferred imported case names.
   Known value receivers deconstruct without an intermediate box. Target metadata

@@ -9,6 +9,59 @@ namespace Raven.CodeAnalysis.Tests;
 public class TargetMetadataEmissionTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ImportedGenericInterfaceImplementationsPreserveDispatch(bool targetMetadata)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "raven-interface-return", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "IterationContracts.dll");
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("IterationContracts",
+            [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("""
+                namespace Contracts {
+                    public interface Cursor<T> { T Current { get; } }
+                    public interface Source<T> { Cursor<T> GetIterator(); }
+                }
+                """)], paths.Select(p => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(p)),
+            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        try
+        {
+            using (var stream = File.Create(path))
+            {
+                var emitted = declarations.Emit(stream);
+                Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+            }
+            var references = paths.Append(path).Select(MetadataReference.CreateFromFile).ToArray();
+            var compilation = Compilation.Create("IterationConsumer", [SyntaxTree.ParseText("""
+                import Contracts.*
+                public class Numbers : Source<int> {
+                    public func GetIterator() -> Cursor<int> { return Position() }
+                }
+                public class Position : Cursor<int> {
+                    public val Current: int { get => 42 }
+                }
+                public class Consumer {
+                    public static func Run() -> int {
+                        let source: Source<int> = Numbers()
+                        return source.GetIterator().Current
+                    }
+                }
+                """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                    metadataImportOptions: new MetadataImportOptions("System.Runtime")));
+            Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+            using var output = new MemoryStream();
+            var result = targetMetadata
+                ? compilation.Emit(output, null, new EmitOptions(AssemblyName.GetAssemblyName(paths.Single(p => Path.GetFileName(p) == "System.Runtime.dll"))))
+                : compilation.Emit(output);
+            Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+            using var loaded = TestAssemblyLoader.LoadFromStream(output, references);
+            Assert.Equal(42, loaded.Assembly.GetType("Consumer")!.GetMethod("Run")!.Invoke(null, null));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Theory]
     [InlineData(false, ".Ok(let number)", ".Error(_)")]
     [InlineData(true, ".Ok(let number)", ".Error(_)")]
     [InlineData(false, "Ok(let number)", "Error(_)")]
