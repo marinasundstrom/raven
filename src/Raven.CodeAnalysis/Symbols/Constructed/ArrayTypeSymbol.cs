@@ -128,6 +128,18 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
 
         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
 
+        if (BaseType is PENamedTypeSymbol metadataBase &&
+            metadataBase.Compilation.Options.RuntimeIterationContract is { ArraysImplementIterable: true } contract)
+        {
+            var definition = metadataBase.Compilation.GetTypeByMetadataName(contract.IterableTypeName);
+            if (definition is { TypeKind: TypeKind.Interface, Arity: 1 } &&
+                definition.ContainingAssembly?.Name == contract.AssemblyName &&
+                definition.Construct(ElementType) is INamedTypeSymbol constructed)
+                AddUnique(builder, constructed);
+            _arraySpecificInterfaces = builder.ToImmutable();
+            return _arraySpecificInterfaces;
+        }
+
         AddConstructedInterface(builder, "System.Collections.Generic.IEnumerable`1");
         AddConstructedInterface(builder, "System.Collections.Generic.ICollection`1");
         AddConstructedInterface(builder, "System.Collections.Generic.IList`1");

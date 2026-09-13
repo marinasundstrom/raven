@@ -78,6 +78,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         ["System.Runtime.CompilerServices.IAsyncStateMachine"] = SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine,
     };
 
+    internal Compilation Compilation => _reflectionTypeLoader.Compilation;
+
     protected readonly ReflectionTypeLoader _reflectionTypeLoader;
     protected readonly System.Reflection.TypeInfo _typeInfo;
     private readonly PETypeIdentity _metadataIdentity;

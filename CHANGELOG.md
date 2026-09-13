@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-13:** Allow an alternative runtime to opt vector arrays into its selected
+  Iterable contract through `RuntimeIterationContract.ArraysImplementIterable` and
+  `RavenIterationArraysImplementIterable`. Array symbols, conversions and extension
+  inference use the selected interface; rectangular arrays and default .NET targeting
+  keep their existing contracts. Includes semantic and evaluated-project tests;
+  give the metadata-dispatch test fixture a distinct assembly identity so combined
+  framework suites do not load an unrelated iteration fixture.
+
 - **2026-09-13:** Preserve generic metadata interface implementation signatures in
   target emission. MethodImpl declarations now use the existing semantic method
   proxy/normalization path, including scope tracking, avoiding persisted writer

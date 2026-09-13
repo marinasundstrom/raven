@@ -11,4 +11,5 @@ public sealed record RuntimeIterationContract(
     string IteratorTypeName,
     string AcquisitionMethod = "GetIterator",
     string AdvanceMethod = "MoveNext",
-    string CurrentProperty = "Current");
+    string CurrentProperty = "Current",
+    bool ArraysImplementIterable = false);

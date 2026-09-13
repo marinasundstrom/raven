@@ -63,6 +63,27 @@ public class RuntimeIterationContractTests
         Assert.Null(options.WithRuntimeIterationContract(null).RuntimeIterationContract);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void VectorInterfaceProjectionIsAnExplicitTargetCapability(bool enabled)
+    {
+        WithContracts("bool", (references, _) =>
+        {
+            var compilation = Compilation.Create("ArrayConsumer", [SyntaxTree.ParseText("""
+                import Contracts.*
+                func Pass(values: int[]) -> Iterable<int> { return values }
+                """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                    runtimeIterationContract: Contract with { ArraysImplementIterable = enabled }));
+            var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            if (enabled) Assert.Empty(errors); else Assert.NotEmpty(errors);
+            var vector = Assert.IsAssignableFrom<IArrayTypeSymbol>(compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32)));
+            Assert.Equal(enabled, vector.AllInterfaces.Any(i => i.Name == "Iterable"));
+            var rectangular = Assert.IsAssignableFrom<IArrayTypeSymbol>(compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32), 2));
+            Assert.DoesNotContain(rectangular.AllInterfaces, i => i.Name == "Iterable");
+        });
+    }
+
     private static Compilation Create(MetadataReference[] references, RuntimeIterationContract? contract) =>
         Compilation.Create("Consumer", [SyntaxTree.ParseText("""
             import Contracts.*

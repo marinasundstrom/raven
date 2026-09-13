@@ -15,9 +15,9 @@ public class TargetMetadataEmissionTests
     {
         var directory = Path.Combine(Path.GetTempPath(), "raven-interface-return", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
-        var path = Path.Combine(directory, "IterationContracts.dll");
+        var path = Path.Combine(directory, "TargetMetadataIterationContracts.dll");
         var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
-        var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("IterationContracts",
+        var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("TargetMetadataIterationContracts",
             [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("""
                 namespace Contracts {
                     public interface Cursor<T> { T Current { get; } }

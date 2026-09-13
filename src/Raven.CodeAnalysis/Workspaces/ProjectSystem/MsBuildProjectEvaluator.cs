@@ -243,14 +243,16 @@ internal static class MsBuildProjectEvaluator
         var acquisitionMethod = GetOptionalProperty(project, "RavenIterationAcquisitionMethod");
         var advanceMethod = GetOptionalProperty(project, "RavenIterationAdvanceMethod");
         var currentProperty = GetOptionalProperty(project, "RavenIterationCurrentProperty");
+        var arrayIteration = GetOptionalProperty(project, "RavenIterationArraysImplementIterable");
         if (iterationAssembly is not null || iterableType is not null || iteratorType is not null
-            || acquisitionMethod is not null || advanceMethod is not null || currentProperty is not null)
+            || acquisitionMethod is not null || advanceMethod is not null || currentProperty is not null || arrayIteration is not null)
         {
             // Preserve partial configuration so binding reports RAVT001 instead of
             // silently choosing the default .NET protocol.
             compilationOptions = compilationOptions.WithRuntimeIterationContract(new RuntimeIterationContract(
                 iterationAssembly ?? "", iterableType ?? "", iteratorType ?? "",
-                acquisitionMethod ?? "GetIterator", advanceMethod ?? "MoveNext", currentProperty ?? "Current"));
+                acquisitionMethod ?? "GetIterator", advanceMethod ?? "MoveNext", currentProperty ?? "Current",
+                bool.TryParse(arrayIteration, out var arraysImplementIterable) && arraysImplementIterable));
         }
 
         if (emitCoreTypesOnly)

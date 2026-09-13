@@ -83,3 +83,16 @@ It must not change existing .NET/CLR behavior as a side effect. Any correction t
 existing .NET disposal gap is a separate work item. Scope cleanup, object destruction,
 and deconstruction are distinct; Disposable/Closable are candidate hooks, not a newly
 implemented lifetime rule. Aliases alone do not establish cleanup ownership.
+
+
+## Vector interface projection
+
+An alternative runtime that implements the selected Iterable contract for managed
+vectors can set `ArraysImplementIterable: true`, or the evaluated project property
+`<RavenIterationArraysImplementIterable>true</RavenIterationArraysImplementIterable>`.
+The default is false. This adds the assembly-qualified interface to vector symbols
+for conversions, generic inference and extension lookup. It does not apply to
+rectangular arrays, add covariance, or implement the contract in the target runtime.
+In this mode standard .NET vector-specific generic collection interfaces are not
+advertised in place of the selected contract. Default .NET targeting is unchanged.
+The neoCLR experiment supplies the runtime dispatch and iterator library support.
