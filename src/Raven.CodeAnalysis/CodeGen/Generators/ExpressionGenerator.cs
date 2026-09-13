@@ -4843,18 +4843,24 @@ internal partial class ExpressionGenerator : Generator
         {
             case SpecialType.System_Boolean:
             case SpecialType.System_Byte:
+                ILGenerator.Emit(OpCodes.Ldelem_U1);
+                return;
             case SpecialType.System_SByte:
                 ILGenerator.Emit(OpCodes.Ldelem_I1);
                 return;
 
-            case SpecialType.System_Int16:
             case SpecialType.System_UInt16:
             case SpecialType.System_Char:
+                ILGenerator.Emit(OpCodes.Ldelem_U2);
+                return;
+            case SpecialType.System_Int16:
                 ILGenerator.Emit(OpCodes.Ldelem_I2);
                 return;
 
-            case SpecialType.System_Int32:
             case SpecialType.System_UInt32:
+                ILGenerator.Emit(OpCodes.Ldelem_U4);
+                return;
+            case SpecialType.System_Int32:
                 ILGenerator.Emit(OpCodes.Ldelem_I4);
                 return;
 

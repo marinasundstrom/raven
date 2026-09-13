@@ -6,6 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-13
 
+- Load unsigned array elements with unsigned CLI instructions so widening Byte,
+  UInt16 and Char preserves their magnitude instead of sign-extending high bits.
+  Added execution regressions, including UInt32; applies to both target profiles.
+
 - Preserve reference-only field metadata during retargeted emission, including
   closed generic owners and definition field signatures. Temporary field tokens
   are rewritten before saving, avoiding mixed host/target reflection types. Added
