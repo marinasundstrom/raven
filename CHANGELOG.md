@@ -6,6 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-13
 
+- Substitute generic arguments recursively inside native pointer signatures for
+  constructed types and methods. Closed pointer returns and parameters no longer
+  retain an open T; added symbol regressions and verified pointer semantics tests.
+
 - Preserve enum target context through nested bitwise expressions, including
   parenthesized leading-dot members. Do not misparse a leading-dot parenthesized
   expression as a cast. Added ordinary CLR execution regressions for chained and

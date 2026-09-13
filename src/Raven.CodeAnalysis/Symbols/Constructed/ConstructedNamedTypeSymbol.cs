@@ -317,6 +317,15 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
                 return result;
             }
 
+            if (type is IPointerTypeSymbol pointerType)
+            {
+                var element = SubstituteCore(pointerType.PointedAtType, methodMap, inProgress, cache);
+                result = IsEquivalentForSubstitution(element, pointerType.PointedAtType)
+                    ? type : new PointerTypeSymbol(element);
+                cache[type] = result;
+                return result;
+            }
+
             if (type is IArrayTypeSymbol arrayType)
             {
                 var substitutedElement = SubstituteCore(arrayType.ElementType, methodMap, inProgress, cache);

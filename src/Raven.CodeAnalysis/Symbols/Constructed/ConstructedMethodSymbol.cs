@@ -325,6 +325,14 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 return cache[type] = new SubstitutionResult(type, Changed: false);
             }
 
+            if (type is IPointerTypeSymbol pointerType)
+            {
+                var element = Substitute(pointerType.PointedAtType, visiting, cache);
+                return cache[type] = element.Changed
+                    ? new SubstitutionResult(new PointerTypeSymbol(element.Type), Changed: true)
+                    : new SubstitutionResult(type, Changed: false);
+            }
+
             if (type is IArrayTypeSymbol arrayType)
             {
                 var element = Substitute(arrayType.ElementType, visiting, cache);

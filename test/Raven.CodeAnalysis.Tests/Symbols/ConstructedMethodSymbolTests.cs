@@ -11,6 +11,30 @@ namespace Raven.CodeAnalysis.Tests;
 public class ConstructedMethodSymbolTests
 {
     [Fact]
+    public void GenericPointerSignaturesSubstituteTheirElementTypes()
+    {
+        var tree = SyntaxTree.ParseText("""
+            class Buffer<T> {
+                public unsafe func Echo(value: *T) -> *T => value
+                public static unsafe func Method<U>(value: *U) -> *U => value
+            }
+            """);
+        var compilation = Compilation.Create("pointer-substitution", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
+        var integer = compilation.GetSpecialType(SpecialType.System_Int32);
+        var constructed = definition.Construct(integer);
+        var echo = Assert.Single(constructed.GetMembers("Echo").OfType<IMethodSymbol>());
+        var generic = Assert.Single(constructed.GetMembers("Method").OfType<IMethodSymbol>()).Construct(integer);
+        foreach (var method in new[] { echo, generic })
+        {
+            Assert.Equal(SpecialType.System_Int32, Assert.IsAssignableFrom<IPointerTypeSymbol>(method.ReturnType).PointedAtType.SpecialType);
+            Assert.Equal(SpecialType.System_Int32, Assert.IsAssignableFrom<IPointerTypeSymbol>(Assert.Single(method.Parameters).Type).PointedAtType.SpecialType);
+        }
+    }
+
+    [Fact]
     public void ConstructedMethod_ObjectEqualityUsesConstructedIdentity()
     {
         const string source = """
