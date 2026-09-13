@@ -930,7 +930,8 @@ internal partial class ExpressionGenerator : Generator
             if (receiver.Type is { IsValueType: true } receiverType)
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(receiverType));
 
-            if (method.IsVirtual && method.ContainingType is { IsValueType: false })
+            if (!IsBaseReceiver(receiver) && method.ContainingType is { IsValueType: false } &&
+                (method.IsVirtual || method.IsAbstract || method.IsOverride || method.ContainingType.TypeKind == TypeKind.Interface))
             {
                 ILGenerator.Emit(OpCodes.Dup);
                 ILGenerator.Emit(OpCodes.Ldvirtftn, methodInfo);
