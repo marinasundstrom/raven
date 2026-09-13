@@ -18,7 +18,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   division/remainder/shifts and array loads; require implicit conversions for
   operator applicability and substitute generic pointer elements. The ordinary
   .NET regression set reproduces 12 failures before the fixes and passes all
-  122 checks afterwards.
+  122 checks afterwards. After both integration batches, the broader baseline
+  passes 5,489 tests with no failures or skips.
 
 ### Breaking changes
 

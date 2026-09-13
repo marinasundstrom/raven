@@ -26,8 +26,11 @@ The fresh worktree ran `scripts/codex-build.sh`. Initial focused tests built the
 project references; subsequent focused tests reused those foundational library builds
 and rebuilt the compiler/test assemblies as needed. Host SDK:
 `11.0.100-rc.1.26425.128`; focused execution target: `net11.0`.
-Broader integration gates are recorded separately when completed. These focused
-results alone are not a full Raven release gate or validation of NanoFramework.
+After both batches, `scripts/test-baseline.sh` completed successfully: 5,489
+passed, no failures or skips (including its compiler, editor and supporting test
+projects). The focused execution checks above cover the changed runtime paths.
+This is not a full Raven release gate or validation of NanoFramework. The branch
+is prepared for review; this record does not claim it has been merged into main.
 
 The language specifications updated with the fixes cite the C# numeric-conversion
 and operator-applicability baselines. These corrections restore ordinary .NET
