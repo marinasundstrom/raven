@@ -6,6 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-13
 
+- Emit value-type property setters against the original receiver address with a
+  nonvirtual call, rather than a temporary copy and callvirt. Added local and array
+  element mutation regressions; class and extension-property dispatch stays intact.
+
 - Keep member access on call/indexer receivers as expressions when an imported type
   shares the member name. Type-name lookup now requires a complete name chain; a
   regression covers a returned generic case Value property alongside a Value type.

@@ -5315,16 +5315,12 @@ internal partial class ExpressionGenerator : Generator
                     {
                         if (receiver is not null)
                         {
-                            EmitExpression(receiver);
-
-                            if (propertySymbol.ContainingType!.IsValueType)
-                                EmitValueTypeAddressIfNeeded(receiver?.Type, propertySymbol.ContainingType);
+                            EmitExpression(receiver, emitAddress: propertySymbol.ContainingType!.IsValueType);
                         }
                         else
                         {
+                            // A value-type instance method already receives this by address.
                             ILGenerator.Emit(OpCodes.Ldarg_0);
-                            if (propertySymbol.ContainingType!.IsValueType)
-                                EmitValueTypeAddressIfNeeded(receiver?.Type, propertySymbol.ContainingType);
                         }
                     }
 
@@ -5347,7 +5343,7 @@ internal partial class ExpressionGenerator : Generator
                     if (isExtensionProperty)
                         ILGenerator.Emit(OpCodes.Call, setter);
                     else
-                        ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, setter);
+                        ILGenerator.Emit((propertySymbol.IsStatic || propertySymbol.ContainingType!.IsValueType) ? OpCodes.Call : OpCodes.Callvirt, setter);
                     break;
                 }
 
