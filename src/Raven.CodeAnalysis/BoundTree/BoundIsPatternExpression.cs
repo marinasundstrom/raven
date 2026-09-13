@@ -1782,6 +1782,34 @@ internal partial class BlockBinder
             return pattern;
         }
 
+        if (qualifierType is null && inputType?.GetNonNullableType().TryGetUnion() is { } memberUnion &&
+            memberUnion.DeclaredCaseTypes.IsDefaultOrEmpty)
+        {
+            var members = memberUnion.MemberTypes.OfType<INamedTypeSymbol>()
+                .Where(member => member.Name == syntax.Path.Identifier.ValueText).ToArray();
+            if (members is [var member] && FindTryGetMethod(inputType, memberUnion, member) is { } tryGet)
+            {
+                BoundPattern inner;
+                if (syntax.ArgumentList is null)
+                {
+                    inner = new BoundDeclarationPattern(member, BindWholePatternDesignation(syntax.Designation, member) ?? new BoundDiscardDesignator(member));
+                }
+                else
+                {
+                    var arguments = syntax.ArgumentList.Arguments.ToImmutableArray();
+                    var deconstruct = FindDeconstructMethod(member, arguments.Length);
+                    if (deconstruct is null)
+                    {
+                        _diagnostics.ReportNominalDeconstructionPatternRequiresDeconstructableType(
+                            member.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat), syntax.GetLocation());
+                        return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound);
+                    }
+                    inner = BindDeconstructPattern(arguments, deconstruct, member, narrowedType: null, syntax.Designation);
+                }
+                return new BoundUnionMemberPattern(inputType, member, tryGet, inner);
+            }
+        }
+
         if (TryBindSealedHierarchyCasePattern(
                 caseName: syntax.Path.Identifier.ValueText,
                 qualifierType: qualifierType,
@@ -2669,6 +2697,19 @@ internal partial class BlockBinder
 
         if (unionType is null || unionType.MemberTypes.IsDefaultOrEmpty)
             return false;
+
+        if (memberTypeSyntax is IdentifierNameSyntax identifier)
+        {
+            var candidates = LookupNamedTypeCandidates(identifier.Identifier.ValueText).ToArray();
+            var matches = unionType.MemberTypes.Where(member => candidates.Any(candidate =>
+                SymbolEqualityComparer.Default.Equals(member.OriginalDefinition ?? member, candidate.OriginalDefinition ?? candidate))).ToArray();
+            if (matches is [var inferredMember] && FindTryGetMethod(lookupInputType, unionType, inferredMember) is { } inferredTryGet)
+            {
+                memberType = inferredMember;
+                tryGetMethod = inferredTryGet;
+                return true;
+            }
+        }
 
         var boundType = BindTypeSyntaxAsExpression(memberTypeSyntax);
         var resolvedType = EnsureTypeAccessible(boundType.Type, memberTypeSyntax.GetLocation());

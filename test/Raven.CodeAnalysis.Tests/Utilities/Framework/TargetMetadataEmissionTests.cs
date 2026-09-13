@@ -9,6 +9,139 @@ namespace Raven.CodeAnalysis.Tests;
 public class TargetMetadataEmissionTests
 {
     [Theory]
+    [InlineData(false, ".Ok(let number)", ".Error(_)")]
+    [InlineData(true, ".Ok(let number)", ".Error(_)")]
+    [InlineData(false, "Ok(let number)", "Error(_)")]
+    [InlineData(true, "Ok(let number)", "Error(_)")]
+    [InlineData(true, "Choice.Ok<int>(let number)", "Choice.Error<string>(_)")]
+    public void ImportedMemberUnionDestructuresThroughItsContract(bool targetMetadata, string success, string failure)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "raven-member-pattern", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "MemberContracts.dll");
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("MemberContracts",
+            [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("""
+                namespace Contracts {
+                    public static class Buffers { public static T[] Echo<T>(T[] value) => value; }
+                    public static class Choice {
+                        public struct Ok<T> {
+                            public T Value;
+                            public Ok(T value) { Value = value; }
+                            public void Deconstruct(out T value) { value = Value; Value = default; }
+                        }
+                        public struct Error<E> {
+                            public E Value;
+                            public Error(E value) { Value = value; }
+                            public void Deconstruct(out E value) { value = Value; }
+                        }
+                    }
+                    [System.Runtime.CompilerServices.Union]
+                    public struct Choice<T,E> {
+                        private object value;
+                        public object Value => value;
+                        public Choice(Choice.Ok<T> value) { this.value = value; }
+                        public Choice(Choice.Error<E> value) { this.value = value; }
+                        public bool TryGetValue(out Choice.Ok<T> result) {
+                            if (value is Choice.Ok<T> found) { result = found; return true; }
+                            result = default; return false;
+                        }
+                        public bool TryGetValue(out Choice.Error<E> result) {
+                            if (value is Choice.Error<E> found) { result = found; return true; }
+                            result = default; return false;
+                        }
+                    }
+                }
+                """)], paths.Select(p => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(p)),
+            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        try
+        {
+            using (var stream = File.Create(path))
+            {
+                var emitted = declarations.Emit(stream);
+                Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+            }
+            var references = paths.Append(path).Select(MetadataReference.CreateFromFile).ToArray();
+            var compilation = Compilation.Create("MemberConsumer", [SyntaxTree.ParseText($$"""
+                import Contracts.*
+                import Contracts.Choice.*
+                public class Consumer {
+                    public static func Pick(value: Choice<int, string>) -> int {
+                        return match value {
+                            {{success}} => number
+                            {{failure}} => -1
+                        }
+                    }
+                    public static func Run(value: int) -> int {
+                        let numbers: int[] = [value]
+                        let copied = Buffers.Echo<int>(numbers)
+                        if copied[0] != value { return -100 }
+                        if value < 0 { return Pick(Choice<int, string>(Choice.Error<string>("failed"))) }
+                        let choice = Choice<int, string>(Choice.Ok<int>(value))
+                        return Pick(choice) + Pick(choice)
+                    }
+                }
+                """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                    metadataImportOptions: new MetadataImportOptions("System.Runtime")));
+            Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+            using var output = new MemoryStream();
+            var result = targetMetadata
+                ? compilation.Emit(output, null, new EmitOptions(AssemblyName.GetAssemblyName(paths.Single(p => Path.GetFileName(p) == "System.Runtime.dll"))))
+                : compilation.Emit(output);
+            Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+            using var loaded = TestAssemblyLoader.LoadFromStream(output, references);
+            var run = loaded.Assembly.GetType("Consumer")!.GetMethod("Run")!;
+            Assert.Equal(84, run.Invoke(null, [42]));
+            Assert.Equal(-1, run.Invoke(null, [-1]));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
+    public void ImportedUnionCasePatternKeepsClosedCarrierLocals()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "raven-target-pattern", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var libraryPath = Path.Combine(directory, "UnionContract.dll");
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        try
+        {
+            var library = Compilation.Create("UnionContract", [SyntaxTree.ParseText("""
+                public union Outcome<T, E> {
+                    case Ok(value: T)
+                    case Error(error: E)
+                }
+                """)], paths.Select(MetadataReference.CreateFromFile).ToArray(), new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            using (var stream = File.Create(libraryPath))
+            {
+                var emitted = library.Emit(stream);
+                Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+            }
+            var compilation = Compilation.Create("Consumer", [SyntaxTree.ParseText("""
+                public class Consumer {
+                    public static func Pick(value: Outcome<int, string>) -> int {
+                        return match value {
+                            .Ok(let number) => number
+                            .Error(_) => -1
+                        }
+                    }
+                }
+                """)], paths.Append(libraryPath).Select(MetadataReference.CreateFromFile).ToArray(),
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary, metadataImportOptions: new MetadataImportOptions("System.Runtime")));
+            Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+            using var output = new MemoryStream();
+            var result = compilation.Emit(output, null, new EmitOptions(AssemblyName.GetAssemblyName(paths.Single(p => Path.GetFileName(p) == "System.Runtime.dll"))));
+            Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+            output.Position = 0;
+            using var assembly = AssemblyDefinition.ReadAssembly(output);
+            var locals = assembly.MainModule.GetType("Consumer").Methods.Single(m => m.Name == "Pick").Body.Variables;
+            Assert.Contains(locals, v => v.VariableType.FullName == "Outcome`2<System.Int32,System.String>");
+            Assert.DoesNotContain(locals, v => v.VariableType.FullName.Contains("RavenMetadata"));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void AbstractAndVirtualInterfaceImplementationsPreserveDispatchFlags(bool targetMetadata)

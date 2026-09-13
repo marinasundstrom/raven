@@ -217,7 +217,6 @@ internal static class AssemblyReferenceNormalizer
             pair => pair.Key,
             pair => CreateMethodReference(module, pair.Value, targetReferences),
             StringComparer.Ordinal);
-        RetargetHostTypeScopesFromMetadataMethods(module, replacements.Values);
 
         foreach (var type in EnumerateTypes(module.Types))
         {
@@ -243,6 +242,7 @@ internal static class AssemblyReferenceNormalizer
             module.Types.Remove(proxyType);
         foreach (var constructorProxy in constructorProxyTypes)
             module.Types.Remove(constructorProxy);
+        RetargetHostTypeScopesFromMetadataMethods(module, replacements.Values);
     }
 
     private static MethodReference CreateMethodReference(
@@ -255,6 +255,19 @@ internal static class AssemblyReferenceNormalizer
             // A MemberRef on a constructed owner still uses the definition's !n
             // signature; substituting concrete arguments changes the member identity.
             var imported = module.ImportReference(definition.GetMethodBase());
+            if (definition.ReturnType.SpecialType == SpecialType.System_Unit)
+                imported.ReturnType = module.TypeSystem.Void;
+            else if (GetPrimitiveTypeReference(module, definition.ReturnType.SpecialType) is { } primitiveReturn)
+                imported.ReturnType = primitiveReturn;
+            for (var i = 0; i < definition.Parameters.Length; i++)
+            {
+                var parameter = definition.Parameters[i];
+                if (GetPrimitiveTypeReference(module, parameter.Type.SpecialType) is not { } parameterType)
+                    continue;
+                imported.Parameters[i].ParameterType = parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In
+                    ? new ByReferenceType(parameterType)
+                    : parameterType;
+            }
             imported.DeclaringType = CreateTypeReference(module, method.ContainingType!, targetReferences);
             if (method.IsGenericMethod)
             {
@@ -268,7 +281,9 @@ internal static class AssemblyReferenceNormalizer
 
         var reference = new MethodReference(
             method.MetadataName,
-            CreateTypeReference(module, method.ReturnType, targetReferences),
+            method.ReturnType.SpecialType == SpecialType.System_Unit
+                ? module.TypeSystem.Void
+                : CreateTypeReference(module, method.ReturnType, targetReferences),
             CreateTypeReference(module, method.ContainingType!, targetReferences))
         {
             HasThis = !method.IsStatic,
@@ -284,6 +299,31 @@ internal static class AssemblyReferenceNormalizer
         }
 
         return reference;
+    }
+
+    private static TypeReference? GetPrimitiveTypeReference(ModuleDefinition module, SpecialType specialType)
+    {
+        return specialType switch
+        {
+            SpecialType.System_Void => module.TypeSystem.Void,
+            SpecialType.System_Boolean => module.TypeSystem.Boolean,
+            SpecialType.System_Char => module.TypeSystem.Char,
+            SpecialType.System_SByte => module.TypeSystem.SByte,
+            SpecialType.System_Byte => module.TypeSystem.Byte,
+            SpecialType.System_Int16 => module.TypeSystem.Int16,
+            SpecialType.System_UInt16 => module.TypeSystem.UInt16,
+            SpecialType.System_Int32 => module.TypeSystem.Int32,
+            SpecialType.System_UInt32 => module.TypeSystem.UInt32,
+            SpecialType.System_Int64 => module.TypeSystem.Int64,
+            SpecialType.System_UInt64 => module.TypeSystem.UInt64,
+            SpecialType.System_Single => module.TypeSystem.Single,
+            SpecialType.System_Double => module.TypeSystem.Double,
+            SpecialType.System_IntPtr => module.TypeSystem.IntPtr,
+            SpecialType.System_UIntPtr => module.TypeSystem.UIntPtr,
+            SpecialType.System_String => module.TypeSystem.String,
+            SpecialType.System_Object => module.TypeSystem.Object,
+            _ => null
+        };
     }
 
     private static TypeReference CreateTypeReference(
@@ -308,6 +348,10 @@ internal static class AssemblyReferenceNormalizer
             constructedNullable.GenericArguments.Add(underlying);
             return constructedNullable;
         }
+
+        var primitive = GetPrimitiveTypeReference(module, symbol.SpecialType);
+        if (primitive is not null)
+            return primitive;
 
         if (symbol is IArrayTypeSymbol array)
             return new ArrayType(CreateTypeReference(module, array.ElementType, targetReferences), array.Rank);
@@ -435,7 +479,7 @@ internal static class AssemblyReferenceNormalizer
             foreach (var typeReference in module.GetTypeReferences())
                 RetargetKeptCoreLibraryTypeScope(typeReference, runtimeReference, coreLibraryReference);
 
-            foreach (var memberReference in module.GetMemberReferences())
+            foreach (var memberReference in EnumerateMemberReferences(module))
             {
                 if (memberReference.DeclaringType is { } declaringType)
                     RetargetKeptCoreLibraryTypeScope(declaringType, runtimeReference, coreLibraryReference);
@@ -581,6 +625,17 @@ internal static class AssemblyReferenceNormalizer
         return runtimeReference;
     }
 
+    private static IEnumerable<MemberReference> EnumerateMemberReferences(ModuleDefinition module)
+    {
+        foreach (var member in module.GetMemberReferences())
+            yield return member;
+        // Proxy replacement adds operands that are absent from the original metadata tables.
+        foreach (var method in module.GetTypes().SelectMany(type => type.Methods).Where(method => method.HasBody))
+            foreach (var instruction in method.Body.Instructions)
+                if (instruction.Operand is MemberReference member)
+                    yield return member;
+    }
+
     private static void RewriteReferenceScope(
         ModuleDefinition module,
         AssemblyNameReference oldReference,
@@ -592,7 +647,7 @@ internal static class AssemblyReferenceNormalizer
             RewriteTypeReferenceScope(typeReference, oldReference, newReference, rewriteAll);
         }
 
-        foreach (var memberReference in module.GetMemberReferences())
+        foreach (var memberReference in EnumerateMemberReferences(module))
         {
             if (memberReference.DeclaringType is { } declaringType)
                 RewriteTypeReferenceScope(declaringType, oldReference, newReference, rewriteAll);
@@ -651,7 +706,7 @@ internal static class AssemblyReferenceNormalizer
                 return true;
         }
 
-        foreach (var memberReference in module.GetMemberReferences())
+        foreach (var memberReference in EnumerateMemberReferences(module))
         {
             if (memberReference.DeclaringType is { } declaringType &&
                 ReferenceEquals(GetInnermostTypeReference(declaringType).Scope, reference))

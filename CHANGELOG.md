@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- Match imported member unions through their existing TryGetValue/Deconstruct
+  contracts using target-typed case patterns and inferred imported case names.
+  Known value receivers deconstruct without an intermediate box. Target metadata
+  emission retains semantic local types, canonical primitive signatures and scopes
+  of newly inserted member references.
+
 - Resolve constructor method scopes during on-demand semantic queries, restoring
   qualified static-member completion inside instance and static constructors.
 

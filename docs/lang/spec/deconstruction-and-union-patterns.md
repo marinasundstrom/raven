@@ -101,3 +101,23 @@ pattern; the whole-pattern designation receives the extracted `Card` value.
 
 Precedence: `not` > `and` > `or`. `or` associates left-to-right. Parentheses
 override precedence.
+
+
+## Imported member unions
+
+An imported union marked with `System.Runtime.CompilerServices.UnionAttribute` can
+expose member types through constructors and `TryGetValue(out TMember)`. It need not
+carry Raven's named-case attributes. In a pattern, `.Case(...)` selects the uniquely
+named member of that union and applies its accessible `Deconstruct` contract.
+`.Case` without arguments tests the member without reading its payload.
+
+For a case type imported into scope, `Case(let payload)` infers its generic arguments
+from the matching union member. An explicit `Case<T>(let payload)` remains valid.
+Lookup still requires the imported type to identify a member of the matched union;
+it does not make arbitrary same-named types union cases. Missing deconstruction
+contracts or incompatible arities are diagnosed. These forms use ordinary extraction,
+deconstruction, locals and branches rather than new instructions.
+
+The compiler can deconstruct an already known value receiver directly on a local
+copy. This preserves the original value even if its Deconstruct method mutates the
+receiver. Reference narrowing and null checks retain their existing behavior.
