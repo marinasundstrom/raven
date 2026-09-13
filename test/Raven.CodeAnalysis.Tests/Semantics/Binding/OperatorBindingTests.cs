@@ -9,6 +9,30 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class OperatorBindingTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("byte", "right", true)]
+    [InlineData("short", "right", true)]
+    [InlineData("long", "right", false)]
+    [InlineData("long", "(int)right", true)]
+    public void OperatorUsage_RequiresImplicitOperandConversion(string operandType, string operand, bool valid)
+    {
+        var source = $$"""
+class Number {
+    static func +(left: Number, right: int) -> Number { return left }
+}
+func Combine(left: Number, right: {{operandType}}) -> Number {
+    return left + {{operand}}
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = CreateCompilation(tree);
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        if (valid)
+            Assert.Empty(errors);
+        else
+            Assert.Contains(errors, d => d.Id == "RAV0024");
+    }
+
     [Fact]
     public void OperatorDeclaration_BindsUserDefinedOperatorSymbol()
     {

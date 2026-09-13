@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Integrate reviewed numeric and pointer-signature fixes from the
+  neoCLR experiment without its target configuration. Preserve fixed-width
+  conversion ranges and unsigned magnitudes, NaN comparison behavior, unsigned
+  division/remainder/shifts and array loads; require implicit conversions for
+  operator applicability and substitute generic pointer elements. The ordinary
+  .NET regression set reproduces 12 failures before the fixes and passes all
+  122 checks afterwards.
+
 ### Breaking changes
 
 - None recorded.

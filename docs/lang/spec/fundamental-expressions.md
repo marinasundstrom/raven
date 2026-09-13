@@ -255,3 +255,18 @@ behavior deterministic and compile-time-friendly. When text must be computed at
 runtime, construct the string first and encode it explicitly through runtime
 APIs such as `System.Text.Encoding.UTF8.GetBytes(...)` or
 `System.Text.Encoding.ASCII.GetBytes(...)`.
+
+### Fixed-width integral casts
+
+Explicit casts are available between sbyte, byte, short, ushort, char, int, uint,
+long and ulong. Existing implicit conversions are preferred where available; this
+does not extend the implicit-conversion matrix. Ordinary numeric emission narrows
+by retaining destination bits and widens according to source signedness. In
+particular `(long)uintValue` zero-extends, while `(ulong)negativeInt` sign-extends
+before storing the 64-bit result. This slice does not add a checked-context feature
+or native-integer conversions.
+
+This follows the integral conversion model described in the
+[C# numeric conversion reference](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/numeric-conversions).
+It is also needed when an alternative target supplies its own primitive metadata;
+no host wrapper operators are required for these built-in casts.

@@ -143,3 +143,12 @@ withBinding(.Public | .Instance)
 Custom operator declarations and overload selection are described under
 [Parameters, overloading, and
 operators](parameters-overloading-and-operators.md#operator-declarations).
+
+## Numeric signedness
+
+Primitive division and remainder use the promoted operand type's signedness.
+Right shift extends the sign bit for signed integers and inserts zero bits for
+unsigned integers. For example, dividing the largest `uint` by two yields
+`2147483647`, and shifting it right by one yields the same value. Raven emits the
+corresponding signed or unsigned CLI instructions; this is ordinary CLR behavior,
+not a neoCLR-specific lowering rule. See [CLI arithmetic and shift rules](https://ecma-international.org/publications-and-standards/standards/ecma-335/).

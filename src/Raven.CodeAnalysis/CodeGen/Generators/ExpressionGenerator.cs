@@ -4824,18 +4824,24 @@ internal partial class ExpressionGenerator : Generator
         {
             case SpecialType.System_Boolean:
             case SpecialType.System_Byte:
+                ILGenerator.Emit(OpCodes.Ldelem_U1);
+                return;
             case SpecialType.System_SByte:
                 ILGenerator.Emit(OpCodes.Ldelem_I1);
                 return;
 
-            case SpecialType.System_Int16:
             case SpecialType.System_UInt16:
             case SpecialType.System_Char:
+                ILGenerator.Emit(OpCodes.Ldelem_U2);
+                return;
+            case SpecialType.System_Int16:
                 ILGenerator.Emit(OpCodes.Ldelem_I2);
                 return;
 
-            case SpecialType.System_Int32:
             case SpecialType.System_UInt32:
+                ILGenerator.Emit(OpCodes.Ldelem_U4);
+                return;
+            case SpecialType.System_Int32:
                 ILGenerator.Emit(OpCodes.Ldelem_I4);
                 return;
 
@@ -6417,34 +6423,42 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
+        // Compare the converted operand category. Floating inclusive comparisons
+        // invert an unordered comparison so NaN remains false, as required by CLI.
+        var unsignedOperand = op.LeftType.SpecialType is SpecialType.System_Byte
+            or SpecialType.System_UInt16 or SpecialType.System_Char
+            or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UIntPtr;
+        var unorderedComparison = unsignedOperand || op.LeftType.SpecialType is
+            SpecialType.System_Single or SpecialType.System_Double;
+
         // Normal primitive path
         switch (operatorKind)
         {
             case BinaryOperatorKind.Addition: ILGenerator.Emit(OpCodes.Add); break;
             case BinaryOperatorKind.Subtraction: ILGenerator.Emit(OpCodes.Sub); break;
             case BinaryOperatorKind.Multiplication: ILGenerator.Emit(OpCodes.Mul); break;
-            case BinaryOperatorKind.Division: ILGenerator.Emit(OpCodes.Div); break;
-            case BinaryOperatorKind.Modulo: ILGenerator.Emit(OpCodes.Rem); break;
+            case BinaryOperatorKind.Division: ILGenerator.Emit(unsignedOperand ? OpCodes.Div_Un : OpCodes.Div); break;
+            case BinaryOperatorKind.Modulo: ILGenerator.Emit(unsignedOperand ? OpCodes.Rem_Un : OpCodes.Rem); break;
             case BinaryOperatorKind.BitwiseAnd: ILGenerator.Emit(OpCodes.And); break;
             case BinaryOperatorKind.BitwiseOr: ILGenerator.Emit(OpCodes.Or); break;
             case BinaryOperatorKind.BitwiseXor: ILGenerator.Emit(OpCodes.Xor); break;
             case BinaryOperatorKind.ShiftLeft: ILGenerator.Emit(OpCodes.Shl); break;
-            case BinaryOperatorKind.ShiftRight: ILGenerator.Emit(OpCodes.Shr); break;
+            case BinaryOperatorKind.ShiftRight: ILGenerator.Emit(unsignedOperand ? OpCodes.Shr_Un : OpCodes.Shr); break;
             case BinaryOperatorKind.Equality: ILGenerator.Emit(OpCodes.Ceq); break;
             case BinaryOperatorKind.Inequality:
                 ILGenerator.Emit(OpCodes.Ceq);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;
-            case BinaryOperatorKind.GreaterThan: ILGenerator.Emit(OpCodes.Cgt); break;
-            case BinaryOperatorKind.LessThan: ILGenerator.Emit(OpCodes.Clt); break;
+            case BinaryOperatorKind.GreaterThan: ILGenerator.Emit(unsignedOperand ? OpCodes.Cgt_Un : OpCodes.Cgt); break;
+            case BinaryOperatorKind.LessThan: ILGenerator.Emit(unsignedOperand ? OpCodes.Clt_Un : OpCodes.Clt); break;
             case BinaryOperatorKind.GreaterThanOrEqual:
-                ILGenerator.Emit(OpCodes.Clt);
+                ILGenerator.Emit(unorderedComparison ? OpCodes.Clt_Un : OpCodes.Clt);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;
             case BinaryOperatorKind.LessThanOrEqual:
-                ILGenerator.Emit(OpCodes.Cgt);
+                ILGenerator.Emit(unorderedComparison ? OpCodes.Cgt_Un : OpCodes.Cgt);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;

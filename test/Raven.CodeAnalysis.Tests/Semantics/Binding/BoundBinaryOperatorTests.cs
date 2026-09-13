@@ -170,17 +170,28 @@ public class BoundBinaryOperatorTests : CompilationTestBase
         Assert.Equal(SpecialType.System_Int64, add.ResultType.SpecialType);
     }
 
-    [Fact]
-    public void TryLookup_UlongMixedWithSignedIntegral_IsRejected()
+    [Theory]
+    [InlineData(SyntaxKind.PlusToken)]
+    [InlineData(SyntaxKind.MinusToken)]
+    [InlineData(SyntaxKind.StarToken)]
+    [InlineData(SyntaxKind.SlashToken)]
+    [InlineData(SyntaxKind.PercentToken)]
+    [InlineData(SyntaxKind.LessThanToken)]
+    [InlineData(SyntaxKind.EqualsEqualsToken)]
+    [InlineData(SyntaxKind.AmpersandToken)]
+    public void TryLookup_UlongMixedWithSignedIntegral_IsRejected(SyntaxKind kind)
     {
         var compilation = CreateCompilation();
-        var longType = compilation.GetSpecialType(SpecialType.System_Int64);
         var ulongType = compilation.GetSpecialType(SpecialType.System_UInt64);
-
-        var success = BoundBinaryOperator.TryLookup(compilation, SyntaxKind.PlusToken, ulongType, longType, out var op);
-
-        Assert.False(success);
-        Assert.Equal(BinaryOperatorKind.None, op.OperatorKind);
+        foreach (var signed in new[] { SpecialType.System_SByte, SpecialType.System_Int16,
+                     SpecialType.System_Int32, SpecialType.System_Int64 })
+        {
+            var signedType = compilation.GetSpecialType(signed);
+            Assert.False(BoundBinaryOperator.TryLookup(compilation, kind, ulongType, signedType, out var op));
+            Assert.Equal(BinaryOperatorKind.None, op.OperatorKind);
+            Assert.False(BoundBinaryOperator.TryLookup(compilation, kind, signedType, ulongType, out op));
+            Assert.Equal(BinaryOperatorKind.None, op.OperatorKind);
+        }
     }
 
     [Fact]

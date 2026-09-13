@@ -516,7 +516,9 @@ internal partial class BoundBinaryOperator
 
             var leftConversion = compilation.ClassifyConversion(left, leftParameterType, includeUserDefined: false);
             var rightConversion = compilation.ClassifyConversion(right, rightParameterType, includeUserDefined: false);
-            if (!leftConversion.Exists || !rightConversion.Exists)
+            // Applicability cannot insert a conversion that requires an explicit cast.
+            if (!leftConversion.Exists || !leftConversion.IsImplicit ||
+                !rightConversion.Exists || !rightConversion.IsImplicit)
                 continue;
 
             op = new BoundBinaryOperator(

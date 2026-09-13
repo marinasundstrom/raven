@@ -759,6 +759,25 @@ internal abstract class Generator
             return;
         }
 
+        // CLI widening uses the source signedness, independently of whether the
+        // destination stores the resulting 64 bits as signed or unsigned.
+        if (to.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
+            && from.SpecialType is SpecialType.System_SByte or SpecialType.System_Byte
+                or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Char
+                or SpecialType.System_Int32 or SpecialType.System_UInt32)
+        {
+            ILGenerator.Emit(from.SpecialType == SpecialType.System_UInt32 ? OpCodes.Conv_U8 : OpCodes.Conv_I8);
+            return;
+        }
+
+        // CLI integer stack values have no unsigned tag. Preserve high bits
+        // before rounding to the requested floating storage width.
+        if (from.SpecialType is SpecialType.System_UInt32 or SpecialType.System_UInt64
+            && to.SpecialType is SpecialType.System_Single or SpecialType.System_Double)
+        {
+            ILGenerator.Emit(OpCodes.Conv_R_Un);
+        }
+
         // existing conv.* path
         EmitPrimitiveNumericConversion(to);
     }

@@ -137,3 +137,20 @@ let sum = add(1, 2) // calls self(1, 2)
 
 Invocation operators can themselves be overloaded by providing multiple `self`
 methods with different parameter signatures.
+
+### Binary operator operand conversions
+
+A candidate binary user-defined operator requires supported implicit conversions
+from both operands to its parameter types. The existence of an explicit conversion
+is insufficient; write a cast when that conversion is intended. This follows the
+[C# applicability rule](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/expressions#1245-binary-operator-overload-resolution).
+
+For example, an operator taking `int` can accept a `byte` operand implicitly, while
+a `long` operand requires a cast. Mixed `ulong` and signed integral operands do not
+acquire an arithmetic or comparison operator merely because numeric metadata exposes
+operator methods. Fixed-width implicit numeric conversions follow the C# table,
+including `short` to `int`, `uint` to `long`, and `ulong` to floating-point or
+`decimal`. Native-sized conversions remain a separate implementation boundary.
+Integer-to-floating conversions can lose precision; accepting an implicit conversion
+does not promise exact integer representation in the floating-point result.
+See [C# numeric conversions](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/conversions#1023-implicit-numeric-conversions).
