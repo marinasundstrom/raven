@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-13:** Resolve inherited interface indexers with substituted element
+  types. Respect more-derived accessor declarations without exposing a hidden
+  setter, and reject ambiguous inherited indexers. Includes metadata-interface
+  binding/emission regressions; applies to normal .NET and alternative targets.
+
 - **2026-09-13:** Allow alternative targets to project vector interfaces from a
   configured generic array class in reference metadata. Element substitution and
   inherited interfaces drive conversions and extension lookup; malformed shapes

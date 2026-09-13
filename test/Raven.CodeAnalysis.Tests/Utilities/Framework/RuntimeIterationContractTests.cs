@@ -174,6 +174,46 @@ public class RuntimeIterationContractTests
         });
     }
 
+    [Theory]
+    [InlineData("DerivedWrite", false)]
+    [InlineData("ReadAgain", true)]
+    public void InheritedIndexersRespectMostDerivedAccessors(string receiver, bool readOnly)
+    {
+        WithContracts("bool", (references, _) =>
+        {
+            var tree = SyntaxTree.ParseText($$"""
+                import Contracts.*
+                func Read(values: {{receiver}}<int>) -> int { return values[0] }
+                func Write(values: {{receiver}}<int>) { values[0] = 42 }
+                """);
+            var compilation = Compilation.Create("IndexerConsumer", [tree], references,
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            if (readOnly) Assert.Single(errors);
+            else
+            {
+                Assert.Empty(errors);
+                using var stream = new MemoryStream();
+                var result = compilation.Emit(stream);
+                Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+            }
+        });
+    }
+
+    [Fact]
+    public void UnrelatedInheritedIndexersDoNotChooseAnArbitraryInterface()
+    {
+        WithContracts("bool", (references, _) =>
+        {
+            var compilation = Compilation.Create("AmbiguousIndexer", [SyntaxTree.ParseText("""
+                import Contracts.*
+                func Read(values: AmbiguousRead<int>) -> int { return values[0] }
+                """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error &&
+                d.GetMessage().Contains("ambiguous", StringComparison.OrdinalIgnoreCase));
+        });
+    }
+
     private static Compilation Create(MetadataReference[] references, RuntimeIterationContract? contract) =>
         Compilation.Create("Consumer", [SyntaxTree.ParseText("""
             import Contracts.*
@@ -195,6 +235,12 @@ public class RuntimeIterationContractTests
                 namespace Contracts {
                     public class WrongArity<T, U> { }
                     public struct ValueShape<T> { }
+                    public interface Read<T> { T this[int index] { get; } }
+                    public interface Write<T> : Read<T> { new T this[int index] { get; set; } }
+                    public interface DerivedWrite<T> : Write<T> { }
+                    public interface AlternativeRead<T> { T this[int index] { get; } }
+                    public interface AmbiguousRead<T> : Read<T>, AlternativeRead<T> { }
+                    public interface ReadAgain<T> : Write<T> { new T this[int index] { get; } }
                     public interface View<T> : Iterable<T> { }
                     public abstract class ArrayShape<T> : View<T> {
                         public abstract Iterator<T> {{(renamed ? "Open" : "GetIterator")}}();

@@ -3153,6 +3153,7 @@ partial class BlockBinder
         IPropertySymbol? best = null;
         BoundExpression[]? bestConverted = null;
         var bestConversionCost = int.MaxValue;
+        var ambiguous = new List<IMethodSymbol>();
 
         foreach (var candidate in candidates)
         {
@@ -3192,7 +3193,23 @@ partial class BlockBinder
                 best = candidate;
                 bestConverted = converted;
                 bestConversionCost = conversionCost;
+                ambiguous.Clear();
             }
+            else if (conversionCost == bestConversionCost && receiverType.TypeKind == TypeKind.Interface &&
+                !SymbolEqualityComparer.Default.Equals(best.ContainingType, candidate.ContainingType) &&
+                !best.ContainingType!.AllInterfaces.Contains(candidate.ContainingType!, SymbolEqualityComparer.Default) &&
+                !candidate.ContainingType!.AllInterfaces.Contains(best.ContainingType!, SymbolEqualityComparer.Default))
+            {
+                if (ambiguous.Count == 0) ambiguous.Add(best.GetMethod!);
+                ambiguous.Add(candidate.GetMethod!);
+            }
+        }
+
+        if (ambiguous.Count != 0)
+        {
+            _diagnostics.ReportCallIsAmbiguous("this[]", ambiguous,
+                argumentSyntaxes.Count > 0 ? argumentSyntaxes[0].GetLocation() : Location.None);
+            return null;
         }
 
         if (best is not null && bestConverted is not null)
@@ -3224,12 +3241,31 @@ partial class BlockBinder
     }
 
     private static IEnumerable<IPropertySymbol> GetIndexerCandidates(ITypeSymbol receiverType, bool requireSetter)
-        => receiverType
-            .GetMembers()
-            .OfType<IPropertySymbol>()
-            .Where(p => p.GetMethod is not null &&
-                        (p.IsIndexer || p.GetMethod.Parameters.Length > 0) &&
-                        (!requireSetter || p.SetMethod is not null));
+    {
+        var types = receiverType.TypeKind == TypeKind.Interface
+            ? new[] { receiverType }.Concat(receiverType.AllInterfaces.OrderByDescending(i => i.AllInterfaces.Length))
+            : new[] { receiverType };
+        var visible = new List<IPropertySymbol>();
+        foreach (var type in types)
+        {
+            foreach (var property in type.GetMembers().OfType<IPropertySymbol>())
+            {
+                if (property.GetMethod is null || !(property.IsIndexer || property.GetMethod.Parameters.Length > 0))
+                    continue;
+                // Apply hiding before checking writability: a derived read-only indexer
+                // must not expose a setter from the interface member it hides.
+                if (visible.Any(derived => derived.Name == property.Name &&
+                    derived.GetMethod!.Parameters.Select(p => p.Type).SequenceEqual(
+                        property.GetMethod.Parameters.Select(p => p.Type), SymbolEqualityComparer.Default) &&
+                    (SymbolEqualityComparer.Default.Equals(derived.ContainingType, property.ContainingType) ||
+                     derived.ContainingType!.AllInterfaces.Contains(property.ContainingType!, SymbolEqualityComparer.Default))))
+                    continue;
+                visible.Add(property);
+                if (!requireSetter || property.SetMethod is not null)
+                    yield return property;
+            }
+        }
+    }
 
     private static string FormatIndexableReceiverType(ITypeSymbol type)
         => type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
