@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-13
 
+- Preserve enum target context through nested bitwise expressions, including
+  parenthesized leading-dot members. Do not misparse a leading-dot parenthesized
+  expression as a cast. Added ordinary CLR execution regressions for chained and
+  grouped flag expressions; all enum code-generation tests pass.
+
 - Emit empty array literals directly when targeting a separate core library instead
   of injecting the host Array.Empty factory. The target need not define that helper;
   ordinary CLR emission retains cached empty arrays. Added a target dependency regression.

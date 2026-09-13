@@ -1133,6 +1133,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 return false;
 
             ReadToken();
+            if (PeekToken().IsKind(SyntaxKind.DotToken))
+                return false;
 
             var typeName = new NameSyntaxParser(this).ParseTypeName();
 
@@ -2439,8 +2441,9 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
         // Try to parse as a cast expression
         var checkpoint = CreateCheckpoint();
+        var startsWithMemberBinding = PeekToken().IsKind(SyntaxKind.DotToken);
         var typeName = new NameSyntaxParser(this).ParseTypeName();
-        if (PeekToken().IsKind(SyntaxKind.CloseParenToken))
+        if (!startsWithMemberBinding && PeekToken().IsKind(SyntaxKind.CloseParenToken))
         {
             var closeParen = ReadToken();
             var next = PeekToken();

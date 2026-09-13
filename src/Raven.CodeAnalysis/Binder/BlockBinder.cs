@@ -8970,9 +8970,19 @@ partial class BlockBinder : Binder
     }
 
     private BoundExpression BindBinaryOperand(ExpressionSyntax operand, ITypeSymbol? expressionTargetType)
-        => expressionTargetType is not null && IsTargetTypedMemberBinding(operand)
+        => expressionTargetType is not null &&
+           (IsTargetTypedMemberBinding(operand) ||
+            expressionTargetType.TypeKind == TypeKind.Enum && IsBitwiseOperandTree(operand))
             ? BindExpressionWithTargetType(operand, expressionTargetType)
             : BindExpression(operand);
+
+    private static bool IsBitwiseOperandTree(ExpressionSyntax operand) => operand switch
+    {
+        InfixOperatorExpressionSyntax binary => binary.OperatorToken.Kind is
+            SyntaxKind.AmpersandToken or SyntaxKind.BarToken or SyntaxKind.CaretToken,
+        ParenthesizedExpressionSyntax parenthesized => IsBitwiseOperandTree(parenthesized.Expression),
+        _ => false
+    };
 
     private BoundExpression BindBinaryExpression(
         SyntaxKind opKind,

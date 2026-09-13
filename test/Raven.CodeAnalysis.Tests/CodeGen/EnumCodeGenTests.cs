@@ -9,6 +9,31 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class EnumCodeGenTests
 {
+    [Theory]
+    [InlineData(".Public | .Instance | .Static")]
+    [InlineData(".Public | (.Instance | .Static)")]
+    [InlineData("(.Public | .Instance) | .Static")]
+    public void NestedTargetTypedFlagsRetainContext(string expression)
+    {
+        const string code = """
+            import System.Reflection.*
+            class Program {
+                public static func Run() -> int {
+                    let flags: BindingFlags = FLAGS
+                    return (int)flags
+                }
+            }
+            """;
+        var compilation = Compilation.Create("nested_enum_flags", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText(code.Replace("FLAGS", expression))).AddReferences(TestMetadataReferences.Default);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, TestMetadataReferences.Default);
+        var method = loaded.Assembly.GetType("Program", true)!.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+        Assert.Equal(28, method.Invoke(null, Array.Empty<object>()));
+    }
+
     [Fact]
     public void SourceEnumConstantPattern_OnPropertyResult_MatchesQualifiedMember()
     {

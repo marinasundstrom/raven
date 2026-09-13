@@ -118,7 +118,8 @@ after evaluating the assignment target once.
 Target-typed leading-dot syntax is convenient for enum flags:
 
 ```raven
-let flags: BindingFlags = .NonPublic | .Static
+let flags: BindingFlags = .Public | .Instance | .Static
+let grouped: BindingFlags = .Public | (.Instance | .Static)
 
 func withBinding(flags: BindingFlags) {
     // ...
