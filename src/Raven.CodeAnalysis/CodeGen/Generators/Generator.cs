@@ -770,6 +770,14 @@ internal abstract class Generator
             return;
         }
 
+        // CLI integer stack values have no unsigned tag. Preserve high bits
+        // before rounding to the requested floating storage width.
+        if (from.SpecialType is SpecialType.System_UInt32 or SpecialType.System_UInt64
+            && to.SpecialType is SpecialType.System_Single or SpecialType.System_Double)
+        {
+            ILGenerator.Emit(OpCodes.Conv_R_Un);
+        }
+
         // existing conv.* path
         EmitPrimitiveNumericConversion(to);
     }

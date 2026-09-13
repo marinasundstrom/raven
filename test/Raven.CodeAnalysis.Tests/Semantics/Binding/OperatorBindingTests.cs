@@ -11,6 +11,7 @@ public class OperatorBindingTests : CompilationTestBase
 {
     [Theory]
     [InlineData("byte", "right", true)]
+    [InlineData("short", "right", true)]
     [InlineData("long", "right", false)]
     [InlineData("long", "(int)right", true)]
     public void OperatorUsage_RequiresImplicitOperandConversion(string operandType, string operand, bool valid)

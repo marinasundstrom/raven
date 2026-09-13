@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-13:** Complete fixed-width implicit numeric conversions, following the
+  C# conversion table for integral types, Char, Single, Double and Decimal. Preserve
+  unsigned high bits when emitting UInt32/UInt64-to-floating conversions. Includes
+  conversion classification, operator applicability and executable boundary tests.
+  Native-sized conversion rules and other explicit-conversion gaps remain separate;
+  newly applicable conversions can affect overload selection.
+
 - **2026-09-13:** Require implicit operand conversions when selecting binary
   user-defined operators. An explicit numeric conversion no longer makes otherwise
   invalid mixed `ulong`/signed operations applicable through .NET numeric metadata.

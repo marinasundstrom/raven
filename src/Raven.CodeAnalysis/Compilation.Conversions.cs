@@ -1737,41 +1737,71 @@ public partial class Compilation
         var sourceType = source.SpecialType;
         var destType = destination.SpecialType;
 
-        // NOTE:
-        // - No implicit conversion between decimal and float/double in C#.
-        // - C# treats byte and char as numeric for conversion purposes.
-        // - We include integral/char -> double and integral/char -> decimal to support binary numeric promotion.
-
-        return (sourceType, destType) switch
+        // Fixed-width numeric conversions follow C# 10.2.3. Native-sized
+        // integers remain separate; floating/decimal conversions require casts.
+        return sourceType switch
         {
-            // -------- integral widening --------
-            (SpecialType.System_Byte, SpecialType.System_Int32) => true,
-            (SpecialType.System_Byte, SpecialType.System_Int64) => true,
-
-            (SpecialType.System_Char, SpecialType.System_Int32) => true,
-            (SpecialType.System_Char, SpecialType.System_Int64) => true,
-
-            (SpecialType.System_Int32, SpecialType.System_Int64) => true,
-
-            // -------- to floating --------
-            (SpecialType.System_Byte, SpecialType.System_Single) => true,
-            (SpecialType.System_Byte, SpecialType.System_Double) => true,
-
-            (SpecialType.System_Char, SpecialType.System_Single) => true,
-            (SpecialType.System_Char, SpecialType.System_Double) => true,
-
-            (SpecialType.System_Int32, SpecialType.System_Single) => true,
-            (SpecialType.System_Int32, SpecialType.System_Double) => true,
-            (SpecialType.System_Int64, SpecialType.System_Single) => true,
-            (SpecialType.System_Int64, SpecialType.System_Double) => true,
-            (SpecialType.System_Single, SpecialType.System_Double) => true,
-
-            // -------- to decimal (C# allows implicit integral/char -> decimal) --------
-            (SpecialType.System_Byte, SpecialType.System_Decimal) => true,
-            (SpecialType.System_Char, SpecialType.System_Decimal) => true,
-            (SpecialType.System_Int32, SpecialType.System_Decimal) => true,
-            (SpecialType.System_Int64, SpecialType.System_Decimal) => true,
-
+            SpecialType.System_SByte => destType is
+                SpecialType.System_Int16 or
+                SpecialType.System_Int32 or
+                SpecialType.System_Int64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_Byte => destType is
+                SpecialType.System_Int16 or
+                SpecialType.System_UInt16 or
+                SpecialType.System_Int32 or
+                SpecialType.System_UInt32 or
+                SpecialType.System_Int64 or
+                SpecialType.System_UInt64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_Int16 => destType is
+                SpecialType.System_Int32 or
+                SpecialType.System_Int64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_UInt16 => destType is
+                SpecialType.System_Int32 or
+                SpecialType.System_UInt32 or
+                SpecialType.System_Int64 or
+                SpecialType.System_UInt64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_Int32 => destType is
+                SpecialType.System_Int64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_UInt32 => destType is
+                SpecialType.System_Int64 or
+                SpecialType.System_UInt64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_Int64 => destType is
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_UInt64 => destType is
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_Char => destType is
+                SpecialType.System_UInt16 or
+                SpecialType.System_Int32 or
+                SpecialType.System_UInt32 or
+                SpecialType.System_Int64 or
+                SpecialType.System_UInt64 or
+                SpecialType.System_Single or
+                SpecialType.System_Double or
+                SpecialType.System_Decimal,
+            SpecialType.System_Single => destType is
+                SpecialType.System_Double,
             _ => false
         };
     }

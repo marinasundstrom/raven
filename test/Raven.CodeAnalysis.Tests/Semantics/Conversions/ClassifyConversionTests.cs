@@ -11,6 +11,41 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class ClassifyConversionTests : CompilationTestBase
 {
+    [Fact]
+    public void FixedWidthNumericConversions_MatchCSharpRangeRules()
+    {
+        var compilation = CreateCompilation();
+        (SpecialType Type, int Bits, bool Signed)[] integers =
+        [
+            (SpecialType.System_SByte, 8, true), (SpecialType.System_Byte, 8, false),
+            (SpecialType.System_Int16, 16, true), (SpecialType.System_UInt16, 16, false),
+            (SpecialType.System_Int32, 32, true), (SpecialType.System_UInt32, 32, false),
+            (SpecialType.System_Int64, 64, true), (SpecialType.System_UInt64, 64, false),
+            (SpecialType.System_Char, 16, false)
+        ];
+        SpecialType[] realTypes = [SpecialType.System_Single, SpecialType.System_Double, SpecialType.System_Decimal];
+        var all = integers.Select(x => x.Type).Concat(realTypes).ToArray();
+        foreach (var from in all)
+        foreach (var to in all)
+        {
+            var expected = from == to;
+            var sourceInteger = integers.SingleOrDefault(x => x.Type == from);
+            var targetInteger = integers.SingleOrDefault(x => x.Type == to);
+            if (sourceInteger.Bits != 0)
+            {
+                expected |= realTypes.Contains(to);
+                if (targetInteger.Bits != 0 && to != SpecialType.System_Char)
+                    expected |= sourceInteger.Signed == targetInteger.Signed
+                        ? sourceInteger.Bits <= targetInteger.Bits
+                        : !sourceInteger.Signed && targetInteger.Signed && sourceInteger.Bits < targetInteger.Bits;
+            }
+            expected |= from == SpecialType.System_Single && to == SpecialType.System_Double;
+            var conversion = compilation.ClassifyConversion(compilation.GetSpecialType(from),
+                compilation.GetSpecialType(to), includeUserDefined: false);
+            Assert.True((conversion.Exists && conversion.IsImplicit) == expected, $"{from} -> {to}");
+        }
+    }
+
     [Theory]
     [InlineData(SpecialType.System_Int32)]
     [InlineData(SpecialType.System_String)]
