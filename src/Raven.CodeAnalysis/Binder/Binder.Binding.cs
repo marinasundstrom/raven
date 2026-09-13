@@ -463,6 +463,7 @@ internal abstract partial class Binder
         static NamePart[] FlattenMemberAccess(MemberAccessExpressionSyntax node)
         {
             var parts = new List<NamePart>();
+            var complete = true;
 
             void Walk(ExpressionSyntax expr)
             {
@@ -488,11 +489,16 @@ internal abstract partial class Binder
                                 break;
                         }
                         break;
+                    default:
+                        // A call/indexer/value receiver is not a namespace/type prefix.
+                        // Never reinterpret just its trailing member as an imported type.
+                        complete = false;
+                        break;
                 }
             }
 
             Walk(node);
-            return parts.ToArray();
+            return complete ? parts.ToArray() : Array.Empty<NamePart>();
         }
     }
 

@@ -930,7 +930,8 @@ internal partial class ExpressionGenerator : Generator
             if (receiver.Type is { IsValueType: true } receiverType)
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(receiverType));
 
-            if (method.IsVirtual && method.ContainingType is { IsValueType: false })
+            if (!IsBaseReceiver(receiver) && method.ContainingType is { IsValueType: false } &&
+                (method.IsVirtual || method.IsAbstract || method.IsOverride || method.ContainingType.TypeKind == TypeKind.Interface))
             {
                 ILGenerator.Emit(OpCodes.Dup);
                 ILGenerator.Emit(OpCodes.Ldvirtftn, methodInfo);
@@ -5293,16 +5294,12 @@ internal partial class ExpressionGenerator : Generator
                     {
                         if (receiver is not null)
                         {
-                            EmitExpression(receiver);
-
-                            if (propertySymbol.ContainingType!.IsValueType)
-                                EmitValueTypeAddressIfNeeded(receiver?.Type, propertySymbol.ContainingType);
+                            EmitExpression(receiver, emitAddress: propertySymbol.ContainingType!.IsValueType);
                         }
                         else
                         {
+                            // A value-type instance method already receives this by address.
                             ILGenerator.Emit(OpCodes.Ldarg_0);
-                            if (propertySymbol.ContainingType!.IsValueType)
-                                EmitValueTypeAddressIfNeeded(receiver?.Type, propertySymbol.ContainingType);
                         }
                     }
 
@@ -5325,7 +5322,7 @@ internal partial class ExpressionGenerator : Generator
                     if (isExtensionProperty)
                         ILGenerator.Emit(OpCodes.Call, setter);
                     else
-                        ILGenerator.Emit(propertySymbol.IsStatic ? OpCodes.Call : OpCodes.Callvirt, setter);
+                        ILGenerator.Emit((propertySymbol.IsStatic || propertySymbol.ContainingType!.IsValueType) ? OpCodes.Call : OpCodes.Callvirt, setter);
                     break;
                 }
 

@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Integrate general binding, dispatch and completion corrections
+  from the neoCLR experiment: inherited interface indexers respect accessor hiding
+  and ambiguity, virtual/abstract implementations retain dispatch flags, method
+  groups dispatch correctly while base calls stay direct, value property setters
+  mutate original storage, returned-expression members retain their receivers,
+  nested enum flags retain context, and constructor semantic queries resolve scopes.
+  Added independent .NET fixtures; nine pre-fix failures become 32 passing checks.
+
 - **2026-09-14:** Integrate reviewed numeric and pointer-signature fixes from the
   neoCLR experiment without its target configuration. Preserve fixed-width
   conversion ranges and unsigned magnitudes, NaN comparison behavior, unsigned

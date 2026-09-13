@@ -11,6 +11,50 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public sealed class DelegateDeclarationCodeGenTests
 {
     [Fact]
+    public void MethodGroupsResolveInterfaceAndAbstractTargetsButKeepBaseCallsDirect()
+    {
+        var compilation = CreateCompilation(SyntaxTree.ParseText("""
+            public delegate Getter() -> int
+            public interface Reader { func Read() -> int }
+            abstract class AbstractReader { abstract func Read() -> int }
+            class ReaderImpl : AbstractReader, Reader { override func Read() -> int { return 42 } }
+            open class Parent { virtual func Read() -> int { return 7 } }
+            class Child : Parent {
+                override func Read() -> int { return 99 }
+                func BaseReader() -> Getter { return base.Read }
+            }
+            public class Program {
+                public static func FromInterface() -> int {
+                    let reader: Reader = ReaderImpl()
+                    let callback: Getter = reader.Read
+                    return callback()
+                }
+                public static func FromAbstract() -> int {
+                    let reader: AbstractReader = ReaderImpl()
+                    let callback: Getter = reader.Read
+                    return callback()
+                }
+                public static func FromBase() -> int {
+                    let child = Child()
+                    let callback = child.BaseReader()
+                    return callback()
+                }
+                public static func BindNull(reader: Reader) -> Getter { return reader.Read }
+            }
+            """));
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
+        var program = loaded.Assembly.GetType("Program", throwOnError: true)!;
+        Assert.Equal(42, program.GetMethod("FromInterface")!.Invoke(null, []));
+        Assert.Equal(42, program.GetMethod("FromAbstract")!.Invoke(null, []));
+        Assert.Equal(7, program.GetMethod("FromBase")!.Invoke(null, []));
+        var error = Assert.Throws<TargetInvocationException>(() => program.GetMethod("BindNull")!.Invoke(null, [null]));
+        Assert.IsType<NullReferenceException>(error.InnerException);
+    }
+
+    [Fact]
     public void DelegateDeclaration_EmitsClrDelegateShape()
     {
         const string code = """

@@ -143,3 +143,10 @@ class Button {
     }
 }
 ```
+
+
+Interface indexer lookup includes inherited interfaces, with generic arguments
+substituted. A more-derived declaration hides an inherited indexer with the same
+signature before getter/setter availability is checked: redeclaring a read-only
+indexer does not expose the hidden setter. Equally applicable indexers from
+unrelated interfaces are ambiguous; select a specific interface explicitly.
