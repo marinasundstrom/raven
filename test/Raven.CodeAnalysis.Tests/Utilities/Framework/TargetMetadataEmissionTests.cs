@@ -9,6 +9,43 @@ namespace Raven.CodeAnalysis.Tests;
 public class TargetMetadataEmissionTests
 {
     [Fact]
+    public void RetargetedGenericFieldAccessPreservesMetadataOwner()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "raven-target-field", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "TargetFields.dll");
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("TargetFields",
+            [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("namespace Contracts { public struct Box<T> { public T Value; } }")],
+            paths.Select(p => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(p)),
+            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        try
+        {
+            using (var stream = File.Create(path))
+            {
+                var emitted = declarations.Emit(stream, options: new Microsoft.CodeAnalysis.Emit.EmitOptions(metadataOnly: true));
+                Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+            }
+            var compilation = Compilation.Create("FieldConsumer", [SyntaxTree.ParseText("""
+                import Contracts.*
+                func Read(box: Box<int>) -> int { return box.Value }
+                """)], paths.Append(path).Select(MetadataReference.CreateFromFile).ToArray(),
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary, metadataImportOptions: new MetadataImportOptions("System.Runtime")));
+            Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+            using var output = new MemoryStream();
+            var result = compilation.Emit(output, null, new EmitOptions(AssemblyName.GetAssemblyName(paths.Single(p => Path.GetFileName(p) == "System.Runtime.dll"))));
+            Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+            output.Position = 0;
+            using var assembly = AssemblyDefinition.ReadAssembly(output);
+            var field = Assert.Single(assembly.MainModule.GetMemberReferences().OfType<FieldReference>());
+            Assert.Equal("Contracts.Box`1<System.Int32>", field.DeclaringType.FullName);
+            Assert.Equal("TargetFields", field.DeclaringType.Scope.Name);
+            Assert.Equal(0, Assert.IsType<GenericParameter>(field.FieldType).Position);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
     public void RetargetedEmptyArrayDoesNotRequireHostArrayFactory()
     {
         var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));

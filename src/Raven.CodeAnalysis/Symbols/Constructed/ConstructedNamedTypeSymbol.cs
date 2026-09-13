@@ -2269,6 +2269,7 @@ internal sealed class SubstitutedMethodTypeParameterSymbol : ITypeParameterSymbo
 
 internal sealed class SubstitutedFieldSymbol : IFieldSymbol
 {
+    internal IFieldSymbol OriginalField => _original;
     private readonly IFieldSymbol _original;
     private readonly ConstructedNamedTypeSymbol _constructed;
     private ITypeSymbol? _type;

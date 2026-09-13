@@ -31,6 +31,8 @@ internal class CodeGenerator
     readonly HashSet<PETypeParameterIdentity> _resolvingMetadataTypeParameters = new();
     readonly Dictionary<IMethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<IMethodSymbol, MethodInfo>(ReferenceEqualityComparer.Instance);
     readonly Dictionary<IMethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<IMethodSymbol, ConstructorInfo>(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<string, IFieldSymbol> _metadataFieldProxies = new(StringComparer.Ordinal);
+    TypeBuilder? _metadataFieldProxyType;
     readonly Dictionary<string, IMethodSymbol> _metadataMethodProxies = new(StringComparer.Ordinal);
     readonly EmitOptions? _emitOptions;
     TypeBuilder? _metadataMethodProxyType;
@@ -1455,6 +1457,8 @@ internal class CodeGenerator
             foreach (var constructorProxy in _metadataConstructorProxyTypes)
                 constructorProxy.CreateType();
 
+            if (_metadataFieldProxyType is { } metadataFieldProxyType && !metadataFieldProxyType.IsCreated())
+                metadataFieldProxyType.CreateType();
             if (_metadataMethodProxyType is { } metadataMethodProxyType && !metadataMethodProxyType.IsCreated())
                 metadataMethodProxyType.CreateType();
             PrintDebug("All types created.");
@@ -1651,6 +1655,7 @@ internal class CodeGenerator
                 targetReference,
                 targetReferences: targetReferences,
                 metadataMethodProxies: _metadataMethodProxies,
+            metadataFieldProxies: _metadataFieldProxies,
                 pdbInput: provisionalPdbStream,
                 pdbOutput: pdbOutputStream);
             return;
@@ -1661,6 +1666,7 @@ internal class CodeGenerator
             output,
             targetReferences: targetReferences,
             metadataMethodProxies: _metadataMethodProxies,
+            metadataFieldProxies: _metadataFieldProxies,
             pdbInput: provisionalPdbStream,
             pdbOutput: pdbOutputStream);
     }
@@ -1685,6 +1691,24 @@ internal class CodeGenerator
         _metadataConstructorProxyTypes.Add(type);
         _metadataMethodProxies.Add(name, metadataConstructor);
         return proxy;
+    }
+
+    internal bool TryGetMetadataFieldProxy(IFieldSymbol field, out FieldInfo proxy)
+    {
+        proxy = null!;
+        if (!UsesTargetMetadata || field.ContainingType is null || !IsClosedMetadataType(field.ContainingType))
+            return false;
+        var original = field;
+        while (original is SubstitutedFieldSymbol substituted)
+            original = substituted.OriginalField;
+        if (original is not PEFieldSymbol)
+            return false;
+        _metadataFieldProxyType ??= ModuleBuilder.DefineType("<RavenMetadataFieldReferences>", TypeAttributes.NotPublic | TypeAttributes.Sealed);
+        var name = "Field" + _metadataFieldProxies.Count;
+        proxy = _metadataFieldProxyType.DefineField(name, GetMetadataProxySignatureType(field.Type),
+            FieldAttributes.Public | (field.IsStatic ? FieldAttributes.Static : 0));
+        _metadataFieldProxies.Add(name, field);
+        return true;
     }
 
     internal bool UsesTargetMetadata => _emitOptions?.TargetCoreLibraryIdentity is not null;

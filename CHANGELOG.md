@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-13
 
+- Preserve reference-only field metadata during retargeted emission, including
+  closed generic owners and definition field signatures. Temporary field tokens
+  are rewritten before saving, avoiding mixed host/target reflection types. Added
+  a metadata regression; ordinary emission keeps its existing field resolver.
+
 - Substitute generic arguments recursively inside native pointer signatures for
   constructed types and methods. Closed pointer returns and parameters no longer
   retain an open T; added symbol regressions and verified pointer semantics tests.
