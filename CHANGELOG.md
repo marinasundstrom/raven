@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-13:** Add target-configurable array covariance through
+  CompilationOptions.AllowArrayCovariance and RavenAllowArrayCovariance. Disabling
+  it rejects nonidentity array-element conversions in normal binding and editor
+  diagnostics, including explicit casts and jagged arrays. Default .NET behavior
+  is unchanged. Includes semantic and evaluated-project regression coverage.
+
 - **2026-09-13:** Preserve unsigned operand semantics for primitive division,
   remainder and right shift. Emit the unsigned CLI forms using the converted left
   operand type; signed and floating operations keep their existing forms. Added

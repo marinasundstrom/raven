@@ -354,6 +354,9 @@ public partial class Compilation
                 elementConversionIsIdentity = elementConversion.IsIdentity;
             }
 
+            if (!Options.AllowArrayCovariance && !elementConversionIsIdentity)
+                return Conversion.None;
+
             if (sourceArray.FixedLength == destinationArray.FixedLength)
                 return Finalize(new Conversion(
                     isImplicit: true,

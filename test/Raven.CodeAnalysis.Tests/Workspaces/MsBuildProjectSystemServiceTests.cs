@@ -11,6 +11,25 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class MsBuildProjectSystemServiceTests
 {
     [Theory]
+    [InlineData("", true)]
+    [InlineData("<RavenAllowArrayCovariance>true</RavenAllowArrayCovariance>", true)]
+    [InlineData("<RavenAllowArrayCovariance>false</RavenAllowArrayCovariance>", false)]
+    public void OpenProject_ArrayCovariancePolicy(string property, bool expected)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(path, $"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework>{property}</PropertyGroup></Project>");
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework, projectSystemService: service);
+            var id = workspace.OpenProject(path);
+            Assert.Equal(expected, workspace.CurrentSolution.GetProject(id)!.CompilationOptions!.AllowArrayCovariance);
+        }
+        finally { DeleteDirectoryIfExists(root); }
+    }
+
+    [Theory]
     [InlineData("", null)]
     [InlineData("<RavenPropagationAssemblyName>Target</RavenPropagationAssemblyName><RavenPropagationInterfaceType>System.Propagatable`3</RavenPropagationInterfaceType>", "Target")]
     [InlineData("<RavenPropagationInterfaceType>System.Propagatable`3</RavenPropagationInterfaceType>", "")]

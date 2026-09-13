@@ -226,7 +226,8 @@ internal static class MsBuildProjectEvaluator
             .WithDisabledAnalyzers(disabledAnalyzers)
             .WithEnabledAnalyzers(enabledAnalyzers)
             .WithFrameworkProjectionMode(frameworkProjectionMode)
-            .WithExternalConstantValues(externalConstantValues);
+            .WithExternalConstantValues(externalConstantValues)
+            .WithAllowArrayCovariance(GetBooleanProperty(project, "RavenAllowArrayCovariance") ?? true);
 
         if (metadataCoreAssemblyName is not null)
             compilationOptions = compilationOptions.WithMetadataImportOptions(new MetadataImportOptions(metadataCoreAssemblyName));
