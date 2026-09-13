@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-13
 
+- Preserve closed generic target-library calls as MethodSpec metadata when emitting
+  against a reference-only target. Retain generic definition signatures and target
+  assembly identities instead of resolving host framework implementations. Added
+  a metadata regression; ordinary CLR emission keeps its existing resolver.
+
 - Fix bridges from no-result functions to explicitly Void-returning delegates: only
   discard a Unit result when the emitted method signature produces a value. This
   prevents InvalidProgramException on ordinary CLR execution and supports the

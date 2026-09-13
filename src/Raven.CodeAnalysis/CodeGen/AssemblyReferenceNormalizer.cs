@@ -224,6 +224,13 @@ internal static class AssemblyReferenceNormalizer
             // signature; substituting concrete arguments changes the member identity.
             var imported = module.ImportReference(definition.GetMethodBase());
             imported.DeclaringType = CreateTypeReference(module, method.ContainingType!, targetReferences);
+            if (method.IsGenericMethod)
+            {
+                var constructed = new GenericInstanceMethod(imported);
+                foreach (var argument in method.TypeArguments)
+                    constructed.GenericArguments.Add(CreateTypeReference(module, argument, targetReferences));
+                return constructed;
+            }
             return imported;
         }
 
@@ -334,6 +341,8 @@ internal static class AssemblyReferenceNormalizer
         var targetScopes = new Dictionary<string, AssemblyNameReference>(StringComparer.Ordinal);
         foreach (var method in methods)
         {
+            if (method is GenericInstanceMethod generic)
+                foreach (var argument in generic.GenericArguments) AddTargetTypeScope(argument, targetScopes);
             AddTargetTypeScope(method.DeclaringType, targetScopes);
             AddTargetTypeScope(method.ReturnType, targetScopes);
             foreach (var parameter in method.Parameters)

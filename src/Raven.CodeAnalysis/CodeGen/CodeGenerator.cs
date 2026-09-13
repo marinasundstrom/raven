@@ -1693,7 +1693,10 @@ internal class CodeGenerator
     {
         if (_emitOptions?.TargetCoreLibraryIdentity is not null &&
             TryGetMetadataMethod(methodSymbol, out var targetMetadataMethod) &&
-            !targetMetadataMethod.IsGenericMethod)
+            (!targetMetadataMethod.IsGenericMethod ||
+             targetMetadataMethod.TypeArguments.Length == targetMetadataMethod.TypeParameters.Length &&
+             targetMetadataMethod.TypeArguments.All(type => IsClosedMetadataType(type)) &&
+             IsClosedMetadataType(targetMetadataMethod.ContainingType!)))
         {
             return CreateMetadataMethodProxy(targetMetadataMethod);
         }
@@ -1709,6 +1712,17 @@ internal class CodeGenerator
 
             return CreateMetadataMethodProxy(metadataMethod);
         }
+    }
+
+    private static bool IsClosedMetadataType(ITypeSymbol type, int depth = 0)
+    {
+        if (depth > 64 || type is ITypeParameterSymbol)
+            return false;
+        if (type is IArrayTypeSymbol array)
+            return IsClosedMetadataType(array.ElementType, depth + 1);
+        if (type is INamedTypeSymbol named)
+            return named.TypeArguments.All(argument => IsClosedMetadataType(argument, depth + 1));
+        return type.TypeKind != TypeKind.Error;
     }
 
     private MethodInfo CreateMetadataMethodProxy(IMethodSymbol metadataMethod)
