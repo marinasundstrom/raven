@@ -363,3 +363,13 @@ experimental neoCLR bridge to handle library-returned `Result<Void, E>` without
 substituting a synthesized Unit type from a different emission context. The bridge
 continues to encode named Void storage separately from the CLI no-result marker.
 This does not make Void a supported generic argument for execution on the .NET CLR.
+
+
+### Delegate constructor references
+
+Retargeted emission preserves the existing constructor proxy for reference-only
+generic delegates. Its closed metadata identity is restored in the final assembly;
+normalizing that proxy through the host reflection binder mixes incompatible
+reflection contexts. Ordinary CLR delegate construction keeps its existing path.
+The compiler regression checks the emitted delegate/constructor reference identity,
+while the neoCLR experiment separately validates static callback execution.

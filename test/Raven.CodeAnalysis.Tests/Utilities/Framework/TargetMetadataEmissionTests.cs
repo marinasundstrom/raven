@@ -9,6 +9,47 @@ namespace Raven.CodeAnalysis.Tests;
 public class TargetMetadataEmissionTests
 {
     [Fact]
+    public void RetargetedEmissionConstructsReferenceOnlyGenericDelegate()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "raven-target-delegate", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "TargetCallbacks.dll");
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("TargetCallbacks",
+            [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("namespace Contracts { public delegate T Callback<T>(); }")],
+            paths.Select(p => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(p)),
+            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        try
+        {
+            using (var stream = File.Create(path))
+            {
+                var emitted = declarations.Emit(stream, options: new Microsoft.CodeAnalysis.Emit.EmitOptions(metadataOnly: true));
+                Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+            }
+            var compilation = Compilation.Create("CallbackConsumer", [SyntaxTree.ParseText("""
+                import Contracts.*
+                func Number() -> int { return 42 }
+                func Make() -> Callback<int> { return Number }
+                """)], paths.Append(path).Select(MetadataReference.CreateFromFile).ToArray(),
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary, metadataImportOptions: new MetadataImportOptions("System.Runtime")));
+            Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+            using var output = new MemoryStream();
+            var result = compilation.Emit(output, null, new EmitOptions(AssemblyName.GetAssemblyName(paths.Single(p => Path.GetFileName(p) == "System.Runtime.dll"))));
+            Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+            output.Position = 0;
+            using var assembly = AssemblyDefinition.ReadAssembly(output);
+            var make = assembly.MainModule.Types.SelectMany(t => t.Methods).Single(m => m.Name == "Make");
+            Assert.Equal("Contracts.Callback`1<System.Int32>", make.ReturnType.FullName);
+            Assert.Equal("TargetCallbacks", make.ReturnType.Scope.Name);
+            var constructor = Assert.Single(assembly.MainModule.GetMemberReferences().OfType<MethodReference>()
+                .Where(m => m.Name == ".ctor" && m.DeclaringType.FullName == make.ReturnType.FullName));
+            Assert.Equal("TargetCallbacks", constructor.DeclaringType.Scope.Name);
+            Assert.Equal(new[] { "System.Object", "System.IntPtr" }, constructor.Parameters.Select(p => p.ParameterType.FullName));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
     public void RetargetedEmissionPreservesReferenceOnlyGenericTypesAndMembers()
     {
         var directory = Path.Combine(Path.GetTempPath(), "raven-target-metadata", Guid.NewGuid().ToString("N"));

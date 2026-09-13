@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ### 2026-09-13
 
+- Preserve target-metadata constructor proxies when emitting function-to-delegate
+  conversions. Reference-only generic delegate contracts no longer rebind through
+  incompatible host reflection types. Added a retargeted metadata regression and
+  verified ordinary CLR delegate declaration/execution coverage.
+
 - Admit explicit casts between all fixed-width integral types, including signed,
   unsigned and Char types previously missing from conversion classification. Preserve
   source signedness when widening to 64 bits. Added observable narrowing/widening
