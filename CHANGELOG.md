@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-13:** Correct primitive relational emission for unsigned integers and
+  floating-point NaN. Select unsigned comparison opcodes from converted operand
+  types; inclusive floating comparisons invert unordered comparisons so NaN remains
+  false. This target-neutral fix applies to ordinary CLR and experimental neoCLR
+  compilation, with executable .NET boundary regressions.
+
 - **2026-09-13:** Allow an alternative runtime to opt vector arrays into its selected
   Iterable contract through `RuntimeIterationContract.ArraysImplementIterable` and
   `RavenIterationArraysImplementIterable`. Array symbols, conversions and extension

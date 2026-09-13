@@ -6442,6 +6442,14 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
+        // Compare the converted operand category. Floating inclusive comparisons
+        // invert an unordered comparison so NaN remains false, as required by CLI.
+        var unsignedComparison = op.LeftType.SpecialType is SpecialType.System_Byte
+            or SpecialType.System_UInt16 or SpecialType.System_Char
+            or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UIntPtr;
+        var unorderedComparison = unsignedComparison || op.LeftType.SpecialType is
+            SpecialType.System_Single or SpecialType.System_Double;
+
         // Normal primitive path
         switch (operatorKind)
         {
@@ -6461,15 +6469,15 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;
-            case BinaryOperatorKind.GreaterThan: ILGenerator.Emit(OpCodes.Cgt); break;
-            case BinaryOperatorKind.LessThan: ILGenerator.Emit(OpCodes.Clt); break;
+            case BinaryOperatorKind.GreaterThan: ILGenerator.Emit(unsignedComparison ? OpCodes.Cgt_Un : OpCodes.Cgt); break;
+            case BinaryOperatorKind.LessThan: ILGenerator.Emit(unsignedComparison ? OpCodes.Clt_Un : OpCodes.Clt); break;
             case BinaryOperatorKind.GreaterThanOrEqual:
-                ILGenerator.Emit(OpCodes.Clt);
+                ILGenerator.Emit(unorderedComparison ? OpCodes.Clt_Un : OpCodes.Clt);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;
             case BinaryOperatorKind.LessThanOrEqual:
-                ILGenerator.Emit(OpCodes.Cgt);
+                ILGenerator.Emit(unorderedComparison ? OpCodes.Cgt_Un : OpCodes.Cgt);
                 ILGenerator.Emit(OpCodes.Ldc_I4_0);
                 ILGenerator.Emit(OpCodes.Ceq);
                 break;
