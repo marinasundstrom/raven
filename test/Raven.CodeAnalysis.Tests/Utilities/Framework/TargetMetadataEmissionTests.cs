@@ -8,6 +8,57 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class TargetMetadataEmissionTests
 {
+    [Theory]
+    [InlineData("class")]
+    [InlineData("struct")]
+    public void RetargetedGenericUsesApplicationTypeWithoutSelfAssemblyReference(string category)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "raven-target-application", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "TargetContainer.dll");
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("TargetContainer",
+            [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("namespace Contracts { public class Box<T> { public T Value; public Box(T value) { Value = value; } public T Get() => Value; } }")],
+            paths.Select(p => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(p)),
+            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        try
+        {
+            using (var stream = File.Create(path))
+            {
+                var emitted = declarations.Emit(stream, options: new Microsoft.CodeAnalysis.Emit.EmitOptions(metadataOnly: true));
+                Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+            }
+            var compilation = Compilation.Create("ApplicationConsumer", [SyntaxTree.ParseText($$"""
+                import Contracts.*
+                {{category}} Payload { var Number: int }
+                func Create(value: Payload) -> Payload {
+                    let box = Box<Payload>(value)
+                    box.Value = value
+                    return box.Get()
+                }
+                """)], paths.Append(path).Select(MetadataReference.CreateFromFile).ToArray(),
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary, metadataImportOptions: new MetadataImportOptions("System.Runtime")));
+            Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+            using var output = new MemoryStream();
+            var result = compilation.Emit(output, null, new EmitOptions(AssemblyName.GetAssemblyName(paths.Single(p => Path.GetFileName(p) == "System.Runtime.dll"))));
+            Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+            output.Position = 0;
+            using var assembly = AssemblyDefinition.ReadAssembly(output);
+            Assert.DoesNotContain(assembly.MainModule.AssemblyReferences, a => a.Name == "ApplicationConsumer");
+            var members = assembly.MainModule.GetMemberReferences().Where(m => m.DeclaringType is GenericInstanceType).ToArray();
+            Assert.NotEmpty(members);
+            foreach (var member in members)
+            {
+                var owner = Assert.IsType<GenericInstanceType>(member.DeclaringType);
+                Assert.Equal("Contracts.Box`1<Payload>", owner.FullName);
+                Assert.Equal("TargetContainer", owner.Scope.Name);
+                Assert.Same(assembly.MainModule, owner.GenericArguments[0].Scope);
+                Assert.Equal(category == "struct", owner.GenericArguments[0].IsValueType);
+            }
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
     [Fact]
     public void RetargetedGenericFieldAccessPreservesMetadataOwner()
     {

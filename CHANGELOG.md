@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- Experimental target metadata emission supports library generics containing
+  application class/value types and keeps those arguments in the current module
+  instead of adding an unresolved self-assembly reference. No target-specific type
+  names are introduced; ordinary framework targeting retains its existing path.
+
 ### 2026-09-13
 
 - Emit value-type property setters against the original receiver address with a

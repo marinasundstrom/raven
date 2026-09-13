@@ -326,7 +326,7 @@ internal static class AssemblyReferenceNormalizer
             throw new NotSupportedException($"Metadata emission does not yet support type '{symbol}'.");
 
         IMetadataScope scope = module;
-        if (named.ContainingAssembly is { } assembly)
+        if (named.ContainingAssembly is { } assembly && assembly.Name != module.Assembly.Name.Name)
         {
             if (targetReferences is null || !targetReferences.TryGetValue(assembly.Name, out var targetReference))
                 targetReference = new AssemblyNameReference(assembly.Name, new Version(0, 0, 0, 0));
