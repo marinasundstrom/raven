@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Preserve reference-only generic constructor signatures during
+  target-core emission using temporary tokens removed from the final assembly.
+  This fixes a compiler-host/metadata-context type mismatch without changing default
+  constructor resolution. All 26 focused checks and the .NET 10/.NET 11 build/run
+  target matrix passed. Cleaned up completed integration and superseded experiment
+  branches after checking that their history is preserved in main or the active experiment.
+
 - **2026-09-14:** Preserve reference-only closed generic types during target-core
   emission instead of trying to load them into the compiler host. Retain generic
   definition parameters in member references, nested value-type flags and by-reference

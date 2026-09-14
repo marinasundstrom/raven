@@ -176,8 +176,10 @@ internal static class AssemblyReferenceNormalizer
             return;
 
         var proxyType = module.Types.FirstOrDefault(type => type.Name == "<RavenMetadataMethodReferences>");
-        if (proxyType is null)
-            throw new InvalidOperationException("Metadata method proxy type was not emitted.");
+        var constructorProxyTypes = module.Types.Where(type => type.Name.StartsWith("<RavenMetadataConstructorReference", StringComparison.Ordinal) &&
+            proxies.ContainsKey(type.Name)).ToArray();
+        if (proxyType is null && constructorProxyTypes.Length == 0)
+            throw new InvalidOperationException("Metadata proxy types were not emitted.");
 
         var replacements = proxies.ToDictionary(
             pair => pair.Key,
@@ -195,8 +197,9 @@ internal static class AssemblyReferenceNormalizer
                 foreach (var instruction in method.Body.Instructions)
                 {
                     if (instruction.Operand is MethodReference operand &&
-                        operand.DeclaringType.Name == proxyType.Name &&
-                        replacements.TryGetValue(operand.Name, out var replacement))
+                        (operand.DeclaringType.Name == proxyType?.Name || constructorProxyTypes.Any(type => type.Name == operand.DeclaringType.Name)) &&
+                        replacements.TryGetValue(operand.DeclaringType.Name == proxyType?.Name
+                            ? operand.Name : operand.DeclaringType.Name, out var replacement))
                     {
                         instruction.Operand = replacement;
                     }
@@ -204,7 +207,10 @@ internal static class AssemblyReferenceNormalizer
             }
         }
 
-        module.Types.Remove(proxyType);
+        if (proxyType is not null)
+            module.Types.Remove(proxyType);
+        foreach (var constructorProxy in constructorProxyTypes)
+            module.Types.Remove(constructorProxy);
     }
 
     private static MethodReference CreateMethodReference(

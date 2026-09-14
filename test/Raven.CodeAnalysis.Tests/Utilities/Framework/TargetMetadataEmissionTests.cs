@@ -23,7 +23,7 @@ public class TargetMetadataEmissionTests
                 namespace System.Runtime.CompilerServices { public sealed class UnionAttribute : System.Attribute { } }
                 namespace Contracts {
                     public static class Cases {
-                        public struct Item<T> { public T Value { get; } }
+                        public struct Item<T> { public Item(T value) { Value = value; } public T Value { get; } }
                     }
                     [System.Runtime.CompilerServices.Union]
                     public struct Container<T> {
@@ -47,6 +47,8 @@ public class TargetMetadataEmissionTests
                 let copy = value
                 return copy
             }
+            func Wrap(value: Cases.Item<int>) -> Container<int> { return Container<int>(value) }
+            func Make(value: int) -> Cases.Item<int> { return Cases.Item<int>(value) }
             func Read(value: Cases.Item<int>) -> int { return value.Value }
             func ReadContainer(value: Container<int>) -> int {
                 if value is Cases.Item<int> item { return item.Value }
@@ -62,6 +64,7 @@ public class TargetMetadataEmissionTests
             Assert.True(result.Success, string.Join("\n", result.Diagnostics));
             output.Position = 0;
             using var assembly = AssemblyDefinition.ReadAssembly(output);
+            Assert.DoesNotContain(assembly.MainModule.Types, t => t.Name.StartsWith("<RavenMetadata"));
             var methods = assembly.MainModule.Types.SelectMany(t => t.Methods).ToArray();
             var echo = methods.Single(m => m.Name == "Echo");
             var carrier = Assert.IsType<GenericInstanceType>(echo.ReturnType);
@@ -70,6 +73,15 @@ public class TargetMetadataEmissionTests
             Assert.Equal("System.Int32", Assert.Single(carrier.GenericArguments).FullName);
             Assert.Equal(carrier.FullName, Assert.Single(echo.Parameters).ParameterType.FullName);
             Assert.Contains(echo.Body.Variables, v => v.VariableType.FullName == carrier.FullName);
+            var constructor = Assert.Single(assembly.MainModule.GetMemberReferences().OfType<MethodReference>()
+                .Where(m => m.Name == ".ctor" && m.DeclaringType.FullName == "Contracts.Cases/Item`1<System.Int32>"));
+            Assert.True(constructor.DeclaringType.IsValueType);
+            Assert.Equal(0, Assert.IsType<GenericParameter>(Assert.Single(constructor.Parameters).ParameterType).Position);
+            var wrapper = Assert.Single(assembly.MainModule.GetMemberReferences().OfType<MethodReference>()
+                .Where(m => m.Name == ".ctor" && m.DeclaringType.FullName == "Contracts.Container`1<System.Int32>"));
+            var wrappedCase = Assert.IsType<GenericInstanceType>(Assert.Single(wrapper.Parameters).ParameterType);
+            Assert.Equal("Contracts.Cases/Item`1", wrappedCase.ElementType.FullName);
+            Assert.Equal(0, Assert.IsType<GenericParameter>(Assert.Single(wrappedCase.GenericArguments)).Position);
             var getter = Assert.Single(assembly.MainModule.GetMemberReferences().OfType<MethodReference>().Where(m => m.Name == "get_Value"));
             Assert.Equal("Contracts.Cases/Item`1<System.Int32>", getter.DeclaringType.FullName);
             Assert.True(getter.DeclaringType.IsValueType);

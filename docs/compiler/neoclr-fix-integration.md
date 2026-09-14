@@ -96,3 +96,24 @@ methods still require the subsequent independent reviews.
 The repository target-framework matrix passed with SDK `11.0.100-rc.1.26425.128`,
 building the libraries and building/running representative .NET 10 and .NET 11
 projects with the repository toolchain. This is not the full Raven release gate.
+
+## Reference-only constructors — 2026-09-14
+
+Extracted `995a4c982` on the main-based `codex/general-constructor-metadata`
+branch. Extending the normal-reference fixture to construct nested generic cases
+and their carriers reproduced a MetadataLoadContext mismatch before the fix.
+Target-core emission now allocates temporary constructor tokens and rewrites them
+to the original metadata signatures in the final PE. Temporary proxy types are
+removed; default constructor resolution remains unchanged. Tests assert the final
+constructor signatures and absence of the temporary types, not opcode sequences.
+
+Completed integration branches `codex/compiler-fixes-integration`,
+`codex/general-pointer-emission` and `codex/general-generic-metadata` were deleted
+locally and remotely after confirming they were ancestors of main. Superseded
+`codex/neoclr-target-contracts` and `codex/neoclr-target-resolution` were likewise
+removed after confirming their history is contained in the active
+`codex/neoclr-namespace-metadata` experiment. Unrelated branches were retained.
+
+Validation: 26 focused metadata, generic-invocation and constructor checks passed,
+as did the repository .NET 10/.NET 11 build/run matrix with SDK
+`11.0.100-rc.1.26425.128`. This is a scoped integration, not a full release gate.
