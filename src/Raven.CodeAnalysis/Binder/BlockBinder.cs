@@ -823,7 +823,7 @@ partial class BlockBinder : Binder
                 annotatedType,
                 allowReturn: false,
                 allowReturnInBlockExpressionsOnly: true);
-            boundInitializer = BindImplicitParameterlessConstructionIfNeeded(boundInitializer, initializer.Value);
+            boundInitializer = BindImplicitParameterlessConstructionIfNeeded(boundInitializer, initializer.Value, annotatedType);
             initializerValueType = boundInitializer?.Type;
         }
 
@@ -2182,13 +2182,22 @@ partial class BlockBinder : Binder
         return new BoundExpressionStatement(boundInitializer);
     }
 
-    private BoundExpression BindImplicitParameterlessConstructionIfNeeded(BoundExpression expression, ExpressionSyntax syntax)
+    private BoundExpression BindImplicitParameterlessConstructionIfNeeded(BoundExpression expression, ExpressionSyntax syntax, ITypeSymbol? targetType = null)
     {
         if (expression is not BoundTypeExpression typeExpression)
             return expression;
 
         if (typeExpression.Type is NullTypeSymbol)
             return expression;
+
+        if (targetType is not null && typeExpression.Type is INamedTypeSymbol caseType &&
+            IsAssignable(targetType, caseType, out var conversion) && conversion.IsUnion &&
+            caseType.Constructors.FirstOrDefault(ctor => !ctor.IsStatic && ctor.Parameters.Length == 0) is { } constructor)
+        {
+            if (!EnsureMemberAccessible(constructor, syntax.GetLocation(), GetSymbolKindForDiagnostic(constructor)))
+                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+            return new BoundObjectCreationExpression(constructor, ImmutableArray<BoundExpression>.Empty);
+        }
 
         _diagnostics.ReportInvalidInvocation(syntax.GetLocation());
         return ErrorExpression(reason: BoundExpressionReason.OverloadResolutionFailed);

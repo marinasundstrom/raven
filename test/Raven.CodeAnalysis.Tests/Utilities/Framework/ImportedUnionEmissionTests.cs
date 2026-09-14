@@ -26,6 +26,7 @@ public class ImportedUnionEmissionTests
             [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("""
                 namespace Contracts {
                     public static class Choice {
+                        public struct Empty { public Empty() { } }
                         public struct Ok<T> {
                             public T Value;
                             public Ok(T value) { Value = value; }
@@ -41,6 +42,8 @@ public class ImportedUnionEmissionTests
                     public struct Choice<T,E> {
                         private object value;
                         public object Value => value;
+                        public bool IsEmpty => value is Choice.Empty;
+                        public Choice(Choice.Empty value) { this.value = value; }
                         public bool HasValue(int marker) => value != null && marker == 42;
                         public void Touch(ref int marker) { marker++; }
                         public Choice(Choice.Ok<T> value) { this.value = value; }
@@ -69,6 +72,14 @@ public class ImportedUnionEmissionTests
                 import Contracts.*
                 import Contracts.Choice.*
                 public class Consumer {
+                    public static func EmptyChoice() -> Choice<int, string> { return Empty }
+                    public static func IsEmpty() -> bool {
+                        let emptyChoice: Choice<int, string> = Empty
+                        if !emptyChoice.IsEmpty {
+                            return false
+                        }
+                        return EmptyChoice().IsEmpty
+                    }
                     public static func IsOk(value: int) -> bool {
                         if value < 0 {
                             let failureChoice = Choice<int, string>(Choice.Error<string>("failed"))
@@ -81,6 +92,7 @@ public class ImportedUnionEmissionTests
                         return match value {
                             {{success}} => number
                             {{failure}} => -1
+                            _ => -2
                         }
                     }
                     public static func Run(value: int) -> int {
@@ -117,6 +129,7 @@ public class ImportedUnionEmissionTests
                 Assert.Equal(MetadataType.Int32, parameter.ElementType.MetadataType);
             }
             using var loaded = TestAssemblyLoader.LoadFromStream(output, references);
+            Assert.Equal(true, loaded.Assembly.GetType("Consumer")!.GetMethod("IsEmpty")!.Invoke(null, null));
             var run = loaded.Assembly.GetType("Consumer")!.GetMethod("Run")!;
             Assert.Equal(84, run.Invoke(null, [42]));
             Assert.Equal(-1, run.Invoke(null, [-1]));
