@@ -104,3 +104,10 @@ that combination, as it already does for source TypeBuilder arguments. This appl
 to ordinary CLI contracts and does not select target-specific collection semantics.
 The regression compiles and executes a function using a separately compiled C#
 `Box<T>` parameter/return with ordinary and explicit-core .NET emission.
+
+Imported member proxies are rewritten per use in the emitting method context.
+Source method/type parameters in constructed owners or method arguments retain
+their CLI generic parameter positions, while imported definition signatures retain
+their own parameters. This is general metadata emission behavior, independent of
+target contract names. The independent `Box<T>.GetValue()` execution regression
+covers ordinary .NET and explicit metadata-core compilation.

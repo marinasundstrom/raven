@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Rewrite imported generic member calls in the emitting method
+  context, preserving source type parameters on constructed owners and method
+  arguments. Independent C# contract execution passes under ordinary and explicit
+  metadata-core emission; all 16 focused target-core/unit checks pass.
+
 - **2026-09-14:** Treat emitted generic parameters as source signature components
   when constructing imported target-metadata types. Open signatures such as Box<T>
   use persisted signature types instead of mixing reflection contexts. Sixteen focused

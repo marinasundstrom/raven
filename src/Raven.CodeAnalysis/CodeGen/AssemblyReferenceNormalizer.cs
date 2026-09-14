@@ -215,10 +215,13 @@ internal static class AssemblyReferenceNormalizer
         if (proxyType is null && constructorProxyTypes.Length == 0)
             throw new InvalidOperationException("Metadata proxy types were not emitted.");
 
-        var replacements = proxies.ToDictionary(
-            pair => pair.Key,
-            pair => CreateMethodReference(module, pair.Value, targetReferences),
-            StringComparer.Ordinal);
+        var replacements = new List<MethodReference>();
+        MethodReference Replacement(string key, MethodDefinition context)
+        {
+            var reference = CreateMethodReference(module, proxies[key], targetReferences, context);
+            replacements.Add(reference);
+            return reference;
+        }
 
         foreach (var type in EnumerateTypes(module.Types))
         {
@@ -228,9 +231,9 @@ internal static class AssemblyReferenceNormalizer
                 {
                     var declaration = method.Overrides[index];
                     if (declaration.DeclaringType.Name == proxyType?.Name &&
-                        replacements.TryGetValue(declaration.Name, out var replacement))
+                        proxies.ContainsKey(declaration.Name))
                     {
-                        method.Overrides[index] = replacement;
+                        method.Overrides[index] = Replacement(declaration.Name, method);
                     }
                 }
 
@@ -241,10 +244,11 @@ internal static class AssemblyReferenceNormalizer
                 {
                     if (instruction.Operand is MethodReference operand &&
                         (operand.DeclaringType.Name == proxyType?.Name || constructorProxyTypes.Any(type => type.Name == operand.DeclaringType.Name)) &&
-                        replacements.TryGetValue(operand.DeclaringType.Name == proxyType?.Name
-                            ? operand.Name : operand.DeclaringType.Name, out var replacement))
+                        proxies.ContainsKey(operand.DeclaringType.Name == proxyType?.Name
+                            ? operand.Name : operand.DeclaringType.Name))
                     {
-                        instruction.Operand = replacement;
+                        instruction.Operand = Replacement(operand.DeclaringType.Name == proxyType?.Name
+                            ? operand.Name : operand.DeclaringType.Name, method);
                     }
                 }
             }
@@ -255,13 +259,13 @@ internal static class AssemblyReferenceNormalizer
         foreach (var constructorProxy in constructorProxyTypes)
             module.Types.Remove(constructorProxy);
         // Replacement operands must be present before deciding which scopes are unused.
-        RetargetHostTypeScopesFromMetadataMethods(module, replacements.Values);
+        RetargetHostTypeScopesFromMetadataMethods(module, replacements);
     }
 
     private static MethodReference CreateMethodReference(
         ModuleDefinition module,
         IMethodSymbol method,
-        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences, MethodDefinition? context = null)
     {
         if (method is not PEMethodSymbol && method.OriginalDefinition is PEMethodSymbol definition)
         {
@@ -285,12 +289,12 @@ internal static class AssemblyReferenceNormalizer
                         imported.Parameters[index].ParameterType, primitiveParameter);
                 }
             }
-            imported.DeclaringType = CreateTypeReference(module, method.ContainingType!, targetReferences);
+            imported.DeclaringType = CreateTypeReference(module, method.ContainingType!, targetReferences, context);
             if (method.IsGenericMethod)
             {
                 var constructed = new GenericInstanceMethod(imported);
                 foreach (var argument in method.TypeArguments)
-                    constructed.GenericArguments.Add(CreateTypeReference(module, argument, targetReferences));
+                    constructed.GenericArguments.Add(CreateTypeReference(module, argument, targetReferences, context));
                 return constructed;
             }
             return imported;
@@ -300,8 +304,8 @@ internal static class AssemblyReferenceNormalizer
             method.MetadataName,
             method.ReturnType.SpecialType == SpecialType.System_Unit
                 ? module.TypeSystem.Void
-                : CreateTypeReference(module, method.ReturnType, targetReferences),
-            CreateTypeReference(module, method.ContainingType!, targetReferences))
+                : CreateTypeReference(module, method.ReturnType, targetReferences, context),
+            CreateTypeReference(module, method.ContainingType!, targetReferences, context))
         {
             HasThis = !method.IsStatic,
             ExplicitThis = false
@@ -309,7 +313,7 @@ internal static class AssemblyReferenceNormalizer
 
         foreach (var parameter in method.Parameters)
         {
-            var parameterType = CreateTypeReference(module, parameter.Type, targetReferences);
+            var parameterType = CreateTypeReference(module, parameter.Type, targetReferences, context);
             if (parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
                 parameterType = new ByReferenceType(parameterType);
             reference.Parameters.Add(new ParameterDefinition(parameterType));
@@ -359,8 +363,16 @@ internal static class AssemblyReferenceNormalizer
     private static TypeReference CreateTypeReference(
         ModuleDefinition module,
         ITypeSymbol symbol,
-        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences, MethodDefinition? context = null)
     {
+        if (symbol is ITypeParameterSymbol parameter)
+        {
+            var parameters = parameter.OwnerKind == TypeParameterOwnerKind.Method
+                ? context?.GenericParameters : context?.DeclaringType.GenericParameters;
+            if (parameters is null || parameter.Ordinal < 0 || parameter.Ordinal >= parameters.Count)
+                throw new NotSupportedException($"No emitting generic context for '{parameter}'.");
+            return parameters[parameter.Ordinal];
+        }
         if (symbol.SpecialType == SpecialType.System_Unit)
             return module.GetType("System.Unit")
                 ?? module.GetTypeReferences().FirstOrDefault(type => type.FullName == "System.Unit")
@@ -370,7 +382,7 @@ internal static class AssemblyReferenceNormalizer
 
         if (symbol is NullableTypeSymbol nullable)
         {
-            var underlying = CreateTypeReference(module, nullable.UnderlyingType, targetReferences);
+            var underlying = CreateTypeReference(module, nullable.UnderlyingType, targetReferences, context);
             if (nullable.GetNullableAbiProjection() != NullableAbiProjection.NullableValueType)
                 return underlying;
 
@@ -388,18 +400,18 @@ internal static class AssemblyReferenceNormalizer
             return primitive;
 
         if (symbol is IPointerTypeSymbol pointer)
-            return new PointerType(CreateTypeReference(module, pointer.PointedAtType, targetReferences));
+            return new PointerType(CreateTypeReference(module, pointer.PointedAtType, targetReferences, context));
 
         if (symbol is IArrayTypeSymbol array)
-            return new ArrayType(CreateTypeReference(module, array.ElementType, targetReferences), array.Rank);
+            return new ArrayType(CreateTypeReference(module, array.ElementType, targetReferences, context), array.Rank);
 
         if (symbol is ConstructedNamedTypeSymbol constructed &&
             constructed.ConstructedFrom is INamedTypeSymbol definition &&
             !SymbolEqualityComparer.Default.Equals(constructed, definition))
         {
-            var generic = new GenericInstanceType(CreateTypeReference(module, definition, targetReferences));
+            var generic = new GenericInstanceType(CreateTypeReference(module, definition, targetReferences, context));
             foreach (var argument in constructed.TypeArguments)
-                generic.GenericArguments.Add(CreateTypeReference(module, argument, targetReferences));
+                generic.GenericArguments.Add(CreateTypeReference(module, argument, targetReferences, context));
             return generic;
         }
 
@@ -431,7 +443,7 @@ internal static class AssemblyReferenceNormalizer
         {
             return new TypeReference(string.Empty, named.MetadataName, module, scope)
             {
-                DeclaringType = CreateTypeReference(module, containingType, targetReferences),
+                DeclaringType = CreateTypeReference(module, containingType, targetReferences, context),
                 IsValueType = named.IsValueType
             };
         }

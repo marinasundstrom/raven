@@ -17,7 +17,7 @@ public class TargetCoreGenericSignatureTests
         {
             var libraryPath = Path.Combine(directory, "SignatureContracts.dll");
             var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("SignatureContracts",
-                [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("namespace Contracts { public class Box<T> { public Box(T value) { Value = value; } public T Value; } }")],
+                [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("namespace Contracts { public class Box<T> { public Box(T value) { Value = value; } public T Value; public T GetValue() => Value; } }")],
                 references.Select(p => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(p)),
                 new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
             using (var stream = File.Create(libraryPath))
@@ -35,9 +35,12 @@ public class TargetCoreGenericSignatureTests
                 public static func Identity<T>(source: Box<T>) -> Box<T> {
                     return source
                 }
+                public static func Read<T>(source: Box<T>) -> T {
+                    return Identity<T>(source).GetValue()
+                }
                 public static func Run() -> int {
                     let item = Box<int>(42)
-                    return Identity<int>(item).Value
+                    return Read<int>(item)
                 }
             }
             """);
