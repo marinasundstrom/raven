@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Support shorthand deconstruction of imported member unions:
+  `.Case(...)` resolves a unique member from the scrutinee, while an in-scope
+  generic `Case(...)` infers its closed arguments from the carrier. Preserve the
+  requirement to import unqualified variant types. Ordinary .NET regressions
+  cover target-typed, imported and qualified forms, inactive cases, and repeated
+  matching with a mutating value-type deconstructor. All 219 focused checks and the
+  .NET 10/.NET 11 build/run matrix passed.
+  This is a binding fix; target-core union emission still needs separate review.
+
 - **2026-09-14:** Preserve imported generic interface implementation declarations
   during target-core emission, including implicit/explicit methods and property
   accessors. Normalize temporary references in MethodImpl records as well as calls,

@@ -101,3 +101,22 @@ pattern; the whole-pattern designation receives the extracted `Card` value.
 
 Precedence: `not` > `and` > `or`. `or` associates left-to-right. Parentheses
 override precedence.
+
+## Imported member-union shorthand
+
+A union imported through the CLI member-union contract may contain existing variant
+types rather than synthesized named cases. For those carriers, `.Ok(let value)`
+selects the unique variant named `Ok` from the scrutinee's member set, extracts it
+through the carrier's `TryGetValue` contract, and applies its `Deconstruct` method.
+The leading-dot form does not require a separate import of the variant type.
+
+An unqualified generic variant pattern such as `Ok(let value)` requires the variant
+type to be in scope, for example through `import Contracts.Choice.*`. Raven infers
+its closed type arguments by matching that type's definition to a unique member of
+the scrutinee's union. Explicitly qualified patterns such as
+`Choice.Ok<int>(let value)` remain available. These are binding rules over ordinary
+CLI metadata; they do not depend on a particular runtime target or interface-name
+mapping. Existing pattern syntax is unchanged.
+
+For value-type variants, deconstruction operates on an extracted copy. Matching the
+same carrier again must not observe mutations made by the earlier deconstructor.
