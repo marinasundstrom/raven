@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Correct stack-result tracking for void calls and discarded unit
+  calls. Returning a void invocation no longer emits a pop for a nonexistent value.
+  The regression reproduces and executes under ordinary and target-metadata .NET
+  emission; this fix does not introduce target-specific policy. All 39 focused runtime
+  checks and 21 initial regression/return-diagnostic checks passed.
+
 - **2026-09-14:** Treat qualified type names in `is` patterns as type tests rather
   than values to compare. Preserve explicit generic arguments for imported Raven
   union cases, check their arity/constraints, and use the semantic extraction type
