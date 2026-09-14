@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Preserve closed generic method specifications in target-core
+  emission, including concrete method arguments, generic definition signatures and
+  their assembly scopes. This fixes metadata-context mismatches for metadata-only
+  generic calls without introducing experimental target policy. All 27 focused
+  checks and the repository .NET 10/.NET 11 build/run matrix passed.
+
 - **2026-09-14:** Preserve reference-only generic constructor signatures during
   target-core emission using temporary tokens removed from the final assembly.
   This fixes a compiler-host/metadata-context type mismatch without changing default

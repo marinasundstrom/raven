@@ -117,3 +117,22 @@ removed after confirming their history is contained in the active
 Validation: 26 focused metadata, generic-invocation and constructor checks passed,
 as did the repository .NET 10/.NET 11 build/run matrix with SDK
 `11.0.100-rc.1.26425.128`. This is a scoped integration, not a full release gate.
+
+## Closed generic method calls — 2026-09-14
+
+Independently extracted `11e9964f2` on `codex/general-method-metadata` from main.
+The regression uses ordinary .NET references and default CompilationOptions with
+the existing EmitOptions target-core setting. Before the fix, calling `Echo<int>`
+from a metadata-only assembly failed with a MetadataLoadContext mismatch; the
+existing generic-type/constructor test still passed.
+
+Closed generic metadata calls now use method proxies whose final MethodSpec retains
+concrete type arguments and the generic definition's parameter/return signature.
+Assembly scope normalization includes those method type arguments. Open generic
+arguments continue through the existing resolver. Tests inspect metadata identity
+and generic parameter kind/position, rather than requiring a particular opcode
+sequence. This adds no neoCLR target configuration or language syntax.
+
+Validation: all 27 focused metadata, generic-invocation and constructor checks
+passed. The repository .NET 10/.NET 11 build/run matrix passed with SDK
+`11.0.100-rc.1.26425.128`. This is not the full release gate.
