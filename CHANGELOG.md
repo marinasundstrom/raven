@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Resolve referenced sibling types when source extends their namespace,
+  including constructor expressions and generic type arguments. Preserve source-first
+  lookup and ordinary CLI metadata behavior; 20 focused namespace/generic checks pass
+  with independent C# reference execution in ordinary and explicit-core modes.
+
 - **2026-09-14:** Rewrite imported generic member calls in the emitting method
   context, preserving source type parameters on constructed owners and method
   arguments. Independent C# contract execution passes under ordinary and explicit

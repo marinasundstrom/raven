@@ -129,3 +129,10 @@ their CLI generic parameter positions, while imported definition signatures reta
 their own parameters. This is general metadata emission behavior, independent of
 target contract names. The independent `Box<T>.GetValue()` execution regression
 covers ordinary .NET and explicit metadata-core compilation.
+
+Namespace lookup combines source declarations with referenced sibling types before
+falling back to global types. Constructor expressions and generic arguments therefore
+resolve the same referenced types as annotations when a source namespace extends a
+metadata namespace. The independent `Contracts.Box<T>` regression covers both import
+and same-namespace use, executing under ordinary and explicit metadata-core emission.
+This requires no target-specific binding rule.

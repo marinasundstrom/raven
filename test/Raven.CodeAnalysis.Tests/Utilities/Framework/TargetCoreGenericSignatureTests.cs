@@ -6,9 +6,11 @@ namespace Raven.CodeAnalysis.Tests;
 public class TargetCoreGenericSignatureTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ImportedConstructedSignatureAcceptsSourceMethodParameter(bool targetMetadata)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void ImportedConstructedSignatureAcceptsSourceMethodParameter(bool targetMetadata, bool sameNamespace)
     {
         var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
         var directory = Path.Combine(Path.GetTempPath(), "raven-open-target-" + Guid.NewGuid().ToString("N"));
@@ -29,8 +31,7 @@ public class TargetCoreGenericSignatureTests
             if (targetMetadata)
                 options = options.WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
                     .WithTargetCoreAssemblyName("System.Runtime");
-            var tree = SyntaxTree.ParseText("""
-            import Contracts.*
+            var tree = SyntaxTree.ParseText((sameNamespace ? "namespace Contracts\n" : "import Contracts.*\n") + """
             public class Example {
                 public static func Identity<T>(source: Box<T>) -> Box<T> {
                     return source
@@ -50,7 +51,7 @@ public class TargetCoreGenericSignatureTests
             var emitted = compilation.Emit(output);
             Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
             using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
-            Assert.Equal(42, loaded.Assembly.GetType("Example")!.GetMethod("Run")!.Invoke(null, null));
+            Assert.Equal(42, loaded.Assembly.GetType(sameNamespace ? "Contracts.Example" : "Example")!.GetMethod("Run")!.Invoke(null, null));
         }
         finally { Directory.Delete(directory, true); }
     }
