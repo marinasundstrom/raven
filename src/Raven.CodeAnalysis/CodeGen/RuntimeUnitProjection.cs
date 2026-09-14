@@ -66,15 +66,19 @@ internal static class RuntimeUnitProjection
         }
         void MapMethod(MethodReference method)
         {
+            if (method is GenericInstanceMethod generic)
+            {
+                MapMethod(generic.ElementMethod);
+                for (var i = 0; i < generic.GenericArguments.Count; i++)
+                    generic.GenericArguments[i] = Map(generic.GenericArguments[i]);
+                return;
+            }
             if (IsUnit(method.DeclaringType))
                 throw new InvalidOperationException("Unit implementation members are not target API members.");
             method.DeclaringType = Map(method.DeclaringType, false);
             method.ReturnType = Map(method.ReturnType, false);
             foreach (var parameter in method.Parameters)
                 parameter.ParameterType = Map(parameter.ParameterType);
-            if (method is GenericInstanceMethod generic)
-                for (var i = 0; i < generic.GenericArguments.Count; i++)
-                    generic.GenericArguments[i] = Map(generic.GenericArguments[i]);
         }
         foreach (var type in module.GetTypes().Where(type => type != unit).ToArray())
         {

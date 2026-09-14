@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Rewrite generic method specifications through their element method
+  when projecting a RuntimeUnitContract; selecting a unit contract no longer crashes
+  emission of ordinary generic calls. Default and ValueTuple-target execution tests
+  pass (12 focused checks). Record the separate generic unit-return invocation issue
+  rather than claiming that generic storage coverage proves every call shape.
+
 - **2026-09-14:** Suppress host-generated TargetFrameworkAttribute source for explicit
   metadata-core projects, matching reference isolation. Target projects can supply
   supported attributes explicitly; ordinary .NET project generation is unchanged.

@@ -85,3 +85,11 @@ contract selection, diagnostics, semantic-model behavior, emission and limitatio
 When an external runtime integration is affected, its repository must also document
 the selected configuration and integration evidence. Keep implementation status
 separate from proposed design and record changes in each repository’s changelog.
+
+Generic method calls are projected through the method specification’s element
+signature and its separate type-argument list. They do not have writable declaring
+types of their own. The regression executes `Echo<int>` with both default Unit and
+a selected ValueTuple contract. Generic storage of unit remains covered separately.
+A further `Echo<()>(value)` invocation reduction produced invalid .NET IL with the
+default representation; generic unit-valued call results remain an open emission
+issue, distinct from generic storage and ordinary no-result calls.
