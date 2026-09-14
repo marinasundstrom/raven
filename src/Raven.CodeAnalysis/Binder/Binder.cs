@@ -346,7 +346,8 @@ internal abstract partial class Binder
     {
         var type = Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
             ? Compilation.SymbolLookup.LookupTypeSourceFirst(CurrentNamespace, name)
-            : CurrentNamespace?.LookupType(name);
+            : CurrentNamespace?.LookupType(name)
+                ?? Compilation.SymbolLookup.LookupTypeSourceFirst(CurrentNamespace, name);
         if (type != null)
             return type;
 

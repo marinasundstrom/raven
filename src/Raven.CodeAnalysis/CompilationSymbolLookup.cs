@@ -218,6 +218,13 @@ internal sealed class CompilationSymbolLookup
         if (sourceType is not null)
             return sourceType;
 
+        if (currentNamespace is SourceNamespaceSymbol)
+        {
+            foreach (var metadataNamespace in GetMetadataNamespacesFor(currentNamespace))
+                if (metadataNamespace.LookupType(name) is { } siblingType)
+                    return siblingType;
+        }
+
         if (currentNamespace is not SourceNamespaceSymbol and not null &&
             currentNamespace.LookupType(name) is { } metadataOrMergedType)
         {
