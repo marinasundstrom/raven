@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Support reference-library generics containing application classes
+  and structs during target-core emission without mixing reflection contexts or
+  emitting self assembly references. Correct ordinary .NET field access on generic
+  constructions containing unfinished source types. Regression coverage uses a
+  reference-only library and its separate executable implementation, including
+  arrays and nested generic arguments. All 42 focused metadata/attribute/generic
+  checks and the .NET 10/.NET 11 build/run matrix passed.
+
 - **2026-09-14:** Fix a regression from target metadata type resolution reaching
   custom-attribute serialization. Keep runtime types for attribute constructor/value
   encoding while retaining metadata types for target signatures. Primitive and enum

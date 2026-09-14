@@ -2328,7 +2328,22 @@ internal sealed class SubstitutedFieldSymbol : IFieldSymbol
             var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
             var expectedType = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(Type, codeGen);
 
-            foreach (var candidate in constructedType.GetFields(bindingFlags))
+            FieldInfo[] fields;
+            try
+            {
+                fields = constructedType.GetFields(bindingFlags);
+            }
+            catch (NotSupportedException) when (constructedType.IsConstructedGenericType)
+            {
+                // A runtime generic containing an unbaked source type cannot enumerate
+                // members. Map the definition's field onto its emitted construction.
+                var definitionField = constructedType.GetGenericTypeDefinition()
+                    .GetField(peField.MetadataName, bindingFlags)
+                    ?? throw new MissingFieldException(constructedType.FullName, peField.MetadataName);
+                return TypeBuilder.GetField(constructedType, definitionField);
+            }
+
+            foreach (var candidate in fields)
             {
                 if (!string.Equals(candidate.Name, peField.MetadataName, StringComparison.Ordinal))
                     continue;

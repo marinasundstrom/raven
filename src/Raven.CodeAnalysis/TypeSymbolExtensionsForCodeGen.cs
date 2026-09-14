@@ -50,6 +50,11 @@ public static class TypeSymbolExtensionsForCodeGen
 
     // Keep target-only types in the metadata context. Loading them into the compiler
     // host is neither necessary for persisted emission nor valid for reference assemblies.
+    private static bool ContainsEmittedType(Type type)
+        => type is System.Reflection.Emit.TypeBuilder ||
+           type.HasElementType && ContainsEmittedType(type.GetElementType()!) ||
+           type.IsConstructedGenericType && type.GetGenericArguments().Any(ContainsEmittedType);
+
     private static Type? TryGetTargetMetadataType(ITypeSymbol symbol)
     {
         if (symbol is PENamedTypeSymbol peType)
@@ -161,7 +166,16 @@ public static class TypeSymbolExtensionsForCodeGen
                 if (arguments.Length == 0)
                     return genericDefinition;
 
-                return genericDefinition.MakeGenericType(arguments);
+                try
+                {
+                    return genericDefinition.MakeGenericType(arguments);
+                }
+                catch (ArgumentException) when (codeGen.UsesTargetMetadata && arguments.Any(ContainsEmittedType))
+                {
+                    // MetadataLoadContext cannot combine its definitions with source
+                    // TypeBuilders. Persisted emission only needs the signature here.
+                    return Type.MakeGenericSignatureType(genericDefinition, arguments);
+                }
             }
 
             if (typeSymbol is NullableTypeSymbol nullableType)
