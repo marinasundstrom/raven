@@ -202,6 +202,9 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundInvocationExpression invocationExpression:
                 EmitInvocationExpression(invocationExpression);
+                if (invocationExpression.Type.SpecialType == SpecialType.System_Void ||
+                    !_preserveResult && invocationExpression.Type.SpecialType == SpecialType.System_Unit)
+                    info = EmitInfo.None;
                 break;
 
             case BoundLiteralExpression literalExpression:

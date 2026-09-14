@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Correct stack-result tracking for void calls and discarded unit
+  calls. Returning a void invocation no longer emits a pop for a nonexistent value.
+  The regression reproduces and executes under ordinary and target-metadata .NET
+  emission; this fix does not introduce target-specific policy. All 39 focused runtime
+  checks and 21 initial regression/return-diagnostic checks passed.
+
+
 - **2026-09-14:** Synchronize general Raven main fixes into the neoCLR experiment
   for the next preview, including the attribute-emission correction found by the
   main stability audit. Preserve experimental target behavior and add the independent
