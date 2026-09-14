@@ -125,3 +125,11 @@ parameterless case value before constructing the carrier, even if the case itsel
 has no Raven union-case attribute. The independent C# `Choice.Empty` contract is
 executed under ordinary and explicit-core emission; this is not a target naming rule.
 Unannotated bare ordinary types still require explicit constructor invocation.
+
+
+Explicit constructor type arguments remain bound when they are the containing
+class's own parameters: `Box<T>(value)` inside `Box<T>` is a valid open construction,
+not an omitted-argument inference request. Binding still validates constraints and
+emission uses ordinary CLI generics. The execution regression covers qualified and
+unqualified construction under default .NET and explicit metadata-core options.
+No Runtime Contract configuration or target-specific policy changes.

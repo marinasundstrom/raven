@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-15:** Accept explicit generic self-construction such as Box<T>(value)
+  inside Box<T>, including qualified names. Preserve omitted-argument inference and
+  constraint validation. Four new .NET execution cases cover default and explicit-core
+  emission; all 17 focused generic/signature tests pass. No target-specific policy.
+
 - **2026-09-14:** Construct bare empty member-union cases before passing them to
   carrier constructors, including returns and explicitly typed local initializers.
   Imported cases use their ordinary CLI constructors without requiring Raven case
