@@ -25,13 +25,14 @@ public class RuntimeUnitContractTests
             import System.Collections.Generic.*
             public class Example {
                 public static func Notify() { }
+                public static func Echo<T>(value: T) -> T { return value }
                 public static func Run() -> int {
                     Notify()
                     let value = ()
                     let values = List<()>()
                     values.Add(value)
                     values.Add(Notify())
-                    return values.Count
+                    return values.Count + Echo<int>(10)
                 }
             }
             """);
@@ -43,7 +44,7 @@ public class RuntimeUnitContractTests
         var emitted = compilation.Emit(output);
         Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
         using (var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References))
-            Assert.Equal(2, loaded.Assembly.GetType("Example")!.GetMethod("Run")!.Invoke(null, null));
+            Assert.Equal(12, loaded.Assembly.GetType("Example")!.GetMethod("Run")!.Invoke(null, null));
         output.Position = 0;
         using var image = AssemblyDefinition.ReadAssembly(output);
         var example = image.MainModule.GetType("Example");
