@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Preserve pointer types when rebuilding metadata method references
+  for a target core library. Native `void*` parameters no longer fail emission.
+  This general fix uses the existing EmitOptions contract; no neoCLR target policy
+  is added. Regression coverage checks ordinary and retargeted emission; all 53
+  focused metadata and pointer checks pass.
+
 - **2026-09-14:** Integrate the general namespace-metadata fixes independently of
   the neoCLR experiment: resolve TopLevelAttribute from supplied reference metadata
   and include referenced namespace functions/constants in completion. The regression

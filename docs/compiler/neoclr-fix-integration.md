@@ -61,3 +61,17 @@ Main-integration validation: 47 focused namespace tests passed, followed by
 new default-options namespace regression. The prior numeric and binding runtime
 checks remain the evidence for those unchanged batches. This is source integration,
 not a Raven release or NanoFramework certification.
+
+## Pointer metadata emission — 2026-09-14
+
+Extracted the pointer reconstruction fix from `3df1b54b0` on the main-based
+`codex/general-pointer-emission` branch. The original default-options test already
+passed on main, so it was extended to exercise the existing EmitOptions target-core
+contract as well. That case failed with an unsupported `Unit*` metadata type before
+the fix (six other normalizer checks passed). The change recursively preserves
+pointer element types during method-reference reconstruction. It introduces no
+experimental metadata import options or neoCLR-specific type semantics.
+
+Validation: all 53 focused normalizer, pointer code-generation, pointer semantic
+and pointer syntax checks passed. The compiler build and whitespace formatting
+completed. This scoped check is not a new full release gate.

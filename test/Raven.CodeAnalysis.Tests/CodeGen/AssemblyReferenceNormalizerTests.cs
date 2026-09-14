@@ -14,6 +14,36 @@ namespace Raven.CodeAnalysis.Tests;
 
 public sealed class AssemblyReferenceNormalizerTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Emit_MetadataOnlyNativeMethods_PreserveVoidPointerSignatures(bool retarget)
+    {
+        using var library = AssemblyDefinition.CreateAssembly(new AssemblyNameDefinition("NativeFixture", new Version(1, 0)), "NativeFixture", ModuleKind.Dll);
+        var module = library.MainModule;
+        var owner = new TypeDefinition("Fixture", "NativeApi", Mono.Cecil.TypeAttributes.Public | Mono.Cecil.TypeAttributes.Abstract | Mono.Cecil.TypeAttributes.Sealed, module.TypeSystem.Object);
+        module.Types.Add(owner);
+        var method = new MethodDefinition("Release", Mono.Cecil.MethodAttributes.Public | Mono.Cecil.MethodAttributes.Static, module.TypeSystem.Void);
+        method.Parameters.Add(new ParameterDefinition(new PointerType(module.TypeSystem.Void)));
+        method.Body.Instructions.Add(Mono.Cecil.Cil.Instruction.Create(Mono.Cecil.Cil.OpCodes.Ret));
+        owner.Methods.Add(method);
+        using var referenceImage = new MemoryStream();
+        library.Write(referenceImage);
+        var tree = SyntaxTree.ParseText("import Fixture.*\nunsafe func Forward(pointer: *()) { NativeApi.Release(pointer) }\nfunc Main() {}");
+        var compilation = Compilation.Create("PointerProxy", [tree],
+            TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(referenceImage.ToArray())).ToArray(),
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output, pdbStream: null, emitOptions: retarget
+            ? new EmitOptions(new AssemblyName("mscorlib, Version=1.17.11.0, Culture=neutral, PublicKeyToken=null"))
+            : null);
+        Assert.True(emitted.Success, string.Join(Environment.NewLine, emitted.Diagnostics));
+        output.Position = 0;
+        using var result = AssemblyDefinition.ReadAssembly(output);
+        var reference = Assert.Single(result.MainModule.GetMemberReferences().OfType<MethodReference>(), m => m.Name == "Release");
+        Assert.Equal("System.Void*", Assert.Single(reference.Parameters).ParameterType.FullName);
+    }
+
     [Fact]
     public void NormalizeCoreLibReference_DoesNotResolveReferencedAssemblies()
     {
