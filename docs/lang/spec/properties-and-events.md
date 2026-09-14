@@ -98,6 +98,17 @@ var self[index: int]: string {
 }
 ```
 
+Indexers require element access (`items[index]`), including imported indexers whose
+CLI property name is `Item` or another name. That metadata name is not an ordinary
+member-access expression: `items.Item` is invalid. Dot completion omits indexers and
+offers the element's members after `items[index].`. Ordinary parameterless properties
+named `Item` remain accessible by name. Symbol enumeration still exposes indexer
+metadata, with `IsIndexer` true and `CanBeReferencedByName` false.
+
+This follows the distinction between property and indexer access in
+[C#'s indexer model](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/indexers/using-indexers).
+The CLI property/accessor representation is unchanged.
+
 ## Events
 
 Events let a type notify any registered handlers when something happens,

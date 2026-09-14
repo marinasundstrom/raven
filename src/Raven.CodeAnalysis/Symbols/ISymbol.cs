@@ -125,7 +125,7 @@ public interface ISymbol : IEquatable<ISymbol?>
         IMethodSymbol => true,
         IMacroDeclarationSymbol => true,
         IEventSymbol => true,
-        IPropertySymbol => true,
+        IPropertySymbol property => !property.IsIndexer,
         IFieldSymbol => true,
         IParameterSymbol => true,
         ILocalSymbol => true,

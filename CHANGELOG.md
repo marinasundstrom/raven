@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Require indexed access for indexer properties. Dot completion no
+  longer offers metadata indexer names such as `Item`, and `items.Item` no longer
+  binds as an element without arguments. `items[index].` retains element-member
+  completion; ordinary parameterless properties named `Item` remain accessible.
+  Indexer symbols remain discoverable through metadata APIs but are not referenceable
+  by name. This is a general compiler fix; no framework-specific mapping is involved.
+  All 440 completion/indexer/property/semantic-model checks passed, including cold
+  and already-bound queries and imported interface indexer execution.
+
 - **2026-09-14:** Select the metadata core library from the supplied assembly that
   defines the root `System.Object`, using its full identity rather than the host's
   core name. This keeps imported structs classified as value types and prevents
