@@ -223,6 +223,16 @@ internal static class AssemblyReferenceNormalizer
         {
             foreach (var method in type.Methods)
             {
+                for (var index = 0; index < method.Overrides.Count; index++)
+                {
+                    var declaration = method.Overrides[index];
+                    if (declaration.DeclaringType.Name == proxyType?.Name &&
+                        replacements.TryGetValue(declaration.Name, out var replacement))
+                    {
+                        method.Overrides[index] = replacement;
+                    }
+                }
+
                 if (!method.HasBody)
                     continue;
 
@@ -286,6 +296,31 @@ internal static class AssemblyReferenceNormalizer
         return reference;
     }
 
+    private static TypeReference? GetPrimitiveTypeReference(ModuleDefinition module, SpecialType specialType)
+    {
+        return specialType switch
+        {
+            SpecialType.System_Void => module.TypeSystem.Void,
+            SpecialType.System_Boolean => module.TypeSystem.Boolean,
+            SpecialType.System_Char => module.TypeSystem.Char,
+            SpecialType.System_SByte => module.TypeSystem.SByte,
+            SpecialType.System_Byte => module.TypeSystem.Byte,
+            SpecialType.System_Int16 => module.TypeSystem.Int16,
+            SpecialType.System_UInt16 => module.TypeSystem.UInt16,
+            SpecialType.System_Int32 => module.TypeSystem.Int32,
+            SpecialType.System_UInt32 => module.TypeSystem.UInt32,
+            SpecialType.System_Int64 => module.TypeSystem.Int64,
+            SpecialType.System_UInt64 => module.TypeSystem.UInt64,
+            SpecialType.System_Single => module.TypeSystem.Single,
+            SpecialType.System_Double => module.TypeSystem.Double,
+            SpecialType.System_IntPtr => module.TypeSystem.IntPtr,
+            SpecialType.System_UIntPtr => module.TypeSystem.UIntPtr,
+            SpecialType.System_String => module.TypeSystem.String,
+            SpecialType.System_Object => module.TypeSystem.Object,
+            _ => null
+        };
+    }
+
     private static TypeReference CreateTypeReference(
         ModuleDefinition module,
         ITypeSymbol symbol,
@@ -308,6 +343,10 @@ internal static class AssemblyReferenceNormalizer
             constructedNullable.GenericArguments.Add(underlying);
             return constructedNullable;
         }
+
+        // CLI primitive signatures use element codes, not class/valuetype tokens.
+        if (GetPrimitiveTypeReference(module, symbol.SpecialType) is { } primitive)
+            return primitive;
 
         if (symbol is IPointerTypeSymbol pointer)
             return new PointerType(CreateTypeReference(module, pointer.PointedAtType, targetReferences));
@@ -439,7 +478,7 @@ internal static class AssemblyReferenceNormalizer
             foreach (var typeReference in module.GetTypeReferences())
                 RetargetKeptCoreLibraryTypeScope(typeReference, runtimeReference, coreLibraryReference);
 
-            foreach (var memberReference in module.GetMemberReferences())
+            foreach (var memberReference in EnumerateMemberReferences(module))
             {
                 if (memberReference.DeclaringType is { } declaringType)
                     RetargetKeptCoreLibraryTypeScope(declaringType, runtimeReference, coreLibraryReference);
@@ -596,7 +635,7 @@ internal static class AssemblyReferenceNormalizer
             RewriteTypeReferenceScope(typeReference, oldReference, newReference, rewriteAll);
         }
 
-        foreach (var memberReference in module.GetMemberReferences())
+        foreach (var memberReference in EnumerateMemberReferences(module))
         {
             if (memberReference.DeclaringType is { } declaringType)
                 RewriteTypeReferenceScope(declaringType, oldReference, newReference, rewriteAll);
@@ -647,6 +686,28 @@ internal static class AssemblyReferenceNormalizer
         return current;
     }
 
+    private static IEnumerable<MemberReference> EnumerateMemberReferences(ModuleDefinition module)
+    {
+        foreach (var member in module.GetMemberReferences())
+            yield return member;
+
+        // Rewritten references are not necessarily in Cecil's original metadata table.
+        foreach (var method in module.GetTypes().SelectMany(type => type.Methods))
+        {
+            foreach (var declaration in method.Overrides)
+                yield return declaration;
+
+            if (!method.HasBody)
+                continue;
+
+            foreach (var instruction in method.Body.Instructions)
+            {
+                if (instruction.Operand is MemberReference member)
+                    yield return member;
+            }
+        }
+    }
+
     private static bool ModuleStillUsesReference(ModuleDefinition module, AssemblyNameReference reference)
     {
         foreach (var typeReference in module.GetTypeReferences())
@@ -655,7 +716,7 @@ internal static class AssemblyReferenceNormalizer
                 return true;
         }
 
-        foreach (var memberReference in module.GetMemberReferences())
+        foreach (var memberReference in EnumerateMemberReferences(module))
         {
             if (memberReference.DeclaringType is { } declaringType &&
                 ReferenceEquals(GetInnermostTypeReference(declaringType).Scope, reference))

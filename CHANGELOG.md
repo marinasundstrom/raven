@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Preserve imported generic interface implementation declarations
+  during target-core emission, including implicit/explicit methods and property
+  accessors. Normalize temporary references in MethodImpl records as well as calls,
+  retain their assembly scopes, and encode primitive generic arguments with CLI
+  element codes. Regression tests compile against a reference-only library, inspect
+  metadata and execute interface dispatch on .NET. All 54 focused checks and the
+  .NET 10/.NET 11 build/run matrix passed.
+
 - **2026-09-14:** Support reference-library generics containing application classes
   and structs during target-core emission without mixing reflection contexts or
   emitting self assembly references. Correct ordinary .NET field access on generic

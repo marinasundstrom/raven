@@ -295,3 +295,18 @@ fields use the CLR `BYREF` signature form.
 The `allows ref struct` anti-constraint sets the standard CLI
 `AllowByRefLike` (`0x20`) generic-parameter flag. Scoped parameters imported
 from .NET honor `ScopedRefAttribute`, matching Raven's `scoped` lifetime rules.
+
+## Interface implementation metadata with a target core library
+
+When emitting against an explicitly selected core library, imported interface
+implementation declarations (`MethodImpl`) use the same semantic metadata-reference
+normalization as calls. A declaration on a constructed interface retains that closed
+owner, the generic definition's signature parameters, and the referenced assembly's
+scope. Primitive generic arguments retain their CLI element codes instead of being
+encoded as class or value-type tokens. Temporary emitter references are replaced in
+both method bodies and interface implementation records before writing the assembly. Scope normalization also visits
+newly replaced references that are absent from the original metadata table.
+
+This preserves the ordinary CLI interface contract, including generic returns and
+property accessors; it does not introduce target-specific interface semantics.
+Default .NET emission continues to use its existing reflection-based path.

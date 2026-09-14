@@ -2626,6 +2626,14 @@ internal class TypeGenerator
 
     private bool TryGetInterfaceMethodInfo(IMethodSymbol interfaceMethod, out MethodInfo methodInfo)
     {
+        // MethodImpl declarations need the same target signatures as calls. Avoid
+        // sending metadata-context modified generic returns to the persisted writer.
+        if (CodeGen.UsesTargetMetadata && interfaceMethod.OriginalDefinition is PEMethodSymbol)
+        {
+            methodInfo = CodeGen.GetMethodInfoOrMetadataProxy(interfaceMethod);
+            return true;
+        }
+
         var definitionMethod = interfaceMethod;
         if (interfaceMethod is SubstitutedMethodSymbol sub)
             definitionMethod = sub.OriginalDefinition;
