@@ -92,3 +92,10 @@ WriteLine("Hello, $name!")
 
 See [Top-level code and entry points](top-level-code-and-entry-points.md) for
 file-scope restrictions and executable entry-point selection.
+
+A generic function returning `T` still returns a value when instantiated with unit.
+For example, `Echo<()>(())` supplies its actual result when used as an argument or
+initializer, and discards it in statement position. This differs at the CLI boundary
+from an ordinary unit-returning function emitted with a no-result `void` signature;
+Raven materializes a unit value for the latter only when an expression needs one.
+See [Runtime Contracts](../../compiler/runtime-contracts.md) for target representation.

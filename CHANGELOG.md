@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Preserve generic unit-return call results instead of synthesizing a
+  second value, and pop them exactly once when discarded. Cover generic methods,
+  methods on generic types and no-result wrappers under ordinary .NET, explicit-core
+  and selected ValueTuple emission. All 22 focused unit/void/assignment checks pass.
+  This resolves the previously recorded generic unit-result invocation defect.
+
 - **2026-09-14:** Rewrite generic method specifications through their element method
   when projecting a RuntimeUnitContract; selecting a unit contract no longer crashes
   emission of ordinary generic calls. Default and ValueTuple-target execution tests

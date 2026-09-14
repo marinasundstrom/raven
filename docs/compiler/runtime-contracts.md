@@ -108,6 +108,9 @@ Generic method calls are projected through the method specification’s element
 signature and its separate type-argument list. They do not have writable declaring
 types of their own. The regression executes `Echo<int>` with both default Unit and
 a selected ValueTuple contract. Generic storage of unit remains covered separately.
-A further `Echo<()>(value)` invocation reduction produced invalid .NET IL with the
-default representation; generic unit-valued call results remain an open emission
-issue, distinct from generic storage and ordinary no-result calls.
+Generic unit-valued calls retain the value-bearing return signature of the original
+method definition. Consuming a result uses that value directly; discarding it pops
+it once. Raven does not synthesize another unit after a generic unit-returning call.
+The regression covers generic methods, methods on generic types, assignment,
+arguments, statement calls and no-result wrappers under default .NET emission,
+explicit System.Runtime emission and the selected ValueTuple contract.
