@@ -3284,11 +3284,18 @@ internal partial class ExpressionGenerator
         out Type unionClrType,
         out Type caseClrType)
     {
-        unionClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol.Union));
-        caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol));
-
         var tryGetMethod = GetMethodInfo(casePattern.TryGetMethod);
 
+        if (MethodGenerator.TypeGenerator.CodeGen.UsesTargetMetadata)
+        {
+            // Metadata call proxies supply operands, not guest storage types.
+            unionClrType = Generator.InstantiateType(ResolveClrType(casePattern.TryGetMethod.ContainingType!));
+            caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.TryGetMethod.Parameters[0].GetByRefElementType()));
+            return tryGetMethod;
+        }
+
+        unionClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol.Union));
+        caseClrType = Generator.InstantiateType(ResolveClrType(casePattern.CaseSymbol));
         if (tryGetMethod.DeclaringType is not null)
             unionClrType = tryGetMethod.DeclaringType;
 
@@ -3307,7 +3314,9 @@ internal partial class ExpressionGenerator
     {
         var unionClrType = Generator.InstantiateType(ResolveClrType(unionMemberPattern.UnionType));
         var tryGetMethod = CloseMethodOnRuntimeCarrier(unionClrType, GetMethodInfo(unionMemberPattern.TryGetMethod));
-        var memberClrType = TryGetOutLocalElementType(tryGetMethod) is { } outElementType
+        var memberClrType = MethodGenerator.TypeGenerator.CodeGen.UsesTargetMetadata
+            ? Generator.InstantiateType(ResolveClrType(unionMemberPattern.MemberType))
+            : TryGetOutLocalElementType(tryGetMethod) is { } outElementType
             ? CloseTypeFromMethodContext(outElementType, tryGetMethod.DeclaringType)
             : Generator.InstantiateType(ResolveClrType(unionMemberPattern.MemberType));
 

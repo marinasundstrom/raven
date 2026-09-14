@@ -327,3 +327,20 @@ Their imported structs must remain value types in generic method signatures,
 parameters and locals. Host runtime resolution and custom-attribute serialization
 continue to use their existing paths; choosing an emission target identity alone is
 not a substitute for establishing the correct metadata core identity.
+
+## Imported union patterns with a target core library
+
+Imported member-union destructuring uses closed semantic types for carrier and
+variant locals. Temporary method-reference proxies supply call operands only;
+their placeholder signatures must not determine program storage types.
+
+When normalizing a member reference on a constructed generic owner, retain the
+definition's generic parameter signatures (`!n`). Encode concrete primitive returns
+and parameters with CLI element codes, preserving by-reference and custom-modifier
+wrappers. A metadata `System.Void` return remains void; a unit-valued return is not
+made void merely because the language projects both with related syntax.
+
+Rewrite proxy operands before removing unused assembly scopes. Union-case member
+references use the case's actual metadata container, which may differ from its
+logical union carrier. These rules preserve existing CLI contracts and also apply
+to libraries produced by Raven; they introduce no new target policy or syntax.

@@ -217,7 +217,6 @@ internal static class AssemblyReferenceNormalizer
             pair => pair.Key,
             pair => CreateMethodReference(module, pair.Value, targetReferences),
             StringComparer.Ordinal);
-        RetargetHostTypeScopesFromMetadataMethods(module, replacements.Values);
 
         foreach (var type in EnumerateTypes(module.Types))
         {
@@ -253,6 +252,8 @@ internal static class AssemblyReferenceNormalizer
             module.Types.Remove(proxyType);
         foreach (var constructorProxy in constructorProxyTypes)
             module.Types.Remove(constructorProxy);
+        // Replacement operands must be present before deciding which scopes are unused.
+        RetargetHostTypeScopesFromMetadataMethods(module, replacements.Values);
     }
 
     private static MethodReference CreateMethodReference(
@@ -264,7 +265,24 @@ internal static class AssemblyReferenceNormalizer
         {
             // A MemberRef on a constructed owner still uses the definition's !n
             // signature; substituting concrete arguments changes the member identity.
-            var imported = module.ImportReference(definition.GetMethodBase());
+            var metadataDefinition = definition.GetMethodBase();
+            var imported = module.ImportReference(metadataDefinition);
+            // Modified metadata reflection types can import as named value types
+            // instead of CLI primitive elements. Preserve wrappers and !n signatures.
+            var primitiveReturn = metadataDefinition is System.Reflection.MethodInfo info &&
+                info.ReturnType.FullName == "System.Void"
+                ? module.TypeSystem.Void
+                : GetPrimitiveTypeReference(module, definition.ReturnType.SpecialType);
+            if (primitiveReturn is not null)
+                imported.ReturnType = ReplacePrimitiveSignatureElement(imported.ReturnType, primitiveReturn);
+            for (var index = 0; index < definition.Parameters.Length; index++)
+            {
+                if (GetPrimitiveTypeReference(module, definition.Parameters[index].Type.SpecialType) is { } primitiveParameter)
+                {
+                    imported.Parameters[index].ParameterType = ReplacePrimitiveSignatureElement(
+                        imported.Parameters[index].ParameterType, primitiveParameter);
+                }
+            }
             imported.DeclaringType = CreateTypeReference(module, method.ContainingType!, targetReferences);
             if (method.IsGenericMethod)
             {
@@ -295,6 +313,19 @@ internal static class AssemblyReferenceNormalizer
 
         return reference;
     }
+
+    private static TypeReference ReplacePrimitiveSignatureElement(TypeReference signature, TypeReference primitive)
+        => signature switch
+        {
+            ByReferenceType byRef => new ByReferenceType(ReplacePrimitiveSignatureElement(byRef.ElementType, primitive)),
+            RequiredModifierType required => new RequiredModifierType(required.ModifierType,
+                ReplacePrimitiveSignatureElement(required.ElementType, primitive)),
+            OptionalModifierType optional => new OptionalModifierType(optional.ModifierType,
+                ReplacePrimitiveSignatureElement(optional.ElementType, primitive)),
+            PinnedType pinned => new PinnedType(ReplacePrimitiveSignatureElement(pinned.ElementType, primitive)),
+            SentinelType sentinel => new SentinelType(ReplacePrimitiveSignatureElement(sentinel.ElementType, primitive)),
+            _ => primitive
+        };
 
     private static TypeReference? GetPrimitiveTypeReference(ModuleDefinition module, SpecialType specialType)
     {
@@ -385,7 +416,10 @@ internal static class AssemblyReferenceNormalizer
             scope = existing;
         }
 
-        if (named.ContainingType is { } containingType)
+        var metadataContainingType = named is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase
+            ? unionCase.MetadataContainingType
+            : named.ContainingType;
+        if (metadataContainingType is { } containingType)
         {
             return new TypeReference(string.Empty, named.MetadataName, module, scope)
             {

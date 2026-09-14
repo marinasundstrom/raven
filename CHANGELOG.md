@@ -21,7 +21,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   cover target-typed, imported and qualified forms, inactive cases, and repeated
   matching with a mutating value-type deconstructor. All 219 focused checks and the
   .NET 10/.NET 11 build/run matrix passed.
-  This is a binding fix; target-core union emission still needs separate review.
+  Target-core emission now keeps closed semantic carrier/variant locals, preserves
+  primitive CLI signatures and by-reference wrappers, and retains assembly scopes
+  after replacing temporary method references. Imported Raven union-case calls use
+  their actual metadata container rather than the logical carrier. Bare type-pattern
+  emission and boxing optimizations remain separate review work. All 291 focused
+  metadata/pattern/by-reference checks and the .NET 10/.NET 11 build/run matrix
+  passed.
 
 - **2026-09-14:** Preserve imported generic interface implementation declarations
   during target-core emission, including implicit/explicit methods and property
