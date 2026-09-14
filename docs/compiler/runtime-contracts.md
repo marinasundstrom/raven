@@ -96,3 +96,11 @@ it once. Raven does not synthesize another unit after a generic unit-returning c
 The regression covers generic methods, methods on generic types, assignment,
 arguments, statement calls and no-result wrappers under default .NET emission,
 explicit System.Runtime emission and the selected ValueTuple contract.
+
+Constructed imported types can contain source method/type parameters in emitted
+signatures. MetadataLoadContext cannot combine its types with Reflection.Emit
+generic parameter builders; Raven uses a persisted signature representation for
+that combination, as it already does for source TypeBuilder arguments. This applies
+to ordinary CLI contracts and does not select target-specific collection semantics.
+The regression compiles and executes a function using a separately compiled C#
+`Box<T>` parameter/return with ordinary and explicit-core .NET emission.

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Treat emitted generic parameters as source signature components
+  when constructing imported target-metadata types. Open signatures such as Box<T>
+  use persisted signature types instead of mixing reflection contexts. Sixteen focused
+  target-core/unit checks pass, including ordinary .NET execution against an independent
+  C# generic contract. No target-specific interface names or policy are introduced.
+
 - **2026-09-14:** Preserve generic unit-return call results instead of synthesizing a
   second value, and pop them exactly once when discarded. Cover generic methods,
   methods on generic types and no-result wrappers under ordinary .NET, explicit-core
