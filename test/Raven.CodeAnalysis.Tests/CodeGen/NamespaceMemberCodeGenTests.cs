@@ -405,6 +405,69 @@ namespace Utilities {
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
     }
 
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void NamespaceFunction_ReturnAnnotationPreservesCarrierType(bool qualified, bool importNamespace)
+    {
+        var annotation = qualified ? "System.Result<int, string>" : "Result<int, string>";
+        var source = "namespace System.Arithmetic\nimport System.Result.*\n"
+            + (importNamespace ? "import System.*\n" : "")
+            + $"public func Answer() -> {annotation} {{ return Ok(42) }}";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("NamespaceCarrierReturn", [tree],
+            TestMetadataReferences.DefaultWithRavenCore,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var declaration = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        Assert.Equal("Result", method.ReturnType.Name);
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        output.Position = 0;
+        using var image = Mono.Cecil.AssemblyDefinition.ReadAssembly(output);
+        var exported = image.MainModule.Types.Single(t => t.Namespace == "System.Arithmetic").Methods.Single(m => m.Name == "Answer");
+        Assert.Equal("System.Result`2<System.Int32,System.String>", exported.ReturnType.FullName);
+    }
+
+    [Theory]
+    [InlineData("MissingType")]
+    [InlineData("MissingType<int>")]
+    [InlineData("Result<int, string>")]
+    public void NamespaceFunction_UnresolvedReturnAnnotationPreventsEmission(string annotation)
+    {
+        var tree = SyntaxTree.ParseText("namespace Utilities\nimport System.Result.*\n"
+            + $"public func Answer() -> {annotation} {{ return Ok(42) }}");
+        var compilation = Compilation.Create("UnresolvedNamespaceReturn", [tree],
+            TestMetadataReferences.DefaultWithRavenCore,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        using var output = new MemoryStream();
+        Assert.False(compilation.Emit(output).Success);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NamespaceFunction_UnresolvedParameterAnnotationPreventsEmission(bool querySymbolFirst)
+    {
+        var tree = SyntaxTree.ParseText("namespace Utilities\npublic func Read(value: MissingType) -> int { return 42 }");
+        var compilation = Compilation.Create("UnresolvedNamespaceParameter", [tree],
+            TestMetadataReferences.DefaultWithRavenCore,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (querySymbolFirst)
+        {
+            var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+            _ = compilation.GetSemanticModel(tree).GetDeclaredSymbol(function);
+        }
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        using var output = new MemoryStream();
+        Assert.False(compilation.Emit(output).Success);
+    }
+
     private static string[] GetMarkerLabels(IList<CustomAttributeData> attributes)
         => attributes
             .Where(static attribute => attribute.AttributeType.Name == "MarkerAttribute")
