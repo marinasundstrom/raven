@@ -16838,11 +16838,13 @@ partial class BlockBinder : Binder
         static bool IsNamespaceScopeCompletionSymbol(ISymbol symbol)
             => symbol switch
             {
-                IMethodSymbol method => method.DeclaringSyntaxReferences
+                // GetNamespaceMembers has already validated the container marker.
+                // Imported members have no source declarations to inspect.
+                IMethodSymbol method => (method.IsStatic && method.DeclaringSyntaxReferences.IsEmpty) || method.DeclaringSyntaxReferences
                     .Any(static reference =>
                         reference.GetSyntax() is FunctionStatementSyntax { Parent: GlobalStatementSyntax global } &&
                         Compilation.IsTopLevelFunctionMember(global)),
-                IFieldSymbol { IsConst: true } field => field.DeclaringSyntaxReferences
+                IFieldSymbol { IsConst: true } field => field.DeclaringSyntaxReferences.IsEmpty || field.DeclaringSyntaxReferences
                     .Any(static reference =>
                         reference.GetSyntax() is ConstDeclarationSyntax constDeclaration &&
                         constDeclaration.Parent is CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax or NamespaceDeclarationSyntax),

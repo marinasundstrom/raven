@@ -203,3 +203,19 @@ namespace A.B {
 ```
 
 The outermost undeclared namespace is the **global namespace**.
+
+## Namespace members in referenced libraries
+
+Namespace functions and constants retain their namespace-level source projection
+when imported from a Raven library. Their CLI container carries
+`System.Runtime.CompilerServices.TopLevelAttribute`. The emitter resolves that marker
+from supplied reference metadata before considering host runtime types, so an
+alternative target can provide its own declaration without loading it into the host.
+Targets must provide the marker to preserve this metadata projection; its absence
+currently leaves the container unmarked rather than producing a dedicated diagnostic.
+
+Wildcard imports and completion use the marked container's accessible static members.
+Imported functions and constants do not require source syntax to appear in completion.
+A class merely named `NamespaceMembers` is not sufficient. Existing namespace-member
+and namespace-member-import options still control this projection. This uses ordinary
+CLI custom attributes and static members; it does not change the CLR instruction set.

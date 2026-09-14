@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Integrate the general namespace-metadata fixes independently of
+  the neoCLR experiment: resolve TopLevelAttribute from supplied reference metadata
+  and include referenced namespace functions/constants in completion. The regression
+  uses ordinary .NET references and default compilation options, with no experimental
+  metadata-import or target-core configuration. Keep experimental target behavior on
+  its feature branch. Validation: 47 focused namespace tests and the 5,490-test
+  broader baseline passed, with no failures or skips.
+
 - **2026-09-14:** Integrate general binding, dispatch and completion corrections
   from the neoCLR experiment: inherited interface indexers respect accessor hiding
   and ambiguity, virtual/abstract implementations retain dispatch flags, method

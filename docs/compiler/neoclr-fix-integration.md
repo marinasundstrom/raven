@@ -35,3 +35,29 @@ is prepared for review; this record does not claim it has been merged into main.
 The language specifications updated with the fixes cite the C# numeric-conversion
 and operator-applicability baselines. These corrections restore ordinary .NET
 behavior; the experiment discovered them but does not own their semantics.
+
+## Main integration directive — 2026-09-14
+
+The author directed that fixes benefiting Raven generally belong on Raven main,
+while experimental neoCLR support stays on a separate feature branch. This is the
+workflow for future fixes too: extract and validate general behavior independently;
+do not merge the experimental branch wholesale.
+
+The namespace fixes from `f80902d70` were extracted onto this main-based integration
+branch. The regression was rewritten with ordinary .NET framework references and
+default compilation options, removing its dependency on experimental MetadataImportOptions.
+It failed on imported-member completion before the fix. Metadata-first marker lookup
+also uses the existing general reference-type resolver; no new target option is added.
+The original numeric/binding batches remain unchanged.
+
+General cross-target emission candidates listed in neoCLR's assessment still require
+individual dependency review and ordinary-target evidence. They are not classified as
+permanently experimental merely because neoCLR discovered them. Iteration/propagation
+renaming, alternative array semantics and inhabited Void remain on the experiment
+branch until separately designed and approved for Raven's general target model.
+
+Main-integration validation: 47 focused namespace tests passed, followed by
+`scripts/test-baseline.sh`: 5,490 passed, zero failures/skips. The latter includes the
+new default-options namespace regression. The prior numeric and binding runtime
+checks remain the evidence for those unchanged batches. This is source integration,
+not a Raven release or NanoFramework certification.
