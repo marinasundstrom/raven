@@ -134,6 +134,8 @@ public class RuntimeIterationContractTests
                     return values.GetIterator()
                 }
                 func Shape() -> System.Type { return typeof(ArrayShape<int>) }
+                func Empty() -> int[] { return ArrayShape<int>.Empty }
+                func Visit(values: int[], action: System.Action<int>) { values.ForEach(action) }
                 func Nested(values: ArrayShape<ArrayShape<int>>) -> int[][] { return values }
                 """);
             var compilation = Compilation.Create("UnifiedArrays", [tree], references,
@@ -243,6 +245,8 @@ public class RuntimeIterationContractTests
                     public interface ReadAgain<T> : Write<T> { new T this[int index] { get; } }
                     public interface View<T> : Iterable<T> { }
                     public abstract class ArrayShape<T> : View<T> {
+                        public static T[] Empty => System.Array.Empty<T>();
+                        public void ForEach(System.Action<T> action) { }
                         public abstract Iterator<T> {{(renamed ? "Open" : "GetIterator")}}();
                     }
                     public static class Factory {

@@ -281,7 +281,7 @@ internal static class AssemblyReferenceNormalizer
             {
                 var constructed = new GenericInstanceMethod(imported);
                 foreach (var argument in method.TypeArguments)
-                    constructed.GenericArguments.Add(CreateTypeReference(module, argument, targetReferences));
+                    constructed.GenericArguments.Add(CreateTypeReference(module, argument, targetReferences, asGenericArgument: true));
                 return constructed;
             }
             return imported;
@@ -337,9 +337,11 @@ internal static class AssemblyReferenceNormalizer
     private static TypeReference CreateTypeReference(
         ModuleDefinition module,
         ITypeSymbol symbol,
-        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences,
+        bool asGenericArgument = false)
     {
-        if (symbol.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+        if (symbol.SpecialType == SpecialType.System_Unit ||
+            symbol.SpecialType == SpecialType.System_Void && !asGenericArgument)
             return module.TypeSystem.Void;
 
         if (symbol is NullableTypeSymbol nullable)
@@ -357,7 +359,10 @@ internal static class AssemblyReferenceNormalizer
             return constructedNullable;
         }
 
-        var primitive = GetPrimitiveTypeReference(module, symbol.SpecialType);
+        // A nominal Void generic argument is not the CLI no-result signature marker.
+        var primitive = asGenericArgument && symbol.SpecialType == SpecialType.System_Void
+            ? null
+            : GetPrimitiveTypeReference(module, symbol.SpecialType);
         if (primitive is not null)
             return primitive;
 
@@ -373,7 +378,7 @@ internal static class AssemblyReferenceNormalizer
         {
             var generic = new GenericInstanceType(CreateTypeReference(module, definition, targetReferences));
             foreach (var argument in constructed.TypeArguments)
-                generic.GenericArguments.Add(CreateTypeReference(module, argument, targetReferences));
+                generic.GenericArguments.Add(CreateTypeReference(module, argument, targetReferences, asGenericArgument: true));
             return generic;
         }
 

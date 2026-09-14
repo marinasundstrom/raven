@@ -113,6 +113,15 @@ The configured generic class is also a source/signature spelling of the vector:
 signatures. Ordinary array members and the declared interface members are available;
 interface member calls retain their interface owner and dispatch normally. Allocation
 uses array expressions, not a constructor on the generic metadata declaration.
-This does not project arbitrary class members, change indexed array loops, or alter
-default .NET array interfaces and variance.
+Public methods and properties declared on the configured shape are now projected as
+well, retaining their metadata owner in member references. Interface members keep
+interface dispatch; projected members take precedence over inherited names. Private
+members and constructors are excluded. This enables an instance ForEach and static
+Empty property without changing vector signatures, indexed loops or default .NET
+array contracts. It remains experimental configured-target behavior.
+
+The experimental metadata emitter also preserves nominal System.Void when used as a
+generic argument, rather than substituting the CLI no-result marker. Ordinary void
+method returns retain their existing encoding. neoCLR's array API probe exercises
+Func<T,Void> method groups and expression-bodied lambdas through execution.
 Interfaces declared by the ordinary array base type remain visible in either mode.

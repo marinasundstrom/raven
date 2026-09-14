@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14 (neoCLR experiment):** Project public methods and properties from the
+  configured generic array shape, preserving metadata owners and interface dispatch.
+  Shape members take precedence over inherited names; constructors stay unavailable.
+  Preserve nominal System.Void type references in generic metadata arguments while
+  ordinary no-result returns remain CLI void. The generic-array callback/property
+  integration executes four neoCLR samples; 25 focused compiler checks pass. These
+  target experiments remain separate from main. Main's independent void-call stack
+  fix is cherry-picked as `5c32d1d06`.
+
 - **2026-09-14:** Correct stack-result tracking for void calls and discarded unit
   calls. Returning a void invocation no longer emits a pop for a nonexistent value.
   The regression reproduces and executes under ordinary and target-metadata .NET

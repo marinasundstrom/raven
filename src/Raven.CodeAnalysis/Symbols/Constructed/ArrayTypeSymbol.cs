@@ -75,8 +75,23 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
             metadataBase.Compilation.Options.RuntimeIterationContract?.ArrayShapeTypeName is null)
             return members;
         // Interface members keep their interface owner so calls use normal dispatch.
-        return members.AddRange(GetArraySpecificInterfaces().SelectMany(i => i.GetMembers())
-            .Where(m => !m.IsStatic && !members.Any(existing => existing.Name == m.Name)));
+        var projected = GetArraySpecificInterfaces().SelectMany(i => i.GetMembers())
+            .Where(m => !m.IsStatic).ToImmutableArray();
+        var contract = metadataBase.Compilation.Options.RuntimeIterationContract!;
+        var shape = metadataBase.Compilation.GetTypeByMetadataName(contract.ArrayShapeTypeName!);
+        if (shape is { TypeKind: TypeKind.Class, Arity: 1 } &&
+            shape.ContainingAssembly?.Name == contract.AssemblyName &&
+            shape.Construct(ElementType) is INamedTypeSymbol constructedShape)
+        {
+            // Retain the metadata owner for real target members. A vector's storage and
+            // signatures stay arrays; member references name the configured generic shape.
+            projected = projected.AddRange(constructedShape.GetMembers()
+                .Where(m => m is IMethodSymbol or IPropertySymbol &&
+                    m.DeclaredAccessibility == Accessibility.Public &&
+                    m is not IMethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor } &&
+                    !projected.Any(existing => existing.Name == m.Name)));
+        }
+        return projected.AddRange(members.Where(m => !projected.Any(p => p.Name == m.Name)));
     }
 
     public ImmutableArray<ISymbol> GetMembers(string name) => GetMembers().Where(m => m.Name == name).ToImmutableArray();
