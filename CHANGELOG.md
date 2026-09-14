@@ -20,6 +20,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   target experiments remain separate from main. Main's independent void-call stack
   fix is cherry-picked as `5c32d1d06`.
 
+- **2026-09-14:** Report unresolved function return annotations even when the method
+  signature was bound before diagnostic traversal. Invalid namespace-function
+  signatures now prevent emission instead of silently producing Object returns.
+  Tests cover qualified/imported Result annotations and unresolved return/parameter
+  annotations using ordinary .NET references; no target-specific policy is added.
+
 - **2026-09-14:** Include referenced namespace functions and constants in qualified
   lookup when source declarations extend that namespace. Qualified and imported
   calls now use the same merged namespace. Regression coverage uses ordinary .NET

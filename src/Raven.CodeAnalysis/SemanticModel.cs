@@ -877,7 +877,7 @@ public partial class SemanticModel
                 if (globalFunctionBinder is not null)
                 {
                     BindDeclarationAttributes(globalFunction, globalFunctionBinder);
-                    ValidateFunctionParameters(globalFunction, globalFunctionBinder);
+                    ValidateFunctionSignature(globalFunction, globalFunctionBinder);
                     BindFunctionBody(globalFunction, globalFunctionBinder);
                     return;
                 }
@@ -889,7 +889,7 @@ public partial class SemanticModel
                     ?? GetBinderForDiagnostics(functionStatement, currentBinder) as FunctionBinder;
                 if (functionBinder is not null)
                 {
-                    ValidateFunctionParameters(functionStatement, functionBinder);
+                    ValidateFunctionSignature(functionStatement, functionBinder);
                     BindFunctionBody(functionStatement, functionBinder);
                     return;
                 }
@@ -964,7 +964,7 @@ public partial class SemanticModel
                         if (functionBinder is not null)
                         {
                             BindDeclarationAttributes(function, functionBinder);
-                            ValidateFunctionParameters(function, functionBinder);
+                            ValidateFunctionSignature(function, functionBinder);
                             BindFunctionBody(function, functionBinder);
                             continue;
                         }
@@ -983,7 +983,7 @@ public partial class SemanticModel
                     if (functionBinder is not null)
                     {
                         BindDeclarationAttributes(childFunctionStatement, functionBinder);
-                        ValidateFunctionParameters(childFunctionStatement, functionBinder);
+                        ValidateFunctionSignature(childFunctionStatement, functionBinder);
                         BindFunctionBody(childFunctionStatement, functionBinder);
                         continue;
                     }
@@ -1290,12 +1290,17 @@ public partial class SemanticModel
             }
         }
 
-        void ValidateFunctionParameters(FunctionStatementSyntax function, FunctionBinder functionBinder)
+        void ValidateFunctionSignature(FunctionStatementSyntax function, FunctionBinder functionBinder)
         {
             ValidateRegularParameters(function.ParameterList.Parameters, functionBinder.Diagnostics);
 
             _ = functionBinder.GetMethodSymbol();
             var methodBinder = functionBinder.GetMethodBodyBinder();
+            // A reused method symbol can outlive the binder that resolved its signature.
+            // Revalidate annotations on the current diagnostic path, as for parameters.
+            if (function.ReturnType is { } returnType)
+                _ = methodBinder.BindTypeSyntaxAndReport(returnType.Type, additionalDiagnostics: functionBinder.Diagnostics);
+
             foreach (var parameter in function.ParameterList.Parameters)
             {
                 cancellationToken.ThrowIfCancellationRequested();
