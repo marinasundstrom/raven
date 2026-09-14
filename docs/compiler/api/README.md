@@ -397,3 +397,6 @@ let diagnostics = result.Diagnostics
 This emits the managed assembly to `MyAssembly.dll`. An application host also
 needs the matching runtime configuration and dependencies; prefer the Raven
 project system when producing a runnable application.
+
+See [Runtime Contracts](../runtime-contracts.md) for target selection, unit representation,
+validation layers and the compiler/integration documentation workflow.

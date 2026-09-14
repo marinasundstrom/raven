@@ -127,3 +127,12 @@ No external type-union analyzer project is part of this repository.
   must stand independently on CLI metadata contracts.
 - Report the targets actually tested. Modern .NET validation is not proof of
   execution on .NET Framework or NanoFramework.
+
+## Compiler change documentation
+
+- Document compiler-affecting changes in the relevant compiler/API documentation
+  and changelog, including Runtime Contract configuration, semantic-model behavior,
+  emitted metadata and known limitations. See `docs/compiler/runtime-contracts.md`.
+- When an external runtime integration is affected, update its integration docs and
+  changelog as well. Distinguish general compiler changes from target-specific policy
+  and record validation evidence in both projects as appropriate.

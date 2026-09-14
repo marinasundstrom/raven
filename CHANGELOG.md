@@ -4,6 +4,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14 (Runtime Contracts):** Adopt the reusable unit-value contract
+  integrated independently into Raven main as `2d17199a1`. Keep nominal Void selection and its
+  metadata checks on the experimental branch. Ordinary void calls remain stackless;
+  consumed calls and unit literals use the selected empty value type, with no
+  synthesized Unit in target output. Document configuration, semantic/emission
+  boundaries and limitations in the compiler documentation. General regression
+  coverage executes default Unit and selected ValueTuple generic storage on .NET.
+  All 13 focused unit/call emission checks pass. Require compiler-affecting changes
+  to update both Raven and the affected runtime integration documentation.
+
 - **2026-09-14 (neoCLR experiment):** Synchronize reviewed Raven main fixes through
   `f70ba5026`, including indexer access, imported union patterns, metadata identities
   and empty-array capability discovery. Preserve opt-in target contracts, generic

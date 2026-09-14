@@ -14,7 +14,8 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
-        if (Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
+        if (Options.RuntimeUnitContract != previousCompilation.Options.RuntimeUnitContract
+            || Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
             || Options.RuntimeIterationContract != previousCompilation.Options.RuntimeIterationContract
             || Options.RuntimePropagationContract != previousCompilation.Options.RuntimePropagationContract
             || Options.TargetCoreAssemblyName != previousCompilation.Options.TargetCoreAssemblyName)

@@ -2074,8 +2074,12 @@ public partial class Compilation
             global.AddMember(system);
         }
 
-        var unit = new UnitTypeSymbol(this, system);
-        system.AddMember(unit);
+        var selectedUnit = Options.RuntimeUnitContract is { } contract
+            ? ReferencedAssemblySymbols.FirstOrDefault(assembly => assembly.Name == contract.AssemblyName)?.GetTypeByMetadataName(contract.TypeName)
+            : null;
+        var unit = new UnitTypeSymbol(this, selectedUnit?.ContainingNamespace ?? system);
+        if (Options.RuntimeUnitContract is null)
+            system.AddMember(unit);
         return unit;
     }
 

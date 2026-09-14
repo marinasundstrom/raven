@@ -1,3 +1,5 @@
+using System.Linq;
+
 using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -7,13 +9,13 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
     private readonly Compilation _compilation;
 
     public UnitTypeSymbol(Compilation compilation, INamespaceSymbol containingNamespace)
-        : base(SymbolKind.Type, "Unit", compilation.Assembly, null, containingNamespace, [], [])
+        : base(SymbolKind.Type, compilation.Options.RuntimeUnitContract?.TypeName.Split('.').Last() ?? "Unit", compilation.Assembly, null, containingNamespace, [], [], addAsMember: compilation.Options.RuntimeUnitContract is null)
     {
         _compilation = compilation;
         TypeKind = TypeKind.Unit;
     }
 
-    public override string Name => "Unit";
+    public override string Name => _compilation.Options.RuntimeUnitContract?.TypeName.Split('.').Last() ?? "Unit";
 
     public INamedTypeSymbol? BaseType => _compilation.GetSpecialType(SpecialType.System_ValueType);
 
