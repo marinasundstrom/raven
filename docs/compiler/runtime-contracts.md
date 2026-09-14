@@ -136,3 +136,10 @@ resolve the same referenced types as annotations when a source namespace extends
 metadata namespace. The independent `Contracts.Box<T>` regression covers both import
 and same-namespace use, executing under ordinary and explicit metadata-core emission.
 This requires no target-specific binding rule.
+
+Member-union case construction follows the admitted CLI carrier constructor contract.
+A bare empty case in a return or explicitly typed local initializer constructs its
+parameterless case value before constructing the carrier, even if the case itself
+has no Raven union-case attribute. The independent C# `Choice.Empty` contract is
+executed under ordinary and explicit-core emission; this is not a target naming rule.
+Unannotated bare ordinary types still require explicit constructor invocation.

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Construct bare empty member-union cases before passing them to
+  carrier constructors, including returns and explicitly typed local initializers.
+  Imported cases use their ordinary CLI constructors without requiring Raven case
+  metadata. Twenty focused union/generic/unit checks pass with .NET execution.
+
 - **2026-09-14:** Resolve referenced sibling types when source extends their namespace,
   including constructor expressions and generic type arguments. Preserve source-first
   lookup and ordinary CLI metadata behavior; 20 focused namespace/generic checks pass

@@ -96,6 +96,12 @@ internal sealed partial class Lowerer
 
     private BoundExpression ConvertUnionConstructorArgument(BoundExpression argument, ITypeSymbol parameterType)
     {
+        // Member-union cases are ordinary CLI types, so a bare empty case needs
+        // construction before it becomes a carrier-constructor argument.
+        if (argument is BoundTypeExpression { Type: INamedTypeSymbol caseType } &&
+            caseType.Constructors.FirstOrDefault(ctor => !ctor.IsStatic && ctor.Parameters.Length == 0) is { } caseConstructor)
+            argument = new BoundObjectCreationExpression(caseConstructor, ImmutableArray<BoundExpression>.Empty);
+
         var argumentType = argument.Type;
         if (argumentType is null || SymbolEqualityComparer.Default.Equals(argumentType, parameterType))
             return argument;
