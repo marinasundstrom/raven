@@ -6,8 +6,12 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class NamespaceMemberMetadataTests
 {
-    [Fact]
-    public void ReferenceOnlyMarkerPreservesNamespaceFunctionsForSeparateConsumers()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void ReferenceOnlyMarkerPreservesNamespaceFunctionsForSeparateConsumers(bool qualified, bool extendNamespace)
     {
         var directory = Path.Combine(Path.GetTempPath(), "raven-namespace-metadata-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -47,7 +51,10 @@ public class NamespaceMemberMetadataTests
                 Assert.Equal("NamespaceMarker", attribute.AttributeType.Scope.Name);
             }
             var consumerReferences = references.Append(MetadataReference.CreateFromFile(libraryPath)).ToArray();
-            var source = "import Utilities.*\npublic class Consumer { public static func Read() -> int { return Answer() + DefaultCount } }";
+            var prefix = qualified ? "Utilities." : "";
+            var source = "import Utilities.*\n"
+                + (extendNamespace ? "namespace Utilities { public class Context { } }\n" : "")
+                + $"public class Consumer {{ public static func Read() -> int {{ return {prefix}Answer() + {prefix}DefaultCount }} }}";
             var tree = SyntaxTree.ParseText(source);
             var consumer = Compilation.Create("Consumer", [tree], consumerReferences, options);
             Assert.Empty(consumer.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
