@@ -74,8 +74,8 @@ existing project behavior.
 
 This carries the existing compiler policy across project loading and the language
 server. It is not an SDK target, a retargeted emit setting, or a new build pipeline.
-In particular, naming a neoCLR core does not make ordinary `dotnet build` execute on
-neoCLR. A target-specific emitter/importer is still required. The configured project
+Naming an alternative core does not make ordinary `dotnet build` execute on
+another runtime. A target-specific emitter/importer is still required. The configured project
 provides target-aware completion using the same semantic APIs as other Raven projects.
 
 Explicit metadata-core projects also omit the automatically generated .NET

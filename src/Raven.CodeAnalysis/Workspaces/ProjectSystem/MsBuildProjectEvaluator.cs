@@ -231,6 +231,11 @@ internal static class MsBuildProjectEvaluator
         if (metadataCoreAssemblyName is not null)
             compilationOptions = compilationOptions.WithMetadataImportOptions(new MetadataImportOptions(metadataCoreAssemblyName));
 
+        var unitAssembly = GetOptionalProperty(project, "RavenUnitAssemblyName");
+        var unitType = GetOptionalProperty(project, "RavenUnitType");
+        if (unitAssembly is not null || unitType is not null)
+            compilationOptions = compilationOptions.WithRuntimeUnitContract(new RuntimeUnitContract(unitAssembly ?? "", unitType ?? ""));
+
         var propagationAssembly = GetOptionalProperty(project, "RavenPropagationAssemblyName");
         var propagationInterface = GetOptionalProperty(project, "RavenPropagationInterfaceType");
         if (propagationAssembly is not null || propagationInterface is not null)

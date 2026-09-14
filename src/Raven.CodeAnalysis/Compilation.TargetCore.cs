@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace Raven.CodeAnalysis;
 
 public partial class Compilation
@@ -11,6 +13,15 @@ public partial class Compilation
 
     private Diagnostic? GetTargetCoreConfigurationDiagnostic()
     {
+        if (Options.RuntimeUnitContract is { } unit)
+        {
+            if (Options.TargetCoreAssemblyName != unit.AssemblyName || string.IsNullOrWhiteSpace(unit.TypeName))
+                return TargetCoreError("the unit contract requires its explicitly configured target core assembly and type");
+            var type = GetTypeByMetadataName(unit.TypeName);
+            if (type is null || !type.IsValueType || type.Arity != 0 || type.ContainingType is not null || type.ContainingAssembly?.Name != unit.AssemblyName
+                || type.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic))
+                return TargetCoreError("the unit contract must name an empty value type in the target core");
+        }
         if (Options.TargetCoreAssemblyName is not { } name)
             return null;
         if (string.IsNullOrWhiteSpace(name) || Options.MetadataImportOptions?.CoreAssemblyName != name)

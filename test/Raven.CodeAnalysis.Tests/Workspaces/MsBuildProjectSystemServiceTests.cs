@@ -12,6 +12,28 @@ public sealed class MsBuildProjectSystemServiceTests
 {
     [Theory]
     [InlineData("", null)]
+    [InlineData("<RavenUnitAssemblyName>System.Runtime</RavenUnitAssemblyName><RavenUnitType>System.ValueTuple</RavenUnitType>", "System.ValueTuple")]
+    [InlineData("<RavenUnitType>System.ValueTuple</RavenUnitType>", "System.ValueTuple")]
+    public void OpenProject_RuntimeUnitContract_PreservesSelection(string properties, string? expectedType)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(path, $"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework>{properties}</PropertyGroup></Project>");
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework, projectSystemService: service);
+            var id = workspace.OpenProject(path);
+            var contract = workspace.CurrentSolution.GetProject(id)!.CompilationOptions!.RuntimeUnitContract;
+            Assert.Equal(expectedType, contract?.TypeName);
+            if (contract is not null)
+                Assert.Equal(properties.Contains("RavenUnitAssemblyName") ? "System.Runtime" : "", contract.AssemblyName);
+        }
+        finally { DeleteDirectoryIfExists(root); }
+    }
+
+    [Theory]
+    [InlineData("", null)]
     [InlineData("<RavenPropagationAssemblyName>Target</RavenPropagationAssemblyName><RavenPropagationInterfaceType>System.Propagatable`3</RavenPropagationInterfaceType>", "Target")]
     [InlineData("<RavenPropagationInterfaceType>System.Propagatable`3</RavenPropagationInterfaceType>", "")]
     public void OpenProject_RuntimePropagationContract_PreservesExplicitSelection(string properties, string? assembly)

@@ -124,7 +124,8 @@ internal static class AssemblyReferenceNormalizer
         IReadOnlyDictionary<string, IMethodSymbol>? metadataMethodProxies = null,
         Stream? pdbInput = null,
         Stream? pdbOutput = null,
-        IReadOnlyDictionary<string, IFieldSymbol>? metadataFieldProxies = null)
+        IReadOnlyDictionary<string, IFieldSymbol>? metadataFieldProxies = null,
+        RuntimeUnitContract? unitContract = null)
     {
         ArgumentNullException.ThrowIfNull(peInput);
         ArgumentNullException.ThrowIfNull(peOutput);
@@ -145,6 +146,7 @@ internal static class AssemblyReferenceNormalizer
         var module = assembly.MainModule;
         RewriteMetadataMethodProxies(module, metadataMethodProxies, targetReferences);
         RewriteMetadataFieldProxies(module, metadataFieldProxies, targetReferences);
+        RuntimeUnitProjection.Apply(module, unitContract, targetCoreLibrary);
         RetargetAssemblyIdentities(module, targetReferences);
         var targetReference = module.AssemblyReferences.FirstOrDefault(reference =>
             string.Equals(reference.FullName, targetCoreLibrary.FullName, StringComparison.OrdinalIgnoreCase));
@@ -296,7 +298,9 @@ internal static class AssemblyReferenceNormalizer
 
         var reference = new MethodReference(
             method.MetadataName,
-            CreateTypeReference(module, method.ReturnType, targetReferences),
+            method.ReturnType.SpecialType == SpecialType.System_Unit
+                ? module.TypeSystem.Void
+                : CreateTypeReference(module, method.ReturnType, targetReferences),
             CreateTypeReference(module, method.ContainingType!, targetReferences))
         {
             HasThis = !method.IsStatic,
@@ -357,7 +361,11 @@ internal static class AssemblyReferenceNormalizer
         ITypeSymbol symbol,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
     {
-        if (symbol.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+        if (symbol.SpecialType == SpecialType.System_Unit)
+            return module.GetType("System.Unit")
+                ?? module.GetTypeReferences().FirstOrDefault(type => type.FullName == "System.Unit")
+                ?? throw new InvalidOperationException("The emitted unit value type is missing.");
+        if (symbol.SpecialType == SpecialType.System_Void)
             return module.TypeSystem.Void;
 
         if (symbol is NullableTypeSymbol nullable)

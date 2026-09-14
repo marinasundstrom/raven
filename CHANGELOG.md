@@ -4,6 +4,22 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Suppress host-generated TargetFrameworkAttribute source for explicit
+  metadata-core projects, matching reference isolation. Target projects can supply
+  supported attributes explicitly; ordinary .NET project generation is unchanged.
+
+- **2026-09-14:** Add the reusable RuntimeUnitContract and project properties for
+  selecting an empty unit value type. No-result calls keep their CLI stack behavior;
+  value contexts materialize the selected type, and target emission removes the
+  intermediate Unit definition. Document Runtime Contracts and their separate
+  binding, emission and runtime responsibilities. Tests use System.ValueTuple on
+  .NET; alternative-runtime Void policies are not part of this integration. Preserve
+  Unit as a value type in generic signatures, avoiding invalid `List<void>` metadata.
+  Default Unit and selected ValueTuple programs both execute on .NET. Require compiler
+  and affected runtime integration documentation to be maintained together. The
+  combined contract/project regression passes all 87 tests; the bounded CI gate passes
+  311 compiler, 73 core and 249 language-server checks (three existing skips).
+
 - **2026-09-14:** Integrate consistent target-core selection for compiler APIs,
   project builds and editor context. Explicit reference sets stay isolated from
   host-framework defaults; inconsistent import/emission selections are diagnosed.
