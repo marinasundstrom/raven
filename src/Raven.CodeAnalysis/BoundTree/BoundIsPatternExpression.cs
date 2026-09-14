@@ -838,9 +838,48 @@ internal partial class BlockBinder
         // A bare name in pattern position is parsed as a constant-pattern expression so that
         // value symbols (including enum members and static fields) remain available. Once that
         // name binds to a type, however, it is a type test with an implicit discard designator.
-        if (expression is BoundTypeExpression && syntax.Expression is TypeSyntax typeSyntax)
+        var patternType = expression switch
         {
-            var declaredType = BindDeclarationPatternType(typeSyntax, inputType);
+            BoundTypeExpression typeExpression => typeExpression.Type,
+            BoundUnionCaseExpression unionCase when syntax.Expression is TypeSyntax or MemberAccessExpressionSyntax
+                => unionCase.CaseType,
+            _ => null
+        };
+        if (patternType is not null)
+        {
+            if (expression is BoundUnionCaseExpression caseExpression)
+            {
+                var genericName = syntax.Expression switch
+                {
+                    GenericNameSyntax generic => generic,
+                    MemberAccessExpressionSyntax { Name: GenericNameSyntax generic } => generic,
+                    QualifiedNameSyntax { Right: GenericNameSyntax generic } => generic,
+                    _ => null
+                };
+                if (genericName is not null)
+                {
+                    if (!TryBindTypeArguments(genericName, out var arguments, out var arity))
+                        return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+                    if (arity != caseExpression.CaseType.Arity)
+                    {
+                        _diagnostics.ReportTypeRequiresTypeArguments(caseExpression.CaseType.Name,
+                            caseExpression.CaseType.Arity, genericName.GetLocation());
+                        return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+                    }
+                    if (!ValidateTypeArgumentConstraints(caseExpression.CaseType, arguments,
+                            i => GetTypeArgumentLocation(genericName.TypeArgumentList.Arguments, genericName.GetLocation(), i),
+                            caseExpression.CaseType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))
+                        return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
+                    patternType = TryConstructGeneric(caseExpression.CaseType, arguments, arity) ?? Compilation.ErrorTypeSymbol;
+                }
+                else if (inputType.TryGetUnion() is INamedTypeSymbol carrier)
+                {
+                    patternType = ProjectCaseSymbolToUnionArguments(caseExpression.CaseType, carrier);
+                }
+            }
+            var declaredType = expression is BoundTypeExpression && syntax.Expression is TypeSyntax typeSyntax
+                ? BindDeclarationPatternType(typeSyntax, inputType)
+                : EnsureTypeAccessible(InferDeclarationPatternTypeFromInput(patternType, inputType), syntax.Expression.GetLocation());
             return new BoundDeclarationPattern(declaredType, new BoundDiscardDesignator(declaredType));
         }
 

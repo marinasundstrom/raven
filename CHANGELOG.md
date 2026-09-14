@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Treat qualified type names in `is` patterns as type tests rather
+  than values to compare. Preserve explicit generic arguments for imported Raven
+  union cases, check their arity/constraints, and use the semantic extraction type
+  for target-core pattern locals. Constructed unions project declared member-case
+  parameters from their carrier, preventing open variant types during pattern emission.
+  Both active and inactive cases are covered for ordinary member unions and Raven-produced
+  unions; no target-specific policy changed. All 272 focused checks and the
+  .NET 10/.NET 11 build/run matrix passed.
+
 - **2026-09-14:** Require indexed access for indexer properties. Dot completion no
   longer offers metadata indexer names such as `Item`, and `items.Item` no longer
   binds as an element without arguments. `items[index].` retains element-member
@@ -33,8 +42,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   Target-core emission now keeps closed semantic carrier/variant locals, preserves
   primitive CLI signatures and by-reference wrappers, and retains assembly scopes
   after replacing temporary method references. Imported Raven union-case calls use
-  their actual metadata container rather than the logical carrier. Bare type-pattern
-  emission and boxing optimizations remain separate review work. All 291 focused
+  their actual metadata container rather than the logical carrier. The bare type-pattern
+  follow-through is recorded above; independent boxing optimizations remain deferred. All 291 focused
   metadata/pattern/by-reference checks and the .NET 10/.NET 11 build/run matrix
   passed.
 

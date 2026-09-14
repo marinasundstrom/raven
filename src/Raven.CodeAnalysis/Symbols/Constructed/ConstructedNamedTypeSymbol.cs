@@ -1111,7 +1111,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
 
             var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(unionDefinition.MemberTypes.Length);
             foreach (var memberType in unionDefinition.MemberTypes)
-                builder.Add(Substitute(memberType));
+                builder.Add(memberType is IUnionCaseTypeSymbol { IsUnionCase: true } caseType
+                    ? SubstituteNamedType(caseType)
+                    : Substitute(memberType));
 
             var substitutedMembers = builder.MoveToImmutable();
             if (ShouldCacheMutableSourceUnionState())

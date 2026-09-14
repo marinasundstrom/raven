@@ -89,6 +89,13 @@ A variant-type property pattern such as
 active `Card` through the carrier and then applies the recursive property
 pattern; the whole-pattern designation receives the extracted `Card` value.
 
+Qualified variant types also work as bare type tests, for example
+`result is Outcome.Ok<int>`. This tests whether that case is active without invoking
+a case factory or comparing a constructed value. Explicit generic arguments belong
+to the case type and retain their normal arity and constraint checks. Imported member
+unions and Raven-produced unions follow the same rule. Qualified enum members and
+static values retain their existing value-pattern meaning.
+
 ## Pattern combinators
 
 * `pattern1 and pattern2` — **conjunction**. Succeeds only when both operands

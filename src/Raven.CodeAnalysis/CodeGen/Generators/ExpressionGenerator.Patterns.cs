@@ -261,7 +261,9 @@ internal partial class ExpressionGenerator
                 {
                     var unionClrType = Generator.InstantiateType(ResolveClrType(inputType));
                     var tryGetMethod = CloseMethodOnRuntimeCarrier(unionClrType, GetMethodInfo(tryGetSymbol));
-                    var outParameter = tryGetMethod.GetParameters() is [{ ParameterType: var outType }] &&
+                    var outParameter = MethodGenerator.TypeGenerator.CodeGen.UsesTargetMetadata
+                        ? Generator.InstantiateType(ResolveClrType(tryGetSymbol.Parameters[0].GetByRefElementType()))
+                        : tryGetMethod.GetParameters() is [{ ParameterType: var outType }] &&
                                        outType.IsByRef &&
                                        outType.GetElementType() is Type outElementType
                         ? CloseTypeFromMethodContext(outElementType, tryGetMethod.DeclaringType)

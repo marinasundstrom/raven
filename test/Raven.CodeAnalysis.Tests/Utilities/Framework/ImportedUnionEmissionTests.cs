@@ -69,6 +69,14 @@ public class ImportedUnionEmissionTests
                 import Contracts.*
                 import Contracts.Choice.*
                 public class Consumer {
+                    public static func IsOk(value: int) -> bool {
+                        if value < 0 {
+                            let failureChoice = Choice<int, string>(Choice.Error<string>("failed"))
+                            return failureChoice is Choice.Ok<int>
+                        }
+                        let choice = Choice<int, string>(Choice.Ok<int>(value))
+                        return choice is Choice.Ok<int>
+                    }
                     public static func Pick(value: Choice<int, string>) -> int {
                         return match value {
                             {{success}} => number
@@ -112,6 +120,9 @@ public class ImportedUnionEmissionTests
             var run = loaded.Assembly.GetType("Consumer")!.GetMethod("Run")!;
             Assert.Equal(84, run.Invoke(null, [42]));
             Assert.Equal(-1, run.Invoke(null, [-1]));
+            var isOk = loaded.Assembly.GetType("Consumer")!.GetMethod("IsOk")!;
+            Assert.Equal(true, isOk.Invoke(null, [42]));
+            Assert.Equal(false, isOk.Invoke(null, [-1]));
         }
         finally
         {
@@ -150,11 +161,27 @@ public class ImportedUnionEmissionTests
                 var emitted = library.Emit(stream);
                 Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
             }
+            var invalid = Compilation.Create("InvalidConsumer", [SyntaxTree.ParseText("""
+                public class Consumer {
+                    public static func IsOk(value: Outcome<int, string>) -> bool {
+                        return value is Outcome.Ok<int, string>
+                    }
+                }
+                """)], paths.Append(libraryPath).Select(MetadataReference.CreateFromFile).ToArray(),
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            Assert.Contains(invalid.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
+                diagnostic.GetMessage().Contains("type argument"));
             var compilation = Compilation.Create("Consumer", [SyntaxTree.ParseText("""
                 public class Consumer {
                     public static func Run(value: int) -> int {
                         let result = Factory.Create(value)
                         return Pick(result)
+                    }
+                    public static func IsOk(value: int) -> bool {
+                        return Factory.Create(value) is Outcome.Ok<int>
+                    }
+                    public static func IsError(value: int) -> bool {
+                        return Factory.Create(value) is Outcome.Error<string>
                     }
                     public static func Pick(value: Outcome<int, string>) -> int {
                         return match value {
@@ -184,6 +211,12 @@ public class ImportedUnionEmissionTests
             var run = loaded.Assembly.GetType("Consumer")!.GetMethod("Run")!;
             Assert.Equal(42, run.Invoke(null, [42]));
             Assert.Equal(-1, run.Invoke(null, [-1]));
+            var isError = loaded.Assembly.GetType("Consumer")!.GetMethod("IsError")!;
+            Assert.Equal(false, isError.Invoke(null, [42]));
+            Assert.Equal(true, isError.Invoke(null, [-1]));
+            var isOk = loaded.Assembly.GetType("Consumer")!.GetMethod("IsOk")!;
+            Assert.Equal(true, isOk.Invoke(null, [42]));
+            Assert.Equal(false, isOk.Invoke(null, [-1]));
         }
         finally
         {
