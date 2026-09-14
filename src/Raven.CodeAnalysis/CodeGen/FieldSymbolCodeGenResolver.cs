@@ -13,6 +13,9 @@ internal static class FieldSymbolCodeGenResolver
         if (codeGen is null)
             throw new ArgumentNullException(nameof(codeGen));
 
+        if (codeGen.TryGetMetadataFieldProxy(fieldSymbol, out var proxy))
+            return proxy;
+
         return fieldSymbol switch
         {
             TupleFieldSymbol tupleFieldSymbol => tupleFieldSymbol.UnderlyingField.GetFieldInfo(codeGen),

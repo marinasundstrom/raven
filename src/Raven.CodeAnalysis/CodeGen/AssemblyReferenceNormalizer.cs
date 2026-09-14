@@ -24,7 +24,8 @@ internal static class AssemblyReferenceNormalizer
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences = null,
         IReadOnlyDictionary<string, IMethodSymbol>? metadataMethodProxies = null,
         Stream? pdbInput = null,
-        Stream? pdbOutput = null)
+        Stream? pdbOutput = null,
+        IReadOnlyDictionary<string, IFieldSymbol>? metadataFieldProxies = null)
     {
         if (peInput is null)
             throw new ArgumentNullException(nameof(peInput));
@@ -45,8 +46,9 @@ internal static class AssemblyReferenceNormalizer
         var assembly = AssemblyDefinition.ReadAssembly(peInput, readerParameters);
 
         var module = assembly.MainModule;
-        var rewroteMetadataMethods = metadataMethodProxies is { Count: > 0 };
+        var rewroteMetadataMethods = metadataMethodProxies is { Count: > 0 } || metadataFieldProxies is { Count: > 0 };
         RewriteMetadataMethodProxies(module, metadataMethodProxies, targetReferences);
+        RewriteMetadataFieldProxies(module, metadataFieldProxies, targetReferences);
         RetargetKeptCoreLibraryTypeScopes(module, targetReferences);
         var coreLibRefs = module.AssemblyReferences
             .Where(reference => string.Equals(reference.Name, "System.Private.CoreLib", StringComparison.OrdinalIgnoreCase))
@@ -121,7 +123,8 @@ internal static class AssemblyReferenceNormalizer
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences = null,
         IReadOnlyDictionary<string, IMethodSymbol>? metadataMethodProxies = null,
         Stream? pdbInput = null,
-        Stream? pdbOutput = null)
+        Stream? pdbOutput = null,
+        IReadOnlyDictionary<string, IFieldSymbol>? metadataFieldProxies = null)
     {
         ArgumentNullException.ThrowIfNull(peInput);
         ArgumentNullException.ThrowIfNull(peOutput);
@@ -141,6 +144,7 @@ internal static class AssemblyReferenceNormalizer
         var assembly = AssemblyDefinition.ReadAssembly(peInput, readerParameters);
         var module = assembly.MainModule;
         RewriteMetadataMethodProxies(module, metadataMethodProxies, targetReferences);
+        RewriteMetadataFieldProxies(module, metadataFieldProxies, targetReferences);
         RetargetAssemblyIdentities(module, targetReferences);
         var targetReference = module.AssemblyReferences.FirstOrDefault(reference =>
             string.Equals(reference.FullName, targetCoreLibrary.FullName, StringComparison.OrdinalIgnoreCase));
@@ -165,6 +169,34 @@ internal static class AssemblyReferenceNormalizer
             module.AssemblyReferences.Add(targetReference);
 
         assembly.Write(peOutput, CreateWriterParameters(pdbOutput));
+    }
+
+    private static void RewriteMetadataFieldProxies(
+        ModuleDefinition module,
+        IReadOnlyDictionary<string, IFieldSymbol>? proxies,
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
+    {
+        if (proxies is null || proxies.Count == 0)
+            return;
+        var proxyType = module.Types.Single(type => type.Name == "<RavenMetadataFieldReferences>");
+        var replacements = proxies.ToDictionary(pair => pair.Key, pair =>
+        {
+            var original = pair.Value;
+            while (original is SubstitutedFieldSymbol substituted)
+                original = substituted.OriginalField;
+            var field = module.ImportReference(((PEFieldSymbol)original).GetFieldInfo());
+            field.DeclaringType = CreateTypeReference(module, pair.Value.ContainingType!, targetReferences);
+            return field;
+        }, StringComparer.Ordinal);
+        RetargetHostTypeScopesFromMetadataMethods(module,
+            replacements.Values.Select(field => new MethodReference("", field.FieldType, field.DeclaringType)));
+        foreach (var type in EnumerateTypes(module.Types))
+            foreach (var method in type.Methods.Where(method => method.HasBody))
+                foreach (var instruction in method.Body.Instructions)
+                    if (instruction.Operand is FieldReference field && field.DeclaringType.Name == proxyType.Name
+                        && replacements.TryGetValue(field.Name, out var replacement))
+                        instruction.Operand = replacement;
+        module.Types.Remove(proxyType);
     }
 
     private static void RewriteMetadataMethodProxies(

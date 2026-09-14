@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Preserve closed generic field metadata during target-core emission,
+  including instance reads and static reads/writes. Retain the generic definition's
+  field signature and closed declaring type; remove temporary proxies from the final
+  assembly. Recorded that general fixes, including those benefiting .NET Framework
+  and NanoFramework, belong on main while neoCLR integration remains experimental.
+  All 22 focused checks and the .NET 10/.NET 11 build/run matrix passed.
+
 - **2026-09-14:** Preserve closed generic method specifications in target-core
   emission, including concrete method arguments, generic definition signatures and
   their assembly scopes. This fixes metadata-context mismatches for metadata-only

@@ -136,3 +136,22 @@ sequence. This adds no neoCLR target configuration or language syntax.
 Validation: all 27 focused metadata, generic-invocation and constructor checks
 passed. The repository .NET 10/.NET 11 build/run matrix passed with SDK
 `11.0.100-rc.1.26425.128`. This is not the full release gate.
+
+## Closed generic fields — 2026-09-14
+
+Independently extracted `4af98e7c1` on `codex/general-field-metadata` from main.
+The default-options, ordinary-reference fixture reproduced a MetadataLoadContext
+mismatch when reading `Box<int>.Value` before the fix. Field tokens now preserve
+the closed declaring type and the generic definition's field signature. The
+regression also covers static reads/writes and checks that temporary proxy types
+are removed from the final assembly. Default emission uses the existing resolver.
+
+The author explicitly clarified that fixes benefiting Raven on .NET Framework or
+NanoFramework also belong on main. Repository instructions now preserve this
+boundary: general compiler fixes on main, neoCLR-specific integration on its
+experimental branch. Test results must identify the actual target; modern .NET
+matrix success does not claim .NET Framework or NanoFramework execution.
+
+Validation: all 22 focused metadata, field and generic-invocation checks passed.
+The repository .NET 10/.NET 11 build/run matrix passed with SDK
+`11.0.100-rc.1.26425.128`. No .NET Framework or NanoFramework runtime test was run.
