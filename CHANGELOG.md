@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Resolve the optional empty-array factory from target metadata.
+  Empty collection expressions targeting arrays or IEnumerable<T> retain
+  System.Array.Empty<T>() when available and otherwise allocate an empty array.
+  No host-only factory reference or target-specific policy is injected. Regression
+  coverage checks metadata and execution with .NET 10/.NET 11 references, with
+  and without the factory, under ordinary and target-metadata emission.
+
 - **2026-09-14:** Correct stack-result tracking for void calls and discarded unit
   calls. Returning a void invocation no longer emits a pop for a nonexistent value.
   The regression reproduces and executes under ordinary and target-metadata .NET
