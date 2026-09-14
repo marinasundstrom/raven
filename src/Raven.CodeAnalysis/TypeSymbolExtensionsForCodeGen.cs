@@ -51,7 +51,7 @@ public static class TypeSymbolExtensionsForCodeGen
     // Keep target-only types in the metadata context. Loading them into the compiler
     // host is neither necessary for persisted emission nor valid for reference assemblies.
     private static bool ContainsEmittedType(Type type)
-        => type is System.Reflection.Emit.TypeBuilder ||
+        => type is System.Reflection.Emit.TypeBuilder or System.Reflection.Emit.GenericTypeParameterBuilder ||
            type.HasElementType && ContainsEmittedType(type.GetElementType()!) ||
            type.IsConstructedGenericType && type.GetGenericArguments().Any(ContainsEmittedType);
 
