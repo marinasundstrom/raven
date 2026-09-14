@@ -155,3 +155,31 @@ matrix success does not claim .NET Framework or NanoFramework execution.
 Validation: all 22 focused metadata, field and generic-invocation checks passed.
 The repository .NET 10/.NET 11 build/run matrix passed with SDK
 `11.0.100-rc.1.26425.128`. No .NET Framework or NanoFramework runtime test was run.
+
+## Generic delegate construction — 2026-09-14
+
+Extracted `5f274c063` independently on `codex/general-delegate-metadata` from main.
+The normal-reference, default-CompilationOptions regression failed before the fix
+while constructing a metadata-only `Callback<int>` delegate. Delegate normalization
+now preserves an existing metadata constructor proxy instead of re-resolving it
+through reflection and mixing compiler-host and metadata-context types. The final
+constructor retains its target assembly, closed owner and Object/IntPtr signature.
+This is a general emitter correction and introduces no neoCLR-specific mapping.
+
+The intended target architecture is reusable compiler mechanisms with explicit
+framework-contract mappings; neoCLR's experimental configuration and unresolved
+semantics stay separate. A compiler defect discovered through neoCLR remains a
+general fix when the same metadata contract applies to other frameworks.
+
+The author further clarified that neoCLR-specific tests and mappings must not enter
+main yet. These fixtures use ordinary CLI metadata contracts and no neoCLR options.
+A possible future emission backend is an open evaluation, outside this stabilization.
+
+The delegate candidate passed 26 focused tests and the modern .NET target matrix
+before it was set aside for the [main stability audit](main-stability-audit.md).
+That audit found and corrected an attribute serialization regression at `5a67d5d4c`;
+the delegate fix was then restored on top for combined focused validation.
+
+Combined validation after restoring the delegate fix: 55 focused metadata, attribute,
+delegate and generic-call tests passed. The broader audit remains tied to its stated
+commits; it is not reported as a rerun on this delegate commit.

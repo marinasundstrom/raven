@@ -1431,6 +1431,11 @@ internal partial class ExpressionGenerator : Generator
 
     private ConstructorInfo NormalizeDelegateConstructor(ConstructorInfo constructor, Type delegateClrType)
     {
+        // Target metadata proxies already retain the closed constructor identity.
+        // Rebinding them through reflection mixes the host and metadata contexts.
+        if (MethodGenerator.TypeGenerator.CodeGen.IsMetadataConstructorProxy(constructor))
+            return constructor;
+
         if (constructor.DeclaringType == delegateClrType &&
             !constructor.ContainsGenericParameters &&
             !(constructor.DeclaringType?.ContainsGenericParameters ?? false))

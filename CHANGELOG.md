@@ -15,6 +15,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   unresolved; do not claim a full green release gate. The corrected compiler also
   passed the .NET 10/.NET 11 build/run matrix.
 
+- **2026-09-14:** Preserve metadata constructor proxies when converting method groups
+  to closed generic delegates during target-core emission. Avoid mixing host and
+  metadata-context types while retaining the delegate's target identity and signature.
+  After the attribute regression correction, all 55 combined focused checks pass.
+
 - **2026-09-14:** Preserve closed generic field metadata during target-core emission,
   including instance reads and static reads/writes. Retain the generic definition's
   field signature and closed declaring type; remove temporary proxies from the final

@@ -122,6 +122,8 @@ No external type-union analyzer project is part of this repository.
   Framework or NanoFramework, even when discovered through neoCLR integration.
 - Develop and validate fixes independently on a main-based feature branch, then
   integrate them. Keep neoCLR-specific integration and policies on the experimental
-  branch; do not merge that branch wholesale into main.
+  branch; do not merge that branch wholesale into main. NeoCLR-specific code,
+  mappings and tests are not candidates for main yet. General regression fixtures
+  must stand independently on CLI metadata contracts.
 - Report the targets actually tested. Modern .NET validation is not proof of
   execution on .NET Framework or NanoFramework.
