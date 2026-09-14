@@ -1987,7 +1987,7 @@ internal class CodeGenerator
         ExtensionAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionAttribute");
         _extensionAttributeCtor ??= ExtensionAttributeType?.GetConstructor(Type.EmptyTypes);
         UnitType ??= Compilation.ResolveRuntimeType("System.Unit");
-        TopLevelAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.TopLevelAttribute");
+        TopLevelAttributeType ??= ResolveReferencedRuntimeType("System.Runtime.CompilerServices.TopLevelAttribute");
         _topLevelAttributeCtor ??= TopLevelAttributeType?.GetConstructor(Type.EmptyTypes);
 
         if (DiscriminatedUnionAttributeType is null)
@@ -2239,7 +2239,7 @@ internal class CodeGenerator
     {
         if (_topLevelAttributeCtor is null)
         {
-            var type = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.TopLevelAttribute");
+            var type = ResolveReferencedRuntimeType("System.Runtime.CompilerServices.TopLevelAttribute");
             _topLevelAttributeCtor = type?.GetConstructor(Type.EmptyTypes);
         }
 

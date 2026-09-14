@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Resolve namespace-container TopLevelAttribute from supplied
+  reference metadata before host runtime types, preserving namespace functions in
+  separately compiled target libraries. Completion now includes imported namespace
+  functions and constants instead of requiring source syntax declarations. Existing
+  namespace-import options and accessibility rules remain in effect. Added a
+  reference-only marker regression covering emission, consumer binding and completion.
+
 - **2026-09-14:** Let evaluated projects select the emission core with
   RavenTargetCoreAssemblyName and CompilationOptions.WithTargetCoreAssemblyName.
   Normal Emit/rvnc calls resolve it from the explicitly supplied metadata core;
