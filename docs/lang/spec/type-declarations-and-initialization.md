@@ -136,7 +136,7 @@ let ints = Box<int>(1)
 let words = Box<string>("ok")
 ```
 
-Instantiating a generic type supplies concrete type arguments between `<` and
+Instantiating a generic type supplies type arguments between `<` and
 `>` in the same order the parameters were declared. The compiler emits standard
 CLR constructed types, so Raven generics interoperate seamlessly with existing
 .NET APIs. When a type argument itself is generic, nest the constructions as
@@ -155,6 +155,11 @@ class Repository<TContext: class, IDisposable> {
 The compiler enforces the constraint set whenever the generic type is
 constructed. An argument that violates a constraint reports `RAV0320` and
 identifies the unmet requirement.
+
+Explicit constructor type arguments can use parameters of the containing generic
+type. For example, inside `Box<T>`, `Box<T>(value)` constructs another instance with
+the same type argument; `T` does not need to be concrete at compile time. This also
+applies to qualified calls such as `Examples.Box<T>(value)`.
 
 Generic type arguments may be inferred from constructor arguments when the type
 name is invoked without an explicit `<...>` list. This includes function

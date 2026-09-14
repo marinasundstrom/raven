@@ -1696,11 +1696,19 @@ partial class BlockBinder
         Location GetCallLocation() => callSyntax.GetLocation() ?? receiverSyntax.GetLocation() ?? Location.None;
         Location GetReceiverLocation() => receiverSyntax.GetLocation() ?? callSyntax.GetLocation() ?? Location.None;
 
+        // Box<T> inside Box<T> is an explicitly constructed type, even though its
+        // arguments equal the declaration's own parameters. Missing arguments still
+        // take the constructor/target inference path below.
+        var hasExplicitTypeArguments = callSyntax is InvocationExpressionSyntax invocation
+            && (invocation.Expression is GenericNameSyntax
+                || invocation.Expression is MemberAccessExpressionSyntax { Name: GenericNameSyntax });
+        var needsTypeArguments = !hasExplicitTypeArguments && IsUninstantiatedGenericType(typeSymbol);
+
         if (typeSymbol.TypeKind == TypeKind.Error)
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
 
         if (typeSymbol.IsGenericType &&
-            !IsUninstantiatedGenericType(typeSymbol) &&
+            !needsTypeArguments &&
             !ValidateTypeArgumentConstraints(
                 typeSymbol,
                 typeSymbol.TypeArguments,
@@ -1737,7 +1745,7 @@ partial class BlockBinder
         // compatible.  That produces a SourceMethodSymbol on the open/self-constructed generic, which
         // codegen emits as `newobj Type`1::.ctor(!0)` instead of the correct
         // `newobj Type`1<!!E>::.ctor(!!E)`.
-        if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol)
+        if (typeSymbol.IsGenericType && needsTypeArguments
             && TryInferConstructedTypeForConstructor(typeSymbol, boundArguments, out var earlyInferred)
             && !SymbolEqualityComparer.Default.Equals(earlyInferred, typeSymbol))
         {
@@ -1746,7 +1754,7 @@ partial class BlockBinder
 
         // If constructor-argument inference cannot infer type arguments (for example on parameterless
         // constructors), use target typing from the surrounding context, e.g. `val x: Box<int> = Box()`.
-        if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol)
+        if (typeSymbol.IsGenericType && needsTypeArguments
             && TryInferConstructedTypeFromTargetType(typeSymbol, callSyntax, out var targetTypedInferred)
             && !SymbolEqualityComparer.Default.Equals(targetTypedInferred, typeSymbol))
         {
@@ -1756,7 +1764,7 @@ partial class BlockBinder
         // Generic union case construction can also be target-typed from the enclosing union carrier,
         // e.g. `val option: Option<T> = Some(payload)`. That target does not match the case type
         // directly, so regular target-typed constructor inference cannot see it.
-        if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol)
+        if (typeSymbol.IsGenericType && needsTypeArguments
             && TryInferConstructedUnionCaseTypeFromTargetType(typeSymbol, callSyntax, out var targetTypedUnionCase)
             && !SymbolEqualityComparer.Default.Equals(targetTypedUnionCase, typeSymbol))
         {
@@ -1767,7 +1775,7 @@ partial class BlockBinder
         // target typing both failed to determine its type arguments. Do not allow overload
         // resolution to proceed on the open constructors, because that would incorrectly accept
         // calls like `MyResult(42)` for `union MyResult<T>(List<T> | int)`.
-        if (typeSymbol.IsGenericType && IsUninstantiatedGenericType(typeSymbol))
+        if (typeSymbol.IsGenericType && needsTypeArguments)
         {
             _diagnostics.ReportTypeRequiresTypeArguments(typeSymbol.Name, typeSymbol.Arity, GetReceiverLocation());
             return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.OtherError);
