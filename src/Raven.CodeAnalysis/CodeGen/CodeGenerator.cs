@@ -1661,6 +1661,8 @@ internal class CodeGenerator
             pdbOutput: pdbOutputStream);
     }
 
+    internal bool UsesTargetMetadata => _emitOptions?.TargetCoreLibraryIdentity is not null;
+
     internal MethodInfo GetMethodInfoOrMetadataProxy(IMethodSymbol methodSymbol)
     {
         if (_emitOptions?.TargetCoreLibraryIdentity is not null &&
@@ -1693,7 +1695,9 @@ internal class CodeGenerator
         var proxyName = $"Reference{++_metadataMethodProxyOrdinal}";
         var returnType = GetMetadataProxySignatureType(metadataMethod.ReturnType);
         var parameterTypes = metadataMethod.Parameters
-            .Select(parameter => GetMetadataProxySignatureType(parameter.Type))
+            .Select(parameter => parameter.RefKind == RefKind.None
+                ? GetMetadataProxySignatureType(parameter.Type)
+                : GetMetadataProxySignatureType(parameter.Type).MakeByRefType())
             .ToArray();
         var proxy = _metadataMethodProxyType.DefineMethod(
             proxyName,
@@ -1771,7 +1775,7 @@ internal class CodeGenerator
     {
         while (true)
         {
-            if (methodSymbol is PEMethodSymbol)
+            if (methodSymbol is PEMethodSymbol || methodSymbol.OriginalDefinition is PEMethodSymbol)
             {
                 metadataMethod = methodSymbol;
                 return true;

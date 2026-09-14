@@ -75,3 +75,24 @@ experimental metadata import options or neoCLR-specific type semantics.
 Validation: all 53 focused normalizer, pointer code-generation, pointer semantic
 and pointer syntax checks passed. The compiler build and whitespace formatting
 completed. This scoped check is not a new full release gate.
+
+## Closed-generic reference metadata — 2026-09-14
+
+Extracted `17c9f8b82` on `codex/general-generic-metadata`, based on main after the
+pointer fix. The regression uses normal .NET references and default CompilationOptions;
+it does not import the experimental MetadataImportOptions contract. Before the fix,
+emission failed while resolving the reference-only `Contracts.Container<T>` type.
+Afterwards, all 18 focused metadata and generic-invocation tests passed.
+
+When EmitOptions selects a target core library, named metadata types and their
+closed constructions remain in the metadata context. Generic member references
+preserve definition parameters on a constructed owner, nested value types retain
+their value-type flag, and method proxies preserve by-reference parameter shapes.
+Default emission policy is unchanged. The metadata test checks signatures, locals,
+nested generic getters and an out-parameter union extractor; it does not execute a
+reference assembly. Mixed source/metadata constructions, constructors and generic
+methods still require the subsequent independent reviews.
+
+The repository target-framework matrix passed with SDK `11.0.100-rc.1.26425.128`,
+building the libraries and building/running representative .NET 10 and .NET 11
+projects with the repository toolchain. This is not the full Raven release gate.

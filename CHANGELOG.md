@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Preserve reference-only closed generic types during target-core
+  emission instead of trying to load them into the compiler host. Retain generic
+  definition parameters in member references, nested value-type flags and by-reference
+  proxy parameters. This independently reviewed fix adds no experimental import policy;
+  18 focused metadata and generic-invocation checks and the repository .NET 10/.NET 11
+  build/run target matrix pass.
+
 - **2026-09-14:** Preserve pointer types when rebuilding metadata method references
   for a target core library. Native `void*` parameters no longer fail emission.
   This general fix uses the existing EmitOptions contract; no neoCLR target policy
