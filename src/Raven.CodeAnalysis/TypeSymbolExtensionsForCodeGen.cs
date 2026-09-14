@@ -46,6 +46,17 @@ public static class TypeSymbolExtensionsForCodeGen
            type.HasElementType && ContainsEmittedType(type.GetElementType()!) ||
            type.IsConstructedGenericType && type.GetGenericArguments().Any(ContainsEmittedType);
 
+    internal static Type GetClrTypeForAttribute(ITypeSymbol typeSymbol, CodeGenerator codeGen)
+        => GetClrTypeInternal(
+            typeSymbol,
+            codeGen,
+            treatUnitAsVoid: false,
+            usage: RuntimeTypeUsage.CustomAttribute,
+            isTopLevel: true,
+            visiting: new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance));
+
+    // Keep target-only types in the metadata context. Loading them into the compiler
+    // host is neither necessary for persisted emission nor valid for reference assemblies.
     private static Type? TryGetTargetMetadataType(ITypeSymbol symbol)
     {
         if (symbol is PENamedTypeSymbol peType)
@@ -81,7 +92,7 @@ public static class TypeSymbolExtensionsForCodeGen
         {
             var compilation = codeGen.Compilation;
 
-            if (codeGen.UsesTargetMetadata && typeSymbol.SpecialType == SpecialType.None &&
+            if (usage != RuntimeTypeUsage.CustomAttribute && codeGen.UsesTargetMetadata && typeSymbol.SpecialType == SpecialType.None &&
                 TryGetTargetMetadataType(typeSymbol) is { } metadataType)
                 return metadataType;
 

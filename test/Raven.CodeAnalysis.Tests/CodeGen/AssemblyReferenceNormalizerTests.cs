@@ -14,8 +14,10 @@ namespace Raven.CodeAnalysis.Tests;
 
 public sealed class AssemblyReferenceNormalizerTests
 {
-    [Fact]
-    public void Emit_MetadataOnlyNativeMethods_PreserveVoidPointerSignatures()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Emit_MetadataOnlyNativeMethods_PreserveVoidPointerSignatures(bool retarget)
     {
         using var library = AssemblyDefinition.CreateAssembly(new AssemblyNameDefinition("NativeFixture", new Version(1, 0)), "NativeFixture", ModuleKind.Dll);
         var module = library.MainModule;
@@ -32,7 +34,9 @@ public sealed class AssemblyReferenceNormalizerTests
             TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(referenceImage.ToArray())).ToArray(),
             new CompilationOptions(OutputKind.ConsoleApplication));
         using var output = new MemoryStream();
-        var emitted = compilation.Emit(output);
+        var emitted = compilation.Emit(output, pdbStream: null, emitOptions: retarget
+            ? new EmitOptions(new AssemblyName("mscorlib, Version=1.17.11.0, Culture=neutral, PublicKeyToken=null"))
+            : null);
         Assert.True(emitted.Success, string.Join(Environment.NewLine, emitted.Diagnostics));
         output.Position = 0;
         using var result = AssemblyDefinition.ReadAssembly(output);

@@ -4,6 +4,61 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Synchronize general Raven main fixes into the neoCLR experiment
+  for the next preview, including the attribute-emission correction found by the
+  main stability audit. Preserve experimental target behavior and add the independent
+  CLI metadata regressions alongside the experimental fixtures. All 42 focused
+  synchronization checks passed.
+
+- **2026-09-14:** Fix a regression from target metadata type resolution reaching
+  custom-attribute serialization. Keep runtime types for attribute constructor/value
+  encoding while retaining metadata types for target signatures. Primitive and enum
+  attribute regressions now pass; 39 focused checks passed. A clean-main audit passed
+  5,493 baseline tests and built/ran 173/172 standalone samples, but exposed four
+  NanoFramework attribute failures and a separate MacCatalyst/Xcode prerequisite
+  failure. After the correction, all four NanoFramework projects build and all 38
+  eligible project executables run successfully. The MacCatalyst prerequisite remains
+  unresolved; do not claim a full green release gate. The corrected compiler also
+  passed the .NET 10/.NET 11 build/run matrix.
+
+- **2026-09-14:** Preserve metadata constructor proxies when converting method groups
+  to closed generic delegates during target-core emission. Avoid mixing host and
+  metadata-context types while retaining the delegate's target identity and signature.
+  After the attribute regression correction, all 55 combined focused checks pass.
+
+- **2026-09-14:** Preserve closed generic field metadata during target-core emission,
+  including instance reads and static reads/writes. Retain the generic definition's
+  field signature and closed declaring type; remove temporary proxies from the final
+  assembly. Recorded that general fixes, including those benefiting .NET Framework
+  and NanoFramework, belong on main while neoCLR integration remains experimental.
+  All 22 focused checks and the .NET 10/.NET 11 build/run matrix passed.
+
+- **2026-09-14:** Preserve closed generic method specifications in target-core
+  emission, including concrete method arguments, generic definition signatures and
+  their assembly scopes. This fixes metadata-context mismatches for metadata-only
+  generic calls without introducing experimental target policy. All 27 focused
+  checks and the repository .NET 10/.NET 11 build/run matrix passed.
+
+- **2026-09-14:** Preserve reference-only generic constructor signatures during
+  target-core emission using temporary tokens removed from the final assembly.
+  This fixes a compiler-host/metadata-context type mismatch without changing default
+  constructor resolution. All 26 focused checks and the .NET 10/.NET 11 build/run
+  target matrix passed. Cleaned up completed integration and superseded experiment
+  branches after checking that their history is preserved in main or the active experiment.
+
+- **2026-09-14:** Preserve reference-only closed generic types during target-core
+  emission instead of trying to load them into the compiler host. Retain generic
+  definition parameters in member references, nested value-type flags and by-reference
+  proxy parameters. This independently reviewed fix adds no experimental import policy;
+  18 focused metadata and generic-invocation checks and the repository .NET 10/.NET 11
+  build/run target matrix pass.
+
+- **2026-09-14:** Preserve pointer types when rebuilding metadata method references
+  for a target core library. Native `void*` parameters no longer fail emission.
+  This general fix uses the existing EmitOptions contract; no neoCLR target policy
+  is added. Regression coverage checks ordinary and retargeted emission; all 53
+  focused metadata and pointer checks pass.
+
 - **2026-09-14:** Integrate the general namespace-metadata fixes independently of
   the neoCLR experiment: resolve TopLevelAttribute from supplied reference metadata
   and include referenced namespace functions/constants in completion. The regression

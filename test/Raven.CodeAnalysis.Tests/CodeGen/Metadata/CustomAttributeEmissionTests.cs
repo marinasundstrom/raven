@@ -16,6 +16,31 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class CustomAttributeEmissionTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RetargetedAttributesPreservePrimitiveAndEnumArguments(bool enumArgument)
+    {
+        var source = enumArgument
+            ? "class Item { [System.Diagnostics.DebuggerBrowsable(System.Diagnostics.DebuggerBrowsableState.Never)] public field value: int }"
+            : "[assembly: System.Reflection.AssemblyTitle(\"Target title\")] class Item { }";
+        var compilation = Compilation.Create("AttributeTarget", [SyntaxTree.ParseText(source)],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output, null,
+            new EmitOptions(new AssemblyName("mscorlib, Version=1.17.11.0, Culture=neutral, PublicKeyToken=null")));
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        output.Position = 0;
+        using var assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(output);
+        var attributes = enumArgument
+            ? assembly.MainModule.Types.Single(type => type.Name == "Item").Fields.Single(field => field.Name == "value").CustomAttributes
+            : assembly.CustomAttributes;
+        var attribute = Assert.Single(attributes, a => a.AttributeType.Name ==
+            (enumArgument ? "DebuggerBrowsableAttribute" : "AssemblyTitleAttribute"));
+        Assert.Equal("mscorlib", attribute.AttributeType.Scope.Name);
+        Assert.Equal(enumArgument ? (object)0 : "Target title", Assert.Single(attribute.ConstructorArguments).Value);
+    }
+
     [Fact]
     public void AttributeTypeArgument_CanReferenceSourceTypeDeclaredLater()
     {

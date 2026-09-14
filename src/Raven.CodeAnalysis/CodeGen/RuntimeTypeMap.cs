@@ -7,7 +7,8 @@ namespace Raven.CodeAnalysis.CodeGen;
 internal enum RuntimeTypeUsage
 {
     Signature,
-    MethodBody
+    MethodBody,
+    CustomAttribute
 }
 
 internal sealed class RuntimeTypeMap

@@ -349,11 +349,11 @@ internal class CodeGenerator
         for (var i = 0; i < attribute.ConstructorArguments.Length; i++)
         {
             var parameterType = i < parameters.Length ? parameters[i].Type : null;
-            var parameterClrType = parameterType is not null ? TypeSymbolExtensionsForCodeGen.GetClrType(parameterType, this) : null;
+            var parameterClrType = parameterType is not null ? TypeSymbolExtensionsForCodeGen.GetClrTypeForAttribute(parameterType, this) : null;
             args[i] = GetAttributeValue(attribute.ConstructorArguments[i], parameterClrType, parameterType);
         }
 
-        var attributeType = constructor.DeclaringType ?? TypeSymbolExtensionsForCodeGen.GetClrType(attribute.AttributeClass, this);
+        var attributeType = constructor.DeclaringType ?? TypeSymbolExtensionsForCodeGen.GetClrTypeForAttribute(attribute.AttributeClass, this);
 
         List<PropertyInfo>? properties = null;
         List<object?>? propertyValues = null;
@@ -472,9 +472,9 @@ internal class CodeGenerator
             }
         }
 
-        var attributeType = TypeSymbolExtensionsForCodeGen.GetClrType(attribute.AttributeClass, this);
+        var attributeType = TypeSymbolExtensionsForCodeGen.GetClrTypeForAttribute(attribute.AttributeClass, this);
         var parameterTypes = constructorSymbol.Parameters
-            .Select(p => TypeSymbolExtensionsForCodeGen.GetClrType(p.Type, this))
+            .Select(p => TypeSymbolExtensionsForCodeGen.GetClrTypeForAttribute(p.Type, this))
             .ToArray();
 
         return attributeType.GetConstructor(parameterTypes);
@@ -489,7 +489,7 @@ internal class CodeGenerator
             case TypedConstantKind.Type:
                 return constant.Value switch
                 {
-                    ITypeSymbol typeSymbol => TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, this),
+                    ITypeSymbol typeSymbol => TypeSymbolExtensionsForCodeGen.GetClrTypeForAttribute(typeSymbol, this),
                     Type type => type,
                     _ => null
                 };
@@ -502,7 +502,7 @@ internal class CodeGenerator
                     var arraySymbol = targetSymbol as IArrayTypeSymbol ?? constant.Type as IArrayTypeSymbol;
                     var elementSymbol = arraySymbol?.ElementType;
                     var elementClrType = targetClrType?.GetElementType()
-                        ?? (elementSymbol is not null ? TypeSymbolExtensionsForCodeGen.GetClrType(elementSymbol, this) : typeof(object));
+                        ?? (elementSymbol is not null ? TypeSymbolExtensionsForCodeGen.GetClrTypeForAttribute(elementSymbol, this) : typeof(object));
 
                     var array = Array.CreateInstance(elementClrType, values.Length);
                     for (var i = 0; i < values.Length; i++)
@@ -517,7 +517,7 @@ internal class CodeGenerator
                     if (constant.Value is null)
                         return null;
 
-                    var enumType = targetClrType ?? (constant.Type as INamedTypeSymbol is INamedTypeSymbol enumSymbol ? TypeSymbolExtensionsForCodeGen.GetClrType(enumSymbol, this) : null);
+                    var enumType = targetClrType ?? (constant.Type as INamedTypeSymbol is INamedTypeSymbol enumSymbol ? TypeSymbolExtensionsForCodeGen.GetClrTypeForAttribute(enumSymbol, this) : null);
                     if (enumType is not null && enumType.IsEnum)
                         return Enum.ToObject(enumType, constant.Value);
 
@@ -1655,7 +1655,7 @@ internal class CodeGenerator
                 targetReference,
                 targetReferences: targetReferences,
                 metadataMethodProxies: _metadataMethodProxies,
-            metadataFieldProxies: _metadataFieldProxies,
+                metadataFieldProxies: _metadataFieldProxies,
                 pdbInput: provisionalPdbStream,
                 pdbOutput: pdbOutputStream);
             return;
