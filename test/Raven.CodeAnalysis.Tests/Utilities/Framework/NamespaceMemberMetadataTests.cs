@@ -28,8 +28,7 @@ public class NamespaceMemberMetadataTests
                 Assert.True(result.Success, string.Join("\n", result.Diagnostics));
             }
             var references = paths.Append(markerPath).Select(MetadataReference.CreateFromFile).ToArray();
-            var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary,
-                metadataImportOptions: new MetadataImportOptions("System.Runtime"));
+            var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
             var library = Compilation.Create("Utilities", [SyntaxTree.ParseText("""
                 namespace Utilities
                 public func Answer() -> int { return 42 }

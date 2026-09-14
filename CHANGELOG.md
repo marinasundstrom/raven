@@ -4,6 +4,37 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Integrate the general namespace-metadata fixes independently of
+  the neoCLR experiment: resolve TopLevelAttribute from supplied reference metadata
+  and include referenced namespace functions/constants in completion. The regression
+  uses ordinary .NET references and default compilation options, with no experimental
+  metadata-import or target-core configuration. Keep experimental target behavior on
+  its feature branch. Validation: 47 focused namespace tests and the 5,490-test
+  broader baseline passed, with no failures or skips.
+
+- **2026-09-14:** Integrate general binding, dispatch and completion corrections
+  from the neoCLR experiment: inherited interface indexers respect accessor hiding
+  and ambiguity, virtual/abstract implementations retain dispatch flags, method
+  groups dispatch correctly while base calls stay direct, value property setters
+  mutate original storage, returned-expression members retain their receivers,
+  nested enum flags retain context, and constructor semantic queries resolve scopes.
+  Added independent .NET fixtures; nine pre-fix failures become 32 passing checks.
+
+- **2026-09-14:** Integrate reviewed numeric and pointer-signature fixes from the
+  neoCLR experiment without its target configuration. Preserve fixed-width
+  conversion ranges and unsigned magnitudes, NaN comparison behavior, unsigned
+  division/remainder/shifts and array loads; require implicit conversions for
+  operator applicability and substitute generic pointer elements. The ordinary
+  .NET regression set reproduces 12 failures before the fixes and passes all
+  122 checks afterwards. After both integration batches, the broader baseline
+  passes 5,489 tests with no failures or skips.
+
+- **2026-09-14:** Merge the validated general-fix main branch into the neoCLR
+  experiment, keeping main as its base. Preserve experimental Void coverage and
+  retain the default-options namespace regression from main. No compiler source
+  behavior changes in this synchronization; experimental policies remain branch-only.
+  Fifty focused synchronization regressions passed.
+
 - **2026-09-14:** Resolve namespace-container TopLevelAttribute from supplied
   reference metadata before host runtime types, preserving namespace functions in
   separately compiled target libraries. Completion now includes imported namespace

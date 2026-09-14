@@ -26,24 +26,24 @@ public sealed class ClassifyConversionTests : CompilationTestBase
         SpecialType[] realTypes = [SpecialType.System_Single, SpecialType.System_Double, SpecialType.System_Decimal];
         var all = integers.Select(x => x.Type).Concat(realTypes).ToArray();
         foreach (var from in all)
-        foreach (var to in all)
-        {
-            var expected = from == to;
-            var sourceInteger = integers.SingleOrDefault(x => x.Type == from);
-            var targetInteger = integers.SingleOrDefault(x => x.Type == to);
-            if (sourceInteger.Bits != 0)
+            foreach (var to in all)
             {
-                expected |= realTypes.Contains(to);
-                if (targetInteger.Bits != 0 && to != SpecialType.System_Char)
-                    expected |= sourceInteger.Signed == targetInteger.Signed
-                        ? sourceInteger.Bits <= targetInteger.Bits
-                        : !sourceInteger.Signed && targetInteger.Signed && sourceInteger.Bits < targetInteger.Bits;
+                var expected = from == to;
+                var sourceInteger = integers.SingleOrDefault(x => x.Type == from);
+                var targetInteger = integers.SingleOrDefault(x => x.Type == to);
+                if (sourceInteger.Bits != 0)
+                {
+                    expected |= realTypes.Contains(to);
+                    if (targetInteger.Bits != 0 && to != SpecialType.System_Char)
+                        expected |= sourceInteger.Signed == targetInteger.Signed
+                            ? sourceInteger.Bits <= targetInteger.Bits
+                            : !sourceInteger.Signed && targetInteger.Signed && sourceInteger.Bits < targetInteger.Bits;
+                }
+                expected |= from == SpecialType.System_Single && to == SpecialType.System_Double;
+                var conversion = compilation.ClassifyConversion(compilation.GetSpecialType(from),
+                    compilation.GetSpecialType(to), includeUserDefined: false);
+                Assert.True((conversion.Exists && conversion.IsImplicit) == expected, $"{from} -> {to}");
             }
-            expected |= from == SpecialType.System_Single && to == SpecialType.System_Double;
-            var conversion = compilation.ClassifyConversion(compilation.GetSpecialType(from),
-                compilation.GetSpecialType(to), includeUserDefined: false);
-            Assert.True((conversion.Exists && conversion.IsImplicit) == expected, $"{from} -> {to}");
-        }
     }
 
     [Theory]
