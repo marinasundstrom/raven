@@ -39,13 +39,6 @@ public static class TypeSymbolExtensionsForCodeGen
             isTopLevel: true,
             visiting: new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance));
 
-    // Keep target-only types in the metadata context. Loading them into the compiler
-    // host is neither necessary for persisted emission nor valid for reference assemblies.
-    private static bool ContainsEmittedType(Type type)
-        => type is System.Reflection.Emit.TypeBuilder ||
-           type.HasElementType && ContainsEmittedType(type.GetElementType()!) ||
-           type.IsConstructedGenericType && type.GetGenericArguments().Any(ContainsEmittedType);
-
     internal static Type GetClrTypeForAttribute(ITypeSymbol typeSymbol, CodeGenerator codeGen)
         => GetClrTypeInternal(
             typeSymbol,
@@ -57,6 +50,11 @@ public static class TypeSymbolExtensionsForCodeGen
 
     // Keep target-only types in the metadata context. Loading them into the compiler
     // host is neither necessary for persisted emission nor valid for reference assemblies.
+    private static bool ContainsEmittedType(Type type)
+        => type is System.Reflection.Emit.TypeBuilder ||
+           type.HasElementType && ContainsEmittedType(type.GetElementType()!) ||
+           type.IsConstructedGenericType && type.GetGenericArguments().Any(ContainsEmittedType);
+
     private static Type? TryGetTargetMetadataType(ITypeSymbol symbol)
     {
         if (symbol is PENamedTypeSymbol peType)
@@ -174,8 +172,8 @@ public static class TypeSymbolExtensionsForCodeGen
                 }
                 catch (ArgumentException) when (codeGen.UsesTargetMetadata && arguments.Any(ContainsEmittedType))
                 {
-                    // MetadataLoadContext cannot construct a type with source TypeBuilder
-                    // arguments. Persisted emission only needs their signature here.
+                    // MetadataLoadContext cannot combine its definitions with source
+                    // TypeBuilders. Persisted emission only needs the signature here.
                     return Type.MakeGenericSignatureType(genericDefinition, arguments);
                 }
             }

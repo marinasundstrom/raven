@@ -2626,9 +2626,8 @@ internal class TypeGenerator
 
     private bool TryGetInterfaceMethodInfo(IMethodSymbol interfaceMethod, out MethodInfo methodInfo)
     {
-        // Use the same semantic target references as emitted calls. Reflecting a
-        // metadata generic return here can expose RoModifiedType to the persisted
-        // writer; the normalizer installs the actual MethodImpl declaration later.
+        // MethodImpl declarations need the same target signatures as calls. Avoid
+        // sending metadata-context modified generic returns to the persisted writer.
         if (CodeGen.UsesTargetMetadata && interfaceMethod.OriginalDefinition is PEMethodSymbol)
         {
             methodInfo = CodeGen.GetMethodInfoOrMetadataProxy(interfaceMethod);

@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14 (neoCLR experiment):** Synchronize reviewed Raven main fixes through
+  `f70ba5026`, including indexer access, imported union patterns, metadata identities
+  and empty-array capability discovery. Preserve opt-in target contracts, generic
+  array projection and nominal Void arguments on this branch. All 120 focused
+  synchronization checks and four generic-array integration programs pass. Updated
+  the old factory expectation and isolated overlapping test-library identities.
+
 - **2026-09-14 (neoCLR experiment):** Project public methods and properties from the
   configured generic array shape, preserving metadata owners and interface dispatch.
   Shape members take precedence over inherited names; constructors stay unavailable.
@@ -12,6 +19,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   integration executes four neoCLR samples; 25 focused compiler checks pass. These
   target experiments remain separate from main. Main's independent void-call stack
   fix is cherry-picked as `5c32d1d06`.
+
+- **2026-09-14:** Resolve the optional empty-array factory from target metadata.
+  Empty collection expressions targeting arrays or IEnumerable<T> retain
+  System.Array.Empty<T>() when available and otherwise allocate an empty array.
+  No host-only factory reference or target-specific policy is injected. Regression
+  coverage checks metadata and execution with .NET 10/.NET 11 references, with
+  and without the factory, under ordinary and target-metadata emission.
 
 - **2026-09-14:** Correct stack-result tracking for void calls and discarded unit
   calls. Returning a void invocation no longer emits a pop for a nonexistent value.
@@ -25,6 +39,65 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   main stability audit. Preserve experimental target behavior and add the independent
   CLI metadata regressions alongside the experimental fixtures. All 42 focused
   synchronization checks passed.
+
+- **2026-09-14:** Treat qualified type names in `is` patterns as type tests rather
+  than values to compare. Preserve explicit generic arguments for imported Raven
+  union cases, check their arity/constraints, and use the semantic extraction type
+  for target-core pattern locals. Constructed unions project declared member-case
+  parameters from their carrier, preventing open variant types during pattern emission.
+  Both active and inactive cases are covered for ordinary member unions and Raven-produced
+  unions; no target-specific policy changed. All 272 focused checks and the
+  .NET 10/.NET 11 build/run matrix passed.
+
+- **2026-09-14:** Require indexed access for indexer properties. Dot completion no
+  longer offers metadata indexer names such as `Item`, and `items.Item` no longer
+  binds as an element without arguments. `items[index].` retains element-member
+  completion; ordinary parameterless properties named `Item` remain accessible.
+  Indexer symbols remain discoverable through metadata APIs but are not referenceable
+  by name. This is a general compiler fix; no framework-specific mapping is involved.
+  All 440 completion/indexer/property/semantic-model checks passed, including cold
+  and already-bound queries and imported interface indexer execution.
+
+- **2026-09-14:** Select the metadata core library from the supplied assembly that
+  defines the root `System.Object`, using its full identity rather than the host's
+  core name. This keeps imported structs classified as value types and prevents
+  fallback paths for another framework version from selecting the wrong core.
+  Retain the host fallback when no supplied reference defines the root type.
+  Regression coverage checks .NET 10/.NET 11 classes and structs, generic
+  signatures, exact metadata core identity and execution of emitted assemblies.
+  All 33 focused checks, the full baseline (5,515 reported passes), and the
+  .NET 10/.NET 11 build/run matrix passed.
+
+- **2026-09-14:** Support shorthand deconstruction of imported member unions:
+  `.Case(...)` resolves a unique member from the scrutinee, while an in-scope
+  generic `Case(...)` infers its closed arguments from the carrier. Preserve the
+  requirement to import unqualified variant types. Ordinary .NET regressions
+  cover target-typed, imported and qualified forms, inactive cases, and repeated
+  matching with a mutating value-type deconstructor. All 219 focused checks and the
+  .NET 10/.NET 11 build/run matrix passed.
+  Target-core emission now keeps closed semantic carrier/variant locals, preserves
+  primitive CLI signatures and by-reference wrappers, and retains assembly scopes
+  after replacing temporary method references. Imported Raven union-case calls use
+  their actual metadata container rather than the logical carrier. The bare type-pattern
+  follow-through is recorded above; independent boxing optimizations remain deferred. All 291 focused
+  metadata/pattern/by-reference checks and the .NET 10/.NET 11 build/run matrix
+  passed.
+
+- **2026-09-14:** Preserve imported generic interface implementation declarations
+  during target-core emission, including implicit/explicit methods and property
+  accessors. Normalize temporary references in MethodImpl records as well as calls,
+  retain their assembly scopes, and encode primitive generic arguments with CLI
+  element codes. Regression tests compile against a reference-only library, inspect
+  metadata and execute interface dispatch on .NET. All 54 focused checks and the
+  .NET 10/.NET 11 build/run matrix passed.
+
+- **2026-09-14:** Support reference-library generics containing application classes
+  and structs during target-core emission without mixing reflection contexts or
+  emitting self assembly references. Correct ordinary .NET field access on generic
+  constructions containing unfinished source types. Regression coverage uses a
+  reference-only library and its separate executable implementation, including
+  arrays and nested generic arguments. All 42 focused metadata/attribute/generic
+  checks and the .NET 10/.NET 11 build/run matrix passed.
 
 - **2026-09-14:** Fix a regression from target metadata type resolution reaching
   custom-attribute serialization. Keep runtime types for attribute constructor/value

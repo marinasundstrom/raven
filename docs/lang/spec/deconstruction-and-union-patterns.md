@@ -89,6 +89,13 @@ A variant-type property pattern such as
 active `Card` through the carrier and then applies the recursive property
 pattern; the whole-pattern designation receives the extracted `Card` value.
 
+Qualified variant types also work as bare type tests, for example
+`result is Outcome.Ok<int>`. This tests whether that case is active without invoking
+a case factory or comparing a constructed value. Explicit generic arguments belong
+to the case type and retain their normal arity and constraint checks. Imported member
+unions and Raven-produced unions follow the same rule. Qualified enum members and
+static values retain their existing value-pattern meaning.
+
 ## Pattern combinators
 
 * `pattern1 and pattern2` — **conjunction**. Succeeds only when both operands
@@ -102,22 +109,21 @@ pattern; the whole-pattern designation receives the extracted `Card` value.
 Precedence: `not` > `and` > `or`. `or` associates left-to-right. Parentheses
 override precedence.
 
+## Imported member-union shorthand
 
-## Imported member unions
+A union imported through the CLI member-union contract may contain existing variant
+types rather than synthesized named cases. For those carriers, `.Ok(let value)`
+selects the unique variant named `Ok` from the scrutinee's member set, extracts it
+through the carrier's `TryGetValue` contract, and applies its `Deconstruct` method.
+The leading-dot form does not require a separate import of the variant type.
 
-An imported union marked with `System.Runtime.CompilerServices.UnionAttribute` can
-expose member types through constructors and `TryGetValue(out TMember)`. It need not
-carry Raven's named-case attributes. In a pattern, `.Case(...)` selects the uniquely
-named member of that union and applies its accessible `Deconstruct` contract.
-`.Case` without arguments tests the member without reading its payload.
+An unqualified generic variant pattern such as `Ok(let value)` requires the variant
+type to be in scope, for example through `import Contracts.Choice.*`. Raven infers
+its closed type arguments by matching that type's definition to a unique member of
+the scrutinee's union. Explicitly qualified patterns such as
+`Choice.Ok<int>(let value)` remain available. These are binding rules over ordinary
+CLI metadata; they do not depend on a particular runtime target or interface-name
+mapping. Existing pattern syntax is unchanged.
 
-For a case type imported into scope, `Case(let payload)` infers its generic arguments
-from the matching union member. An explicit `Case<T>(let payload)` remains valid.
-Lookup still requires the imported type to identify a member of the matched union;
-it does not make arbitrary same-named types union cases. Missing deconstruction
-contracts or incompatible arities are diagnosed. These forms use ordinary extraction,
-deconstruction, locals and branches rather than new instructions.
-
-The compiler can deconstruct an already known value receiver directly on a local
-copy. This preserves the original value even if its Deconstruct method mutates the
-receiver. Reference narrowing and null checks retain their existing behavior.
+For value-type variants, deconstruction operates on an extracted copy. Matching the
+same carrier again must not observe mutations made by the earlier deconstructor.

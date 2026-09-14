@@ -71,9 +71,9 @@ public class TargetMetadataEmissionTests
     {
         var directory = Path.Combine(Path.GetTempPath(), "raven-member-pattern", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
-        var path = Path.Combine(directory, "MemberContracts.dll");
+        var path = Path.Combine(directory, "TargetMetadataMemberContracts.dll");
         var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
-        var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("MemberContracts",
+        var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("TargetMetadataMemberContracts",
             [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("""
                 namespace Contracts {
                     public static class Buffers { public static T[] Echo<T>(T[] value) => value; }
@@ -318,7 +318,7 @@ public class TargetMetadataEmissionTests
     }
 
     [Fact]
-    public void RetargetedEmptyArrayDoesNotRequireHostArrayFactory()
+    public void RetargetedEmptyArrayUsesAvailableTargetFactory()
     {
         var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
         var compilation = Compilation.Create("EmptyArrayConsumer", [SyntaxTree.ParseText("""
@@ -333,7 +333,7 @@ public class TargetMetadataEmissionTests
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         output.Position = 0;
         using var assembly = AssemblyDefinition.ReadAssembly(output);
-        Assert.DoesNotContain(assembly.MainModule.GetMemberReferences(),
+        Assert.Contains(assembly.MainModule.GetMemberReferences(),
             member => member.DeclaringType.FullName == "System.Array" && member.Name == "Empty");
         var method = assembly.MainModule.Types.SelectMany(t => t.Methods).Single(m => m.Name == "Empty");
         Assert.Equal("System.Int32", Assert.IsType<ArrayType>(method.ReturnType).ElementType.FullName);

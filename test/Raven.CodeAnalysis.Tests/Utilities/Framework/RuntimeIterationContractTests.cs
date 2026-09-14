@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class RuntimeIterationContractTests
 {
-    private static readonly RuntimeIterationContract Contract = new("IterationContracts",
+    private static readonly RuntimeIterationContract Contract = new("RuntimeIterationContracts",
         "Contracts.Iterable`1", "Contracts.Iterator`1");
 
     [Theory]
@@ -85,11 +85,11 @@ public class RuntimeIterationContractTests
     }
 
     [Theory]
-    [InlineData("Contracts.ArrayShape`1", "IterationContracts", true)]
-    [InlineData("Contracts.WrongArity`2", "IterationContracts", false)]
-    [InlineData("Contracts.ValueShape`1", "IterationContracts", false)]
-    [InlineData("Contracts.Missing`1", "IterationContracts", false)]
-    [InlineData("Contracts.Iterable`1", "IterationContracts", false)]
+    [InlineData("Contracts.ArrayShape`1", "RuntimeIterationContracts", true)]
+    [InlineData("Contracts.WrongArity`2", "RuntimeIterationContracts", false)]
+    [InlineData("Contracts.ValueShape`1", "RuntimeIterationContracts", false)]
+    [InlineData("Contracts.Missing`1", "RuntimeIterationContracts", false)]
+    [InlineData("Contracts.Iterable`1", "RuntimeIterationContracts", false)]
     [InlineData("Contracts.ArrayShape`1", "Missing", false)]
     public void ArrayShapeProjectsDeclaredInterfaces(string shapeName, string assemblyName, bool valid)
     {
@@ -231,7 +231,7 @@ public class RuntimeIterationContractTests
         Directory.CreateDirectory(directory);
         try
         {
-            var path = Path.Combine(directory, "IterationContracts.dll");
+            var path = Path.Combine(directory, "RuntimeIterationContracts.dll");
             var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
             var source = $$"""
                 namespace Contracts {
@@ -263,7 +263,7 @@ public class RuntimeIterationContractTests
                     public interface List<T> : Iterable<T> { }
                 }
                 """;
-            var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("IterationContracts",
+            var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("RuntimeIterationContracts",
                 [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(source)],
                 paths.Select(p => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(p)),
                 new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));

@@ -961,6 +961,9 @@ public partial class Compilation
             .ToList();
 
         var importOptions = Options.MetadataImportOptions;
+        // Establish the target type universe before adding optional host fallbacks.
+        var coreAssemblyName = importOptions?.CoreAssemblyName ??
+            FindReferenceCoreAssemblyIdentity(paths) ?? typeof(object).Assembly.GetName().FullName;
         if (importOptions is null)
         {
             var runtimeCorePath = typeof(object).Assembly.Location;
@@ -976,7 +979,6 @@ public partial class Compilation
             }
         }
 
-        var coreAssemblyName = importOptions?.CoreAssemblyName ?? typeof(object).Assembly.GetName().Name;
         _portableReferenceFingerprints = CapturePortableReferenceFingerprints(_references);
         _metadataLoadContext = TryReuseMetadataLoadContext(_portableReferenceFingerprints, out var reusedMetadataLoadContext)
             ? reusedMetadataLoadContext
@@ -1255,6 +1257,43 @@ public partial class Compilation
         descriptor = default;
         return _descriptorState.BinderParentAnchorDescriptorsByOwner.TryGetValue(syntaxTree, out var descriptors) &&
                descriptors.TryGetValue(key, out descriptor);
+    }
+
+    private static string? FindReferenceCoreAssemblyIdentity(IEnumerable<string> paths)
+    {
+        foreach (var path in paths)
+        {
+            try
+            {
+                using var stream = File.OpenRead(path);
+                using var peReader = new PEReader(stream);
+                if (!peReader.HasMetadata)
+                    continue;
+
+                var reader = peReader.GetMetadataReader();
+                if (!reader.IsAssembly)
+                    continue;
+
+                foreach (var handle in reader.TypeDefinitions)
+                {
+                    var definition = reader.GetTypeDefinition(handle);
+                    if (definition.BaseType.IsNil &&
+                        reader.StringComparer.Equals(definition.Namespace, "System") &&
+                        reader.StringComparer.Equals(definition.Name, "Object"))
+                    {
+                        // Include the version: other framework versions may be present
+                        // among fallback paths from earlier compilations.
+                        return ReadAssemblyName(path).FullName;
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or BadImageFormatException)
+            {
+                // Reference loading reports invalid/unavailable inputs separately.
+            }
+        }
+
+        return null;
     }
 
     private static MetadataLoadContext CreateMetadataLoadContext(IEnumerable<string> paths, string? coreAssemblyName)

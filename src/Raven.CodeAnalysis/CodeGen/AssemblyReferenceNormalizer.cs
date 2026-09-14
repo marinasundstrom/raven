@@ -222,12 +222,14 @@ internal static class AssemblyReferenceNormalizer
         {
             foreach (var method in type.Methods)
             {
-                for (var i = 0; i < method.Overrides.Count; i++)
+                for (var index = 0; index < method.Overrides.Count; index++)
                 {
-                    var declaration = method.Overrides[i];
+                    var declaration = method.Overrides[index];
                     if (declaration.DeclaringType.Name == proxyType?.Name &&
                         replacements.TryGetValue(declaration.Name, out var replacement))
-                        method.Overrides[i] = replacement;
+                    {
+                        method.Overrides[index] = replacement;
+                    }
                 }
 
                 if (!method.HasBody)
@@ -250,6 +252,7 @@ internal static class AssemblyReferenceNormalizer
             module.Types.Remove(proxyType);
         foreach (var constructorProxy in constructorProxyTypes)
             module.Types.Remove(constructorProxy);
+        // Replacement operands must be present before deciding which scopes are unused.
         RetargetHostTypeScopesFromMetadataMethods(module, replacements.Values);
     }
 
@@ -262,19 +265,23 @@ internal static class AssemblyReferenceNormalizer
         {
             // A MemberRef on a constructed owner still uses the definition's !n
             // signature; substituting concrete arguments changes the member identity.
-            var imported = module.ImportReference(definition.GetMethodBase());
-            if (definition.ReturnType.SpecialType == SpecialType.System_Unit)
-                imported.ReturnType = module.TypeSystem.Void;
-            else if (GetPrimitiveTypeReference(module, definition.ReturnType.SpecialType) is { } primitiveReturn)
-                imported.ReturnType = primitiveReturn;
-            for (var i = 0; i < definition.Parameters.Length; i++)
+            var metadataDefinition = definition.GetMethodBase();
+            var imported = module.ImportReference(metadataDefinition);
+            // Modified metadata reflection types can import as named value types
+            // instead of CLI primitive elements. Preserve wrappers and !n signatures.
+            var primitiveReturn = metadataDefinition is System.Reflection.MethodInfo info &&
+                info.ReturnType.FullName == "System.Void"
+                ? module.TypeSystem.Void
+                : GetPrimitiveTypeReference(module, definition.ReturnType.SpecialType);
+            if (primitiveReturn is not null)
+                imported.ReturnType = ReplacePrimitiveSignatureElement(imported.ReturnType, primitiveReturn);
+            for (var index = 0; index < definition.Parameters.Length; index++)
             {
-                var parameter = definition.Parameters[i];
-                if (GetPrimitiveTypeReference(module, parameter.Type.SpecialType) is not { } parameterType)
-                    continue;
-                imported.Parameters[i].ParameterType = parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In
-                    ? new ByReferenceType(parameterType)
-                    : parameterType;
+                if (GetPrimitiveTypeReference(module, definition.Parameters[index].Type.SpecialType) is { } primitiveParameter)
+                {
+                    imported.Parameters[index].ParameterType = ReplacePrimitiveSignatureElement(
+                        imported.Parameters[index].ParameterType, primitiveParameter);
+                }
             }
             imported.DeclaringType = CreateTypeReference(module, method.ContainingType!, targetReferences);
             if (method.IsGenericMethod)
@@ -308,6 +315,19 @@ internal static class AssemblyReferenceNormalizer
 
         return reference;
     }
+
+    private static TypeReference ReplacePrimitiveSignatureElement(TypeReference signature, TypeReference primitive)
+        => signature switch
+        {
+            ByReferenceType byRef => new ByReferenceType(ReplacePrimitiveSignatureElement(byRef.ElementType, primitive)),
+            RequiredModifierType required => new RequiredModifierType(required.ModifierType,
+                ReplacePrimitiveSignatureElement(required.ElementType, primitive)),
+            OptionalModifierType optional => new OptionalModifierType(optional.ModifierType,
+                ReplacePrimitiveSignatureElement(optional.ElementType, primitive)),
+            PinnedType pinned => new PinnedType(ReplacePrimitiveSignatureElement(pinned.ElementType, primitive)),
+            SentinelType sentinel => new SentinelType(ReplacePrimitiveSignatureElement(sentinel.ElementType, primitive)),
+            _ => primitive
+        };
 
     private static TypeReference? GetPrimitiveTypeReference(ModuleDefinition module, SpecialType specialType)
     {
@@ -386,7 +406,8 @@ internal static class AssemblyReferenceNormalizer
             throw new NotSupportedException($"Metadata emission does not yet support type '{symbol}'.");
 
         IMetadataScope scope = module;
-        if (named.ContainingAssembly is { } assembly && assembly.Name != module.Assembly.Name.Name)
+        if (named.ContainingAssembly is { } assembly &&
+            !(assembly is SourceAssemblySymbol && assembly.Name == module.Assembly.Name.Name))
         {
             if (targetReferences is null || !targetReferences.TryGetValue(assembly.Name, out var targetReference))
                 targetReference = new AssemblyNameReference(assembly.Name, new Version(0, 0, 0, 0));
@@ -402,7 +423,10 @@ internal static class AssemblyReferenceNormalizer
             scope = existing;
         }
 
-        if (named.ContainingType is { } containingType)
+        var metadataContainingType = named is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase
+            ? unionCase.MetadataContainingType
+            : named.ContainingType;
+        if (metadataContainingType is { } containingType)
         {
             return new TypeReference(string.Empty, named.MetadataName, module, scope)
             {
@@ -641,21 +665,6 @@ internal static class AssemblyReferenceNormalizer
         return runtimeReference;
     }
 
-    private static IEnumerable<MemberReference> EnumerateMemberReferences(ModuleDefinition module)
-    {
-        foreach (var member in module.GetMemberReferences())
-            yield return member;
-        // MethodImpl declarations can also be installed after reading the original tables.
-        foreach (var method in module.GetTypes().SelectMany(type => type.Methods))
-            foreach (var declaration in method.Overrides)
-                yield return declaration;
-        // Proxy replacement adds operands that are absent from the original metadata tables.
-        foreach (var method in module.GetTypes().SelectMany(type => type.Methods).Where(method => method.HasBody))
-            foreach (var instruction in method.Body.Instructions)
-                if (instruction.Operand is MemberReference member)
-                    yield return member;
-    }
-
     private static void RewriteReferenceScope(
         ModuleDefinition module,
         AssemblyNameReference oldReference,
@@ -716,6 +725,28 @@ internal static class AssemblyReferenceNormalizer
             current = specification.ElementType;
 
         return current;
+    }
+
+    private static IEnumerable<MemberReference> EnumerateMemberReferences(ModuleDefinition module)
+    {
+        foreach (var member in module.GetMemberReferences())
+            yield return member;
+
+        // Rewritten references are not necessarily in Cecil's original metadata table.
+        foreach (var method in module.GetTypes().SelectMany(type => type.Methods))
+        {
+            foreach (var declaration in method.Overrides)
+                yield return declaration;
+
+            if (!method.HasBody)
+                continue;
+
+            foreach (var instruction in method.Body.Instructions)
+            {
+                if (instruction.Operand is MemberReference member)
+                    yield return member;
+            }
+        }
     }
 
     private static bool ModuleStillUsesReference(ModuleDefinition module, AssemblyNameReference reference)

@@ -180,7 +180,7 @@ internal abstract class Symbol : ISymbol
         IMethodSymbol => true,
         IMacroDeclarationSymbol => true,
         IEventSymbol => true,
-        IPropertySymbol => true,
+        IPropertySymbol property => !property.IsIndexer,
         IFieldSymbol => true,
         IParameterSymbol => true,
         ILocalSymbol => true,

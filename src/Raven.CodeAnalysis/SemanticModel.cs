@@ -7066,7 +7066,7 @@ public partial class SemanticModel
         => candidate switch
         {
             IFieldSymbol => true,
-            IPropertySymbol property => property.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
+            IPropertySymbol property => !property.IsIndexer && property.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
             IEventSymbol @event => @event.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
             IMethodSymbol
             {
@@ -7440,9 +7440,11 @@ public partial class SemanticModel
                 symbol is IFieldSymbol or IPropertySymbol or IEventSymbol);
 
     private static ImmutableArray<ISymbol> GetAvailableMembers(INamedTypeSymbol receiverType, string memberName)
-        => receiverType is SourceNamedTypeSymbol sourceType
+        => (receiverType is SourceNamedTypeSymbol sourceType
             ? sourceType.GetDeclaredMembersWithoutEnsuring(memberName)
-            : receiverType.GetMembers(memberName);
+            : receiverType.GetMembers(memberName))
+            .Where(static member => member.CanBeReferencedByName)
+            .ToImmutableArray();
 
     private ImmutableArray<IMethodSymbol> GetAvailableMethodMembers(INamedTypeSymbol receiverType, string memberName)
     {
@@ -8748,6 +8750,7 @@ public partial class SemanticModel
             return false;
 
         var members = receiverType.GetMembers(memberName.Identifier.ValueText)
+            .Where(static member => member.CanBeReferencedByName)
             .Where(static member => member is IFieldSymbol or IPropertySymbol or IEventSymbol or IMethodSymbol)
             .ToImmutableArray();
 

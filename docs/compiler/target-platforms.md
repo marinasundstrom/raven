@@ -373,3 +373,21 @@ normalizing that proxy through the host reflection binder mixes incompatible
 reflection contexts. Ordinary CLR delegate construction keeps its existing path.
 The compiler regression checks the emitted delegate/constructor reference identity,
 while the neoCLR experiment separately validates static callback execution.
+
+## Generic reference signatures containing application types
+
+A generic type from a supplied reference assembly can use a class or struct declared
+by the application, including array and nested generic arguments. Its emitted member
+references retain the external generic definition and the application's local type
+identity; they must not create an assembly reference back to the output assembly.
+
+During target-core emission, metadata-only generic definitions and unfinished source
+types belong to different reflection contexts. The emitter uses a signature-only
+construction when those contexts cannot form an executable reflection type. For
+ordinary .NET emission, fields on such unfinished generic constructions are mapped
+from the generic definition using Reflection.Emit. Neither case requires loading the
+reference-only library for execution inside the compiler.
+
+The regression fixture compiles against a reference-only library and loads its real
+implementation separately to test calls and field access. This is ordinary CLI
+metadata behavior; no framework-specific API names or new language syntax are involved.

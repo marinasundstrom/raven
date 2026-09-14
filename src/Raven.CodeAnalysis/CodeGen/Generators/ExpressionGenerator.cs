@@ -48,10 +48,6 @@ internal partial class ExpressionGenerator : Generator
         .GetMethod(nameof(string.Format), BindingFlags.Public | BindingFlags.Static, new[] { typeof(string), typeof(object) })
         ?? throw new InvalidOperationException("Failed to resolve string.Format(string, object).");
 
-    private static readonly MethodInfo ArrayEmptyGenericMethod = typeof(Array)
-        .GetMethod(nameof(Array.Empty), BindingFlags.Public | BindingFlags.Static, binder: null, Type.EmptyTypes, modifiers: null)
-        ?? throw new InvalidOperationException("Failed to resolve Array.Empty<T>().");
-
     private static readonly MethodInfo ArrayCopyMethod = typeof(Array)
         .GetMethod(nameof(Array.Copy), BindingFlags.Public | BindingFlags.Static, binder: null, [typeof(Array), typeof(int), typeof(Array), typeof(int), typeof(int)], modifiers: null)
         ?? throw new InvalidOperationException("Failed to resolve Array.Copy(Array, int, Array, int, int).");
@@ -4401,15 +4397,13 @@ internal partial class ExpressionGenerator : Generator
             SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, ienumerableDef))
         {
             var elementType = named.TypeArguments[0];
-            var elementClrType = ResolveClrType(elementType);
-            EmitEmptyArray(elementClrType);
+            EmitEmptyArray(elementType);
             return;
         }
 
         if (target is IArrayTypeSymbol arrayTypeSymbol)
         {
-            var elementClrType = ResolveClrType(arrayTypeSymbol.ElementType);
-            EmitEmptyArray(elementClrType);
+            EmitEmptyArray(arrayTypeSymbol.ElementType);
         }
         else if (target is INamedTypeSymbol namedType)
         {
@@ -4435,16 +4429,25 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitEmptyArray(Type elementType)
+    private void EmitEmptyArray(ITypeSymbol elementType)
     {
-        if (MethodGenerator.TypeGenerator.CodeGen.UsesTargetMetadata)
+        var factory = Compilation.GetTypeByMetadataName("System.Array")?
+            .GetMembers("Empty").OfType<IMethodSymbol>().FirstOrDefault(method =>
+                method.IsStatic && method.DeclaredAccessibility == Accessibility.Public &&
+                method.TypeParameters.Length == 1 && method.Parameters.Length == 0 &&
+                method.TypeParameters[0].ConstraintKind == TypeParameterConstraintKind.None &&
+                method.TypeParameters[0].ConstraintTypes.IsEmpty &&
+                method.ReturnType is IArrayTypeSymbol { Rank: 1 } array &&
+                SymbolEqualityComparer.Default.Equals(array.ElementType, method.TypeParameters[0]));
+        if (factory is not null)
         {
-            // A target core library need not expose the host's cached-array helper.
-            ILGenerator.Emit(OpCodes.Ldc_I4_0);
-            ILGenerator.Emit(OpCodes.Newarr, elementType);
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(factory.Construct(elementType)));
             return;
         }
-        ILGenerator.Emit(OpCodes.Call, ArrayEmptyGenericMethod.MakeGenericMethod(elementType));
+
+        // Empty collection syntax must also work on targets without the optional factory.
+        ILGenerator.Emit(OpCodes.Ldc_I4_0);
+        ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(elementType));
     }
 
     private bool TryEmitEmptyCollectionExpressionViaImmutableList(INamedTypeSymbol targetType)
