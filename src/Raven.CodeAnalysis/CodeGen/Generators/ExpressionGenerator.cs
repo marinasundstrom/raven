@@ -7442,11 +7442,22 @@ internal partial class ExpressionGenerator : Generator
     {
         EmitInvocationExpressionBase(invocationExpression, receiverAlreadyLoaded);
 
-        if (_preserveResult && invocationExpression.Type.SpecialType == SpecialType.System_Unit)
+        if (InvocationReturnsGenericUnitValue(invocationExpression))
+        {
+            if (!_preserveResult)
+                ILGenerator.Emit(OpCodes.Pop);
+        }
+        else if (_preserveResult && invocationExpression.Type.SpecialType == SpecialType.System_Unit)
         {
             EmitUnitValue();
         }
     }
+
+    // A generic return remains a value-bearing CLI signature when instantiated
+    // with unit. Only an actual no-result call needs a synthesized unit value.
+    private static bool InvocationReturnsGenericUnitValue(BoundInvocationExpression invocation)
+        => invocation.Type.SpecialType == SpecialType.System_Unit
+            && (invocation.Method.OriginalDefinition ?? invocation.Method).ReturnType is ITypeParameterSymbol;
 
     /// <summary>
     /// Emit a value required for call: always preserve result (for receivers and normal arguments).

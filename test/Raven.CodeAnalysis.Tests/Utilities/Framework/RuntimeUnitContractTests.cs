@@ -9,6 +9,50 @@ namespace Raven.CodeAnalysis.Tests;
 public class RuntimeUnitContractTests
 {
     [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void GenericUnitResultsArePreservedOrDiscardedExactlyOnce(int profile)
+    {
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        if (profile != 0)
+            options = options.WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+                .WithTargetCoreAssemblyName("System.Runtime");
+        if (profile == 2)
+            options = options.WithRuntimeUnitContract(new RuntimeUnitContract("System.Runtime", "System.ValueTuple"));
+        var tree = SyntaxTree.ParseText("""
+            import System.Collections.Generic.*
+            public class Holder<T> {
+                public static func Echo(value: T) -> T { return value }
+            }
+            public class Example {
+                public static func Echo<T>(value: T) -> T { return value }
+                public static func Finish(value: ()) { return Echo<()>(value) }
+                public static func Run() -> int {
+                    let value = ()
+                    Echo<()>(value)
+                    Holder<()>.Echo(value)
+                    Finish(value)
+                    let copy = Echo<()>(value)
+                    let values = List<()>()
+                    values.Add(copy)
+                    values.Add(Holder<()>.Echo(value))
+                    values.Add(Echo<()>(value))
+                    return values.Count
+                }
+            }
+            """);
+        var compilation = Compilation.Create("GenericUnitResults", [tree], references.Select(MetadataReference.CreateFromFile).ToArray(), options);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
+        Assert.Equal(3, loaded.Assembly.GetType("Example")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void UnitStorageUsesSelectedTypeWhileCallsRemainNoResult(bool selectValueTuple)
