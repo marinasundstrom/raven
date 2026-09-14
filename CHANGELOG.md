@@ -4,6 +4,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Fix a regression from target metadata type resolution reaching
+  custom-attribute serialization. Keep runtime types for attribute constructor/value
+  encoding while retaining metadata types for target signatures. Primitive and enum
+  attribute regressions now pass; 39 focused checks passed. A clean-main audit passed
+  5,493 baseline tests and built/ran 173/172 standalone samples, but exposed four
+  NanoFramework attribute failures and a separate MacCatalyst/Xcode prerequisite
+  failure. After the correction, all four NanoFramework projects build and all 38
+  eligible project executables run successfully. The MacCatalyst prerequisite remains
+  unresolved; do not claim a full green release gate. The corrected compiler also
+  passed the .NET 10/.NET 11 build/run matrix.
+
 - **2026-09-14:** Preserve closed generic field metadata during target-core emission,
   including instance reads and static reads/writes. Retain the generic definition's
   field signature and closed declaring type; remove temporary proxies from the final
