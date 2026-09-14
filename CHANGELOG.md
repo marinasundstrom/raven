@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Include referenced namespace functions and constants in qualified
+  lookup when source declarations extend that namespace. Qualified and imported
+  calls now use the same merged namespace. Regression coverage uses ordinary .NET
+  reference metadata with and without a local namespace declaration; all 284
+  namespace/import tests pass. No target-specific policy or configuration is added.
+
 - **2026-09-14:** Resolve the optional empty-array factory from target metadata.
   Empty collection expressions targeting arrays or IEnumerable<T> retain
   System.Array.Empty<T>() when available and otherwise allocate an empty array.

@@ -1741,6 +1741,11 @@ public partial class Compilation
 
     private IEnumerable<INamedTypeSymbol> GetNamespaceMemberContainers(INamespaceSymbol namespaceSymbol)
     {
+        // Qualified lookup can arrive through a source-only namespace when this
+        // compilation extends a namespace also present in referenced assemblies.
+        // Namespace functions/constants must see the same merged namespace as imports.
+        if (namespaceSymbol is SourceNamespaceSymbol)
+            namespaceSymbol = GetNamespaceSymbolCached(GetNamespaceMetadataName(namespaceSymbol)) ?? namespaceSymbol;
         var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
 
         if (GetNamespaceMembersContainer(namespaceSymbol) is { } synthesizedContainer &&
