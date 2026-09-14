@@ -4,6 +4,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-14:** Select the metadata core library from the supplied assembly that
+  defines the root `System.Object`, using its full identity rather than the host's
+  core name. This keeps imported structs classified as value types and prevents
+  fallback paths for another framework version from selecting the wrong core.
+  Retain the host fallback when no supplied reference defines the root type.
+  Regression coverage checks .NET 10/.NET 11 classes and structs, generic
+  signatures, exact metadata core identity and execution of emitted assemblies.
+  All 33 focused checks, the full baseline (5,515 reported passes), and the
+  .NET 10/.NET 11 build/run matrix passed.
+
 - **2026-09-14:** Support shorthand deconstruction of imported member unions:
   `.Case(...)` resolves a unique member from the scrutinee, while an in-scope
   generic `Case(...)` infers its closed arguments from the carrier. Preserve the

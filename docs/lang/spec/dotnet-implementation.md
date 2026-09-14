@@ -310,3 +310,20 @@ newly replaced references that are absent from the original metadata table.
 This preserves the ordinary CLI interface contract, including generic returns and
 property accessors; it does not introduce target-specific interface semantics.
 Default .NET emission continues to use its existing reflection-based path.
+
+## Metadata core-library identity
+
+Raven selects the metadata context's core library from the supplied references by
+finding the assembly that directly defines the root `System.Object` type. A facade
+that only forwards that type is not selected. Selection uses the full assembly
+identity, including the version, so metadata from different framework versions does
+not accidentally share a core type universe. If no supplied reference defines the
+root type, Raven retains the compiler host's core-library fallback.
+
+This keeps metadata reflection's value-type classification consistent with imported
+CLI type definitions. In particular, reference assemblies can define `System.Object`
+and `System.ValueType` in an assembly different from the compiler host's core library.
+Their imported structs must remain value types in generic method signatures,
+parameters and locals. Host runtime resolution and custom-attribute serialization
+continue to use their existing paths; choosing an emission target identity alone is
+not a substitute for establishing the correct metadata core identity.
