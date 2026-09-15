@@ -3204,6 +3204,11 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitStoreElementByRuntimeType(Type elementType)
     {
+        if (elementType.IsGenericParameter)
+        {
+            ILGenerator.Emit(OpCodes.Stelem, elementType);
+            return;
+        }
         if (!elementType.IsValueType)
         {
             ILGenerator.Emit(OpCodes.Stelem_Ref);
@@ -4837,6 +4842,11 @@ internal partial class ExpressionGenerator : Generator
     private void EmitLoadElement(ITypeSymbol elementType)
     {
         var clrType = ResolveClrType(elementType);
+        if (elementType is ITypeParameterSymbol)
+        {
+            ILGenerator.Emit(OpCodes.Ldelem, clrType);
+            return;
+        }
 
         if (!elementType.IsValueType)
         {
@@ -6348,6 +6358,11 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitStoreElement(ITypeSymbol elementType)
     {
+        if (elementType is ITypeParameterSymbol)
+        {
+            ILGenerator.Emit(OpCodes.Stelem, ResolveClrType(elementType));
+            return;
+        }
         if (!elementType.IsValueType)
         {
             ILGenerator.Emit(OpCodes.Stelem_Ref);

@@ -1353,7 +1353,7 @@ internal class StatementGenerator : Generator
     {
         var clrType = ResolveClrType(elementType);
 
-        if (clrType.IsValueType)
+        if (clrType.IsValueType || clrType.IsGenericParameter)
             ILGenerator.Emit(OpCodes.Ldelem, clrType);
         else
             ILGenerator.Emit(OpCodes.Ldelem_Ref);
