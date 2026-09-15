@@ -144,3 +144,14 @@ Contract settings are unchanged. The independent C# Helpers.One<T>(T) -> T[] fix
 executes Raven consumers on .NET 11 with default and explicit System.Runtime settings,
 covering both type and method parameters. This validation does not claim execution
 on .NET Framework or NanoFramework; no neoCLR-specific contract is involved.
+
+
+Generic array elements preserve their actual CLI type parameter for loads and stores,
+including literals and indexed iteration. An unconstrained parameter may instantiate
+as a value or a reference, so reference-only array operations are insufficient.
+This is independent of Runtime Contract settings and does not change array variance
+or inference. The .NET 11 regression executes method and type parameters, literals,
+indexed reads/writes and iteration with Int32, String and Decimal elements under
+both default and explicit System.Runtime metadata configuration. The earlier emission
+could crash the isolated .NET test process; the corrected tests preserve complete
+values and execute normally. .NET Framework/NanoFramework execution is not claimed.

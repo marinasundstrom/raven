@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-15:** Preserve generic array elements using typed CLI access for both
+  source type and method parameters. Correct generic stores, reads, array literals
+  and indexed iteration; an unconstrained parameter is not necessarily a reference.
+  Six .NET execution cases cover integers, references and wide values under default
+  and explicit-core metadata options; all 14 focused array/metadata tests pass.
+
 - **2026-09-15:** Emit imported generic method calls with source type or method
   parameters when an explicit CLI metadata core is configured. Preserve open
   MethodSpec arguments through metadata references instead of mixing reflection
