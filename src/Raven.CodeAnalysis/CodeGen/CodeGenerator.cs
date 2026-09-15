@@ -1717,12 +1717,11 @@ internal class CodeGenerator
     internal MethodInfo GetMethodInfoOrMetadataProxy(IMethodSymbol methodSymbol)
     {
         if (_emitOptions?.TargetCoreLibraryIdentity is not null &&
-            TryGetMetadataMethod(methodSymbol, out var targetMetadataMethod) &&
-            (!targetMetadataMethod.IsGenericMethod ||
-             targetMetadataMethod.TypeArguments.Length == targetMetadataMethod.TypeParameters.Length &&
-             targetMetadataMethod.TypeArguments.All(type => IsClosedMetadataType(type)) &&
-             IsClosedMetadataType(targetMetadataMethod.ContainingType!)))
+            TryGetMetadataMethod(methodSymbol, out var targetMetadataMethod))
         {
+            // MetadataLoadContext cannot construct methods with Reflection.Emit's source
+            // generic parameters. Allocate a temporary token and rewrite its MethodSpec
+            // using the caller's metadata context, preserving type and method parameters.
             return CreateMetadataMethodProxy(targetMetadataMethod);
         }
 
