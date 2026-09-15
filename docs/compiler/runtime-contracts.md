@@ -133,3 +133,14 @@ not an omitted-argument inference request. Binding still validates constraints a
 emission uses ordinary CLI generics. The execution regression covers qualified and
 unqualified construction under default .NET and explicit metadata-core options.
 No Runtime Contract configuration or target-specific policy changes.
+
+
+Imported generic methods may be constructed with a source class or method parameter
+under an explicit metadata core. Emission uses the existing temporary metadata-token
+proxy and rewrites it to a CLI MethodSpec in the caller's generic context. It does
+not call MetadataLoadContext.MakeGenericMethod with Reflection.Emit parameters from
+a different context. This changes emission only: binding, type inference and Runtime
+Contract settings are unchanged. The independent C# Helpers.One<T>(T) -> T[] fixture
+executes Raven consumers on .NET 11 with default and explicit System.Runtime settings,
+covering both type and method parameters. This validation does not claim execution
+on .NET Framework or NanoFramework; no neoCLR-specific contract is involved.

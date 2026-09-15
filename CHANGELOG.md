@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-15:** Emit imported generic method calls with source type or method
+  parameters when an explicit CLI metadata core is configured. Preserve open
+  MethodSpec arguments through metadata references instead of mixing reflection
+  loading contexts. Four .NET execution cases pass with default and explicit
+  System.Runtime options (12 focused tests total). No runtime-specific policy.
+
 - **2026-09-15:** Accept explicit generic self-construction such as Box<T>(value)
   inside Box<T>, including qualified names. Preserve omitted-argument inference and
   constraint validation. Four new .NET execution cases cover default and explicit-core
