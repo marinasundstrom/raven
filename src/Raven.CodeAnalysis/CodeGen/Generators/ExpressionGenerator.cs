@@ -782,8 +782,19 @@ internal partial class ExpressionGenerator : Generator
         if (!IsOpenGenericTypeOfOperand(typeOfExpression.OperandType, operandClrType))
             operandClrType = Generator.InstantiateType(operandClrType);
 
-        ILGenerator.Emit(OpCodes.Ldtoken, operandClrType);
-        ILGenerator.Emit(OpCodes.Call, GetTypeFromHandleMethod);
+        if (Compilation.Options.RuntimeTypeOfContract is not null
+            && typeOfExpression.SystemType.SpecialType != SpecialType.System_Type)
+        {
+            var contract = Compilation.ResolveRuntimeTypeOfContract()!;
+            ILGenerator.Emit(OpCodes.Call, GetMethodInfo(contract.CurrentGetter));
+            ILGenerator.Emit(OpCodes.Ldtoken, operandClrType);
+            ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(contract.Resolver));
+        }
+        else
+        {
+            ILGenerator.Emit(OpCodes.Ldtoken, operandClrType);
+            ILGenerator.Emit(OpCodes.Call, GetTypeFromHandleMethod);
+        }
     }
 
     private static bool IsOpenGenericTypeOfOperand(ITypeSymbol operandType, Type operandClrType)

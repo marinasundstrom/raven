@@ -13,6 +13,8 @@ public partial class Compilation
 
     private Diagnostic? GetTargetCoreConfigurationDiagnostic()
     {
+        if (Options.RuntimeTypeOfContract is not null && ResolveRuntimeTypeOfContract() is null)
+            return TargetCoreError("the typeof contract requires a public interface and context in the configured assembly, with public static Current and instance GetTypeInfoFromHandle(RuntimeTypeHandle) returning that interface");
         if (Options.RuntimeUnitContract is { } unit)
         {
             if (Options.TargetCoreAssemblyName != unit.AssemblyName || string.IsNullOrWhiteSpace(unit.TypeName))

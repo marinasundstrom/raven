@@ -1,5 +1,48 @@
 # Runtime Contracts
 
+## Context-owned typeof (experimental, 2026-09-17)
+
+`CompilationOptions.WithRuntimeTypeOfContract(new RuntimeTypeOfContract(
+assemblyName, typeInfoTypeName, contextTypeName))` opts language typeof into a
+runtime-owned descriptive interface. Projects use RavenTypeOfAssemblyName,
+RavenTypeOfInfoType and RavenTypeOfContextType. All three are required together.
+The neoCLR POC selects Probe, System.Introspection.TypeInfo and
+System.Runtime.RuntimeContext; these names are configuration, not binder policy.
+
+The contract names public nongeneric top-level types in one assembly: an interface
+and a class with public static Current returning that class, and a public instance
+GetTypeInfoFromHandle(System.RuntimeTypeHandle) returning exactly the interface.
+Source providers and referenced providers are resolved through compiler symbols,
+without loading a runtime implementation into the compiler. Invalid/partial
+configuration reports RAVT003 rather than silently selecting the host System.Type.
+
+Binding and semantic-model type information report the interface. Ordinary
+expression emission acquires Current, loads the type token and invokes the
+resolver. The receiver precedes the handle on the CLI stack. Existing generic
+type-token handling is retained. Default .NET projects still use System.Type's
+static factory. Compiler-synthesized System.Type expressions and sizeof retain
+their existing behavior. Option copies preserve the contract, and changes to it
+prevent reuse of incompatible incremental semantic state.
+
+No syntax, grammar or TextMate change is required; editor semantic requests see the
+same bound result type. This slice covers executable typeof expressions, not
+custom-attribute or expression-tree representation with alternative descriptors.
+The target owns provider identity, equivalence, lifetime and implementation hiding.
+
+Compared with the ordinary CLI/.NET Type.GetTypeFromHandle contract, the context
+path makes the execution universe explicit and separates descriptive API shape
+from executable capabilities. It costs a new target contract and coordinated
+runtime/reference migration; it is not a drop-in binary compatibility change.
+The generic mechanism is a deferred candidate for independent main-based validation;
+neoCLR policy and fixtures must not be merged wholesale from the experiment branch.
+
+Validation uses RuntimeTypeOfContractTests for semantic type, emitted interface
+return shape and observable execution, with TypeOfExpression tests protecting the
+default behavior (23 tests passing on .NET 11, including a referenced provider).
+The neoCLR integration adds an actual source typeof(Date)
+execution test and handle-equivalence checks. These results do not claim .NET
+Framework or NanoFramework execution or full cross-context Emit composition.
+
 A Runtime Contract describes a compiler-facing requirement supplied by a target's
 CLI metadata. A target profile selects contracts and reference assemblies; it does
 not require a separate binder or emitter for each framework. These options are

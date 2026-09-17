@@ -233,6 +233,13 @@ internal static class MsBuildProjectEvaluator
         if (metadataCoreAssemblyName is not null)
             compilationOptions = compilationOptions.WithMetadataImportOptions(new MetadataImportOptions(metadataCoreAssemblyName));
 
+        var typeOfAssembly = GetOptionalProperty(project, "RavenTypeOfAssemblyName");
+        var typeOfInfo = GetOptionalProperty(project, "RavenTypeOfInfoType");
+        var typeOfContext = GetOptionalProperty(project, "RavenTypeOfContextType");
+        if (typeOfAssembly is not null || typeOfInfo is not null || typeOfContext is not null)
+            compilationOptions = compilationOptions.WithRuntimeTypeOfContract(new RuntimeTypeOfContract(
+                typeOfAssembly ?? "", typeOfInfo ?? "", typeOfContext ?? ""));
+
         var unitAssembly = GetOptionalProperty(project, "RavenUnitAssemblyName");
         var unitType = GetOptionalProperty(project, "RavenUnitType");
         if (unitAssembly is not null || unitType is not null)

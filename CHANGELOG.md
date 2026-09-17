@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-17:** Add an opt-in RuntimeTypeOfContract for context-owned typeof
+  acquisition. Bind to the configured descriptive interface and emit
+  Current.GetTypeInfoFromHandle; reject invalid/partial contracts with RAVT003.
+  Preserve ordinary .NET System.Type behavior, compiler-internal type tokens and
+  immutable option copies. Project properties select assembly, interface and context.
+  This experimental contract remains on the neoCLR feature branch.
+  All 23 focused tests pass, including source/referenced providers, operations,
+  hidden implementations, invalid shapes and the unchanged .NET typeof baseline.
+
 - **2026-09-15:** Preserve generic array elements using typed CLI access for both
   source type and method parameters. Correct generic stores, reads, array literals
   and indexed iteration; an unconstrained parameter is not necessarily a reference.

@@ -3780,7 +3780,11 @@ partial class BlockBinder : Binder
         if (operandType.ContainsErrorType())
             return ErrorExpression(operandType, reason: BoundExpressionReason.NotFound);
 
-        var systemType = Compilation.GetSpecialType(SpecialType.System_Type);
+        var systemType = Compilation.Options.RuntimeTypeOfContract is null
+            ? Compilation.GetSpecialType(SpecialType.System_Type)
+            : Compilation.ResolveRuntimeTypeOfContract()?.Type;
+        if (systemType is null)
+            return ErrorExpression(Compilation.ErrorTypeSymbol, reason: BoundExpressionReason.NotFound);
 
         return new BoundTypeOfExpression(operandType, systemType);
     }
