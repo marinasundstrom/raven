@@ -8,6 +8,45 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class RuntimeUnitContractTests
 {
+    [Fact]
+    public void ConfiguredUnitAssemblyIsNotShadowedBySourceType()
+    {
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+            .WithTargetCoreAssemblyName("System.Runtime")
+            .WithRuntimeUnitContract(new RuntimeUnitContract("System.Runtime", "System.ValueTuple"));
+        var tree = SyntaxTree.ParseText("""
+            namespace System
+            public struct ValueTuple {
+                private field payload: int
+            }
+            public class Example {
+                public static func Run() -> int {
+                    let value = ()
+                    return 42
+                }
+            }
+            """);
+        var compilation = Compilation.Create("UnitShadow", [tree], references.Select(MetadataReference.CreateFromFile).ToArray(), options);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        output.Position = 0;
+        using (var image = AssemblyDefinition.ReadAssembly(output))
+        {
+            Assert.Single(image.MainModule.GetType("System.ValueTuple").Fields);
+            var locals = image.MainModule.GetType("System.Example").Methods.Single(m => m.Name == "Run")
+                .Body.Variables.Where(v => v.VariableType.FullName == "System.ValueTuple").ToArray();
+            Assert.NotEmpty(locals);
+            Assert.All(locals, local => Assert.Equal("System.Runtime", local.VariableType.Scope.Name));
+        }
+        output.Position = 0;
+        using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
+        Assert.Equal(42, loaded.Assembly.GetType("System.Example")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(1)]

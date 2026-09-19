@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Resolve configured unit types from their named reference assembly,
+  so a same-named source type cannot shadow RuntimeUnitContract validation. Preserve
+  ordinary source lookup; cover independent .NET metadata identity and execution.
+  All 19 focused unit/target-core checks pass; the new regression failed before the fix.
 - **2026-09-19:** Document the neoCLR importer's checked String/Error source-authoring
   boundary, existing Runtime Contract configuration, opaque storage and receiver
   projection, rejected allocation/mutation, and validation scope. No compiler code
