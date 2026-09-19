@@ -183,3 +183,18 @@ the delegate fix was then restored on top for combined focused validation.
 Combined validation after restoring the delegate fix: 55 focused metadata, attribute,
 delegate and generic-call tests passed. The broader audit remains tied to its stated
 commits; it is not reported as a rerun on this delegate commit.
+
+## Direct out-parameter forwarding (2026-09-19)
+
+A direct invocation that passes an enclosing out parameter to a callee out parameter
+establishes assignment on normal return. Previously the method-body checker tracked
+explicit assignments but missed this call guarantee, producing RAV0269. The fix uses
+CLI parameter ref kinds; ref/in arguments do not provide the same guarantee.
+
+The independent regression uses a source generic setter and .NET Math.DivRem,
+then executes the emitted code and observes 42. It failed with RAV0269 before the
+fix. All 41 focused parameter semantic/runtime checks pass, including deferred and
+conditional forwarding that must still report missing assignment. This is limited
+to direct invocation expressions; it does not redesign flow analysis for calls
+nested in conditional expressions. No Runtime Contract option or neoCLR policy is
+introduced. .NET Framework and NanoFramework were not executed.

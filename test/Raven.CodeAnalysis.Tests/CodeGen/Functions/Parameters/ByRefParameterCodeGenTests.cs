@@ -11,6 +11,29 @@ namespace Raven.CodeAnalysis.Tests.CodeGen.Functions.Parameters;
 public sealed class ByRefParameterCodeGenTests
 {
     [Fact]
+    public void ForwardedOutParameters_AreAssignedBySourceAndMetadataCalls()
+    {
+        const string code = """
+class Program {
+    static func Set<T>(out value: T, payload: T) { value = payload }
+    static func Forward(out value: int) { Set<int>(out value, 20) }
+    static func Remainder(out value: int) {
+        System.Math.DivRem(45, 23, out value)
+        return
+    }
+    public static func Run() -> int {
+        var first = 0
+        var second = 0
+        Forward(out first)
+        Remainder(out second)
+        return first + second
+    }
+}
+""";
+        Assert.Equal(42, CompileAndInvokeRun<int>(code, "forwarded-out-runtime"));
+    }
+
+    [Fact]
     public void SourceOutParameter_WithDeclaredVarLocal_EmitsCallAndAssignedLocal()
     {
         const string code = """
