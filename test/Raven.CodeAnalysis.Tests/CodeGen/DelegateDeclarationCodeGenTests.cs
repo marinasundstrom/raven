@@ -55,6 +55,28 @@ public sealed class DelegateDeclarationCodeGenTests
     }
 
     [Fact]
+    public void ExplicitVoidDelegateInvokesNoResultMethod()
+    {
+        var compilation = CreateCompilation(SyntaxTree.ParseText("""
+            delegate Completion() -> System.Void
+            public class Program {
+                static func Complete() { }
+                public static func Run() -> int {
+                    let callback: Completion = Complete
+                    callback()
+                    return 42
+                }
+            }
+            """));
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
+        var run = loaded.Assembly.GetType("Program", throwOnError: true)!.GetMethod("Run")!;
+        Assert.Equal(42, run.Invoke(null, []));
+    }
+
+    [Fact]
     public void DelegateDeclaration_EmitsClrDelegateShape()
     {
         const string code = """

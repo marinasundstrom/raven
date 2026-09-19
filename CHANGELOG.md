@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Fix method-group bridges for explicitly void-returning delegates:
+  consult the emitted return signature before popping a Unit result. An ordinary
+  .NET callback previously threw InvalidProgramException when its source method
+  emitted CLI void. The independent regression fails before the fix; all 19 focused delegate/unit
+  checks pass afterward. No neoCLR target configuration is required.
+
 - **2026-09-19:** Resolve generic interface base lists in the interface's own scope,
   including interfaces nested in classes or interfaces. Preserve type-parameter
   identity in semantic symbols and emitted CLI metadata without target-specific

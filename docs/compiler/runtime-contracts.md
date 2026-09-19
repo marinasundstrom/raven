@@ -167,3 +167,14 @@ checks diagnostics, semantic symbols and reflected emitted metadata on .NET 11.
 All 87 focused resolution, interface, accessibility and constrained-hierarchy tests
 pass; the three reduced cases failed before the fix.
 This does not establish execution on .NET Framework or NanoFramework.
+
+## Delegate bridges and no-result calls — 2026-09-19
+
+When a method group with an inferred Unit result is assigned to a delegate explicitly
+returning `System.Void`, its bridge consults the emitted method signature before
+discarding a result. A CLI void call leaves no value to pop; emitting a pop caused
+InvalidProgramException on ordinary .NET. Calls returning a real Unit value still
+discard it when required. No Runtime Contract setting or neoCLR policy is involved.
+A .NET 11 execution regression fails before the fix and checks the caller completes
+afterward; all 19 focused delegate/unit checks pass.
+.NET Framework and NanoFramework execution are not claimed by that check.
