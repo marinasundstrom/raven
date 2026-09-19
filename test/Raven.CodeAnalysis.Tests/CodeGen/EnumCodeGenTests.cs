@@ -1,6 +1,9 @@
 using System;
 using System.IO;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
+using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.MetadataFixtures.Pins;
@@ -9,6 +12,31 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class EnumCodeGenTests
 {
+    [Fact]
+    public void SourceEnumBackingFieldRetainsRequiredCliFlags()
+    {
+        const string code = """
+            public enum Mode { Default = 0, Active = 4 }
+            """;
+        var compilation = Compilation.Create("enum_field_metadata", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText(code)).AddReferences(TestMetadataReferences.Default);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        stream.Position = 0;
+        using var pe = new PEReader(stream, PEStreamOptions.LeaveOpen);
+        var reader = pe.GetMetadataReader();
+        var type = reader.TypeDefinitions.Select(reader.GetTypeDefinition)
+            .Single(type => reader.GetString(type.Name) == "Mode");
+        var field = type.GetFields().Select(reader.GetFieldDefinition)
+            .Single(field => reader.GetString(field.Name) == "value__");
+        Assert.Equal(FieldAttributes.Public | FieldAttributes.SpecialName | FieldAttributes.RTSpecialName, field.Attributes);
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, TestMetadataReferences.Default);
+        var enumType = loaded.Assembly.GetType("Mode", true)!;
+        Assert.Equal(typeof(int), Enum.GetUnderlyingType(enumType));
+        Assert.Equal(4, Convert.ToInt32(Enum.Parse(enumType, "Active")));
+    }
+
     [Theory]
     [InlineData(".Public | .Instance | .Static")]
     [InlineData(".Public | (.Instance | .Static)")]

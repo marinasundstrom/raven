@@ -21,6 +21,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   Func declaration-family boundary (six admission cases, 28 delegate tests and the
   Raven delegate sample); runtime invocation remains unchanged.
 
+- **2026-09-19:** Preserve CLI enum backing-field SpecialName/RTSpecialName flags in
+  final PE metadata when the host emitter masks reserved bits. An independent .NET
+  PE-metadata regression failed before the correction; all 13 focused enum/target-core
+  checks pass. No Runtime Contract configuration or target-specific policy changes.
+
 - **2026-09-19:** Resolve unqualified generic constructors when the current namespace
   also contains a nongeneric type of the same name. Preserve all accessible arities
   during candidate selection; invalid constructor and constructed-alias arities now
