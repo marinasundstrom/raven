@@ -10,6 +10,24 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class ByRefParameterTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("if condition { Set(out value) }")]
+    [InlineData("func Later() { Set(out value) }")]
+    public void OutForwarding_NotExecutedOnEveryPath_RemainsUnassigned(string body)
+    {
+        var source = $$"""
+class C {
+    static func Set(out value: int) { value = 42 }
+    static func Forward(condition: bool, out value: int) {
+        {{body}}
+    }
+}
+""";
+        var compilation = CreateCompilation(SyntaxTree.ParseText(source));
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.UnassignedOutParameter);
+    }
+
     [Fact]
     public void Parameter_WithRefKeyword_HasRefKindRef()
     {

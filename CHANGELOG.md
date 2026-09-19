@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Recognize assignment when a direct call forwards an out parameter
+  to a callee's out parameter. Source generic and ordinary .NET metadata calls now
+  compile and execute; conditional/deferred calls still require assignment on all
+  paths. No Runtime Contract or target-specific rule changes. All 41 focused
+  parameter semantic/runtime checks pass; the forwarding regression failed before.
+
 - **2026-09-19:** Resolve configured unit types from their named reference assembly,
   so a same-named source type cannot shadow RuntimeUnitContract validation. Preserve
   ordinary source lookup; cover independent .NET metadata identity and execution.

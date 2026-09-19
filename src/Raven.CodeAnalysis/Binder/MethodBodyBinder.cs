@@ -587,6 +587,30 @@ class MethodBodyBinder : BlockBinder
             if (expression is BoundParameterAssignmentExpression parameterAssignment)
                 return MarkAssignedParameter(parameterAssignment.Parameter, assigned);
 
+            // A direct call evaluates to completion before the following statement.
+            // An out argument assigns the forwarded storage on every normal return;
+            // ref/in arguments provide no such guarantee. Do not infer this for calls
+            // nested inside conditional expressions or deferred function bodies.
+            if (expression is BoundInvocationExpression invocation)
+            {
+                var parameters = invocation.Method.Parameters.AsEnumerable();
+                if (invocation.ExtensionReceiver is not null)
+                    parameters = parameters.Skip(1);
+                foreach (var (argument, parameter) in invocation.Arguments.Zip(parameters))
+                {
+                    if (parameter.RefKind != RefKind.Out)
+                        continue;
+                    var forwarded = argument switch
+                    {
+                        BoundAddressOfExpression { Symbol: IParameterSymbol symbol } => symbol,
+                        BoundParameterAccess access => access.Parameter,
+                        _ => null
+                    };
+                    if (forwarded is not null)
+                        assigned = MarkAssignedParameter(forwarded, assigned);
+                }
+            }
+
             var collector = new AssignedOutParameterCollector(_outParameters, assigned);
             collector.VisitExpression(expression);
             return collector.Assigned;
