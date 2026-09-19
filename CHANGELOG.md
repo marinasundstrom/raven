@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Document neoCLR's direct TypeInfo acquisition through the existing
+  configured typeof resolver and Object.GetType. No compiler semantic/emission
+  change; target callers rebuild and the internal CLI-only Type shell is hidden.
+  Admission, saved-program execution and language-server acquisition checks pass.
+
 - **2026-09-19:** Document neoCLR's sealed Info interfaces, preserved permitted-type
   reference metadata and executable public-interface matches. No Raven compiler or
   Runtime Contract change. Record inaccessible-leaf diagnostic wording as a deferred

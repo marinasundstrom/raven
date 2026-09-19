@@ -268,3 +268,26 @@ rather than accessible covering interface cases. Improve diagnostic/code-fix cas
 selection independently on ordinary CLI metadata before integration on main; do
 not add hard-coded neoCLR names to Raven. TypeInfo acquisition, RuntimeContext and
 collection-return alignment remain separate neoCLR work.
+
+## Unified neoCLR TypeInfo acquisition (2026-09-19)
+
+The neoCLR consumer profile now selects the existing Runtime Contract resolver:
+`RavenTypeOfAssemblyName=NeoCLR.CoreProbe`,
+`RavenTypeOfInfoType=System.Introspection.TypeInfo`, and
+`RavenTypeOfContextType=System.Runtime.RuntimeContext`. Raven binds typeof to TypeInfo
+and emits Current followed by GetTypeInfoFromHandle. Library declaration slices
+clear this configuration because they shadow those types and use no typeof.
+
+neoCLR also implements Object.GetType returning TypeInfo and removes its public
+Type/Info hop. The reference retains an internal empty System.Type shell solely
+for CLI custom-attribute type tokens; it is not an executable/public runtime type.
+No Raven compiler change or main-branch fix accompanies this migration. Importer
+admission still validates sealed interfaces and hidden providers. Target consumers
+must rebuild against the changed reference and executable library together.
+RuntimeContext.ExecutingAssembly and assembly/module discovery remain subsequent
+neoCLR work; this change does not implement invocation or Emit.
+
+Validation: TypeInfo and Object admission checks pass; a saved Raven program
+executes instance and declared-type acquisition. Language-server checks identify
+all six Info contracts as interfaces, exclude System.Type and private providers,
+and expose RuntimeContext.Current.GetTypeInfoFromHandle without Type.Info.
