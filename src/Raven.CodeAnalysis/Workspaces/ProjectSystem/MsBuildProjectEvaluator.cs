@@ -179,9 +179,7 @@ internal static class MsBuildProjectEvaluator
             ?? true;
         var sdkProvidesImplicitImports = GetBooleanProperty(project, "_RavenSdkProvidesImplicitImports") ?? false;
         var emitCoreTypesOnly = GetBooleanProperty(project, "RavenEmitCoreTypesOnly") ?? false;
-        var metadataCoreAssemblyName = GetOptionalProperty(project, "RavenMetadataCoreAssemblyName");
-        var useHostFrameworkReferences = metadataCoreAssemblyName is null
-            && (GetBooleanProperty(project, "RavenUseHostFrameworkReferences") ?? true);
+        var useHostFrameworkReferences = GetBooleanProperty(project, "RavenUseHostFrameworkReferences") ?? true;
         var frameworkProjectionMode = emitCoreTypesOnly
             ? FrameworkProjectionMode.None
             : ParseFrameworkProjectionMode(
@@ -230,6 +228,7 @@ internal static class MsBuildProjectEvaluator
             .WithAllowArrayCovariance(GetBooleanProperty(project, "RavenAllowArrayCovariance") ?? true)
             .WithTargetCoreAssemblyName(GetOptionalProperty(project, "RavenTargetCoreAssemblyName"));
 
+        var metadataCoreAssemblyName = GetOptionalProperty(project, "RavenMetadataCoreAssemblyName");
         if (metadataCoreAssemblyName is not null)
             compilationOptions = compilationOptions.WithMetadataImportOptions(new MetadataImportOptions(metadataCoreAssemblyName));
 

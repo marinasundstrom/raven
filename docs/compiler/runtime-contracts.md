@@ -446,3 +446,28 @@ or neoCLR policy. All 31 focused deconstruction/ref-field checks pass on .NET 11
 .NET Framework and NanoFramework were not executed. See Microsoft's
 [ref struct restrictions](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/ref-struct)
 and Raven's [deconstruction rules](../lang/spec/deconstruction-and-union-patterns.md).
+
+## Completed neoCLR source-port branch audit (2026-09-19)
+
+The long-lived integration branch is now `neoclr`. General interface scope, delegate
+void bridges, unit assembly identity, out forwarding, constructor arity, enum field
+metadata, explicit editor references and exact-value deconstruction fixes are on
+main with independent .NET validation. Temporary fix branches were removed after
+confirming their commits belong to main; the target branch was not merged wholesale.
+
+Remaining production differences implement target array shape/covariance, nominal
+Void value positions, target propagation and context-owned typeof, with their
+configuration and tests. No new Runtime Contract setting is added by this audit.
+Explicit project reference isolation already belongs to the shared project service;
+the extra feature evaluator guard was redundant and is removed. Unit-contract
+project coverage is retained alongside the target array cases. All 47 main and 52
+neoclr project-system tests pass on .NET 11. .NET Framework and NanoFramework were
+not executed in this validation. Parser and nested-case lookup observations remain
+unclassified follow-ups, not implemented changes awaiting extraction.
+
+The neoCLR library now has 73 source slices; native services and compiler-generated
+adapters remain intrinsic. Local VS Code tooling uses matching copied binaries and
+target metadata. Its saved-program task runs neoCLR; the ordinary Raven Run/Debug
+commands retain their .NET workflow. Subsequent preview API alignment may break
+compatibility deliberately, retaining useful .NET ergonomics without locking the
+runtime to the complete .NET API. Object.GetType remains a candidate for that stage.

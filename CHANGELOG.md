@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Finish the neoCLR branch audit: keep the shared explicit-reference
+  policy in the project service, remove its redundant evaluator guard, and retain
+  unit-contract project coverage alongside array-policy tests. All 47 main and 52
+  neoclr project-system checks pass. Rename the integration branch to neoclr and
+  remove the eight integrated temporary fix branches; target policies stay separate.
+
 - **2026-09-19:** Document neoCLR typed error source authoring: checked erased case
   storage and constructor projection remain target importer policies, with no new
   Runtime Contract option or compiler semantic change. Record 14 admission checks,
