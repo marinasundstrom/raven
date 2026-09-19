@@ -9,7 +9,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   Runtime Contract option or compiler semantic change. Record 14 admission checks,
   25 focused runtime tests and 64 saved-program cases. Document the subsequent
   checked Propagatable declaration and its unchanged conditional-output ABI
-  (five admission checks).
+  (five admission checks). Document Option/Result authoring, checked constructor
+  and conditional-output projection, readonly adapters and invalid defaults;
+  12 admission cases, 41 focused runtime tests and 64 saved-program cases pass.
 
 - **2026-09-19:** Recognize assignment when a direct call forwards an out parameter
   to a callee's out parameter. Source generic and ordinary .NET metadata calls now

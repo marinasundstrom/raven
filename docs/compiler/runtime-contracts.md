@@ -290,3 +290,28 @@ checks exact generic positions and ordinary CLI out metadata before emitting its
 existing readonly `out(true)` ABI. Failed extraction does not establish destination
 initialization. This continues the existing target contract; it does not change
 Raven's ordinary .NET out assignment rules. Five declaration admission checks pass.
+
+## Experimental generic union authoring (2026-09-19)
+
+neoCLR now authors Option/Result carrier and case bodies in Raven. The importer
+checks complete generic families, matches storage and method signatures, preserves
+public runtime case Value fields, and lowers checked constructors to the existing
+value ABI. Compiler-only consumer recognition members remain metadata protocol
+adapters, not additional runtime exports. Native pack/test/unpack primitives remain
+bootstrap-only. The target's existing metadata core/unit/propagation configuration
+is unchanged.
+
+A bootstrap-only LeaveUnassigned(out T) marks failure paths in source; it never
+executes its CLI stub. Import admits only the current conditional output address
+followed immediately by false return, emitting no write. Literal Boolean returns
+preserve runtime verification of true-only assignment; readonly receiver adapters
+copy without requesting writable references. Invalid carrier/generic-case defaults
+remain unreadable. This does not change ordinary .NET out semantics or introduce
+a Runtime Contract setting. These representation policies stay off Raven main.
+
+All 12 admission cases, 41 focused Rust tests and 64 saved-project cases pass in
+neoCLR. General out-forwarding assignment was separately reproduced with source
+and .NET metadata and fixed on main (`5f6e17347`); the feature cherry-pick is
+`2d2a1d586`, with 41 parameter checks passing on each branch. Unqualified generic
+self-constructor lookup is a separate reproduced main-based investigation, not a
+claimed completed fix. No .NET Framework/NanoFramework execution is implied.
