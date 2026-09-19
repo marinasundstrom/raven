@@ -20,6 +20,45 @@ public sealed class WorkspaceManagerTests : IDisposable
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-{Guid.NewGuid():N}");
 
     [Fact]
+    public async Task ExplicitCliReferences_AreNotAugmentedByEditorAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var corePath = typeof(object).Assembly.Location;
+        _ = WriteProject(_tempRoot, "App", $$"""
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <RavenMetadataCoreAssemblyName>System.Private.CoreLib</RavenMetadataCoreAssemblyName>
+                <RavenUseHostFrameworkReferences>false</RavenUseHostFrameworkReferences>
+                <ImplicitImports>disable</ImplicitImports>
+              </PropertyGroup>
+              <ItemGroup>
+                <Compile Include="main.rvn" />
+                <Reference Include="System.Private.CoreLib">
+                  <HintPath>{{System.Security.SecurityElement.Escape(corePath)}}</HintPath>
+                </Reference>
+              </ItemGroup>
+            </Project>
+            """);
+        var filePath = Path.Combine(_tempRoot, "main.rvn");
+        WriteRavenFile(filePath, "func Main() { }");
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+        var document = await manager.UpsertDocumentAsync(DocumentUri.FromFileSystemPath(filePath), "func Main() { }");
+        document.Project.CompilationOptions!.MetadataImportOptions!.CoreAssemblyName.ShouldBe("System.Private.CoreLib");
+        document.Project.MetadataReferences.OfType<PortableExecutableReference>()
+            .Select(reference => reference.FilePath).ShouldBe(new[] { corePath });
+    }
+
+    [Fact]
     public void NormalizeCompilationOptionsForLanguageServer_AttachesCompilerPerformanceInstrumentation()
     {
         var instrumentation = new PerformanceInstrumentation();

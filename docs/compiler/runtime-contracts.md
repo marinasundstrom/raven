@@ -211,3 +211,17 @@ the bit; it does not admit malformed enums or add target-specific enum policies.
 
 Sources: [CLI standard](https://ecma-international.org/publications-and-standards/standards/ecma-335/),
 [Persisted field builder](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Reflection.Emit/src/System/Reflection/Emit/FieldBuilderImpl.cs).
+
+## Explicit editor references (2026-09-19)
+
+When MetadataImportOptions selects an explicit CLI reference universe, the language
+server uses those supplied references without adding host Raven.Core or macro
+support assemblies. This matches compiler metadata import configuration and avoids
+resolving editor symbols against assemblies outside the selected runtime. Normal
+host-framework projects retain their existing support-reference behavior. No new
+Runtime Contract option or emission policy is introduced.
+
+A standalone .NET project with only System.Private.CoreLib reproduced unwanted
+editor-added assemblies before the fix. The regression checks the exact reference
+set and configured core identity. All 65 workspace integration tests pass on
+.NET 10; this does not establish .NET Framework or NanoFramework execution.

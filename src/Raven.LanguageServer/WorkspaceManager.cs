@@ -554,7 +554,8 @@ internal sealed class WorkspaceManager
     private void EnsureRavenCoreReference(ProjectId projectId)
     {
         var project = _workspace.CurrentSolution.GetProject(projectId);
-        if (project is null || project.CompilationOptions?.EmbedCoreTypes == true)
+        if (project is null || project.CompilationOptions?.EmbedCoreTypes == true
+            || project.CompilationOptions?.MetadataImportOptions is not null)
             return;
 
         var hasRavenCoreReference = project.MetadataReferences
@@ -586,7 +587,7 @@ internal sealed class WorkspaceManager
     private void EnsureRavenMacrosReference(ProjectId projectId)
     {
         var project = _workspace.CurrentSolution.GetProject(projectId);
-        if (project is null ||
+        if (project is null || project.CompilationOptions?.MetadataImportOptions is not null ||
             project.TargetFramework?.StartsWith("netnano", StringComparison.OrdinalIgnoreCase) == true)
             return;
 

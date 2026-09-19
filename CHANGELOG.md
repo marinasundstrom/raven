@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Keep editor metadata references explicit when MetadataImportOptions
+  selects a CLI reference universe. Do not inject host Raven support assemblies.
+  An ordinary .NET reference regression fails before the fix; all 65 workspace
+  integration tests pass on .NET 10. No neoCLR-specific configuration is introduced.
+
 - **2026-09-19:** Preserve CLI enum backing-field SpecialName/RTSpecialName flags in
   final PE metadata when the host emitter masks reserved bits. An independent .NET
   PE-metadata regression failed before the correction; all 13 focused enum/target-core
