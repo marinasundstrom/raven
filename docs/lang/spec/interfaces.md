@@ -15,7 +15,9 @@ Static members, by contrast, must provide a body and emit as real static members
 ### Base interfaces
 
 An interface may inherit from other interfaces by listing them after a colon.
-Every base must be an interface.
+Every base must be an interface. The base list is resolved in the declared interface's
+scope, including its own generic type parameters, also for nested declarations.
+For example, `interface Child<T> : Parent<T> {}` passes Child's `T` to Parent.
 
 ```raven
 interface IAsyncLogger : ILogger, IDisposable {}

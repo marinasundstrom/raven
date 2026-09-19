@@ -11,6 +11,36 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class TypeSyntaxResolutionTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("interface Child<T> : Parent<T> {}")]
+    [InlineData("class Container { interface Child<T> : Parent<T> {} }")]
+    [InlineData("interface Container { interface Child<T> : Parent<T> {} }")]
+    public void GenericInterfaceBaseList_UsesItsOwnTypeParameterScope(string declaration)
+    {
+        var (compilation, tree) = CreateCompilation(
+            "interface Parent<T> {}\n" + declaration,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>()
+            .Single(d => d.Identifier.ValueText == "Child");
+        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(syntax));
+        var parent = Assert.Single(symbol.Interfaces);
+        Assert.Equal("Parent", parent.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(
+            Assert.Single(symbol.TypeParameters), Assert.Single(parent.TypeArguments)));
+
+        using var stream = new System.IO.MemoryStream();
+        var emitted = compilation.Emit(stream);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        var assembly = System.Reflection.Assembly.Load(stream.ToArray());
+        var child = assembly.GetTypes().Single(t => t.Name == "Child`1");
+        Assert.Equal(Assert.Single(child.GetGenericArguments()),
+            Assert.Single(Assert.Single(child.GetInterfaces()).GetGenericArguments()));
+    }
+
     [Fact]
     public void BindTypeSyntaxAndReport_ResolvesPredefinedType()
     {

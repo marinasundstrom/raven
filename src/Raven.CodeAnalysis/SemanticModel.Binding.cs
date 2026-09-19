@@ -3292,12 +3292,12 @@ public partial class SemanticModel
                         if (!Compilation.TryGetDeclaredTypeSymbol(interfaceDecl, out var interfaceSymbol))
                             break;
 
-                        var interfaceList = ResolveInterfaceBaseTypes(interfaceDecl, interfaceSymbol, parentBinder);
+                        var interfaceBinder = new InterfaceDeclarationBinder(parentBinder, interfaceSymbol, interfaceDecl);
+                        var interfaceList = ResolveInterfaceBaseTypes(interfaceDecl, interfaceSymbol, interfaceBinder);
 
                         if (!interfaceList.IsDefaultOrEmpty)
                             interfaceSymbol.SetInterfaces(MergeInterfaceSets(interfaceSymbol.Interfaces, interfaceList));
 
-                        var interfaceBinder = new InterfaceDeclarationBinder(parentBinder, interfaceSymbol, interfaceDecl);
                         interfaceBinder.EnsureTypeParameterConstraintTypesResolved(interfaceSymbol.TypeParameters);
                         ValidateTypeDeclarationConstraintAccessibility(interfaceSymbol, "type", interfaceBinder.Diagnostics);
                         CacheBinder(interfaceDecl, interfaceBinder);
@@ -5505,29 +5505,12 @@ public partial class SemanticModel
             if (member is not InterfaceDeclarationSyntax nestedInterface)
                 continue;
 
-            ImmutableArray<INamedTypeSymbol> parentInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
-            if (nestedInterface.BaseList is not null)
-            {
-                var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-                foreach (var t in nestedInterface.BaseList.Types)
-                {
-                    if (classBinder.TryBindNamedTypeFromTypeSyntax(t.Type, out var resolved, reportDiagnostics: true) &&
-                        resolved is not null &&
-                        resolved.TypeKind == TypeKind.Interface)
-                    {
-                        builder.Add(resolved);
-                    }
-                }
-
-                if (builder.Count > 0)
-                    parentInterfaces = builder.ToImmutable();
-            }
-
             var nestedInterfaceSymbol = GetDeclaredTypeSymbol(nestedInterface);
+            var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
+            var parentInterfaces = ResolveInterfaceBaseTypes(nestedInterface, nestedInterfaceSymbol, nestedInterfaceBinder);
             if (!parentInterfaces.IsDefaultOrEmpty)
                 nestedInterfaceSymbol.SetInterfaces(MergeInterfaceSets(nestedInterfaceSymbol.Interfaces, parentInterfaces));
 
-            var nestedInterfaceBinder = new InterfaceDeclarationBinder(classBinder, nestedInterfaceSymbol, nestedInterface);
             nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
             ValidateTypeDeclarationConstraintAccessibility(nestedInterfaceSymbol, "type", nestedInterfaceBinder.Diagnostics);
             CacheBinder(nestedInterface, nestedInterfaceBinder);
@@ -6235,12 +6218,12 @@ public partial class SemanticModel
                 continue;
 
             var nestedInterfaceSymbol = GetDeclaredTypeSymbol(nestedInterface);
-            var parentInterfaces = ResolveInterfaceBaseTypes(nestedInterface, nestedInterfaceSymbol, interfaceBinder);
+            var nestedInterfaceBinder = new InterfaceDeclarationBinder(interfaceBinder, nestedInterfaceSymbol, nestedInterface);
+            var parentInterfaces = ResolveInterfaceBaseTypes(nestedInterface, nestedInterfaceSymbol, nestedInterfaceBinder);
 
             if (!parentInterfaces.IsDefaultOrEmpty)
                 nestedInterfaceSymbol.SetInterfaces(MergeInterfaceSets(nestedInterfaceSymbol.Interfaces, parentInterfaces));
 
-            var nestedInterfaceBinder = new InterfaceDeclarationBinder(interfaceBinder, nestedInterfaceSymbol, nestedInterface);
             nestedInterfaceBinder.EnsureTypeParameterConstraintTypesResolved(nestedInterfaceSymbol.TypeParameters);
             ValidateTypeDeclarationConstraintAccessibility(nestedInterfaceSymbol, "type", nestedInterfaceBinder.Diagnostics);
             CacheBinder(nestedInterface, nestedInterfaceBinder);
