@@ -372,3 +372,16 @@ value-type constructors. The CLI receiver has no Param row; declared parameter
 tokens keep their order. This fixes neoCLR metadata admission for ordinary Raven
 value-copy programs. Runtime Contract settings and Raven compiler emission are
 unchanged; the target importer owns the adaptation.
+
+### 2026-09-19 — Minimal UTF-8 boundary API
+
+The neoCLR target reference catalog now exposes System.Text.Utf8.Encode(String)
+as Sequence<Byte>, Decode(Sequence<Byte>) as Result<String,InvalidUtf8Error>, and
+String.IsEmpty as a property. Rebuild target metadata and runtime together; change
+IsEmpty() callers to IsEmpty. Target adapters snapshot managed bytes; strict UTF-8
+validation stays in neoCLR native services. No Raven semantic/emission changes,
+new keyword, or Runtime Contract configuration changes: unit/() maps to System.Void.
+The target remains isolated on neoclr; no compiler fix needs extraction to main.
+The signature probe and editor completion cover the new declarations; UTF-8 sample
+checks include malformed input, BOM/NUL preservation and snapshot independence.
+Encoding hierarchies, Utf8String, streaming and scalar Char remain deferred.

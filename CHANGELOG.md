@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Document the target-only neoCLR Utf8 Sequence/Result API and
+  String.IsEmpty property migration. Compiler semantics and unit/System.Void
+  Runtime Contract settings are unchanged; rebuild target metadata and runtime.
+
 - **2026-09-19:** Document the neoCLR ExecutingAssembly, Sequence-based assembly/module
   discovery and module-scoped Info tokens. Runtime Contract configuration and compiler
   semantics/emission are unchanged; target consumers rebuild. Runnable sample and
