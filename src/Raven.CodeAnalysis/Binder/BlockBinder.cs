@@ -7947,6 +7947,14 @@ partial class BlockBinder : Binder
         if (value is EncodedStringLiteralValue encodedStringLiteral)
             return BindEncodedStringLiteral(syntax, encodedStringLiteral);
 
+        if (syntax.Kind == SyntaxKind.CharacterLiteralExpression
+            && (value is System.Text.Rune && !Compilation.Options.UseUnicodeScalarChar
+                || value is char character && char.IsSurrogate(character) && Compilation.Options.UseUnicodeScalarChar))
+        {
+            _diagnostics.ReportInvalidExpressionTerm(syntax.Token.Text, syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+        }
+
         var contextualTargetType = GetTargetType(syntax);
         var underlying = value switch
         {
@@ -7957,7 +7965,7 @@ partial class BlockBinder : Binder
             double => Compilation.GetSpecialType(SpecialType.System_Double),
             decimal => Compilation.GetSpecialType(SpecialType.System_Decimal),
             bool => Compilation.GetSpecialType(SpecialType.System_Boolean),
-            char => Compilation.GetSpecialType(SpecialType.System_Char),
+            char or System.Text.Rune => Compilation.GetSpecialType(SpecialType.System_Char),
             string => Compilation.GetSpecialType(SpecialType.System_String),
             _ => null
         };

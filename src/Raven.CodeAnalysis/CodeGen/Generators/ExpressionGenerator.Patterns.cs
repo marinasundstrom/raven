@@ -1403,7 +1403,7 @@ internal partial class ExpressionGenerator
                 return;
 
             case SpecialType.System_Char:
-                ILGenerator.Emit(OpCodes.Ldc_I4, (int)Convert.ToChar(value, CultureInfo.InvariantCulture));
+                ILGenerator.Emit(OpCodes.Ldc_I4, value is System.Text.Rune scalar ? scalar.Value : (int)Convert.ToChar(value, CultureInfo.InvariantCulture));
                 return;
 
             case SpecialType.System_SByte:
@@ -2004,6 +2004,11 @@ internal partial class ExpressionGenerator
     {
         switch (expression)
         {
+            case BoundLiteralExpression { Value: System.Text.Rune scalar } literal:
+                value = scalar;
+                sourceType = literal.Type!;
+                return true;
+
             case BoundFieldAccess fieldAccess when IsCompileTimeConstantField(fieldAccess.Field):
                 value = fieldAccess.Field.GetConstantValue();
                 sourceType = fieldAccess.Field.Type;
@@ -2215,7 +2220,7 @@ internal partial class ExpressionGenerator
                 return;
 
             case SpecialType.System_Char:
-                ILGenerator.Emit(OpCodes.Ldc_I4, (int)Convert.ToChar(value));
+                ILGenerator.Emit(OpCodes.Ldc_I4, value is System.Text.Rune scalar ? scalar.Value : (int)Convert.ToChar(value));
                 return;
 
             case SpecialType.System_SByte:
@@ -2273,6 +2278,11 @@ internal partial class ExpressionGenerator
         {
             case string s:
                 ILGenerator.Emit(OpCodes.Ldstr, s);
+                return;
+
+            case System.Text.Rune scalar:
+                ILGenerator.Emit(OpCodes.Ldc_I4, scalar.Value);
+                ILGenerator.Emit(OpCodes.Box, ResolveClrType(sourceType));
                 return;
 
             case char ch:

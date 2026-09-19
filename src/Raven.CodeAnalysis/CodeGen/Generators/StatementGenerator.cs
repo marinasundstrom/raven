@@ -886,6 +886,9 @@ internal class StatementGenerator : Generator
             case SpecialType.System_Int16:
                 ILGenerator.Emit(OpCodes.Conv_I2);
                 break;
+            case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
+                ILGenerator.Emit(OpCodes.Conv_U4);
+                break;
             case SpecialType.System_UInt16:
             case SpecialType.System_Char:
                 ILGenerator.Emit(OpCodes.Conv_U2);

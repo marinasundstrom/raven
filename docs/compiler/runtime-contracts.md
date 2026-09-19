@@ -471,3 +471,31 @@ target metadata. Its saved-program task runs neoCLR; the ordinary Raven Run/Debu
 commands retain their .NET workflow. Subsequent preview API alignment may break
 compatibility deliberately, retaining useful .NET ergonomics without locking the
 runtime to the complete .NET API. Object.GetType remains a candidate for that stage.
+
+### Experimental Unicode scalar Char contract
+
+The neoCLR branch adds `CompilationOptions.WithUnicodeScalarChar(true)` and the
+project property `RavenUnicodeScalarChar`. The default is false. The explicit
+contract retains `System.Char` metadata identity while selecting 32-bit scalar
+array, indirect and numeric operations for runtimes with scalar Char storage.
+It requires a matching target runtime/reference pack; it must not be enabled for
+the ordinary .NET System.Char implementation.
+
+The lexer represents supplementary character literals as `System.Text.Rune`
+constant values. The semantic model still reports System.Char. Both literal
+Unicode and eight-digit `\U` escapes are accepted with this contract; surrogate
+literals are diagnosed. Ordinary targets reject supplementary Char literals.
+Four-digit `\u` escapes also work. Numeric conversions pass through typed Char
+storage so the target runtime can validate the scalar. Scalar patterns and
+array round trips are exercised by the neoCLR integration sample.
+
+This policy is experimental and is not a change to Raven's .NET Char contract.
+Potential general lexer improvements must be reviewed and tested independently
+before extraction to main; none of this target bundle is approved wholesale.
+
+Validation on the development host: 76 lexer/literal/semantic tests and the neoCLR
+ScalarChar/Primitives saved-project checks, including supplementary literal patterns
+and arrays. Runtime invalid Int32 conversions fault through typed storage. Numeric
+casts still narrow to UInt32 before validation; this does not promise checked
+conversion from arbitrary wide numeric inputs. Unicode escape highlighting already
+exists in the TextMate grammar. No .NET Framework or NanoFramework execution claim.

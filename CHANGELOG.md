@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Add the experimental `RavenUnicodeScalarChar` project contract on
+  the neoCLR branch: supplementary literals and patterns, scalar diagnostics,
+  32-bit Char array/indirect operations and runtime-validated numeric storage.
+  Default .NET Char behavior remains unchanged. Rebuild the matching target
+  compiler/reference/runtime together. Focused compiler and neoCLR execution
+  checks cover this policy; wide numeric casts retain ordinary narrowing.
+
 - **2026-09-19:** Document the target-only neoCLR Utf8 Sequence/Result API and
   String.IsEmpty property migration. Compiler semantics and unit/System.Void
   Runtime Contract settings are unchanged; rebuild target metadata and runtime.

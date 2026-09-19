@@ -741,7 +741,7 @@ internal class Lexer : ILexer, IMacroBodyScanner
                                 return new Token(SyntaxKind.CharacterLiteralToken, GetStringBuilderValue());
                             }
 
-                            char character;
+                            object character;
 
                             if (ch == '\\')
                             {
@@ -792,6 +792,24 @@ internal class Lexer : ILexer, IMacroBodyScanner
                                     case 'v':
                                         character = '\v';
                                         break;
+                                    case 'u':
+                                    case 'U':
+                                        var digits = ch == 'u' ? 4 : 8;
+                                        var codepoint = new System.Text.StringBuilder();
+                                        for (var index = 0; index < digits && PeekChar(out var digit) && Uri.IsHexDigit(digit); index++)
+                                        {
+                                            ReadChar(out digit);
+                                            _stringBuilder.Append(digit);
+                                            codepoint.Append(digit);
+                                        }
+                                        if (codepoint.Length != digits || !uint.TryParse(codepoint.ToString(), System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var scalar) || scalar > 0x10ffff)
+                                        {
+                                            ReportDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.InvalidEscapeSequence, GetTokenStartPositionSpan()));
+                                            character = '?';
+                                        }
+                                        else
+                                            character = scalar <= char.MaxValue ? (object)(char)scalar : new System.Text.Rune((int)scalar);
+                                        break;
                                     default:
                                         ReportDiagnostic(DiagnosticInfo.Create(
                                             CompilerDiagnostics.InvalidEscapeSequence,
@@ -803,7 +821,14 @@ internal class Lexer : ILexer, IMacroBodyScanner
                             else
                             {
                                 _stringBuilder.Append(ch);
-                                character = ch;
+                                if (char.IsHighSurrogate(ch) && PeekChar(out var low) && char.IsLowSurrogate(low))
+                                {
+                                    ReadChar(out low);
+                                    _stringBuilder.Append(low);
+                                    character = new System.Text.Rune(ch, low);
+                                }
+                                else
+                                    character = ch;
                             }
 
                             if (!ReadChar(out ch) || ch != '\'')

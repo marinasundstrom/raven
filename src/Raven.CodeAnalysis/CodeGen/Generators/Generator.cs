@@ -796,6 +796,12 @@ internal abstract class Generator
             case SpecialType.System_Single: ILGenerator.Emit(OpCodes.Conv_R4); break;
             case SpecialType.System_Double: ILGenerator.Emit(OpCodes.Conv_R8); break;
             case SpecialType.System_Int16: ILGenerator.Emit(OpCodes.Conv_I2); break;
+            case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
+                ILGenerator.Emit(OpCodes.Conv_U4);
+                var scalarStorage = ILGenerator.DeclareLocal(ResolveClrType(to));
+                ILGenerator.Emit(OpCodes.Stloc, scalarStorage);
+                ILGenerator.Emit(OpCodes.Ldloc, scalarStorage);
+                break;
             case SpecialType.System_UInt16:
             case SpecialType.System_Char: ILGenerator.Emit(OpCodes.Conv_U2); break;
             case SpecialType.System_UInt32: ILGenerator.Emit(OpCodes.Conv_U4); break;

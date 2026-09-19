@@ -4312,6 +4312,9 @@ internal partial class ExpressionGenerator : Generator
             case SpecialType.System_Int16:
                 ILGenerator.Emit(OpCodes.Conv_I2);
                 break;
+            case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
+                ILGenerator.Emit(OpCodes.Conv_U4);
+                break;
             case SpecialType.System_UInt16:
             case SpecialType.System_Char:
                 ILGenerator.Emit(OpCodes.Conv_U2);
@@ -4877,6 +4880,9 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldelem_I1);
                 return;
 
+            case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
+                ILGenerator.Emit(OpCodes.Ldelem_U4);
+                return;
             case SpecialType.System_UInt16:
             case SpecialType.System_Char:
                 ILGenerator.Emit(OpCodes.Ldelem_U2);
@@ -5545,6 +5551,9 @@ internal partial class ExpressionGenerator : Generator
             case SpecialType.System_Int16:
                 ILGenerator.Emit(OpCodes.Ldind_I2);
                 break;
+            case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
+                ILGenerator.Emit(OpCodes.Ldind_U4);
+                break;
             case SpecialType.System_UInt16:
             case SpecialType.System_Char:
                 ILGenerator.Emit(OpCodes.Ldind_U2);
@@ -5588,6 +5597,9 @@ internal partial class ExpressionGenerator : Generator
             case SpecialType.System_Byte:
             case SpecialType.System_Boolean:
                 ILGenerator.Emit(OpCodes.Stind_I1);
+                break;
+            case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
+                ILGenerator.Emit(OpCodes.Stind_I4);
                 break;
             case SpecialType.System_Int16:
             case SpecialType.System_UInt16:
@@ -6391,6 +6403,9 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Stelem_I1);
                 return;
 
+            case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
+                ILGenerator.Emit(OpCodes.Stelem_I4);
+                return;
             case SpecialType.System_Int16:
             case SpecialType.System_UInt16:
             case SpecialType.System_Char:
@@ -7443,6 +7458,9 @@ internal partial class ExpressionGenerator : Generator
             case ulong i:
                 ILGenerator.Emit(OpCodes.Ldc_I8, unchecked((long)i));
                 break;
+            case System.Text.Rune scalar:
+                ILGenerator.Emit(OpCodes.Ldc_I4, scalar.Value);
+                break;
             case char c:
                 ILGenerator.Emit(OpCodes.Ldc_I4, c);
                 break;
@@ -8486,6 +8504,9 @@ internal partial class ExpressionGenerator : Generator
                     ILGenerator.Emit(b ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
                     break;
 
+                case System.Text.Rune scalar:
+                    ILGenerator.Emit(OpCodes.Ldc_I4, scalar.Value);
+                    break;
                 case char ch:
                     ILGenerator.Emit(OpCodes.Ldc_I4, (int)ch);
                     break;
@@ -8638,7 +8659,11 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundLiteralExpressionKind.CharLiteral:
                 {
-                    if (literalExpression.Value is char)
+                    if (literalExpression.Value is System.Text.Rune scalar)
+                    {
+                        ILGenerator.Emit(OpCodes.Ldc_I4, scalar.Value);
+                    }
+                    else if (literalExpression.Value is char)
                     {
                         ILGenerator.Emit(OpCodes.Ldc_I4, Convert.ToInt32(literalExpression.Value));
                         ILGenerator.Emit(OpCodes.Conv_U2);

@@ -225,6 +225,7 @@ internal static class MsBuildProjectEvaluator
             .WithEnabledAnalyzers(enabledAnalyzers)
             .WithFrameworkProjectionMode(frameworkProjectionMode)
             .WithExternalConstantValues(externalConstantValues)
+            .WithUnicodeScalarChar(GetBooleanProperty(project, "RavenUnicodeScalarChar") ?? false)
             .WithAllowArrayCovariance(GetBooleanProperty(project, "RavenAllowArrayCovariance") ?? true)
             .WithTargetCoreAssemblyName(GetOptionalProperty(project, "RavenTargetCoreAssemblyName"));
 
