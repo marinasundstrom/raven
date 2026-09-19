@@ -161,3 +161,12 @@ substituted. A more-derived declaration hides an inherited indexer with the same
 signature before getter/setter availability is checked: redeclaring a read-only
 indexer does not expose the hidden setter. Equally applicable indexers from
 unrelated interfaces are ambiguous; select a specific interface explicitly.
+
+### Expression-bodied indexer emission
+
+A getter-only indexer can put its expression directly on the declaration:
+`val self[index: int]: int => index + 40`. Class and struct indexers emit an
+ordinary read-only CLI Item property and getter, using the same expression-body
+lowering and sequence-point handling as properties. No Runtime Contract option
+is needed. Regression validation executes both receiver kinds on modern .NET;
+this is not a .NET Framework or NanoFramework execution claim.

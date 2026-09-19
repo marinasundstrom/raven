@@ -7,6 +7,27 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class IndexerTests
 {
+    [Theory]
+    [InlineData("class")]
+    [InlineData("struct")]
+    public void Indexer_DeclarationExpressionBody_EmitsAndRuns(string kind)
+    {
+        var code = kind + " Box { public val self[index: int]: int => index + 40 }";
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("expression_indexer", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText(code))
+            .AddReferences(references);
+        using var pe = new MemoryStream();
+        var emitted = compilation.Emit(pe);
+        Assert.True(emitted.Success, string.Join(Environment.NewLine, emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(pe, references);
+        var type = loaded.Assembly.GetType("Box", true)!;
+        var indexer = type.GetProperty("Item")!;
+        Assert.Null(indexer.SetMethod);
+        Assert.Equal(42, indexer.GetValue(Activator.CreateInstance(type), new object[] { 2 }));
+        Assert.Equal(47, indexer.GetValue(Activator.CreateInstance(type), new object[] { 7 }));
+    }
+
     [Fact]
     public void Indexer_EmitsItemPropertyWithBodies()
     {
