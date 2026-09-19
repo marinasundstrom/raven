@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Resolve unqualified generic constructors when the current namespace
+  also contains a nongeneric type of the same name. Preserve all accessible arities
+  during candidate selection; invalid constructor and constructed-alias arities now
+  report RAV0305 instead of silently emitting an error expression. The independent
+  .NET regression returned 0 before and 42 after; 78 focused checks pass. No Runtime
+  Contract option or target-specific policy changes.
+
 - **2026-09-19:** Recognize assignment when a direct call forwards an out parameter
   to a callee's out parameter. Source generic and ordinary .NET metadata calls now
   compile and execute; conditional/deferred calls still require assignment on all

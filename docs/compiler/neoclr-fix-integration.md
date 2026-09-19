@@ -198,3 +198,19 @@ conditional forwarding that must still report missing assignment. This is limite
 to direct invocation expressions; it does not redesign flow analysis for calls
 nested in conditional expressions. No Runtime Contract option or neoCLR policy is
 introduced. .NET Framework and NanoFramework were not executed.
+
+## Same-name constructor arities (2026-09-19)
+
+Unqualified constructor lookup must retain all accessible named types in the current
+namespace before choosing a generic arity. A namespace containing both Box and
+Box<T> previously selected Box alone: Box<T>.Create calling Box<T>(value) silently
+bound an error expression and returned a default value. The independent ordinary
+.NET execution regression returned 0 before the correction and 42 afterward.
+Invalid constructor arities and extra type arguments on a constructed alias now
+produce RAV0305, preventing emission of these unresolved expressions.
+
+The fix changes candidate discovery and diagnostics, not emitted metadata contracts.
+It introduces no Runtime Contract setting or neoCLR policy. All 78 focused generic,
+alias, namespace and accessibility checks pass on .NET 11. .NET Framework and
+NanoFramework were not executed. Namespace access checks and candidate deduplication
+remain in force; this does not claim to resolve every nested-case lookup issue.

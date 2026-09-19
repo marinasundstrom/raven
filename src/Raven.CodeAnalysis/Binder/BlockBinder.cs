@@ -7804,7 +7804,7 @@ partial class BlockBinder : Binder
             {
                 if (!typeArguments.IsEmpty)
                 {
-                    //_diagnostics.ReportTypeArityMismatch(name, named.Arity, typeArguments.Length, location);
+                    _diagnostics.ReportTypeRequiresTypeArguments(name, 0, location);
                     return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
                 }
 
@@ -7817,7 +7817,10 @@ partial class BlockBinder : Binder
             {
                 var match = FindAccessibleNamedType(name, requestedArity);
                 if (match is null)
+                {
+                    _diagnostics.ReportTypeRequiresTypeArguments(name, definition.Arity, location);
                     return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+                }
 
                 definition = match;
             }
