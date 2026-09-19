@@ -85,6 +85,15 @@ These rules require no new Runtime Contract option and preserve the normal .NET
 unit representation. Tests execute immediate, pending and awaitless methods on
 .NET; they do not establish support for any other runtime's builder or unit ABI.
 
+## Field receivers
+
+Taking the address of an instance field uses the containing object's reference for
+class owners and an address for value-type owners. Calling a struct member through
+a class local, parameter or nested field therefore preserves the original field's
+storage. No Runtime Contract option or semantic-model change is involved. Regression
+coverage executes ordinary CLI types on modern .NET; .NET Framework and
+NanoFramework execution require their own validation.
+
 ## Integration and documentation
 
 Reference metadata, compiler binding, emitted signatures, and runtime execution are

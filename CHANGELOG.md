@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Preserve struct-field storage when invoking through a class local,
+  parameter or nested reference owner. Field-address emission now loads reference
+  owners instead of addressing their reference slots. This is a general CLI
+  emission correction; Runtime Contracts and source semantics are unchanged.
+
 - **2026-09-19:** Preserve generic unit payloads in async `Task<unit>` and
   `ValueTask<unit>` returns. Explicit `return ()`, pending completion and awaitless
   completion now use the generic result path; expression-bodied async methods
