@@ -267,3 +267,20 @@ System.Runtime identity, preservation of the source declaration, and execution
 returning 42. This is an assembly-identity fix with no new contract configuration or
 target policy. All 19 focused unit/target-core checks pass; the new regression
 failed before the fix. .NET Framework and NanoFramework were not executed in this check.
+
+## Experimental typed error library authoring (2026-09-19)
+
+neoCLR now authors seven existing typed error carriers in Raven. Its bootstrap
+metadata exposes checked erased storage and empty nested cases. Bootstrap-only
+pack/test/unpack calls lower to the existing target value instructions. The importer
+checks the complete constructor CIL shape before replacing its single assignment
+with neoCLR's by-value construction convention. Arbitrary payloads, constructor
+side effects and fabricated defaults are rejected. This is a target importer rule,
+not a change to Raven's CLI value semantics or Runtime Contract configuration.
+
+The current explicit-core/unit/propagation settings remain unchanged. Fourteen
+admission checks, 25 focused Rust tests and all 64 saved-program cases pass in
+neoCLR. Generic unions, descriptor inheritance and runtime adapters still require
+source migration. Unqualified nested case names rejected in a source signature
+remain a candidate for independent scope-rule investigation; qualification works,
+and no general compiler fix is claimed from that observation.
