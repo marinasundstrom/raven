@@ -833,16 +833,20 @@ internal static class AsyncLowerer
 
         var tryBlock = new BoundBlockStatement(tryStatements);
 
-        var catchClauses = ImmutableArray<BoundCatchClause>.Empty;
-        var catchClause = CreateExceptionCatchClause(context);
-        if (catchClause is not null)
-            catchClauses = ImmutableArray.Create(catchClause);
+        BoundStatement dispatchBody = tryBlock;
+        if (context.Compilation.Options.CaptureAsyncExceptions)
+        {
+            var catchClauses = ImmutableArray<BoundCatchClause>.Empty;
+            var catchClause = CreateExceptionCatchClause(context);
+            if (catchClause is not null)
+                catchClauses = ImmutableArray.Create(catchClause);
 
-        var tryStatement = new BoundTryStatement(
-            tryBlock,
-            catchClauses,
-            finallyBlock: null,
-            BoundTryStatementKind.AsyncDispatchGuard);
+            dispatchBody = new BoundTryStatement(
+                tryBlock,
+                catchClauses,
+                finallyBlock: null,
+                BoundTryStatementKind.AsyncDispatchGuard);
+        }
         var moveNextStatements = new List<BoundStatement>();
         if (awaitRewriter.CompletionResult is { } completionResult)
         {
@@ -850,7 +854,7 @@ internal static class AsyncLowerer
                 new BoundVariableDeclarator(completionResult, new BoundDefaultValueExpression(completionResult.Type))
             ]));
         }
-        moveNextStatements.Add(tryStatement);
+        moveNextStatements.Add(dispatchBody);
         var moveNextBody = new BoundBlockStatement(moveNextStatements);
         return Lowerer.LowerBlock(stateMachine.MoveNextMethod, moveNextBody);
     }

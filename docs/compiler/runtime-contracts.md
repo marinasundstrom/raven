@@ -534,3 +534,49 @@ Validation: focused Char diagnostics/type tests and ordinary target regression
 checks; the paired neoCLR sample executes 4 graphemes / 12 scalars / 37 bytes,
 combining/emoji patterns, arrays, direct and interface iteration. No claim of testing
 this experimental contract on the CLR, .NET Framework or NanoFramework is made.
+
+## Provisional async exception-capture policy (neoCLR branch, 2026-09-19)
+
+`CompilationOptions.WithAsyncExceptionCapture(false)` opts compiler-generated
+async method state machines out of their implicit exception-capture wrapper.
+`CaptureAsyncExceptions` defaults to true, preserving ordinary .NET behavior.
+This provisional compiler API is available on the neoclr branch; there is no
+project property or CLI flag in this slice and no new stable builder ABI.
+
+With capture disabled, AsyncLowerer does not create AsyncDispatchGuard or its
+System.Exception catch; builder-member discovery does not request SetException.
+Dispatch, await rewriting and ordinary completion are unchanged. T is opaque:
+Task<Result<V,E>> receives no special lowering. Propagation already exposes early
+returns before await rewriting; the same completion path handles those returns.
+Option copies retain the policy and changes prevent incompatible incremental-state
+transfer. No syntax, TextMate or editor presentation changes are needed.
+
+This switch alone is not an exception-free target profile. It does not remove
+source try/catch/finally, throw expressions or compiler-generated disposal regions.
+Targets must diagnose or reject unsupported forms; neoCLR's importer must keep
+rejecting handlers. Default .NET builders and awaiters remain selected, so complete
+neoCLR Task execution still requires target builder selection, library contracts
+and safe heap-owned state. Do not enable this policy for ordinary .NET application
+code merely to avoid faulted tasks: an escaping exception may terminate its host.
+The neoCLR target uses terminal Faults instead.
+
+AsyncExceptionCapturePolicyTests compare the default and opt-out policies through
+actual .NET execution: immediate/pending awaits, propagation before/after await,
+skipped post-propagation side effects, unrelated union payloads, default task fault
+capture and opt-out escape. Metadata checks require no handlers on the simple
+opt-out machines, without fixing their instruction layout. Existing lowering,
+propagation and resource-lifetime tests remain regression coverage. This is not
+evidence of end-to-end neoCLR async execution or exception-free disposal.
+
+A separate generic-unit gap surfaced while extending coverage: an explicit
+`return ()` in `async ... -> Task<unit>` reports RAV2705 with either policy. Resolve
+that independently; this change does not alter return binding or silently route
+Task<unit> to a nongeneric Task. The generic opt-out mechanism is experimental
+target policy, not a change merged into Raven main.
+
+Validation on 2026-09-19 with .NET SDK 11.0.100-rc.1.26425.128: the pre-change
+functions/async baseline passed 70 checks and the focused runtime/lowering baseline
+passed 42. After the change, 61 focused checks (including 19 new policy cases) and
+all 119 checks selected by the functions/async feature filter passed. These sets
+overlap; they are not an aggregate unique-test count. The touched C# files were
+formatted with dotnet format whitespace.

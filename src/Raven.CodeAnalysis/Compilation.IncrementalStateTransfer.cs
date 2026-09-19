@@ -14,7 +14,8 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
-        if (Options.RuntimeUnitContract != previousCompilation.Options.RuntimeUnitContract
+        if (Options.CaptureAsyncExceptions != previousCompilation.Options.CaptureAsyncExceptions
+            || Options.RuntimeUnitContract != previousCompilation.Options.RuntimeUnitContract
             || Options.RuntimeTypeOfContract != previousCompilation.Options.RuntimeTypeOfContract
             || Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
             || Options.RuntimeIterationContract != previousCompilation.Options.RuntimeIterationContract

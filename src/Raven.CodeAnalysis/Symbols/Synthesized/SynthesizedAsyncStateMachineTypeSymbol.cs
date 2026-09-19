@@ -346,7 +346,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         var start = FindStartMethod(builderType);
         var setStateMachine = FindSetStateMachineMethod(builderType);
         var setResult = FindSetResultMethod(builderType);
-        var setException = FindSetExceptionMethod(builderType);
+        var setException = Compilation.Options.CaptureAsyncExceptions ? FindSetExceptionMethod(builderType) : null;
         var awaitOnCompleted = FindAwaitOnCompletedMethod(builderType);
         var taskProperty = FindTaskProperty(builderType);
 

@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Add provisional compiler API WithAsyncExceptionCapture(false) on
+  the neoCLR branch. It omits the generated async catch wrapper and SetException
+  lookup without inspecting task payloads; ordinary .NET capture remains the default.
+  Preserve the policy across option copies and invalidate incompatible incremental
+  state. Exercise immediate/pending propagation, early-return side effects and
+  unrelated payloads. Source handlers/disposal, target builders and end-to-end
+  neoCLR async remain separate work; no CLI/project setting or stable ABI is added.
+  Validate 61 focused checks and the 119-test functions/async selection on .NET 11.
+
 - **2026-09-19:** Add the neoCLR-only `RavenGraphemeChar` contract: single-cluster
   literals bind as Char and emit the target's validated FromString factory;
   patterns and typed array/byref operations preserve text-valued characters.
