@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Deconstruct exact value receivers on a local copy without boxing.
+  This fixes InvalidProgramException for ordinary .NET ref structs and preserves
+  value-copy mutation semantics. All 31 focused deconstruction/ref-field checks
+  pass, including narrowed reference and null inputs. No target policy is added.
+
 - **2026-09-19:** Keep editor metadata references explicit when MetadataImportOptions
   selects a CLI reference universe. Do not inject host Raven support assemblies.
   An ordinary .NET reference regression fails before the fix; all 65 workspace

@@ -12,6 +12,71 @@ namespace Raven.CodeAnalysis.Tests;
 public class PositionalPatternCodeGenTests
 {
     [Theory]
+    [InlineData("struct")]
+    [InlineData("ref struct")]
+    public void NominalValueDeconstruction_UsesCopy(string kind)
+    {
+        var code = $$"""
+            import System.*
+
+            {{kind}} Counter {
+                public field Value: int
+
+                public func Deconstruct(out value: int) -> unit {
+                    value = self.Value
+                    self.Value = 99
+                }
+            }
+
+            func Main() {
+                var counter = Counter()
+                counter.Value = 42
+                if counter is Counter(let value) {
+                    Console.WriteLine(value)
+                }
+                Console.WriteLine(counter.Value)
+            }
+            """;
+
+        Assert.Equal("42\n42", CompileAndRun(code, "nominal_value_deconstruction"));
+    }
+
+    [Fact]
+    public void NominalReferenceDeconstruction_ChecksNullAndNarrowedType()
+    {
+        const string code = """
+            import System.*
+
+            class Counter {
+                public field Value: int
+
+                public func Deconstruct(out value: int) -> unit {
+                    value = self.Value
+                    self.Value = 99
+                }
+            }
+
+            func Describe(value: object?) -> int {
+                if value is Counter(let amount) {
+                    return amount
+                }
+                return -1
+            }
+
+            func Main() {
+                let counter = Counter()
+                counter.Value = 42
+                Console.WriteLine(Describe(counter))
+                Console.WriteLine(counter.Value)
+                Console.WriteLine(Describe(null))
+                Console.WriteLine(Describe("other"))
+            }
+            """;
+
+        Assert.Equal("42\n99\n-1\n-1", CompileAndRun(code, "nominal_reference_deconstruction"));
+    }
+
+    [Theory]
     [InlineData("(1, 2)", "3")]
     [InlineData("(1, 2, 3)", "no match")]
     [InlineData("(1, \"two\")", "no match")]

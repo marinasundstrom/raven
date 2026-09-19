@@ -225,3 +225,21 @@ A standalone .NET project with only System.Private.CoreLib reproduced unwanted
 editor-added assemblies before the fix. The regression checks the exact reference
 set and configured core identity. All 65 workspace integration tests pass on
 .NET 10; this does not establish .NET Framework or NanoFramework execution.
+
+## Value receiver deconstruction (2026-09-19)
+
+A nominal deconstruction pattern whose input and receiver are the same known value
+type stores a local copy and invokes Deconstruct on that copy. It does not box the
+value to perform a redundant null/type test. The previous path generated an invalid
+program for .NET ref structs, which cannot be boxed; the reduced execution case
+failed with InvalidProgramException before this correction. An ordinary struct
+retains its original field after a mutating Deconstruct, while a reference receiver
+continues to observe mutation. Null and unrelated narrowed reference inputs fail
+the pattern normally. Type parameters and genuinely narrowed inputs retain the
+existing general path; no broader generic ref-struct support is claimed.
+
+This is a general CLI emission correction, with no Runtime Contract configuration
+or neoCLR policy. All 31 focused deconstruction/ref-field checks pass on .NET 11.
+.NET Framework and NanoFramework were not executed. See Microsoft's
+[ref struct restrictions](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/ref-struct)
+and Raven's [deconstruction rules](../lang/spec/deconstruction-and-union-patterns.md).
