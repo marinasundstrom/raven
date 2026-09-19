@@ -17,7 +17,7 @@ public partial class Compilation
         {
             if (Options.TargetCoreAssemblyName != unit.AssemblyName || string.IsNullOrWhiteSpace(unit.TypeName))
                 return TargetCoreError("the unit contract requires its explicitly configured target core assembly and type");
-            var type = GetTypeByMetadataName(unit.TypeName);
+            var type = GetTypeByMetadataName(unit.TypeName, unit.AssemblyName);
             if (type is null || !type.IsValueType || type.Arity != 0 || type.ContainingType is not null || type.ContainingAssembly?.Name != unit.AssemblyName
                 || type.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic))
                 return TargetCoreError("the unit contract must name an empty value type in the target core");

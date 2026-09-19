@@ -178,3 +178,17 @@ discard it when required. No Runtime Contract setting or neoCLR policy is involv
 A .NET 11 execution regression fails before the fix and checks the caller completes
 afterward; all 19 focused delegate/unit checks pass.
 .NET Framework and NanoFramework execution are not claimed by that check.
+
+## Unit contract assembly identity (2026-09-19)
+
+RuntimeUnitContract validation resolves the named type from its explicitly
+configured assembly. A source type with the same metadata name does not replace
+that contract or cause an unrelated shape diagnostic. Ordinary source-name lookup
+continues to prefer source declarations; only this configuration lookup is scoped.
+
+The regression uses .NET's System.Runtime/System.ValueTuple contract alongside a
+nonempty source System.ValueTuple. It checks diagnostics, the emitted unit local's
+System.Runtime identity, preservation of the source declaration, and execution
+returning 42. This is an assembly-identity fix with no new contract configuration or
+target policy. All 19 focused unit/target-core checks pass; the new regression
+failed before the fix. .NET Framework and NanoFramework were not executed in this check.
