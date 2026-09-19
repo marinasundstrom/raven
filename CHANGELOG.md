@@ -7,7 +7,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 - **2026-09-19:** Document neoCLR typed error source authoring: checked erased case
   storage and constructor projection remain target importer policies, with no new
   Runtime Contract option or compiler semantic change. Record 14 admission checks,
-  25 focused runtime tests and 64 saved-program cases.
+  25 focused runtime tests and 64 saved-program cases. Document the subsequent
+  checked Propagatable declaration and its unchanged conditional-output ABI
+  (five admission checks).
 
 - **2026-09-19:** Resolve configured unit types from their named reference assembly,
   so a same-named source type cannot shadow RuntimeUnitContract validation. Preserve

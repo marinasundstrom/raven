@@ -284,3 +284,9 @@ neoCLR. Generic unions, descriptor inheritance and runtime adapters still requir
 source migration. Unqualified nested case names rejected in a source signature
 remain a candidate for independent scope-rule investigation; qualification works,
 and no general compiler fix is claimed from that observation.
+
+The follow-up Propagatable declaration is also Raven-authored. The target importer
+checks exact generic positions and ordinary CLI out metadata before emitting its
+existing readonly `out(true)` ABI. Failed extraction does not establish destination
+initialization. This continues the existing target contract; it does not change
+Raven's ordinary .NET out assignment rules. Five declaration admission checks pass.
