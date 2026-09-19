@@ -305,3 +305,31 @@ runtime definition IDs. No Raven compiler or Runtime Contract change is required
 Eighteen neoCLR metadata/attribute/scoping checks and a saved acquisition sample
 pass. Public assembly discovery/token interfaces remain subsequent target work.
 The descriptor properties must use module-scoped identity, not DefinitionIndex.
+
+
+## neoCLR minimal discovery and token contracts (2026-09-19)
+
+The target's RuntimeContext now exposes ExecutingAssembly. Sealed AssemblyInfo and
+ModuleInfo interfaces expose loaded metadata through Sequence<T> collections;
+ReferencedAssemblies reports direct dependencies, including the mapped System.Runtime
+foundation. Info interfaces expose MetadataToken, with module ownership on type,
+member and parameter contracts. Native snapshots materialize private Raven providers.
+
+Runtime Contract configuration is unchanged: typeof still uses the configured
+TypeInfo/RuntimeContext handle resolver. No Raven binding or emission change is
+needed; the target reference/importer/provider contracts change together and callers
+must rebuild. CLI source tokens survive target import; merged runtime definitions
+receive scoped tokens separately. Discovery only covers retained loaded definitions;
+unavailable references and open-generic member queries fail explicitly. Future dynamic
+loading belongs to RuntimeContext, as the author reaffirmed; none is added now.
+
+Validation: the saved Raven sample traverses Demo → System.Runtime and its module's
+Widget type. Language-server checks identify all eight Info contracts as interfaces
+and expose ExecutingAssembly, token/module properties and Sequence capabilities.
+Target runtime checks cover dependency callers, token preservation, generic definition
+discovery and resource limits; implementation admission rejects altered layouts.
+
+Deferred general candidate observed while writing the sample: reusing a for-loop
+variable name for a later local produced RAV0174 inside the earlier loop. The sample
+uses distinct descriptive names. This has not been isolated on ordinary CLI metadata
+or diagnosed as a compiler defect, so no fix or main integration is claimed.

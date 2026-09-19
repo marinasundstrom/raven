@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Document the neoCLR ExecutingAssembly, Sequence-based assembly/module
+  discovery and module-scoped Info tokens. Runtime Contract configuration and compiler
+  semantics/emission are unchanged; target consumers rebuild. Runnable sample and
+  interface-completion checks pass. Dynamic loading remains future RuntimeContext work.
+  Record a loop/local-name diagnostic as an unvalidated general follow-up.
+
 - **2026-09-19:** Document neoCLR source assembly/module/token retention and logical
   System.Runtime reference mapping. No compiler or Runtime Contract change; public
   discovery/token APIs remain target work. Eighteen metadata/scope checks pass.
