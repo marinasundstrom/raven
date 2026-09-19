@@ -391,6 +391,19 @@ internal abstract partial class Binder
                 yield return normalized;
         }
 
+        // LookupType returns one declaration. A namespace can contain the same
+        // simple name at several arities, so retain the complete local family for
+        // arity selection (including unqualified constructor expressions).
+        if (CurrentNamespace is { } currentNamespace)
+        {
+            foreach (var named in currentNamespace.GetMembers(name).OfType<INamedTypeSymbol>())
+            {
+                var normalized = NormalizeDefinition(named);
+                if (IsSymbolAccessible(normalized) && seen.Add(normalized))
+                    yield return normalized;
+            }
+        }
+
         if (LookupType(name) is INamedTypeSymbol fallback)
         {
             var normalized = NormalizeDefinition(fallback);

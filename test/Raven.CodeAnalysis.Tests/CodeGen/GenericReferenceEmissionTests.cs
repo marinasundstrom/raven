@@ -15,6 +15,69 @@ public sealed class GenericReferenceEmissionTests(ITestOutputHelper output)
     private readonly ITestOutputHelper _output = output;
 
     [Fact]
+    public void GenericConstructor_WithWrongArity_ReportsDiagnostic()
+    {
+        var tree = SyntaxTree.ParseText("""
+namespace Example
+public class Box { }
+public class Box<T> { }
+public class Runner {
+    static func Create() -> object { return Box<int, string>() }
+}
+""");
+        var compilation = Compilation.Create("wrong-constructor-arity", [tree],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0305");
+    }
+
+    [Fact]
+    public void ConstructedAlias_WithAdditionalTypeArguments_ReportsDiagnostic()
+    {
+        var tree = SyntaxTree.ParseText("""
+alias IntList = System.Collections.Generic.List<int>
+class Runner {
+    static func Create() -> IntList { return IntList<string>() }
+}
+""");
+        var compilation = Compilation.Create("invalid-constructed-alias", [tree],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0305");
+    }
+
+    [Fact]
+    public void GenericStructFactory_ResolvesItsOwnConstructorAlongsideCaseContainer()
+    {
+        const string code = """
+namespace Example
+public static class Box {
+    public struct Empty { }
+}
+public struct Box<T> {
+    private field Stored: int
+    init(value: Example.Box.Empty) { Stored = 42 }
+    val Value: int { get => Stored }
+    static func Create() -> Box<T> {
+        return Box<T>(Example.Box.Empty())
+    }
+}
+public class Runner {
+    public static func Run() -> int {
+        return Box<int>.Create().Value
+    }
+}
+""";
+        var compilation = Compilation.Create("generic-self-factory", [SyntaxTree.ParseText(code)],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, TestMetadataReferences.Default);
+        var run = loaded.Assembly.GetType("Example.Runner", throwOnError: true)!.GetMethod("Run")!;
+        Assert.Equal(42, run.Invoke(null, null));
+    }
+
+    [Fact]
     public void NullableReferenceTypeParameterPattern_ExecutesAndPassesIlVerifyWhenToolAvailable()
     {
         const string code = """
