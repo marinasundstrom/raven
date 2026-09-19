@@ -393,3 +393,13 @@ ordinary CLI Attribute source declaration projects to the existing empty target
 marker ABI. This is bounded target declaration lowering, not a general class/value
 conversion or a new attribute execution model. Runtime Contract configuration is
 unchanged. Nine declaration admission cases and the saved generic-union program pass.
+
+
+The managed-array follow-up authors Array members, callback iteration and a private
+iterator in Raven. Its importer checks one intrinsic T[] field, omits only a private
+empty constructor and rejects backing-field writes or ordinary allocation. Bootstrap
+Length lowers to vector length. The source instance GetIterator body projects to the
+existing internal static ArrayEnumerable dispatcher ABI with argument zero unchanged;
+public array exports and reflected capabilities are preserved. Static property metadata
+retains its receiver kind. Eight admission checks, 25 array/collection tests and four
+saved array programs pass. No Runtime Contract option or Raven compiler code changes.

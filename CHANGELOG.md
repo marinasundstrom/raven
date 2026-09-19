@@ -23,7 +23,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   uses a normal Raven enum declaration with checked target enum lowering (seven
   admission cases and the flags/filtering sample pass). Record the checked empty
   Object/UnionAttribute declarations and their unchanged marker ABI (nine admission
-  cases and the saved generic-union program pass).
+  cases and the saved generic-union program pass). Record managed-array source
+  storage and iteration-signature projection (eight admission checks, 25 runtime
+  tests and four saved array programs pass).
 
 - **2026-09-19:** Preserve CLI enum backing-field SpecialName/RTSpecialName flags in
   final PE metadata when the host emitter masks reserved bits. An independent .NET
