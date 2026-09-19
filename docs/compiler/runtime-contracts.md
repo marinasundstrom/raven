@@ -228,3 +228,28 @@ checks diagnostics, semantic symbols and reflected emitted metadata on .NET 11.
 All 87 focused resolution, interface, accessibility and constrained-hierarchy tests
 pass; the three reduced cases failed before the fix.
 This does not establish execution on .NET Framework or NanoFramework.
+
+## Experimental opaque library authoring (2026-09-19)
+
+The neoCLR importer now admits Raven-authored String and message Error bodies
+against its bootstrap reference assembly. This uses the existing explicit metadata
+core, nominal Void and propagation configuration; no Runtime Contract option or
+Raven semantic/emission change is introduced. A plain Raven `class String` is final
+in CLI metadata; `sealed class` instead denotes an abstract closed hierarchy and
+is not the required shape here.
+
+The target checks a single private string storage marker, erases it to intrinsic
+storage, and preserves String's existing mixed byref/value neoIL receivers. Error
+has checked fieldless metadata; its placeholder reference-assembly layout does not
+specify runtime storage. The importer projects its managed CLI receiver loads onto
+the existing opaque value ABI. Native calls remain bootstrap-only; primitive string
+equality avoids recursive calls to Equals. Direct opaque allocation/default Error
+and String storage writes are rejected. These are target-owned admission rules, not
+general CLR class layout or constructor semantics, and stay off Raven main.
+
+Validation lives in neoCLR's `verify_opaque_library.py`, saved string/slicing/error
+programs, and Rust string/error/interface tests. The source migration preserves
+runtime behavior; String retains both its existing Raven named arguments and the different
+descriptive names in runtime introspection metadata. Proposal API alignment and remaining union/descriptor/array
+source migration remain separate work. No .NET Framework or NanoFramework execution
+claim follows from these neoCLR checks.

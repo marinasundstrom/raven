@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Document the neoCLR importer's checked String/Error source-authoring
+  boundary, existing Runtime Contract configuration, opaque storage and receiver
+  projection, rejected allocation/mutation, and validation scope. No compiler code
+  changes; this target-specific documentation remains on the experimental branch.
+
 - **2026-09-19:** Resolve generic interface base lists in the interface's own scope,
   including interfaces nested in classes or interfaces. Preserve type-parameter
   identity in semantic symbols and emitted CLI metadata without target-specific
