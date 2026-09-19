@@ -243,3 +243,28 @@ The correction is entirely in neoCLR's target importer; no Raven semantic or
 emission change, Runtime Contract option, or general nested-type admission is added.
 All 73 source slices regenerate and all 12 union admission cases pass. The runtime
 regression compares each of the four cases with its resolved owner definition.
+
+## Sealed introspection consumers (2026-09-19)
+
+neoCLR's six Info contracts are now Raven sealed interfaces with internal providers.
+Its generated reference preserves ClosedHierarchyAttribute and hidden permitted
+provider definitions, allowing Raven to resolve the closed family. MemberInfo's
+three direct cases are FieldInfo, MethodInfo and PropertyInfo; the shared runtime
+storage base is not an additional public case. The target importer validates this
+family and rejects foreign implementations independently of source diagnostics.
+
+An external consumer's three interface arms are exhaustive and run against real
+snapshots. Removing each arm yields RAV2100. neoCLR now imports the emitted isinst,
+reference branches and non-null tests; callers rebuild for interface dispatch.
+There is no new Runtime Contract option or Raven semantic/emission change.
+Reference projection normalizes C#'s inherited accessor virtual/final flags to the
+ordinary Raven storage-base methods, with exact admission checks retained.
+All 73 source slices regenerate, 12 descriptor admission cases pass, and language
+server completion identifies all six contracts as interfaces. Raw neoIL does not
+acquire general sealed-hierarchy enforcement from these target checks.
+
+Deferred general candidate: RAV2100 currently names inaccessible concrete leaves
+rather than accessible covering interface cases. Improve diagnostic/code-fix case
+selection independently on ordinary CLI metadata before integration on main; do
+not add hard-coded neoCLR names to Raven. TypeInfo acquisition, RuntimeContext and
+collection-return alignment remain separate neoCLR work.

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Document neoCLR's sealed Info interfaces, preserved permitted-type
+  reference metadata and executable public-interface matches. No Raven compiler or
+  Runtime Contract change. Record inaccessible-leaf diagnostic wording as a deferred
+  general improvement; 73 slices regenerate and 12 descriptor admission checks pass.
+
 - **2026-09-19:** Document the neoCLR importer correction preserving nested
   Option/Result case ownership from emitted CLI metadata. No Raven compiler or
   Runtime Contract change; 73 source slices regenerate and 12 admission cases pass.
