@@ -372,3 +372,15 @@ the bit; it does not admit malformed enums or add target-specific enum policies.
 
 Sources: [CLI standard](https://ecma-international.org/publications-and-standards/standards/ecma-335/),
 [Persisted field builder](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Reflection.Emit/src/System/Reflection/Emit/FieldBuilderImpl.cs).
+
+
+## Experimental enum declaration authoring (2026-09-19)
+
+neoCLR's BindingFlags source is now a normal Raven Flags enum. The target importer
+checks the exact Int32 enum declaration and supplies intrinsic enum lowering to
+its existing nominal value ABI. Enum operations are not authored struct methods.
+The six literals, unknown-bit behavior and reflection filtering remain unchanged;
+no Runtime Contract setting or source-level enum rule changes. Seven declaration
+admission cases and the compiled Raven flags/filtering sample pass. The general
+backing-field metadata correction above is on main independently; this target
+projection remains on the neoCLR feature branch.

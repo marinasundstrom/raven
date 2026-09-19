@@ -19,7 +19,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   source wrapper and unchanged terminal guest-failure boundary (three admission
   cases, seven runtime tests and a verified Unicode failure program). Record the
   Func declaration-family boundary (six admission cases, 28 delegate tests and the
-  Raven delegate sample); runtime invocation remains unchanged.
+  Raven delegate sample); runtime invocation remains unchanged. BindingFlags now
+  uses a normal Raven enum declaration with checked target enum lowering (seven
+  admission cases and the flags/filtering sample pass).
 
 - **2026-09-19:** Preserve CLI enum backing-field SpecialName/RTSpecialName flags in
   final PE metadata when the host emitter masks reserved bits. An independent .NET
