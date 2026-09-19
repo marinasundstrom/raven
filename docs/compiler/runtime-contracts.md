@@ -499,3 +499,38 @@ and arrays. Runtime invalid Int32 conversions fault through typed storage. Numer
 casts still narrow to UInt32 before validation; this does not promise checked
 conversion from arbitrary wide numeric inputs. Unicode escape highlighting already
 exists in the TextMate grammar. No .NET Framework or NanoFramework execution claim.
+
+## Experimental grapheme Char target — 2026-09-19
+
+The neoCLR branch exposes `CompilationOptions.WithGraphemeChar(true)` and project
+property `RavenGraphemeChar=true`. This replaces the scalar policy selected by the
+current neoCLR props; it is not enabled for ordinary .NET, .NET Framework or
+NanoFramework targets. The earlier `WithUnicodeScalarChar` experiment is retained
+for its older target, and must not be selected by the current neoCLR toolchain.
+
+Character literals containing one extended grapheme cluster have semantic type
+System.Char, including combining and emoji sequences. Emission calls the matching
+core's static `Char.FromString(string)` factory, with typed Char array and indirect
+operations instead of integer storage. Literal patterns compare typed characters.
+Numeric conversions and arithmetic are rejected. The core reference metadata still
+uses the CLI Char identity as an intermediate carrier; this experimental artifact
+requires the neoCLR importer/runtime and is not executable as ordinary CLR IL.
+
+String's ordinary iteration contract is `Iterable<char>` and Length counts clusters;
+scalar traversal is an explicit Sequence<uint>. The runtime owns UTF-8 text for Char,
+validates one cluster at every construction/storage boundary and implements ordinal
+comparison without normalization. This borrows Swift's character abstraction while
+retaining .NET-like names; it differs deliberately from .NET Char/Rune/StringInfo.
+The cost is variable-size values, segmentation and current snapshot copying.
+
+Literal diagnostics use host StringInfo segmentation; neoCLR uses pinned Unicode 16
+rules and revalidates constructions. Host/target Unicode differences can therefore
+produce a runtime rejection after successful compilation. Aligning diagnostic tables,
+constant metadata, normalization/collation and cursor indexing remain development
+work. The tested minimal surface uses ordinary let bindings, literal patterns,
+arrays, iteration and FromString construction, not CLI literal fields.
+
+Validation: focused Char diagnostics/type tests and ordinary target regression
+checks; the paired neoCLR sample executes 4 graphemes / 12 scalars / 37 bytes,
+combining/emoji patterns, arrays, direct and interface iteration. No claim of testing
+this experimental contract on the CLR, .NET Framework or NanoFramework is made.

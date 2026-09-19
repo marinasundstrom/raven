@@ -4880,6 +4880,9 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldelem_I1);
                 return;
 
+            case SpecialType.System_Char when Compilation.Options.UseGraphemeChar:
+                ILGenerator.Emit(OpCodes.Ldelem, ResolveClrType(elementType));
+                return;
             case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
                 ILGenerator.Emit(OpCodes.Ldelem_U4);
                 return;
@@ -5551,6 +5554,9 @@ internal partial class ExpressionGenerator : Generator
             case SpecialType.System_Int16:
                 ILGenerator.Emit(OpCodes.Ldind_I2);
                 break;
+            case SpecialType.System_Char when Compilation.Options.UseGraphemeChar:
+                ILGenerator.Emit(OpCodes.Ldobj, ResolveClrType(elementType));
+                break;
             case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
                 ILGenerator.Emit(OpCodes.Ldind_U4);
                 break;
@@ -5597,6 +5603,9 @@ internal partial class ExpressionGenerator : Generator
             case SpecialType.System_Byte:
             case SpecialType.System_Boolean:
                 ILGenerator.Emit(OpCodes.Stind_I1);
+                break;
+            case SpecialType.System_Char when Compilation.Options.UseGraphemeChar:
+                ILGenerator.Emit(OpCodes.Stobj, ResolveClrType(elementType));
                 break;
             case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
                 ILGenerator.Emit(OpCodes.Stind_I4);
@@ -6403,6 +6412,9 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Stelem_I1);
                 return;
 
+            case SpecialType.System_Char when Compilation.Options.UseGraphemeChar:
+                ILGenerator.Emit(OpCodes.Stelem, ResolveClrType(elementType));
+                return;
             case SpecialType.System_Char when Compilation.Options.UseUnicodeScalarChar:
                 ILGenerator.Emit(OpCodes.Stelem_I4);
                 return;
@@ -7430,6 +7442,14 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloca, tmp);
     }
 
+    private void EmitGraphemeLiteral(string text)
+    {
+        var factory = Compilation.GetSpecialType(SpecialType.System_Char).GetMembers("FromString")
+            .OfType<IMethodSymbol>().Single(m => m.IsStatic && m.Parameters.Length == 1);
+        ILGenerator.Emit(OpCodes.Ldstr, text);
+        ILGenerator.Emit(OpCodes.Call, GetMethodInfo(factory));
+    }
+
     private void EmitLiteral(object? constant)
     {
         switch (constant)
@@ -7457,6 +7477,15 @@ internal partial class ExpressionGenerator : Generator
                 break;
             case ulong i:
                 ILGenerator.Emit(OpCodes.Ldc_I8, unchecked((long)i));
+                break;
+            case GraphemeLiteralValue grapheme:
+                EmitGraphemeLiteral(grapheme.Text);
+                break;
+            case System.Text.Rune scalar when Compilation.Options.UseGraphemeChar:
+                EmitGraphemeLiteral(scalar.ToString());
+                break;
+            case char c when Compilation.Options.UseGraphemeChar:
+                EmitGraphemeLiteral(c.ToString());
                 break;
             case System.Text.Rune scalar:
                 ILGenerator.Emit(OpCodes.Ldc_I4, scalar.Value);
@@ -8659,7 +8688,11 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundLiteralExpressionKind.CharLiteral:
                 {
-                    if (literalExpression.Value is System.Text.Rune scalar)
+                    if (Compilation.Options.UseGraphemeChar)
+                    {
+                        EmitGraphemeLiteral(literalExpression.Value.ToString()!);
+                    }
+                    else if (literalExpression.Value is System.Text.Rune scalar)
                     {
                         ILGenerator.Emit(OpCodes.Ldc_I4, scalar.Value);
                     }

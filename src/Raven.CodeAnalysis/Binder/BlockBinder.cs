@@ -7926,6 +7926,16 @@ partial class BlockBinder : Binder
         return Math.Max(argumentCount, inferredArity);
     }
 
+    private static bool IsWellFormedCharacterText(string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (!char.IsSurrogate(text[i])) continue;
+            if (!char.IsHighSurrogate(text[i]) || ++i >= text.Length || !char.IsLowSurrogate(text[i])) return false;
+        }
+        return true;
+    }
+
     private BoundExpression BindLiteralExpression(LiteralExpressionSyntax syntax)
     {
         if (syntax.Kind == SyntaxKind.NullLiteralExpression)
@@ -7947,12 +7957,20 @@ partial class BlockBinder : Binder
         if (value is EncodedStringLiteralValue encodedStringLiteral)
             return BindEncodedStringLiteral(syntax, encodedStringLiteral);
 
-        if (syntax.Kind == SyntaxKind.CharacterLiteralExpression
-            && (value is System.Text.Rune && !Compilation.Options.UseUnicodeScalarChar
-                || value is char character && char.IsSurrogate(character) && Compilation.Options.UseUnicodeScalarChar))
+        if (syntax.Kind == SyntaxKind.CharacterLiteralExpression)
         {
-            _diagnostics.ReportInvalidExpressionTerm(syntax.Token.Text, syntax.GetLocation());
-            return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            var text = value.ToString()!;
+            var valid = Compilation.Options.UseGraphemeChar
+                ? !text.Any(c => char.IsSurrogate(c)) || IsWellFormedCharacterText(text)
+                : value is not GraphemeLiteralValue && (value is not System.Text.Rune || Compilation.Options.UseUnicodeScalarChar)
+                    && !(value is char character && char.IsSurrogate(character) && Compilation.Options.UseUnicodeScalarChar);
+            if (Compilation.Options.UseGraphemeChar)
+                valid &= System.Globalization.StringInfo.ParseCombiningCharacters(text).Length == 1;
+            if (!valid)
+            {
+                _diagnostics.ReportInvalidExpressionTerm(syntax.Token.Text, syntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
+            }
         }
 
         var contextualTargetType = GetTargetType(syntax);
@@ -7965,7 +7983,7 @@ partial class BlockBinder : Binder
             double => Compilation.GetSpecialType(SpecialType.System_Double),
             decimal => Compilation.GetSpecialType(SpecialType.System_Decimal),
             bool => Compilation.GetSpecialType(SpecialType.System_Boolean),
-            char or System.Text.Rune => Compilation.GetSpecialType(SpecialType.System_Char),
+            char or System.Text.Rune or GraphemeLiteralValue => Compilation.GetSpecialType(SpecialType.System_Char),
             string => Compilation.GetSpecialType(SpecialType.System_String),
             _ => null
         };

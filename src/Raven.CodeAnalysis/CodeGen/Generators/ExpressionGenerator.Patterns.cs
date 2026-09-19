@@ -1402,6 +1402,9 @@ internal partial class ExpressionGenerator
                 ILGenerator.Emit(Convert.ToBoolean(value, CultureInfo.InvariantCulture) ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
                 return;
 
+            case SpecialType.System_Char when Compilation.Options.UseGraphemeChar:
+                EmitGraphemeLiteral(value.ToString()!);
+                return;
             case SpecialType.System_Char:
                 ILGenerator.Emit(OpCodes.Ldc_I4, value is System.Text.Rune scalar ? scalar.Value : (int)Convert.ToChar(value, CultureInfo.InvariantCulture));
                 return;
@@ -2004,8 +2007,8 @@ internal partial class ExpressionGenerator
     {
         switch (expression)
         {
-            case BoundLiteralExpression { Value: System.Text.Rune scalar } literal:
-                value = scalar;
+            case BoundLiteralExpression { Kind: BoundLiteralExpressionKind.CharLiteral } literal:
+                value = literal.Value;
                 sourceType = literal.Type!;
                 return true;
 
@@ -2219,6 +2222,9 @@ internal partial class ExpressionGenerator
                 ILGenerator.Emit((bool)value ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
                 return;
 
+            case SpecialType.System_Char when Compilation.Options.UseGraphemeChar:
+                EmitGraphemeLiteral(value.ToString()!);
+                return;
             case SpecialType.System_Char:
                 ILGenerator.Emit(OpCodes.Ldc_I4, value is System.Text.Rune scalar ? scalar.Value : (int)Convert.ToChar(value));
                 return;
@@ -2274,6 +2280,12 @@ internal partial class ExpressionGenerator
 
     private void EmitConstantAsObject(ITypeSymbol sourceType, object value)
     {
+        if (Compilation.Options.UseGraphemeChar && sourceType.SpecialType == SpecialType.System_Char)
+        {
+            EmitGraphemeLiteral(value.ToString()!);
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(sourceType));
+            return;
+        }
         switch (value)
         {
             case string s:

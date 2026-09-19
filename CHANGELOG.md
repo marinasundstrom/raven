@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Add the neoCLR-only `RavenGraphemeChar` contract: single-cluster
+  literals bind as Char and emit the target's validated FromString factory;
+  patterns and typed array/byref operations preserve text-valued characters.
+  Numeric Char conversions/arithmetic are rejected. .NET's default Char contract
+  and the previous experimental scalar option remain available and unchanged.
+  Host StringInfo supplies literal diagnostics; the runtime revalidates against
+  its pinned Unicode rules. End-to-end neoCLR execution covers grapheme matching,
+  arrays and iteration, alongside focused compiler diagnostics tests.
+
 - **2026-09-19:** Emit declaration-level expression-bodied indexer getters on classes
   and structs, instead of throwing during emission. Target Runtime Contracts are
   unchanged. Ordinary .NET execution and indexer diagnostics/completion tests pass.
