@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Resolve generic interface base lists in the interface's own scope,
+  including interfaces nested in classes or interfaces. Preserve type-parameter
+  identity in semantic symbols and emitted CLI metadata without target-specific
+  Runtime Contract settings. All 87 focused resolution, interface, accessibility
+  and constrained-hierarchy checks pass, including independent .NET metadata regressions.
+
 - **2026-09-17:** Add an opt-in RuntimeTypeOfContract for context-owned typeof
   acquisition. Bind to the configured descriptive interface and emit
   Current.GetTypeInfoFromHandle; reject invalid/partial contracts with RAVT003.
@@ -12,6 +18,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   This experimental contract remains on the neoCLR feature branch.
   All 23 focused tests pass, including source/referenced providers, operations,
   hidden implementations, invalid shapes and the unchanged .NET typeof baseline.
+
 
 - **2026-09-15:** Preserve generic array elements using typed CLI access for both
   source type and method parameters. Correct generic stores, reads, array literals

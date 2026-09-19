@@ -216,3 +216,15 @@ indexed reads/writes and iteration with Int32, String and Decimal elements under
 both default and explicit System.Runtime metadata configuration. The earlier emission
 could crash the isolated .NET test process; the corrected tests preserve complete
 values and execute normally. .NET Framework/NanoFramework execution is not claimed.
+
+## Generic interface base scope — 2026-09-19
+
+Interface base lists bind in the declared interface's type-parameter scope for
+top-level interfaces and interfaces nested in classes or other interfaces.
+The semantic model and emitted CLI base-interface signature retain that parameter
+identity; an enclosing binder must not replace it or report it out of scope.
+No Runtime Contract option or target-specific mapping is required. The regression
+checks diagnostics, semantic symbols and reflected emitted metadata on .NET 11.
+All 87 focused resolution, interface, accessibility and constrained-hierarchy tests
+pass; the three reduced cases failed before the fix.
+This does not establish execution on .NET Framework or NanoFramework.
