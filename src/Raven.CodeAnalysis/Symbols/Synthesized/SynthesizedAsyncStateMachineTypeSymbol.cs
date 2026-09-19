@@ -29,8 +29,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         ITypeSymbol? selfType = null)
         : base(
             name,
-            compilation.GetSpecialType(SpecialType.System_ValueType),
-            TypeKind.Struct,
+            compilation.GetSpecialType(compilation.Options.UseHeapAsyncStateMachines ? SpecialType.System_Object : SpecialType.System_ValueType),
+            compilation.Options.UseHeapAsyncStateMachines ? TypeKind.Class : TypeKind.Struct,
             asyncMethod.ContainingSymbol ?? asyncMethod,
             asyncMethod.ContainingType,
             asyncMethod.ContainingNamespace,

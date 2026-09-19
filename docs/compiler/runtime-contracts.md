@@ -599,3 +599,19 @@ passed 42. After the change, 61 focused checks (including 19 new policy cases) a
 all 119 checks selected by the functions/async feature filter passed. These sets
 overlap; they are not an aggregate unique-test count. The touched C# files were
 formatted with dotnet format whitespace.
+
+## Provisional heap async state machines (integration branch)
+
+`CompilationOptions.WithHeapAsyncStateMachines(true)` makes synthesized async
+state machines reference types with an object constructor. The default remains a
+value type. Option copies preserve this setting and incremental reuse rejects
+changes. Binding and Task payload semantics are unchanged; generated state metadata
+and field receiver emission follow the selected storage kind.
+
+For existing by-reference .NET builder methods, the class reference is passed
+through an addressable local; the object itself retains state and awaiters. Tests
+execute completed and pending two-await methods with forced GC on modern .NET,
+plus default-policy and option-copy regressions. This is a provisional mechanism
+on the neoCLR branch, not a promise of general runtime-owned suspension. There is
+no project property or CLI switch yet, and neoCLR builder/importer integration
+remains outstanding. Exception capture is an independent option.

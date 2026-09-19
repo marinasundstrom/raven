@@ -14,7 +14,8 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
-        if (Options.CaptureAsyncExceptions != previousCompilation.Options.CaptureAsyncExceptions
+        if (Options.UseHeapAsyncStateMachines != previousCompilation.Options.UseHeapAsyncStateMachines
+            || Options.CaptureAsyncExceptions != previousCompilation.Options.CaptureAsyncExceptions
             || Options.RuntimeUnitContract != previousCompilation.Options.RuntimeUnitContract
             || Options.RuntimeTypeOfContract != previousCompilation.Options.RuntimeTypeOfContract
             || Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions

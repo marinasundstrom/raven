@@ -1936,7 +1936,10 @@ internal class MethodBodyGenerator
         {
             var asyncStateMachineClrType = ResolveClrType(asyncStateMachine);
             ILGenerator.Emit(OpCodes.Ldarg_0);
-            ILGenerator.Emit(OpCodes.Initobj, asyncStateMachineClrType);
+            if (asyncStateMachine.IsValueType)
+                ILGenerator.Emit(OpCodes.Initobj, asyncStateMachineClrType);
+            else
+                ILGenerator.Emit(OpCodes.Call, ResolveClrType(asyncStateMachine.BaseType!).GetConstructor(Type.EmptyTypes)!);
             ILGenerator.Emit(OpCodes.Ret);
             _lambdaClosure = previousClosure;
             return;

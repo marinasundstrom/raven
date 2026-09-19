@@ -942,7 +942,7 @@ internal class TypeGenerator
                         if (methodSymbol.MethodKind == MethodKind.LambdaMethod)
                             break;
 
-                        if (TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol &&
+                        if (TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol && TypeSymbol.IsValueType &&
                             methodSymbol.MethodKind == MethodKind.Constructor)
                             break;
 

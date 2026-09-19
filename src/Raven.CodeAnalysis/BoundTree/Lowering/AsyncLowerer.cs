@@ -886,14 +886,15 @@ internal static class AsyncLowerer
             Array.Empty<Location>(),
             Array.Empty<SyntaxReference>());
 
-        var declarator = new BoundVariableDeclarator(asyncLocal, initializer: null);
+        var declarator = new BoundVariableDeclarator(asyncLocal, initializer: stateMachineType.IsValueType ? null
+            : new BoundObjectCreationExpression(constructed.Constructor, ImmutableArray<BoundExpression>.Empty));
         statements.Add(new BoundLocalDeclarationStatement(new[] { declarator }));
 
         if (thisField is not null)
         {
             var receiver = new BoundLocalAccess(asyncLocal);
             var value = new BoundSelfExpression(thisField.Type);
-            var assignment = new BoundFieldAssignmentExpression(receiver, thisField, value, unitType, requiresReceiverAddress: true);
+            var assignment = new BoundFieldAssignmentExpression(receiver, thisField, value, unitType, requiresReceiverAddress: stateMachineType.IsValueType);
             statements.Add(new BoundAssignmentStatement(assignment));
         }
 
@@ -904,7 +905,7 @@ internal static class AsyncLowerer
 
             var receiver = new BoundLocalAccess(asyncLocal);
             var value = new BoundParameterAccess(parameter);
-            var assignment = new BoundFieldAssignmentExpression(receiver, field, value, unitType, requiresReceiverAddress: true);
+            var assignment = new BoundFieldAssignmentExpression(receiver, field, value, unitType, requiresReceiverAddress: stateMachineType.IsValueType);
             statements.Add(new BoundAssignmentStatement(assignment));
         }
 
@@ -913,7 +914,7 @@ internal static class AsyncLowerer
             BoundLiteralExpressionKind.NumericLiteral,
             -1,
             stateField.Type);
-        var stateAssignment = new BoundFieldAssignmentExpression(stateReceiver, stateField, initialState, unitType, requiresReceiverAddress: true);
+        var stateAssignment = new BoundFieldAssignmentExpression(stateReceiver, stateField, initialState, unitType, requiresReceiverAddress: stateMachineType.IsValueType);
         statements.Add(new BoundAssignmentStatement(stateAssignment));
 
         var builderInitialization = CreateBuilderInitializationStatement(stateMachine, asyncLocal, builderMembers, unitType);
@@ -931,7 +932,7 @@ internal static class AsyncLowerer
                 moveNextMethod,
                 Array.Empty<BoundExpression>(),
                 receiver: new BoundLocalAccess(asyncLocal),
-                requiresReceiverAddress: true);
+                requiresReceiverAddress: stateMachineType.IsValueType);
             statements.Add(new BoundExpressionStatement(moveNextInvocation));
         }
 
@@ -1401,7 +1402,7 @@ internal static class AsyncLowerer
             field,
             value,
             stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit),
-            requiresReceiverAddress: true);
+            requiresReceiverAddress: stateMachine.IsValueType);
     }
 
     private static BoundStatement? CreateBuilderSetExceptionStatement(
@@ -2072,7 +2073,7 @@ internal static class AsyncLowerer
                             field,
                             initializer,
                             _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit),
-                            requiresReceiverAddress: true);
+                            requiresReceiverAddress: _stateMachine.IsValueType);
                         hoistedStatements.Add(new BoundAssignmentStatement(assignment));
                     }
                 }
@@ -3434,7 +3435,7 @@ internal static class AsyncLowerer
                 awaiterField,
                 new BoundDefaultValueExpression(awaiterField.Type),
                 unitType,
-                requiresReceiverAddress: true);
+                requiresReceiverAddress: _stateMachine.IsValueType);
             resumeStatements.Add(new BoundAssignmentStatement(clearAwaiterField));
 
             yield return new BoundLabeledStatement(resumeLabel, new BoundBlockStatement(resumeStatements));
@@ -3483,7 +3484,7 @@ internal static class AsyncLowerer
                 awaiterField,
                 getAwaiter,
                 _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit),
-                requiresReceiverAddress: true);
+                requiresReceiverAddress: _stateMachine.IsValueType);
             return new BoundAssignmentStatement(assignment);
         }
 
@@ -3515,7 +3516,10 @@ internal static class AsyncLowerer
 
             var builderAccess = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), _builderMembers.BuilderField);
             var awaiterAddress = new BoundAddressOfExpression(awaiterField, awaiterField.Type, new BoundSelfExpression(_stateMachine));
-            var thisAddress = new BoundAddressOfExpression(_stateMachine, _stateMachine);
+            var stateLocal = _stateMachine.IsValueType ? null : CreateAwaiterLocal(_stateMachine);
+            BoundExpression thisAddress = stateLocal is null
+                ? new BoundAddressOfExpression(_stateMachine, _stateMachine)
+                : new BoundAddressOfExpression(stateLocal, _stateMachine);
 
             var invocation = new BoundInvocationExpression(
                 awaitMethod,
@@ -3523,7 +3527,12 @@ internal static class AsyncLowerer
                 builderAccess,
                 requiresReceiverAddress: true);
 
-            return new BoundExpressionStatement(invocation);
+            if (stateLocal is null)
+                return new BoundExpressionStatement(invocation);
+            return new BoundBlockStatement(new BoundStatement[] {
+                new BoundLocalDeclarationStatement(new[] { new BoundVariableDeclarator(stateLocal, new BoundSelfExpression(_stateMachine)) }),
+                new BoundExpressionStatement(invocation)
+            });
         }
 
         private SourceFieldSymbol AddHoistedLocal(ILocalSymbol local)
@@ -4731,7 +4740,7 @@ internal static class AsyncLowerer
             builderMembers.BuilderField,
             invocation,
             unitType,
-            requiresReceiverAddress: true);
+            requiresReceiverAddress: stateMachine.IsValueType);
         return new BoundAssignmentStatement(assignment);
     }
 

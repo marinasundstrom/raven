@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Add an opt-in, provisional heap async state-machine policy on the
+  neoCLR integration branch. Reference states are constructed and retained across
+  pending awaits; default .NET state machines remain value types. Validate both
+  policies with two awaits and forced GC on .NET. This does not yet establish
+  generated async execution on neoCLR.
+
 - **2026-09-19:** Preserve struct-field storage when invoking through a class local,
   parameter or nested reference owner. Field-address emission now loads reference
   owners instead of addressing their reference slots. This is a general CLI
