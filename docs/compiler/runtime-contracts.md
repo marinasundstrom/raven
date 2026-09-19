@@ -384,3 +384,12 @@ no Runtime Contract setting or source-level enum rule changes. Seven declaration
 admission cases and the compiled Raven flags/filtering sample pass. The general
 backing-field metadata correction above is on main independently; this target
 projection remains on the neoCLR feature branch.
+
+
+neoCLR's subsequent Object/UnionAttribute slice checks empty source declarations
+and exact base-calling constructors. Object remains the fieldless runtime root;
+its compiler-facing reference members are not executable library bodies. The
+ordinary CLI Attribute source declaration projects to the existing empty target
+marker ABI. This is bounded target declaration lowering, not a general class/value
+conversion or a new attribute execution model. Runtime Contract configuration is
+unchanged. Nine declaration admission cases and the saved generic-union program pass.

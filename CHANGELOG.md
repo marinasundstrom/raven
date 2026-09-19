@@ -21,7 +21,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   Func declaration-family boundary (six admission cases, 28 delegate tests and the
   Raven delegate sample); runtime invocation remains unchanged. BindingFlags now
   uses a normal Raven enum declaration with checked target enum lowering (seven
-  admission cases and the flags/filtering sample pass).
+  admission cases and the flags/filtering sample pass). Record the checked empty
+  Object/UnionAttribute declarations and their unchanged marker ABI (nine admission
+  cases and the saved generic-union program pass).
 
 - **2026-09-19:** Preserve CLI enum backing-field SpecialName/RTSpecialName flags in
   final PE metadata when the host emitter masks reserved bits. An independent .NET
