@@ -312,6 +312,22 @@ a Runtime Contract setting. These representation policies stay off Raven main.
 All 12 admission cases, 41 focused Rust tests and 64 saved-project cases pass in
 neoCLR. General out-forwarding assignment was separately reproduced with source
 and .NET metadata and fixed on main (`5f6e17347`); the feature cherry-pick is
-`2d2a1d586`, with 41 parameter checks passing on each branch. Unqualified generic
-self-constructor lookup is a separate reproduced main-based investigation, not a
-claimed completed fix. No .NET Framework/NanoFramework execution is implied.
+`2d2a1d586`, with 41 parameter checks passing on each branch. The independently reduced same-name constructor arity fix is now on main
+(`d7292b935`) and the target branch (`d833ef2f3`): 78 focused main checks and 18
+feature checks pass; the ordinary .NET regression returns 42 instead of 0. No .NET Framework/NanoFramework execution is implied.
+
+
+## Experimental descriptor authoring (2026-09-19)
+
+The neoCLR importer now admits the exact MemberInfo/FieldInfo/MethodInfo/PropertyInfo
+snapshot hierarchy from Raven sources. Ordered private field layouts and existing
+runtime field names remain fixed. Source protected base construction is admitted
+only in the checked derived constructor chain and emitted with internal visibility.
+This is a bounded importer rule, not general application protected-member support.
+
+The bootstrap-only ParameterSnapshot metadata view maps to the runtime's immutable
+parameter vector. Its checked Length/Get operations are intrinsic; Raven owns array
+allocation/copying and property-accessor visibility filtering. Consumer metadata is
+unchanged and does not expose the view. No new Runtime Contract configuration,
+compiler semantics or metadata emission rules are introduced. These representation
+policies remain on the neoCLR branch; the normal .NET compiler is unchanged.
