@@ -4,6 +4,12 @@ namespace Raven.CodeAnalysis;
 
 internal static class AsyncReturnTypeUtilities
 {
+    internal static bool IsNonGenericTaskLike(ITypeSymbol type)
+    {
+        type = type.GetNonNullableType();
+        return type.SpecialType == SpecialType.System_Threading_Tasks_Task || IsNonGenericValueTask(type);
+    }
+
     public static bool IsValidAsyncReturnType(ITypeSymbol? type, bool allowErrorType = true)
     {
         if (type is null)

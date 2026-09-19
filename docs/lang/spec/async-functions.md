@@ -72,7 +72,10 @@ async func GetMessage() -> Task<string> {
 }
 ```
 
-For `Task<T>`, returned values must be convertible to `T`.
+For `Task<T>`, returned values must be convertible to `T`. This includes
+`Task<unit>`: `return ()` completes the task with its unit payload. The same rule
+applies to `ValueTask<unit>`. These generic types remain distinct from the
+nongeneric task types, even though awaiting either can produce a unit expression.
 
 A `Task` function does not return a value. Falling off the end of the function
 is equivalent to `return`:

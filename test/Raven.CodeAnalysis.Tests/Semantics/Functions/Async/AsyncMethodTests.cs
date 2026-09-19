@@ -11,6 +11,25 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class AsyncMethodTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("Task")]
+    [InlineData("ValueTask")]
+    public void AsyncNonGenericTask_WithUnitReturn_ReportsDiagnostic(string taskType)
+    {
+        var source = $$"""
+import System.Threading.Tasks.*
+class C {
+    async func Finish() -> {{taskType}} {
+        await Task.Yield()
+        return ()
+    }
+}
+""";
+        var (compilation, _) = CreateCompilation(source);
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.AsyncTaskReturnCannotHaveExpression);
+    }
+
     [Fact]
     public void AsyncMethod_WithoutReturnType_DefaultsToTask()
     {

@@ -2116,8 +2116,7 @@ partial class BlockBinder
                             returnSyntax.GetLocation());
                 }
                 else if (method.IsAsync &&
-                    AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, methodReturnType) is
-                    { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })
+                    AsyncReturnTypeUtilities.IsNonGenericTaskLike(methodReturnType))
                 {
                     if (!TryConvertTaskLikeAsyncReturnExpression(method, expr, expressionSyntax!, out expr))
                     {
@@ -2249,8 +2248,7 @@ partial class BlockBinder
             return false;
         }
 
-        if (AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, method.ReturnType) is not
-            { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })
+        if (!AsyncReturnTypeUtilities.IsNonGenericTaskLike(method.ReturnType))
         {
             return false;
         }

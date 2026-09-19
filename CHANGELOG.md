@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Preserve generic unit payloads in async `Task<unit>` and
+  `ValueTask<unit>` returns. Explicit `return ()`, pending completion and awaitless
+  completion now use the generic result path; expression-bodied async methods
+  receive async lowering. Nongeneric Task return diagnostics remain unchanged.
+  This is a general .NET compiler fix with no target-specific policy changes.
+
 - **2026-09-19:** Add provisional compiler API WithAsyncExceptionCapture(false) on
   the neoCLR branch. It omits the generated async catch wrapper and SetException
   lookup without inspecting task payloads; ordinary .NET capture remains the default.

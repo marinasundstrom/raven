@@ -1327,6 +1327,9 @@ internal static class AsyncLowerer
         if (type.SpecialType == SpecialType.System_Void)
             return null;
 
+        if (type.SpecialType == SpecialType.System_Unit)
+            return new BoundUnitExpression(type);
+
         if (type.IsReferenceType)
             return new BoundLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, type);
 
@@ -4513,7 +4516,7 @@ internal static class AsyncLowerer
                     return converted;
             }
 
-            if (SymbolEqualityComparer.Default.Equals(_returnInfo.ResultType, _unitType))
+            if (_returnInfo.IsTask || _returnInfo.IsValueTask)
             {
                 var completedTask = _completedTask ?? (expression ?? CreateNullLiteral(_returnInfo.AsyncReturnType));
 
@@ -4590,7 +4593,7 @@ internal static class AsyncLowerer
             if (_returnInfo.IsValueTask)
                 return new BoundDefaultValueExpression(_returnInfo.AsyncReturnType);
 
-            if (!SymbolEqualityComparer.Default.Equals(_returnInfo.ResultType, _unitType))
+            if (!_returnInfo.IsTask)
                 return null;
 
             foreach (var member in _returnInfo.TaskType.GetMembers(nameof(Task.CompletedTask)))
