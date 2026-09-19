@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Document the neoCLR importer correction preserving nested
+  Option/Result case ownership from emitted CLI metadata. No Raven compiler or
+  Runtime Contract change; 73 source slices regenerate and 12 admission cases pass.
+
 - **2026-09-19:** Finish the neoCLR branch audit: keep the shared explicit-reference
   policy in the project service, remove its redundant evaluator guard, and retain
   unit-contract project coverage alongside array-policy tests. All 47 main and 52

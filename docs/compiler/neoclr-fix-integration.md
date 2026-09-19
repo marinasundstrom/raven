@@ -233,3 +233,13 @@ the bit; it does not admit malformed enums or add target-specific enum policies.
 
 Sources: [CLI standard](https://ecma-international.org/publications-and-standards/standards/ecma-335/),
 [Persisted field builder](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Reflection.Emit/src/System/Reflection/Emit/FieldBuilderImpl.cs).
+
+## Imported library nested case ownership (2026-09-19)
+
+The neoCLR library importer now retains lexical nesting for the admitted
+Option/Result companion cases. Raven's emitted CLI nested-type relationship was
+previously flattened into a dotted neoIL name, losing declaring-type identity.
+The correction is entirely in neoCLR's target importer; no Raven semantic or
+emission change, Runtime Contract option, or general nested-type admission is added.
+All 73 source slices regenerate and all 12 union admission cases pass. The runtime
+regression compares each of the four cases with its resolved owner definition.
