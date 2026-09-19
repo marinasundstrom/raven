@@ -7265,7 +7265,7 @@ internal partial class ExpressionGenerator : Generator
         var effectiveType = runtimeType ?? declaredType;
 
         if (effectiveType is null || !effectiveType.IsValueType)
-            return TryEmitInvocationReceiverAddress(receiver);
+            return false;
 
         if (TryEmitInvocationReceiverAddress(receiver))
             return true;
@@ -7363,7 +7363,12 @@ internal partial class ExpressionGenerator : Generator
                         return true;
                     }
 
-                    if (!TryEmitInvocationReceiverAddress(memberAccess.Receiver))
+                    // ldflda consumes an object reference for a class owner, but an
+                    // address for a value owner. Taking a class local's address here
+                    // addresses the reference slot rather than the object's field.
+                    if (fieldSymbol.ContainingType?.IsValueType == false && memberAccess.Receiver is not null)
+                        EmitPreservedValue(memberAccess.Receiver);
+                    else if (!TryEmitInvocationReceiverAddress(memberAccess.Receiver))
                         return false;
 
                     ILGenerator.Emit(OpCodes.Ldflda, GetField(fieldSymbol));
