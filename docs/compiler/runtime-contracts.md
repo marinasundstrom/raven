@@ -414,3 +414,17 @@ calls are rejected. Object.GetType remains a preview API alignment candidate, no
 member added by this port. The author permits deliberate development compatibility
 breaks while using .NET as the ergonomic comparison baseline. No compiler syntax,
 Runtime Contract configuration or .NET target behavior changes in this removal.
+
+## Explicit editor references (2026-09-19)
+
+When MetadataImportOptions selects an explicit CLI reference universe, the language
+server uses those supplied references without adding host Raven.Core or macro
+support assemblies. This matches compiler metadata import configuration and avoids
+resolving editor symbols against assemblies outside the selected runtime. Normal
+host-framework projects retain their existing support-reference behavior. No new
+Runtime Contract option or emission policy is introduced.
+
+A standalone .NET project with only System.Private.CoreLib reproduced unwanted
+editor-added assemblies before the fix. The regression checks the exact reference
+set and configured core identity. All 65 workspace integration tests pass on
+.NET 10; this does not establish .NET Framework or NanoFramework execution.
