@@ -75,6 +75,16 @@ program on .NET. A target choosing a type with additional semantics must validat
 those semantics and its runtime separately. In particular, this mechanism does not
 make nominal Void values or Void generic arguments valid on the .NET CLR.
 
+## Generic async unit results
+
+`Task<unit>` and `ValueTask<unit>` bind explicit unit returns as generic payloads.
+State-machine completion supplies the unit value to the generic builder;
+awaitless Task methods use generic completion instead of `Task.CompletedTask`.
+Expression-bodied async methods pass through the same lowering as block bodies.
+These rules require no new Runtime Contract option and preserve the normal .NET
+unit representation. Tests execute immediate, pending and awaitless methods on
+.NET; they do not establish support for any other runtime's builder or unit ABI.
+
 ## Integration and documentation
 
 Reference metadata, compiler binding, emitted signatures, and runtime execution are

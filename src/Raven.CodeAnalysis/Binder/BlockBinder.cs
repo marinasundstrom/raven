@@ -16961,12 +16961,8 @@ partial class BlockBinder : Binder
                 if (!skipReturnConversions && converted.Type is not null && ShouldAttemptConversion(converted) &&
                     returnType.TypeKind != TypeKind.Error)
                 {
-                    var asyncResultType = symbol.IsAsync
-                        ? AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, returnType)
-                        : null;
-
                     if (symbol.IsAsync &&
-                        asyncResultType is { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })
+                        AsyncReturnTypeUtilities.IsNonGenericTaskLike(returnType))
                     {
                         if (!expressionBinder.TryConvertTaskLikeAsyncReturnExpression(symbol, converted, function.ExpressionBody.Expression, out converted))
                         {
