@@ -15,7 +15,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   Document descriptor source admission, inherited snapshot layout and the checked
   vector read view, and NativeMemory intrinsic authoring (five admission checks,
   28 runtime tests and a saved allocation program). These importer policies
-  introduce no Runtime Contract option.
+  introduce no Runtime Contract option. Document the subsequent System.Fault
+  source wrapper and unchanged terminal guest-failure boundary (three admission
+  cases, seven runtime tests and a verified Unicode failure program).
 
 - **2026-09-19:** Resolve unqualified generic constructors when the current namespace
   also contains a nongeneric type of the same name. Preserve all accessible arities

@@ -339,3 +339,10 @@ release instructions. Consumer pointer signatures and existing unit/void project
 are unchanged. No Runtime Contract setting or general compiler rule is added.
 Five admission checks, 28 native/pointer runtime tests and a saved Raven allocation
 program pass; these importer policies remain on the target feature branch.
+
+
+System.Fault source authoring uses a bootstrap-only RuntimeFailure.Terminate binding.
+Its existing no-result signature, dynamic diagnostic and terminal guest-failure
+semantics are preserved. No compiler non-return analysis or Runtime Contract option
+is added. Three admission cases, seven fault/query tests and a verified Raven Unicode
+failure program pass in neoCLR. The host continues after a guest failure.
