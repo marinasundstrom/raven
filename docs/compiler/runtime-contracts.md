@@ -346,3 +346,10 @@ Its existing no-result signature, dynamic diagnostic and terminal guest-failure
 semantics are preserved. No compiler non-return analysis or Runtime Contract option
 is added. Three admission cases, seven fault/query tests and a verified Raven Unicode
 failure program pass in neoCLR. The host continues after a guest failure.
+
+
+neoCLR now admits all five invariant Func declarations authored in Raven, validating
+CLI runtime constructor/Invoke metadata and generic positions against its existing
+consumer contract. Runtime invocation and capture lifetime remain unchanged. No
+Runtime Contract setting, ordinary .NET delegate rule or target compiler mapping is
+added. Six admission cases, 28 delegate tests and the Raven delegate sample pass.

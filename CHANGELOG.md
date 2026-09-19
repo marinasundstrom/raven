@@ -17,7 +17,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   28 runtime tests and a saved allocation program). These importer policies
   introduce no Runtime Contract option. Document the subsequent System.Fault
   source wrapper and unchanged terminal guest-failure boundary (three admission
-  cases, seven runtime tests and a verified Unicode failure program).
+  cases, seven runtime tests and a verified Unicode failure program). Record the
+  Func declaration-family boundary (six admission cases, 28 delegate tests and the
+  Raven delegate sample); runtime invocation remains unchanged.
 
 - **2026-09-19:** Resolve unqualified generic constructors when the current namespace
   also contains a nongeneric type of the same name. Preserve all accessible arities
