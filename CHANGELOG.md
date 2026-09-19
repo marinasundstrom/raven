@@ -11,7 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   Record a loop/local-name diagnostic as an unvalidated general follow-up. Extend
   Sequence<T> to every remaining Introspection collection result: use Count and
   rebuild callers; indexing, iteration and query extensions remain supported.
-  Native arrays remain private, with no additional compiler change.
+  Native arrays remain private, with no additional compiler change. Document
+  TypeInfo as the fourth sealed MemberInfo case, optional DeclaringType, same-file
+  family authoring and preserved nested source ownership. Consumers rebuild and
+  update exhaustive matches and owner access; Runtime Contract settings are unchanged.
 
 - **2026-09-19:** Document neoCLR source assembly/module/token retention and logical
   System.Runtime reference mapping. No compiler or Runtime Contract change; public

@@ -350,3 +350,18 @@ implicit array assignment are rejected. Native metadata services keep private ar
 storage, with independent snapshots. Editor checks cover all result families and
 saved programs exercise filtering, indexing, enumeration and query extensions.
 No target policies or compiler changes are integrated into main for this slice.
+
+### TypeInfo joins MemberInfo (2026-09-19)
+
+The neoCLR reference/importer/provider contracts now make TypeInfo the fourth sealed
+MemberInfo case. Name, Module and MetadataToken are inherited; DeclaringType returns
+Option<TypeInfo>. Consumers rebuild and update exhaustive matches and owner access.
+All member cases are authored together to satisfy Raven's existing same-source-file
+rule. Runtime Contract configuration, binding and emission rules are unchanged;
+there is no compiler fix or main integration in this slice.
+
+The target importer preserves nested CLI declaring-type tokens and retains owners.
+neoCLR validates scoped ownership, missing parents and cycles. Saved Raven programs
+exercise nested/top-level ownership and four-case matching; source admission and
+runtime metadata tests cover the changed contracts. Nested enumeration and dynamic
+assembly loading remain deferred.
