@@ -13,7 +13,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   and conditional-output projection, readonly adapters and invalid defaults;
   12 admission cases, 41 focused runtime tests and 64 saved-program cases pass.
   Document descriptor source admission, inherited snapshot layout and the checked
-  vector read view; these importer policies introduce no Runtime Contract option.
+  vector read view, and NativeMemory intrinsic authoring (five admission checks,
+  28 runtime tests and a saved allocation program). These importer policies
+  introduce no Runtime Contract option.
 
 - **2026-09-19:** Resolve unqualified generic constructors when the current namespace
   also contains a nongeneric type of the same name. Preserve all accessible arities

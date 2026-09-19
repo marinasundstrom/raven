@@ -331,3 +331,11 @@ allocation/copying and property-accessor visibility filtering. Consumer metadata
 unchanged and does not expose the view. No new Runtime Contract configuration,
 compiler semantics or metadata emission rules are introduced. These representation
 policies remain on the neoCLR branch; the normal .NET compiler is unchanged.
+
+
+neoCLR's NativeMemory overloads are now Raven-authored as well. Bootstrap-only
+NativeAllocation signatures map to checked native multiplication, allocation and
+release instructions. Consumer pointer signatures and existing unit/void projection
+are unchanged. No Runtime Contract setting or general compiler rule is added.
+Five admission checks, 28 native/pointer runtime tests and a saved Raven allocation
+program pass; these importer policies remain on the target feature branch.
