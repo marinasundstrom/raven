@@ -46,6 +46,7 @@ internal static class AssemblyReferenceNormalizer
         var assembly = AssemblyDefinition.ReadAssembly(peInput, readerParameters);
 
         var module = assembly.MainModule;
+        var repairedEnumFields = RestoreEnumBackingFieldFlags(module);
         var rewroteMetadataMethods = metadataMethodProxies is { Count: > 0 } || metadataFieldProxies is { Count: > 0 };
         RewriteMetadataMethodProxies(module, metadataMethodProxies, targetReferences);
         RewriteMetadataFieldProxies(module, metadataFieldProxies, targetReferences);
@@ -56,7 +57,7 @@ internal static class AssemblyReferenceNormalizer
 
         if (coreLibRefs.Length == 0)
         {
-            if (rewroteMetadataMethods || targetReferences is { Count: > 0 })
+            if (repairedEnumFields || rewroteMetadataMethods || targetReferences is { Count: > 0 })
             {
                 RetargetAssemblyIdentities(module, targetReferences);
                 assembly.Write(peOutput, CreateWriterParameters(pdbOutput));
@@ -144,6 +145,7 @@ internal static class AssemblyReferenceNormalizer
 
         var assembly = AssemblyDefinition.ReadAssembly(peInput, readerParameters);
         var module = assembly.MainModule;
+        RestoreEnumBackingFieldFlags(module);
         RewriteMetadataMethodProxies(module, metadataMethodProxies, targetReferences);
         RewriteMetadataFieldProxies(module, metadataFieldProxies, targetReferences);
         RuntimeUnitProjection.Apply(module, unitContract, targetCoreLibrary);
@@ -571,6 +573,25 @@ internal static class AssemblyReferenceNormalizer
         {
             AddTargetTypeScope(specification.ElementType, targetScopes);
         }
+    }
+
+    private static bool RestoreEnumBackingFieldFlags(ModuleDefinition module)
+    {
+        // PersistedAssemblyBuilder masks reserved field flags, including the
+        // RTSpecialName bit required by ECMA-335 II.14.3 for enum value__ fields.
+        var changed = false;
+        foreach (var type in module.GetTypes().Where(type => type.IsEnum))
+        {
+            foreach (var field in type.Fields.Where(field => !field.IsStatic && field.Name == "value__"))
+            {
+                var required = FieldAttributes.SpecialName | FieldAttributes.RTSpecialName;
+                if ((field.Attributes & required) == required)
+                    continue;
+                field.Attributes |= required;
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     private static IEnumerable<TypeDefinition> EnumerateTypes(IEnumerable<TypeDefinition> types)

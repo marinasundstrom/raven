@@ -214,3 +214,22 @@ It introduces no Runtime Contract setting or neoCLR policy. All 78 focused gener
 alias, namespace and accessibility checks pass on .NET 11. .NET Framework and
 NanoFramework were not executed. Namespace access checks and candidate deduplication
 remain in force; this does not claim to resolve every nested-case lookup issue.
+
+## Enum backing-field metadata (2026-09-19)
+
+The final PE metadata pass preserves `SpecialName | RTSpecialName` on the instance
+`value__` field of CLI enums, as required by ECMA-335 II.14.3. Raven already requests
+both bits when defining the field, but the host PersistedAssemblyBuilder masks
+reserved field attributes. The correction applies to normal and explicitly retargeted
+emission, including nested enum definitions, without changing source semantics,
+Runtime Contract configuration or underlying integral storage.
+
+An independent ordinary .NET regression inspects the emitted PE field attributes,
+then loads the enum and checks its underlying type and literal value. It failed
+before the correction; all 13 focused enum/target-core checks pass on .NET 11.
+.NET Framework and NanoFramework execution are not established by these checks.
+The final metadata normalization is necessary while the host emission layer drops
+the bit; it does not admit malformed enums or add target-specific enum policies.
+
+Sources: [CLI standard](https://ecma-international.org/publications-and-standards/standards/ecma-335/),
+[Persisted field builder](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Reflection.Emit/src/System/Reflection/Emit/FieldBuilderImpl.cs).
