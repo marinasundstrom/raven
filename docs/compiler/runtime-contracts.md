@@ -403,3 +403,14 @@ existing internal static ArrayEnumerable dispatcher ABI with argument zero uncha
 public array exports and reflected capabilities are preserved. Static property metadata
 retains its receiver kind. Eight admission checks, 25 array/collection tests and four
 saved array programs pass. No Runtime Contract option or Raven compiler code changes.
+
+
+The final handwritten TypeOf<T>.Of helper was removed at the author's direction;
+existing typeof syntax supplies declared-type inspection. Rebuild callers against
+updated neoCLR reference metadata. Its source-body ownership gate now finds only
+generated declarations/bodies and explicit runtime services across 73 source slices.
+Thirteen type/reflection checks and the saved reflection program pass; removed-helper
+calls are rejected. Object.GetType remains a preview API alignment candidate, not a
+member added by this port. The author permits deliberate development compatibility
+breaks while using .NET as the ergonomic comparison baseline. No compiler syntax,
+Runtime Contract configuration or .NET target behavior changes in this removal.

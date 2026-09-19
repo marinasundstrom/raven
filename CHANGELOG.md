@@ -25,7 +25,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   Object/UnionAttribute declarations and their unchanged marker ABI (nine admission
   cases and the saved generic-union program pass). Record managed-array source
   storage and iteration-signature projection (eight admission checks, 25 runtime
-  tests and four saved array programs pass).
+  tests and four saved array programs pass). Document removal of the obsolete
+  TypeOf<T>.Of target helper in favor of typeof, its rebuild requirement, complete
+  source-body ownership and the deferred Object.GetType preview candidate.
 
 - **2026-09-19:** Preserve CLI enum backing-field SpecialName/RTSpecialName flags in
   final PE metadata when the host emitter masks reserved bits. An independent .NET
