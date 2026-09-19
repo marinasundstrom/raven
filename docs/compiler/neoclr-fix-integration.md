@@ -365,3 +365,10 @@ neoCLR validates scoped ownership, missing parents and cycles. Saved Raven progr
 exercise nested/top-level ownership and four-case matching; source admission and
 runtime metadata tests cover the changed contracts. Nested enumeration and dynamic
 assembly loading remain deferred.
+
+Target importer follow-up: source-origin parameter tokens now include a zero slot
+for an instance receiver when its method is emitted as a free function, including
+value-type constructors. The CLI receiver has no Param row; declared parameter
+tokens keep their order. This fixes neoCLR metadata admission for ordinary Raven
+value-copy programs. Runtime Contract settings and Raven compiler emission are
+unchanged; the target importer owns the adaptation.

@@ -15,6 +15,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   TypeInfo as the fourth sealed MemberInfo case, optional DeclaringType, same-file
   family authoring and preserved nested source ownership. Consumers rebuild and
   update exhaustive matches and owner access; Runtime Contract settings are unchanged.
+  Record the target importer fix that reserves a zero parameter-token slot for
+  receivers in free-function lowering, restoring value-type constructor admission.
 
 - **2026-09-19:** Document neoCLR source assembly/module/token retention and logical
   System.Runtime reference mapping. No compiler or Runtime Contract change; public
