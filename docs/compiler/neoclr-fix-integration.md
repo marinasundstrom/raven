@@ -291,3 +291,17 @@ Validation: TypeInfo and Object admission checks pass; a saved Raven program
 executes instance and declared-type acquisition. Language-server checks identify
 all six Info contracts as interfaces, exclude System.Type and private providers,
 and expose RuntimeContext.Current.GetTypeInfoFromHandle without Type.Info.
+
+## Source-origin metadata for neoCLR discovery (2026-09-19)
+
+neoCLR's target importer now preserves descriptive assembly/module identities and
+CLI definition tokens for admitted application types/methods, including field and
+parameter rows. Bootstrap/primitive reference scopes map to the logical System.Runtime
+assembly. Compiler-generated target adapters retain no source origin; separately
+compiled library slices do not copy colliding source token rows into the merged
+runtime module. Execution still binds through checked signatures and its existing
+runtime definition IDs. No Raven compiler or Runtime Contract change is required.
+
+Eighteen neoCLR metadata/attribute/scoping checks and a saved acquisition sample
+pass. Public assembly discovery/token interfaces remain subsequent target work.
+The descriptor properties must use module-scoped identity, not DefinitionIndex.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Document neoCLR source assembly/module/token retention and logical
+  System.Runtime reference mapping. No compiler or Runtime Contract change; public
+  discovery/token APIs remain target work. Eighteen metadata/scope checks pass.
+
 - **2026-09-19:** Document neoCLR's direct TypeInfo acquisition through the existing
   configured typeof resolver and Object.GetType. No compiler semantic/emission
   change; target callers rebuild and the internal CLI-only Type shell is hidden.
