@@ -333,3 +333,20 @@ Deferred general candidate observed while writing the sample: reusing a for-loop
 variable name for a later local produced RAV0174 inside the earlier loop. The sample
 uses distinct descriptive names. This has not been isolated on ordinary CLI metadata
 or diagnosed as a compiler defect, so no fix or main integration is claimed.
+
+
+### Complete neoCLR Introspection Sequence results
+
+The author subsequently requested migrating every remaining Introspection collection
+result from arrays to Sequence<T>. TypeInfo generic arguments, interfaces, enum names,
+fields, methods and properties now use Sequence, as do MethodInfo parameters and
+PropertyInfo index parameters. The target core reference and provider implementations
+move together. Runtime Contract settings, Raven semantics and emission are unchanged;
+existing array-to-interface conversion supplies the public collection capability.
+
+Consumers rebuild, annotate Sequence<Element> and use Count instead of Length.
+Indexing, iteration and Iterable query extensions remain supported; mutation and
+implicit array assignment are rejected. Native metadata services keep private array
+storage, with independent snapshots. Editor checks cover all result families and
+saved programs exercise filtering, indexing, enumeration and query extensions.
+No target policies or compiler changes are integrated into main for this slice.

@@ -8,7 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   discovery and module-scoped Info tokens. Runtime Contract configuration and compiler
   semantics/emission are unchanged; target consumers rebuild. Runnable sample and
   interface-completion checks pass. Dynamic loading remains future RuntimeContext work.
-  Record a loop/local-name diagnostic as an unvalidated general follow-up.
+  Record a loop/local-name diagnostic as an unvalidated general follow-up. Extend
+  Sequence<T> to every remaining Introspection collection result: use Count and
+  rebuild callers; indexing, iteration and query extensions remain supported.
+  Native arrays remain private, with no additional compiler change.
 
 - **2026-09-19:** Document neoCLR source assembly/module/token retention and logical
   System.Runtime reference mapping. No compiler or Runtime Contract change; public
