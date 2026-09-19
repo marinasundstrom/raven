@@ -1053,6 +1053,7 @@ internal class MethodBodyGenerator
             AccessorDeclarationSyntax a when a.Body != null => semanticModel.GetBoundNode(a.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             AccessorDeclarationSyntax a when a.ExpressionBody is not null => GetLoweredArrowExpressionBody(semanticModel, a.ExpressionBody),
             PropertyDeclarationSyntax p when p.ExpressionBody is not null => GetLoweredArrowExpressionBody(semanticModel, p.ExpressionBody),
+            IndexerDeclarationSyntax i when i.ExpressionBody is not null => GetLoweredArrowExpressionBody(semanticModel, i.ExpressionBody),
             _ => null
         };
 
@@ -1072,6 +1073,8 @@ internal class MethodBodyGenerator
                 => semanticModel.GetBoundNode(a.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             PropertyDeclarationSyntax p when p.ExpressionBody is not null
                 => semanticModel.GetBoundNode(p.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
+            IndexerDeclarationSyntax i when i.ExpressionBody is not null
+                => semanticModel.GetBoundNode(i.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             FunctionStatementSyntax l when l.ExpressionBody is not null
                 => semanticModel.GetBoundNode(l.ExpressionBody.Expression, BoundTreeView.Lowered) as BoundExpression,
             _ => null
@@ -1086,6 +1089,7 @@ internal class MethodBodyGenerator
             ParameterlessConstructorDeclarationSyntax i when i.ExpressionBody is not null => i.ExpressionBody.Expression,
             AccessorDeclarationSyntax a when a.ExpressionBody is not null => a.ExpressionBody.Expression,
             PropertyDeclarationSyntax p when p.ExpressionBody is not null => p.ExpressionBody.Expression,
+            IndexerDeclarationSyntax i when i.ExpressionBody is not null => i.ExpressionBody.Expression,
             FunctionStatementSyntax l when l.ExpressionBody is not null => l.ExpressionBody.Expression,
             _ => null
         };
@@ -1353,7 +1357,8 @@ internal class MethodBodyGenerator
                     break;
                 }
 
-            case PropertyDeclarationSyntax propertyDeclaration:
+            case PropertyDeclarationSyntax:
+            case IndexerDeclarationSyntax:
                 if (boundBody != null)
                 {
                     EmitMethodBlock(boundBody);

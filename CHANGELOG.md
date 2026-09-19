@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Emit declaration-level expression-bodied indexer getters on classes
+  and structs, instead of throwing during emission. Target Runtime Contracts are
+  unchanged. Ordinary .NET execution and indexer diagnostics/completion tests pass.
+
 - **2026-09-19:** Add the experimental `RavenUnicodeScalarChar` project contract on
   the neoCLR branch: supplementary literals and patterns, scalar diagnostics,
   32-bit Char array/indirect operations and runtime-validated numeric storage.
