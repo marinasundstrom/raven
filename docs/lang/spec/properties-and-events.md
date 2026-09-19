@@ -35,7 +35,18 @@ class Foo {
 
 Without an initializer, a type annotation is required (`RAV0918`).
 
-The compiler synthesizes backing storage. You can still provide accessors to
+The compiler synthesizes backing storage. A private `var` without an accessor
+list is writable storage even without a declaration initializer; it does not
+require a redundant initializer or setter to satisfy `RAV0911`.
+
+Initialization is a separate concern. The `RAV9006` analyzer accepts an initializer
+or assignment on every normally completing constructor path. An assignment in
+only one overload or one conditional branch is insufficient. Throwing paths do
+not produce an instance; early returns do. Assignments in deferred functions or
+to another instance do not initialize the current instance. Explicit getter-only
+computed properties still require a writable shape when declared `var`.
+
+You can still provide accessors to
 refine behavior:
 
 ```raven

@@ -56,7 +56,7 @@ member accesses.
 | Typing | `RAV9001` | Opt-in | Info | Add an inferred return type annotation. |
 | Typing | `RAV9003` | Default | Warning | Make an event delegate nullable when the event can be empty. |
 | Typing | `RAV9004` | Opt-in | Warning | Use `let` when a local declared with `var` is never reassigned. |
-| Initialization | `RAV9006` | Default | Warning | Initialize a property in storage or a constructor. |
+| Initialization | `RAV9006` | Default | Warning | Initialize a property in storage or on every normal constructor path. |
 | Typing | `RAV9012` | Opt-in | Info | Prefer `Option<T>` or `Result<T, E>` over nullable domain flow. A scoped code fix can rewrite simple local null-guarded flow to an `Option` pattern. |
 | Error handling | `RAV9013` | Opt-in | Warning | Prefer `Result<T, E>` over `throw` for expected failure. |
 | Error handling | `RAV9014` | Opt-in | Warning | Prefer Raven's `Option`/`Result` LINQ alternatives where applicable. |
@@ -69,7 +69,7 @@ member accesses.
 | Usage | `RAV9027` | Default | Warning | Remove or use an unused local value. |
 | Usage | `RAV9030` | Opt-in | Warning | Remove or use an unused parameter. |
 | Usage | `RAV9031` | Default | Hidden | Remove an unused import directive. |
-| Initialization | `RAV9032` | Default | Warning | Initialize a field in storage or a constructor. |
+| Initialization | `RAV9032` | Default | Warning | Initialize a field in storage or on every normal constructor path. |
 | Usage | `RAV9033` | Default | Warning | Dispose a disposable value before leaving its scope. |
 | Usage | `RAV9034` | Default | Warning | Make an unused expression result explicit. This includes value-forming expressions and a non-`unit` tail value in a `unit` callable; full mode also checks bare calls and member accesses. |
 | Error handling | `RAV9037` | Default | Warning | Avoid partial `Option` and `Result` extraction with `Unwrap`, `UnwrapOrThrow`, `UnwrapError`, or `Expect`; handle both cases explicitly. |
@@ -121,3 +121,17 @@ is not involved. It does not make the checked value non-null in either branch.
 The language still recommends explicit pattern bindings and matches as the
 first teaching model. See
 [Nullability and absence](../../lang/nullability.md).
+
+## Definite member initialization
+
+`RAV9006` (stored properties) and `RAV9032` (private explicit fields) check normal
+constructor completion. All constructor overloads must initialize the current
+instance's member, accounting for branches, early returns, loops, exceptions,
+finally blocks and lifecycle initialization. A primary initializer block only
+contributes to the primary constructor. Assignments inside deferred lambdas/local
+functions or through another receiver do not satisfy this check.
+
+The analysis uses public semantic operations and match-exhaustiveness queries.
+It is conservative for indirect helper calls, aliases of `self`, and arbitrary
+jumps: these do not prove initialization. This is distinct from `RAV0911`, which
+checks a property's writable shape rather than whether its storage is initialized.

@@ -108,6 +108,20 @@ func test(maybe: Box<int>) -> bool {
     }
 
     [Fact]
+    public void IsPattern_OpenGenericWithoutMatchingInput_StillRequiresTypeArguments()
+    {
+        const string source = """
+            class Box<T> {}
+            func test(value: object) -> bool {
+                return value is Box box
+            }
+            """;
+        var compilation = CreateVerifier(source).GetResult().Compilation;
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.TypeRequiresTypeArguments);
+    }
+
+    [Fact]
     public void IsPattern_WithCompetingNonGenericType_InfersGenericWhenNonGenericIsNotPatternCompatible()
     {
         const string source = """

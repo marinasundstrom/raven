@@ -203,6 +203,15 @@ internal static class NestedUnionPatternCoverage
             return TryGetEnumField(enumPattern.Expression, out var patternField) &&
                    SymbolEqualityComparer.Default.Equals(patternField, enumValue.Field);
 
+        // Qualified case names bind as type tests. A test for the case type
+        // covers every payload value of that case, not just parameterless cases.
+        if (value is UnionCaseFiniteValue declaredUnionValue &&
+            pattern is BoundDeclarationPattern declaration &&
+            declaration.DeclaredType.TryGetUnionCase() is { } declaredCase)
+        {
+            return AreSameCase(declaredCase, declaredUnionValue.CaseSymbol);
+        }
+
         if (value is UnionCaseFiniteValue constantUnionValue &&
             TryGetParameterlessUnionCaseValue(pattern, out var constantCase))
         {

@@ -5,6 +5,70 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 
 public class UninitializedPropertyAnalyzerTests : AnalyzerTestBase
 {
+    [Theory]
+    [InlineData("init() { Name = \"ok\" }\ninit(value: int) { Name = \"other\" }", false)]
+    [InlineData("init() { Name = \"ok\" }\ninit(value: int) { }", true)]
+    [InlineData("init(value: bool) { if value { Name = \"ok\" } }", true)]
+    [InlineData("init(value: bool) { if value { Name = \"ok\" } else { Name = \"other\" } }", false)]
+    [InlineData("init(value: bool) { if value { return }\nName = \"ok\" }", true)]
+    [InlineData("init(value: bool) { if value { throw System.Exception() }\nName = \"ok\" }", false)]
+    [InlineData("init() { let action = () => { Name = \"ok\" } }", true)]
+    [InlineData("init(other: C) { other.Name = \"ok\" }", true)]
+    [InlineData("init(value: bool) { while value { Name = \"ok\" } }", true)]
+    [InlineData("init() { try { return } finally { Name = \"ok\" } }", false)]
+    [InlineData("init { Name = \"ok\" }\ninit(value: int) { }", false)]
+    [InlineData("static init { }\ninit() { }", true)]
+    [InlineData("init(value: bool) { loop { if value { Name = \"ok\"; break } else { throw System.Exception() } } }", false)]
+    [InlineData("init(value: bool) { loop { if value { break }\nName = \"ok\" } }", true)]
+    [InlineData("init(value: bool) { match value { true => { Name = \"yes\" }, false => { Name = \"no\" } } }", false)]
+    [InlineData("init() { try { Name = \"ok\" } catch { } }", true)]
+    [InlineData("init() { try { Name = \"ok\" } catch { Name = \"fallback\" } }", false)]
+    [InlineData("init { if System.Environment.TickCount > 0 { Name = \"ok\" } }\ninit(value: int) { Name = \"ok\" }", true)]
+    public void InitializationRequiresEveryNormalConstructorPath(string constructors, bool reportsDiagnostic)
+    {
+        var code = "class C {\n    var Name: string { get; set; }\n    " + constructors + "\n}";
+        var expected = reportsDiagnostic
+            ? new[] { new DiagnosticResult(UninitializedPropertyAnalyzer.DiagnosticId)
+                .WithSpan(2, 9, 2, 13).WithArguments("Name") }
+            : [];
+        CreateAnalyzerVerifier<UninitializedPropertyAnalyzer>(code,
+            expectedDiagnostics: expected,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]).Verify();
+    }
+
+    [Theory]
+    [InlineData("init(value: char) { stored = value }", false)]
+    [InlineData("init(value: char) { stored = value }\ninit() { }", true)]
+    [InlineData("init(value: char, assign: bool) { if assign { stored = value } }", true)]
+    public void PrivateMutableStorage_UsesInitializationDiagnostic(string constructors, bool reportsDiagnostic)
+    {
+        var code = "class CharacterBox {\n    private var stored: char\n" + constructors +
+            "\n    val Value: char => stored\n}";
+        var expected = reportsDiagnostic
+            ? new[] { new DiagnosticResult(UninitializedPropertyAnalyzer.DiagnosticId)
+                .WithSpan(2, 17, 2, 23).WithArguments("stored") }
+            : [];
+        CreateAnalyzerVerifier<UninitializedPropertyAnalyzer>(code,
+            expectedDiagnostics: expected,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]).Verify();
+    }
+
+    [Theory]
+    [InlineData("Name = \"other\"", false)]
+    [InlineData("", true)]
+    public void PartialTypeChecksConstructorsInEveryPart(string otherBody, bool reportsDiagnostic)
+    {
+        var code = "partial class C {\n    var Name: string { get; set; }\n    init() { Name = \"ok\" }\n}\n" +
+            "partial class C { init(value: int) { " + otherBody + " } }";
+        var expected = reportsDiagnostic
+            ? new[] { new DiagnosticResult(UninitializedPropertyAnalyzer.DiagnosticId)
+                .WithSpan(2, 9, 2, 13).WithArguments("Name") }
+            : [];
+        CreateAnalyzerVerifier<UninitializedPropertyAnalyzer>(code,
+            expectedDiagnostics: expected,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]).Verify();
+    }
+
     [Fact]
     public void PropertyWithoutInitializerOrConstructorAssignment_ReportsDiagnostic()
     {

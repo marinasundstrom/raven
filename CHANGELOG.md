@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-19:** Preserve native `*()` / CLI `void*` signatures independently of
+  runtime unit-value contracts, in source and retargeted metadata. Count qualified
+  nested union case type tests toward exhaustiveness and infer matching generic
+  declaration-pattern arguments before reporting missing type arguments. Recognize private mutable
+  storage without a declaration initializer as writable, and require initialization
+  on every normal constructor path in the member-initialization analyzers. Deferred
+  assignments and writes to another instance do not suppress initialization warnings.
+  These are general Raven fixes; no neoCLR-specific target policy or syntax is added.
+
 - **2026-09-19:** Emit declaration-level expression-bodied indexer getters on classes
   and structs, instead of throwing during emission. Target Runtime Contracts are
   unchanged. Ordinary .NET execution and indexer diagnostics/completion tests pass.

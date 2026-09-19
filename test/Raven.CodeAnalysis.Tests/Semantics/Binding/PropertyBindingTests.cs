@@ -349,6 +349,19 @@ public class PropertyBindingTests : DiagnosticTestBase
     }
 
     [Fact]
+    public void PrivateVarStorageAssignedInConstructor_HasWritableShape()
+    {
+        const string code = """
+            class CharacterBox {
+                private var stored: char
+                init(value: char) { stored = value }
+                val Value: char => stored
+            }
+            """;
+        CreateVerifier(code).Verify();
+    }
+
+    [Fact]
     public void VarProperty_WithLessAccessibleSetter_ProducesDiagnostic()
     {
         const string testCode =

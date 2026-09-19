@@ -238,7 +238,11 @@ public static class TypeSymbolExtensionsForCodeGen
 
             if (typeSymbol is IPointerTypeSymbol pointerType)
             {
-                var elementClrType = GetClrTypeInternal(pointerType.PointedAtType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
+                // *() is the native void-pointer signature, independently of the
+                // value representation selected for ordinary unit storage.
+                var elementClrType = pointerType.PointedAtType.SpecialType == SpecialType.System_Unit
+                    ? GetSpecialClrType(SpecialType.System_Void, compilation)
+                    : GetClrTypeInternal(pointerType.PointedAtType, codeGen, treatUnitAsVoid, usage, isTopLevel: false, visiting);
                 return elementClrType.MakePointerType();
             }
 

@@ -994,10 +994,11 @@ internal partial class BlockBinder
 
     private ITypeSymbol BindDeclarationPatternType(TypeSyntax syntax, ITypeSymbol inputType)
     {
+        if (TryInferDeclarationPatternTypeFromIdentifierSyntax(syntax, inputType, out var inferredType))
+            return EnsureTypeAccessible(inferredType, syntax.GetLocation());
+
         var typeExpression = BindTypeSyntaxAsExpression(syntax);
-        var declaredType = TryInferDeclarationPatternTypeFromIdentifierSyntax(syntax, inputType, out var inferredType)
-            ? inferredType
-            : InferDeclarationPatternTypeFromInput(typeExpression.Type, inputType);
+        var declaredType = InferDeclarationPatternTypeFromInput(typeExpression.Type, inputType);
         return EnsureTypeAccessible(declaredType, syntax.GetLocation());
     }
 

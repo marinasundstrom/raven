@@ -5,6 +5,22 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 
 public class UninitializedFieldAnalyzerTests : AnalyzerTestBase
 {
+    [Theory]
+    [InlineData("init() { title = \"ok\" }\ninit(value: int) { title = \"other\" }", false)]
+    [InlineData("init() { title = \"ok\" }\ninit(value: int) { }", true)]
+    [InlineData("init(value: bool) { if value { title = \"ok\" } }", true)]
+    public void FieldRequiresEveryConstructorPath(string constructors, bool reportsDiagnostic)
+    {
+        var code = "class C {\n    private field title: string\n" + constructors + "\n}";
+        var expected = reportsDiagnostic
+            ? new[] { new DiagnosticResult(UninitializedFieldAnalyzer.DiagnosticId)
+                .WithSpan(2, 19, 2, 24).WithArguments("title") }
+            : [];
+        CreateAnalyzerVerifier<UninitializedFieldAnalyzer>(code,
+            expectedDiagnostics: expected,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]).Verify();
+    }
+
     [Fact]
     public void PrivateFieldWithoutInitializerOrConstructorAssignment_ReportsDiagnostic()
     {

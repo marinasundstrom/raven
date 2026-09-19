@@ -9,6 +9,12 @@ distinct from by-reference types but interoperate with address-of
 expressions: taking the address of a local or field produces an address
 handle that implicitly converts to the matching pointer type.
 
+The native void pointer is spelled `*()`; Raven does not introduce a `void`
+keyword. Its CLI signature is `System.Void*`, including pointer parameters,
+returns and nested pointers, independently of the runtime's unit-value contract.
+A unit value `()` in ordinary storage remains a value type. Selecting a different
+unit representation does not turn native void pointers into pointers to that type.
+
 Pointer declarations and pointer-type usage require unsafe mode. Enable
 unsafe mode with the compiler's `--unsafe` option; otherwise pointer type
 syntax is rejected.

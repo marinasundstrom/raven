@@ -27,9 +27,15 @@ public sealed class AssemblyReferenceNormalizerTests
         method.Parameters.Add(new ParameterDefinition(new PointerType(module.TypeSystem.Void)));
         method.Body.Instructions.Add(Mono.Cecil.Cil.Instruction.Create(Mono.Cecil.Cil.OpCodes.Ret));
         owner.Methods.Add(method);
+        var identity = new MethodDefinition("Identity", Mono.Cecil.MethodAttributes.Public | Mono.Cecil.MethodAttributes.Static,
+            new PointerType(module.TypeSystem.Void));
+        identity.Parameters.Add(new ParameterDefinition(new PointerType(module.TypeSystem.Void)));
+        identity.Body.Instructions.Add(Mono.Cecil.Cil.Instruction.Create(Mono.Cecil.Cil.OpCodes.Ldarg_0));
+        identity.Body.Instructions.Add(Mono.Cecil.Cil.Instruction.Create(Mono.Cecil.Cil.OpCodes.Ret));
+        owner.Methods.Add(identity);
         using var referenceImage = new MemoryStream();
         library.Write(referenceImage);
-        var tree = SyntaxTree.ParseText("import Fixture.*\nunsafe func Forward(pointer: *()) { NativeApi.Release(pointer) }\nfunc Main() {}");
+        var tree = SyntaxTree.ParseText("import Fixture.*\nunsafe func Forward(pointer: *()) { NativeApi.Release(NativeApi.Identity(pointer)) }\nfunc Main() {}");
         var compilation = Compilation.Create("PointerProxy", [tree],
             TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(referenceImage.ToArray())).ToArray(),
             new CompilationOptions(OutputKind.ConsoleApplication));
@@ -42,6 +48,46 @@ public sealed class AssemblyReferenceNormalizerTests
         using var result = AssemblyDefinition.ReadAssembly(output);
         var reference = Assert.Single(result.MainModule.GetMemberReferences().OfType<MethodReference>(), m => m.Name == "Release");
         Assert.Equal("System.Void*", Assert.Single(reference.Parameters).ParameterType.FullName);
+        var identityReference = Assert.Single(result.MainModule.GetMemberReferences().OfType<MethodReference>(), m => m.Name == "Identity");
+        Assert.Equal("System.Void*", identityReference.ReturnType.FullName);
+        Assert.Equal("System.Void*", Assert.Single(identityReference.Parameters).ParameterType.FullName);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void VoidPointerSignatures_AreIndependentOfUnitContract(int profile)
+    {
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        if (profile != 0)
+            options = options.WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+                .WithTargetCoreAssemblyName("System.Runtime");
+        if (profile == 2)
+            options = options.WithRuntimeUnitContract(new RuntimeUnitContract("System.Runtime", "System.ValueTuple"));
+        var tree = SyntaxTree.ParseText("""
+            public class Pointers {
+                public static unsafe func Echo(value: *()) -> *() { return value }
+                public static unsafe func Nested(value: **()) -> **() { return value }
+                public static unsafe func Typed(value: *int) -> *int { return value }
+                public static func Unit(value: ()) -> () { return value }
+            }
+            """);
+        var compilation = Compilation.Create("PointerSignatures", [tree], TestMetadataReferences.Default, options);
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+        Assert.True(emitted.Success, string.Join(Environment.NewLine, emitted.Diagnostics));
+        output.Position = 0;
+        using var image = AssemblyDefinition.ReadAssembly(output);
+        var methods = image.MainModule.GetType("Pointers").Methods;
+        foreach (var (name, signature) in new[] { ("Echo", "System.Void*"), ("Nested", "System.Void**"), ("Typed", "System.Int32*") })
+        {
+            var method = methods.Single(m => m.Name == name);
+            Assert.Equal(signature, method.ReturnType.FullName);
+            Assert.Equal(signature, Assert.Single(method.Parameters).ParameterType.FullName);
+        }
+        Assert.Equal(profile == 2 ? "System.ValueTuple" : "System.Unit",
+            Assert.Single(methods.Single(m => m.Name == "Unit").Parameters).ParameterType.FullName);
     }
 
     [Fact]

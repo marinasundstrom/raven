@@ -48,6 +48,13 @@ missing, reference-type, or stateful unit selections produce `RAVT003`; they do 
 fall back to `System.Unit`. Option copies retain the contract, and changes invalidate
 incremental semantic-state transfer.
 
+Native pointer signatures are independent of this contract. Raven's `*()` emits
+CLI `void*`, including supplied metadata method references and source signatures.
+Nested pointers preserve the same void element. A contract selecting
+`System.ValueTuple`, for example, changes unit value storage but never native
+void-pointer parameters or results. This is a general CLI interop rule; each
+runtime integration must validate execution on its own target.
+
 The language still has a unit expression `()`. When its value is needed, storage,
 arguments and generic payloads use the selected value type. An ordinary no-result
 call still returns CLI `void` and leaves no value on the evaluation stack. Using
