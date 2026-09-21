@@ -104,6 +104,10 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
     public SourceMethodSymbol Constructor { get; }
 
+    internal ImmutableArray<SourceFieldSymbol> ConstructorFields => IsValueType
+        ? ImmutableArray<SourceFieldSymbol>.Empty
+        : ThisField is null ? ParameterFields : ParameterFields.Insert(0, ThisField);
+
     public SourceMethodSymbol MoveNextMethod { get; }
 
     public SourceMethodSymbol SetStateMachineMethod { get; }
@@ -913,7 +917,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         return new SourceMethodSymbol(
             ".ctor",
             compilation.GetSpecialType(SpecialType.System_Void),
-            ImmutableArray<SourceParameterSymbol>.Empty,
+            ConstructorFields.Select(field => new SourceParameterSymbol(field.Name, field.Type,
+                this, this, asyncMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax)).ToImmutableArray(),
             this,
             this,
             asyncMethod.ContainingNamespace,

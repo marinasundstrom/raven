@@ -54,6 +54,29 @@ class Program {
     }
 
     [Fact]
+    public async Task AwaitlessHeapMethodCompletesThroughBuilder()
+    {
+        const string source = """
+import System.Threading.Tasks.*
+class Program {
+    static async func Run() -> Task<int> { return 42 }
+}
+""";
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("heap-awaitless",
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithHeapAsyncStateMachines(true))
+            .AddSyntaxTrees(SyntaxTree.ParseText(source)).AddReferences(references);
+        using var stream = new MemoryStream();
+        var emitted = compilation.Emit(stream);
+        Assert.True(emitted.Success, string.Join(Environment.NewLine, emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
+        var method = loaded.Assembly.GetType("Program")!.GetMethod("Run")!;
+        Assert.False(method.GetCustomAttribute<AsyncStateMachineAttribute>()!.StateMachineType.IsValueType);
+        var task = Assert.IsAssignableFrom<Task<int>>(method.Invoke(null, null));
+        Assert.Equal(42, await task.WaitAsync(TimeSpan.FromSeconds(10)));
+    }
+
+    [Fact]
     public void CopiesRetainHeapPolicyAndDefaultRemainsValueType()
     {
         Assert.False(new CompilationOptions().UseHeapAsyncStateMachines);

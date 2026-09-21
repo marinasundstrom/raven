@@ -827,7 +827,7 @@ internal class TypeGenerator
 
                 Type definitionType;
 
-                if (definition.SpecialType == SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
+                if (Compilation.Options.TargetCoreAssemblyName is null && definition.SpecialType == SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
                 {
                     definitionType = typeof(AsyncTaskMethodBuilder<int>).GetGenericTypeDefinition();
                 }

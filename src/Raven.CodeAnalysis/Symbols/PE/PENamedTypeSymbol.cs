@@ -62,6 +62,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         ["System.Runtime.CompilerServices.AsyncStateMachineAttribute"] = SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute,
         ["System.Runtime.CompilerServices.IteratorStateMachineAttribute"] = SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute,
         ["System.Threading.Tasks.Task"] = SpecialType.System_Threading_Tasks_Task,
+        ["System.Tasks.Task`1"] = SpecialType.System_Threading_Tasks_Task_T,
         ["System.Threading.Tasks.Task`1"] = SpecialType.System_Threading_Tasks_Task_T,
         ["System.Runtime.InteropServices.WindowsRuntime.EventRegistrationToken"] = SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationToken,
         ["System.Runtime.InteropServices.WindowsRuntime.EventRegistrationTokenTable`1"] = SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationTokenTable_T,

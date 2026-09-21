@@ -90,7 +90,7 @@ public static class TypeSymbolExtensionsForCodeGen
         {
             var compilation = codeGen.Compilation;
 
-            if (usage != RuntimeTypeUsage.CustomAttribute && codeGen.UsesTargetMetadata && typeSymbol.SpecialType == SpecialType.None &&
+            if (usage != RuntimeTypeUsage.CustomAttribute && codeGen.UsesTargetMetadata && typeSymbol.SpecialType is (SpecialType.None or SpecialType.System_Threading_Tasks_Task_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder) &&
                 TryGetTargetMetadataType(typeSymbol) is { } metadataType)
                 return metadataType;
 

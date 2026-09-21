@@ -1939,7 +1939,15 @@ internal class MethodBodyGenerator
             if (asyncStateMachine.IsValueType)
                 ILGenerator.Emit(OpCodes.Initobj, asyncStateMachineClrType);
             else
+            {
                 ILGenerator.Emit(OpCodes.Call, ResolveClrType(asyncStateMachine.BaseType!).GetConstructor(Type.EmptyTypes)!);
+                for (var index = 0; index < asyncStateMachine.ConstructorFields.Length; index++)
+                {
+                    ILGenerator.Emit(OpCodes.Ldarg_0);
+                    ILGenerator.Emit(OpCodes.Ldarg, index + 1);
+                    ILGenerator.Emit(OpCodes.Stfld, MethodGenerator.TypeGenerator.EnsureFieldBuilder(asyncStateMachine.ConstructorFields[index]));
+                }
+            }
             ILGenerator.Emit(OpCodes.Ret);
             _lambdaClosure = previousClosure;
             return;

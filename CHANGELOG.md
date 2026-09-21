@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-21:** Complete the provisional neoCLR builder integration: resolve
+  System.Tasks.Task<T> and target builder metadata, admit by-value reference
+  protocols and initialize captured parameters in heap-state constructors.
+  Awaitless heap async methods also use the builder. Default .NET behavior stays
+  covered by 38 focused checks; neoCLR executes ten async source scenarios.
+
 - **2026-09-19:** Add an opt-in, provisional heap async state-machine policy on the
   neoCLR integration branch. Reference states are constructed and retained across
   pending awaits; default .NET state machines remain value types. Validate both

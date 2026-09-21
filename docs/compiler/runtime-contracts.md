@@ -615,3 +615,26 @@ plus default-policy and option-copy regressions. This is a provisional mechanism
 on the neoCLR branch, not a promise of general runtime-owned suspension. There is
 no project property or CLI switch yet, and neoCLR builder/importer integration
 remains outstanding. Exception capture is an independent option.
+
+## neoCLR Task builder integration (2026-09-21)
+
+On the neoclr branch, a target-core compilation with heap async states resolves
+Task<T> to System.Tasks.Task<T>. PE symbols recognize that contract; emission uses
+target Task and builder metadata rather than host BCL builder representation.
+Builder calls honor metadata parameter passing: neoCLR reference state and awaiter
+arguments are by value, while default .NET by-reference protocols are preserved.
+Heap-state constructors receive captured receiver/parameters before publication;
+this supports runtime constructors that reject uninitialized erased payloads.
+Awaitless methods use the same heap builder path and do not require FromResult.
+
+The neoCLR bridge enables WithHeapAsyncStateMachines(true) and
+WithAsyncExceptionCapture(false). There is no stable CLI or project contract yet.
+Result payloads remain ordinary values. No language syntax or TextMate changes
+are introduced. Ten neoCLR source scenarios exercise queue scopes, pending awaits,
+GC, composition, unit and Result propagation before/after await; 38 focused .NET
+checks cover heap/default policy, unit, capture and field receivers. This is not
+.NET Framework or NanoFramework validation. Generic async methods, async lambdas
+and broad async disposal remain outside this PoC. Hoisted non-default aggregates
+need additional validation. Nested ordinary-lambda capture failures are deferred
+candidates for independent main-based investigation. Target policy stays on neoclr;
+no wholesale integration into main is intended.
