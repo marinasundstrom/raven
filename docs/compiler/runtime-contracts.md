@@ -638,3 +638,12 @@ and broad async disposal remain outside this PoC. Hoisted non-default aggregates
 need additional validation. Nested ordinary-lambda capture failures are deferred
 candidates for independent main-based investigation. Target policy stays on neoclr;
 no wholesale integration into main is intended.
+
+### Development project selection
+
+The neoclr branch now reads `RavenHeapAsyncStateMachines` (default false) and
+`RavenCaptureAsyncExceptions` (default true) from .rvnproj. The neoCLR development
+props select true/false respectively, making project builds and the editor use the
+same policy as the bridge. These remain experimental target contracts, not a
+portable .NET recommendation. Two focused project tests cover explicit selection
+and unchanged defaults, in addition to the existing async execution coverage.

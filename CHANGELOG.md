@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-21:** Expose the provisional heap-state and exception-capture policies
+  through RavenHeapAsyncStateMachines and RavenCaptureAsyncExceptions project
+  properties on neoclr. CLI and editor project evaluation now share the selected
+  policy; omitted properties preserve the .NET defaults.
+
 - **2026-09-21:** Complete the provisional neoCLR builder integration: resolve
   System.Tasks.Task<T> and target builder metadata, admit by-value reference
   protocols and initialize captured parameters in heap-state constructors.

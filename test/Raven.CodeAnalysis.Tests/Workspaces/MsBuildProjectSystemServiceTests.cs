@@ -11,6 +11,26 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class MsBuildProjectSystemServiceTests
 {
     [Theory]
+    [InlineData("", false, true)]
+    [InlineData("<RavenHeapAsyncStateMachines>true</RavenHeapAsyncStateMachines><RavenCaptureAsyncExceptions>false</RavenCaptureAsyncExceptions>", true, false)]
+    public void OpenProject_ProvisionalAsyncPolicy(string properties, bool heap, bool capture)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(path, $"<Project><PropertyGroup>{properties}</PropertyGroup></Project>");
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework, projectSystemService: service);
+            var id = workspace.OpenProject(path);
+            var options = workspace.CurrentSolution.GetProject(id)!.CompilationOptions!;
+            Assert.Equal(heap, options.UseHeapAsyncStateMachines);
+            Assert.Equal(capture, options.CaptureAsyncExceptions);
+        }
+        finally { DeleteDirectoryIfExists(root); }
+    }
+
+    [Theory]
     [InlineData("", null)]
     [InlineData("<RavenUnitAssemblyName>System.Runtime</RavenUnitAssemblyName><RavenUnitType>System.ValueTuple</RavenUnitType>", "System.ValueTuple")]
     [InlineData("<RavenUnitType>System.ValueTuple</RavenUnitType>", "System.ValueTuple")]
