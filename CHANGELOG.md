@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-23:** Add explicit provisional async cancellation propagation on neoclr:
+  RavenPropagateAsyncCancellation / WithAsyncCancellationPropagation selects
+  IsCancelled and SetCancelled, cancelling on immediate/resumed await without
+  consuming a payload. Preserve .NET defaults and ordinary Result propagation.
+  Diagnose missing members and await in for loops pending suspension-aware iterator
+  cleanup. Project evaluation and incremental options retain the selection.
+
 - **2026-09-21:** Expose the provisional heap-state and exception-capture policies
   through RavenHeapAsyncStateMachines and RavenCaptureAsyncExceptions project
   properties on neoclr. CLI and editor project evaluation now share the selected

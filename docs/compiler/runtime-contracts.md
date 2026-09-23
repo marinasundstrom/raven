@@ -647,3 +647,33 @@ props select true/false respectively, making project builds and the editor use t
 same policy as the bridge. These remain experimental target contracts, not a
 portable .NET recommendation. Two focused project tests cover explicit selection
 and unchanged defaults, in addition to the existing async execution coverage.
+
+
+### Provisional cancellation propagation (neoclr, 2026-09-23)
+
+WithAsyncCancellationPropagation(true), or RavenPropagateAsyncCancellation=true in
+an rvnproj, selects the target-only await protocol. Defaults remain false for .NET.
+The project option is shared by CLI and workspace/editor evaluation and invalidates
+incremental semantic reuse. Awaiters must expose a public instance bool IsCancelled
+getter, and the generic builder a public parameterless SetCancelled with no result.
+Missing members are diagnosed while binding await. neoCLR also selects heap state
+machines and disables exception capture; Result is unrelated to this policy.
+
+The shared immediate/resume path tests cancellation before GetResult, clears the
+saved awaiter and exits to a separate cancellation completion label. That exit
+uses source-scope disposal/leave machinery before publishing completion. Successful
+completion and Result propagation retain their normal paths; no default payload is
+used for cancellation. There is no new source syntax or highlighting change.
+
+This provisional subset supports named Task<T> functions. Await within for loops
+is rejected with RAV2712 after an integration probe exposed unsaved iterator state
+and skipped disposal. Protected cleanup/async disposal and runtime-async lowering
+are not validated target capabilities. neoCLR also rejects use declarations against
+its current Disposable contract. Do not silently claim these forms work.
+
+Validation: normal .NET heap/value state and exception-policy regressions; option
+copy, missing protocol and project-evaluation tests; neoCLR immediate/resumed int,
+unit and Result cancellation scenarios with nested calls and side-effect checks.
+This target policy stays on neoclr, not main. Existing research/comparisons are in
+neoCLR docs/task-model-alignment.md and docs/async-api-design.md. Loop lowering is a
+potential general Raven improvement requiring an independent main-based repro.

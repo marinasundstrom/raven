@@ -3343,6 +3343,35 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
         }
 
+        if (Compilation.Options.PropagateAsyncCancellation)
+        {
+            var sourceScopes = awaitExpression.Ancestors().TakeWhile(node => node is not
+                (BaseMethodDeclarationSyntax or FunctionStatementSyntax or AccessorDeclarationSyntax or FunctionExpressionSyntax));
+            if (sourceScopes.Any(node => node is ForStatementSyntax))
+            {
+                _diagnostics.ReportAsyncCancellationUnsupportedContext(awaitExpression.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+            }
+
+            var cancellation = AsyncCancellationProtocol.FindIsCancelled(awaitable.AwaiterType);
+            if (cancellation is null || !IsSymbolAccessible(cancellation.GetMethod!))
+            {
+                _diagnostics.ReportMemberDoesNotContainDefinition(
+                    awaitable.AwaiterType.Name, "public bool IsCancelled { get; } (async cancellation protocol)",
+                    awaitExpression.Expression.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+            }
+
+            var builder = Compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T);
+            if (AsyncCancellationProtocol.FindSetCancelled(builder) is null)
+            {
+                _diagnostics.ReportMemberDoesNotContainDefinition(
+                    builder.Name, "public void SetCancelled() (async cancellation protocol)",
+                    awaitExpression.Expression.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
+            }
+        }
+
         var resultType = awaitable.GetResultMethod.ReturnType;
         if (resultType.SpecialType == SpecialType.System_Void)
             resultType = Compilation.GetSpecialType(SpecialType.System_Unit);

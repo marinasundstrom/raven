@@ -226,6 +226,7 @@ internal static class MsBuildProjectEvaluator
             .WithFrameworkProjectionMode(frameworkProjectionMode)
             .WithExternalConstantValues(externalConstantValues)
             .WithUnicodeScalarChar(GetBooleanProperty(project, "RavenUnicodeScalarChar") ?? false)
+            .WithAsyncCancellationPropagation(GetBooleanProperty(project, "RavenPropagateAsyncCancellation") ?? false)
             .WithHeapAsyncStateMachines(GetBooleanProperty(project, "RavenHeapAsyncStateMachines") ?? false)
             .WithAsyncExceptionCapture(GetBooleanProperty(project, "RavenCaptureAsyncExceptions") ?? true)
             .WithGraphemeChar(GetBooleanProperty(project, "RavenGraphemeChar") ?? false)

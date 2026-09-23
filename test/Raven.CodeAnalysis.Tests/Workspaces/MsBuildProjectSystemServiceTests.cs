@@ -11,9 +11,9 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class MsBuildProjectSystemServiceTests
 {
     [Theory]
-    [InlineData("", false, true)]
-    [InlineData("<RavenHeapAsyncStateMachines>true</RavenHeapAsyncStateMachines><RavenCaptureAsyncExceptions>false</RavenCaptureAsyncExceptions>", true, false)]
-    public void OpenProject_ProvisionalAsyncPolicy(string properties, bool heap, bool capture)
+    [InlineData("", false, true, false)]
+    [InlineData("<RavenHeapAsyncStateMachines>true</RavenHeapAsyncStateMachines><RavenCaptureAsyncExceptions>false</RavenCaptureAsyncExceptions><RavenPropagateAsyncCancellation>true</RavenPropagateAsyncCancellation>", true, false, true)]
+    public void OpenProject_ProvisionalAsyncPolicy(string properties, bool heap, bool capture, bool cancellation)
     {
         var root = CreateTempDirectory();
         try
@@ -26,6 +26,7 @@ public sealed class MsBuildProjectSystemServiceTests
             var options = workspace.CurrentSolution.GetProject(id)!.CompilationOptions!;
             Assert.Equal(heap, options.UseHeapAsyncStateMachines);
             Assert.Equal(capture, options.CaptureAsyncExceptions);
+            Assert.Equal(cancellation, options.PropagateAsyncCancellation);
         }
         finally { DeleteDirectoryIfExists(root); }
     }

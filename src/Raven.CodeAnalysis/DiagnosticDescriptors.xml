@@ -167,6 +167,10 @@
     Title="With-expression assigns a member multiple times"
     Message="The member '{memberName}' is assigned more than once in the with-expression"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV2712" Identifier="AsyncCancellationUnsupportedContext"
+    Title="Unsupported async cancellation context"
+    Message="The provisional async cancellation protocol does not support await inside for loops; use explicit iteration until iterator state and cleanup are suspension-aware"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2700" Identifier="AwaitExpressionRequiresAsyncContext"
     Title="await needs async"
     Message="The 'await' operator can only be used within an async method or function"

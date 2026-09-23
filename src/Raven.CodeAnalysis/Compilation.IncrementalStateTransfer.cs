@@ -14,7 +14,8 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
-        if (Options.UseHeapAsyncStateMachines != previousCompilation.Options.UseHeapAsyncStateMachines
+        if (Options.PropagateAsyncCancellation != previousCompilation.Options.PropagateAsyncCancellation
+            || Options.UseHeapAsyncStateMachines != previousCompilation.Options.UseHeapAsyncStateMachines
             || Options.CaptureAsyncExceptions != previousCompilation.Options.CaptureAsyncExceptions
             || Options.RuntimeUnitContract != previousCompilation.Options.RuntimeUnitContract
             || Options.RuntimeTypeOfContract != previousCompilation.Options.RuntimeTypeOfContract

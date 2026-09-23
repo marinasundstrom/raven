@@ -824,6 +824,20 @@ internal static class AsyncLowerer
             entryStatements.Add(new BoundLabeledStatement(completionLabel, new BoundBlockStatement(completionStatements)));
         else
             entryStatements.AddRange(completionStatements);
+        if (awaitRewriter.CancellationLabel is { } cancellationLabel)
+        {
+            var cancellationStatements = new List<BoundStatement>();
+            if (!stateMachine.HoistedLocalsToDispose.IsDefaultOrEmpty)
+                cancellationStatements.AddRange(CreateDisposeStatements(stateMachine,
+                    EnumerateReverse(stateMachine.HoistedLocalsToDispose)));
+            var setCancelled = AsyncCancellationProtocol.FindSetCancelled(context.BuilderMembers.BuilderField.Type)!;
+            var receiver = new BoundMemberAccessExpression(new BoundSelfExpression(stateMachine), context.BuilderMembers.BuilderField);
+            cancellationStatements.Add(CreateStateAssignment(stateMachine, -2));
+            cancellationStatements.Add(new BoundExpressionStatement(new BoundInvocationExpression(setCancelled, [], receiver,
+                requiresReceiverAddress: context.BuilderMembers.BuilderField.Type.IsValueType)));
+            cancellationStatements.Add(new BoundReturnStatement(null));
+            entryStatements.Add(new BoundLabeledStatement(cancellationLabel, new BoundBlockStatement(cancellationStatements)));
+        }
         var entryBlock = new BoundBlockStatement(
             entryStatements,
             awaitRewriter.CompletionLabel is null ? rewrittenBody.LocalsToDispose : ImmutableArray<ILocalSymbol>.Empty);
@@ -1904,6 +1918,7 @@ internal static class AsyncLowerer
 
         public LabelSymbol? CompletionLabel { get; }
         public SourceLocalSymbol? CompletionResult { get; }
+        public LabelSymbol? CancellationLabel { get; private set; }
 
         public ImmutableArray<StateDispatch> Dispatches => _dispatches.ToImmutableArray();
 
@@ -3437,6 +3452,23 @@ internal static class AsyncLowerer
             resumeStatements.Add(new BoundExpressionStatement(captureAwaiter));
 
             var awaiterAccess = new BoundLocalAccess(awaiterLocal);
+            if (_stateMachine.Compilation.Options.PropagateAsyncCancellation)
+            {
+                CancellationLabel ??= new AsyncProtectedRegionExitLabelSymbol(
+                    "cancel", _stateMachine.MoveNextMethod, _stateMachine, _stateMachine.ContainingNamespace,
+                    [Location.None], []);
+                var isCancelled = AsyncCancellationProtocol.FindIsCancelled(awaiterType)!;
+                // Leave source scopes before publishing cancellation after required cleanup.
+                var clearCancelledAwaiter = new BoundFieldAssignmentExpression(
+                    new BoundSelfExpression(_stateMachine), awaiterField,
+                    new BoundDefaultValueExpression(awaiterField.Type),
+                    _stateMachine.Compilation.UnitTypeSymbol, requiresReceiverAddress: _stateMachine.IsValueType);
+                resumeStatements.Add(new BoundIfStatement(new BoundMemberAccessExpression(awaiterAccess, isCancelled),
+                    new BoundBlockStatement([
+                        new BoundAssignmentStatement(clearCancelledAwaiter),
+                        new BoundGotoStatement(CancellationLabel)
+                    ])));
+            }
             var getResult = CreateGetResultInvocation(awaitExpression, awaiterAccess);
             resumeStatements.AddRange(createResumeStatements(getResult));
             var unitType = _stateMachine.Compilation.GetSpecialType(SpecialType.System_Unit);
