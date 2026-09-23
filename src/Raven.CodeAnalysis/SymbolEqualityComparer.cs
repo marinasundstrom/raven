@@ -197,6 +197,13 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return HaveEquivalentDeclarationIdentity(labelX, labelY);
         }
 
+        // Arrays have structural identity. Imported and source-created array
+        // symbols may have different construction containers for the same CLI type.
+        if (x is IArrayTypeSymbol arrayX && y is IArrayTypeSymbol arrayY)
+            return arrayX.Rank == arrayY.Rank
+                && arrayX.FixedLength == arrayY.FixedLength
+                && EqualsCore(arrayX.ElementType, arrayY.ElementType, visited);
+
         if (!string.Equals(x.Name, y.Name, StringComparison.Ordinal))
             return false;
 
@@ -237,18 +244,6 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                         return false;
                 }
             }
-        }
-
-        if (x is IArrayTypeSymbol arrayX && y is IArrayTypeSymbol arrayY)
-        {
-            if (arrayX.Rank != arrayY.Rank)
-                return false;
-
-            if (arrayX.FixedLength != arrayY.FixedLength)
-                return false;
-
-            if (!EqualsCore(arrayX.ElementType, arrayY.ElementType, visited))
-                return false;
         }
 
         if (x is IPointerTypeSymbol pointerX && y is IPointerTypeSymbol pointerY)
@@ -419,6 +414,14 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             }
         }
 
+        if (obj is IArrayTypeSymbol arrayType)
+        {
+            hash.Add(arrayType.Rank);
+            hash.Add(arrayType.FixedLength);
+            hash.Add(GetHashCodeCore(arrayType.ElementType, visited));
+            return hash.ToHashCode();
+        }
+
         // >>> NEW BLOCK: type parameter hashing in relaxed mode
         if (_ignoreContainingNamespaceOrType &&
             obj is ITypeParameterSymbol tp)
@@ -537,12 +540,6 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
             for (var i = 0; i < typeArguments.Length; i++)
                 hash.Add(GetHashCodeCore(typeArguments[i], visited));
-        }
-
-        if (obj is IArrayTypeSymbol arrayType)
-        {
-            hash.Add(arrayType.Rank);
-            hash.Add(arrayType.FixedLength);
         }
 
         if (obj is IFieldSymbol field)

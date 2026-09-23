@@ -713,3 +713,18 @@ is added and default .NET behavior is unchanged. The regression checks opt-in
 success, unconfigured rejection, symbol/hash equality and actual interface dispatch
 on .NET 11. Existing unit storage, no-result and target-shadowing tests remain the
 compatibility checks. No .NET Framework or NanoFramework execution is claimed.
+
+### Imported array interface identity (2026-09-23)
+
+Array symbol identity is structural: element type, rank and fixed length. The
+namespace/container attached while constructing a source or imported array symbol
+is not part of the array's CLI identity. Equality and hashing use the same rule.
+Previously a source byte[] parameter could compare unequal to an imported byte[]
+interface parameter, preventing implicit interface implementation flags and dispatch.
+
+This general correction requires no Runtime Contract option, name mapping or
+backend-specific policy. A regression imports an ordinary C# interface, compares
+its array parameter with the Raven implementation, checks hash-set lookup, emits
+the consumer, then invokes it through the interface on .NET 11. Existing tests keep
+array element/rank/fixed-length distinctions. .NET Framework and NanoFramework
+execution have not been tested; this is not a claim of new target support.
