@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-23:** Compare and hash array symbols by element type, rank and fixed
+  length rather than their construction namespace/container. Imported CLI array
+  parameters now match source-declared interface implementations and emit working
+  interface dispatch. Runtime Contract configuration is unchanged; regression
+  coverage uses ordinary .NET metadata, without neoCLR-specific declarations.
+
 - **2026-09-23:** Initialize propagation temporaries at their declaration when no
   exception-conversion boundary is needed. Avoid hoisting an uninitialized carrier
   for `(await operation)?`; preserve protected exception conversion and precedence.

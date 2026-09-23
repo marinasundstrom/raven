@@ -269,3 +269,18 @@ or neoCLR policy. All 31 focused deconstruction/ref-field checks pass on .NET 11
 .NET Framework and NanoFramework were not executed. See Microsoft's
 [ref struct restrictions](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/ref-struct)
 and Raven's [deconstruction rules](../lang/spec/deconstruction-and-union-patterns.md).
+
+### Imported array interface identity (2026-09-23)
+
+Array symbol identity is structural: element type, rank and fixed length. The
+namespace/container attached while constructing a source or imported array symbol
+is not part of the array's CLI identity. Equality and hashing use the same rule.
+Previously a source byte[] parameter could compare unequal to an imported byte[]
+interface parameter, preventing implicit interface implementation flags and dispatch.
+
+This general correction requires no Runtime Contract option, name mapping or
+backend-specific policy. A regression imports an ordinary C# interface, compares
+its array parameter with the Raven implementation, checks hash-set lookup, emits
+the consumer, then invokes it through the interface on .NET 11. Existing tests keep
+array element/rank/fixed-length distinctions. .NET Framework and NanoFramework
+execution have not been tested; this is not a claim of new target support.
