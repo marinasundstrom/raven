@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-23:** Initialize propagation temporaries at their declaration when no
+  exception-conversion boundary is needed. Avoid hoisting an uninitialized carrier
+  for `(await operation)?`; preserve protected exception conversion and precedence.
+
 - **2026-09-23:** Add explicit provisional async cancellation propagation on neoclr:
   RavenPropagateAsyncCancellation / WithAsyncCancellationPropagation selects
   IsCancelled and SetCancelled, cancelling on immediate/resumed await without

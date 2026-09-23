@@ -677,3 +677,14 @@ unit and Result cancellation scenarios with nested calls and side-effect checks.
 This target policy stays on neoclr, not main. Existing research/comparisons are in
 neoCLR docs/task-model-alignment.md and docs/async-api-design.md. Loop lowering is a
 potential general Raven improvement requiring an independent main-based repro.
+
+
+### Propagation temporary lifetime
+
+When a propagation operand has no exception-conversion boundary, lowering binds
+its temporary at initialization. In `(await operation)?`, this prevents an empty
+carrier from being hoisted before the await has produced it. Ordinary CLI targets
+and runtime propagation contracts use the same rule; exception-catching operands
+retain their protected assignment. There is no new option or precedence change:
+`await operation?` still applies postfix propagation before await. Validate both
+completed and suspended Result operands when changing this lowering.

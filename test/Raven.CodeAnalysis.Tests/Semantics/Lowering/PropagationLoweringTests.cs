@@ -36,17 +36,17 @@ class C {
 
         Assert.Empty(CollectPropagateExpressions(lowered));
 
-        Assert.True(statements.Length >= 6);
+        Assert.True(statements.Length >= 5);
 
         var operandDeclaration = Assert.IsType<BoundLocalDeclarationStatement>(statements[0]);
         Assert.Contains("propagateOperand", operandDeclaration.Declarators.Single().Local.Name, StringComparison.Ordinal);
 
-        Assert.IsType<BoundAssignmentStatement>(statements[1]);
+        Assert.NotNull(operandDeclaration.Declarators.Single().Initializer);
 
-        var okDeclaration = Assert.IsType<BoundLocalDeclarationStatement>(statements[2]);
+        var okDeclaration = Assert.IsType<BoundLocalDeclarationStatement>(statements[1]);
         Assert.Contains("propagateOk", okDeclaration.Declarators.Single().Local.Name, StringComparison.Ordinal);
 
-        var carrierCheck = Assert.IsType<BoundIfStatement>(statements[3]);
+        var carrierCheck = Assert.IsType<BoundIfStatement>(statements[2]);
         var tryGetValue = Assert.IsType<BoundInvocationExpression>(carrierCheck.Condition);
         Assert.Equal("TryGetOutput", tryGetValue.Method.Name);
         Assert.Empty(Assert.IsType<BoundBlockStatement>(carrierCheck.ThenNode).Statements);
@@ -54,7 +54,7 @@ class C {
             CollectReturnStatements(Assert.IsType<BoundBlockStatement>(carrierCheck.ElseNode!)),
             statement => statement.Expression?.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) == "Result<int, string>");
 
-        var valueDeclaration = Assert.IsType<BoundLocalDeclarationStatement>(statements[4]);
+        var valueDeclaration = Assert.IsType<BoundLocalDeclarationStatement>(statements[3]);
         var valueDeclarator = Assert.Single(valueDeclaration.Declarators);
         Assert.Equal("value", valueDeclarator.Local.Name);
         Assert.IsNotType<BoundPropagateExpression>(valueDeclarator.Initializer);

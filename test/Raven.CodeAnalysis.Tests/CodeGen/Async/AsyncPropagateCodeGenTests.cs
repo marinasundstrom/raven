@@ -43,6 +43,42 @@ record class Item(val Name: string)
         Assert.Equal(new[] { "1" }, output);
     }
 
+    [Fact]
+    public void AwaitedPropagation_PreservesPendingAndCompletedOutcomes()
+    {
+        var code = """
+import System.*
+import System.Threading.Tasks.*
+import System.Result.*
+
+class Program {
+    static async func Read(gate: Task<Result<int, string>>) -> Task<Result<int, string>> {
+        let value = (await gate)?
+        return Ok(value + 1)
+    }
+
+    static func Print(task: Task<Result<int, string>>) {
+        match task.GetAwaiter().GetResult() {
+            Ok(let value) => Console.WriteLine(value)
+            Error(let error) => Console.WriteLine(error)
+        }
+    }
+
+    static func Main() {
+        let source = TaskCompletionSource<Result<int, string>>()
+        let pending = Read(source.Task)
+        Console.WriteLine(pending.IsCompleted)
+        source.SetResult(Ok(41))
+        Print(pending)
+        let failure = TaskCompletionSource<Result<int, string>>()
+        failure.SetResult(Error("unavailable"))
+        Print(Read(failure.Task))
+    }
+}
+""";
+        Assert.Equal(new[] { "False", "42", "unavailable" }, CompileAndRun(code));
+    }
+
     private static string[] CompileAndRun(string code)
     {
         var syntaxTree = SyntaxTree.ParseText(code);
