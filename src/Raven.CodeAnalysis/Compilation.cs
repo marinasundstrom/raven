@@ -2077,7 +2077,7 @@ public partial class Compilation
         var selectedUnit = Options.RuntimeUnitContract is { } contract
             ? ReferencedAssemblySymbols.FirstOrDefault(assembly => assembly.Name == contract.AssemblyName)?.GetTypeByMetadataName(contract.TypeName)
             : null;
-        var unit = new UnitTypeSymbol(this, selectedUnit?.ContainingNamespace ?? system);
+        var unit = new UnitTypeSymbol(this, selectedUnit?.ContainingNamespace ?? system, selectedUnit);
         if (Options.RuntimeUnitContract is null)
             system.AddMember(unit);
         return unit;

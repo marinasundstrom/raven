@@ -568,6 +568,15 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         while (true)
         {
+            // An explicitly selected unit value has the identity of that exact
+            // imported type, including inside constructed generic signatures.
+            // Keep the source Unit symbol itself for language/return-position rules.
+            if (current is UnitTypeSymbol { RuntimeRepresentation: { } representation })
+            {
+                current = representation;
+                continue;
+            }
+
             if (current.IsAlias)
             {
                 current = current.UnderlyingSymbol;

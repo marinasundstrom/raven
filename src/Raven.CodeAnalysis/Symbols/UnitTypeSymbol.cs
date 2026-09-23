@@ -8,12 +8,15 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
 {
     private readonly Compilation _compilation;
 
-    public UnitTypeSymbol(Compilation compilation, INamespaceSymbol containingNamespace)
+    public UnitTypeSymbol(Compilation compilation, INamespaceSymbol containingNamespace, INamedTypeSymbol? runtimeRepresentation = null)
         : base(SymbolKind.Type, compilation.Options.RuntimeUnitContract?.TypeName.Split('.').Last() ?? "Unit", compilation.Assembly, null, containingNamespace, [], [], addAsMember: compilation.Options.RuntimeUnitContract is null)
     {
         _compilation = compilation;
+        RuntimeRepresentation = runtimeRepresentation;
         TypeKind = TypeKind.Unit;
     }
+
+    internal INamedTypeSymbol? RuntimeRepresentation { get; }
 
     public override string Name => _compilation.Options.RuntimeUnitContract?.TypeName.Split('.').Last() ?? "Unit";
 
