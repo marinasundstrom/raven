@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-23:** Match an explicitly configured unit value with its selected
+  imported type during symbol equality and hashing, including generic interface
+  return types. Preserve source unit semantics and no-result return emission;
+  unconfigured unit and unrelated/source-shadowing types remain distinct. Validate
+  ordinary .NET interfaces with an opt-in System.ValueTuple unit representation.
+
 - **2026-09-23:** Compare and hash array symbols by element type, rank and fixed
   length rather than their construction namespace/container. Imported CLI array
   parameters now match source-declared interface implementations and emit working

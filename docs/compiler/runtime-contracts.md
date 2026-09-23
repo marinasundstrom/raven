@@ -284,3 +284,19 @@ its array parameter with the Raven implementation, checks hash-set lookup, emits
 the consumer, then invokes it through the interface on .NET 11. Existing tests keep
 array element/rank/fixed-length distinctions. .NET Framework and NanoFramework
 execution have not been tested; this is not a claim of new target support.
+
+### Configured unit identity in imported interfaces (2026-09-23)
+
+With RuntimeUnitContract explicitly selected, the language unit symbol retains its
+source semantics but compares and hashes as the exact imported value type selected
+by assembly and metadata name. This also applies inside generic signatures, so a
+source List<unit> return can implement an imported List<System.ValueTuple> return
+when System.ValueTuple is the configured unit representation. Previously equivalent
+emitted signatures could fail semantic interface matching.
+
+This does not equate an unconfigured unit with arbitrary empty structs, change
+ordinary no-result method emission, or select a shadowing source type. No option
+is added and default .NET behavior is unchanged. The regression checks opt-in
+success, unconfigured rejection, symbol/hash equality and actual interface dispatch
+on .NET 11. Existing unit storage, no-result and target-shadowing tests remain the
+compatibility checks. No .NET Framework or NanoFramework execution is claimed.
