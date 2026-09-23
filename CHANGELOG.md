@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-23:** Initialize propagation temporaries at their declaration when no
+  exception-conversion boundary is needed. Avoid hoisting an uninitialized carrier
+  for `(await operation)?`; preserve protected exception conversion and precedence.
+
 - **2026-09-19:** Preserve struct-field storage when invoking through a class local,
   parameter or nested reference owner. Field-address emission now loads reference
   owners instead of addressing their reference slots. This is a general CLI

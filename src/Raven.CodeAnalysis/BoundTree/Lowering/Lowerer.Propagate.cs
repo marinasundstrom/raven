@@ -170,7 +170,13 @@ internal sealed partial class Lowerer
         }
         else
         {
-            statements.Add(operandAssignment);
+            // Without a catch boundary, initialize at the declaration. Declaring
+            // first and assigning later makes an await in the operand hoist an
+            // uninitialized carrier into the async state machine.
+            statements[0] = new BoundLocalDeclarationStatement(new[]
+            {
+                new BoundVariableDeclarator(operandLocal, operandInitializer)
+            });
         }
 
         statements.Add(new BoundLocalDeclarationStatement(new[]
