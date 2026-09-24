@@ -143,6 +143,22 @@ additional variants when constructors are present. Nullable active contents are
 derived from nullable constructor parameter types, not from `Value` being
 `object?`.
 
+A custom CLI carrier may instead expose a typed-case contract without boxing:
+`UnionAttribute`, public nested case types, a public single-argument constructor
+for every case, and matching public instance `IsCase: bool` and `GetCase() -> Case`
+members. Every single-argument union constructor must identify one of those
+cases. Raven loads this explicit contract as `IUnionSymbol`, including case
+symbols; RavenDoc consequently renders union signatures, icons and case groups.
+An unmarked struct, or a marked type without either supported contract, remains
+an ordinary type. Recognition is independent of the target runtime and does not
+require a Runtime Contract setting or a runtime `Union` interface.
+
+This metadata projection does not change carrier storage or synthesize extraction
+methods. Existing emission paths still require their supported `TryGetValue` or
+boxed `Value` extraction contract; recognition alone does not establish support
+for pattern lowering on every custom carrier. Use the carrier's typed accessors
+until its extraction ABI is supported and validated for the target.
+
 A C# union can instead delegate its contract to a directly nested public
 `IUnionMembers` interface that the carrier implements. Its public static
 one-parameter `Create` methods define the variants and return the carrier;

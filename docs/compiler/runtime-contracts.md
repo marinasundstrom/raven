@@ -688,3 +688,12 @@ and runtime propagation contracts use the same rule; exception-catching operands
 retain their protected assignment. There is no new option or precedence change:
 `await operation?` still applies postfix propagation before await. Validate both
 completed and suspended Result operands when changing this lowering.
+
+## Attributed custom union metadata
+
+Typed-case carriers marked with `System.Runtime.CompilerServices.UnionAttribute`
+are recognized without target-specific configuration. The [CLI union contract](../lang/spec/dotnet-implementation.md)
+defines the required constructors and typed accessors. This affects imported
+symbols and documentation; it adds no Runtime Contract option, storage rewrite or
+new extraction lowering. Independent .NET class/struct fixtures cover recognition,
+negative shapes and RavenDoc case grouping.

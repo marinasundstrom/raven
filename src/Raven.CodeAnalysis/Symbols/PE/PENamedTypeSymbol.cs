@@ -210,7 +210,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
                 return false;
             }
 
-            return typeInfo.DeclaredProperties.Any(static property =>
+            return LooksLikeTypedCaseUnion(typeInfo) || typeInfo.DeclaredProperties.Any(static property =>
                 string.Equals(property.Name, "Value", StringComparison.Ordinal) &&
                 property.GetMethod is { IsPublic: true, IsStatic: false } getter &&
                 getter.GetParameters().Length == 0 &&
@@ -220,6 +220,37 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         {
             return false;
         }
+    }
+
+    // Some custom CLI carriers expose typed case accessors rather than a boxed
+    // Value property. The marker identifies a union; validate its public case
+    // contract without depending on a particular runtime's storage representation.
+    private static bool LooksLikeTypedCaseUnion(System.Reflection.TypeInfo carrier)
+    {
+        var constructors = carrier.DeclaredConstructors.Where(constructor =>
+            constructor.IsPublic && !constructor.IsStatic &&
+            constructor.GetParameters() is [var parameter] && IsUnionConstructorParameter(parameter)).ToArray();
+        if (constructors.Length == 0) return false;
+        var cases = carrier.DeclaredNestedTypes.Where(type => type.IsNestedPublic &&
+            !type.IsInterface && !type.IsEnum).ToArray();
+        if (cases.Length == 0) return false;
+        return constructors.All(constructor =>
+        {
+            var parameter = constructor.GetParameters()[0].ParameterType;
+            var caseType = parameter.IsByRef ? parameter.GetElementType()! : parameter;
+            var declaredCase = cases.FirstOrDefault(type => type.AsType() == caseType);
+            return declaredCase is not null &&
+                carrier.DeclaredProperties.Any(property => property.Name == "Is" + declaredCase.Name &&
+                    property.GetMethod is { IsPublic: true, IsStatic: false } &&
+                    property.GetIndexParameters().Length == 0 && property.PropertyType.FullName == "System.Boolean") &&
+                carrier.DeclaredMethods.Any(method => method.Name == "Get" + declaredCase.Name &&
+                    method.IsPublic && !method.IsStatic && !method.IsGenericMethod &&
+                    method.GetParameters().Length == 0 && method.ReturnType == caseType);
+        }) && cases.All(type => constructors.Any(constructor =>
+        {
+            var parameter = constructor.GetParameters()[0].ParameterType;
+            return (parameter.IsByRef ? parameter.GetElementType() : parameter) == type.AsType();
+        }));
     }
 
     private static bool IsProviderFactoryReturnType(Type returnType, Type carrier)
