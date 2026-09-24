@@ -5,6 +5,64 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MemberStructureComesFromSymbolsAndDocumentationEnhancesIt(bool metadata)
+    {
+        const string source = """
+            namespace Contracts
+            public class Item { }
+            public class Box<T> { }
+            public class Service {
+                public val Current: Item => Item()
+                public val Optional: Item? => null
+                /// Wraps a value.
+                /// @param value The item to wrap.
+                /// @returns The wrapped item.
+                public func Wrap(value: Item) -> Box<Item> => Box<Item>()
+                public func Wrap(values: Item[]) -> Box<Item> => Box<Item>()
+            }
+            """;
+        var (compilation, _) = CreateCompilation(source, assemblyName: "ContractsFixture");
+        IAssemblySymbol? assembly = null;
+        if (metadata)
+        {
+            var reference = (PortableExecutableReference)TestMetadataFactory.CreateFileReferenceFromSource(source, "ContractsFixture");
+            File.WriteAllText(Path.ChangeExtension(reference.FilePath, ".xml"), """
+                <doc><members><member name="M:Contracts.Service.Wrap(Contracts.Item)">
+                <summary>Wraps a value.</summary><param name="value">The item to wrap.</param>
+                <returns>The wrapped item.</returns></member></members></doc>
+                """);
+            compilation = Compilation.Create("ContractHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
+            _ = compilation.GetDiagnostics();
+            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+        }
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            if (assembly is null) DocumentationGenerator.ProcessCompilation(compilation, output);
+            else DocumentationGenerator.ProcessAssembly(compilation, assembly, output);
+            var property = File.ReadAllText(Path.Combine(output, "Contracts/Service/property_Current.html"));
+            property.ShouldContain("Declaring type");
+            property.ShouldContain("id=\"property-value\"");
+            property.ShouldContain("<a href=\"../Item/index.html\">Item</a>");
+            var nullable = File.ReadAllText(Path.Combine(output, "Contracts/Service/property_Optional.html"));
+            nullable.ShouldContain("Item</a>?");
+            var method = File.ReadAllText(Path.Combine(output, "Contracts/Service/method_Wrap.html"));
+            method.ShouldContain("<th>Type</th>");
+            method.ShouldContain("<a href=\"../Item/index.html\">Item</a>");
+            method.ShouldContain("Item</a>[]");
+            method.ShouldContain("The item to wrap.");
+            method.ShouldContain("The wrapped item.");
+            method.ShouldContain("<h4 id=\"return-value\">Return value</h4>");
+            method.ShouldContain("Box</a>&lt;<a href=\"../Item/index.html\">Item</a>&gt;");
+            method.Split("<th>Type</th>").Length.ShouldBe(3);
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
+    [Theory]
     [InlineData("hierarchical")]
     [InlineData("flat")]
     public void NamespaceNavigationPreservesTypesAndUrls(string style)
