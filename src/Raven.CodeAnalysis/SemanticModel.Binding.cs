@@ -6976,7 +6976,8 @@ public partial class SemanticModel
             equalsTyped.SetParameters(ImmutableArray.Create(otherParameter));
         }
 
-        if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, objectType))
+        if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, objectType) &&
+            !HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, equalsObject.Parameters[0].Type))
         {
             var equalsObj = new SourceMethodSymbol(
                 "Equals",
@@ -6996,7 +6997,7 @@ public partial class SemanticModel
 
             var otherParameter = new SourceParameterSymbol(
                 "obj",
-                objectType,
+                equalsObject.Parameters[0].Type,
                 equalsObj,
                 recordSymbol,
                 namespaceSymbol,

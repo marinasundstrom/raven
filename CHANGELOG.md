@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-24:** Preserve the inherited Object.Equals parameter's nullable reference
+  annotation when synthesizing record equality. Body selection recognizes the
+  annotated Object type; emitted metadata and imported symbols retain its contract.
+  No Runtime Contract option or nullable-value behavior changes.
+
 - **2026-09-23:** Match an explicitly configured unit value with its selected
   imported type during symbol equality and hashing, including generic interface
   return types. Preserve source unit semantics and no-result return emission;

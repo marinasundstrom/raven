@@ -300,3 +300,16 @@ is added and default .NET behavior is unchanged. The regression checks opt-in
 success, unconfigured rejection, symbol/hash equality and actual interface dispatch
 on .NET 11. Existing unit storage, no-result and target-shadowing tests remain the
 compatibility checks. No .NET Framework or NanoFramework execution is claimed.
+
+### Generated record Object equality annotations (2026-09-24)
+
+Generated record Equals copies the parameter type from the selected Object.Equals
+contract, including nullable reference metadata, instead of replacing it with an
+unannotated Object. Body selection unwraps that annotation to identify the Object
+overload. CLI method identity and equality behavior are unchanged: null and unrelated
+objects compare false, and matching record components compare equal.
+
+This is a general compiler correction requiring no Runtime Contract configuration.
+Regression coverage checks emitted metadata, imported symbols and execution on
+.NET 11. It does not widen the separately generated typed Equals parameter, add
+nullable value types to other targets or imply .NET Framework/NanoFramework testing.

@@ -17,6 +17,46 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class NullableAttributeEmissionTests
 {
     [Fact]
+    public void RecordObjectEquals_PreservesNullableContractAndBehavior()
+    {
+        var source = """
+            record class Key(Number: int)
+            class Comparisons {
+                static func Equal(key: Key, other: object?) -> bool => key.Equals(other)
+            }
+            """;
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("RecordEqualityNullability", [SyntaxTree.ParseText(source)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(references);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(new MemoryStream(stream.ToArray()), references);
+        var keyType = loaded.Assembly.GetType("Key", throwOnError: true)!;
+        var equals = keyType.GetMethod("Equals", [typeof(object)])!;
+        Assert.Equal(NullabilityState.Nullable,
+            new NullabilityInfoContext().Create(Assert.Single(equals.GetParameters())).ReadState);
+        var first = Activator.CreateInstance(keyType, [42]);
+        var same = Activator.CreateInstance(keyType, [42]);
+        var different = Activator.CreateInstance(keyType, [7]);
+        var compare = loaded.Assembly.GetType("Comparisons")!.GetMethod("Equal")!;
+        Assert.Equal(true, compare.Invoke(null, [first, same]));
+        Assert.Equal(false, compare.Invoke(null, [first, different]));
+        Assert.Equal(false, compare.Invoke(null, [first, null]));
+        Assert.Equal(false, compare.Invoke(null, [first, new object()]));
+
+        var consumer = Compilation.Create("consumer", [SyntaxTree.ParseText(string.Empty)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([.. references, MetadataReference.CreateFromImage(stream.ToArray())]);
+        var importedEquals = consumer.GetTypeByMetadataName("Key")!.GetMembers("Equals")
+            .OfType<IMethodSymbol>().Single(m => m.Parameters.Length == 1 &&
+                m.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object);
+        Assert.True(importedEquals.Parameters[0].Type.IsNullable);
+    }
+
+    [Fact]
     public void NullableReferenceTypes_EmitNullableAttribute()
     {
         var source = """

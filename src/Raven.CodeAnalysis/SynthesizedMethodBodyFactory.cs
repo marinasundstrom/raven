@@ -190,7 +190,7 @@ internal static partial class SynthesizedMethodBodyFactory
             method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
             TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true, IsValueType: false } equalsRecordType)
         {
-            if (method.Parameters[0].Type.SpecialType == SpecialType.System_Object)
+            if (method.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object)
             {
                 body = CreateRecordObjectEqualsBody(compilation, method, equalsRecordType);
                 return true;

@@ -48,7 +48,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         Assert.Contains(
             person.GetMembers("Equals").OfType<IMethodSymbol>(),
             method => method.Parameters.Length == 1 &&
-                      method.Parameters[0].Type.SpecialType == SpecialType.System_Object);
+                      method.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object);
         Assert.Contains(
             person.GetMembers("GetHashCode").OfType<IMethodSymbol>(),
             method => method.Parameters.Length == 0 &&
@@ -250,7 +250,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
         var objectEquals = person.GetMembers(nameof(object.Equals)).OfType<IMethodSymbol>()
             .Single(method => method.Parameters.Length == 1 &&
-                              method.Parameters[0].Type.SpecialType == SpecialType.System_Object);
+                              method.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object);
 
         Assert.True(compilation.TryGetSynthesizedMethodBody(objectEquals, BoundTreeView.Original, out var objectBody));
         Assert.NotNull(objectBody);
