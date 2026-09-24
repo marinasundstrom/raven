@@ -66,7 +66,8 @@ public static class DocumentationGenerator
 
     internal static IReadOnlyList<DocumentationNavigationItem> GetApiNavigation()
     {
-        string ParentPath(string path) => Path.Combine(
+        string ParentPath(string path) => CurrentSiteOptions.NamespaceNavigation == "flat" &&
+            ApiNavigation[path].Kind == "Namespace" ? "" : Path.Combine(
             Path.GetDirectoryName(Path.GetDirectoryName(path)) ?? outputDir, "index.html");
         var children = ApiNavigation.Keys.ToLookup(ParentPath, StringComparer.Ordinal);
         DocumentationNavigationItem Build(string path) => ApiNavigation[path] with
@@ -197,6 +198,8 @@ public static class DocumentationGenerator
         ExcludedMembers = CurrentSiteOptions.ExcludedMembers?.ToHashSet(StringComparer.Ordinal) ?? [];
         if (MemberListStyle is not ("compact" or "signatures"))
             throw new InvalidOperationException("memberListStyle must be compact or signatures.");
+        if (CurrentSiteOptions.NamespaceNavigation is not ("hierarchical" or "flat"))
+            throw new InvalidOperationException("namespaceNavigation must be hierarchical or flat.");
         ApiNavigation.Clear();
         SiteLinks = siteOptions?.Links ?? [];
         SiteRootDirectory = Path.GetFullPath(siteOptions?.SiteRootDirectory ?? outputDir);
@@ -2253,7 +2256,8 @@ public sealed record DocumentationSiteOptions(
     string? ReleaseUrl = null,
     string? ReleaseLabel = null,
     bool ShowToc = true,
-    string? Favicon = null)
+    string? Favicon = null,
+    string NamespaceNavigation = "hierarchical")
 {
     public static DocumentationSiteOptions Empty { get; } = new([]);
 }

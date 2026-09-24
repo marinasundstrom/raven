@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-24:** Add RavenDoc `namespaceNavigation: flat` and CLI
+  `--namespace-navigation flat` for alphabetically ordered peer namespaces in the
+  API Browser. Keep hierarchical navigation as the default, preserve type/case
+  grouping and page URLs, and demonstrate the option in the sample site.
+
 - **2026-09-24:** Add persistent System/Light/Dark controls to RavenDoc, apply the
   selected theme before rendering, follow live system changes and share the Raven
   website's dark syntax palette. Fix active sidebar and filter colors in dark mode.

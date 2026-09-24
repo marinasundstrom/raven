@@ -18,6 +18,8 @@ public static class DocumentationSiteBuilder
         var apiPath = RelativeOutput(configuration.ApiPath);
         if (configuration.MemberListStyle is not ("compact" or "signatures"))
             throw new InvalidOperationException("memberListStyle must be compact or signatures.");
+        if (configuration.NamespaceNavigation is not ("hierarchical" or "flat"))
+            throw new InvalidOperationException("namespaceNavigation must be hierarchical or flat.");
         if (IsWithin(output, root))
             throw new InvalidOperationException("Site output must not contain the configuration directory.");
 
@@ -111,7 +113,7 @@ public static class DocumentationSiteBuilder
                 configuration.Name, configuration.Logo, configuration.Stylesheet, menu,
                 configuration.Footer ?? configuration.Name, configuration.MemberListStyle,
                 configuration.Types, configuration.ExcludedMembers, configuration.Subtitle,
-                configuration.Notice, configuration.ReleaseUrl, configuration.ReleaseLabel, configuration.ShowToc, configuration.Favicon);
+                configuration.Notice, configuration.ReleaseUrl, configuration.ReleaseLabel, configuration.ShowToc, configuration.Favicon, configuration.NamespaceNavigation);
             var template = new RavenDocSiteTemplate();
             template.WriteAssets(staging);
             IReadOnlyList<DocumentationNavigationItem> apiNavigation = [];
@@ -227,6 +229,7 @@ public static class DocumentationSiteBuilder
         public string? Api { get; init; }
         public string ApiPath { get; init; } = "api";
         public string MemberListStyle { get; init; } = "compact";
+        public string NamespaceNavigation { get; init; } = "hierarchical";
         public List<string>? Types { get; init; }
         public List<string>? ExcludedMembers { get; init; }
         public string? Subtitle { get; init; }

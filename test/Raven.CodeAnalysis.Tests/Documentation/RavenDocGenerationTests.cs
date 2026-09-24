@@ -4,6 +4,37 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("hierarchical")]
+    [InlineData("flat")]
+    public void NamespaceNavigationPreservesTypesAndUrls(string style)
+    {
+        var (compilation, _) = CreateCompilation("""
+            namespace Example { public class Root { } }
+            namespace Example.Web { public class Request { public class Header { } } }
+            namespace Example.Networking { public class Socket { } }
+            """, assemblyName: "Navigation.Sample");
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessCompilation(compilation, output,
+                new DocumentationSiteOptions([], NamespaceNavigation: style));
+            var page = File.ReadAllText(Path.Combine(output, "Example/Web/Request/index.html"));
+            var treeHtml = System.Text.RegularExpressions.Regex.Match(page,
+                "<nav class=\"api-navigation-panel\"[^>]*>(<ul>.*?</ul>)<p", System.Text.RegularExpressions.RegexOptions.Singleline).Groups[1].Value;
+            var tree = System.Xml.Linq.XElement.Parse(treeHtml.Replace(" open>", " open=\"open\">"));
+            var labels = tree.Elements("li").Select(li => li.Element("details")?.Element("summary")?.Value).ToArray();
+            labels.ShouldBe(style == "flat" ? new[] { "Example", "Example.Networking", "Example.Web" } : new[] { "Example" });
+            var web = tree.Descendants("details").Single(node => node.Element("summary")?.Value == "Example.Web");
+            web.Attribute("open").ShouldNotBeNull();
+            web.Descendants("a").ShouldContain(link => (string?)link.Attribute("href") == "../index.html");
+            var request = web.Descendants("details").Single(node => node.Element("summary")?.Attribute("title")?.Value == "Request");
+            request.Descendants("a").ShouldContain(link => (string?)link.Attribute("href") == "Header/index.html");
+            page.ShouldContain("aria-current=\"location\"");
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
     [Fact]
     public void CompactListsRetainOverloadTypesAndStaticIcons()
     {
