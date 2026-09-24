@@ -1,0 +1,24 @@
+{
+  "name": "Widget documentation",
+  "output": "../_site",
+  "api": "../library/src/library.rvn",
+  "pages": [
+    {
+      "source": "index.md",
+      "title": "Welcome"
+    },
+    {
+      "source": "getting-started.md",
+      "output": "guides/getting-started.html",
+      "title": "Getting started"
+    }
+  ],
+  "toc": "toc.yml",
+  "logo": "images/mark.svg",
+  "stylesheet": "custom.css",
+  "resources": [
+    "images",
+    "custom.css"
+  ],
+  "footer": "Widget project documentation"
+}

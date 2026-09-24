@@ -61,6 +61,24 @@ public static class DocumentationGenerator
         = new(StringComparer.Ordinal);
 
     private static IReadOnlyList<DocumentationSiteLink> SiteLinks = [];
+    private static DocumentationSiteOptions CurrentSiteOptions = DocumentationSiteOptions.Empty;
+    private static readonly Dictionary<string, DocumentationNavigationItem> ApiNavigation = new(StringComparer.Ordinal);
+
+    internal static IReadOnlyList<DocumentationNavigationItem> GetApiNavigation()
+    {
+        string ParentPath(string path) => Path.Combine(
+            Path.GetDirectoryName(Path.GetDirectoryName(path)) ?? outputDir, "index.html");
+        var children = ApiNavigation.Keys.ToLookup(ParentPath, StringComparer.Ordinal);
+        DocumentationNavigationItem Build(string path) => ApiNavigation[path] with
+        {
+            Children = children[path].OrderBy(child => ApiNavigation[child].Label, StringComparer.Ordinal)
+                .Select(Build).ToArray()
+        };
+        var roots = ApiNavigation.Keys.Where(path => !ApiNavigation.ContainsKey(ParentPath(path)))
+            .OrderBy(path => ApiNavigation[path].Label, StringComparer.Ordinal).Select(Build).ToArray();
+        return [new DocumentationNavigationItem("API reference",
+            Path.GetRelativePath(SiteRootDirectory, Path.Combine(outputDir, "index.html")).Replace('\\', '/'), roots)];
+    }
     private static string SiteRootDirectory = outputDir;
     private static IReadOnlyDictionary<string, string> TemplateValues =
         new Dictionary<string, string>();
@@ -173,6 +191,8 @@ public static class DocumentationGenerator
         XrefToTargetPath.Clear();
         ReportedBrokenXrefs.Clear();
         AdditionalNamespaceMembers.Clear();
+        CurrentSiteOptions = siteOptions ?? DocumentationSiteOptions.Empty;
+        ApiNavigation.Clear();
         SiteLinks = siteOptions?.Links ?? [];
         SiteRootDirectory = Path.GetFullPath(siteOptions?.SiteRootDirectory ?? outputDir);
         TemplateValues = siteOptions?.TemplateValues ??
@@ -256,7 +276,17 @@ public static class DocumentationGenerator
             styleHref,
             scriptHref,
             bodyHtml,
-            SiteLinks));
+            SiteLinks.Select(link => link with
+            {
+                Url = DocumentationNavigation.Resolve(link.Url, SiteRootDirectory, currentDir)!
+            }).ToArray(),
+            DocumentationNavigation.Render(
+                DocumentationNavigation.Compose(CurrentSiteOptions.Navigation ?? [], GetApiNavigation()),
+                SiteRootDirectory, currentDir),
+            CurrentSiteOptions.ProjectName,
+            DocumentationNavigation.Resolve(CurrentSiteOptions.Logo, SiteRootDirectory, currentDir),
+            DocumentationNavigation.Resolve(CurrentSiteOptions.Stylesheet, SiteRootDirectory, currentDir),
+            CurrentSiteOptions.Footer ?? "Raven documentation"));
     }
 
     private static string HtmlEscape(string s)
@@ -1124,7 +1154,7 @@ public static class DocumentationGenerator
     {
         static void Visit(ISymbol s)
         {
-            if (!GetMembersFilterPredicate(s))
+            if (!GetMembersFilterPredicate(s) || !IsFromDocumentedAssembly(s))
                 return;
 
             AddSymbolToXrefIndex(s);
@@ -1147,12 +1177,36 @@ public static class DocumentationGenerator
 
     private static void AddSymbolToXrefIndex(ISymbol symbol)
     {
+        if (!IsFromDocumentedAssembly(symbol) ||
+            symbol is INamespaceSymbol ns && !NamespaceContainsDocumentableMembers(ns))
+            return;
+
         var id = GetXrefId(symbol);
         if (string.IsNullOrWhiteSpace(id))
             return;
 
         var normalized = NormalizeXrefIdForIndex(id);
         XrefToTargetPath[normalized] = GetTargetPathForLink(symbol);
+        if ((symbol is INamespaceSymbol || symbol is ITypeSymbol) &&
+            IsDocumentableSymbol(symbol) && CanRenderSymbol(symbol) &&
+            (symbol is not INamespaceSymbol nsWithMembers || NamespaceContainsDocumentableMembers(nsWithMembers)) &&
+            (symbol is not INamedTypeSymbol type || !IsNamespaceMemberContainer(type)))
+        {
+            var target = GetTargetPathForLink(symbol);
+            var label = symbol is INamespaceSymbol navigationNamespace
+                ? (navigationNamespace.IsGlobalNamespace ? "API reference" : GetNamespaceFullName(navigationNamespace))
+                : symbol.ToDisplayString(ContainingTypeDisplayFormat);
+            ApiNavigation[target] = new DocumentationNavigationItem(label,
+                Path.GetRelativePath(SiteRootDirectory, target).Replace('\\', '/'));
+        }
+    }
+
+    internal static string ResolveArticleXref(string url, string currentDir)
+    {
+        var id = NormalizeXrefIdIncoming(url["xref:".Length..]);
+        return XrefToTargetPath.TryGetValue(id, out var target)
+            ? RelLink(currentDir, target)
+            : throw new InvalidOperationException($"Unresolved article xref: {url}");
     }
 
     private static string RenderMarkdownWithXrefs(string markdown, string currentDir)
@@ -1428,10 +1482,11 @@ public static class DocumentationGenerator
     private static string FormatTypeLink(string currentDir, ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
         var memberName = EscapeName(typeSymbol.ToDisplayString(format));
-        if (!IsFromDocumentedAssembly(typeSymbol))
+        var definition = typeSymbol is INamedTypeSymbol named ? named.OriginalDefinition : typeSymbol;
+        if (!IsFromDocumentedAssembly(definition) ||
+            !XrefToTargetPath.TryGetValue(GetXrefId(definition), out var target))
             return memberName;
 
-        var target = GetTypeIndexPath(typeSymbol);
         return $"[{memberName}]({RelLink(currentDir, target)})";
     }
 
@@ -1696,11 +1751,10 @@ public static class DocumentationGenerator
             .Distinct(SymbolEqualityComparer.Default)
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
-            .Where(member =>
-                additionalMembers.Contains(member, SymbolEqualityComparer.Default) ||
-                member is INamespaceSymbol childNamespace &&
-                NamespaceContainsDocumentableMembers(childNamespace) ||
-                IsFromDocumentedAssembly(member))
+            .Where(member => member is INamespaceSymbol childNamespace
+                ? NamespaceContainsDocumentableMembers(childNamespace)
+                : additionalMembers.Contains(member, SymbolEqualityComparer.Default) ||
+                  IsFromDocumentedAssembly(member))
             .ToArray();
 
         var memberSections = RenderGroupedMemberSections(
@@ -2061,7 +2115,7 @@ public static class DocumentationGenerator
                 continue;
             }
 
-            if (IsDocumentableSymbol(member))
+            if (IsDocumentableSymbol(member) && IsFromDocumentedAssembly(member))
                 return true;
         }
 
@@ -2098,7 +2152,12 @@ public static class DocumentationGenerator
 public sealed record DocumentationSiteOptions(
     IReadOnlyList<DocumentationSiteLink> Links,
     IReadOnlyDictionary<string, string>? TemplateValues = null,
-    string? SiteRootDirectory = null)
+    string? SiteRootDirectory = null,
+    string? ProjectName = null,
+    string? Logo = null,
+    string? Stylesheet = null,
+    IReadOnlyList<DocumentationNavigationItem>? Navigation = null,
+    string? Footer = null)
 {
     public static DocumentationSiteOptions Empty { get; } = new([]);
 }

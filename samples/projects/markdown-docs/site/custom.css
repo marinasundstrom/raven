@@ -1,0 +1,14 @@
+/* Override shared Raven tokens while retaining the reference layout. */
+:root {
+    --raven-accent: #176d83;
+    --raven-accent-strong: #115367;
+    --raven-accent-soft: #e0f2f5;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]):not([data-bs-theme="light"]) {
+        --raven-accent: #7fd0de;
+        --raven-accent-strong: #a6e2eb;
+        --raven-accent-soft: #173b44;
+    }
+}

@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-24:** RavenDoc can build complete documentation sites from a JSON
+  configuration with custom Markdown pages, DocFX-style `toc.yml` menus, a generated
+  API-reference section, project branding and copied assets. Authored links follow
+  relocated pages and API xrefs; navigation preserves Raven union case grouping.
+  Namespace navigation and local symbol links exclude dependency-owned and empty
+  compiler-only namespaces rather than pointing to pages that are not published.
+
 - **2026-09-24:** Parse standalone postfix propagation around complete `await`
   and `try` expressions: `await Foo()?` means `(await Foo())?`, and `try Foo()?`
   means `(try Foo())?`. Explicit operand parentheses retain inner propagation;

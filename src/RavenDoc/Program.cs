@@ -10,6 +10,20 @@ internal static class RavenDocCommand
 
     public static int Run(string[] args)
     {
+        if (args is ["--site", var configurationPath])
+        {
+            try
+            {
+                DocumentationSiteBuilder.Build(configurationPath);
+                return 0;
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine($"RavenDoc failed: {exception.Message}");
+                return 1;
+            }
+        }
+
         if (!TryParseArguments(args, out var options))
             return 1;
 
@@ -63,7 +77,7 @@ internal static class RavenDocCommand
         }
     }
 
-    private static void GenerateFromSource(
+    internal static void GenerateFromSource(
         string inputPath,
         string outputPath,
         string targetFramework,
@@ -115,7 +129,7 @@ internal static class RavenDocCommand
         DocumentationGenerator.ProcessCompilation(compilation, outputPath, siteOptions);
     }
 
-    private static void GenerateFromAssembly(
+    internal static void GenerateFromAssembly(
         string assemblyPath,
         string outputPath,
         string targetFramework,
@@ -370,6 +384,8 @@ internal static class RavenDocCommand
 
             Usage:
               ravendoc <project.rvnproj|source.rvn|source-directory|library.dll> [options]
+
+              ravendoc --site <ravendoc.json>
 
             Options:
               -o, --output <directory>    HTML site output (default: <input-directory>/_site)

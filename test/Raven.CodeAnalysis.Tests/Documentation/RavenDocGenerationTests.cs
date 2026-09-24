@@ -238,6 +238,37 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
     }
 
     [Fact]
+    public void ReferencedLibrary_DoesNotBecomeLocalNavigationOrLocalTypeLinks()
+    {
+        var dependency = TestMetadataFactory.CreateFileReferenceFromSource(
+            """
+            namespace External.Library
+            public class Base { }
+            """, assemblyName: $"RavenDoc.Dependency.{Guid.NewGuid():N}");
+        var (compilation, _) = CreateCompilation("""
+            namespace Samples.Owned
+            /// Uses [the external base](xref:T:External.Library.Base).
+            public class Widget : External.Library.Base { }
+            """, references: TestMetadataReferences.Default.Concat([dependency]).ToArray());
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessCompilation(compilation, output);
+            var page = File.ReadAllText(Path.Combine(output, "Samples/Owned/Widget/index.html"));
+            page.ShouldContain("Base");
+            page.ShouldNotContain("External/Library/Base/index.html");
+            page.ShouldNotContain(">External.Library</a>");
+            page.ShouldNotContain("System/index.html");
+            Directory.Exists(Path.Combine(output, "External")).ShouldBeFalse();
+        }
+        finally
+        {
+            if (Directory.Exists(output))
+                Directory.Delete(output, recursive: true);
+        }
+    }
+
+    [Fact]
     public void CaseDeclaredUnion_GroupsProjectedCasesUnderUnion()
     {
         var (compilation, _) = CreateCompilation("""
@@ -278,6 +309,9 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 "index.html");
 
             var outcomePage = File.ReadAllText(outcomePagePath);
+            outcomePage.ShouldContain("reference-navigation");
+            outcomePage.ShouldNotContain(">Success</a>");
+            outcomePage.ShouldNotContain(">Failure</a>");
             outcomePage.ShouldContain("id=\"cases\"");
             outcomePage.ShouldContain("case Success(value: T)");
             outcomePage.ShouldContain("Contains a successful value.");
@@ -338,6 +372,9 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 "MetadataUnions",
                 "Outcome`2",
                 "index.html"));
+            outcomePage.ShouldContain("reference-navigation");
+            outcomePage.ShouldNotContain(">Success</a>");
+            outcomePage.ShouldNotContain(">Failure</a>");
             outcomePage.ShouldContain("id=\"cases\"");
             outcomePage.ShouldContain("case Success(value: T)");
             outcomePage.ShouldContain("case Failure(error: E)");

@@ -46,6 +46,26 @@
         code.dataset.highlighted = "raven";
     }
 
+    const navigation = document.querySelector(".reference-navigation");
+    const filter = document.querySelector("#navigation-filter");
+    for (const link of navigation?.querySelectorAll("a") ?? []) {
+        if (new URL(link.href).pathname === window.location.pathname)
+            link.setAttribute("aria-current", "page");
+    }
+    filter?.addEventListener("input", () => {
+        const query = filter.value.trim().toLocaleLowerCase();
+        const items = [...navigation.querySelectorAll("li")];
+        for (const item of items.reverse()) {
+            const label = item.querySelector(":scope > a, :scope > span");
+            const matches = label?.textContent.toLocaleLowerCase().includes(query);
+            const childMatches = [...item.querySelectorAll(":scope > ul > li")].some(child => !child.hidden);
+            item.hidden = !matches && !childMatches;
+            if (matches)
+                for (const child of item.querySelectorAll("li")) child.hidden = false;
+        }
+        document.querySelector("#navigation-empty").hidden = items.some(item => !item.hidden);
+    });
+
     const outline = document.querySelector("#page-outline-links");
     if (!outline)
         return;
