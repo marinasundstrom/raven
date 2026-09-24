@@ -371,3 +371,12 @@ No Runtime Contract option changes. Tests cover emitted and reimported metadata,
 null/equal/different operands, explicit declarations and custom-operator isolation
 on .NET 11. The integration baseline compares .NET 10. No .NET Framework or
 NanoFramework execution is claimed. Nullable value support is unchanged.
+
+## Attributed custom union metadata
+
+Typed-case carriers marked with `System.Runtime.CompilerServices.UnionAttribute`
+are recognized without target-specific configuration. The [CLI union contract](../lang/spec/dotnet-implementation.md)
+defines the required constructors and typed accessors. This affects imported
+symbols and documentation; it adds no Runtime Contract option, storage rewrite or
+new extraction lowering. Independent .NET class/struct fixtures cover recognition,
+negative shapes and RavenDoc case grouping.

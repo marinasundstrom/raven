@@ -204,6 +204,10 @@ internal sealed class RavenDocSiteTemplate
                 <path d="M5 4h14v16H5z" />
                 <text x="12" y="16" text-anchor="middle" fill="currentColor" stroke="none" font-size="11" font-family="system-ui" font-weight="700">S</text>
                 """),
+            RavenDocSymbolKind.Class => ("Class", """
+                <path d="M5 4h14v16H5z" />
+                <text x="12" y="16" text-anchor="middle" fill="currentColor" stroke="none" font-size="11" font-family="system-ui" font-weight="700">C</text>
+                """),
             RavenDocSymbolKind.Type => ("Type", """
                 <path d="M5 4h14v16H5z" />
                 <path d="M9 8h6M12 8v8" />
@@ -337,6 +341,7 @@ internal enum RavenDocSymbolKind
 {
     Namespace,
     Type,
+    Class,
     Interface,
     Enum,
     Union,

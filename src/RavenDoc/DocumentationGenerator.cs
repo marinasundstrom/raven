@@ -950,6 +950,8 @@ public static class DocumentationGenerator
             INamespaceSymbol ns => GetNamespaceIndexPath(ns),
             IUnionCaseTypeSymbol @case => GetTypeIndexPath(@case.Union),
             ITypeSymbol ts => GetTypeIndexPath(ts),
+            IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: IUnionCaseTypeSymbol @case }
+                => GetTypeIndexPath(@case.Union),
             _ => GetMemberGroupPath(symbol),
         };
     }
@@ -1069,6 +1071,7 @@ public static class DocumentationGenerator
             ITypeSymbol { TypeKind: TypeKind.Delegate } => RavenDocSymbolKind.Delegate,
             ITypeSymbol { TypeKind: TypeKind.Struct } => RavenDocSymbolKind.Struct,
             ITypeSymbol { TypeKind: TypeKind.Interface } => RavenDocSymbolKind.Interface,
+            ITypeSymbol { TypeKind: TypeKind.Class } => RavenDocSymbolKind.Class,
             ITypeSymbol => RavenDocSymbolKind.Type,
             IMacroDeclarationSymbol => RavenDocSymbolKind.Macro,
             IMethodSymbol method when IsOperatorLike(method) => RavenDocSymbolKind.Operator,
@@ -1221,7 +1224,13 @@ public static class DocumentationGenerator
             if (s is IUnionSymbol union)
             {
                 foreach (var @case in union.DeclaredCaseTypes)
+                {
                     AddSymbolToXrefIndex(@case);
+                    foreach (var constructor in @case.GetMembers().OfType<IMethodSymbol>()
+                        .Where(method => method.MethodKind == MethodKind.Constructor &&
+                            method.DeclaredAccessibility == Accessibility.Public))
+                        AddSymbolToXrefIndex(constructor);
+                }
             }
 
             if (s is INamespaceOrTypeSymbol nts)
@@ -1961,8 +1970,8 @@ public static class DocumentationGenerator
         return union.DeclaredCaseTypes.Any(@case =>
             SymbolEqualityComparer.Default.Equals(type, @case) ||
             string.Equals(
-                type.MetadataName,
-                @case.MetadataName,
+                GetTypeDocName(type),
+                GetTypeDocName(@case),
                 StringComparison.Ordinal));
     }
 
@@ -2076,8 +2085,8 @@ public static class DocumentationGenerator
             .Any(@case =>
                 SymbolEqualityComparer.Default.Equals(type, @case) ||
                 string.Equals(
-                    type.MetadataName,
-                    @case.MetadataName,
+                    GetTypeDocName(type),
+                    GetTypeDocName(@case),
                     StringComparison.Ordinal));
     }
 
