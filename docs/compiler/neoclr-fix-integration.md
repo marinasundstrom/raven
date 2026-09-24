@@ -403,3 +403,28 @@ on neoclr; there is no general compiler fix to extract here. The installed compi
 cannot emit String([]) directly (empty Sequence-target collection expression);
 a typed empty char array works. Investigate that general candidate independently
 before proposing a Raven main fix. Iterable construction remains exploratory.
+
+
+### 2026-09-24 — Explicit String interning
+
+neoCLR target metadata adds String.Intern(String) -> String. Its importer validates
+the exact static signature; the Raven-authored body calls a trusted runtime service.
+The runtime pool belongs to one execution, not immutable loaded metadata or a shared
+process/session. Independent invocations and isolated workers have separate pools;
+entry/payload quotas raise InternPoolLimitExceeded when adding a new value over budget.
+Existing references are unchanged, and explicit host-shared inputs retain normal aliases.
+
+No Raven syntax, literal emission, automatic interning or Runtime Contract configuration
+changes are made. Rebuild the matching target reference, bridge and runtime. The neoCLR
+String interning sample checks canonical returns, original references, exact text and GC;
+bridge checks reject wrong signatures/static callvirt. This is target integration on
+neoclr; no general compiler fix is being merged into main.
+
+
+The same target update aligns String parameter names across reference and implementation:
+constructor characters; Intern text; Concat/CompareOrdinal left/right; Equals other;
+ContainsOrdinal substring; StartsWithOrdinal prefix; EndsWithOrdinal suffix;
+SliceUtf8 byteStart/byteLength. Indexers keep index. Positional signatures are unchanged,
+but named callers using value0/value1 must migrate. The String sequence sample checks
+reordered named arguments and rejects the old generic names. This is target metadata
+maintenance, not a Raven language change.

@@ -3,6 +3,11 @@
 Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
+- **2026-09-24:** Document neoCLR String.Intern target metadata and exact importer
+  binding to execution-owned runtime pools. Literal emission and Runtime Contract
+  configuration remain unchanged; rebuild matching target metadata and runtime.
+  Align String parameter names with their roles; named callers must replace
+  value0/value1, while positional signatures remain compatible.
 - **2026-09-24:** Document neoCLR target String sequence construction and explicit
   Collection.Count integration, with unchanged compiler/Runtime Contract settings.
   Record the direct empty-collection emission limitation and typed-array workaround;
