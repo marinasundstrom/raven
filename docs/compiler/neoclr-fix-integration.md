@@ -633,3 +633,26 @@ and generated library are required. The neoCLR URI probe covers both resolution
 overloads, RFC examples, invalid grammar, virtual Object behavior and GC cleanup.
 Lexical identity, escaped ASCII and bounded parsing are provisional library policy;
 HttpError and BaseUri request integration follow separately.
+
+### Standard-syntax union investigation — 2026-09-24
+
+The neoCLR author directs normal Raven union declarations, including members, as
+the class-library default; manually implemented carriers should be rare documented
+exceptions. neoCLR's `docs/experiments/http-error-unions` compiles a reduced union
+with string and SocketError payloads, a property and an authored ToString override
+using the matching installed SDK and existing Runtime Contract settings. No compiler
+source, emission policy or Runtime Contract configuration changes were made.
+
+The observed CLI carrier is a sequential value type with a byte tag and typed case
+fields. Constructors initialize the receiver with initobj; TryGetValue writes its
+output only on the matching branch. An IUnion interface is synthesized in the
+application. This differs from the current language spec description of Value as
+the only instance storage; reconcile that documentation against general compiler
+behavior independently rather than treating this probe as a new permanent ABI.
+
+The baseline neoCLR bridge rejects SocketError byref. A temporary admission exposed
+its non-local initobj restriction and was reverted. The reproducible probe checks
+the baseline rejection explicitly; it does not establish runtime or GC correctness.
+Next work must cover initialization, extraction, default/inactive payloads, copies,
+boxing and managed-reference tracing. Public HttpError/BaseUri remain pending, and
+no .NET binary compatibility requirement or general compiler fix is claimed.
