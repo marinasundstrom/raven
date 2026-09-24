@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-24:** RavenDoc can build complete documentation sites from a JSON
+  configuration with custom Markdown pages, DocFX-style `toc.yml` menus, a generated
+  API-reference section, project branding and copied assets. Authored links follow
+  relocated pages and API xrefs; navigation preserves Raven union case grouping.
+  Namespace navigation and local symbol links exclude dependency-owned and empty
+  compiler-only namespaces rather than pointing to pages that are not published.
+
+
 - **2026-09-24:** Add AllowNullableValueTypes (default true), the
   RavenAllowNullableValueTypes project property and --no-nullable-value-types /
   --nullable-value-types compiler switches. Opting out rejects nullable value type

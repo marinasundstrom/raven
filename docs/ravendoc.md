@@ -149,6 +149,140 @@ Source-directory input can add assembly dependencies with repeatable
 `--reference <assembly>` options. Repeatable `--nav <label=url>` options add
 links to related documentation sites in the generated header.
 
+### Building a complete documentation site
+
+Use a JSON site configuration to combine authored Markdown pages, a menu you
+control, and a generated API-reference section:
+
+```bash
+dotnet run --project src/RavenDoc -f net10.0 -- --site path/to/ravendoc.json
+```
+
+```json
+{
+  "name": "My project",
+  "output": "_site",
+  "api": "../src/MyProject.rvnproj",
+  "framework": "net10.0",
+  "pages": [
+    { "source": "index.md", "title": "Overview" },
+    { "source": "getting-started.md", "output": "guides/start.html", "title": "Getting started" }
+  ],
+  "toc": "toc.yml",
+  "links": [{ "label": "Project home", "url": "https://example.com/" }],
+  "resources": ["images", "custom.css"],
+  "logo": "images/mark.svg",
+  "stylesheet": "custom.css",
+  "footer": "My project documentation",
+  "values": { "version": "1.0" }
+}
+```
+
+Input paths and `output` are relative to the configuration file. Page output
+paths, menu URLs, `logo`, and `stylesheet` are relative to the generated site
+root. A page without an explicit output retains its source path with an `.html`
+extension. Include a page at `index.html`; its Markdown supplies the home page.
+Page `title` supplies the browser title, while Markdown supplies visible headings.
+Relative Markdown links between listed pages, including fragments, are rewritten
+to their output locations. Links and images targeting copied resources are also
+adjusted when a page moves. Root-relative and external URLs are retained.
+
+The `toc.yml` menu preserves the configured order and supports nested groups.
+An entry with `href: api/` inserts the generated namespace/type tree at that
+position; without one, the API section is appended. API generation uses the same Raven
+symbol projection as standalone RavenDoc: union cases belong to their union,
+not the navigation's type list. Authored pages can link to API symbols with
+`xref:T:Namespace.Type` or the other documented ID prefixes below. Unresolved
+article xrefs fail the build rather than publishing broken links.
+
+`api` accepts the same project, source, directory, or assembly inputs as the
+standalone command and publishes below `api/`. Omit it for an authored-only
+site. Use `references` for additional source-directory assembly references.
+`resources` lists files or directories to copy with their relative structure.
+The optional stylesheet loads after Raven's styles, allowing projects to
+override theme tokens while retaining Raven's layout. `links` adds header links;
+use the grouped menu for the full documentation structure.
+
+The builder renders into a temporary directory before replacing the configured
+output. Input files, duplicate page destinations, reserved API paths, and
+escaping output paths are checked before publication. Use a dedicated output
+directory: a successful build replaces its contents. This is a local build;
+it does not deploy the website.
+
+A runnable example lives in
+[`samples/projects/markdown-docs/site`](../samples/projects/markdown-docs/site/ravendoc.json).
+The site configuration is RavenDoc's own JSON format. Menus can reuse DocFX
+`toc.yml` files as described below; DocFX build JSON, conceptual-page front
+matter, and UID shorthand are not imported. Migrating
+an existing site requires listing its pages/resources and converting its symbol
+links to RavenDoc IDs. There is currently one generated API input per site.
+
+### Branding and colors
+
+`name` sets the site name in the header and browser titles; a page's `title`
+sets its individual browser title. `logo` replaces the Raven mark, and `footer`
+sets the footer text. Include local logos and stylesheets in `resources` so
+they are copied to the output. These settings apply to authored and API pages.
+
+A `stylesheet` is loaded after Raven's styles. For example, `custom.css` can
+change the accent colors while keeping Raven's layout:
+
+```css
+:root {
+    --raven-accent: #176d83;
+    --raven-accent-strong: #115367;
+    --raven-accent-soft: #e0f2f5;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]):not([data-bs-theme="light"]) {
+        --raven-accent: #7fd0de;
+        --raven-accent-strong: #a6e2eb;
+        --raven-accent-soft: #173b44;
+    }
+}
+```
+
+Other shared tokens include `--raven-bg`, `--raven-surface`, `--raven-ink`,
+`--raven-muted`, `--raven-line`, `--raven-header-bg`, `--raven-font-sans`, and
+`--raven-radius`. Use the matching dark-mode selector when overriding dark
+colors, because the shared theme uses that selector too. The sample site
+includes a custom logo and this color scheme.
+
+### Reusing a DocFX table of contents
+
+Set `"toc": "toc.yml"` in the site configuration and use the same menu structure
+as a DocFX site:
+
+```yaml
+- name: Overview
+  href: index.md
+- name: Guides
+  items:
+    - name: Getting started
+      href: getting-started.md
+- name: API reference
+  href: api/
+```
+
+RavenDoc preserves `name`, `href`, nested `items`, and their order. Markdown
+pages referenced by the TOC are included automatically; `pages` remains useful
+for additional unlisted pages or explicit output/title overrides. All relative
+TOC links resolve from the directory containing that TOC. Markdown links are
+mapped to the page's final HTML URL. External and root-relative links remain
+unchanged.
+
+`href: api/`, `api/index.html`, or `api/toc.yml` (relative to the configuration
+root) inserts the generated API-reference tree. Nested `toc.yml` files and
+folders containing a `toc.yml` are supported, along with explicit `tocHref`
+and `topicHref`. Circular includes fail with a diagnostic. A folder TOC is a
+menu group unless a `topicHref` supplies its landing page. Entries require a
+`name`; UID-only navigation and DocFX template-specific metadata are not
+interpreted. Markdown still uses RavenDoc's explicit `xref:` ID prefixes.
+
+The checked-in example uses this TOC format, so projects can retain their menu
+structure when moving from DocFX to RavenDoc.
+
 ### Injecting build values
 
 RavenDoc can replace explicit placeholders in Markdown with values supplied by
@@ -185,6 +319,25 @@ also identify the emitted CLR container so consumers using C#, reflection, or
 another .NET language can locate the metadata member. Namespace-level
 `macro` declarations are listed separately as macros and do not require a
 fabricated containing type in the Raven-facing reference.
+
+## Project ownership and external symbols
+
+The generated API section belongs to the project or assembly being documented.
+Only namespaces containing its documented declarations appear in navigation.
+Referenced assemblies and compiler-only namespaces do not become local pages
+merely because their symbols are available during compilation. A namespace
+shared with a dependency still lists only this project's declarations.
+
+External types remain visible in signatures, inheritance and interface lists.
+RavenDoc does not fabricate local URLs for them. Authored documentation can use
+ordinary external links; unresolved symbol xrefs follow the documented warning
+or error behavior for API comments and authored pages, respectively.
+
+Future cross-site navigation could consume published symbol-to-URL maps from
+other RavenDoc sites or framework documentation. Such a resolver would use an
+explicit external documentation source, preserving the distinction between the
+current project's API and a dependency's API. This capability is not yet
+implemented; namespaces alone are not sufficient to choose a documentation site.
 
 ## Relationship to metadata sidecars
 
@@ -254,8 +407,8 @@ coding distinct while making movement between them feel continuous. RavenDoc
 follows the system color scheme; the Playground additionally offers a
 persistent System, Light, or Dark selector that also controls its editor.
 
-A future rendering layer can introduce user-selectable templates and theme
-customization at the same page-chrome boundary. Templates should receive the
+Site configuration supports project branding and an additional stylesheet at
+the page-chrome boundary. A future rendering layer can introduce user-selectable templates. Templates should receive the
 Raven documentation model and resolved symbol navigation.
 
 Interactive, executable examples belong to the future documentation-site
@@ -367,8 +520,8 @@ Current limitations:
 
 * Not a reusable library (requires recompilation)
 * Fixed HTML layout
-* No external pages or navigation injection
-* No custom theming beyond CSS edits
+* No automatic DocFX configuration import
+* Theme customization uses a project stylesheet; selectable template engines are not yet supported
 * No schema validation for documentation content
 
 Despite this, RavenDoc is already suitable for:
