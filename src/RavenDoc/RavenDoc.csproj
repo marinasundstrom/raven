@@ -23,6 +23,10 @@
                       LogicalName="Raven.Theme.css" />
     <EmbeddedResource Include="Assets/ravendoc.css"
                       LogicalName="RavenDoc.Style.css" />
+    <EmbeddedResource Include="../../docs/template/public/raven-language.js" LogicalName="Raven.Language.js" />
+    <EmbeddedResource Include="../../docs/template/public/raven-highlight.css" LogicalName="Raven.Highlight.css" />
+    <EmbeddedResource Include="Assets/highlight-core.js" LogicalName="RavenDoc.Highlight.js" />
+    <EmbeddedResource Include="Assets/highlight-LICENSE" LogicalName="RavenDoc.Highlight.License" />
     <EmbeddedResource Include="Assets/ravendoc.js"
                       LogicalName="RavenDoc.Site.js" />
   </ItemGroup>

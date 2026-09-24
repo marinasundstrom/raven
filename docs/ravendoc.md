@@ -613,3 +613,12 @@ Type icons use I for interfaces, E for enums, U for unions, D for delegates and 
 Set `"memberListStyle": "signatures"` or use the assembly/source CLI's
 `--list-signatures` switch to retain full declarations in browsing lists. This is
 a presentation change and does not alter compiler semantics or emitted metadata.
+
+## Raven syntax highlighting
+
+RavenDoc embeds the Raven website's shared `raven-language.js` Highlight.js grammar
+and `raven-highlight.css` token colors. Fenced `raven`, `rvn` and `rav` blocks,
+HTML code blocks with these language classes, and generated API signatures use
+that same renderer. The vendored Highlight.js 11.11.1 core and BSD license are
+published locally; neither generation nor page viewing requires a CDN or Node.
+Run `node scripts/test-raven-highlighting-sync.mjs` when changing the lexer.

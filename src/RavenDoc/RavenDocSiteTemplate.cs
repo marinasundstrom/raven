@@ -11,6 +11,10 @@ internal sealed class RavenDocSiteTemplate
         WriteResource(outputDirectory, ThemeResourceName, "raven-theme.css");
         WriteResource(outputDirectory, StyleResourceName, "style.css");
         WriteResource(outputDirectory, ScriptResourceName, "site.js");
+        WriteResource(outputDirectory, "Raven.Language.js", "raven-language.js");
+        WriteResource(outputDirectory, "Raven.Highlight.css", "raven-highlight.css");
+        WriteResource(outputDirectory, "RavenDoc.Highlight.js", "highlight-core.js");
+        WriteResource(outputDirectory, "RavenDoc.Highlight.License", "highlight-LICENSE");
     }
 
     public string RenderPage(RavenDocPageTemplateModel page)
@@ -34,7 +38,7 @@ internal sealed class RavenDocSiteTemplate
           <link rel="stylesheet" href="{Escape(page.ThemeHref)}" />
           <link rel="stylesheet" href="{Escape(page.StyleHref)}" />
           {customStyle}
-          <script defer src="{Escape(page.ScriptHref)}"></script>
+          <script type="module" src="{Escape(page.ScriptHref)}"></script>
         </head>
         <body class="{(page.NavigationHtml.Length > 0 ? "with-api-navigation " : "")}layout-{Escape(layout)}{(showToc ? "" : " without-outline")}">
           <a class="skip-link" href="#main">Skip to content</a>

@@ -76,6 +76,7 @@ public sealed class AttributedCustomUnionTests : CompilationTestBase
             Assert.Contains("symbol-icon--class", File.ReadAllText(Path.Combine(site, "Independent/Ordinary/index.html")));
             var xrefs = DocumentationGenerator.ExportXrefs(site);
             Assert.Equal("Independent/Choice/index.html", xrefs["M:Independent.Choice+First..ctor"]);
+            Assert.Equal("Independent/Choice/index.html", xrefs["M:Independent.Choice..ctor"]);
         }
         finally { Directory.Delete(directory, true); }
     }

@@ -1,3 +1,4 @@
+@import url("./raven-highlight.css");
 :root {
     --bg: var(--raven-bg);
     --surface: var(--raven-surface);
@@ -180,10 +181,6 @@ pre code { padding: 0; }
 
 .api-hero + p strong { color: var(--fg); }
 
-.syntax-keyword { color: var(--raven-syntax-keyword); }
-.syntax-string { color: var(--raven-syntax-string); }
-.syntax-number { color: var(--raven-syntax-number); }
-.syntax-comment { color: var(--raven-syntax-comment); font-style: italic; }
 
 .member-section { margin-top: 2.5rem; }
 

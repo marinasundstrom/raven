@@ -10,13 +10,19 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   ordinary .NET interfaces with an opt-in System.ValueTuple unit representation.
 
 
+- **2026-09-24:** Share the Raven website's Highlight.js grammar and syntax colors
+  with RavenDoc, replacing its separate reduced lexer. Publish the pinned engine
+  and license as local assets for highlighted examples and API declarations
+  without a CDN dependency. Preserve union constructor xrefs on grouped case pages.
+
 - **2026-09-24:** Recognize explicitly attributed CLI custom unions with nested
   cases, case constructors and paired `IsCase`/`GetCase` accessors, even without
   a boxed `Value` property. Import them as `IUnionSymbol` so RavenDoc renders union
   signatures, U icons and grouped cases. Unmarked and malformed carriers remain
   ordinary types. This adds metadata recognition, not a new extraction ABI.
   Keep same-named namespace types visible beside union cases, retain case
-  constructor links, and identify classes with C icons in RavenDoc.
+  constructor links, and identify classes with C icons in RavenDoc. Union carrier
+  constructor xrefs also resolve to the union page where their cases are rendered.
 
 - **2026-09-24:** Extend RavenDoc with separate nested main menus, section side
   navigation compiled from local `toc.yml` files, and independent page outlines.

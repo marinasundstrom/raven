@@ -1,3 +1,4 @@
+@import url("./raven-highlight.css");
 @import url("./raven-theme.css");
 
 html {
@@ -161,46 +162,6 @@ article pre > code.hljs {
     content: " →";
 }
 
-/* VS Code Light+ syntax colors. Raven's brand accent stays outside code. */
-.hljs-keyword,
-.hljs-literal,
-.hljs-symbol {
-    color: var(--raven-syntax-keyword) !important;
-}
-
-.hljs-built_in,
-.hljs-type {
-    color: var(--raven-syntax-type) !important;
-}
-
-.hljs-title.function,
-.hljs-title.function.invoke {
-    color: var(--raven-syntax-function) !important;
-}
-
-.hljs-string,
-.hljs-meta .hljs-string {
-    color: var(--raven-syntax-string) !important;
-}
-
-.hljs-number {
-    color: var(--raven-syntax-number) !important;
-}
-
-.hljs-comment,
-.hljs-quote {
-    color: var(--raven-syntax-comment) !important;
-}
-
-.hljs-meta,
-.hljs-doctag {
-    color: var(--raven-syntax-meta) !important;
-}
-
-.hljs-error,
-.hljs-invalid {
-    color: var(--raven-syntax-invalid) !important;
-}
 
 .toc,
 .affix {
