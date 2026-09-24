@@ -210,6 +210,7 @@ internal static class RavenDocCommand
         string? outputPath = null;
         var targetFramework = DefaultTargetFramework;
         string? siteRootPath = null;
+        var memberListStyle = "compact";
         var siteLinks = new List<DocumentationSiteLink>();
         var templateValues = new Dictionary<string, string>(StringComparer.Ordinal);
         var referencePaths = new List<string>();
@@ -251,6 +252,9 @@ internal static class RavenDocCommand
                         return false;
                     }
                     siteLinks.Add(navigationLink);
+                    break;
+                case "--list-signatures":
+                    memberListStyle = "signatures";
                     break;
                 case "--site-root":
                     if (!TryReadValue(args, ref index, out siteRootPath))
@@ -316,7 +320,7 @@ internal static class RavenDocCommand
             new DocumentationSiteOptions(
                 siteLinks,
                 templateValues,
-                siteRootPath is null ? null : Path.GetFullPath(siteRootPath)),
+                siteRootPath is null ? null : Path.GetFullPath(siteRootPath), MemberListStyle: memberListStyle),
             referencePaths,
             showHelp);
         return true;
@@ -390,6 +394,7 @@ internal static class RavenDocCommand
             Options:
               -o, --output <directory>    HTML site output (default: <input-directory>/_site)
               -f, --framework <tfm>       Target framework used for references (default: net10.0)
+                  --list-signatures        Show full declarations in API lists
                   --site-root <directory>  Link the header brand to this site's root
                   --nav <label=url>        Add a related-site link to the generated header
                   --value <name=value>     Replace {{name}} in Markdown; may be repeated

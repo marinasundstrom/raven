@@ -69,9 +69,9 @@ body {
 
 .documentation-shell {
     display: grid;
-    grid-template-columns: minmax(12rem, 17rem) minmax(0, 1fr) minmax(10rem, 13rem);
+    grid-template-columns: minmax(0, 1fr) minmax(11rem, 15rem);
     gap: clamp(1.5rem, 4vw, 3.5rem);
-    width: min(100%, 1800px);
+    width: min(100%, 1440px);
     margin: 0 auto;
     padding: clamp(1.25rem, 4vw, 3rem);
 }
@@ -386,22 +386,131 @@ a.broken-xref {
     .member-arrow { display: none; }
 }
 
-/* Site navigation shares the reference theme and remains usable without JavaScript. */
-.project-logo { width: 2.75rem; height: 2.75rem; object-fit: contain; }
-.reference-navigation { min-width: 0; }
-.reference-navigation nav { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; }
-.reference-navigation label { display: block; font-size: 0.85rem; color: var(--muted); }
-.reference-navigation input { width: 100%; margin: 0.5rem 0 1rem; padding: 0.65rem; color: var(--fg); background: var(--surface); border: 1px solid var(--border); border-radius: 0.5rem; }
-.reference-navigation ul { list-style: none; padding: 0; margin: 0; }
-.reference-navigation ul ul { padding-left: 1rem; border-left: 1px solid var(--border); }
-.reference-navigation a, .reference-navigation li > span { display: block; padding: 0.3rem 0.5rem; overflow-wrap: anywhere; }
-.reference-navigation a[aria-current="page"] { background: var(--accent-soft); color: var(--link); border-radius: 0.4rem; font-weight: 600; }
-.documentation-shell:not(:has(.reference-navigation)) { grid-template-columns: minmax(0, 1fr) minmax(10rem, 13rem); }
-@media (max-width: 1200px) and (min-width: 981px) {
-    .documentation-shell { grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); }
-    .page-outline { display: none; }
+/* Page metadata can omit the outline without leaving an empty grid column. */
+.without-outline .documentation-shell { grid-template-columns: minmax(0, 1fr); }
+.skip-link { position: absolute; top: -5rem; left: 1rem; z-index: 10; }
+.skip-link:focus { top: 1rem; background: Canvas; color: CanvasText; padding: .75rem; }
+
+.member-name { font-weight: 650; font-size: 1rem; color: var(--accent); }
+
+.symbol-icon { position: relative; }
+.symbol-static-marker {
+  position: absolute;
+  right: -0.4rem;
+  bottom: -0.3rem;
+  display: grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--link-color, #365f91);
+  color: white;
+  border: 1px solid white;
+  font: bold 0.65rem/1 system-ui, sans-serif;
 }
-@media (max-width: 980px) {
-    .documentation-shell, .documentation-shell:not(:has(.reference-navigation)) { grid-template-columns: minmax(0, 1fr); }
-    .reference-navigation nav { position: static; max-height: 16rem; }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
+
+body.with-api-navigation .documentation-shell {
+  grid-template-columns: 15rem minmax(0, 1fr) 11rem;
+  max-width: 1600px;
+  width: 100%;
+  gap: 1.5rem;
+  padding-inline: 1.5rem;
+}
+body.with-api-navigation.without-outline .documentation-shell {
+  grid-template-columns: 15rem minmax(0, 1fr);
+}
+.api-sidebar { min-width: 0; align-self: start; position: sticky; top: 6rem; }
+.api-navigation-panel { max-height: calc(100vh - 7rem); overflow-y: auto; }
+.api-navigation-panel > summary { font-weight: 700; margin-bottom: 1rem; }
+.api-sidebar summary { cursor: pointer; padding: .45rem .25rem; overflow-wrap: anywhere; }
+.api-namespace { margin-bottom: .35rem; font-size: .85rem; }
+.api-namespace > summary { font-weight: 600; }
+.api-namespace ul { list-style: none; padding: 0 0 0 .8rem; margin: .25rem 0 .7rem; }
+.api-namespace a { display: flex; gap: .5rem; align-items: center; padding: .4rem; border-radius: .3rem; overflow-wrap: anywhere; }
+.api-namespace a[aria-current] { background: var(--surface-alt, #e9eef5); color: var(--link); font-weight: 700; box-shadow: inset 3px 0 var(--link); }
+.api-sidebar .symbol-icon { width: 1.2rem; height: 1.2rem; flex: 0 0 1.2rem; }
+.api-sidebar .symbol-icon svg { width: 1rem; height: 1rem; }
+.api-sidebar summary:focus-visible, .api-sidebar a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+@media (max-width: 1200px) {
+  body.with-api-navigation .documentation-shell { grid-template-columns: 14rem minmax(0, 1fr); }
+  .with-api-navigation .page-outline { display: none; }
+}
+@media (max-width: 760px) {
+  body.with-api-navigation .documentation-shell,
+  body.with-api-navigation.without-outline .documentation-shell { grid-template-columns: minmax(0, 1fr); padding-inline: .75rem; }
+  .api-sidebar { position: static; }
+  .api-navigation-panel { max-height: 16rem; border-bottom: 1px solid var(--border); }
+}
+
+.api-sidebar {
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  top: 6rem;
+}
+.api-browser-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .8rem; }
+.api-browser-header h2 { margin: 0; font-size: .95rem; letter-spacing: .02em; }
+.api-browser-toggle, .api-browser-close { display: none; cursor: pointer; font: inherit; color: inherit; }
+.api-navigation-panel { max-height: calc(100vh - 10rem); }
+.api-browser-toggle { justify-self: start; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); padding: .65rem 1rem; }
+.api-browser-close { border: 0; background: transparent; font-size: 1.6rem; padding: .25rem .6rem; }
+@media (max-width: 760px) {
+  .api-sidebar { top: auto; }
+  .api-navigation-ready .api-browser-toggle { display: block; }
+  .api-navigation-ready .api-sidebar:not(:modal) { display: none; }
+  .api-sidebar:modal {
+    position: fixed;
+    inset: 0 auto 0 0;
+    margin: 0;
+    width: min(21rem, 88vw);
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 1.25rem;
+    background: var(--surface, white);
+    border-right: 1px solid var(--border);
+    box-shadow: 1rem 0 3rem #0003;
+  }
+  .api-sidebar::backdrop { background: #17233380; }
+  .api-sidebar:modal .api-browser-close { display: block; }
+  .api-sidebar .api-navigation-panel { max-height: calc(100dvh - 6rem); border: 0; }
+  body:has(.api-sidebar:modal) { overflow: hidden; }
+}
+
+.api-sidebar summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.api-sidebar a { min-width: 0; }
+.api-sidebar a > span:not(.symbol-icon) { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.api-navigation-panel > ul { list-style: none; padding: 0; margin: 0; }
+.api-navigation-panel > ul > li > a { display: flex; gap: .5rem; padding: .4rem; }
+#navigation-filter { width: 100%; min-width: 0; margin: 0 0 .9rem; padding: .55rem .65rem; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: .4rem; font: inherit; font-size: .85rem; }
+.api-sidebar .api-namespace > summary { display: flex; gap: .45rem; align-items: center; }
+.api-sidebar summary::-webkit-details-marker { display: none; }
+.api-sidebar .api-namespace > summary::before { content: "›"; flex: 0 0 .6rem; transition: transform .15s; }
+.api-sidebar .api-namespace[open] > summary::before { transform: rotate(90deg); }
+.api-sidebar summary > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+.site-navigation ul { list-style: none; margin: 0; padding: 0; }
+.site-navigation > ul { display: flex; align-items: center; flex-wrap: wrap; gap: 1.1rem; }
+.main-navigation-group { position: relative; }
+.main-navigation-group > summary { cursor: pointer; }
+.main-navigation-group > div { position: absolute; right: 0; z-index: 20; min-width: 13rem; padding: .5rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); box-shadow: var(--shadow); }
+.main-navigation-group div a, .main-navigation-group div summary { display: block; padding: .45rem .6rem; }
+.main-navigation-group .main-navigation-group > div { position: static; padding-left: .75rem; border: 0; box-shadow: none; }
+@media (max-width: 760px) { .site-navigation > ul { gap: .65rem; } }
