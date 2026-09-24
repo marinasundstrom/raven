@@ -3,6 +3,12 @@
 Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
+- **2026-09-24:** Document the neoCLR target TCP client Task/Result integration,
+  private completion types and matching artifact requirements. Compiler semantics,
+  state-machine emission and Runtime Contract configuration are unchanged. Record
+  direct error-case testing and hoisted non-defaultable Result limitations exposed
+  by the locally verified socket demo, including collection during pending connect
+  and receive; no general compiler fix is claimed.
 - **2026-09-24:** Document neoCLR String.Intern target metadata and exact importer
   binding to execution-owned runtime pools. Literal emission and Runtime Contract
   configuration remain unchanged; rebuild matching target metadata and runtime.

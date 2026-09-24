@@ -428,3 +428,32 @@ SliceUtf8 byteStart/byteLength. Indexers keep index. Positional signatures are u
 but named callers using value0/value1 must migrate. The String sequence sample checks
 reordered named arguments and rejects the old generic names. This is target metadata
 maintenance, not a Raven language change.
+
+
+### 2026-09-24 — Provisional neoCLR TCP client
+
+The target reference now contains System.Networking.Sockets.Socket.Connect(string,
+int) -> Task<Result<Socket, SocketError>>, Receive(byte[], int, int) ->
+Task<Result<int, SocketError>>, and Close(). SocketError uses the existing imported
+union-carrier shape. The handle constructor and completion classes are internal.
+The neoCLR importer validates these selected signatures and emits calls to the
+Raven-authored library; private RuntimeServices bridge to nonblocking TCP completion.
+
+No Raven language, semantic model, state-machine emission or Runtime Contract
+configuration changes are made. Await still uses the target Task/Promise builder
+protocol and generated state machines. Rebuild matching core metadata, importer,
+bootstrap library and runtime. Do not merge this target metadata work into main.
+
+Validation in neoCLR's docs/experiments/socket-client runs a real loopback greeting,
+short reads/EOF, close and allocation churn: 914 objects reclaimed, zero live and
+22 collections. Compiler checks reject the handle constructor and completion class.
+The local target test is macOS evidence, not other-platform or .NET evidence.
+
+Two open integration limits were encountered: direct `error is SocketError.Closed`
+value-type testing is not admitted by the target importer; the sample uses IsClosed.
+A Result local hoisted across an additional await has non-defaultable carrier storage
+in a generated heap state-machine constructor, which the runtime rejects. The demo
+checks the already-completed Closed result without another await; the general
+hoisted-union initialization contract remains open. Do not weaken runtime constructor
+checks or claim a compiler fix. The author prioritizes provisional interfaces for
+an HTTP web-app demo; full networking and TcpClient/UdpClient layers are not gates.
