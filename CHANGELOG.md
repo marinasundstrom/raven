@@ -21,7 +21,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   nesting and public runtime-library migration remain open. Document the bounded
   empty-case bootstrap path, matched reference contracts, checked constructor lowering
   and helper-name encoding, with execution and five reference rejection checks. No Raven
-  compiler fix or Runtime Contract change is claimed.
+  compiler fix or Runtime Contract change is claimed. Record bootstrap case-metadata
+  preservation, separate reference-consumer compilation and generic companion metadata
+  checks. Raven conventions stay at the development bridge boundary; no neoCLR runtime
+  dependency or platform case-map standard is introduced.
 
 - **2026-09-24:** Generate member parameter and property/return/field/event value
   sections from symbols, including undocumented members, with links to local types

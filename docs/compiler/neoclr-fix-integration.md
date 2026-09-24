@@ -710,3 +710,24 @@ pass, including private `var` storage and five rejected contracts. Production co
 reference catalogs, consumer binding and public error-type migration remain open.
 The author's clarification is recorded in neoCLR conventions: private storage var/val
 emit fields; explicit field syntax is intentional or compatibility-oriented.
+
+
+### Raven-owned union metadata boundary — 2026-09-24
+
+The neoCLR bridge bootstrap fixture now preserves `RavenUnionCaseAttribute` records
+(case metadata name, logical name and ordinal) in its projected CLI reference and
+validates their match before importing bodies. A separate Raven consumer compiles
+construction and matching against that reference. Eight altered contracts are rejected;
+the runtime harness still reclaims all three allocations.
+
+A metadata-only generic producer/consumer probe also verifies
+`RavenUnionCompanionAttribute` links the case container to the generic carrier,
+rejecting missing and wrong targets. This is not generic-union runtime validation.
+These are Raven-owned compiler conventions consumed by a provisional bridge adapter,
+not neoCLR runtime dependencies or a newly standardized platform case-map contract.
+Native output is checked to contain no Raven compiler-services dependency. The
+reference fixture preserves selected metadata rather than claiming full custom-attribute
+fidelity. Compiler emission, semantics and Runtime Contract configuration are unchanged;
+rebuild the matching neoCLR bridge for the new checks. Production core ownership and
+mixed legacy carriers remain next work toward HttpError/BaseUri, not an invitation to
+expand the generic companion work before the HTTP integration.
