@@ -7004,8 +7004,7 @@ partial class BlockBinder : Binder
 
         if (syntax is NullableTypeSyntax nullableTypeSyntax)
         {
-            var type = BindTypeSyntaxAsExpression(nullableTypeSyntax.ElementType);
-            return new BoundTypeExpression(type.Type.GetNullableType());
+            return new BoundTypeExpression(BindTypeSyntaxAndReport(nullableTypeSyntax));
         }
 
         if (syntax is PointerTypeSyntax pointerTypeSyntax)

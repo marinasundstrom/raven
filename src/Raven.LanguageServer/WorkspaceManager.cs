@@ -2285,6 +2285,7 @@ internal sealed class WorkspaceManager
         AppendString(hash, options.AllowNamespaceMemberImports.ToString());
         AppendString(hash, options.EnableSuggestions.ToString());
         AppendString(hash, options.EnableIsNotNullNarrowing.ToString());
+        AppendString(hash, options.AllowNullableValueTypes.ToString());
         AppendString(hash, options.SynthesizeStructuralToString.ToString());
 
         foreach (var (name, value) in options.SpecificDiagnosticOptions.OrderBy(static pair => pair.Key, StringComparer.Ordinal))

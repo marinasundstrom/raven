@@ -9,6 +9,52 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class NullableTypeTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("class C { val Number: int? = null }")]
+    [InlineData("struct S { val Number: int = 0 }\nclass C { val Value: S? = null }")]
+    [InlineData("enum Color { Red }\nclass C { val Value: Color? = null }")]
+    [InlineData("class Box<T : struct> { val Value: T? = null }")]
+    [InlineData("class C { func Read(value: int?) -> unit { } }")]
+    [InlineData("class C { func Read() -> int? => null }")]
+    [InlineData("class C { func Read() { let value: int? = null } }")]
+    [InlineData("class C { func Read(value: int?[]) -> unit { } }")]
+    [InlineData("class C { func Read(value: System.Nullable<int>) -> unit { } }")]
+    [InlineData("class C { func Read() { let value = default(int?) } }")]
+    public void NullableValueTypes_CanBeDisabled(string source)
+    {
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithAllowNullableValueTypes(false);
+        var (compilation, _) = CreateCompilation(source, options);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics()
+            .Where(d => d.Descriptor == CompilerDiagnostics.NullableValueTypesNotAllowed));
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.Equal("Value types can't be declared as nullable", diagnostic.GetMessage());
+    }
+
+    [Theory]
+    [InlineData("class C { val Name: string? = null }")]
+    [InlineData("class C { val Value: object? = null }")]
+    [InlineData("class Box<T : class> { val Value: T? = null }")]
+    [InlineData("class C { func Read(value: int[]?) -> unit { } }")]
+    public void NullableValuePolicy_PreservesNullableReferences(string source)
+    {
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithAllowNullableValueTypes(false);
+        var (compilation, _) = CreateCompilation(source, options);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Fact]
+    public void NullableValuePolicy_DefaultsToAllowedAndSurvivesOptionCopies()
+    {
+        Assert.True(new CompilationOptions().AllowNullableValueTypes);
+        var options = new CompilationOptions().WithAllowNullableValueTypes(false)
+            .WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
+            .WithAllowUnsafe(true).WithEnableIsNotNullNarrowing(true);
+        Assert.False(options.AllowNullableValueTypes);
+        Assert.True(options.WithAllowNullableValueTypes(true).AllowNullableValueTypes);
+    }
+
     [Fact]
     public void NullableReferenceAndValueTypes_AreBound()
     {

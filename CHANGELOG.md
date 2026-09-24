@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-24:** Add AllowNullableValueTypes (default true), the
+  RavenAllowNullableValueTypes project property and --no-nullable-value-types /
+  --nullable-value-types compiler switches. Opting out rejects nullable value type
+  declarations with RAV0407 while retaining nullable reference annotations.
+  Preserve the option through project loading/saving and editor invalidation.
+
 - **2026-09-24:** Preserve the inherited Object.Equals parameter's nullable reference
   annotation when synthesizing record equality. Body selection recognizes the
   annotated Object type; emitted metadata and imported symbols retain its contract.

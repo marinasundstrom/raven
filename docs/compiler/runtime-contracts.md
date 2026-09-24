@@ -313,3 +313,25 @@ This is a general compiler correction requiring no Runtime Contract configuratio
 Regression coverage checks emitted metadata, imported symbols and execution on
 .NET 11. It does not widen the separately generated typed Equals parameter, add
 nullable value types to other targets or imply .NET Framework/NanoFramework testing.
+
+### Nullable value declaration policy (2026-09-24)
+
+AllowNullableValueTypes defaults to true for .NET compatibility. Targets can opt out
+through CompilationOptions.WithAllowNullableValueTypes(false), the project property
+RavenAllowNullableValueTypes=false, or --no-nullable-value-types. An explicit
+--nullable-value-types re-enables the policy for a compiler invocation. Project
+loading/saving preserves the option, and the language-server project fingerprint
+includes it so edits invalidate stale semantic state.
+
+Binding reports RAV0407, "Value types can't be declared as nullable", for source
+nullable value declarations, including primitive, enum, declared struct and
+struct-constrained generic types, nested annotations and explicit Nullable<T>
+declarations. Nullable references remain supported. Error bindings prevent emission;
+valid metadata and default .NET behavior are unchanged. This is a source declaration
+policy, not a ban on imported/inferred nullable values or a metadata rewrite.
+Unconstrained generic parameters are not classified as known value types.
+
+This general option does not select any runtime-specific defaults. A target that
+lacks Nullable<T> can enable the restriction for an earlier actionable diagnostic;
+it must still validate its runtime/importer surface independently. No .NET Framework
+or NanoFramework execution is claimed.
