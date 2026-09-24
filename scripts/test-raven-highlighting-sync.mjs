@@ -7,7 +7,10 @@ const repositoryRoot = path.resolve(path.dirname(new URL(import.meta.url).pathna
 const textMatePath = path.join(repositoryRoot, 'src/Raven.VSCode/syntaxes/raven.tmLanguage.json')
 const docsLexerPath = path.join(repositoryRoot, 'docs/template/public/main.js')
 const textMate = JSON.parse(await fs.readFile(textMatePath, 'utf8'))
-const docsLexerSource = await fs.readFile(docsLexerPath, 'utf8')
+const sharedLexerSource = await fs.readFile(path.join(repositoryRoot, 'docs/template/public/raven-language.js'), 'utf8')
+const sharedLexerUrl = `data:text/javascript;base64,${Buffer.from(sharedLexerSource).toString('base64')}`
+const docsLexerSource = (await fs.readFile(docsLexerPath, 'utf8'))
+  .replace("'./raven-language.js'", JSON.stringify(sharedLexerUrl))
 
 globalThis.document = {
   readyState: 'loading',
@@ -156,3 +159,15 @@ for (const declaration of ['case Healthy', 'case TooCold(actual: decimal)']) {
 }
 
 console.log(`Raven highlighting parity passed (${textMateKeywords.size} shared keywords).`)
+
+// Exercise the exact engine and shared grammar shipped by RavenDoc, offline.
+const coreSource = await fs.readFile(path.join(repositoryRoot, 'src/RavenDoc/Assets/highlight-core.js'), 'utf8')
+const { default: hljs } = await import(`data:text/javascript;base64,${Buffer.from(coreSource).toString('base64')}`)
+hljs.registerLanguage('raven', ravenFactory)
+const rendered = hljs.highlight('let message: string = "hello" // comment\nfunc Add(x: int) -> int => x + 42', { language: 'raven' }).value
+for (const scope of ['keyword', 'type', 'string', 'comment', 'number', 'title function_']) {
+  if (!rendered.includes(`hljs-${scope}`)) throw new Error(`Missing rendered syntax scope ${scope}`)
+}
+const escaped = hljs.highlight('let text = "<script>alert(1)</script>"', { language: 'raven' }).value
+if (escaped.includes('<script>')) throw new Error('Code markup was not escaped')
+console.log('RavenDoc shared lexer and vendored highlight.js rendering passed.')

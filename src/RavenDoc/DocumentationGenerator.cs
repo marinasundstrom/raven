@@ -950,6 +950,8 @@ public static class DocumentationGenerator
             INamespaceSymbol ns => GetNamespaceIndexPath(ns),
             IUnionCaseTypeSymbol @case => GetTypeIndexPath(@case.Union),
             ITypeSymbol ts => GetTypeIndexPath(ts),
+            IMethodSymbol { ContainingType: IUnionSymbol union } method
+                when IsUnionCaseProjectionArtifact(union, method) => GetTypeIndexPath(union),
             IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: IUnionCaseTypeSymbol @case }
                 => GetTypeIndexPath(@case.Union),
             _ => GetMemberGroupPath(symbol),

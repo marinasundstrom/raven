@@ -148,7 +148,12 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             genericMemberPage.ShouldContain("The reference type to preserve.");
             genericMemberPage.ShouldNotContain("@typeparam");
             File.ReadAllText(Path.Combine(outputPath, "site.js"))
-                .ShouldContain("ravenKeywords");
+                .ShouldContain("hljs.highlightElement(code)");
+            File.ReadAllText(Path.Combine(outputPath, "raven-language.js")).ShouldContain("title.function.invoke");
+            File.ReadAllText(Path.Combine(outputPath, "raven-highlight.css")).ShouldContain(".hljs-type");
+            File.ReadAllText(Path.Combine(outputPath, "highlight-core.js")).ShouldContain("11.11.1");
+            File.ReadAllText(Path.Combine(outputPath, "highlight-LICENSE")).ShouldContain("BSD");
+            typePage.ShouldContain("<script type=\"module\"");
             var sharedTheme = File.ReadAllText(Path.Combine(outputPath, "raven-theme.css"));
             sharedTheme.ShouldContain("--raven-accent");
             sharedTheme.ShouldContain("--raven-syntax-keyword: #569cd6");
