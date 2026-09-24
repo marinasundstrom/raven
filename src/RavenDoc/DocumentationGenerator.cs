@@ -298,7 +298,8 @@ public static class DocumentationGenerator
             ReleaseUrl: CurrentSiteOptions.ReleaseUrl,
             ReleaseLabel: CurrentSiteOptions.ReleaseLabel,
             ShowToc: CurrentSiteOptions.ShowToc,
-            FaviconHref: DocumentationNavigation.Resolve(CurrentSiteOptions.Favicon, SiteRootDirectory, currentDir)));
+            FaviconHref: DocumentationNavigation.Resolve(CurrentSiteOptions.Favicon, SiteRootDirectory, currentDir),
+            GoogleAnalyticsId: CurrentSiteOptions.GoogleAnalyticsId));
     }
 
     private static string HtmlEscape(string s)
@@ -2259,7 +2260,8 @@ public sealed record DocumentationSiteOptions(
     string? ReleaseLabel = null,
     bool ShowToc = true,
     string? Favicon = null,
-    string NamespaceNavigation = "hierarchical")
+    string NamespaceNavigation = "hierarchical",
+    string? GoogleAnalyticsId = null)
 {
     public static DocumentationSiteOptions Empty { get; } = new([]);
 }

@@ -83,6 +83,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
         {
             DocumentationGenerator.ProcessCompilation(compilation, output);
             var page = File.ReadAllText(Path.Combine(output, "Browser/Sample/Widget/index.html"));
+            page.ShouldNotContain("googletagmanager.com");
             page.ShouldContain("member-name\">Name: string</span>");
             page.ShouldContain("member-name\">Run(value: int) -&gt; ()</span>");
             page.ShouldContain("member-name\">Run(value: string) -&gt; ()</span>");
