@@ -69,11 +69,11 @@ internal static class DocumentationNavigation
             {
                 var label = RavenDocSiteTemplate.Escape(item.Label);
                 builder.Append("<li>");
-                if (item.Children is { Count: > 0 } children)
+                if (item.Kind == "Namespace" || item.Children is { Count: > 0 })
                 {
                     builder.Append($"<details class=\"api-namespace\"{(ContainsCurrent(item) ? " open" : "")}><summary title=\"{label}\">{Icon(item)}<span>{label}</span></summary><ul>");
                     if (item.Url is not null) AppendLink(item, item.Kind == "Namespace" ? "Namespace overview" : "Overview", true);
-                    Append(children);
+                    Append(item.Children ?? []);
                     builder.Append("</ul></details>");
                 }
                 else AppendLink(item, item.Label, false);

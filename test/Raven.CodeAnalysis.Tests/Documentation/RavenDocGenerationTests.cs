@@ -13,6 +13,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             namespace Example { public class Root { } }
             namespace Example.Web { public class Request { public class Header { } } }
             namespace Example.Networking { public class Socket { } }
+            namespace Example.Runtime.CompilerServices { public class Marker { } }
             """, assemblyName: "Navigation.Sample");
         var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
         try
@@ -24,13 +25,35 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 "<nav class=\"api-navigation-panel\"[^>]*>(<ul>.*?</ul>)<p", System.Text.RegularExpressions.RegexOptions.Singleline).Groups[1].Value;
             var tree = System.Xml.Linq.XElement.Parse(treeHtml.Replace(" open>", " open=\"open\">"));
             var labels = tree.Elements("li").Select(li => li.Element("details")?.Element("summary")?.Value).ToArray();
-            labels.ShouldBe(style == "flat" ? new[] { "Example", "Example.Networking", "Example.Web" } : new[] { "Example" });
+            labels.ShouldBe(style == "flat" ? new[] { "Example", "Example.Networking", "Example.Runtime", "Example.Runtime.CompilerServices", "Example.Web" } : new[] { "Example" });
+            var runtime = tree.Descendants("details").Single(node => node.Element("summary")?.Value == "Example.Runtime");
+            runtime.Descendants("a").ShouldContain(link => link.Value == "Namespace overview");
             var web = tree.Descendants("details").Single(node => node.Element("summary")?.Value == "Example.Web");
             web.Attribute("open").ShouldNotBeNull();
             web.Descendants("a").ShouldContain(link => (string?)link.Attribute("href") == "../index.html");
             var request = web.Descendants("details").Single(node => node.Element("summary")?.Attribute("title")?.Value == "Request");
             request.Descendants("a").ShouldContain(link => (string?)link.Attribute("href") == "Header/index.html");
             page.ShouldContain("aria-current=\"location\"");
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
+    [Fact]
+    public void BuiltInTypePagesAndNavigationUseDeclaredNames()
+    {
+        var (compilation, _) = CreateCompilation("public class Host { }", assemblyName: "NameHost");
+        var assembly = compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly!;
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessAssembly(compilation, assembly, output,
+                new DocumentationSiteOptions([], Types: ["System.Object", "System.String", "System.Char"]));
+            foreach (var name in new[] { "Object", "String", "Char" })
+            {
+                var page = File.ReadAllText(Path.Combine(output, "System", name, "index.html"));
+                page.ShouldContain($"<h1>{name}</h1>");
+                page.ShouldContain($"title=\"{name}\"");
+            }
         }
         finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
     }
