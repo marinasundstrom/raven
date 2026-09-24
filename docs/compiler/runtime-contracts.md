@@ -335,3 +335,25 @@ This general option does not select any runtime-specific defaults. A target that
 lacks Nullable<T> can enable the restriction for an earlier actionable diagnostic;
 it must still validate its runtime/importer surface independently. No .NET Framework
 or NanoFramework execution is claimed.
+
+### Typed record-class equality annotations (2026-09-24)
+
+Generated typed record-class Equals now takes the nullable record reference. Nullable
+record arguments and literal null select typed equality rather than falling back to
+Object.Equals. The existing body returns false for null and compares matching record
+components. Generated record-struct parameters stay non-nullable values. User-written
+Equals methods retain their annotations and suppress duplicate synthesis.
+
+The emitter also ignores top-level nullable reference annotations when matching
+interface parameter/return slots, consistent with binding and CLI reference type
+identity. It preserves nullable value wrappers. The mismatch previously caused a
+TypeLoadException after changing the synthesized Equals signature: IEquatable's
+implementation was no longer emitted with the required dispatch flags.
+
+No Runtime Contract configuration changes. Tests cover overload selection, reflection
+and reimported metadata, typed/interface invocation, explicit declarations and generic
+record-class construction on .NET 11. Nested generic signature matching is not redesigned
+here. The .NET comparison follows Microsoft's
+[record reference](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/record)
+and is separately checked on .NET 10 by the integration baseline. No .NET Framework
+or NanoFramework execution is claimed.

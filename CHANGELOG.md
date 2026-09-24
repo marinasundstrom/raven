@@ -13,7 +13,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 - **2026-09-24:** Preserve the inherited Object.Equals parameter's nullable reference
   annotation when synthesizing record equality. Body selection recognizes the
   annotated Object type; emitted metadata and imported symbols retain its contract.
-  No Runtime Contract option or nullable-value behavior changes.
+  Generated typed record-class Equals now accepts a nullable record reference;
+  record-struct parameters remain values and explicit Equals declarations are kept.
+  Match top-level nullable reference annotations when emitting interface methods,
+  preserving dispatch without erasing nullable value wrappers. No new Runtime
+  Contract option or nullable-value behavior changes.
 
 - **2026-09-23:** Match an explicitly configured unit value with its selected
   imported type during symbol equality and hashing, including generic interface

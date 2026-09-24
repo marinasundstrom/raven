@@ -17,6 +17,77 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class NullableAttributeEmissionTests
 {
     [Fact]
+    public void GenericRecordTypedEquals_AcceptsNullAfterConstruction()
+    {
+        var compilation = Compilation.Create("GenericRecordEqualityNullability",
+                [SyntaxTree.ParseText("record class Box<T>(Value: T)")],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(new MemoryStream(stream.ToArray()), TestMetadataReferences.Default);
+        var type = loaded.Assembly.GetType("Box`1", true)!.MakeGenericType(typeof(int));
+        var equals = type.GetMethod("Equals", [type])!;
+        Assert.Equal(NullabilityState.Nullable,
+            new NullabilityInfoContext().Create(equals.GetParameters()[0]).ReadState);
+        var first = Activator.CreateInstance(type, [42]);
+        Assert.Equal(false, equals.Invoke(first, [null]));
+        Assert.Equal(true, equals.Invoke(first, [Activator.CreateInstance(type, [42])]));
+    }
+
+    [Fact]
+    public void RecordTypedEquals_EmitsNullableReferenceAndAcceptsNull()
+    {
+        var source = """
+            record class Key(Number: int)
+            class Comparisons {
+                static func Equal(key: Key, other: Key?) -> bool => key.Equals(other)
+                static func Absent(key: Key) -> bool => key.Equals(null)
+            }
+            """;
+        var references = TestMetadataReferences.Default;
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("TypedRecordEqualityNullability", [tree],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(references);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        foreach (var invocation in tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            var selected = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+            Assert.True(selected.Parameters[0].Type.IsNullable);
+            Assert.Equal("Key", selected.Parameters[0].Type.GetNonNullableType().Name);
+        }
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(new MemoryStream(stream.ToArray()), references);
+        var keyType = loaded.Assembly.GetType("Key", throwOnError: true)!;
+        var equals = keyType.GetMethod("Equals", [keyType])!;
+        Assert.Equal(NullabilityState.Nullable,
+            new NullabilityInfoContext().Create(Assert.Single(equals.GetParameters())).ReadState);
+        var first = Activator.CreateInstance(keyType, [42]);
+        var same = Activator.CreateInstance(keyType, [42]);
+        var different = Activator.CreateInstance(keyType, [7]);
+        var comparisons = loaded.Assembly.GetType("Comparisons")!;
+        var compare = comparisons.GetMethod("Equal")!;
+        Assert.Equal(true, compare.Invoke(null, [first, same]));
+        Assert.Equal(false, compare.Invoke(null, [first, different]));
+        Assert.Equal(false, compare.Invoke(null, [first, null]));
+        Assert.Equal(false, comparisons.GetMethod("Absent")!.Invoke(null, [first]));
+        var contract = typeof(IEquatable<>).MakeGenericType(keyType);
+        Assert.Equal(false, contract.GetMethod("Equals")!.Invoke(first, [null]));
+
+        var consumer = Compilation.Create("consumer", [SyntaxTree.ParseText(string.Empty)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([.. references, MetadataReference.CreateFromImage(stream.ToArray())]);
+        var imported = consumer.GetTypeByMetadataName("Key")!;
+        var importedEquals = imported.GetMembers("Equals").OfType<IMethodSymbol>()
+            .Single(m => m.Parameters.Length == 1 && m.Parameters[0].Type.GetNonNullableType().Name == "Key");
+        Assert.True(importedEquals.Parameters[0].Type.IsNullable);
+    }
+
+    [Fact]
     public void RecordObjectEquals_PreservesNullableContractAndBehavior()
     {
         var source = """

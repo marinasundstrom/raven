@@ -6950,7 +6950,10 @@ public partial class SemanticModel
 
         var objectToString = GetObjectToStringMethod();
 
-        if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, recordSymbol))
+        var typedEqualsParameterType = recordSymbol.IsValueType
+            ? (ITypeSymbol)recordSymbol : recordSymbol.GetNullableType();
+        if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, recordSymbol) &&
+            !HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, typedEqualsParameterType))
         {
             var equalsTyped = new SourceMethodSymbol(
                 "Equals",
@@ -6967,7 +6970,7 @@ public partial class SemanticModel
 
             var otherParameter = new SourceParameterSymbol(
                 "other",
-                recordSymbol,
+                typedEqualsParameterType,
                 equalsTyped,
                 recordSymbol,
                 namespaceSymbol,

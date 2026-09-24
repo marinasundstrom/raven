@@ -196,7 +196,7 @@ internal static partial class SynthesizedMethodBodyFactory
                 return true;
             }
 
-            if (SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, method.ContainingType))
+            if (SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type.GetNonNullableType(), method.ContainingType))
             {
                 body = CreateRecordTypedEqualsBody(compilation, method, equalsRecordType);
                 return true;

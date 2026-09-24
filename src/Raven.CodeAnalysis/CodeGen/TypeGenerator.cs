@@ -2840,15 +2840,21 @@ internal class TypeGenerator
             if (candidateParameter.RefKind != interfaceParameter.RefKind)
                 return false;
 
-            if (!SymbolEqualityComparer.Default.Equals(candidateParameter.Type, interfaceParameter.Type))
+            if (!SymbolEqualityComparer.Default.Equals(StripNullableReference(candidateParameter.Type), StripNullableReference(interfaceParameter.Type)))
                 return false;
         }
 
         return true;
     }
 
+    private static ITypeSymbol StripNullableReference(ITypeSymbol type)
+        => type is NullableTypeSymbol nullable && !nullable.UnderlyingType.IsValueType
+            ? StripNullableReference(nullable.UnderlyingType) : type;
+
     private static bool ReturnTypesMatch(ITypeSymbol candidateReturnType, ITypeSymbol interfaceReturnType)
     {
+        candidateReturnType = StripNullableReference(candidateReturnType);
+        interfaceReturnType = StripNullableReference(interfaceReturnType);
         if (SymbolEqualityComparer.Default.Equals(candidateReturnType, interfaceReturnType))
             return true;
 

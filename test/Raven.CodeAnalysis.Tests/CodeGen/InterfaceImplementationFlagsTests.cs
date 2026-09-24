@@ -7,6 +7,36 @@ namespace Raven.CodeAnalysis.Tests;
 public class InterfaceImplementationFlagsTests
 {
     [Fact]
+    public void NullableReferenceAnnotations_PreserveInterfaceDispatch()
+    {
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("NullableInterfaceDispatch", [SyntaxTree.ParseText("""
+            interface Boundary { func Echo(value: string) -> string? }
+            class Echoer : Boundary { func Echo(value: string?) -> string => "ok" }
+            """)], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)).AddReferences(references);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(new MemoryStream(output.ToArray()), references);
+        var boundary = loaded.Assembly.GetType("Boundary", true)!;
+        var type = loaded.Assembly.GetType("Echoer", true)!;
+        var instance = Activator.CreateInstance(type);
+        Assert.Equal("ok", boundary.GetMethod("Echo")!.Invoke(instance, ["input"]));
+        Assert.True(type.GetMethod("Echo")!.IsVirtual);
+    }
+
+    [Fact]
+    public void NullableValues_DoNotMatchNonNullableInterfaceParameters()
+    {
+        var compilation = Compilation.Create("NullableValueInterface", [SyntaxTree.ParseText("""
+            interface Boundary { func Accept(value: int) -> bool }
+            class Consumer : Boundary { func Accept(value: int?) -> bool => true }
+            """)], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)).AddReferences(TestMetadataReferences.Default);
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void AbstractAndVirtualInterfaceImplementationsPreserveDispatchFlags()
     {
         var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
