@@ -687,3 +687,26 @@ reference catalogs/bootstrap exports and mixed erased carriers still need integr
 Validation of the extended fixture passes in single-assembly and separate-library
 forms: each reports 103 allocations, two collections and zero live objects. All six
 malformed-contract checks and the legacy SocketError default rejection pass.
+
+
+### Empty-case union bootstrap fragment — 2026-09-24
+
+neoCLR now has a bounded `--library-implementation` path for a standard-syntax
+empty-case union and its nested cases/IUnion protocol. A separate core reference
+contract must match fields, cases, signatures, output modes, properties and interface
+mappings. The test reference contains throwing bodies; imported source bodies execute.
+This is a fixture reference generator, not yet the production API metadata pipeline.
+
+Native constructor capabilities disallow replacing the receiver wholesale, so this
+bridge translates receiver initobj to checked field-default writes. Empty cases need
+no writes. Conditional extraction stays `out(true)` and generated static helper names
+use the normal metadata encoding at declarations and call sites. No compiler source,
+Raven Runtime Contract option, native opcode or general default-value policy changes.
+
+The bootstrap verifier exercises cases, defaults, computed members, boxed-copy display
+and Value extraction; all three allocations are reclaimed. Five mismatched references
+are rejected without an implementation artifact. Existing instance-library tests also
+pass, including private `var` storage and five rejected contracts. Production core
+reference catalogs, consumer binding and public error-type migration remain open.
+The author's clarification is recorded in neoCLR conventions: private storage var/val
+emit fields; explicit field syntax is intentional or compatibility-oriented.

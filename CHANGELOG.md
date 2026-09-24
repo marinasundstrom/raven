@@ -18,7 +18,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   conditional case outputs. The reduced nested-union application executes with GC
   checks, including empty-case-only explicit layouts and a separately compiled
   dependency. Nonempty explicit layouts remain rejected; legacy erased-carrier
-  nesting and runtime-library migration remain open. No Raven
+  nesting and public runtime-library migration remain open. Document the bounded
+  empty-case bootstrap path, matched reference contracts, checked constructor lowering
+  and helper-name encoding, with execution and five reference rejection checks. No Raven
   compiler fix or Runtime Contract change is claimed.
 
 - **2026-09-24:** Generate member parameter and property/return/field/event value
