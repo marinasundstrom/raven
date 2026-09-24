@@ -6,27 +6,32 @@ early so the main path stays easy to read.
 
 ## Try expressions
 
-`try` captures exceptions as values. `(try expression)?` combines capture with carrier
+`try` captures exceptions as values. `try expression?` combines capture with carrier
 propagation.
 
 Together, these forms provide an interop boundary from exception-throwing APIs
 to Raven's value-based error flow. `try` is appropriate when code needs to
-inspect or transform the captured failure locally. `(try expression)?` is appropriate when
+inspect or transform the captured failure locally. `try expression?` is appropriate when
 the enclosing carrier-returning operation cannot continue and should propagate
 that failure immediately.
 
 | Form | Result type | Success case | Failure case |
 | --- | --- | --- | --- |
 | `try expr` | `Result<T, Exception>` | `Ok(value)` or `Ok(())` | `Error(exception)` |
-| `(try expr)?` | `T` inside an enclosing carrier-returning context | yields the success payload | propagates the captured error through the enclosing `Result`/`Option` |
+| `try expr?` | `T` inside an enclosing carrier-returning context | yields the success payload | propagates the captured error through the enclosing `Result`/`Option` |
 
 `try expr` evaluates `expr` exactly once and converts the outcome to
 `Result<T, Exception>`, where `T` is the operand type. If the operand has type
 `unit`, the success case is `Ok(())`.
 
-`(try expr)?` composes exception capture with ordinary propagation. It is valid
+`try expr?` composes exception capture with ordinary propagation. It is valid
 only when the enclosing
 function or lambda returns a compatible `Result<_, _>` or `Option<_>`.
+
+Propagation wraps the complete `try` expression: `try Foo()?` means
+`(try Foo())?`, not `try (Foo()?)`. Parentheses can still explicitly place
+propagation inside the operand. `try Foo() match { ... }` matches the captured
+result; `try Foo()? match { ... }` matches its success payload after propagation.
 
 ### Examples
 
@@ -42,7 +47,7 @@ func describeNumber(text: string) -> string {
 }
 
 func parseRequiredInt(text: string) -> Result<int, Exception> {
-    let value = (try Convert.ToInt32(text))?
+    let value = try Convert.ToInt32(text)?
     return Ok(value)
 }
 
@@ -69,14 +74,31 @@ ordinary throwing CLR `int.Parse` member.
 * `try expr` does not accept `catch` or `finally` clauses; use statement-form
   `try` for structured exception handling.
 * Nested `try` expressions are invalid and produce `RAV1906`.
-* `(try expr)?` may be followed by `match`, like other propagated expressions.
+* `try expr?` may be followed by `match`, like other propagated expressions.
 * The former `try? expr` syntax is rejected with `RAV1925`.
 * Each postfix `?` propagates one carrier layer. If `expr` already returns a
-  `Result<T, E>`, `(try expr)?` preserves that inner result. To propagate both
+  `Result<T, E>`, `try expr?` preserves that inner result. To propagate both
   layers, write `((try expr)?)?` or bind the intermediate result and propagate it.
 * `await` may appear inside `try expr` when the enclosing context is async.
 * In pattern position, `Ok` is shorthand for `Ok(())` when the success payload
   is `unit`; `.Ok` remains available as target-typed shorthand.
+
+## Await and propagation
+
+`await Foo()?` means `(await Foo())?`: first await the task, then unwrap or
+propagate the carrier it returns. It does not propagate from the task itself.
+Write `await (Foo()?)` explicitly to propagate a carrier containing a task
+before awaiting that task.
+
+`await` and `try` remain separate expressions. `await` does not capture task
+exceptions as a `Result`; `try await Foo()?` means `(try await Foo())?`, capturing
+exceptions from the awaited operation and then propagating the captured result.
+If the awaited value is itself a `Result`, it remains a separate carrier layer.
+
+This precedence rule applies to standalone postfix `?`. Conditional-access
+trailers (`?.`, `?(`, `?[`) retain their existing operand grouping. Calls, member
+access, and indexing also remain part of the operand. Propagation inside an
+argument or explicit parentheses stays inside that nested expression.
 
 ## Result and Option carrier operators
 

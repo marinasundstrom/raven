@@ -208,6 +208,15 @@ Returning or storing the task handles its result without requiring an immediate
 independent of the returned-value handling mode and the disposable-value
 analyzer. Configure `dotnet_diagnostic.RAV9038.severity` to change its severity.
 
+## Awaited carrier propagation
+
+A standalone postfix `?` applies to the completed await expression:
+`await Foo()?` is equivalent to `(await Foo())?`. When `Foo()` returns
+`Task<Result<T, E>>`, this awaits the task and then yields `T` or propagates `E`
+through the enclosing compatible carrier return type. Task exceptions still
+follow ordinary await behavior. See [carrier propagation](async-and-error-propagation.md#await-and-propagation).
+
+
 ## Exceptions
 
 Exceptions raised during asynchronous execution are propagated through the

@@ -663,6 +663,12 @@ SuppressNullableWarningTrailer
 (* `?` is context-sensitive in postfix position:
    - If followed by `.`, `(`, or `[`, it forms conditional access: `?.`, `?(`, `?[`.
    - Otherwise it is the Result-propagation postfix operator: `<expr>?`. *)
+(* At an await or try operand boundary, a standalone PropagateTrailer is
+   deferred until the enclosing await/try expression has been formed:
+   `await Foo()?` = `(await Foo())?`; `try Foo()?` = `(try Foo())?`.
+   Nested await/try boundaries defer it to the outer expression, so
+   `try await Foo()?` = `(try await Foo())?`. Parentheses and arguments
+   start independent expressions. ConditionalAccessTrailer is not deferred. *)
 PropagateTrailer          ::= '?' ;
 ConditionalAccessTrailer ::= '?' (MemberAccessTrailer | ElementAccessTrailer | ArgumentList) ;
 

@@ -27,6 +27,18 @@ Each operation caches the typed symbol information from the corresponding bound
 node (such as referenced locals, methods, or properties) and reuses
 `SemanticModel.GetOperation` to populate children on demand.
 
+### Await, try, and propagation
+
+Standalone postfix `?` wraps the complete `await` or `try` expression in the
+syntax and operation trees. `await Foo()?` exposes an `IPropagationOperation`
+whose operand is an `IAwaitOperation`; `try Foo()?` exposes an
+`IPropagationOperation` whose operand is an `ITryExpressionOperation`.
+The prefix nodes retain their own types: an awaited carrier for `await`, and
+`Result<T, Exception>` for `try`. The propagation node has the success payload
+type. `SemanticModel.GetTypeInfo` and `GetOperation` expose these distinctions
+without requiring diagnostics to be requested first. Explicit parentheses can
+instead keep propagation inside the operand, as in `await (Foo()?)`.
+
 ### Walking and rewriting
 
 The `tools/OperationGenerator` utility emits strongly typed visitors for the
