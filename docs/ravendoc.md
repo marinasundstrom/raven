@@ -512,6 +512,9 @@ cases retain their hierarchy. The default, `"hierarchical"`, nests child namespa
 beneath their parents. This changes only generated section navigation, not page
 URLs, namespace overview contents, authored `toc.yml` groups, or page outlines.
 Assembly/source CLI builds accept `--namespace-navigation flat` as well.
+Namespaces without direct types still expand to their overview, keeping namespace
+rows consistent. Type navigation and headings use declared names (`Object`,
+`String`, `Char`); Raven aliases remain in code signatures.
 
 A root `toc.yml` is discovered when neither `toc` nor `navigation` is configured.
 For authored pages, the nearest `toc.yml` between the source directory and the

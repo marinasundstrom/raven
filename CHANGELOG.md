@@ -35,6 +35,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   ordinary .NET interfaces with an opt-in System.ValueTuple unit representation.
 
 
+- **2026-09-24:** Render namespaces consistently as expandable API Browser groups,
+  including those with only an overview in flat mode. Use declared built-in type
+  names such as Object, String and Char in navigation and page headings; retain
+  Raven aliases in declaration and member signatures.
+
 - **2026-09-24:** Add RavenDoc `namespaceNavigation: flat` and CLI
   `--namespace-navigation flat` for alphabetically ordered peer namespaces in the
   API Browser. Keep hierarchical navigation as the default, preserve type/case

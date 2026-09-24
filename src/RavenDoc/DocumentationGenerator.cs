@@ -112,6 +112,7 @@ public static class DocumentationGenerator
 
         ContainingTypeDisplayFormat =
             SymbolDisplayFormat.FullyQualifiedFormat
+                .WithMiscellaneousOptions(SymbolDisplayFormat.FullyQualifiedFormat.MiscellaneousOptions & ~SymbolDisplayMiscellaneousOptions.UseSpecialTypes)
                 .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
                 .WithKindOptions(SymbolDisplayKindOptions.None);
 
@@ -1575,6 +1576,7 @@ public static class DocumentationGenerator
 
         string name = typeSymbol.ToDisplayString(
             MemberDisplayFormat
+                .WithMiscellaneousOptions(MemberDisplayFormat.MiscellaneousOptions & ~SymbolDisplayMiscellaneousOptions.UseSpecialTypes)
                 .WithKindOptions(SymbolDisplayKindOptions.None)
                 .WithMemberOptions(SymbolDisplayMemberOptions.None));
         var signature = FormatSignature(typeSymbol);
