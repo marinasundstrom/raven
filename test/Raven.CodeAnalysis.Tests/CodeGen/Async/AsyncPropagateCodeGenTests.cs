@@ -43,8 +43,10 @@ record class Item(val Name: string)
         Assert.Equal(new[] { "1" }, output);
     }
 
-    [Fact]
-    public void AwaitedPropagation_PreservesPendingAndCompletedOutcomes()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AwaitedPropagation_PreservesPendingAndCompletedOutcomes(bool shorthand)
     {
         var code = """
 import System.*
@@ -76,6 +78,8 @@ class Program {
     }
 }
 """;
+        if (shorthand)
+            code = code.Replace("(await gate)?", "await gate?");
         Assert.Equal(new[] { "False", "42", "unavailable" }, CompileAndRun(code));
     }
 

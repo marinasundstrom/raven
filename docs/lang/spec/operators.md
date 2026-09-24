@@ -36,6 +36,12 @@ From lowest to highest precedence:
 15. Postfix: call `()`, member `.`, element access `[]`, nullable suppression
     `!`, and propagation `?`
 
+Standalone postfix propagation has a special boundary at `await` and `try`:
+`await Foo()?` is `(await Foo())?`, and `try Foo()?` is `(try Foo())?`.
+The propagation wraps the complete prefix expression. Explicit parentheses
+can place it inside the operand, as in `await (Foo()?)` or `try (Foo()?)`.
+Conditional access keeps its usual postfix grouping.
+
 Assignments associate from right to left. Other binary operators associate from
 left to right unless their feature article states otherwise. Use parentheses
 when they make the intended grouping clearer to a reader.

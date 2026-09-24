@@ -40,10 +40,12 @@ class Program {
         Assert.Equal(new[] { "Result.Ok(42)" }, output);
     }
 
-    [Fact]
-    public void TryAwaitExpression_WithUse_EmitsAndRuns()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TryAwaitExpression_WithUse_EmitsAndRuns(bool shorthand)
     {
-        const string code = """
+        var code = """
 import System.*
 import System.IO.*
 import System.Threading.Tasks.*
@@ -90,6 +92,9 @@ class Program {
 }
 """;
 
+        if (shorthand)
+            code = code.Replace("(try await Program.ThrowingAsync())?", "try await Program.ThrowingAsync()?")
+                .Replace("(try await Task.FromResult(7))?", "try await Task.FromResult(7)?");
         var output = CompileAndRun(code);
         Assert.Equal(new[] { "ok:7", "err:boom" }, output);
     }

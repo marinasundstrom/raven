@@ -20,6 +20,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     private readonly bool _stopAtDotDotToken;
     private readonly bool _stopAtLeadingMatchArmOperator;
     private readonly bool _parseAbruptTransfersInBlocksAsExpressions;
+    private bool _stopBeforePropagation;
     private bool _stopAfterPrimaryExpression;
     private const int RangeOperatorPrecedence = 4;
 
@@ -31,9 +32,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         bool stopOnLeadingNewlineBinaryOperator = false,
         bool stopAtDotDotToken = false,
         bool stopAtLeadingMatchArmOperator = false,
-        bool? parseAbruptTransfersInBlocksAsExpressions = null)
+        bool? parseAbruptTransfersInBlocksAsExpressions = null,
+        bool stopBeforePropagation = false)
         : base(parent)
     {
+        _stopBeforePropagation = stopBeforePropagation;
         _allowMatchExpressionSuffixes = allowMatchExpressionSuffixes;
         _stopOnOpenBrace = stopOnOpenBrace;
         _allowLambdaExpressions = allowLambdaExpressions;
@@ -646,7 +649,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
     {
         if (_allowLambdaExpressions && TryParseLambdaExpression(out var lambda))
         {
-            if (!_allowMatchExpressionSuffixes)
+            if (!_allowMatchExpressionSuffixes || _stopBeforePropagation)
                 return lambda;
 
             return ParseMatchExpressionSuffixes(lambda);
@@ -749,7 +752,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 break;
 
             case SyntaxKind.TryKeyword:
-                expr = ParseTryExpression();
+                expr = AddTrailers(Position, ParseTryExpression());
                 break;
 
             case SyntaxKind.UnsafeKeyword:
@@ -778,8 +781,18 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             case SyntaxKind.AwaitKeyword:
                 ReadToken();
-                expr = ParseFactorExpression();
+                var stopBeforePropagation = _stopBeforePropagation;
+                _stopBeforePropagation = true;
+                try
+                {
+                    expr = ParseFactorExpression();
+                }
+                finally
+                {
+                    _stopBeforePropagation = stopBeforePropagation;
+                }
                 expr = PrefixOperatorExpression(SyntaxKind.AwaitExpression, token, expr);
+                expr = AddTrailers(Position, expr);
                 break;
 
             case SyntaxKind.OpenBraceToken:
@@ -791,7 +804,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 break;
         }
 
-        if (!_allowMatchExpressionSuffixes)
+        if (!_allowMatchExpressionSuffixes || _stopBeforePropagation)
             return expr;
 
         return ParseMatchExpressionSuffixes(expr);
@@ -824,7 +837,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 new SyntaxTrivia(new SkippedTokensTrivia(new SyntaxList([removedQuestionToken])))
             ]));
         }
-        var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false).ParseExpression();
+        var expression = new ExpressionSyntaxParser(this, allowMatchExpressionSuffixes: false,
+            stopBeforePropagation: true).ParseExpression();
         return TryExpression(tryKeyword, expression);
     }
 
@@ -1653,8 +1667,19 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             }
             else if (token.IsKind(SyntaxKind.QuestionToken)) // Conditional access OR propagate (`<expr>?`)
             {
+                // Await and try own a trailing propagation operator. Nested argument
+                // and parenthesized expressions use a fresh parser and keep their own `?`.
+                var next = PeekToken(1);
+                if (_stopBeforePropagation
+                    && !next.IsKind(SyntaxKind.DotToken)
+                    && !next.IsKind(SyntaxKind.OpenParenToken)
+                    && !next.IsKind(SyntaxKind.OpenBracketToken))
+                {
+                    return expr;
+                }
+
                 var operatorToken = ReadToken();
-                var next = PeekToken();
+                next = PeekToken();
 
                 // Conditional access only when followed by one of the conditional-access trailers.
                 // Otherwise, treat `?` as the Result-propagation postfix operator.

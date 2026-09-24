@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-24:** Parse standalone postfix propagation around complete `await`
+  and `try` expressions: `await Foo()?` means `(await Foo())?`, and `try Foo()?`
+  means `(try Foo())?`. Explicit operand parentheses retain inner propagation;
+  conditional access and one-carrier-per-`?` behavior are unchanged.
+
 - **2026-09-24:** RavenDoc can build complete documentation sites from a JSON
   configuration with custom Markdown pages, DocFX-style `toc.yml` menus, a generated
   API-reference section, project branding and copied assets. Authored links follow

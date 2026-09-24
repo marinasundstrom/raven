@@ -9,9 +9,46 @@ public class TryPropagationCompositionTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void ExplicitPropagation_UnwrapsOneCarrierLayer(bool diagnosticsFirst)
+    public void AwaitPropagation_ExposesDistinctAwaitAndPropagationTypes(bool diagnosticsFirst)
     {
         const string source = """
+import System.*
+import System.Threading.Tasks.*
+class C {
+    static func Foo(gate: Task<Result<int, string>>) -> Task<Result<int, string>> => gate
+    static async func Read(gate: Task<Result<int, string>>) -> Task<Result<int, string>> {
+        let value = await Foo(gate)?
+        return .Ok(value)
+    }
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("await-propagation", [tree],
+            [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(
+                Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll"))],
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+
+        var model = compilation.GetSemanticModel(tree);
+        var propagation = tree.GetRoot().DescendantNodes().OfType<PropagateExpressionSyntax>().Single();
+        var awaitExpression = Assert.IsType<PrefixOperatorExpressionSyntax>(propagation.Expression);
+        Assert.Equal(SyntaxKind.AwaitExpression, awaitExpression.Kind);
+        Assert.Equal("Result", model.GetTypeInfo(awaitExpression).Type!.Name);
+        Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(propagation).Type!.SpecialType);
+        Assert.IsAssignableFrom<IAwaitOperation>(model.GetOperation(awaitExpression));
+        Assert.IsAssignableFrom<IPropagationOperation>(model.GetOperation(propagation));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void ExplicitPropagation_UnwrapsOneCarrierLayer(bool diagnosticsFirst, bool shorthand)
+    {
+        var source = """
 import System.*
 
 class C {
@@ -36,6 +73,9 @@ class C {
     }
 }
 """;
+        if (shorthand)
+            source = source.Replace("(try Get())?", "try Get()?")
+                .Replace("(try 42)?", "try 42?");
         var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("try-composition", [tree],
             [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(

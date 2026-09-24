@@ -151,12 +151,15 @@ class Runner {
     }
 
     [Theory]
-    [InlineData(0, "value:42", "value:42")]
-    [InlineData(1, "handled:returned", "error:returned")]
-    [InlineData(2, "error:thrown", "error:thrown")]
-    public void ExplicitPropagation_PreservesOrPropagatesInnerFailure(int mode, string preserved, string flattened)
+    [InlineData(0, "value:42", "value:42", false)]
+    [InlineData(0, "value:42", "value:42", true)]
+    [InlineData(1, "handled:returned", "error:returned", false)]
+    [InlineData(1, "handled:returned", "error:returned", true)]
+    [InlineData(2, "error:thrown", "error:thrown", false)]
+    [InlineData(2, "error:thrown", "error:thrown", true)]
+    public void ExplicitPropagation_PreservesOrPropagatesInnerFailure(int mode, string preserved, string flattened, bool shorthand)
     {
-        const string code = """
+        var code = """
 import System.*
 class Runner {
     static func Read(mode: int) -> Result<int, Exception> {
@@ -184,6 +187,8 @@ class Runner {
     }
 }
 """;
+        if (shorthand)
+            code = code.Replace("(try Read(mode))?", "try Read(mode)?");
         var references = GetReferencesWithRavenCore();
         var compilation = Compilation.Create("explicit-try-propagation", [SyntaxTree.ParseText(code)],
             references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
