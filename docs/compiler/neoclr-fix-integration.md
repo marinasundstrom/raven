@@ -731,3 +731,24 @@ fidelity. Compiler emission, semantics and Runtime Contract configuration are un
 rebuild the matching neoCLR bridge for the new checks. Production core ownership and
 mixed legacy carriers remain next work toward HttpError/BaseUri, not an invitation to
 expand the generic companion work before the HTTP integration.
+
+
+### Shared core union protocol import — 2026-09-24
+
+The neoCLR bridge now resolves a standard union's IUnion through its implemented
+interface reference. It accepts either the source-synthesized bootstrap interface or
+the exact interface in the supplied core reference, validating its public abstract
+Object-returning getter. A core-owned interface is mapped without being emitted again
+in the union fragment; boxed application calls use ordinary interface dispatch.
+
+The bootstrap verifier recompiles its union against the projected core and exercises
+both ownership arrangements. A malformed protocol is a ninth rejected reference
+contract. This remains a bridge/fixture change: production reference packaging and
+SocketError migration are pending. There is no new Raven compiler emission policy or
+Runtime Contract setting, and no Raven metadata dependency in the VM. Rebuild the
+matching bridge; neither the public core reference snapshot nor SDK is changed here.
+
+The installed SDK rejects direct source-union-to-IUnion assignment with RAV1504.
+The focused application probe therefore boxes to Object and explicitly casts the
+reference to IUnion. The implicit conversion is an open compiler candidate; no compiler
+fix is claimed or mixed into this bridge change.
