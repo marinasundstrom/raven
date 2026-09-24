@@ -517,3 +517,26 @@ loopback port and a localhost lookup. Both exchange Hi and release all managed
 objects: server 104 allocations/three collections, client 1,428/31. Separate host
 callbacks let the sample avoid the already-recorded nested capture failure. This
 is local macOS integration evidence, not a compiler fix or a runtime release.
+
+
+### neoCLR address-sequence connection target — 2026-09-24
+
+neoCLR adds `Socket.Connect(Sequence<string>, int)` alongside the numeric-address
+factory. Its library snapshots indexed values synchronously into managed storage,
+then the private SocketConnectAddresses service retains parsed IPv4 endpoints.
+The importer/reference admit the exact overload and keep completion helpers and
+runtime operation IDs internal. All attempts share five seconds, with one second
+per pending address while alternatives remain. DNS has a separate bound.
+
+Runtime Contract configuration, compiler semantics and async state-machine emission
+are unchanged. Match the neoCLR compiler reference, bridge, generated library and
+runtime when testing; this is target integration, not a general Raven compiler fix.
+The echo POC prepends an unavailable loopback address, mutates the source collection
+after submission and exercises collection while pending. Existing nested-capture
+and hoisted non-defaultable Result limitations remain open; this slice does not
+change their workaround or establish a fix. Validation results are recorded in
+neoCLR's socket API design and experiment documentation.
+
+Local macOS integration passes: separate server/client processes exchange Hi, the
+client records 43 collections and both finish with zero live managed objects. The
+library regenerates and its snapshot validates; no compiler code changes were needed.

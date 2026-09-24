@@ -8,6 +8,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   sections from symbols, including undocumented members, with links to local types
   and generic arguments. Merge authored descriptions into that structure and label
   the owning type as Declaring type. Keep each overload contract within its section.
+- **2026-09-24:** Document neoCLR Socket.Connect address-sequence overload and private
+  fallback service, matching target artifacts and unchanged Runtime Contract,
+  compiler semantics and generated state machines. No general compiler fix claimed.
 - **2026-09-24:** Document neoCLR Socket Listen/Accept/GetLocalPort integration,
   expanded socket error cases and a verified two-process echo. Compiler semantics
   and Runtime Contract settings remain unchanged; matching target artifacts required.
