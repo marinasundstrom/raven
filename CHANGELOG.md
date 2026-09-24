@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-24:** Record neoCLR System.Web.Http target integration, handler importer access
+  correction and remaining async result/assignment/hoisted-local compiler observations. Runtime Contract and
+  compiler emission are unchanged; no general compiler fix claimed.
+
 - **2026-09-24:** Generate member parameter and property/return/field/event value
   sections from symbols, including undocumented members, with links to local types
   and generic arguments. Merge authored descriptions into that structure and label

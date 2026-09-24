@@ -540,3 +540,46 @@ neoCLR's socket API design and experiment documentation.
 Local macOS integration passes: separate server/client processes exchange Hi, the
 client records 43 collections and both finish with zero live managed objects. The
 library regenerates and its snapshot validates; no compiler code changes were needed.
+
+
+### neoCLR HTTP handler experiment — 2026-09-24
+
+The neoCLR importer now permits a nested generated async state to access its
+containing handler's private fields. Cecil-level positive/negative checks preserve
+unrelated private access and readonly-write rejection. This changes the target
+importer's admission behavior, not Raven emission or Runtime Contract configuration.
+The nested-access correction itself changes no state ABI. The HTTP integration below
+adds public core reference contracts and requires matching runtime-library artifacts.
+
+The initial application-local HTTP experiment required a separate referenced contract
+library: async Task results containing a source-defined HttpResponse were rejected
+with RAV2704 while the referenced type succeeds. The integrated implementation now
+provides HttpClient, HttpHandler, HttpSocketHandler, HttpRequest, HttpResponse,
+HttpContent and HttpHeader through System.Web.Http in the neoCLR core reference.
+A private callback-based exchange avoids that source-defined async result shape.
+Match reference, bridge, generated library and runtime artifacts. Two other emitted
+shapes remain unresolved: propagation directly into a field assignment leaves a
+receiver on the error-return stack, and a hoisted non-null Sequence local is cleared
+with null. Locals-before-assignment and a Sequence parameter in an async send helper
+avoid these shapes without relaxing verification. `<` comparisons alongside `||`
+also exposed parser ambiguity, avoided with inclusive ranges. These are investigation
+candidates, not fixes; independently reduce them against ordinary .NET metadata before
+extracting general changes. No neoCLR branch merge into main is appropriate.
+
+The sample's generated async pipeline is transitional: public Task/Result contracts
+remain separate from state-machine machinery pending future runtime suspension.
+Validation commands and exact limitations live in neoCLR's HTTP experiment README.
+
+The HTTP probe also exposed request interpolation producing no usable value against
+this core surface; explicit binary String.Concat construction works. The importer
+places a Boolean argument coercion adapter outside its private callee's scope; an
+integer flag in the private header helper avoids that adapter. These remain reduced
+investigation candidates, not compiler fixes or relaxed runtime access checks.
+The public handler still returns Task/Result while the private adapter may be replaced
+by runtime suspension later. Generated API documentation covers all seven public types;
+internal parser/exchange helpers do not appear as application APIs.
+
+Local macOS validation passes 18 controlled-peer client cases plus Python's HTTP
+server with zero retained managed objects in every run, and the .NET 10 baseline.
+Private field access checks pass. No Raven code change or main-branch integration
+is part of this slice.
