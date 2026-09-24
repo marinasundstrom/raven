@@ -812,3 +812,31 @@ Validation: all 23 cases, defaults, boxing and nested managed payloads pass with
 147 allocations, three collections and zero live objects. DNS/TCP and URI grammar,
 resolution and the recorded .NET comparison pass; the explicit-layout rejection
 is separately tested. API snapshot and combined website checks pass.
+
+
+### Remaining empty-case errors and EntryKind — 2026-09-25
+
+neoCLR now uses standard declarations for StreamError, TextReadError,
+StorageLookupError, FileReadError, FileWriteError, ConsoleReadError, Utf8SliceError,
+Int32ParseError, IntegerDivisionError and SingleError. Their per-case Is*/Get*
+helpers are removed; rebuild matching artifacts and use patterns. Default values
+are inactive. Tests of genuinely uninitialized locals disable CLI local initialization.
+EntryKind instead uses ordinary CLI enum metadata, File = 1 and Directory = 2,
+with zero unnamed. This follows the author's named-constant/variant distinction.
+
+The bridge resolves supplied-core value-case definitions for isinst tokens that
+omit a value-type signature flag. No foreign type is admitted by name alone.
+No Raven compiler source, emission policy or Runtime Contract option changes.
+All 76 error cases, defaults and boxed copies pass (254 allocations, five collections,
+zero live objects); 125 scalar outcomes and Console stream/propagation checks pass.
+Ten error-library admission checks pass, including malformed shape/case rejection.
+The larger storage fixture exceeds the default CLI instruction budget with generated
+carrier initialization; its trusted test runner has an explicit larger bound.
+
+Generic Option/Result/TaskOutcome remain handwritten: companion/generic reference
+projection and generated payload-body import are not admitted. The separate generic
+metadata/consumer test passes and explicitly rejects library projection. Payload
+explicit layouts remain rejected. These are tracked bridge work, not permanent
+manual-code exceptions or a requirement for per-case Is* members. System.Enum
+helpers (TypeInfo and generic overloads) and boxed formatting are the next requested
+slice; existing TypeInfo name queries alone do not satisfy that request.
