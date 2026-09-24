@@ -2,6 +2,7 @@
   "name": "Widget documentation",
   "output": "../../../../artifacts/markdown-docs-site",
   "api": "..",
+  "namespaceNavigation": "flat",
   "pages": [
     {
       "source": "index.md",

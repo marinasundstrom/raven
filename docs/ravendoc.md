@@ -505,6 +505,14 @@ RavenDoc keeps three independent navigation models:
 - The page outline uses headings from the current page and is independent of
   both navigation menus.
 
+Set `"namespaceNavigation": "flat"` in the site configuration to list full namespace
+names as alphabetically sorted peers (for example `System`, `System.Networking`,
+`System.Web`). Each namespace still expands to its types; nested types and union
+cases retain their hierarchy. The default, `"hierarchical"`, nests child namespaces
+beneath their parents. This changes only generated section navigation, not page
+URLs, namespace overview contents, authored `toc.yml` groups, or page outlines.
+Assembly/source CLI builds accept `--namespace-navigation flat` as well.
+
 A root `toc.yml` is discovered when neither `toc` nor `navigation` is configured.
 For authored pages, the nearest `toc.yml` between the source directory and the
 configuration directory defines their section menu, even when the output page is

@@ -211,6 +211,7 @@ internal static class RavenDocCommand
         var targetFramework = DefaultTargetFramework;
         string? siteRootPath = null;
         var memberListStyle = "compact";
+        var namespaceNavigation = "hierarchical";
         var siteLinks = new List<DocumentationSiteLink>();
         var templateValues = new Dictionary<string, string>(StringComparer.Ordinal);
         var referencePaths = new List<string>();
@@ -252,6 +253,16 @@ internal static class RavenDocCommand
                         return false;
                     }
                     siteLinks.Add(navigationLink);
+                    break;
+                case "--namespace-navigation":
+                    if (!TryReadValue(args, ref index, out var namespaceStyle) ||
+                        namespaceStyle is not ("hierarchical" or "flat"))
+                    {
+                        Console.Error.WriteLine("--namespace-navigation must be hierarchical or flat.");
+                        options = default;
+                        return false;
+                    }
+                    namespaceNavigation = namespaceStyle;
                     break;
                 case "--list-signatures":
                     memberListStyle = "signatures";
@@ -320,7 +331,7 @@ internal static class RavenDocCommand
             new DocumentationSiteOptions(
                 siteLinks,
                 templateValues,
-                siteRootPath is null ? null : Path.GetFullPath(siteRootPath), MemberListStyle: memberListStyle),
+                siteRootPath is null ? null : Path.GetFullPath(siteRootPath), MemberListStyle: memberListStyle, NamespaceNavigation: namespaceNavigation),
             referencePaths,
             showHelp);
         return true;
@@ -395,6 +406,7 @@ internal static class RavenDocCommand
               -o, --output <directory>    HTML site output (default: <input-directory>/_site)
               -f, --framework <tfm>       Target framework used for references (default: net10.0)
                   --list-signatures        Show full declarations in API lists
+                  --namespace-navigation   hierarchical (default) or flat namespace sidebar
                   --site-root <directory>  Link the header brand to this site's root
                   --nav <label=url>        Add a related-site link to the generated header
                   --value <name=value>     Replace {{name}} in Markdown; may be repeated

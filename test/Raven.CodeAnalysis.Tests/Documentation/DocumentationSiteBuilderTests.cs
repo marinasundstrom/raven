@@ -83,6 +83,7 @@ public sealed class DocumentationSiteBuilderTests
             var configuration = new
             {
                 name = "Example platform",
+                namespaceNavigation = "flat",
                 api = "library.rvn",
                 logo = "images/mark.svg",
                 stylesheet = "custom.css",
