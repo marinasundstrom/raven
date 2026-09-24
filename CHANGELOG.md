@@ -14,7 +14,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   and overlapping-layout limits. Follow with public HttpError target integration,
   source-projected case consumer binding and constructor instruction preservation.
   Record async-local/interpolation observations as unresolved compiler candidates;
-  no Raven compiler policy or Runtime Contract setting changes.
+  no Raven compiler policy or Runtime Contract setting changes. Record the closed
+  address hierarchy probe and its target bridge allowance for protected direct-base
+  constructor calls; private and unrelated calls remain outside that allowance.
 
 
 - **2026-09-24:** Record neoCLR System.Web.Http target integration, handler importer access
