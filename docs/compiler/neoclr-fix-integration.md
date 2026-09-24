@@ -656,3 +656,21 @@ the baseline rejection explicitly; it does not establish runtime or GC correctne
 Next work must cover initialization, extraction, default/inactive payloads, copies,
 boxing and managed-reference tracing. Public HttpError/BaseUri remain pending, and
 no .NET binary compatibility requirement or general compiler fix is claimed.
+
+Follow-up neoCLR bridge work admits constructor receiver initialization and known
+error byrefs. Core-UnionAttribute TryGetValue methods with one nested value-case out
+parameter map to the existing conditional-output contract at declarations and call
+sites; ordinary out methods retain their assignment requirement. The nested
+standard-syntax application probe now executes defaults, cases, copies and boxing
+under collection pressure. Mixed legacy SocketError nesting remains rejected by
+runtime verification because erased System.Value has no managed default. This is
+application importer support, not runtime-library migration. No Raven source or
+Runtime Contract setting changed; rebuild the matching bridge. HttpError/BaseUri
+remain pending.
+
+Validation: the focused probe reports 101 allocations, two collections and zero
+live objects; malformed receiver initialization, ordinary-output nonassignment and
+conditional-output false success are rejected. Existing constructor-argument checks
+pass. The broader record suite, attempted with the installed bundle, fails before
+import on Equatable conversions and ambiguous Equals overloads. That is an open
+compiler/SDK validation gap, not a passing regression run or a claimed compiler fix.

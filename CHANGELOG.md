@@ -14,8 +14,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   managed Uri/UriError reference catalogs, Object/interface/collection conversions
   and URI comparison probe; this addition requires matching neoCLR artifacts but no
   Raven compiler or Runtime Contract changes. Record the standard-syntax HTTP-error
-  union investigation, emitted shape and current neoCLR importer rejections; no
-  runtime execution or compiler fix is claimed.
+  union investigation and follow-up bridge support for constructor initialization and
+  conditional case outputs. The reduced nested-union application executes with GC
+  checks; legacy erased-carrier nesting and library migration remain open. No Raven
+  compiler fix or Runtime Contract change is claimed.
 
 - **2026-09-24:** Generate member parameter and property/return/field/event value
   sections from symbols, including undocumented members, with links to local types
