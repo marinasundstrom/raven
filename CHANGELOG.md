@@ -11,7 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   enum formatting and the bounded metadata/collection admission changes. Record
   nongeneric sequential payload-union library projection, preserved private-call
   access during argument conversion, GC/rejection checks and remaining generic
-  and overlapping-layout limits. Public HTTP integration remains pending.
+  and overlapping-layout limits. Follow with public HttpError target integration,
+  source-projected case consumer binding and constructor instruction preservation.
+  Record async-local/interpolation observations as unresolved compiler candidates;
+  no Raven compiler policy or Runtime Contract setting changes.
 
 
 - **2026-09-24:** Record neoCLR System.Web.Http target integration, handler importer access

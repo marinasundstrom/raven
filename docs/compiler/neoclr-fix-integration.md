@@ -893,3 +893,31 @@ changed payload contracts and overlapping payload layouts reject. Generic metada
 rejection checks pass, clean bootstrap regeneration matches, and the combined API
 website validates 862 pages. Public HTTP typed errors and token-aware Send remain
 integration work; this checkpoint only establishes the library bridge prerequisite.
+
+### 2026-09-25: Public typed HTTP results
+
+neoCLR now projects HttpError from normal union source into its compiler reference
+and imports its managed bodies. Client, handler, request factory and server results
+carry this union; nested resolver/socket values remain inspectable. The new bounded
+consumer binding admits only the selected supplied-core family and matched public
+signatures. It retains conditional case extraction and rejects forged payload/result
+signatures and calls to the compiler-generated private formatter. Constructors now
+preserve their newobj instruction through the generic constructor path instead of
+being emitted as calls to nonexistent standalone functions.
+
+This is a target bridge/library change: Raven compiler source, semantic model,
+emission policy and Runtime Contract options are unchanged. SDK users must rebuild
+against matching core metadata, imported library and bridge. Content.ReadText retains
+its separate string decoding error; cancellation tokens and BaseUri are later slices.
+
+The client sample exposed the previously tracked async hoisted-local initialization
+limitation when naming the intermediate awaited Result. Immediate MapError composition
+passes. Interpolating a payload union directly in the server reporting callback did
+not produce the expected line; explicitly calling ToString and concatenating does.
+Neither observation is claimed fixed. Reduce these independently on ordinary CLI
+metadata before considering a general Raven change; do not merge neoCLR policies
+into Raven main. Client handler/cause/copy/boxing/GC tests, transport timeout/framing
+checks and the JSON application pass. Server invalid-request/response and timeout paths also pass with no live managed
+objects after completion. Clean generated-library and API reference checks pass.
+neoCLR now selects relevant per-slice tests and skips website builds by author
+direction; its site build had already completed for this checkpoint.
