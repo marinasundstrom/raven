@@ -3,6 +3,10 @@
 Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
+- **2026-09-24:** Document neoCLR Dns Task/Result/Sequence integration and verified
+  localhost TCP echo, with matching target artifacts and unchanged Runtime Contract.
+  Record generic-array MetadataLoadContext and nested callback capture failures as
+  deferred independent-reproduction candidates; no general compiler fix is claimed.
 - **2026-09-24:** Document the neoCLR target TCP client Task/Result integration,
   private completion types and matching artifact requirements. Compiler semantics,
   state-machine emission and Runtime Contract configuration are unchanged. Record

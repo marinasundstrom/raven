@@ -475,3 +475,29 @@ echo run reclaims all 1,380 allocations in 30 collections, with zero live object
 both private-constructor/completion visibility checks pass. Existing direct case
 test and hoisted-Result limitations above remain open. Target evidence is local
 macOS, not a release or general compiler compatibility claim.
+
+
+### 2026-09-24 — neoCLR hostname lookup
+
+The neoCLR target adds System.Networking.Dns.GetHostAddresses(string) returning
+Task<Result<Sequence<string>, DnsError>>. Address strings are numeric IPv4; connection
+remains a separate Socket operation. The private DnsCompletion and runtime helpers
+convert owned host results into a managed array view on the VM owner. Rebuild matching
+reference metadata, importer, library and runtime. There is no Runtime Contract,
+compiler semantic policy or state-machine emission change in this slice.
+
+The compiled localhost echo sample passes with 1,428 allocations reclaimed across
+31 collections, zero live objects and three rejected private-type/constructor uses.
+This is local macOS target integration evidence, not a Raven release or .NET check.
+
+Deferred general-fix candidates: using Task<Result<string[], DnsError>> in the
+library triggered System.ArgumentException: System.String[] was not loaded by the
+MetadataLoadContext that loaded the generic type or method, at
+TypeSymbolExtensionsForCodeGen.GetClrTypeInternal / RoDefinitionType.MakeGenericType.
+Sequence avoids that code path and is the selected read-only consumer contract;
+it does not fix generic array emission. Separately, nesting an OnCompleted callback
+capturing its newly created exchange task inside another callback produced a null
+capture at Task.GetResult. A named StartExchange function avoids the nested shape.
+Independently reproduce both with ordinary .NET metadata before locating/fixing the
+compiler or importer issue; do not merge target-specific experiments into main or
+relax neoCLR null checks. Earlier direct-case and hoisted-Result limits remain open.
