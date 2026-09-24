@@ -935,3 +935,21 @@ Runtime Contract setting or emission policy changes. The address probe checks
 immutable copied data, root/Object value equality, hash agreement and GC rooting.
 Public IPAddress projection, parsing, formatting and DNS/socket integration remain
 pending. This is a target integration checkpoint, not a general Raven fix.
+
+
+## Public address hierarchy and DNS migration — 2026-09-25
+
+neoCLR integrates a closed IPAddress root with sealed IPv4Address/IPv6Address
+implementations, typed parse errors and ordinary managed parsing/formatting. DNS
+returns Sequence<IPAddress>; Socket adds value overloads alongside strings. The core
+projects the permitted hierarchy and the bridge validates its root/leaves/signatures
+and rejects external metadata branches. Source/reference/library/callers must be
+rebuilt together. No Raven source, Runtime Contract or emission policy changes.
+
+The focused prototype observed a MetadataLoadContext crash for a private helper
+returning Result<byte[], string>; filling caller-owned temporary storage avoids it.
+This remains a reduced target observation requiring independent general validation,
+not a compiler fix. Byte.ToString selected an Object path that faulted in neoCLR;
+numeric formatting widens octets to int. Treat that as a separate runtime/library
+investigation, not evidence of a general Raven defect. Typed DNS/echo and independent
+HTTP-server checks pass; API and generated snapshots are kept current.
