@@ -599,3 +599,23 @@ behavior is not translated into HTTP errors. neoCLR's server verifier checks a
 separate neoCLR client, independent .NET client, fragmentation and rejection cases
 with collection and zero final live managed objects. Exact commands and limits are
 in neoCLR's docs/experiments/http-server/README.md.
+
+### neoCLR shared HTTP deadline bridge — 2026-09-24
+
+The socket-backed HTTP exchange now passes one private monotonic deadline through
+DNS, address fallback and socket transfers. New native Until submissions and deadline
+stamp helpers require matching native runtime, reference, bridge and generated library.
+Normal reference Until methods are internal. Bootstrap-only references expose four
+cross-slice methods to compile separate library fragments; import restores their
+internal contract before validation. The signature matcher permits assembly methods
+only when the socket catalog explicitly requests library mode. Application imports
+remain rejected; `Probe --network-budget-checks` covers both profiles and the default
+signature guard. No Raven compiler code, Runtime Contract setting or state-machine
+ABI changed, and no neoCLR-specific change is integrated into Raven main.
+
+The fixed 15-second budget spans lookup through buffered response completion and
+retains shorter five-second phases. Custom handler work outside transport and server
+application callbacks remain unbounded. The adapter consumes outcomes and closes a
+late successful socket before completing an expired request. Matching core metadata
+also keeps all public HTTP APIs available in the on-site reference. See neoCLR's
+HTTP design and verifier for exact behavior and focused validation.
