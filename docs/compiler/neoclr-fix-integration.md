@@ -840,3 +840,32 @@ explicit layouts remain rejected. These are tracked bridge work, not permanent
 manual-code exceptions or a requirement for per-case Is* members. System.Enum
 helpers (TypeInfo and generic overloads) and boxed formatting are the next requested
 slice; existing TypeInfo name queries alone do not satisfy that request.
+
+
+### 2026-09-25: Enum helper target integration
+
+neoCLR's development reference now declares System.Enum.GetNames/GetValues with
+both TypeInfo and constrained generic overloads (`where TEnum : struct, Enum`).
+The target adapter preserves typed Sequence<TEnum> values while discovery returns
+Sequence<Object> boxes of the exact enum type. It validates the generic constraints,
+reference/definition signatures and currently admitted Int32 enum definitions.
+Collection admission covers enum and Object elements; enum type tokens may resolve
+through the supplied core definition when Cecil's IsValueType flag is absent.
+
+The runtime shares unsigned ordering and alias metadata between names, values and
+formatting, and target enum lowering supplies a by-reference Object.ToString override.
+Current target scope is BindingFlags, TaskState and EntryKind. General application
+enum import, other underlying widths and a public flags-helper surface remain outside
+this slice. No Raven emission policy or Runtime Contract setting changes are needed;
+these are neoCLR bridge/runtime changes, not a general Raven compiler fix.
+
+Validation uses neoCLR's `docs/experiments/enum-helpers` SDK sample, non-enum generic
+compile failures, runtime TypeInfo rejection, signature mutations and native metadata,
+boxing/heap-limit tests. See the neoCLR record for final run outcomes.
+
+The Enum SDK run passed names/typed values/discovery/formatting under GC pressure
+(501 allocations, ten collections, zero live objects); compiler and runtime reject
+non-enum inputs. Signature mutation checks passed. The historical Neo bootstrap
+keeps explicit legacy carrier and BindingFlags snapshots; it cannot import the
+Raven Object/IUnion bodies without the Raven profile. The author puts additional
+constants/flags APIs on hold and returns priority to HTTP after this slice.
