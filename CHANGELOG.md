@@ -10,7 +10,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   companion notes for HttpServer and received request headers, matching artifacts
   and independent client/GC validation. Document the shared HTTP deadline bridge,
   bootstrap-only cross-slice access, private service ABI and application visibility
-  checks; compiler emission and public API signatures remain unchanged.
+  checks; compiler emission and public API signatures remain unchanged. Document the
+  managed Uri/UriError reference catalogs, Object/interface/collection conversions
+  and URI comparison probe; this addition requires matching neoCLR artifacts but no
+  Raven compiler or Runtime Contract changes.
 
 - **2026-09-24:** Generate member parameter and property/return/field/event value
   sections from symbols, including undocumented members, with links to local types

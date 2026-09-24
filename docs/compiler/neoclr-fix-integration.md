@@ -619,3 +619,17 @@ application callbacks remain unbounded. The adapter consumes outcomes and closes
 late successful socket before completing an expired request. Matching core metadata
 also keeps all public HTTP APIs available in the on-site reference. See neoCLR's
 HTTP design and verifier for exact behavior and focused validation.
+
+### neoCLR managed URI reference slice — 2026-09-24
+
+The neoCLR bridge now catalogs System.Uri and UriError. Uri is a managed immutable
+class using the existing Equatable/Object hierarchy and Result/error carriers.
+Explicit catalog entries admit Uri-to-Object and Equatable<Uri> conversions and
+collection/array reference elements. The first application probe caught the missing
+Object conversion entry before integration; this was a neoCLR catalog omission,
+not a Raven compiler or .NET-target semantic change. No Runtime Contract setting,
+compiler emission or runtime native service changed. Matching reference, bridge
+and generated library are required. The neoCLR URI probe covers both resolution
+overloads, RFC examples, invalid grammar, virtual Object behavior and GC cleanup.
+Lexical identity, escaped ASCII and bounded parsing are provisional library policy;
+HttpError and BaseUri request integration follow separately.
