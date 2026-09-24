@@ -791,3 +791,24 @@ and documentation are refreshed. The author's next priority is batch migration o
 applicable existing unions before resuming HTTP; Is* properties are not a requirement
 for union recognition, including Option and Result. Generic class-library projection
 and the previously recorded implicit IUnion conversion gap remain open.
+
+
+### DNS and URI empty-case migration batch — 2026-09-24
+
+neoCLR projects DnsError and UriError from normal union source as well. Compilation
+is sequential against the preceding projected reference so Raven reuses the
+supplied core's IUnion; compiling all families against a raw seed would require
+mapping a source-owned support identity during later projections. No compiler
+source, emission policy or Runtime Contract option changes are made. Consumers
+must rebuild matching artifacts and replace Is*/Get* calls with case patterns.
+The default carriers are inactive, with HasValue false and Value null.
+
+The payload experiment distinguishes mixed managed case storage from all-value
+payload explicit layout: the latter still fails closed in the neoCLR importer.
+Generic class-library reference projection also remains open. Neither limitation
+is resolved by migrating these empty-case families.
+
+Validation: all 23 cases, defaults, boxing and nested managed payloads pass with
+147 allocations, three collections and zero live objects. DNS/TCP and URI grammar,
+resolution and the recorded .NET comparison pass; the explicit-layout rejection
+is separately tested. API snapshot and combined website checks pass.
