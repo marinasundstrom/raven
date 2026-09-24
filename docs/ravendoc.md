@@ -624,3 +624,21 @@ authored or generated API page. Omit the property to emit no analytics scripts.
 RavenDoc validates the GA4 measurement ID and does not configure additional events
 or consent controls. Configured analytics also runs when previewing that build;
 omit the ID from a preview configuration if it should not be measured.
+
+### Member structure and authored documentation
+
+Member pages derive their basic structure from symbols, even without XML or Markdown:
+Parameters list names and linked types; Property value, Return value, Field value
+and Event type show the corresponding linked type. Constructors omit Return value.
+The metadata card labels the owner as Declaring type. Overloads each retain their
+own parameter/result contract. Nullable, array and generic arguments link to local
+type pages where available; external or excluded types remain readable plain text.
+Authored parameter/value/result descriptions enhance these sections rather than
+controlling whether the structure exists. Remarks and examples follow them.
+
+This follows Microsoft Learn's [property value](https://learn.microsoft.com/en-us/dotnet/api/system.string.length)
+and [parameter/return](https://learn.microsoft.com/en-us/dotnet/api/system.string.substring)
+sections, with explicit Return value wording. [Rust](https://doc.rust-lang.org/std/string/struct.String.html)
+and [Kotlin](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/-list/get.html)
+also provide navigable types in signatures; RavenDoc retains its highlighted Raven
+signature and places accessible type links in the structured contract below it.

@@ -765,6 +765,7 @@ public static class DocumentationGenerator
 
     private sealed class SymbolDocInfo
     {
+        public required RavenDocumentation Documentation { get; init; }
         public string? RawMarkdown { get; init; }
         public string Summary { get; init; } = string.Empty;
     }
@@ -801,6 +802,7 @@ public static class DocumentationGenerator
             TemplateValues);
         var info = new SymbolDocInfo
         {
+            Documentation = documentation,
             RawMarkdown = markdown,
             Summary = ExtractFirstParagraphSummary(markdown)
         };
@@ -809,7 +811,7 @@ public static class DocumentationGenerator
         return info;
     }
 
-    private static string BuildDocumentationMarkdown(RavenDocumentation documentation)
+    private static string BuildDocumentationMarkdown(RavenDocumentation documentation, ISymbol? member = null, string? currentDir = null)
     {
         var builder = new StringBuilder();
         var details = documentation.GetSection(DocumentationSectionKind.Details);
@@ -824,19 +826,15 @@ public static class DocumentationGenerator
             "Type parameters",
             "Name",
             documentation.GetAssociations(DocumentationAssociationKind.TypeParameter));
-        AppendDocumentationAssociations(
-            builder,
-            "Parameters",
-            "Name",
-            documentation.GetAssociations(DocumentationAssociationKind.Parameter));
-        AppendNamedDocumentationSection(
-            builder,
-            "Returns",
-            documentation.GetSection(DocumentationSectionKind.Result));
-        AppendNamedDocumentationSection(
-            builder,
-            "Value",
-            documentation.GetSection(DocumentationSectionKind.Value));
+        if (member is not null && currentDir is not null)
+            AppendMemberContract(builder, documentation, member, currentDir);
+        else
+        {
+            AppendDocumentationAssociations(builder, "Parameters", "Name",
+                documentation.GetAssociations(DocumentationAssociationKind.Parameter));
+            AppendNamedDocumentationSection(builder, "Returns", documentation.GetSection(DocumentationSectionKind.Result));
+            AppendNamedDocumentationSection(builder, "Value", documentation.GetSection(DocumentationSectionKind.Value));
+        }
         AppendNamedDocumentationSection(
             builder,
             "Remarks",
@@ -859,6 +857,83 @@ public static class DocumentationGenerator
             documentation.GetAssociations(DocumentationAssociationKind.RelatedLink));
 
         return builder.ToString().Trim();
+    }
+
+    private static string GetMemberDocumentation(ISymbol member, string currentDir)
+    {
+        var markdown = BuildDocumentationMarkdown(GetOrCreateDocInfo(member).Documentation, member, currentDir);
+        return string.IsNullOrWhiteSpace(markdown) ? "_No documentation available._" : MarkdownTemplate.Apply(markdown, TemplateValues);
+    }
+
+    private static void AppendMemberContract(StringBuilder builder, RavenDocumentation documentation, ISymbol member, string currentDir)
+    {
+        IEnumerable<IParameterSymbol> parameters = member switch
+        {
+            IMethodSymbol method => method.Parameters,
+            IPropertySymbol property => property.Parameters,
+            _ => []
+        };
+        var descriptions = documentation.GetAssociations(DocumentationAssociationKind.Parameter);
+        if (parameters.Any())
+        {
+            var table = new StringBuilder("| Name | Type | Description |\n| --- | --- | --- |\n");
+            foreach (var parameter in parameters)
+            {
+                var description = descriptions.FirstOrDefault(item => item.Name == parameter.Name)?.Content ?? "";
+                var passing = parameter.RefKind switch
+                {
+                    RefKind.Ref => "ref ",
+                    RefKind.Out => "out ",
+                    RefKind.In => "in ",
+                    RefKind.RefReadOnly or RefKind.RefReadOnlyParameter => "ref readonly ",
+                    _ => ""
+                };
+                table.AppendLine($"| `{parameter.Name}` | {passing}{FormatContractType(currentDir, parameter.Type)} | {description.Replace("|", "\\|").Replace("\n", "<br />")} |");
+            }
+            AppendNamedDocumentationSection(builder, "Parameters", table.ToString());
+        }
+
+        var (heading, type, section) = member switch
+        {
+            IPropertySymbol property => ("Property value", property.Type, DocumentationSectionKind.Value),
+            IFieldSymbol field => ("Field value", field.Type, DocumentationSectionKind.Value),
+            IEventSymbol @event => ("Event type", @event.Type, DocumentationSectionKind.Value),
+            IMethodSymbol method when !method.IsConstructor => ("Return value", method.ReturnType, DocumentationSectionKind.Result),
+            _ => ("", (ITypeSymbol?)null, DocumentationSectionKind.Result)
+        };
+        if (type is not null)
+        {
+            var description = documentation.GetSection(section);
+            AppendNamedDocumentationSection(builder, heading, FormatContractType(currentDir, type) +
+                (string.IsNullOrWhiteSpace(description) ? "" : "\n\n" + description));
+        }
+    }
+
+    private static string FormatContractType(string currentDir, ITypeSymbol type)
+    {
+        if (type.GetNullableUnderlyingType() is { } underlying)
+            return FormatContractType(currentDir, underlying) + "?";
+        if (type is IArrayTypeSymbol array)
+            return FormatContractType(currentDir, array.ElementType) + "\\[" +
+                (array.IsFixedArray ? array.FixedLength?.ToString() ?? "" : new string(',', array.Rank - 1)) + "\\]";
+        if (type is IPointerTypeSymbol pointer)
+            return FormatContractType(currentDir, pointer.PointedAtType) + "\\*";
+        if (type is IAddressTypeSymbol address)
+            return "&amp;" + FormatContractType(currentDir, address.ReferencedType);
+        if (type is not INamedTypeSymbol named)
+            return EscapeName(type.ToDisplayString(ContainingTypeDisplayFormat));
+        if (named.IsTupleType)
+            return "(" + string.Join(", ", named.TupleElements.Select(element =>
+                EscapeName(element.Name) + ": " + FormatContractType(currentDir, element.Type))) + ")";
+        var name = EscapeName(named.Name);
+        var definition = named.OriginalDefinition ?? named;
+        if (IsFromDocumentedAssembly(definition) && XrefToTargetPath.TryGetValue(GetXrefId(definition), out var target))
+            name = $"[{name}]({RelLink(currentDir, target)})";
+        if (named.ContainingType is { } owner)
+            name = FormatContractType(currentDir, owner) + "." + name;
+        if (named.TypeArguments.Length > 0)
+            name += "&lt;" + string.Join(", ", named.TypeArguments.Select(argument => FormatContractType(currentDir, argument))) + "&gt;";
+        return name;
     }
 
     private static void AppendDocumentationSection(StringBuilder builder, string? content)
@@ -1707,7 +1782,7 @@ public static class DocumentationGenerator
             var target = GetTypeIndexPath(containingType);
             var memberName = EscapeName(containingType.ToDisplayString(ContainingTypeDisplayFormat));
             metadataLines.Add(
-                $"**Type**: [{memberName}]({RelLink(currentDir, target)})<br />");
+                $"**Declaring type**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
         else if (members[0].ContainingType is { } clrContainer)
         {
@@ -1730,14 +1805,11 @@ public static class DocumentationGenerator
 
         if (members.Count == 1)
         {
-            var doc = GetOrCreateDocInfo(members[0]);
             var contentMarkdown = ContentTemplate.RenderMemberPage(
                 new RavenDocMemberContentTemplateModel(
                     heroHtml,
                     metadataLines,
-                    string.IsNullOrWhiteSpace(doc.RawMarkdown)
-                        ? "_No documentation available._"
-                        : doc.RawMarkdown));
+                    GetMemberDocumentation(members[0], currentDir)));
             var htmlSingle = RenderMarkdownWithXrefs(contentMarkdown, currentDir);
             var pageSingle = WrapHtml(currentDir, name, documentedAssemblyName, htmlSingle);
             File.WriteAllText(filePath, pageSingle);
@@ -1749,14 +1821,11 @@ public static class DocumentationGenerator
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
             .Select(member =>
             {
-                var doc = GetOrCreateDocInfo(member);
                 return new RavenDocMemberVariantTemplateModel(
                     EscapeName(member.Name),
                     SiteTemplate.RenderSignature(FormatSignature(member)),
                     GetSourceFileLine(member),
-                    string.IsNullOrWhiteSpace(doc.RawMarkdown)
-                        ? "_No documentation available._"
-                        : doc.RawMarkdown);
+                    GetMemberDocumentation(member, currentDir));
             })
             .ToArray();
         var overloadsMarkdown = ContentTemplate.RenderMemberGroupPage(

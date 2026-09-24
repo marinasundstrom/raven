@@ -3,6 +3,11 @@
 Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
+
+- **2026-09-24:** Generate member parameter and property/return/field/event value
+  sections from symbols, including undocumented members, with links to local types
+  and generic arguments. Merge authored descriptions into that structure and label
+  the owning type as Declaring type. Keep each overload contract within its section.
 - **2026-09-24:** Document neoCLR Socket Listen/Accept/GetLocalPort integration,
   expanded socket error cases and a verified two-process echo. Compiler semantics
   and Runtime Contract settings remain unchanged; matching target artifacts required.

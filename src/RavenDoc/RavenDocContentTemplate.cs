@@ -39,7 +39,7 @@ internal sealed class RavenDocContentTemplate
             }
 
             variants.AppendLine();
-            variants.AppendLine(variant.DocumentationMarkdown);
+            variants.AppendLine(System.Text.RegularExpressions.Regex.Replace(variant.DocumentationMarkdown, @"(?m)^## ", "#### "));
         }
 
         return RenderBlocks(
