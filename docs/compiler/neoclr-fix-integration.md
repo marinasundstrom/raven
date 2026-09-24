@@ -770,3 +770,24 @@ No Raven compiler source, semantic/emission policy or Runtime Contract option ch
 Rebuild the matching bridge. SDK packaging, runtime callers and the public SocketError
 API snapshot are not migrated by this projection check; generic/payload-bearing
 projection is unsupported. Raven case metadata stays at the compiler boundary.
+
+
+### Integrated SocketError source union — 2026-09-24
+
+neoCLR now authors SocketError with normal union syntax. Both core-generation paths
+compile its embedded source through the bridge's Raven compiler and project the shape;
+a packaged bridge needs neither a checkout nor a separate reference-shape binary.
+The native library supplies a shared ordinary IUnion. Runtime call adapters admit the
+validated generated case members and conditional outputs, with inactive defaults
+instead of erased System.Value storage. Is*/Get* helpers are removed; consumers use
+case patterns. Rebuild references, library and applications together. No Raven source
+change, emission policy or Runtime Contract option is introduced here.
+
+The nested SocketError/source-HttpError test passes copying, boxing and default checks
+and all 13 ToString names using unqualified match arms, with 127 allocations, three
+collections and zero live objects. The TCP client, distinct
+neoCLR listener/client and selected HTTP success/timeout cases pass. Public API metadata
+and documentation are refreshed. The author's next priority is batch migration of
+applicable existing unions before resuming HTTP; Is* properties are not a requirement
+for union recognition, including Option and Result. Generic class-library projection
+and the previously recorded implicit IUnion conversion gap remain open.

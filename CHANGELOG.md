@@ -28,7 +28,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   IUnion import and ordinary interface dispatch, retaining the source-owned bootstrap
   path; production packaging remains pending. Record the reusable in-place empty-case
   union reference projector and SocketError consumer/reprojection/native-import checks;
-  no compiler change or public SocketError migration is claimed.
+  subsequently migrate public SocketError through embedded-source reference generation,
+  conditional case binding and ordinary IUnion support. Remove its Is*/Get* helpers;
+  matching artifacts must be rebuilt. Nested source-union/GC, TCP/listener and selected
+  HTTP checks pass. No compiler policy or Runtime Contract option changes.
 
 - **2026-09-24:** Generate member parameter and property/return/field/event value
   sections from symbols, including undocumented members, with links to local types
