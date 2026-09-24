@@ -293,7 +293,8 @@ public static class DocumentationGenerator
             Notice: CurrentSiteOptions.Notice,
             ReleaseUrl: CurrentSiteOptions.ReleaseUrl,
             ReleaseLabel: CurrentSiteOptions.ReleaseLabel,
-            ShowToc: CurrentSiteOptions.ShowToc));
+            ShowToc: CurrentSiteOptions.ShowToc,
+            FaviconHref: DocumentationNavigation.Resolve(CurrentSiteOptions.Favicon, SiteRootDirectory, currentDir)));
     }
 
     private static string HtmlEscape(string s)
@@ -2251,7 +2252,8 @@ public sealed record DocumentationSiteOptions(
     string? Notice = null,
     string? ReleaseUrl = null,
     string? ReleaseLabel = null,
-    bool ShowToc = true)
+    bool ShowToc = true,
+    string? Favicon = null)
 {
     public static DocumentationSiteOptions Empty { get; } = new([]);
 }

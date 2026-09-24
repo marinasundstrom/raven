@@ -10,6 +10,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   ordinary .NET interfaces with an opt-in System.ValueTuple unit representation.
 
 
+- **2026-09-24:** Add persistent System/Light/Dark controls to RavenDoc, apply the
+  selected theme before rendering, follow live system changes and share the Raven
+  website's dark syntax palette. Fix active sidebar and filter colors in dark mode.
+  Expand the sample doc site to demonstrate shared navigation, page metadata,
+  highlighted snippets, favicon and themes alongside generated APIs.
+
+- **2026-09-24:** Allow a site-configured favicon on authored and generated API
+  pages, resolving the icon relative to the site root. Correct the class mapping
+  in section navigation so sidebar classes also use the C icon.
+
 - **2026-09-24:** Share the Raven website's Highlight.js grammar and syntax colors
   with RavenDoc, replacing its separate reduced lexer. Publish the pinned engine
   and license as local assets for highlighted examples and API declarations

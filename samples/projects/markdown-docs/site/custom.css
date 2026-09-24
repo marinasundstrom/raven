@@ -12,3 +12,16 @@
         --raven-accent-soft: #173b44;
     }
 }
+
+:root[data-theme="dark"] {
+    --raven-accent: #7fd0de;
+    --raven-accent-strong: #a6e2eb;
+    --raven-accent-soft: #173b44;
+}
+.sample-hero { padding: 2rem; background: var(--raven-accent-soft); border-radius: 1rem; }
+.sample-hero h1 { margin-top: .5rem; }
+.sample-eyebrow { color: var(--raven-muted); font-size: .8rem; letter-spacing: .12em; }
+.sample-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-block: 2rem; }
+.sample-features section { padding: 1.2rem; background: var(--raven-surface); border: 1px solid var(--raven-line); border-radius: .75rem; }
+.sample-features h2 { font-size: 1.2rem; }
+@media (max-width: 760px) { .sample-features { grid-template-columns: 1fr; } }
