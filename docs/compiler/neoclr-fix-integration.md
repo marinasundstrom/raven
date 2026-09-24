@@ -457,3 +457,21 @@ checks the already-completed Closed result without another await; the general
 hoisted-union initialization contract remains open. Do not weaken runtime constructor
 checks or claim a compiler fix. The author prioritizes provisional interfaces for
 an HTTP web-app demo; full networking and TcpClient/UdpClient layers are not gates.
+
+
+### 2026-09-24 — neoCLR client send and echo
+
+The target adds Socket.Send(byte[], int, int) -> Task<Result<int, SocketError>>.
+The provisional library snapshots the selected bytes, reports short sends and
+permits one pending transfer per direction. Private SocketReceiveCompletion and
+SocketReceiveResult become SocketTransferCompletion and SocketTransferResult;
+rebuild matching target reference, importer, library and runtime. There is no
+compiler implementation, state-machine emission or Runtime Contract change.
+
+The socket sample uses the existing precedence fix: `await Foo()?` propagates
+the awaited result, just as `try Foo()?` propagates the complete try expression.
+Refresh older local compiler bundles before checking this syntax. The real TCP
+echo run reclaims all 1,380 allocations in 30 collections, with zero live objects;
+both private-constructor/completion visibility checks pass. Existing direct case
+test and hoisted-Result limitations above remain open. Target evidence is local
+macOS, not a release or general compiler compatibility claim.
