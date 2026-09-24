@@ -5,6 +5,51 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
     [Fact]
+    public void CompactListsRetainOverloadTypesAndStaticIcons()
+    {
+        var (compilation, _) = CreateCompilation("""
+            namespace Browser.Sample
+            /// Readable contract.
+            public interface IReadable { val Size: int { get; } }
+            public enum Mode { On, Off }
+            public struct Point { }
+            public delegate Callback(value: int) -> ()
+            /// Widget.
+            public class Widget {
+                /// A label.
+                public val Name: string => "Sample"
+                /// Accepts a number.
+                public static func Run(value: int) -> () { }
+                /// Accepts text.
+                public static func Run(value: string) -> () { }
+            }
+            """, assemblyName: "Browser.Sample");
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessCompilation(compilation, output);
+            var page = File.ReadAllText(Path.Combine(output, "Browser/Sample/Widget/index.html"));
+            page.ShouldContain("member-name\">Name: string</span>");
+            page.ShouldContain("member-name\">Run(value: int) -&gt; ()</span>");
+            page.ShouldContain("member-name\">Run(value: string) -&gt; ()</span>");
+            foreach (var (name, kind) in new[] { ("Mode", "enum"), ("Point", "struct"), ("Callback", "delegate") })
+                File.ReadAllText(Path.Combine(output, $"Browser/Sample/{name}/index.html")).ShouldContain($"symbol-icon--{kind}");
+            page.ShouldContain("symbol-static-marker");
+            page.ShouldContain("Static member");
+            page.ShouldNotContain("member-name\">static");
+            File.ReadAllText(Path.Combine(output, "Browser/Sample/index.html")).ShouldContain("symbol-icon--interface");
+            var detail = File.ReadAllText(Path.Combine(output, "Browser/Sample/Widget/method_Run.html"));
+            detail.ShouldContain("static func Run");
+            DocumentationGenerator.ProcessCompilation(compilation, output, new DocumentationSiteOptions([], MemberListStyle: "signatures", Types: ["Browser.Sample.Widget"], ShowToc: false));
+            var full = File.ReadAllText(Path.Combine(output, "Browser/Sample/Widget/index.html"));
+            full.ShouldContain("member-signature\">static func Run");
+            full.ShouldNotContain("aria-label=\"On this page\"");
+            File.Exists(Path.Combine(output, "Browser/Sample/IReadable/index.html")).ShouldBeFalse();
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
+    [Fact]
     public void SourceCompilation_GeneratesRavenApiSite()
     {
         var (compilation, _) = CreateCompilation("""
@@ -56,7 +101,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                         ["productVersion"] = "1.2.3+build.7",
                         ["apiRoot"] = "../reference/"
                     },
-                    siteRootPath));
+                    siteRootPath, MemberListStyle: "signatures"));
 
             var typePagePath = Path.Combine(outputPath, "Samples", "Docs", "Widget", "index.html");
             var memberPagePath = Path.Combine(outputPath, "Samples", "Docs", "Widget", "method_GetTitle.html");
@@ -309,6 +354,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 "index.html");
 
             var outcomePage = File.ReadAllText(outcomePagePath);
+            outcomePage.ShouldContain("symbol-icon--union");
             outcomePage.ShouldContain("reference-navigation");
             outcomePage.ShouldNotContain(">Success</a>");
             outcomePage.ShouldNotContain(">Failure</a>");
@@ -372,6 +418,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 "MetadataUnions",
                 "Outcome`2",
                 "index.html"));
+            outcomePage.ShouldContain("symbol-icon--union");
             outcomePage.ShouldContain("reference-navigation");
             outcomePage.ShouldNotContain(">Success</a>");
             outcomePage.ShouldNotContain(">Failure</a>");

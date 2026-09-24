@@ -4,6 +4,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-24:** Extend RavenDoc with separate nested main menus, section side
+  navigation compiled from local `toc.yml` files, and independent page outlines.
+  Share authored and generated API navigation through one model and responsive
+  API Browser, with expandable groups, filtering, current-location highlighting,
+  and a mobile off-canvas drawer. Add Markdown/HTML front matter for title, landing
+  layout and outline visibility, configurable availability notices, API selection
+  and route-map export. API lists now default to name-first compact signatures;
+  full declarations remain opt-in in lists and always appear on detail pages.
+  Distinguish interfaces, enums, unions, delegates, structs and static members through icons. Existing root TOCs,
+  branding and source-link relocation remain supported.
+
 - **2026-09-24:** Parse standalone postfix propagation around complete `await`
   and `try` expressions: `await Foo()?` means `(await Foo())?`, and `try Foo()?`
   means `(try Foo())?`. Explicit operand parentheses retain inner propagation;

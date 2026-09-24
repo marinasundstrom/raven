@@ -192,6 +192,11 @@ public static class DocumentationGenerator
         ReportedBrokenXrefs.Clear();
         AdditionalNamespaceMembers.Clear();
         CurrentSiteOptions = siteOptions ?? DocumentationSiteOptions.Empty;
+        MemberListStyle = CurrentSiteOptions.MemberListStyle;
+        IncludedTypes = CurrentSiteOptions.Types?.ToHashSet(StringComparer.Ordinal);
+        ExcludedMembers = CurrentSiteOptions.ExcludedMembers?.ToHashSet(StringComparer.Ordinal) ?? [];
+        if (MemberListStyle is not ("compact" or "signatures"))
+            throw new InvalidOperationException("memberListStyle must be compact or signatures.");
         ApiNavigation.Clear();
         SiteLinks = siteOptions?.Links ?? [];
         SiteRootDirectory = Path.GetFullPath(siteOptions?.SiteRootDirectory ?? outputDir);
@@ -276,17 +281,19 @@ public static class DocumentationGenerator
             styleHref,
             scriptHref,
             bodyHtml,
-            SiteLinks.Select(link => link with
-            {
-                Url = DocumentationNavigation.Resolve(link.Url, SiteRootDirectory, currentDir)!
-            }).ToArray(),
+            DocumentationNavigation.ResolveLinks(SiteLinks, SiteRootDirectory, currentDir),
             DocumentationNavigation.Render(
                 DocumentationNavigation.Compose(CurrentSiteOptions.Navigation ?? [], GetApiNavigation()),
                 SiteRootDirectory, currentDir),
             CurrentSiteOptions.ProjectName,
             DocumentationNavigation.Resolve(CurrentSiteOptions.Logo, SiteRootDirectory, currentDir),
             DocumentationNavigation.Resolve(CurrentSiteOptions.Stylesheet, SiteRootDirectory, currentDir),
-            CurrentSiteOptions.Footer ?? "Raven documentation"));
+            CurrentSiteOptions.Footer ?? "Raven documentation",
+            Subtitle: CurrentSiteOptions.Subtitle,
+            Notice: CurrentSiteOptions.Notice,
+            ReleaseUrl: CurrentSiteOptions.ReleaseUrl,
+            ReleaseLabel: CurrentSiteOptions.ReleaseLabel,
+            ShowToc: CurrentSiteOptions.ShowToc));
     }
 
     private static string HtmlEscape(string s)
@@ -991,6 +998,50 @@ public static class DocumentationGenerator
         }
     }
 
+    private static string NavigationType(ITypeSymbol type)
+        => type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit
+            ? "()" : type.ToDisplayString(BaseTypeDisplayFormat);
+
+    private static string NavigationParameters(IEnumerable<IParameterSymbol> parameters)
+        => string.Join(", ", parameters.Select(parameter =>
+        {
+            var passing = parameter.RefKind switch
+            {
+                RefKind.Ref => "ref ",
+                RefKind.Out => "out ",
+                RefKind.In => "in ",
+                RefKind.RefReadOnly or RefKind.RefReadOnlyParameter => "ref readonly ",
+                _ => ""
+            };
+            var optional = parameter.IsOptional ? "?" : "";
+            var variadic = parameter.IsVarParams ? "..." : "";
+            return $"{parameter.Name}{optional}: {passing}{variadic}{NavigationType(parameter.Type)}";
+        }));
+
+    private static string GetNavigationName(ISymbol symbol)
+        => symbol switch
+        {
+            INamespaceSymbol ns => GetNamespaceFullName(ns),
+            INamedTypeSymbol type when type.Arity > 0 => type.Name + "<" +
+                string.Join(", ", type.TypeParameters.Select(parameter => parameter.Name)) + ">",
+            IFieldSymbol field => field.Name + ": " + NavigationType(field.Type),
+            IPropertySymbol property => property.Name +
+                (property.Parameters.Length > 0 ? $"[{NavigationParameters(property.Parameters)}]" : "") +
+                ": " + NavigationType(property.Type),
+            IMethodSymbol method => GetNavigationMethod(method),
+            _ => symbol.Name
+        };
+
+    private static string GetNavigationMethod(IMethodSymbol method)
+    {
+        var name = method.IsConstructor ? method.ContainingType.Name
+            : IsOperatorLike(method) ? GetOperatorGroupName(method) : method.Name;
+        if (method.TypeParameters.Length > 0)
+            name += "<" + string.Join(", ", method.TypeParameters.Select(parameter => parameter.Name)) + ">";
+        var parameters = NavigationParameters(method.Parameters);
+        return $"{name}({parameters})" + (method.IsConstructor ? "" : $" -> {NavigationType(method.ReturnType)}");
+    }
+
     private static string RenderMemberTable(
         string title,
         string currentDir,
@@ -1003,7 +1054,9 @@ public static class DocumentationGenerator
                 row.Kind,
                 row.Signature,
                 row.Href,
-                row.Summary)).ToArray());
+                row.Summary,
+                GetNavigationName(row.Symbol),
+                row.Symbol.IsStatic && row.Symbol is IMethodSymbol or IPropertySymbol or IFieldSymbol)).ToArray());
     }
 
     private static RavenDocSymbolKind GetTemplateSymbolKind(ISymbol symbol)
@@ -1011,6 +1064,11 @@ public static class DocumentationGenerator
         return symbol switch
         {
             INamespaceSymbol => RavenDocSymbolKind.Namespace,
+            IUnionSymbol => RavenDocSymbolKind.Union,
+            ITypeSymbol { TypeKind: TypeKind.Enum } => RavenDocSymbolKind.Enum,
+            ITypeSymbol { TypeKind: TypeKind.Delegate } => RavenDocSymbolKind.Delegate,
+            ITypeSymbol { TypeKind: TypeKind.Struct } => RavenDocSymbolKind.Struct,
+            ITypeSymbol { TypeKind: TypeKind.Interface } => RavenDocSymbolKind.Interface,
             ITypeSymbol => RavenDocSymbolKind.Type,
             IMacroDeclarationSymbol => RavenDocSymbolKind.Macro,
             IMethodSymbol method when IsOperatorLike(method) => RavenDocSymbolKind.Operator,
@@ -1037,6 +1095,7 @@ public static class DocumentationGenerator
             IFieldSymbol { IsConst: true } => "Constant",
             IFieldSymbol => "Field",
             IEventSymbol => "Event",
+            IUnionSymbol => "Union",
             ITypeSymbol type => type.TypeKind.ToString(),
             _ => "Member"
         };
@@ -1197,16 +1256,17 @@ public static class DocumentationGenerator
                 ? (navigationNamespace.IsGlobalNamespace ? "API reference" : GetNamespaceFullName(navigationNamespace))
                 : symbol.ToDisplayString(ContainingTypeDisplayFormat);
             ApiNavigation[target] = new DocumentationNavigationItem(label,
-                Path.GetRelativePath(SiteRootDirectory, target).Replace('\\', '/'));
+                Path.GetRelativePath(SiteRootDirectory, target).Replace('\\', '/'), Kind: GetSymbolKindLabel(symbol));
         }
     }
 
     internal static string ResolveArticleXref(string url, string currentDir)
     {
         var id = NormalizeXrefIdIncoming(url["xref:".Length..]);
-        return XrefToTargetPath.TryGetValue(id, out var target)
-            ? RelLink(currentDir, target)
-            : throw new InvalidOperationException($"Unresolved article xref: {url}");
+        if (XrefToTargetPath.TryGetValue(id, out var target)) return RelLink(currentDir, target);
+        foreach (var prefix in new[] { "T:", "N:", "M:", "P:", "F:", "E:" })
+            if (XrefToTargetPath.TryGetValue(prefix + id, out target)) return RelLink(currentDir, target);
+        throw new InvalidOperationException($"Unresolved article xref: {url}");
     }
 
     private static string RenderMarkdownWithXrefs(string markdown, string currentDir)
@@ -1504,7 +1564,7 @@ public static class DocumentationGenerator
                 .WithMemberOptions(SymbolDisplayMemberOptions.None));
         var signature = FormatSignature(typeSymbol);
         var heroHtml = SiteTemplate.RenderHero(
-            RavenDocSymbolKind.Type,
+            GetTemplateSymbolKind(typeSymbol),
             GetSymbolKindLabel(typeSymbol),
             name,
             signature);
@@ -1978,8 +2038,23 @@ public static class DocumentationGenerator
             : signature;
     }
 
+    internal static string MemberListStyle { get; private set; } = "compact";
+    private static HashSet<string>? IncludedTypes { get; set; }
+    private static HashSet<string> ExcludedMembers { get; set; } = [];
+
+    public static Dictionary<string, string> ExportXrefs(string root)
+        => XrefToTargetPath.ToDictionary(pair => pair.Key,
+            pair => Path.GetRelativePath(root, pair.Value).Replace('\\', '/'));
+
+    private static bool IsSelected(ISymbol symbol)
+        => IncludedTypes is null ||
+           symbol is INamespaceSymbol ns && (ns.IsGlobalNamespace ||
+               IncludedTypes.Any(type => type.StartsWith(GetNamespaceFullName(ns) + ".", StringComparison.Ordinal))) ||
+           symbol is not INamespaceSymbol && IncludedTypes.Contains(GetTypeDocName(symbol as ITypeSymbol ?? symbol.ContainingType!).Replace('+', '.'));
+
     private static bool IsDocumentableSymbol(ISymbol symbol)
-        => !IsProjectedUnionCaseType(symbol) &&
+        => IsSelected(symbol) &&
+           !ExcludedMembers.Contains(GetXrefId(symbol).Replace('+', '.').Replace("..ctor", ".#ctor")) && !IsProjectedUnionCaseType(symbol) &&
            !IsCompilerGeneratedExtensionArtifact(symbol) &&
            (symbol is INamespaceSymbol ||
             symbol.DeclaredAccessibility == Accessibility.Public);
@@ -2157,9 +2232,17 @@ public sealed record DocumentationSiteOptions(
     string? Logo = null,
     string? Stylesheet = null,
     IReadOnlyList<DocumentationNavigationItem>? Navigation = null,
-    string? Footer = null)
+    string? Footer = null,
+    string MemberListStyle = "compact",
+    IReadOnlyList<string>? Types = null,
+    IReadOnlyList<string>? ExcludedMembers = null,
+    string? Subtitle = null,
+    string? Notice = null,
+    string? ReleaseUrl = null,
+    string? ReleaseLabel = null,
+    bool ShowToc = true)
 {
     public static DocumentationSiteOptions Empty { get; } = new([]);
 }
 
-public sealed record DocumentationSiteLink(string Label, string Url);
+public sealed record DocumentationSiteLink(string Label, string Url = "", IReadOnlyList<DocumentationSiteLink>? Children = null);

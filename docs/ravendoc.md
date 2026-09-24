@@ -265,7 +265,7 @@ as a DocFX site:
   href: api/
 ```
 
-RavenDoc preserves `name`, `href`, nested `items`, and their order. Markdown
+RavenDoc supports `name`, `href`, nested `items`, and their order as a small authoring format; it does not aim to clone DocFX configuration or templates. Markdown
 pages referenced by the TOC are included automatically; `pages` remains useful
 for additional unlisted pages or explicit output/title overrides. All relative
 TOC links resolve from the directory containing that TOC. Markdown links are
@@ -278,7 +278,7 @@ folders containing a `toc.yml` are supported, along with explicit `tocHref`
 and `topicHref`. Circular includes fail with a diagnostic. A folder TOC is a
 menu group unless a `topicHref` supplies its landing page. Entries require a
 `name`; UID-only navigation and DocFX template-specific metadata are not
-interpreted. Markdown still uses RavenDoc's explicit `xref:` ID prefixes.
+interpreted. Markdown uses `xref:` links; explicit ID prefixes are recommended when a short name would be ambiguous.
 
 The checked-in example uses this TOC format, so projects can retain their menu
 structure when moving from DocFX to RavenDoc.
@@ -543,3 +543,73 @@ RavenDoc is intentionally simple:
 * No external tooling required
 
 As Raven evolves, RavenDoc can evolve with it — without breaking existing documentation.
+
+
+## Navigation levels and custom pages
+
+RavenDoc keeps three independent navigation models:
+
+- `links` defines the site-wide main menu. An item has `label`, an optional `url`,
+  and optional nested `children`; children render in a keyboard-operable dropdown.
+- `toc.yml` is the author-facing format for section side navigation. The loader
+  compiles nested `items` into `DocumentationNavigationItem` values. The API
+  generator produces the same internal model directly from documented symbols;
+  authors do not maintain a duplicate namespace/type TOC. A logical `href: api/`
+  entry places that generated tree in an authored menu.
+- The page outline uses headings from the current page and is independent of
+  both navigation menus.
+
+A root `toc.yml` is discovered when neither `toc` nor `navigation` is configured.
+For authored pages, the nearest `toc.yml` between the source directory and the
+configuration directory defines their section menu, even when the output page is
+relocated. Referenced Markdown or HTML pages are included in the build. Section
+menus do not automatically append the API tree; use `href: api/` to include it.
+The configuration's `navigation` property remains an alternative for defining the
+root side menu directly; it is not the main menu.
+
+The shared side-menu renderer labels its reference browser **API Browser**, supports
+expand/collapse, filtering, current-location highlighting, and single-line labels
+with full-name tooltips. At widths up to 760px it becomes an off-canvas modal drawer
+opened with **Browse API**. The native dialog supplies focus containment and Escape
+handling; a close button and backdrop dismissal are available. Without JavaScript,
+side navigation remains visible. The drawer and desktop menu share the same model.
+
+Markdown and HTML body fragments accept optional scalar front matter:
+
+```yaml
+---
+title: Welcome
+layout: landing
+toc: false
+---
+```
+
+`title` overrides the configured page title. `layout` is `docs` or `landing`;
+landing pages omit the side menu. `toc` is a Boolean controlling the in-page
+outline (distinct from the configuration's `toc` filename). Unknown, duplicate or
+invalid keys fail the build. HTML inputs are fragments; the publisher owns the
+HTML document shell. Full `html`, `head`, `body` and doctype wrappers are rejected.
+Site-wide `showToc` defaults to true. `apiNavigationRoot`, when supplied, limits the
+root side menu on authored pages to that output directory; generated API pages
+always receive navigation. Explicit section TOCs are used within that scope.
+
+Additional site configuration includes `subtitle`, `notice`, `releaseUrl`, and
+`releaseLabel` for a project-owned availability notice. `apiPath` defaults to `api`.
+Optional `types` selects documented type IDs (without `T:`), and `excludedMembers`
+lists exact XML member IDs to omit. Selection affects generated navigation and
+links. The site build exports `xref-map.json` for consumers needing compatibility
+redirects or coverage checks. These controls do not infer a project's release status.
+
+## Compact reference lists
+
+API lists default to `memberListStyle: "compact"`: names first, properties and fields
+as `Name: Type`, and methods as `Name(parameter: Type) -> ReturnType`. Overloads keep
+separate entries. Generic parameters, nullable types, reference-passing annotations,
+optional parameter `?` markers and variadic `...` markers are retained; unit returns
+use `()`. Declaration keywords and accessibility modifiers are omitted. Static
+members have an S badge on their icon, with a tooltip and screen-reader label.
+Type icons use I for interfaces, E for enums, U for unions, D for delegates and S for structs. Union identity comes from `IUnionSymbol`, independently of carrier storage. Detail pages retain full Raven declarations.
+
+Set `"memberListStyle": "signatures"` or use the assembly/source CLI's
+`--list-signatures` switch to retain full declarations in browsing lists. This is
+a presentation change and does not alter compiler semantics or emitted metadata.

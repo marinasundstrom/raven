@@ -1,74 +1,8 @@
-using System.Text;
 using System.Text.Json;
 
 using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
-
-public sealed record DocumentationNavigationItem(
-    string Label,
-    string? Url = null,
-    IReadOnlyList<DocumentationNavigationItem>? Children = null,
-    bool Api = false);
-
-internal static class DocumentationNavigation
-{
-    internal static IReadOnlyList<DocumentationNavigationItem> Compose(
-        IReadOnlyList<DocumentationNavigationItem> items,
-        IReadOnlyList<DocumentationNavigationItem> api)
-    {
-        var placedApi = false;
-        DocumentationNavigationItem Expand(DocumentationNavigationItem item)
-        {
-            if (item.Api)
-            {
-                placedApi = true;
-                return item with { Url = api.FirstOrDefault()?.Url, Children = api.FirstOrDefault()?.Children };
-            }
-            return item with { Children = item.Children?.Select(Expand).ToArray() };
-        }
-        var expanded = items.Select(Expand).ToArray();
-        return placedApi ? expanded : expanded.Concat(api).ToArray();
-    }
-
-    internal static string? Resolve(string? url, string root, string currentDirectory)
-    {
-        if (url is null || url.StartsWith('/') || url.StartsWith('#') ||
-            Uri.TryCreate(url, UriKind.Absolute, out _))
-            return url;
-        return Path.GetRelativePath(currentDirectory, Path.Combine(root, url)).Replace('\\', '/');
-    }
-
-    internal static string Render(IReadOnlyList<DocumentationNavigationItem> items, string root, string currentDirectory)
-    {
-        if (items.Count == 0)
-            return string.Empty;
-        var builder = new StringBuilder("<aside class=\"reference-navigation\"><nav aria-label=\"Documentation\"><label for=\"navigation-filter\">Filter navigation</label><input id=\"navigation-filter\" type=\"search\" placeholder=\"Find a page or type\" /><ul>");
-        Append(items);
-        builder.Append("</ul><p id=\"navigation-empty\" hidden>No matching pages.</p></nav></aside>");
-        return builder.ToString();
-
-        void Append(IReadOnlyList<DocumentationNavigationItem> entries)
-        {
-            foreach (var item in entries)
-            {
-                builder.Append("<li>");
-                var label = RavenDocSiteTemplate.Escape(item.Label);
-                if (item.Url is { } url)
-                    builder.Append($"<a href=\"{RavenDocSiteTemplate.Escape(Resolve(url, root, currentDirectory))}\">{label}</a>");
-                else
-                    builder.Append($"<span>{label}</span>");
-                if (item.Children is { Count: > 0 } children)
-                {
-                    builder.Append("<ul>");
-                    Append(children);
-                    builder.Append("</ul>");
-                }
-                builder.Append("</li>");
-            }
-        }
-    }
-}
 
 /// <summary>Publishes authored Markdown and a Raven API reference using one site shell.</summary>
 public static class DocumentationSiteBuilder
@@ -81,26 +15,51 @@ public static class DocumentationSiteBuilder
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true, UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow })
             ?? throw new InvalidOperationException("The site configuration is empty.");
         var output = Path.GetFullPath(configuration.Output, root);
+        var apiPath = RelativeOutput(configuration.ApiPath);
+        if (configuration.MemberListStyle is not ("compact" or "signatures"))
+            throw new InvalidOperationException("memberListStyle must be compact or signatures.");
         if (IsWithin(output, root))
             throw new InvalidOperationException("Site output must not contain the configuration directory.");
 
         if (configuration.Toc is not null && configuration.Navigation.Count > 0)
             throw new InvalidOperationException("Use either 'toc' or 'navigation' to define the menu.");
-        var menu = configuration.Toc is null
-            ? configuration.Navigation
-            : DocumentationTableOfContents.Load(Path.GetFullPath(configuration.Toc, root), root,
-                (source, title) =>
-                {
-                    var page = configuration.Pages.FirstOrDefault(page =>
-                        Path.GetFullPath(page.Source, root) == source);
-                    if (page is null)
-                    {
-                        var relativeSource = Path.GetRelativePath(root, source).Replace('\\', '/');
-                        page = new SitePage(relativeSource, Path.ChangeExtension(relativeSource, ".html"), title);
-                        configuration.Pages.Add(page);
-                    }
-                    return page.Output ?? Path.ChangeExtension(page.Source, ".html");
-                });
+        string ResolvePage(string source, string title)
+        {
+            var page = configuration.Pages.FirstOrDefault(page => Path.GetFullPath(page.Source, root) == source);
+            if (page is null)
+            {
+                var relativeSource = Path.GetRelativePath(root, source).Replace('\\', '/');
+                page = new SitePage(relativeSource, Path.ChangeExtension(relativeSource, ".html"), title);
+                configuration.Pages.Add(page);
+            }
+            return page.Output ?? Path.ChangeExtension(page.Source, ".html");
+        }
+        var tocPath = configuration.Toc is not null ? Path.GetFullPath(configuration.Toc, root)
+            : configuration.Navigation.Count == 0 && File.Exists(Path.Combine(root, "toc.yml")) ? Path.Combine(root, "toc.yml") : null;
+        var menu = tocPath is null ? configuration.Navigation : DocumentationTableOfContents.Load(tocPath, root, ResolvePage);
+        var sectionMenus = new Dictionary<string, IReadOnlyList<DocumentationNavigationItem>>(StringComparer.Ordinal);
+        // Discover section menus before materializing pages; a toc may introduce more pages.
+        for (var index = 0; index < configuration.Pages.Count; index++)
+        {
+            var directory = Path.GetDirectoryName(Path.GetFullPath(configuration.Pages[index].Source, root));
+            while (directory is not null && directory != root && IsWithin(root, directory))
+            {
+                var sectionToc = Path.Combine(directory, "toc.yml");
+                if (!sectionMenus.ContainsKey(directory) && File.Exists(sectionToc))
+                    sectionMenus[directory] = DocumentationTableOfContents.Load(sectionToc, root, ResolvePage);
+                directory = Path.GetDirectoryName(directory);
+            }
+        }
+        IReadOnlyList<DocumentationNavigationItem> MenuForPage(string source)
+        {
+            var directory = Path.GetDirectoryName(source);
+            while (directory is not null && directory != root && IsWithin(root, directory))
+            {
+                if (sectionMenus.TryGetValue(directory, out var section)) return section;
+                directory = Path.GetDirectoryName(directory);
+            }
+            return menu;
+        }
 
         var pages = configuration.Pages.Select(page => (
             Page: page,
@@ -114,7 +73,7 @@ public static class DocumentationSiteBuilder
             if (IsWithin(output, page.Source))
                 throw new InvalidOperationException("Site output must not contain an input page.");
             if (!page.Destination.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
-                page.Destination.StartsWith("api/", StringComparison.OrdinalIgnoreCase) ||
+                page.Destination.StartsWith(apiPath + "/", StringComparison.OrdinalIgnoreCase) ||
                 !destinations.Add(page.Destination))
                 throw new InvalidOperationException($"Invalid or duplicate page output: {page.Destination}");
         }
@@ -132,7 +91,7 @@ public static class DocumentationSiteBuilder
                 if (!File.Exists(file))
                     throw new FileNotFoundException("Site resource was not found.", file);
                 var destination = RelativeOutput(Path.GetRelativePath(root, file));
-                if (destination.StartsWith("api/", StringComparison.OrdinalIgnoreCase) ||
+                if (destination.StartsWith(apiPath + "/", StringComparison.OrdinalIgnoreCase) ||
                     destination is "style.css" or "site.js" or "raven-theme.css" ||
                     !destinations.Add(destination))
                     throw new InvalidOperationException($"Conflicting resource output: {destination}");
@@ -150,13 +109,15 @@ public static class DocumentationSiteBuilder
         {
             var options = new DocumentationSiteOptions(configuration.Links, configuration.Values, staging,
                 configuration.Name, configuration.Logo, configuration.Stylesheet, menu,
-                configuration.Footer ?? configuration.Name);
+                configuration.Footer ?? configuration.Name, configuration.MemberListStyle,
+                configuration.Types, configuration.ExcludedMembers, configuration.Subtitle,
+                configuration.Notice, configuration.ReleaseUrl, configuration.ReleaseLabel, configuration.ShowToc);
             var template = new RavenDocSiteTemplate();
             template.WriteAssets(staging);
             IReadOnlyList<DocumentationNavigationItem> apiNavigation = [];
             if (apiInput is not null)
             {
-                var apiOutput = Path.Combine(staging, "api");
+                var apiOutput = Path.Combine(staging, apiPath);
                 if (apiInput.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
                     RavenDocCommand.GenerateFromAssembly(apiInput, apiOutput, configuration.Framework, options);
                 else
@@ -172,7 +133,8 @@ public static class DocumentationSiteBuilder
                 var destination = pageMap[page.Source];
                 var currentDirectory = Path.GetDirectoryName(destination)!;
                 Directory.CreateDirectory(currentDirectory);
-                var markdown = MarkdownTemplate.Apply(File.ReadAllText(page.Source), configuration.Values);
+                var metadata = PageFrontMatter.Parse(File.ReadAllText(page.Source));
+                var markdown = MarkdownTemplate.Apply(metadata.Content, configuration.Values);
                 var pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions();
                 pipeline.DocumentProcessed += document =>
                 {
@@ -198,20 +160,31 @@ public static class DocumentationSiteBuilder
                             if (link.Url?.StartsWith("xref:", StringComparison.Ordinal) == true)
                                 link.Url = DocumentationGenerator.ResolveArticleXref(link.Url, currentDirectory);
                     };
-                var html = Markdown.ToHtml(markdown, pipeline.Build());
+                var html = Path.GetExtension(page.Source).ToLowerInvariant() switch
+                {
+                    ".md" => Markdown.ToHtml(markdown, pipeline.Build()),
+                    ".html" => markdown,
+                    _ => throw new InvalidOperationException("Site content must be .md or .html.")
+                };
+                if (System.Text.RegularExpressions.Regex.IsMatch(html, @"<!doctype|<html\b|<head\b|<body\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                    throw new InvalidOperationException("HTML content must be a body fragment; RavenDoc supplies the page shell.");
                 string Link(string path) => Path.GetRelativePath(currentDirectory, Path.Combine(staging, path)).Replace('\\', '/');
-                var navigation = DocumentationNavigation.Compose(menu, apiNavigation);
+                var pageMenu = MenuForPage(page.Source);
+                var navigation = DocumentationNavigation.Compose(pageMenu, apiNavigation, appendApi: ReferenceEquals(pageMenu, menu));
+                var navigationRoot = configuration.ApiNavigationRoot?.TrimEnd('/');
+                var showNavigation = metadata.Layout != "landing" && (navigationRoot is null ||
+                    page.Destination.StartsWith(navigationRoot + "/", StringComparison.Ordinal));
                 File.WriteAllText(destination, template.RenderPage(new RavenDocPageTemplateModel(
-                    page.Page.Title ?? Path.GetFileNameWithoutExtension(page.Source), "Documentation", configuration.Name,
+                    metadata.Title ?? page.Page.Title ?? Path.GetFileNameWithoutExtension(page.Source), "Documentation", configuration.Name,
                     Link("index.html"), Link("raven-theme.css"), Link("style.css"), Link("site.js"), html,
-                    configuration.Links.Select(link => link with
-                    {
-                        Url = DocumentationNavigation.Resolve(link.Url, staging, currentDirectory)!
-                    }).ToArray(), DocumentationNavigation.Render(navigation, staging, currentDirectory), configuration.Name,
+                    DocumentationNavigation.ResolveLinks(configuration.Links, staging, currentDirectory), showNavigation ? DocumentationNavigation.Render(navigation, staging, currentDirectory, destination) : "", configuration.Name,
                     DocumentationNavigation.Resolve(configuration.Logo, staging, currentDirectory),
                     DocumentationNavigation.Resolve(configuration.Stylesheet, staging, currentDirectory),
-                    configuration.Footer ?? configuration.Name)));
+                    configuration.Footer ?? configuration.Name, configuration.Subtitle, configuration.Notice,
+                    configuration.ReleaseUrl, configuration.ReleaseLabel, metadata.Layout, metadata.Toc ?? configuration.ShowToc)));
             }
+            if (apiInput is not null)
+                File.WriteAllText(Path.Combine(staging, "xref-map.json"), JsonSerializer.Serialize(DocumentationGenerator.ExportXrefs(staging)));
             foreach (var asset in assets)
             {
                 var destination = Path.Combine(staging, asset.Destination);
@@ -251,6 +224,16 @@ public static class DocumentationSiteBuilder
         public string Output { get; init; } = "_site";
         public string? Toc { get; init; }
         public string? Api { get; init; }
+        public string ApiPath { get; init; } = "api";
+        public string MemberListStyle { get; init; } = "compact";
+        public List<string>? Types { get; init; }
+        public List<string>? ExcludedMembers { get; init; }
+        public string? Subtitle { get; init; }
+        public string? Notice { get; init; }
+        public string? ReleaseUrl { get; init; }
+        public string? ReleaseLabel { get; init; }
+        public string? ApiNavigationRoot { get; init; }
+        public bool ShowToc { get; init; } = true;
         public string Framework { get; init; } = "net10.0";
         public string? Logo { get; init; }
         public string? Stylesheet { get; init; }

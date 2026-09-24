@@ -50,7 +50,7 @@ internal static class DocumentationTableOfContents
                     var relative = Path.GetRelativePath(root, source).Replace('\\', '/').TrimEnd('/');
                     if (relative is "api" or "api/index.html" or "api/toc.yml")
                         api = true;
-                    else if (source.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+                    else if ((source.EndsWith(".md", StringComparison.OrdinalIgnoreCase) || source.EndsWith(".html", StringComparison.OrdinalIgnoreCase)))
                         url = resolvePage(source, item.Name) + suffix;
                     else if (source.EndsWith(".yml", StringComparison.OrdinalIgnoreCase))
                         children.AddRange(Read(source));

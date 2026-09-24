@@ -56,15 +56,57 @@
         const query = filter.value.trim().toLocaleLowerCase();
         const items = [...navigation.querySelectorAll("li")];
         for (const item of items.reverse()) {
-            const label = item.querySelector(":scope > a, :scope > span");
+            const label = item.querySelector(":scope > a, :scope > span, :scope > details > summary");
             const matches = label?.textContent.toLocaleLowerCase().includes(query);
-            const childMatches = [...item.querySelectorAll(":scope > ul > li")].some(child => !child.hidden);
+            const childMatches = [...item.querySelectorAll(":scope > details > ul > li")].some(child => !child.hidden);
             item.hidden = !matches && !childMatches;
-            if (matches)
-                for (const child of item.querySelectorAll("li")) child.hidden = false;
+            const group = item.querySelector(":scope > details");
+            if (group && query) {
+                if (!group.hasAttribute("data-before-filter")) group.dataset.beforeFilter = String(group.open);
+                if (!item.hidden) group.open = true;
+            } else if (group?.hasAttribute("data-before-filter")) {
+                group.open = group.dataset.beforeFilter === "true";
+                delete group.dataset.beforeFilter;
+            }
+            if (matches) for (const child of item.querySelectorAll("li")) child.hidden = false;
         }
         document.querySelector("#navigation-empty").hidden = items.some(item => !item.hidden);
     });
+
+    const apiBrowser = document.querySelector("#api-browser");
+    const apiToggle = document.querySelector(".api-browser-toggle");
+    if (apiBrowser && apiToggle) {
+        const smallScreen = window.matchMedia("(max-width: 760px)");
+        const closeBrowser = () => {
+            apiBrowser.close();
+            apiToggle.setAttribute("aria-expanded", "false");
+        };
+        const syncBrowser = () => {
+            closeBrowser();
+            if (!smallScreen.matches) apiBrowser.setAttribute("open", "");
+        };
+        document.body.classList.add("api-navigation-ready");
+        syncBrowser();
+        smallScreen.addEventListener("change", syncBrowser);
+        apiToggle.addEventListener("click", () => {
+            apiBrowser.showModal();
+            apiToggle.setAttribute("aria-expanded", "true");
+        });
+        apiBrowser.querySelector(".api-browser-close").addEventListener("click", closeBrowser);
+        apiBrowser.addEventListener("keydown", event => {
+            if (event.key === "Escape" && smallScreen.matches) {
+                event.preventDefault();
+                closeBrowser();
+            }
+        });
+        apiBrowser.addEventListener("close", () => apiToggle.setAttribute("aria-expanded", "false"));
+        apiBrowser.addEventListener("click", event => {
+            if (event.target !== apiBrowser || !smallScreen.matches) return;
+            const bounds = apiBrowser.getBoundingClientRect();
+            if (event.clientX < bounds.left || event.clientX > bounds.right ||
+                event.clientY < bounds.top || event.clientY > bounds.bottom) closeBrowser();
+        });
+    }
 
     const outline = document.querySelector("#page-outline-links");
     if (!outline)

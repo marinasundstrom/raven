@@ -5,6 +5,60 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 public sealed class DocumentationSiteBuilderTests
 {
     [Fact]
+    public void FrontMatterAndSectionTocKeepThreeNavigationLevelsIndependent()
+    {
+        WithDirectory(root =>
+        {
+            Directory.CreateDirectory(Path.Combine(root, "guide"));
+            File.WriteAllText(Path.Combine(root, "index.html"), "---\ntitle: Welcome\nlayout: landing\ntoc: false\n---\n<section><h1>Hero</h1></section>");
+            File.WriteAllText(Path.Combine(root, "guide/start.md"), "# Start\n\n## Details\n\nSection content.");
+            File.WriteAllText(Path.Combine(root, "guide/next.md"), "---\ntoc: false\n---\n# Next");
+            File.WriteAllText(Path.Combine(root, "guide/toc.yml"), "- name: Section start\n  href: start.md\n- name: Next step\n  href: next.md\n");
+            var config = new
+            {
+                name = "Example",
+                notice = "Development documentation",
+                links = new[] { new { label = "Learn", children = new[] { new { label = "Start", url = "learn/start.html" } } } },
+                navigation = new[] { new { label = "Global side link", url = "index.html" } },
+                pages = new[] { new { source = "index.html", output = "index.html" }, new { source = "guide/start.md", output = "learn/start.html" } }
+            };
+            File.WriteAllText(Path.Combine(root, "site.json"), JsonSerializer.Serialize(config));
+            DocumentationSiteBuilder.Build(Path.Combine(root, "site.json"));
+            var home = File.ReadAllText(Path.Combine(root, "_site/index.html"));
+            home.ShouldContain("layout-landing without-outline");
+            home.ShouldContain("main-navigation-group");
+            home.ShouldNotContain("id=\"api-browser\"");
+            home.ShouldNotContain("aria-label=\"On this page\"");
+            var guide = File.ReadAllText(Path.Combine(root, "_site/learn/start.html"));
+            guide.ShouldContain("Section start");
+            guide.ShouldContain("Next step");
+            guide.ShouldNotContain("Global side link");
+            guide.ShouldContain("aria-label=\"On this page\"");
+            guide.ShouldContain("aria-controls=\"api-browser\"");
+            var next = File.ReadAllText(Path.Combine(root, "_site/guide/next.html"));
+            next.ShouldContain("API Browser");
+            next.ShouldNotContain("aria-label=\"On this page\"");
+        });
+    }
+
+    [Theory]
+    [InlineData("---\ntoc: maybe\n---\n# Bad")]
+    [InlineData("---\nlayout: unknown\n---\n# Bad")]
+    [InlineData("<html><body>Nested</body></html>")]
+    public void InvalidPageControlsFailWithoutReplacingPublishedOutput(string content)
+    {
+        WithDirectory(root =>
+        {
+            Directory.CreateDirectory(Path.Combine(root, "_site"));
+            File.WriteAllText(Path.Combine(root, "_site/index.html"), "Previous site");
+            File.WriteAllText(Path.Combine(root, "index.html"), content);
+            File.WriteAllText(Path.Combine(root, "site.json"), JsonSerializer.Serialize(new { pages = new[] { new { source = "index.html" } } }));
+            Should.Throw<InvalidOperationException>(() => DocumentationSiteBuilder.Build(Path.Combine(root, "site.json")));
+            File.ReadAllText(Path.Combine(root, "_site/index.html")).ShouldBe("Previous site");
+        });
+    }
+
+    [Fact]
     public void SiteCombinesRelocatedGuidesApiLinksNavigationAndBranding()
     {
         WithDirectory(root =>
@@ -56,10 +110,10 @@ public sealed class DocumentationSiteBuilderTests
             home.ShouldContain("Getting started");
             home.ShouldNotContain("api/System/index.html");
             home.ShouldContain("Library reference");
-            home.IndexOf(">Library reference</a>", StringComparison.Ordinal)
-                .ShouldBeGreaterThan(home.IndexOf(">Getting started</a>", StringComparison.Ordinal));
-            home.IndexOf(">Home</a>", StringComparison.Ordinal)
-                .ShouldBeGreaterThan(home.IndexOf(">Library reference</a>", StringComparison.Ordinal));
+            home.IndexOf(">Library reference</span>", StringComparison.Ordinal)
+                .ShouldBeGreaterThan(home.IndexOf(">Getting started</span>", StringComparison.Ordinal));
+            home.IndexOf(">Home</span>", StringComparison.Ordinal)
+                .ShouldBeGreaterThan(home.IndexOf(">Library reference</span>", StringComparison.Ordinal));
             var guide = File.ReadAllText(Path.Combine(root, "_site/learn/intro.html"));
             guide.ShouldContain("href=\"../index.html\"");
             guide.ShouldContain("src=\"../images/mark.svg\"");
