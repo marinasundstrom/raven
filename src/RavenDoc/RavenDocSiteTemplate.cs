@@ -38,6 +38,21 @@ internal sealed class RavenDocSiteTemplate
         var favicon = page.FaviconHref is { } icon ? $"<link rel=\"icon\" href=\"{Escape(icon)}\" />" : "";
         var customStyle = page.CustomStyleHref is { } style ? $"<link rel=\"stylesheet\" href=\"{Escape(style)}\" />" : "";
         var notice = string.IsNullOrWhiteSpace(page.Notice) ? "" : $"<div class=\"release-notice\" role=\"note\">{Escape(page.Notice)} {(page.ReleaseUrl is null ? "" : $"<a href=\"{Escape(page.ReleaseUrl)}\">{Escape(page.ReleaseLabel ?? "Published release")}</a>")}</div>";
+        var analytics = "";
+        if (page.GoogleAnalyticsId is { } measurementId)
+        {
+            if (!System.Text.RegularExpressions.Regex.IsMatch(measurementId, @"\AG-[A-Z0-9]+\z"))
+                throw new InvalidOperationException("googleAnalyticsId must be a GA4 measurement ID (G-...).");
+            analytics = $$"""
+                <script async src="https://www.googletagmanager.com/gtag/js?id={{measurementId}}"></script>
+                <script>
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag() { dataLayer.push(arguments); }
+                  gtag('js', new Date());
+                  gtag('config', '{{measurementId}}');
+                </script>
+                """;
+        }
         var showToc = page.ShowToc;
         var outline = showToc ? "<aside class=\"page-outline\" aria-label=\"On this page\"><div class=\"page-outline-card\"><strong>On this page</strong><nav id=\"page-outline-links\"></nav></div></aside>" : "";
         var layout = page.Layout;
@@ -53,6 +68,7 @@ internal sealed class RavenDocSiteTemplate
           <link rel="stylesheet" href="{Escape(page.StyleHref)}" />
           {favicon}
           {customStyle}
+          {analytics}
           <script type="module" src="{Escape(page.ScriptHref)}"></script>
         </head>
         <body class="{(page.NavigationHtml.Length > 0 ? "with-api-navigation " : "")}layout-{Escape(layout)}{(showToc ? "" : " without-outline")}">
@@ -356,7 +372,8 @@ internal sealed record RavenDocPageTemplateModel(
     string? ReleaseLabel = null,
     string Layout = "docs",
     bool ShowToc = true,
-    string? FaviconHref = null);
+    string? FaviconHref = null,
+    string? GoogleAnalyticsId = null);
 
 internal sealed record RavenDocMemberTemplateModel(
     RavenDocSymbolKind Kind,

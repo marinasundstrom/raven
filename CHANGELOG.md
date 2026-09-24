@@ -35,6 +35,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   ordinary .NET interfaces with an opt-in System.ValueTuple unit representation.
 
 
+- **2026-09-24:** Add optional `googleAnalyticsId` site configuration to include
+  the Google tag on authored and generated API pages. Analytics remains disabled
+  by default; reject invalid GA4 measurement IDs.
+
 - **2026-09-24:** Render namespaces consistently as expandable API Browser groups,
   including those with only an overview in flat mode. Use declared built-in type
   names such as Object, String and Char in navigation and page headings; retain

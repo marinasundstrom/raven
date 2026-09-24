@@ -113,7 +113,7 @@ public static class DocumentationSiteBuilder
                 configuration.Name, configuration.Logo, configuration.Stylesheet, menu,
                 configuration.Footer ?? configuration.Name, configuration.MemberListStyle,
                 configuration.Types, configuration.ExcludedMembers, configuration.Subtitle,
-                configuration.Notice, configuration.ReleaseUrl, configuration.ReleaseLabel, configuration.ShowToc, configuration.Favicon, configuration.NamespaceNavigation);
+                configuration.Notice, configuration.ReleaseUrl, configuration.ReleaseLabel, configuration.ShowToc, configuration.Favicon, configuration.NamespaceNavigation, configuration.GoogleAnalyticsId);
             var template = new RavenDocSiteTemplate();
             template.WriteAssets(staging);
             IReadOnlyList<DocumentationNavigationItem> apiNavigation = [];
@@ -184,7 +184,7 @@ public static class DocumentationSiteBuilder
                     DocumentationNavigation.Resolve(configuration.Stylesheet, staging, currentDirectory),
                     configuration.Footer ?? configuration.Name, configuration.Subtitle, configuration.Notice,
                     configuration.ReleaseUrl, configuration.ReleaseLabel, metadata.Layout, metadata.Toc ?? configuration.ShowToc,
-                    DocumentationNavigation.Resolve(configuration.Favicon, staging, currentDirectory))));
+                    DocumentationNavigation.Resolve(configuration.Favicon, staging, currentDirectory), configuration.GoogleAnalyticsId)));
             }
             if (apiInput is not null)
                 File.WriteAllText(Path.Combine(staging, "xref-map.json"), JsonSerializer.Serialize(DocumentationGenerator.ExportXrefs(staging)));
@@ -241,6 +241,7 @@ public static class DocumentationSiteBuilder
         public string Framework { get; init; } = "net10.0";
         public string? Logo { get; init; }
         public string? Favicon { get; init; }
+        public string? GoogleAnalyticsId { get; init; }
         public string? Stylesheet { get; init; }
         public string? Footer { get; init; }
         public List<SitePage> Pages { get; init; } = [];

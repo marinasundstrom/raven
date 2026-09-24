@@ -615,3 +615,12 @@ For CI, run the same `--site` command from a built/pinned RavenDoc CLI, validate
 the output and publish it with the project's deployment system. Generator version
 selection and release-status text belong to that project's build configuration.
 RavenDoc does not infer whether an API has shipped.
+
+### Optional Google Analytics
+
+Set `"googleAnalyticsId": "G-YOURID"` in the site configuration to include the
+standard [Google tag](https://developers.google.com/tag-platform/gtagjs) once per
+authored or generated API page. Omit the property to emit no analytics scripts.
+RavenDoc validates the GA4 measurement ID and does not configure additional events
+or consent controls. Configured analytics also runs when previewing that build;
+omit the ID from a preview configuration if it should not be measured.

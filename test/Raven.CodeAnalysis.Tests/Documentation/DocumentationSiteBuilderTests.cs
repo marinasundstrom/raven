@@ -4,6 +4,26 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class DocumentationSiteBuilderTests
 {
+    [Theory]
+    [InlineData("")]
+    [InlineData("G-ABC\n")]
+    [InlineData("G-ABC';alert(1)//")]
+    public void InvalidAnalyticsIdIsRejected(string id)
+    {
+        WithDirectory(root =>
+        {
+            File.WriteAllText(Path.Combine(root, "index.md"), "# Example");
+            var config = Path.Combine(root, "site.json");
+            File.WriteAllText(config, JsonSerializer.Serialize(new
+            {
+                googleAnalyticsId = id,
+                pages = new[] { new { source = "index.md" } }
+            }));
+            Should.Throw<InvalidOperationException>(() => DocumentationSiteBuilder.Build(config))
+                .Message.ShouldContain("googleAnalyticsId");
+        });
+    }
+
     [Fact]
     public void FrontMatterAndSectionTocKeepThreeNavigationLevelsIndependent()
     {
@@ -84,6 +104,7 @@ public sealed class DocumentationSiteBuilderTests
             {
                 name = "Example platform",
                 namespaceNavigation = "flat",
+                googleAnalyticsId = "G-TEST12345",
                 api = "library.rvn",
                 logo = "images/mark.svg",
                 stylesheet = "custom.css",
@@ -129,6 +150,12 @@ public sealed class DocumentationSiteBuilderTests
             api.ShouldContain("href=\"../../../learn/intro.html\"");
             api.ShouldContain("src=\"../../../images/mark.svg\"");
             api.ShouldContain("class Widget");
+            foreach (var page in new[] { home, guide, api })
+            {
+                page.ShouldContain("https://www.googletagmanager.com/gtag/js?id=G-TEST12345");
+                page.ShouldContain("gtag('config', 'G-TEST12345')");
+                page.Split("googletagmanager.com").Length.ShouldBe(2);
+            }
             File.Exists(Path.Combine(root, "_site/custom.css")).ShouldBeTrue();
         });
     }
