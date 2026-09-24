@@ -17,7 +17,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   record-struct parameters remain values and explicit Equals declarations are kept.
   Match top-level nullable reference annotations when emitting interface methods,
   preserving dispatch without erasing nullable value wrappers. No new Runtime
-  Contract option or nullable-value behavior changes.
+  Contract option or nullable-value behavior changes. Generated class comparison
+  operators also accept nullable record references, preserving explicit operators;
+  internal equality null guards use reference identity to avoid operator recursion.
 
 - **2026-09-23:** Match an explicitly configured unit value with its selected
   imported type during symbol equality and hashing, including generic interface

@@ -208,8 +208,8 @@ internal static partial class SynthesizedMethodBodyFactory
             method.ReturnType.SpecialType == SpecialType.System_Boolean &&
             method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
             TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true } operatorRecordType &&
-            SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, method.ContainingType) &&
-            SymbolEqualityComparer.Default.Equals(method.Parameters[1].Type, method.ContainingType))
+            SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type.GetNonNullableType(), method.ContainingType) &&
+            SymbolEqualityComparer.Default.Equals(method.Parameters[1].Type.GetNonNullableType(), method.ContainingType))
         {
             if (string.Equals(method.Name, "op_Equality", StringComparison.Ordinal))
             {

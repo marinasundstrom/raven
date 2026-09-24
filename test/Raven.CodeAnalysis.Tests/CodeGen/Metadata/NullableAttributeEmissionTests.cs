@@ -17,6 +17,80 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class NullableAttributeEmissionTests
 {
     [Fact]
+    public void GeneratedRecordEquals_NullGuardsIgnoreCustomOperators()
+    {
+        var compilation = Compilation.Create("RecordNullGuard", [SyntaxTree.ParseText("""
+            record class Key(Number: int) {
+                static func ==(left: Key?, right: Key?) -> bool => true
+                static func !=(left: Key?, right: Key?) -> bool => false
+            }
+            """)], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(new MemoryStream(stream.ToArray()), TestMetadataReferences.Default);
+        var key = loaded.Assembly.GetType("Key", true)!;
+        var first = Activator.CreateInstance(key, [42]);
+        var equals = key.GetMethod("Equals", [key])!;
+        Assert.Equal(false, equals.Invoke(first, [null]));
+        Assert.Equal(false, equals.Invoke(first, [Activator.CreateInstance(key, [7])]));
+        Assert.Equal(true, equals.Invoke(first, [Activator.CreateInstance(key, [42])]));
+    }
+
+    [Fact]
+    public void RecordOperators_PreserveNullableReferenceValueEquality()
+    {
+        var source = """
+            record class Key(Number: int)
+            class Comparisons {
+                static func Equal(left: Key?, right: Key?) -> bool => left == right
+                static func Different(left: Key?, right: Key?) -> bool => left != right
+                static func IsAbsent(value: Key?) -> bool => value == null
+                static func IsPresent(value: Key?) -> bool => null != value
+            }
+            """;
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("RecordOperatorNullability", [SyntaxTree.ParseText(source)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(references);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(new MemoryStream(stream.ToArray()), references);
+        var key = loaded.Assembly.GetType("Key", true)!;
+        var first = Activator.CreateInstance(key, [42]);
+        var same = Activator.CreateInstance(key, [42]);
+        var different = Activator.CreateInstance(key, [7]);
+        var comparisons = loaded.Assembly.GetType("Comparisons")!;
+        var equal = comparisons.GetMethod("Equal")!;
+        var unequal = comparisons.GetMethod("Different")!;
+        foreach (var (left, right, expected) in new (object?, object?, bool)[] {
+            (first, same, true), (first, different, false), (first, first, true),
+            (first, null, false), (null, first, false), (null, null, true)
+        })
+        {
+            Assert.Equal(expected, equal.Invoke(null, [left, right]));
+            Assert.Equal(!expected, unequal.Invoke(null, [left, right]));
+        }
+        Assert.Equal(true, comparisons.GetMethod("IsAbsent")!.Invoke(null, [null]));
+        Assert.Equal(false, comparisons.GetMethod("IsAbsent")!.Invoke(null, [first]));
+        Assert.Equal(false, comparisons.GetMethod("IsPresent")!.Invoke(null, [null]));
+        Assert.Equal(true, comparisons.GetMethod("IsPresent")!.Invoke(null, [first]));
+        foreach (var name in new[] { "op_Equality", "op_Inequality" })
+            Assert.All(key.GetMethod(name)!.GetParameters(), parameter =>
+                Assert.Equal(NullabilityState.Nullable, new NullabilityInfoContext().Create(parameter).ReadState));
+        var consumer = Compilation.Create("consumer", [SyntaxTree.ParseText(string.Empty)],
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences([.. references, MetadataReference.CreateFromImage(stream.ToArray())]);
+        var imported = consumer.GetTypeByMetadataName("Key")!;
+        foreach (var name in new[] { "op_Equality", "op_Inequality" })
+            Assert.All(Assert.Single(imported.GetMembers(name).OfType<IMethodSymbol>()).Parameters,
+                parameter => Assert.True(parameter.Type.IsNullable));
+    }
+
+    [Fact]
     public void GenericRecordTypedEquals_AcceptsNullAfterConstruction()
     {
         var compilation = Compilation.Create("GenericRecordEqualityNullability",

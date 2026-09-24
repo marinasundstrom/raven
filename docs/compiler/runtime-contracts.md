@@ -357,3 +357,17 @@ here. The .NET comparison follows Microsoft's
 [record reference](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/record)
 and is separately checked on .NET 10 by the integration baseline. No .NET Framework
 or NanoFramework execution is claimed.
+
+### Record comparison operator annotations (2026-09-24)
+
+Generated record-class `==` and `!=` accept nullable references on both sides,
+matching their existing null and value-equality behavior and the .NET record
+contract. Record-struct operands remain values. Explicit operators retain their
+authored annotations and suppress synthesis, including mixed annotated operands.
+Internal equality null guards use Object.ReferenceEquals; invoking overloaded
+equality here can recurse or let custom operators change the null test.
+
+No Runtime Contract option changes. Tests cover emitted and reimported metadata,
+null/equal/different operands, explicit declarations and custom-operator isolation
+on .NET 11. The integration baseline compares .NET 10. No .NET Framework or
+NanoFramework execution is claimed. Nullable value support is unchanged.

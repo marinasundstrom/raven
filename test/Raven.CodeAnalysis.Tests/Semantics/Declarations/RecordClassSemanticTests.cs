@@ -11,6 +11,32 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class RecordClassSemanticTests : CompilationTestBase
 {
     [Theory]
+    [InlineData("Key", "Key")]
+    [InlineData("Key?", "Key?")]
+    [InlineData("Key", "Key?")]
+    [InlineData("Key?", "Key")]
+    public void RecordClass_PreservesExplicitComparisonOperators(string leftType, string rightType)
+    {
+        var source = $$"""
+            record class Key(Number: int) {
+                static func ==(left: {{leftType}}, right: {{rightType}}) -> bool => true
+                static func !=(left: {{leftType}}, right: {{rightType}}) -> bool => false
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.GetSemanticModel(tree);
+        var key = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Key"));
+        foreach (var name in new[] { "op_Equality", "op_Inequality" })
+        {
+            var method = Assert.Single(key.GetMembers(name).OfType<IMethodSymbol>());
+            Assert.False(method.DeclaringSyntaxReferences.IsDefaultOrEmpty);
+            Assert.Equal(leftType.EndsWith("?"), method.Parameters[0].Type.IsNullable);
+            Assert.Equal(rightType.EndsWith("?"), method.Parameters[1].Type.IsNullable);
+        }
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
     [InlineData("Key")]
     [InlineData("Key?")]
     public void RecordClass_PreservesExplicitTypedEquals(string parameterType)
