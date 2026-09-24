@@ -3,6 +3,10 @@
 Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
+- **2026-09-24:** Document neoCLR target String sequence construction and explicit
+  Collection.Count integration, with unchanged compiler/Runtime Contract settings.
+  Record the direct empty-collection emission limitation and typed-array workaround;
+  Iterable construction remains a future option, not an implemented overload.
 - **2026-09-23:** Match an explicitly configured unit value with its selected
   imported type during symbol equality and hashing, including generic interface
   return types. Preserve source unit semantics and no-result return emission;

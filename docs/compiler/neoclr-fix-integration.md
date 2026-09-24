@@ -385,3 +385,21 @@ The target remains isolated on neoclr; no compiler fix needs extraction to main.
 The signature probe and editor completion cover the new declarations; UTF-8 sample
 checks include malformed input, BOM/NUL preservation and snapshot independence.
 Encoding hierarchies, Utf8String, streaming and scalar Char remain deferred.
+
+
+### 2026-09-24 — neoCLR String sequence construction
+
+neoCLR target metadata now exposes String(Sequence<Char>), a read-only indexer and
+String as Sequence with explicitly implemented Collection.Count. Length remains
+public. The neoCLR importer validates the constructor and lowers it to a managed
+snapshot factory; private explicit Count is matched by MethodImpl identity. String
+conversions to Collection/Sequence emit the required target interface cast.
+
+No Raven semantic/emission implementation or Runtime Contract configuration changes
+are made. Rebuild matching target metadata, bridge and runtime. The neoCLR
+string-sequence sample validates construction, copying, indexing and interface-only
+Count; direct Count and index mutation are compiler errors. Keep this target work
+on neoclr; there is no general compiler fix to extract here. The installed compiler
+cannot emit String([]) directly (empty Sequence-target collection expression);
+a typed empty char array works. Investigate that general candidate independently
+before proposing a Raven main fix. Iterable construction remains exploratory.
