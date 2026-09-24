@@ -8,7 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   EntryKind enum conversion, resolved isinst case-type flags, inactive defaults and
   concrete generic/payload projection limits. No compiler emission policy or Runtime
   Contract setting changes. Record System.Enum TypeInfo/generic helper target integration, typed snapshots,
-  enum formatting and the bounded metadata/collection admission changes.
+  enum formatting and the bounded metadata/collection admission changes. Record
+  nongeneric sequential payload-union library projection, preserved private-call
+  access during argument conversion, GC/rejection checks and remaining generic
+  and overlapping-layout limits. Public HTTP integration remains pending.
 
 
 - **2026-09-24:** Record neoCLR System.Web.Http target integration, handler importer access

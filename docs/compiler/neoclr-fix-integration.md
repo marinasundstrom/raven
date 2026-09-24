@@ -869,3 +869,27 @@ non-enum inputs. Signature mutation checks passed. The historical Neo bootstrap
 keeps explicit legacy carrier and BindingFlags snapshots; it cannot import the
 Raven Object/IUnion bodies without the Raven profile. The author puts additional
 constants/flags APIs on hold and returns priority to HTTP after this slice.
+
+### 2026-09-25: Nongeneric payload-library projection
+
+The neoCLR bridge now projects matched nongeneric sequential payload union families
+from normal Raven declarations. A provisional HttpError family nests core UriError,
+DnsError and SocketError plus a string payload. Separate consumer compilation and
+execution of imported bodies pass; the execution probe is native IL, not yet an
+integrated Raven HttpClient consumer. Generic companion projection and nonempty
+overlapping explicit layouts remain rejected. Raven case/companion attributes stay
+at the development bridge boundary; runtime output has no Raven metadata dependency.
+
+A generated case formatter exposed an adapter access issue: converting an argument
+through a free-standing wrapper lost permission to call the declaring type's private
+method. The bridge keeps supported single-materialized-argument conversions at the
+original checked call site. It does not broaden private visibility; unsupported
+nonpublic multiargument/null conversions still reject explicitly. No compiler source,
+emission policy or Runtime Contract configuration changed.
+
+The payload probe passes extraction, inactive default, copies and boxing under GC
+(101 allocations, four collections, zero live objects). Private external access,
+changed payload contracts and overlapping payload layouts reject. Generic metadata
+rejection checks pass, clean bootstrap regeneration matches, and the combined API
+website validates 862 pages. Public HTTP typed errors and token-aware Send remain
+integration work; this checkpoint only establishes the library bridge prerequisite.
