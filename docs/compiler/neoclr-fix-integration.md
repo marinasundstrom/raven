@@ -501,3 +501,19 @@ capture at Task.GetResult. A named StartExchange function avoids the nested shap
 Independently reproduce both with ordinary .NET metadata before locating/fixing the
 compiler or importer issue; do not merge target-specific experiments into main or
 relax neoCLR null checks. Earlier direct-case and hoisted-Result limits remain open.
+
+
+### 2026-09-24 — neoCLR listener and accepted sockets
+
+The target adds Socket.Listen(string,int,int) -> Result<Socket,SocketError>,
+Accept() -> Task<Result<Socket,SocketError>> and GetLocalPort() -> Result<int,SocketError>.
+The importer matches these signatures; private SocketConnectCompletion gains
+StartAccept and reuses the result bridge. SocketError adds AddressInUse and
+InvalidOperation. Refresh reference/importer/bootstrap/runtime artifacts together.
+Compiler semantics, state-machine emission and Runtime Contract settings are unchanged.
+
+A compiled server and client run as distinct neoCLR processes, using an OS-selected
+loopback port and a localhost lookup. Both exchange Hi and release all managed
+objects: server 104 allocations/three collections, client 1,428/31. Separate host
+callbacks let the sample avoid the already-recorded nested capture failure. This
+is local macOS integration evidence, not a compiler fix or a runtime release.
