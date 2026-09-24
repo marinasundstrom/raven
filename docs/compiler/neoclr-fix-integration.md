@@ -752,3 +752,21 @@ The installed SDK rejects direct source-union-to-IUnion assignment with RAV1504.
 The focused application probe therefore boxes to Object and explicitly casts the
 reference to IUnion. The implicit conversion is an open compiler candidate; no compiler
 fix is claimed or mixed into this bridge change.
+
+
+### Existing union reference replacement — 2026-09-24
+
+neoCLR's bridge now provides `--project-union-reference SOURCE CORE OWNER OUTPUT`
+for the bounded nongeneric empty-case Raven union shape. Existing carrier and nested
+case definitions are updated in place so core signatures retain their type identities;
+changed case sets are rejected. Reprojection reuses core-owned IUnion and case-attribute
+definitions. Reference stubs throw; native bodies continue to come from the source.
+
+The focused SocketError probe covers its thirteen cases, separate consumers of
+construction/matching and Socket.Connect's Task/Result signature, recompilation against
+the projected core and native library import. The bridge distinguishes this validated
+standard shape from its legacy erased-error initialization/receiver catalog.
+No Raven compiler source, semantic/emission policy or Runtime Contract option changes.
+Rebuild the matching bridge. SDK packaging, runtime callers and the public SocketError
+API snapshot are not migrated by this projection check; generic/payload-bearing
+projection is unsupported. Raven case metadata stays at the compiler boundary.

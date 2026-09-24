@@ -26,7 +26,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   checks. Raven conventions stay at the development bridge boundary; no neoCLR runtime
   dependency or platform case-map standard is introduced. Document shared core-owned
   IUnion import and ordinary interface dispatch, retaining the source-owned bootstrap
-  path; production packaging remains pending.
+  path; production packaging remains pending. Record the reusable in-place empty-case
+  union reference projector and SocketError consumer/reprojection/native-import checks;
+  no compiler change or public SocketError migration is claimed.
 
 - **2026-09-24:** Generate member parameter and property/return/field/event value
   sections from symbols, including undocumented members, with links to local types
