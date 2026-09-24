@@ -674,3 +674,16 @@ conditional-output false success are rejected. Existing constructor-argument che
 pass. The broader record suite, attempted with the installed bundle, fails before
 import on Equatable conversions and ambiguous Equals overloads. That is an open
 compiler/SDK validation gap, not a passing regression run or a claimed compiler fix.
+
+The next bridge slice admits Raven's explicit-layout empty-case-only union shape:
+a core-marked sealed value carrier, one private byte tag at offset zero, and empty
+nested case slots separated from the tag. Because those cases have no payload data,
+the bridge preserves their field semantics without importing native overlapping
+storage. Unmarked layouts, cases with fields and tag overlap remain rejected. This
+is target-specific admission, not a change to Raven's CLI layout or Runtime Contract.
+The union probe also consumes a separately compiled dependency; runtime-library
+reference catalogs/bootstrap exports and mixed erased carriers still need integration.
+
+Validation of the extended fixture passes in single-assembly and separate-library
+forms: each reports 103 allocations, two collections and zero live objects. All six
+malformed-contract checks and the legacy SocketError default rejection pass.
