@@ -17,6 +17,7 @@ public sealed class DocumentationSiteBuilderTests
             var config = new
             {
                 name = "Example",
+                favicon = "brand/favicon.svg",
                 notice = "Development documentation",
                 links = new[] { new { label = "Learn", children = new[] { new { label = "Start", url = "learn/start.html" } } } },
                 navigation = new[] { new { label = "Global side link", url = "index.html" } },
@@ -26,10 +27,15 @@ public sealed class DocumentationSiteBuilderTests
             DocumentationSiteBuilder.Build(Path.Combine(root, "site.json"));
             var home = File.ReadAllText(Path.Combine(root, "_site/index.html"));
             home.ShouldContain("layout-landing without-outline");
+            home.ShouldContain("rel=\"icon\" href=\"brand/favicon.svg\"");
             home.ShouldContain("main-navigation-group");
+            home.ShouldContain("aria-label=\"Color theme\"");
+            home.ShouldContain("<script src=\"theme.js\"");
+            File.ReadAllText(Path.Combine(root, "_site/theme.js")).ShouldContain("ravendoc-theme");
             home.ShouldNotContain("id=\"api-browser\"");
             home.ShouldNotContain("aria-label=\"On this page\"");
             var guide = File.ReadAllText(Path.Combine(root, "_site/learn/start.html"));
+            guide.ShouldContain("rel=\"icon\" href=\"../brand/favicon.svg\"");
             guide.ShouldContain("Section start");
             guide.ShouldContain("Next step");
             guide.ShouldNotContain("Global side link");

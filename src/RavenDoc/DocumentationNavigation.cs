@@ -81,7 +81,7 @@ internal static class DocumentationNavigation
             }
         }
         string Icon(DocumentationNavigationItem item) => item.Kind is null or "Namespace" ? "" : RavenDocSiteTemplate.RenderIcon(
-                item.Kind switch { "Interface" => RavenDocSymbolKind.Interface, "Enum" => RavenDocSymbolKind.Enum, "Union" => RavenDocSymbolKind.Union, "Delegate" => RavenDocSymbolKind.Delegate, "Struct" => RavenDocSymbolKind.Struct, _ => RavenDocSymbolKind.Type });
+                item.Kind switch { "Class" => RavenDocSymbolKind.Class, "Interface" => RavenDocSymbolKind.Interface, "Enum" => RavenDocSymbolKind.Enum, "Union" => RavenDocSymbolKind.Union, "Delegate" => RavenDocSymbolKind.Delegate, "Struct" => RavenDocSymbolKind.Struct, _ => RavenDocSymbolKind.Type });
         void AppendLink(DocumentationNavigationItem item, string text, bool wrap)
         {
             if (wrap) builder.Append("<li>");

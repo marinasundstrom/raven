@@ -435,7 +435,7 @@ body.with-api-navigation.without-outline .documentation-shell {
 .api-namespace > summary { font-weight: 600; }
 .api-namespace ul { list-style: none; padding: 0 0 0 .8rem; margin: .25rem 0 .7rem; }
 .api-namespace a { display: flex; gap: .5rem; align-items: center; padding: .4rem; border-radius: .3rem; overflow-wrap: anywhere; }
-.api-namespace a[aria-current] { background: var(--surface-alt, #e9eef5); color: var(--link); font-weight: 700; box-shadow: inset 3px 0 var(--link); }
+.api-namespace a[aria-current] { background: var(--raven-surface-raised); color: var(--link); font-weight: 700; box-shadow: inset 3px 0 var(--link); }
 .api-sidebar .symbol-icon { width: 1.2rem; height: 1.2rem; flex: 0 0 1.2rem; }
 .api-sidebar .symbol-icon svg { width: 1rem; height: 1rem; }
 .api-sidebar summary:focus-visible, .api-sidebar a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
@@ -459,7 +459,7 @@ body.with-api-navigation.without-outline .documentation-shell {
   max-height: none;
   border: 0;
   background: transparent;
-  color: var(--text);
+  color: var(--fg);
   top: 6rem;
 }
 .api-browser-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .8rem; }
@@ -496,7 +496,7 @@ body.with-api-navigation.without-outline .documentation-shell {
 
 .api-navigation-panel > ul { list-style: none; padding: 0; margin: 0; }
 .api-navigation-panel > ul > li > a { display: flex; gap: .5rem; padding: .4rem; }
-#navigation-filter { width: 100%; min-width: 0; margin: 0 0 .9rem; padding: .55rem .65rem; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: .4rem; font: inherit; font-size: .85rem; }
+#navigation-filter { width: 100%; min-width: 0; margin: 0 0 .9rem; padding: .55rem .65rem; color: var(--fg); background: var(--surface); border: 1px solid var(--border); border-radius: .4rem; font: inherit; font-size: .85rem; }
 .api-sidebar .api-namespace > summary { display: flex; gap: .45rem; align-items: center; }
 .api-sidebar summary::-webkit-details-marker { display: none; }
 .api-sidebar .api-namespace > summary::before { content: "›"; flex: 0 0 .6rem; transition: transform .15s; }
@@ -511,3 +511,26 @@ body.with-api-navigation.without-outline .documentation-shell {
 .main-navigation-group div a, .main-navigation-group div summary { display: block; padding: .45rem .6rem; }
 .main-navigation-group .main-navigation-group > div { position: static; padding-left: .75rem; border: 0; box-shadow: none; }
 @media (max-width: 760px) { .site-navigation > ul { gap: .65rem; } }
+
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+.theme-menu { position: relative; flex: 0 0 auto; }
+.theme-menu > summary { display: flex; align-items: center; gap: .45rem; padding: .4rem; cursor: pointer; list-style: none; color: var(--fg); }
+.theme-menu > summary::-webkit-details-marker { display: none; }
+.theme-icon { width: 1.25rem; height: 1.25rem; display: block; flex: 0 0 auto; }
+.theme-chevron { font-size: .8rem; }
+.theme-current { display: none; }
+:root[data-theme-preference="light"] .theme-current--light,
+:root[data-theme-preference="dark"] .theme-current--dark,
+:root[data-theme-preference="system"] .theme-current--system,
+:root:not([data-theme-preference]) .theme-current--system { display: block; }
+.theme-options { position: absolute; right: 0; top: calc(100% + .5rem); z-index: 30; min-width: 10rem; padding: .5rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--surface); box-shadow: var(--shadow); }
+.theme-options button { display: flex; align-items: center; gap: .6rem; width: 100%; padding: .55rem .7rem; border: 0; border-radius: .35rem; background: transparent; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+.theme-options button:hover, .theme-options button:focus-visible { background: var(--raven-surface-raised); }
+.theme-options button[aria-checked="true"] { color: var(--accent); font-weight: 600; }
+.theme-menu summary:focus-visible, .theme-options button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.layout-landing .api-content { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.layout-landing .api-content > * { max-width: none; }
+.release-notice { max-width: 1440px; margin: 0 auto; padding: .5rem clamp(1rem, 4vw, 3rem); color: var(--muted); font-size: .8rem; }
+.release-notice a { margin-left: .5rem; }

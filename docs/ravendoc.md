@@ -1,11 +1,13 @@
 # **RavenDoc** — Documentation Generator
 
 RavenDoc is Raven’s built-in documentation generator. It produces a static
-HTML documentation site from Markdown attached to source symbols or loaded
-from a compiled library's adjacent `.docs` sidecar.
+HTML sites combining authored Markdown/HTML pages with generated API reference.
+API documentation comes from Raven source comments, assembly-adjacent `.docs`
+sidecars, or XML documentation for .NET libraries. One publisher provides site
+navigation, symbol pages, syntax highlighting, themes and project branding.
 
 The core idea is simple:
-**documentation lives with the code, in Markdown, and is rendered as-is**.
+**author content in Markdown or HTML, and derive API structure from symbols**.
 
 ---
 
@@ -18,7 +20,8 @@ RavenDoc is intended for developers who:
 * don’t need a separate authoring pipeline
 * want documentation generated as part of compilation or tooling
 
-If your documentation needs are satisfied by writing Markdown directly in the source code, RavenDoc is a good fit.
+Use source comments for API contracts and separate pages for guides, feature
+overviews and landing content. Both publish in the same site.
 
 ---
 
@@ -172,6 +175,8 @@ dotnet run --project src/RavenDoc -f net10.0 -- --site path/to/ravendoc.json
   "links": [{ "label": "Project home", "url": "https://example.com/" }],
   "resources": ["images", "custom.css"],
   "logo": "images/mark.svg",
+  "favicon": "images/mark.svg",
+  "notice": "Development docs · May include unreleased APIs.",
   "stylesheet": "custom.css",
   "footer": "My project documentation",
   "values": { "version": "1.0" }
@@ -179,9 +184,9 @@ dotnet run --project src/RavenDoc -f net10.0 -- --site path/to/ravendoc.json
 ```
 
 Input paths and `output` are relative to the configuration file. Page output
-paths, menu URLs, `logo`, and `stylesheet` are relative to the generated site
+paths, menu URLs, `logo`, `favicon`, and `stylesheet` are relative to the generated site
 root. A page without an explicit output retains its source path with an `.html`
-extension. Include a page at `index.html`; its Markdown supplies the home page.
+extension. Include a page at `index.html`; Markdown or HTML supplies the home page.
 Page `title` supplies the browser title, while Markdown supplies visible headings.
 Relative Markdown links between listed pages, including fragments, are rewritten
 to their output locations. Links and images targeting copied resources are also
@@ -220,7 +225,8 @@ links to RavenDoc IDs. There is currently one generated API input per site.
 ### Branding and colors
 
 `name` sets the site name in the header and browser titles; a page's `title`
-sets its individual browser title. `logo` replaces the Raven mark, and `footer`
+sets its individual browser title. `logo` replaces the Raven mark, `favicon` sets
+the browser-tab icon, and `footer`
 sets the footer text. Include local logos and stylesheets in `resources` so
 they are copied to the output. These settings apply to authored and API pages.
 
@@ -232,6 +238,12 @@ change the accent colors while keeping Raven's layout:
     --raven-accent: #176d83;
     --raven-accent-strong: #115367;
     --raven-accent-soft: #e0f2f5;
+}
+
+:root[data-theme="dark"] {
+    --raven-accent: #7fd0de;
+    --raven-accent-strong: #a6e2eb;
+    --raven-accent-soft: #173b44;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -249,10 +261,10 @@ Other shared tokens include `--raven-bg`, `--raven-surface`, `--raven-ink`,
 colors, because the shared theme uses that selector too. The sample site
 includes a custom logo and this color scheme.
 
-### Reusing a DocFX table of contents
+### Section navigation with toc.yml
 
-Set `"toc": "toc.yml"` in the site configuration and use the same menu structure
-as a DocFX site:
+Set `"toc": "toc.yml"` in the site configuration. The small nested authoring
+format is familiar to DocFX users but is compiled into RavenDoc's own model:
 
 ```yaml
 - name: Overview
@@ -404,8 +416,8 @@ color tokens, typography, surfaces, borders, radii, shadows, and the Raven
 brand mark. Each tool composes those primitives for its own purpose rather than
 sharing one rigid page layout. This keeps reference reading and interactive
 coding distinct while making movement between them feel continuous. RavenDoc
-follows the system color scheme; the Playground additionally offers a
-persistent System, Light, or Dark selector that also controls its editor.
+and the Playground both offer a persistent System, Light, or Dark selector.
+RavenDoc applies it to the whole site, including syntax highlighting.
 
 Site configuration supports project branding and an additional stylesheet at
 the page-chrome boundary. A future rendering layer can introduce user-selectable templates. Templates should receive the
@@ -479,72 +491,6 @@ That said, the following sections are recommended for consistency and readabilit
 ### For types
 
 ```md
-## Summary
-Brief description of the type.
-
-## Usage
-Example usage.
-
-## Remarks
-Important details, constraints, or design notes.
-
-## Examples
-Longer or multiple examples.
-```
-
-### For members
-
-```md
-## Summary
-What this member does.
-
-## Parameters
-Description of parameters (if applicable).
-
-## Returns
-What is returned (if applicable).
-
-## Remarks
-Edge cases, behavior, or guarantees.
-```
-
-You are free to ignore or reorder these sections.
-
----
-
-## Current state and limitations
-
-RavenDoc is currently **early-stage**.
-
-Current limitations:
-
-* Not a reusable library (requires recompilation)
-* Fixed HTML layout
-* No automatic DocFX configuration import
-* Theme customization uses a project stylesheet; selectable template engines are not yet supported
-* No schema validation for documentation content
-
-Despite this, RavenDoc is already suitable for:
-
-* internal libraries
-* language/runtime documentation
-* API reference generation
-* early-stage public projects
-
----
-
-## Summary
-
-RavenDoc is intentionally simple:
-
-* Markdown in source
-* Symbol-aware links via `xref:`
-* One page per namespace, type, and member group
-* No external tooling required
-
-As Raven evolves, RavenDoc can evolve with it — without breaking existing documentation.
-
-
 ## Navigation levels and custom pages
 
 RavenDoc keeps three independent navigation models:
@@ -608,7 +554,8 @@ separate entries. Generic parameters, nullable types, reference-passing annotati
 optional parameter `?` markers and variadic `...` markers are retained; unit returns
 use `()`. Declaration keywords and accessibility modifiers are omitted. Static
 members have an S badge on their icon, with a tooltip and screen-reader label.
-Type icons use I for interfaces, E for enums, U for unions, D for delegates and S for structs. Union identity comes from `IUnionSymbol`, independently of carrier storage. Detail pages retain full Raven declarations.
+Type icons use C for classes, I for interfaces, E for enums, U for unions, D for
+delegates and S for structs. Union identity comes from `IUnionSymbol`, independently of carrier storage. Detail pages retain full Raven declarations.
 
 Set `"memberListStyle": "signatures"` or use the assembly/source CLI's
 `--list-signatures` switch to retain full declarations in browsing lists. This is
@@ -622,3 +569,38 @@ HTML code blocks with these language classes, and generated API signatures use
 that same renderer. The vendored Highlight.js 11.11.1 core and BSD license are
 published locally; neither generation nor page viewing requires a CDN or Node.
 Run `node scripts/test-raven-highlighting-sync.mjs` when changing the lexer.
+
+### Favicon
+
+Set `favicon` to a site-relative icon path (for example `favicon.svg`) and include
+the file in `resources`. Authored and generated API pages resolve it relative to
+the site root, including under a deployment subpath.
+
+## Color themes
+
+The header theme icon opens Light, Dark and Auto options. Auto follows the device setting,
+including changes while the page is open. An explicit choice is saved locally
+and applied before styles load on the next page. Storage-disabled browsers still
+support switching for the current page. Shared Raven theme variables cover
+content, navigation and syntax colors; project styles should override both light
+and `:root[data-theme="dark"]` palettes without forcing OS dark mode over a
+reader's explicit Light selection.
+
+## Verify the complete sample
+
+From the repository root:
+
+```sh
+dotnet run --project src/RavenDoc -f net11.0 -- --site samples/projects/markdown-docs/site/ravendoc.json
+python3 -m http.server 8769 --directory artifacts/markdown-docs-site
+```
+
+The [sample walkthrough](../samples/projects/markdown-docs/README.md#complete-sample-site)
+shows a landing page, Markdown guides, HTML page controls, nested menus, generated
+APIs, favicon and theme switching. Open it over HTTP so browsers can load the
+local JavaScript modules. No CDN or external runtime is needed to view the site.
+
+For CI, run the same `--site` command from a built/pinned RavenDoc CLI, validate
+the output and publish it with the project's deployment system. Generator version
+selection and release-status text belong to that project's build configuration.
+RavenDoc does not infer whether an API has shipped.

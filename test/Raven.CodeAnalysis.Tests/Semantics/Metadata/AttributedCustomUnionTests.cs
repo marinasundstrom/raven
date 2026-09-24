@@ -73,7 +73,10 @@ public sealed class AttributedCustomUnionTests : CompilationTestBase
             Assert.Contains("case First", html);
             Assert.False(Directory.Exists(Path.Combine(site, "Independent/Choice/First")));
             Assert.True(File.Exists(Path.Combine(site, "Independent/First/index.html")));
-            Assert.Contains("symbol-icon--class", File.ReadAllText(Path.Combine(site, "Independent/Ordinary/index.html")));
+            var ordinaryPage = File.ReadAllText(Path.Combine(site, "Independent/Ordinary/index.html"));
+            Assert.Contains("symbol-icon--class", ordinaryPage);
+            Assert.Contains("symbol-icon--class", html);
+            Assert.DoesNotContain("symbol-icon--type", ordinaryPage);
             var xrefs = DocumentationGenerator.ExportXrefs(site);
             Assert.Equal("Independent/Choice/index.html", xrefs["M:Independent.Choice+First..ctor"]);
             Assert.Equal("Independent/Choice/index.html", xrefs["M:Independent.Choice..ctor"]);

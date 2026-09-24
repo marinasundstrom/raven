@@ -75,7 +75,8 @@ For example:
 
 ## RavenDoc handoff
 
-This sample stops at source documentation and assembly-adjacent sidecars.
+This sample includes source documentation, assembly-adjacent sidecars and a
+complete authored site in `site/`.
 RavenDoc is the publishing stage that turns the same documentation into an HTML
 site. It can obtain Markdown in either of two ways:
 
@@ -103,3 +104,21 @@ dotnet run --project ../../../src/RavenDoc -- \
   bin/library/MarkdownDocs.Library.dll \
   --output bin/site-from-library
 ```
+
+## Complete sample site
+
+From the repository root:
+
+```sh
+dotnet run --project src/RavenDoc -f net11.0 -- --site samples/projects/markdown-docs/site/ravendoc.json
+python3 -m http.server 8769 --directory artifacts/markdown-docs-site
+```
+
+Open `http://localhost:8769/`. The landing page demonstrates front matter and
+feature cards, the main menu has a Guides submenu, and Page controls demonstrates
+a nested section TOC and HTML with its outline disabled. The getting-started
+Markdown page keeps its heading outline. The generated API section shares the
+sidebar model, compact signatures and symbol icons. Switch Light/Dark/Auto
+themes, open the sidebar on a narrow screen, and compare highlighted code on
+authored and API pages. Branding, favicon and the development notice are site
+configuration; all rendering behaviors are RavenDoc features.

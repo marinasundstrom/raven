@@ -27,6 +27,7 @@
     <EmbeddedResource Include="../../docs/template/public/raven-highlight.css" LogicalName="Raven.Highlight.css" />
     <EmbeddedResource Include="Assets/highlight-core.js" LogicalName="RavenDoc.Highlight.js" />
     <EmbeddedResource Include="Assets/highlight-LICENSE" LogicalName="RavenDoc.Highlight.License" />
+    <EmbeddedResource Include="Assets/theme.js" LogicalName="RavenDoc.Theme.js" />
     <EmbeddedResource Include="Assets/ravendoc.js"
                       LogicalName="RavenDoc.Site.js" />
   </ItemGroup>

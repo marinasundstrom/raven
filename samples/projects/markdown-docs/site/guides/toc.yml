@@ -1,0 +1,10 @@
+- name: Guides
+  items:
+    - name: Getting started
+      href: ../getting-started.md
+    - name: Custom pages
+      items:
+        - name: Page controls
+          href: page-controls.html
+- name: API reference
+  href: api/

@@ -11,10 +11,22 @@ internal sealed class RavenDocSiteTemplate
         WriteResource(outputDirectory, ThemeResourceName, "raven-theme.css");
         WriteResource(outputDirectory, StyleResourceName, "style.css");
         WriteResource(outputDirectory, ScriptResourceName, "site.js");
+        WriteResource(outputDirectory, "RavenDoc.Theme.js", "theme.js");
         WriteResource(outputDirectory, "Raven.Language.js", "raven-language.js");
         WriteResource(outputDirectory, "Raven.Highlight.css", "raven-highlight.css");
         WriteResource(outputDirectory, "RavenDoc.Highlight.js", "highlight-core.js");
         WriteResource(outputDirectory, "RavenDoc.Highlight.License", "highlight-LICENSE");
+    }
+
+    private static string ThemeIcon(string mode)
+    {
+        var shape = mode switch
+        {
+            "light" => "<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5\"/>",
+            "dark" => "<path d=\"M20.5 14.4A8.5 8.5 0 0 1 9.6 3.5a8.5 8.5 0 1 0 10.9 10.9Z\"/>",
+            _ => "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 3a9 9 0 0 0 0 18Z\" fill=\"currentColor\"/>"
+        };
+        return $"<svg class=\"theme-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\">{shape}</svg>";
     }
 
     public string RenderPage(RavenDocPageTemplateModel page)
@@ -23,6 +35,7 @@ internal sealed class RavenDocSiteTemplate
         var links = page.SiteLinks;
         var navigation = RenderMainNavigation(links);
         var logo = page.LogoHref is { } logoPath ? $"<img class=\"site-logo\" src=\"{Escape(logoPath)}\" alt=\"\" width=\"32\" height=\"32\" />" : "<span class=\"raven-brand-mark\">R</span>";
+        var favicon = page.FaviconHref is { } icon ? $"<link rel=\"icon\" href=\"{Escape(icon)}\" />" : "";
         var customStyle = page.CustomStyleHref is { } style ? $"<link rel=\"stylesheet\" href=\"{Escape(style)}\" />" : "";
         var notice = string.IsNullOrWhiteSpace(page.Notice) ? "" : $"<div class=\"release-notice\" role=\"note\">{Escape(page.Notice)} {(page.ReleaseUrl is null ? "" : $"<a href=\"{Escape(page.ReleaseUrl)}\">{Escape(page.ReleaseLabel ?? "Published release")}</a>")}</div>";
         var showToc = page.ShowToc;
@@ -35,8 +48,10 @@ internal sealed class RavenDocSiteTemplate
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>{Escape(title)}</title>
+          <script src="{Escape(page.ScriptHref[..^"site.js".Length] + "theme.js")}"></script>
           <link rel="stylesheet" href="{Escape(page.ThemeHref)}" />
           <link rel="stylesheet" href="{Escape(page.StyleHref)}" />
+          {favicon}
           {customStyle}
           <script type="module" src="{Escape(page.ScriptHref)}"></script>
         </head>
@@ -51,6 +66,19 @@ internal sealed class RavenDocSiteTemplate
               </span>
             </a>
             {navigation}
+            <details class="theme-menu">
+              <summary aria-label="Color theme" aria-haspopup="menu" title="Color theme">
+                <span class="theme-current theme-current--light">{ThemeIcon("light")}</span>
+                <span class="theme-current theme-current--dark">{ThemeIcon("dark")}</span>
+                <span class="theme-current theme-current--system">{ThemeIcon("system")}</span>
+                <span class="theme-chevron" aria-hidden="true">▾</span>
+              </summary>
+              <div class="theme-options" role="menu" aria-label="Color theme">
+                <button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false">{ThemeIcon("light")}<span>Light</span></button>
+                <button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false">{ThemeIcon("dark")}<span>Dark</span></button>
+                <button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="true">{ThemeIcon("system")}<span>Auto</span></button>
+              </div>
+            </details>
           </header>
           {notice}
           <div class="documentation-shell">
@@ -327,7 +355,8 @@ internal sealed record RavenDocPageTemplateModel(
     string? ReleaseUrl = null,
     string? ReleaseLabel = null,
     string Layout = "docs",
-    bool ShowToc = true);
+    bool ShowToc = true,
+    string? FaviconHref = null);
 
 internal sealed record RavenDocMemberTemplateModel(
     RavenDocSymbolKind Kind,

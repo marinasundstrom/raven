@@ -1,7 +1,7 @@
 {
   "name": "Widget documentation",
-  "output": "../_site",
-  "api": "../library/src/library.rvn",
+  "output": "../../../../artifacts/markdown-docs-site",
+  "api": "..",
   "pages": [
     {
       "source": "index.md",
@@ -11,6 +11,9 @@
       "source": "getting-started.md",
       "output": "guides/getting-started.html",
       "title": "Getting started"
+    },
+    {
+      "source": "guides/page-controls.html"
     }
   ],
   "toc": "toc.yml",
@@ -20,5 +23,31 @@
     "images",
     "custom.css"
   ],
-  "footer": "Widget project documentation"
+  "footer": "Widget project documentation",
+  "subtitle": "A RavenDoc feature tour",
+  "favicon": "images/mark.svg",
+  "notice": "Development documentation \u00b7 This sample may describe unreleased APIs.",
+  "links": [
+    {
+      "label": "Home",
+      "url": "index.html"
+    },
+    {
+      "label": "Guides",
+      "children": [
+        {
+          "label": "Getting started",
+          "url": "guides/getting-started.html"
+        },
+        {
+          "label": "Page controls",
+          "url": "guides/page-controls.html"
+        }
+      ]
+    },
+    {
+      "label": "API reference",
+      "url": "api/"
+    }
+  ]
 }
