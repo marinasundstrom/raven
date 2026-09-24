@@ -583,3 +583,19 @@ Local macOS validation passes 18 controlled-peer client cases plus Python's HTTP
 server with zero retained managed objects in every run, and the .NET 10 baseline.
 Private field access checks pass. No Raven code change or main-branch integration
 is part of this slice.
+
+### neoCLR HTTP server integration — 2026-09-24
+
+HttpServer adds Listen/GetLocalPort/ServeOne/Close; HttpRequest exposes received
+Headers. The neoCLR reference/importer binds those exact contracts while private
+request parsing, response encoding and completion adapters remain hidden. The
+combined HTTP bootstrap group includes both source files. Match reference, bridge
+and library snapshots. Runtime Contract configuration, compiler semantics, generated
+state-machine ABI and runtime instructions are unchanged; no Raven code fix is claimed.
+
+The bounded server owns one accepted connection through callback completion and
+sending; parse/handler/transfer Result failures close it. Cancellation/runtime Fault
+behavior is not translated into HTTP errors. neoCLR's server verifier checks a
+separate neoCLR client, independent .NET client, fragmentation and rejection cases
+with collection and zero final live managed objects. Exact commands and limits are
+in neoCLR's docs/experiments/http-server/README.md.
