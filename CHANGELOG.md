@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-25:** Document neoCLR Console object fallback and unboxed scalar
+  overload integration; no Raven compiler or Runtime Contract configuration change.
+
 - **2026-09-25:** Document neoCLR bridge Main(string[]) argument injection, excluding
   the executable through a managed startup adapter; no Raven compiler or Runtime
   Contract change. Focused argument/GC and signature checks pass.
