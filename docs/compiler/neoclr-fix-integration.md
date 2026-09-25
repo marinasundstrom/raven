@@ -1147,3 +1147,26 @@ invalid names, snapshot isolation and request content-type lookup. A request-con
 example propagates HttpError with `?`. Full managed snapshots and the API reference are
 regenerated together; transport/scheduler behavior is unchanged. Stream-backed content
 is recorded as future target direction, without a new stream metadata contract.
+
+## Request header construction target integration — 2026-09-25
+
+neoCLR's bridge adds HttpRequest.WithHeader(string, string) returning
+Result<HttpRequest, HttpError> through existing reference/union mappings. It copies
+application headers and preserves content identity; the managed socket provider
+validates and serializes fields. No Runtime Contract setting, compiler semantic-model,
+emission or native transport change. The frozen compiler used by the preceding HTTP
+checkpoints is retained, independently of the later terminal-Fault compiler work.
+
+A focused propagation sample constructs and sends a request; companion checks cover
+replacement, original preservation, reserved/invalid fields, count/byte bounds and fake
+handler visibility. Independent GET/POST wire checks cover headers and UTF-8 framing.
+API/reference and managed snapshots are refreshed together; website build stays skipped.
+
+The managed exchange starts its deadline after request preflight; validation errors
+complete before the timeout path. This follows the documented lookup-to-response
+scope and changes no compiler or native timeout policy.
+
+Final validation passes: request-header contracts and GET/POST wire fixture (zero live
+objects), the existing trickling-body deadline regression (zero live objects), its .NET
+baseline, public signature admission and API/bootstrap snapshot checks. No compiler
+source changes are part of this integration update.
