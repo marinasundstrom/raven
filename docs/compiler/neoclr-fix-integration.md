@@ -1134,3 +1134,16 @@ success, typed transport failure, UTF-8 decoding failure and cancelled tasks. ne
 independent peer, .NET HttpClient and client/server POST checks validate framing and
 zero remaining managed objects. Fixed small buffers and Content-Length only remain
 provisional target restrictions. Website builds are skipped by author direction.
+
+## HTTP header lookup target integration — 2026-09-25
+
+neoCLR adds request/response GetHeaderValues(string) returning Sequence<string> through
+ordinary existing interface and generic mappings. The shared static HttpHeader.FindValues
+helper is projected internal; consumer binding is rejected while library binding is
+admitted. No Runtime Contract setting, compiler semantic-model or emission change.
+
+Focused target execution covers ASCII name matching, repeated/empty/absent values,
+invalid names, snapshot isolation and request content-type lookup. A request-construction
+example propagates HttpError with `?`. Full managed snapshots and the API reference are
+regenerated together; transport/scheduler behavior is unchanged. Stream-backed content
+is recorded as future target direction, without a new stream metadata contract.
