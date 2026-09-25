@@ -995,3 +995,20 @@ Python HTTP interoperability. A .NET 10 URI comparison records the deliberate
 base-authority and percent-encoded-dot differences. API reference and generated
 library snapshots are refreshed; no compiler or website build is required for
 this documentation-only Raven update. HTTP cancellation wiring remains separate.
+
+
+## neoCLR private native cancellation hooks — 2026-09-25
+
+The bootstrap RuntimeServices catalog now admits SocketCancel(Int64) and
+DnsCancel(Int64), returning Boolean. The normal application core reference omits
+RuntimeServices and UnionImport only enables the catalog for runtime-library builds.
+These are target-specific provider hooks, not public Raven APIs or a new Runtime
+Contract setting. They use ordinary static call metadata; compiler semantics and
+emission are unchanged. No compiler source changes or Raven tests are required.
+
+The native owner now cancels pending connect/accept as well as transfers, keeps the
+callback and operation slot until acknowledgement, and preserves committed outcomes.
+DNS cancellation retains capacity charged to blocked host work. Eighteen existing/new
+cancellation-name Rust tests and the exact native signature/service test passed.
+Managed token wiring remains a separate integration step; these hooks alone do not
+make HttpClient cancellable. The generated library and API fingerprints are refreshed.
