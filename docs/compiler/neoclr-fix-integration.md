@@ -1170,3 +1170,24 @@ Final validation passes: request-header contracts and GET/POST wire fixture (zer
 objects), the existing trickling-body deadline regression (zero live objects), its .NET
 baseline, public signature admission and API/bootstrap snapshot checks. No compiler
 source changes are part of this integration update.
+
+## Common HTTP verb target integration — 2026-09-25
+
+neoCLR extends its existing HttpClient and HttpRequest reference contracts with Put,
+Patch and Delete. Public string/Uri and cancellation overloads retain existing
+Task<Result<HttpResponse, HttpError>> mappings; factories retain Result<HttpRequest,
+HttpError>. No new target type, Runtime Contract setting, compiler semantic or emission
+policy is introduced. Bridge signature checks admit all overloads and reject forged
+token types. Managed serialization/parser changes use existing socket operations.
+
+The focused fixture exercises all twelve helpers and six factories, BaseUri resolution,
+pre-cancellation, handler token forwarding and non-success response data. Independent
+Python/.NET peers cover new method bytes, UTF-8/binary bodies and 204; DELETE bodies and
+HEAD remain rejected. API/managed snapshots are refreshed together; website build is
+skipped. The user-facing PUT example uses propagation and explicit status policy.
+
+Final validation passes for all overload/factory assertions and independent exchanges:
+client and server finish with zero live objects. Public signature checks and refreshed
+API/bootstrap snapshots pass. The fixture binds each propagated factory result to a
+local before property access, avoiding conditional-access `?.` semantics; no compiler
+syntax change is requested or implemented.
