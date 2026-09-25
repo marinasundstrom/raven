@@ -391,3 +391,19 @@ reference-only library for execution inside the compiler.
 The regression fixture compiles against a reference-only library and loads its real
 implementation separately to test calls and field access. This is ordinary CLI
 metadata behavior; no framework-specific API names or new language syntax are involved.
+
+
+### Nullable reference arguments in target signatures — 2026-09-25
+
+Target-metadata emission keeps annotated reference arguments in the same metadata
+context as their generic definition. For example, an extension accepting and
+returning `List<object?>` uses the target's Object identity; the annotation does not
+introduce a runtime wrapper or load Object from the compiler host. The previous
+fallback could throw during extension signature emission by mixing these contexts.
+
+This uses the existing MetadataImportOptions/TargetCoreAssemblyName selection and
+requires no new Runtime Contract configuration. Nullable value-type projection is
+unchanged. TargetCoreGenericSignatureTests covers extension emission and invocation
+with nullable reference arguments in ordinary and target-metadata modes, alongside
+the existing source-generic-parameter signature cases. The regression uses .NET
+reference assemblies, with no neoCLR type or policy dependency.
