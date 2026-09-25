@@ -1260,3 +1260,19 @@ The frozen SDK rejected a compound range expression mixing multiple less-than an
 greater-than comparisons. Separate guards, matching existing console stream code,
 compile correctly; no parser fix or general Raven-main outcome is claimed. JSON DOM
 public extraction precedes future runtime-reflection object mapping.
+
+### neoCLR public JSON DOM integration — 2026-09-25
+
+The author selected a closed JsonValue reference hierarchy with six kinds and
+kind-specific APIs. neoCLR's bridge now projects/validates the closed marker, exact
+public method signatures, leaf-to-root conversions and internal codec visibility.
+JsonError follows the standard Raven union projection already used for HttpError,
+retaining nested TextReadError/StreamError causes. No Runtime Contract configuration,
+compiler behavior, emitted union convention or native-runtime policy changes are
+introduced. This remains a target-specific bounded profile, not general admission
+of arbitrary library hierarchies or reflection-based object serialization.
+
+The public consumer/sample passes against matching metadata/library artifacts with
+zero final live objects. Corpus and signature evidence is maintained in neoCLR's
+`docs/experiments/json-dom/README.md`. Existing synchronous propagated-unit statements
+use an explicit discard. No Raven main experiment or compiler fix is included.
