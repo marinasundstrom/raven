@@ -1012,3 +1012,29 @@ DNS cancellation retains capacity charged to blocked host work. Eighteen existin
 cancellation-name Rust tests and the exact native signature/service test passed.
 Managed token wiring remains a separate integration step; these hooks alone do not
 make HttpClient cancellable. The generated library and API fingerprints are refreshed.
+
+## neoCLR managed networking cancellation — 2026-09-25
+
+Development DNS and Socket operations now have CancellationToken overloads; the
+internal shared-deadline paths also accept tokens. The bridge admits the exact
+selected signatures and preserves provider/internal access restrictions. Each
+provider pre-checks cancellation, registers only admitted native operation IDs,
+disposes registration before result consumption, and acknowledges a winning native
+cancellation through Promise.Cancel. Native-ready results win over later requests.
+HTTP token forwarding remains next. Runtime Contract settings, compiler semantics
+and emission policy are unchanged; this is a target library/bridge integration.
+
+The focused neoCLR network-cancellation fixture uses callback stages to isolate
+provider ownership from compiler issues. During fixture construction, generic helper
+emission hit a MetadataLoadContext mismatch, overloaded captured helpers collided,
+Task<Void> awaits left a Void stack value, and pattern-bound values crossing async
+or nested-callback boundaries produced invalid/null receivers. A diagnostic variant
+also hit an uninitialized state-machine field. These are observations requiring
+independent reduction, not fixed compiler bugs or evidence that all are neoCLR-only.
+Track them before broad async application testing. General fixes, if confirmed,
+must be extracted independently; no experimental branch merge is implied.
+
+The retained loopback fixture passed with 343 allocations, nine collections and no
+live objects at teardown. Exact public token signatures, invalid-token rejection and
+internal deadline visibility checks passed. neoCLR library/reference snapshots were
+refreshed and validated; no Raven compiler tests or website build were run.

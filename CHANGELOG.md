@@ -26,7 +26,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   Record HttpClient optional-string BaseUri and string/Uri Get signature integration,
   handler/GC/interoperability evidence and unchanged compiler/Runtime Contract policy.
   Record bootstrap-only DNS/socket cancellation hooks, native ownership checks and
-  pending managed token wiring; ordinary application reference APIs remain unchanged.
+  subsequent managed DNS/socket token overloads and exact access/signature checks.
+  Record deferred generic-helper, async and nested-capture fixture observations for
+  independent reduction; compiler policy remains unchanged and HTTP forwarding is pending.
 
 
 - **2026-09-24:** Record neoCLR System.Web.Http target integration, handler importer access
