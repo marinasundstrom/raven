@@ -1359,3 +1359,29 @@ Known independent import limits remain: the private-call conversion path accepts
 materialized argument, and direct null-to-String field initialization is unsupported.
 The fixture uses a one-Boolean assertion helper and initializes its nullable String
 to empty before testing reflected null assignment. These are not language/API changes.
+
+
+### 2026-09-25 — JSON library slice uses the existing typeof contract
+
+neoCLR's provisional JSON object mapper needs identity comparisons for String,
+Int32 and Boolean. Its JsonValue source slice now retains the consumer settings
+RavenTypeOfAssemblyName=NeoCLR.CoreProbe,
+RavenTypeOfInfoType=System.Introspection.TypeInfo and
+RavenTypeOfContextType=System.Runtime.RuntimeContext. Clearing these emitted
+System.Type.GetTypeFromHandle, which the target bridge rejected. Other declaration
+slices still clear the settings when shadowing the descriptor types.
+
+This uses the existing RuntimeTypeOfContract and compiler lowering; no compiler
+change or new metadata convention is added. The neoCLR bridge still rejects nested
+closure helpers on instance-library owners, so the internal mapper matches errors
+explicitly. Public non-generic serializer overloads are the current integration
+scope; generic inference/emission policy is unchanged. See neoCLR's JSON mapping
+consumer and API reference for the supported shallow property contract and checks.
+
+
+Validation: the public mapper consumer compiles and runs through the target bridge
+with zero live objects; DOM/stream regression and the mapped client/server pair pass.
+The consumer binds an Int64 payload before comparing it with zero: an `Ok(0)`
+constant pattern emitted static System.Object.Equals, outside the current bridge
+contract. No pattern-lowering fix is claimed. Redundant returns following terminal
+Fault calls were removed from the older DOM fixture instead of suppressing warnings.

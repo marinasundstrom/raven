@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-25:** Document neoCLR JsonValue slice configuration for the existing
+  RuntimeTypeOfContract and its instance-library closure limitation. No compiler
+  code, metadata convention or neoCLR-specific main-branch policy is changed.
+
 - **2026-09-25:** Document neoCLR's public reflection extensions, original source
   access admission, application property projection and terminal Fault import.
   Record focused consumer/GC validation and remaining bridge limitations; no new
