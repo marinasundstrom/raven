@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-25:** Document neoCLR bridge Main(string[]) argument injection, excluding
+  the executable through a managed startup adapter; no Raven compiler or Runtime
+  Contract change. Focused argument/GC and signature checks pass.
+
 - **2026-09-25:** Treat neoCLR `System.Fault(string)` as a terminal call for
   unreachable-code, return-path and out-parameter analysis; recognize terminal
   statements during lowering/emission while retaining the runtime invocation.

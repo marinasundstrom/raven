@@ -1276,3 +1276,12 @@ The public consumer/sample passes against matching metadata/library artifacts wi
 zero final live objects. Corpus and signature evidence is maintained in neoCLR's
 `docs/experiments/json-dom/README.md`. Existing synchronous propagated-unit statements
 use an explicit discard. No Raven main experiment or compiler fix is included.
+
+### Managed entry arguments — 2026-09-25
+
+The collection-profile bridge accepts static nongeneric no-result Main(string[])
+through a generated parameterless adapter. It copies the host vector excluding
+its executable element; empty startup gives an empty managed array. No Runtime
+Contract setting or runtime entry ABI changes. Other parameter shapes and direct
+result-returning entries remain rejected. Three argument/GC cases and signature
+checks pass. Website build skipped as directed.
