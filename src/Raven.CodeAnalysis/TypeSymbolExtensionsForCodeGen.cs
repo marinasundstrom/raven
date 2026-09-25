@@ -57,6 +57,11 @@ public static class TypeSymbolExtensionsForCodeGen
 
     private static Type? TryGetTargetMetadataType(ITypeSymbol symbol)
     {
+        // Reference nullability annotates the target type; it must not cause a
+        // generic argument to fall back to the compiler host's reflection types.
+        if (symbol is NullableTypeSymbol nullable &&
+            nullable.GetNullableAbiProjection() != NullableAbiProjection.NullableValueType)
+            return TryGetTargetMetadataType(nullable.UnderlyingType);
         if (symbol is PENamedTypeSymbol peType)
             return peType.GetTypeInfo();
         if (symbol is ConstructedNamedTypeSymbol constructed &&

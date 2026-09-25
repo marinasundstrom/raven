@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-25:** Preserve the target metadata identity of annotated reference-type
+  generic arguments during emission, including extension signatures such as
+  `List<object?>`. This avoids mixing compiler-host and target reflection types.
+  Nullable value-type projection and public Runtime Contract settings are unchanged.
+
 - **2026-09-24:** Generate member parameter and property/return/field/event value
   sections from symbols, including undocumented members, with links to local types
   and generic arguments. Merge authored descriptions into that structure and label

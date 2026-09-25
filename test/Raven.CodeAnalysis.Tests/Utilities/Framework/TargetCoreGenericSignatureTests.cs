@@ -6,6 +6,39 @@ namespace Raven.CodeAnalysis.Tests;
 public class TargetCoreGenericSignatureTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ExtensionSignatureRetainsNullableReferenceGenericArgument(bool targetMetadata)
+    {
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        if (targetMetadata)
+            options = options.WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+                .WithTargetCoreAssemblyName("System.Runtime");
+        var tree = SyntaxTree.ParseText("""
+            import System.*
+            import System.Collections.Generic.*
+
+            public extension NullableItems for string {
+                func Identity(items: List<object?>) -> List<object?> {
+                    return items
+                }
+            }
+            """);
+        var compilation = Compilation.Create("NullableTargetSignature", [tree],
+            references.Select(MetadataReference.CreateFromFile).ToArray(), options);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
+        var method = loaded.Assembly.GetType("NullableItems")!.GetMethod("Identity")!;
+        Assert.Equal(typeof(List<object>), method.ReturnType);
+        var values = new List<object?> { null, "value" };
+        Assert.Same(values, method.Invoke(null, ["receiver", values]));
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
