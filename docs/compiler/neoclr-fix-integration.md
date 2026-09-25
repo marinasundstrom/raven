@@ -1207,3 +1207,43 @@ framing and limits. HEAD checks use both a raw independent peer and .NET HttpCli
 against neoCLR; matching reference/API and managed bootstrap snapshots are required.
 Content stays buffered; chunk extensions/trailers, compression and informational
 responses remain unsupported. Stream ownership and server contexts are separate slices.
+
+### neoCLR HTTP context lifecycle — 2026-09-25
+
+neoCLR now projects HttpContext/Disposable conversion, Accept and token-bearing
+ServeOne, plus explicit asynchronous context completion. HttpResponse.Respond sets
+status/content without I/O; context Respond/RespondText are forwarding conveniences.
+The existing CLI Task/Result contract carries completion/cancellation. No Runtime
+Contract configuration or compiler semantics changed. Provider constructors, context
+sending helpers and callback/accept machines stay internal to the library.
+
+A fixture exposed a frozen-compiler limitation: `await unitResult()?` and an explicit
+`_ = await unitResult()?` leave a System.Void value live across the next await's resume
+merge. The target importer correctly rejects the mismatched stack. The assertion-heavy
+fixture consumes the Result explicitly, while the user example propagates Accept and
+returns Complete's Result directly. A general discarded-unit lowering reduction and
+independent validation remain a deferred compiler candidate; no fix or relaxed stack
+admission is claimed. The feature SDK's terminal-Fault changes are not required for
+this checkpoint; the same frozen SDK is used for its library and consumers.
+
+
+An initial combined Main/nested-callback cancellation fixture failed emission with
+`Missing local builder for 'pending'` on the frozen compiler. Separating observer,
+connect and read callbacks into ordinary functions avoids that shape. Root-cause
+reduction remains deferred; this is not claimed as a general fix or a change to current
+Raven main. A collection of nested Task/Result values is also outside the target's
+current collection profile; the scope-limit fixture uses a counter observer instead.
+
+The separated captured-callback variant subsequently reached execution but faulted
+reading a null captured pending task. The final cancellation probe keeps operation
+state in explicit instance fields and uses method-group callbacks; both cancellation
+and shutdown cases pass. The earlier capture failure remains a compiler/bridge
+investigation candidate, not evidence of a diagnosed GC bug or a completed fix.
+
+
+Final target evidence: direct context/sample lifecycle, caller/server cancellation
+and existing independent .NET verb/HEAD callback checks pass, all with zero final live
+objects. Signature/private-helper and API/bootstrap snapshot checks pass; website build
+is skipped. neoCLR retains the intermediate failing capture probe at
+`docs/experiments/http-context/repros/CapturedCancellation.rvn` with reproduction steps
+for a later general/target classification. These docs do not claim release readiness.
