@@ -28,7 +28,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   Record bootstrap-only DNS/socket cancellation hooks, native ownership checks and
   subsequent managed DNS/socket token overloads and exact access/signature checks.
   Record deferred generic-helper, async and nested-capture fixture observations for
-  independent reduction; compiler policy remains unchanged and HTTP forwarding is pending.
+  independent reduction; compiler policy remains unchanged.
+  Record subsequent token-aware HTTP handler signatures and GetString integration,
+  migrated async handlers, cancellation/GC/interoperability evidence and unchanged
+  Runtime Contract configuration. Custom handlers must rebuild with the token parameter.
 
 
 - **2026-09-24:** Record neoCLR System.Web.Http target integration, handler importer access

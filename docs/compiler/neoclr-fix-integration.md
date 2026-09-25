@@ -1038,3 +1038,27 @@ The retained loopback fixture passed with 343 allocations, nine collections and 
 live objects at teardown. Exact public token signatures, invalid-token rejection and
 internal deadline visibility checks passed. neoCLR library/reference snapshots were
 refreshed and validated; no Raven compiler tests or website build were run.
+
+## neoCLR HTTP tokens and text helpers — 2026-09-25
+
+HttpHandler now requires Send(HttpRequest, CancellationToken). HttpClient and
+HttpSocketHandler retain tokenless convenience calls; HttpClient adds token-aware
+Get and string/Uri GetString overloads. The target bridge validates the token value
+parameter and maps the updated interface contract. Existing handler fixtures migrate
+together, including async forwarding handlers. Runtime Contract configuration,
+compiler semantics and emission policy are unchanged; no Raven compiler source
+changes are required. Rebuild library and consumers against the matching reference.
+
+The managed transport forwards tokens to DNS/connect/transfers, observes cancellation
+before reading child results and closes its owned connection before cancelling its
+Promise. GetString composes through existing Task.Map, preserving cancellation and
+HTTP errors, then strictly decodes UTF-8. Status support remains 200-only; invalid
+UTF-8 maps to HttpError.Protocol. This is a library policy, not a metadata convention.
+
+Bridge signature checks and non-token rejection passed. The two peer-controlled
+cancellation cases passed with zero live objects at teardown, as did selected
+fragmented/invalid UTF-8 and independent Python server cases through async handlers.
+The existing BaseUri fixture passed after handler migration (27 GC collections,
+zero live objects). A .NET 10 comparison checks the shared handler/token/text roles
+while documenting neoCLR's narrower status/encoding policy. Full library and API
+snapshots are refreshed; website and broad platform matrices are skipped.
