@@ -1247,3 +1247,16 @@ objects. Signature/private-helper and API/bootstrap snapshot checks pass; websit
 is skipped. neoCLR retains the intermediate failing capture probe at
 `docs/experiments/http-context/repros/CapturedCancellation.rvn` with reproduction steps
 for a later general/target classification. These docs do not claim release readiness.
+
+### neoCLR MemoryStream and JSON DOM I/O — 2026-09-25
+
+The neoCLR bridge admits System.IO.MemoryStream and its three existing byte-stream
+capabilities. The bounded JSON DOM experiment now exercises string/stream adapters,
+StreamReader/StreamWriter and write/rewind/read in managed memory. No compiler or
+Runtime Contract configuration changes are introduced; no reflective object mapping
+is claimed. Focused target/.NET checks pass with zero final live managed objects.
+
+The frozen SDK rejected a compound range expression mixing multiple less-than and
+greater-than comparisons. Separate guards, matching existing console stream code,
+compile correctly; no parser fix or general Raven-main outcome is claimed. JSON DOM
+public extraction precedes future runtime-reflection object mapping.

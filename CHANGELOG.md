@@ -8,7 +8,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   unreachable-code, return-path and out-parameter analysis; recognize terminal
   statements during lowering/emission while retaining the runtime invocation.
 
-- **2026-09-25:** Document neoCLR HTTP context/configured-response lifecycle integration,
+- **2026-09-25:** Document neoCLR MemoryStream/JSON DOM I/O integration and frozen-parser
+  range-expression limitation; no compiler or Runtime Contract change. Document neoCLR HTTP context/configured-response lifecycle integration,
   Disposable mapping and deferred frozen-toolchain capture/discarded-unit propagation issues.
   No compiler semantics change. Document neoCLR HEAD and bounded HTTP response-framing integration,
   private bridge conversion/import limits and focused peer validation; no compiler
