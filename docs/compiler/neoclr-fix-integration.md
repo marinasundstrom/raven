@@ -1318,3 +1318,44 @@ section for the .NET default-value comparison, alternatives and limitations.
 Focused constructor/serialization/GC checks and a source consumer retaining a
 structured Result across pending await pass. The public JSON HTTP sample exercises
 this with socket operations; separate expression/compiler observations remain open.
+
+
+## Public runtime reflection extensions — 2026-09-25
+
+neoCLR now wraps private construction/property services with Result-returning Raven
+extensions in System.Runtime.Reflection. ReflectionError is authored as a normal
+union. CreateInstance invokes a public parameterless nongeneric class constructor;
+GetValue/SetValue preserve accessor code, virtual dispatch, boxed scalars and nullable
+reference values. JSON object mapping remains next, not a compiler feature.
+
+The bridge retains the exact internal runtime-handle accessor in bootstrap metadata,
+exports the two extension containers with their original owners, and projects
+application instance properties and Property tokens. Init-only setters are omitted
+from assignment metadata. Original CLI member accessibility and containing-type
+visibility accompany source origins; public reflection denies older imported origins
+without explicit source access. Normal imported call permissions are unchanged.
+Static application properties and general method/field invocation remain outside scope.
+
+The nullable generic extension signature exposed a general target-metadata bug.
+The independent .NET List<object?> regression failed before the fix and passed afterward
+with all six TargetCoreGenericSignatureTests. Commit defb93a49 was integrated into
+main and then cherry-picked as a66df01a1 onto neoclr; no neoCLR policy was moved to main.
+There are no new Runtime Contract settings. Nullable value-type projection is unchanged.
+
+The newer compiler's terminal System.Fault emission also required the neoCLR importer
+to stop its control-flow path without demanding a trailing return. The original
+message-bearing invocation remains; a terminal guard closes the neoIL path.
+A compiled non-void consumer verifies the original UserFault message.
+
+The public reflection consumer compiles against the reference, imports and runs with
+constructor/setter effects, scalar and nullable reads, invalid inputs, read-only/private
+setters and private constructors checked. It also verifies private accessor metadata
+and Property tokens. GC measurement: 308 allocations, peak 165, four collections,
+zero final live objects at a 512-object heap. The source must use the compiler fix,
+matching bridge, regenerated System library and runtime; the earlier frozen compiler
+cannot emit its nullable generic extension signature.
+
+Known independent import limits remain: the private-call conversion path accepts one
+materialized argument, and direct null-to-String field initialization is unsupported.
+The fixture uses a one-Boolean assertion helper and initializes its nullable String
+to empty before testing reflected null assignment. These are not language/API changes.

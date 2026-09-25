@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-25:** Document neoCLR's public reflection extensions, original source
+  access admission, application property projection and terminal Fault import.
+  Record focused consumer/GC validation and remaining bridge limitations; no new
+  compiler Runtime Contract setting or neoCLR policy integration into main.
+
 - **2026-09-25:** Document checked deferred neoCLR storage for hoisted Result fields
   in reference async states; bridge/runtime change only, no compiler or Runtime
   Contract setting change. Record pending-await/GC validation and remaining limits.
