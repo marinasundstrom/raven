@@ -150,6 +150,7 @@ class MethodBodyBinder : BlockBinder
             !SymbolEqualityComparer.Default.Equals(GetTrailingExpressionTargetType(_methodSymbol), unit))
         {
             if (bound.Statements.LastOrDefault() is BoundExpressionStatement exprStmt &&
+                !(exprStmt.Expression is BoundInvocationExpression invocation && BoundNodeFacts.IsTerminalRuntimeFault(invocation.Method)) &&
                 exprStmt.Expression.Type is ITypeSymbol t &&
                 !_methodSymbol.ReturnType.ContainsErrorType() &&
                 !t.ContainsErrorType() &&
@@ -517,6 +518,7 @@ class MethodBodyBinder : BlockBinder
                 case BoundReturnExpression:
                     ReportMissing(assigned, _binder._methodSymbol.Locations.FirstOrDefault() ?? Location.None);
                     return new AnalysisState(assigned, false);
+                case BoundInvocationExpression invocation when BoundNodeFacts.IsTerminalRuntimeFault(invocation.Method):
                 case BoundThrowExpression:
                     return new AnalysisState(assigned, false);
                 case BoundBreakExpression:

@@ -182,6 +182,8 @@ internal class StatementGenerator : Generator
         {
             BoundReturnStatement => true,
             BoundThrowStatement => true,
+            BoundExpressionStatement { Expression: BoundInvocationExpression invocation }
+                when BoundNodeFacts.IsTerminalRuntimeFault(invocation.Method) => true,
             BoundExpressionStatement { Expression: BoundReturnExpression or BoundThrowExpression } => true,
             BoundBlockStatement block when block.Statements.Any() => IsTerminatingStatement(block.Statements.Last()),
             BoundIfStatement { ElseNode: not null } nestedIf =>

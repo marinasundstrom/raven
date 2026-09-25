@@ -289,7 +289,15 @@ internal sealed partial class ControlFlowWalker : SyntaxWalker
                 CollectReturnExpressions(expressionStatement.Expression);
 
                 var boundExpression = _semanticModel.TryGetCachedBoundNode(expressionStatement.Expression) as BoundExpression;
-                _endPointIsReachable = boundExpression is null || !BoundNodeFacts.IsAbruptExpression(boundExpression);
+                // A cold semantic query may have a declared method symbol without a
+                // cached invocation body. Resolve neoCLR's terminal namespace call
+                // through the authoritative symbol API in that case as well.
+                var isRuntimeFault = boundExpression is null &&
+                    expressionStatement.Expression is InvocationExpressionSyntax invocation &&
+                    _semanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol method &&
+                    BoundNodeFacts.IsTerminalRuntimeFault(method);
+                _endPointIsReachable = !isRuntimeFault &&
+                    (boundExpression is null || !BoundNodeFacts.IsAbruptExpression(boundExpression));
                 return _endPointIsReachable;
             case LocalDeclarationStatementSyntax localDeclaration:
                 base.VisitLocalDeclarationStatement(localDeclaration);

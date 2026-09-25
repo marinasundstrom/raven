@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-25:** Treat neoCLR `System.Fault(string)` as a terminal call for
+  unreachable-code, return-path and out-parameter analysis; recognize terminal
+  statements during lowering/emission while retaining the runtime invocation.
+
 - **2026-09-25:** Document neoCLR header lookup generic signatures and internal helper
   admission, with no compiler policy change. Document buffered neoCLR POST signature/internal-helper admission and
   async propagation sample validation; no compiler or Runtime Contract changes. Document neoCLR HttpStatusCode enum and enum-payload integration,

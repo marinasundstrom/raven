@@ -192,6 +192,8 @@ internal sealed partial class Lowerer
         {
             BoundReturnStatement => true,
             BoundThrowStatement => true,
+            BoundExpressionStatement { Expression: BoundInvocationExpression invocation }
+                when BoundNodeFacts.IsTerminalRuntimeFault(invocation.Method) => true,
             BoundGotoStatement => true,
             BoundBreakStatement => true,
             BoundContinueStatement => true,

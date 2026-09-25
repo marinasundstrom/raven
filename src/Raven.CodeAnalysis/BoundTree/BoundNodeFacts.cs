@@ -32,7 +32,8 @@ internal static class BoundNodeFacts
             case BoundPointerMemberAccessExpression pointerMemberAccess:
                 return IsAbruptExpression(pointerMemberAccess.PointerReceiver);
             case BoundInvocationExpression invocation:
-                return invocation.Receiver is not null && IsAbruptExpression(invocation.Receiver) ||
+                return IsTerminalRuntimeFault(invocation.Method) ||
+                    invocation.Receiver is not null && IsAbruptExpression(invocation.Receiver) ||
                     invocation.ExtensionReceiver is not null && IsAbruptExpression(invocation.ExtensionReceiver) ||
                     invocation.Arguments.Any(IsAbruptExpression);
             case BoundObjectCreationExpression objectCreation:
@@ -67,6 +68,26 @@ internal static class BoundNodeFacts
             default:
                 return false;
         }
+    }
+
+    // Experimental neoCLR policy: identify the namespace function by its runtime
+    // assembly and namespace-member contract, never by container spelling.
+    internal static bool IsTerminalRuntimeFault(IMethodSymbol method)
+    {
+        if (method.Name != "Fault" || !method.IsStatic || method.IsGenericMethod ||
+            method.ContainingAssembly?.Name != "NeoCLR.CoreProbe" ||
+            method.ContainingNamespace?.ToMetadataName() != "System" ||
+            method.Parameters.Length != 1 ||
+            method.Parameters[0].RefKind != RefKind.None ||
+            method.Parameters[0].Type.SpecialType != SpecialType.System_String ||
+            method.ReturnType.SpecialType is not (SpecialType.System_Void or SpecialType.System_Unit))
+        {
+            return false;
+        }
+
+        return method.ContainingType is Symbols.SynthesizedNamespaceMembersClassSymbol ||
+            method.ContainingType is Symbols.PENamedTypeSymbol peType &&
+            peType.HasCustomAttribute(static name => name == "System.Runtime.CompilerServices.TopLevelAttribute");
     }
 
     private static bool IsAbruptStatement(BoundStatement statement)

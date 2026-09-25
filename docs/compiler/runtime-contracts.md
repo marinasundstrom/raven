@@ -728,3 +728,28 @@ its array parameter with the Raven implementation, checks hash-set lookup, emits
 the consumer, then invokes it through the interface on .NET 11. Existing tests keep
 array element/rank/fixed-length distinctions. .NET Framework and NanoFramework
 execution have not been tested; this is not a claim of new target support.
+
+## neoCLR terminal Fault calls (2026-09-25)
+
+On the experimental neoCLR branch, the resolved namespace function
+`System.Fault(string)` from `NeoCLR.CoreProbe` terminates control flow like a throw
+statement. Statements following the call receive the ordinary unreachable-code
+diagnostic, and a path ending in Fault does not require a return value or assigned
+out parameters. Qualified and imported calls have identical behavior.
+
+Recognition uses the runtime assembly, System namespace, namespace-member
+container contract and static nongeneric string-to-unit/void signature. Container
+spelling is not significant. Unrelated Fault methods retain ordinary call behavior.
+The invocation remains an invocation in the semantic operations API and emitted
+metadata; it is not rewritten to CLR exception throwing. Lowering and emission
+recognize the terminal statement without synthesizing a missing-return throw.
+No new Runtime Contract setting is required. This policy remains neoCLR-specific.
+
+Validation: all 40 focused control-flow/return-path tests pass on .NET 11,
+including metadata-backed qualified/imported calls, cold `AnalyzeControlFlow`,
+unreachable statements, out parameters, branch endpoints, emission and negative
+identity/container cases. A real neoCLR consumer with a Fault-only non-unit
+function compiles and imports successfully, reporting RAV0162 after Fault.
+The end-to-end `verify_fault.py` gate stopped before execution because the runtime
+library snapshot was stale for an unrelated `HttpClient.rvn` edit. No guest runtime
+execution, .NET Framework or NanoFramework validation is claimed for this change.
