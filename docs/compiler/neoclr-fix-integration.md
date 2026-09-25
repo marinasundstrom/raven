@@ -1191,3 +1191,19 @@ client and server finish with zero live objects. Public signature checks and ref
 API/bootstrap snapshots pass. The fixture binds each propagated factory result to a
 local before property access, avoiding conditional-access `?.` semantics; no compiler
 syntax change is requested or implemented.
+
+
+### neoCLR HTTP framing and HEAD — 2026-09-25
+
+Target-only integration: HEAD string/Uri/token overloads and bounded fixed-length,
+chunked and close-delimited responses use the existing CLI/Runtime Contract emission.
+There is no compiler source or target configuration change. neoCLR's import bridge
+raises only its library method bound to 256 (applications remain 128). Its private
+server encoder uses an integer flag to avoid the current multi-argument nonpublic
+boolean conversion limitation. Private framing helpers remain unavailable to users.
+
+Focused peer fixtures exercise fragmented chunking, EOF/truncation, invalid/ambiguous
+framing and limits. HEAD checks use both a raw independent peer and .NET HttpClient
+against neoCLR; matching reference/API and managed bootstrap snapshots are required.
+Content stays buffered; chunk extensions/trailers, compression and informational
+responses remain unsupported. Stream ownership and server contexts are separate slices.
