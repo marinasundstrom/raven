@@ -953,3 +953,26 @@ not a compiler fix. Byte.ToString selected an Object path that faulted in neoCLR
 numeric formatting widens octets to int. Treat that as a separate runtime/library
 investigation, not evidence of a general Raven defect. Typed DNS/echo and independent
 HTTP-server checks pass; API and generated snapshots are kept current.
+
+
+## neoCLR cancellation foundation integration — 2026-09-25
+
+The neoCLR bridge imports System.Concurrency cancellation source/token/registration
+contracts. CancellationToken is a sequential struct with exactly one private source
+reference; the bridge compares that layout against the selected reference assembly.
+Captured and array token addresses are admitted as non-constructor token receivers.
+Internal callback-list helpers remain unavailable to application code. No Runtime
+Contract setting or Raven semantic/emission rule changes. Optional callback storage
+uses Option<Func<Void>>; neoCLR nullable delegate defaults remain unsupported.
+
+The focused neoCLR sample checks source/token copying and boxing under GC, callback
+ordering/reentrancy/disposal, and request versus operation acknowledgement. It passed
+with 448 allocations, nine collections and zero live allocations at teardown.
+Reference/API snapshots and .NET shared-behavior comparison accompany the target slice.
+This target admission is not a general compiler change or a candidate for Raven main.
+
+A separate unresolved compiler candidate: a lambda created inside a churn loop that
+captures an outer token array failed emission with “Missing local builder for 'tokens'”.
+The successful fixture retains the array outside that callback and captures a scalar
+token elsewhere. Reduce independently against ordinary .NET before proposing a fix;
+no outcome for such a reduction is claimed here.

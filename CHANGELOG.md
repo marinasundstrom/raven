@@ -19,7 +19,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   constructor calls; private and unrelated calls remain outside that allowance.
   Follow with public address-family projection, typed DNS/Socket integration and
   the Result<byte[], string> target observation; no compiler fix or configuration
-  change is claimed.
+  change is claimed. Record cancellation source/token/registration
+  integration, exact source-reference token layout, captured receiver admission,
+  private-helper guards and GC evidence. Record the nested callback/outer-array
+  emission observation for independent reduction; compiler policy remains unchanged.
 
 
 - **2026-09-24:** Record neoCLR System.Web.Http target integration, handler importer access
