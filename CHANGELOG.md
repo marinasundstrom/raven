@@ -4,7 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
-- **2026-09-25:** Record neoCLR final-status API projection and executed propagated
+- **2026-09-25:** Document neoCLR HttpStatusCode enum and enum-payload integration,
+  typed response signatures and optional property-pattern syntax; no compiler policy
+  changes. Record neoCLR final-status API projection and executed propagated
   extension/Object error conversions, with deferred fixture emission observations;
   no compiler semantics or Runtime Contract changes. Document neoCLR's remaining empty-case error union migrations,
   EntryKind enum conversion, resolved isinst case-type flags, inactive defaults and

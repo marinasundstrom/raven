@@ -1091,3 +1091,32 @@ its handler/text contract checks completed, but a network response reached Timed
 before the cancellation control signal. The assertion remains strict and the callback
 now reports the competing outcome. Track this separately before release; no compiler
 or status-slice regression is established by this observation alone.
+
+## HTTP named statuses and property inspection — 2026-09-25
+
+neoCLR adds System.Web.Http.HttpStatusCode as an ordinary CLI Int32 enum with a
+bounded common literal set and unnamed numeric values. HttpResponse.StatusCode and
+the HttpError.UnsuccessfulStatus payload now use it; a typed response constructor
+joins the retained integer overload. Rebuild reference/library/consumers together.
+The target bridge validates the enum's exact literals/layout and admits enum-typed
+payloads through existing PayloadUnionBindings. No Raven compiler or Runtime Contract
+configuration change is made; this is target metadata/library integration.
+
+The target fixture checks named/unnamed numeric conversion and formatting, a typed
+response, propagation to an application error union/Object, and optional response
+property inspection. Outer `if let` supplies binding for `Headers: headers`; the
+illustrative inner `let` is rejected by RAV1613. Property patterns do not require a
+Deconstruct contract, and no positional signature or value equality is introduced.
+The author's clarification explicitly does not prescribe patterns as the preferred style.
+
+The author's final clarification is covered explicitly: `let`/`if let` provide the
+outer capture binding, while an `is` pattern uses inline `let`. The isolated target
+probe executes all three forms successfully (eight allocations, zero live objects).
+Enum/payload signature checks, the client/server status fixture and snapshot checks
+cover the corresponding target integration. Website builds remain skipped.
+
+Cancellation follow-up: the prior checkpoint's original headers check passes; the
+current fixture removes the independent request from the signal's prerequisites.
+Current headers and isolated-body checks pass with zero live objects. A body check
+under overlapping local work still timed out. Keep wall-clock-sensitive checks serial
+and retain the limitation; no runtime timeout/scheduling or Raven policy fix is claimed.
