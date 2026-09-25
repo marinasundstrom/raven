@@ -1062,3 +1062,32 @@ The existing BaseUri fixture passed after handler migration (27 GC collections,
 zero live objects). A .NET 10 comparison checks the shared handler/token/text roles
 while documenting neoCLR's narrower status/encoding policy. Full library and API
 snapshots are refreshed; website and broad platform matrices are skipped.
+
+## neoCLR final HTTP statuses and propagated conversions — 2026-09-25
+
+The target library now returns final statuses 200–599, exposes the Boolean
+HttpResponse.IsSuccessStatusCode getter and projects the Int32 payload of the standard
+HttpError.UnsuccessfulStatus union case. GetString uses that case outside 200–299.
+Reference bindings and exact-signature rejection checks are updated together. Runtime
+Contract configuration and Raven semantic/emission policy are unchanged.
+
+The neoCLR `docs/experiments/http-status` fixture demonstrates `?` using an implicit
+extension conversion from HttpError into an application union, and ordinary Object
+boxing. RAV1506 reports the extension conversion; both execute successfully under GC.
+The independent .NET/raw-peer status comparison and neoCLR server framing checks pass,
+with zero live objects at teardown. API and full library snapshots are refreshed.
+
+Fixture authoring observed existing candidates for independent reduction: captured
+integer ToString addresses rejected by the target importer; compound field assignment
+inside a callback emitted a closure receiver for the outer owner's field; constant
+patterns called an Object.Equals overload unavailable in the target reference.
+Local copies, owner methods and string equality keep the fixture bounded. No general
+compiler fix is claimed. Importer diagnostics now include method/instruction context;
+its admission rules are unchanged. Any confirmed general compiler fixes must be reduced
+and tested independently before main integration. Website builds remain deferred.
+
+A supplementary existing HTTP cancellation headers check is not green in this run:
+its handler/text contract checks completed, but a network response reached TimedOut
+before the cancellation control signal. The assertion remains strict and the callback
+now reports the competing outcome. Track this separately before release; no compiler
+or status-slice regression is established by this observation alone.

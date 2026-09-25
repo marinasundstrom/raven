@@ -4,7 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
-- **2026-09-25:** Document neoCLR's remaining empty-case error union migrations,
+- **2026-09-25:** Record neoCLR final-status API projection and executed propagated
+  extension/Object error conversions, with deferred fixture emission observations;
+  no compiler semantics or Runtime Contract changes. Document neoCLR's remaining empty-case error union migrations,
   EntryKind enum conversion, resolved isinst case-type flags, inactive defaults and
   concrete generic/payload projection limits. No compiler emission policy or Runtime
   Contract setting changes. Record System.Enum TypeInfo/generic helper target integration, typed snapshots,
