@@ -976,3 +976,22 @@ captures an outer token array failed emission with “Missing local builder for 
 The successful fixture retains the array outside that callback and captures a scalar
 token elsewhere. Reduce independently against ordinary .NET before proposing a fix;
 no outcome for such a reduction is claimed here.
+
+
+## neoCLR HTTP address overload integration — 2026-09-25
+
+The neoCLR reference/bridge now expose HttpClient.BaseUri as Option<string>, and
+Get(Uri) alongside Get(string) on HttpClient and HttpRequest. These are ordinary
+property and overload signatures using the existing URI and union contracts. The
+bridge checks the optional-string setter and each overload; no Runtime Contract
+setting, compiler semantic-model rule or emission policy changes.
+
+The managed implementation validates/resolves before dispatching to the existing
+handler interface. Invalid URI text now preserves UriError in HttpError.InvalidUri.
+Base configuration changes affect subsequent construction only; Send consumes a
+preconstructed request. Focused target checks cover both overloads, rejection before
+handler dispatch, 27 GC collections with zero live allocations, and independent
+Python HTTP interoperability. A .NET 10 URI comparison records the deliberate
+base-authority and percent-encoded-dot differences. API reference and generated
+library snapshots are refreshed; no compiler or website build is required for
+this documentation-only Raven update. HTTP cancellation wiring remains separate.

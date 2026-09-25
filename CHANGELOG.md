@@ -23,6 +23,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   integration, exact source-reference token layout, captured receiver admission,
   private-helper guards and GC evidence. Record the nested callback/outer-array
   emission observation for independent reduction; compiler policy remains unchanged.
+  Record HttpClient optional-string BaseUri and string/Uri Get signature integration,
+  handler/GC/interoperability evidence and unchanged compiler/Runtime Contract policy.
 
 
 - **2026-09-24:** Record neoCLR System.Web.Http target integration, handler importer access
