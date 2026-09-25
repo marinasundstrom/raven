@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-25:** Document checked deferred neoCLR storage for hoisted Result fields
+  in reference async states; bridge/runtime change only, no compiler or Runtime
+  Contract setting change. Record pending-await/GC validation and remaining limits.
+
 - **2026-09-25:** Document neoCLR Console object fallback and unboxed scalar
   overload integration; no Raven compiler or Runtime Contract configuration change.
 

@@ -1301,3 +1301,20 @@ text rather than a UTF-16 code unit. There is no formatting-provider contract.
 The cost avoided is temporary boxed scalar allocation; output still creates text.
 Floating-point formatting remains deferred; its current Object fallback does not
 promise numeric output. This does not broaden ToString semantics for other types.
+
+### Hoisted Result storage in reference async states — 2026-09-25
+
+neoCLR's managed bridge now marks fields of application reference types implementing
+core IAsyncStateMachine as deferred storage. This fixes a constructor failure when
+an unassigned hoisted Result contains nondefaultable erased System.Value storage.
+The value is assigned later by MoveNext; early reads still fault. Ordinary classes,
+value-type state machines and library types retain their prior rules. Selection
+uses the interface contract, not generated names or Raven union metadata.
+
+No Raven emission, semantic policy or Runtime Contract setting changes. This is a
+target-specific bridge/runtime contract and new artifacts require a matching runtime;
+it is not a general Raven main fix. See neoCLR's docs/value-storage.md deferred-field
+section for the .NET default-value comparison, alternatives and limitations.
+Focused constructor/serialization/GC checks and a source consumer retaining a
+structured Result across pending await pass. The public JSON HTTP sample exercises
+this with socket operations; separate expression/compiler observations remain open.
