@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-25:** Document neoCLR's EquatableTo/ComparableTo interface renames and
+  explicit ConvertibleInto contract, target record configuration, artifact migration
+  and focused validation. Record the pre-existing generated-record assignment
+  limitation; no compiler code or default .NET interface behavior changes.
+
 - **2026-09-25:** Document neoCLR JsonValue slice configuration for the existing
   RuntimeTypeOfContract and its instance-library closure limitation. No compiler
   code, metadata convention or neoCLR-specific main-branch policy is changed.

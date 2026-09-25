@@ -753,3 +753,28 @@ function compiles and imports successfully, reporting RAV0162 after Fault.
 The end-to-end `verify_fault.py` gate stopped before execution because the runtime
 library snapshot was stale for an unrelated `HttpClient.rvn` edit. No guest runtime
 execution, .NET Framework or NanoFramework validation is claimed for this change.
+
+## neoCLR directional interface identities (2026-09-25)
+
+The neoCLR library/bridge now exposes System.EquatableTo<T> and
+System.ComparableTo<T> in place of Equatable/Comparable, and adds invariant
+System.ConvertibleInto<T>.Convert() -> T. These are ordinary CLI interfaces;
+explicit implementations, semantic interface conversions and call emission need
+no compiler policy change. Equality/ordering methods retain their behavior.
+Conversion is explicit and does not enable return-type overload selection.
+
+neoCLR's shared props now select ``System.EquatableTo`1`` for
+RavenRecordEquatableType, retaining RavenRecordAssemblyName=NeoCLR.CoreProbe and
+the existing HashCode setting. This records the target's requested configuration,
+not proof that this compiler implements a record Runtime Contract: the currently
+built compiler rejects generated-record assignment to both the old and new target
+interface. That baseline limitation remains open; explicit implementations compile.
+Default .NET IEquatable<T> behavior is unchanged. Rebuild neoCLR references, managed
+library and applications together because the renamed CLI identities are incompatible.
+
+Validation in neoCLR: 47 focused runtime tests, bridge signature admission/rejection,
+API reference snapshot and full library artifact regeneration. A consumer covering
+all three interfaces compiles and imports. Generated IL changes only the intended
+old identities, plus the new conversion declaration. Full tests and website builds
+were skipped by author instruction. This is target integration documentation only;
+no neoCLR-specific compiler change is proposed for main.
