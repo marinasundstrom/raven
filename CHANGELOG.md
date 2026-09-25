@@ -4,7 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
-- **2026-09-25:** Document neoCLR HttpStatusCode enum and enum-payload integration,
+- **2026-09-25:** Document buffered neoCLR POST signature/internal-helper admission and
+  async propagation sample validation; no compiler or Runtime Contract changes. Document neoCLR HttpStatusCode enum and enum-payload integration,
   typed response signatures and optional property-pattern syntax; no compiler policy
   changes. Record neoCLR final-status API projection and executed propagated
   extension/Object error conversions, with deferred fixture emission observations;

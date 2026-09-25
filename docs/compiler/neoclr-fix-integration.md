@@ -1120,3 +1120,17 @@ current fixture removes the independent request from the signal's prerequisites.
 Current headers and isolated-body checks pass with zero live objects. A body check
 under overlapping local work still timed out. Keep wall-clock-sensitive checks serial
 and retain the limitation; no runtime timeout/scheduling or Raven policy fix is claimed.
+
+## Buffered HTTP POST target integration — 2026-09-25
+
+neoCLR's bridge admits HttpClient.Post string/Uri/content/token overloads, request Post
+factories and Content, and buffered UTF-8 content construction. Serialization and
+media-type accessors remain internal: signature checks admit library use and reject
+consumer calls. Updated FromIncoming requires a matching reference and generated library.
+No Runtime Contract settings, semantic-model or compiler emission policy changes.
+
+The frozen compiler builds the new async propagation example. Focused assertions cover
+success, typed transport failure, UTF-8 decoding failure and cancelled tasks. neoCLR's
+independent peer, .NET HttpClient and client/server POST checks validate framing and
+zero remaining managed objects. Fixed small buffers and Content-Length only remain
+provisional target restrictions. Website builds are skipped by author direction.
