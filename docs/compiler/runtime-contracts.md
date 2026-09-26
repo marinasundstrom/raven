@@ -837,3 +837,11 @@ return-path and control-flow tests passed on .NET 11, including cold flow querie
 failed emission and ordinary nonterminal Fault methods. Packaged MSBuild stale-output
 validation is performed by neoCLR's release gate. No new .NET Framework or
 NanoFramework execution claim is made.
+
+### Nongeneric cases of generic unions
+
+A generic union's companion may contain both generic payload cases and nongeneric
+empty cases. Target-metadata emission preserves the actual CLI arity of each case: a
+constructed symbol for an empty case does not make its metadata type generic. This
+applies to ordinary separately compiled unions and does not require a target-specific
+Runtime Contract setting. Focused imported-union tests cover both emission paths.
