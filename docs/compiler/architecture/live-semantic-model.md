@@ -69,6 +69,11 @@ state (`maybe null` or `not null`) for that exact program point. The language
 server does not reproduce branch analysis, and local-reference hover does not
 take a syntax-only shortcut that could hide a compiler-owned flow change.
 
+Pattern-head symbol queries return the constructed variant selected by binding,
+including imported CLI member unions whose variants are ordinary nested structs.
+A first query must initialize the source declaration/import context before binding
+the enclosing pattern; it must agree with a query made after diagnostics.
+
 ## Binding And Incremental State
 
 Binders are cache-derived from syntax and semantic context. They can keep state

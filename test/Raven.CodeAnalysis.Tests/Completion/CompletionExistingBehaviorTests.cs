@@ -203,7 +203,7 @@ numbers.
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
         Assert.Contains(items, i => i.DisplayText == "Add");
-        Assert.DoesNotContain(items, i => i.DisplayText == "Where");
+        Assert.DoesNotContain(items, i => i.Symbol is IMethodSymbol { Name: "Where" });
     }
 
     [Fact]

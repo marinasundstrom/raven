@@ -10,6 +10,43 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 public class CompletionServiceBasicTests
 {
     [Theory]
+    [InlineData("Syste")]
+    [InlineData("System")]
+    public void GetCompletions_ExpressionPrefix_IncludesRootNamespace(string prefix)
+    {
+        var code = "import System.*\nfunc Main() {\n    " + prefix + "\n}";
+        var tree = SyntaxTree.ParseText(code);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree).AddReferences(TestMetadataReferences.Default);
+        var position = code.LastIndexOf(prefix, System.StringComparison.Ordinal) + prefix.Length;
+
+        var items = new CompletionService().GetCompletions(compilation, tree, position).ToArray();
+
+        Assert.Contains(items, item => item.DisplayText == "System" && item.Symbol is INamespaceSymbol);
+    }
+
+    [Theory]
+    [InlineData("import System.*\nfunc Main() {\n    Fun", "\n}")]
+    [InlineData("import System.*\nfunc Main(value: Fun", ") {}")]
+    [InlineData("import System.Fun", "\n")]
+    public void GetCompletions_GenericDelegates_ShowSeparateArities(string before, string after)
+    {
+        var tree = SyntaxTree.ParseText(before + after);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree).AddReferences(TestMetadataReferences.Default);
+
+        var items = new CompletionService().GetCompletions(compilation, tree, before.Length).ToArray();
+
+        foreach (var arity in new[] { 1, 2, 3 })
+        {
+            var item = Assert.Single(items, item => item.Symbol is INamedTypeSymbol type && type.Name == "Func" && type.Arity == arity);
+            var type = (INamedTypeSymbol)item.Symbol!;
+            Assert.Equal("Func<" + string.Join(", ", type.TypeParameters.Select(parameter => parameter.Name)) + ">", item.DisplayText);
+            Assert.Equal("Func", item.InsertionText);
+        }
+    }
+
+    [Theory]
     [InlineData("    ", "Console", "")]
     [InlineData("    ", "Con", "")]
     [InlineData("\t", "Con", "")]

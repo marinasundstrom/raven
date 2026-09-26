@@ -101,7 +101,7 @@ import System.Collections.Generic.
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
         Assert.Equal("*", items[0].DisplayText);
-        Assert.Contains(items, i => i.DisplayText == "List");
+        Assert.Contains(items, i => i.DisplayText == "List<T>");
     }
 
     [Fact]
@@ -197,7 +197,7 @@ namespace App {
 
         Assert.Equal("*", items[0].DisplayText);
         Assert.Equal(new TextSpan(position, 0), items[0].ReplacementSpan);
-        Assert.Contains(items, i => i.DisplayText == "List");
+        Assert.Contains(items, i => i.DisplayText == "List<T>");
         Assert.All(items, item => Assert.Equal(new TextSpan(position, 0), item.ReplacementSpan));
     }
 

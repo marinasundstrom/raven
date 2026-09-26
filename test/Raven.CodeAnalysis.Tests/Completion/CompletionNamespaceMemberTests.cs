@@ -8,6 +8,29 @@ namespace Raven.CodeAnalysis.Tests.Completion;
 
 public class CompletionNamespaceMemberTests
 {
+    [Theory]
+    [InlineData("import Samples.*\nfunc Main() {\n    Cre", "\n}")]
+    [InlineData("func Main() {\n    Samples.Cre", "\n}")]
+    public void GetCompletions_NamespaceFunctions_PreserveGenericArities(string before, string after)
+    {
+        var declarations = SyntaxTree.ParseText("""
+namespace Samples
+public func Create() {}
+public func Create<T>() {}
+public func Create<T, U>() {}
+""");
+        var tree = SyntaxTree.ParseText(before + after);
+        var compilation = CreateCompilation(declarations, tree);
+        var items = new CompletionService().GetCompletions(compilation, tree, before.Length).ToArray();
+
+        foreach (var arity in new[] { 0, 1, 2 })
+        {
+            var item = Assert.Single(items, item => item.Symbol is IMethodSymbol method && method.Name == "Create" && method.Arity == arity);
+            Assert.Equal(new[] { "Create", "Create<T>", "Create<T, U>" }[arity], item.DisplayText);
+            Assert.Equal("Create()", item.InsertionText);
+        }
+    }
+
     [Fact]
     public void GetCompletions_InSameNamespace_IncludesSourceNamespaceFunctionAndConstMembers()
     {

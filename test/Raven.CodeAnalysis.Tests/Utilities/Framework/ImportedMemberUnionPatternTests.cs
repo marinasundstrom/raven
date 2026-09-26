@@ -63,6 +63,7 @@ public class ImportedMemberUnionPatternTests
                 {{(importCases ? "import Contracts.Choice.*" : "")}}
                 public class Consumer {
                     public static func Pick(value: Choice<int, string>) -> int {
+                        {{(valid && importCases ? "if let Error(message) = value { }" : "")}}
                         return match value {
                             {{success}} => number
                             {{failure}} => -1
@@ -77,6 +78,26 @@ public class ImportedMemberUnionPatternTests
                     }
                 }
                 """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            if (valid && importCases)
+            {
+                var tree = compilation.SyntaxTrees.Single();
+                var model = compilation.GetSemanticModel(tree);
+                var names = tree.GetRoot().DescendantNodes().OfType<NominalDeconstructionPatternSyntax>()
+                    .Select(pattern => pattern.Type).OfType<IdentifierNameSyntax>()
+                    .Where(name => name.Identifier.ValueText == "Error").ToArray();
+                Assert.NotEmpty(names);
+                foreach (var name in names)
+                {
+                    for (var query = 0; query < 2; query++)
+                    {
+                        Assert.True(model.TryGetSymbolInfo(name, out var info));
+                        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(info.Symbol);
+                        Assert.Equal(SpecialType.System_String, Assert.Single(symbol.TypeArguments).SpecialType);
+                        symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(name).Symbol);
+                        Assert.Equal(SpecialType.System_String, Assert.Single(symbol.TypeArguments).SpecialType);
+                    }
+                }
+            }
             var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
             if (!valid)
             {

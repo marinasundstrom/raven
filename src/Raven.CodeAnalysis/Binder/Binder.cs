@@ -1927,7 +1927,31 @@ internal abstract partial class Binder
 
     public virtual IEnumerable<ISymbol> LookupAvailableSymbols()
     {
-        return [];
+        // Declaration contexts (for example a parameter type) have no block
+        // binder, but still have the same imported namespace and type scopes.
+        for (var current = this; current is not null; current = current.ParentBinder)
+        {
+            if (current is not ImportBinder imports)
+                continue;
+
+            foreach (var type in imports.GetImportedTypes())
+                yield return type;
+
+            foreach (var scope in imports.GetImportedNamespacesOrTypeScopes())
+            {
+                foreach (var member in scope.GetMembers().OfType<INamespaceOrTypeSymbol>())
+                    yield return member;
+            }
+        }
+
+        if (CurrentNamespace is { IsGlobalNamespace: false } currentNamespace)
+        {
+            foreach (var member in currentNamespace.GetMembers().OfType<INamespaceOrTypeSymbol>())
+                yield return member;
+        }
+
+        foreach (var member in Compilation.SymbolLookup.GetGlobalMembers())
+            yield return member;
     }
 
     public ISymbol? LookupLocalSymbol(string name)

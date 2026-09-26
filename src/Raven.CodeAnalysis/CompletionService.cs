@@ -546,15 +546,31 @@ public class CompletionService
         var insertionText = symbol is IMethodSymbol
             ? escapedName + "()"
             : escapedName;
-        var displayText = symbol is IUnionCaseTypeSymbol unionCase
-            ? ((INamedTypeSymbol)unionCase).FormatUnionCaseForDiagnostic()
-            : escapedName;
-        var dedupKey = symbol is IUnionCaseTypeSymbol
-            ? displayText
-            : symbol.Name;
+        var displayText = CompletionService.GetCompletionDisplayText(symbol, escapedName);
+        var dedupKey = CompletionService.GetCompletionDedupKey(symbol, displayText);
 
         return (displayText, insertionText, dedupKey);
     }
+
+    internal static string GetCompletionDisplayText(ISymbol symbol, string escapedName)
+        => symbol switch
+        {
+            IUnionCaseTypeSymbol unionCase => ((INamedTypeSymbol)unionCase).FormatUnionCaseForDiagnostic(),
+            INamedTypeSymbol { Arity: > 0 } type =>
+                $"{escapedName}<{string.Join(", ", type.TypeParameters.TakeLast(type.Arity).Select(parameter => parameter.Name))}>",
+            IMethodSymbol { Arity: > 0 } method =>
+                $"{escapedName}<{string.Join(", ", method.TypeParameters.Select(parameter => parameter.Name))}>",
+            _ => escapedName
+        };
+
+    internal static string GetCompletionDedupKey(ISymbol symbol, string displayText)
+        => symbol switch
+        {
+            IUnionCaseTypeSymbol => displayText,
+            INamedTypeSymbol { Arity: > 0 } type => $"{type.Name}`{type.Arity}",
+            IMethodSymbol { Arity: > 0 } method => $"{method.Name}`{method.Arity}",
+            _ => symbol.Name
+        };
 
     private static string EscapeIdentifierForInsertion(string identifier)
     {

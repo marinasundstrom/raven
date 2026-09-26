@@ -2126,6 +2126,65 @@ class C {
         signature.ShouldNotContain(" E");
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MetadataResultIfPatternHover_UsesScrutineeTypeArguments(bool bindDiagnosticsFirst)
+    {
+        const string code = """
+import System.*
+import System.Result.*
+
+class C {
+    func Test() {
+        let ok: Result<int, string> = Ok(2)
+
+        if let Error(message) = ok {
+            Console.WriteLine(message)
+        }
+    }
+}
+""";
+
+        var syntaxTree = SyntaxTree.ParseText(code, path: "/workspace/test.rav");
+        var references = LanguageServerTestReferences.Default
+            .Concat([MetadataReference.CreateFromFile(GetRavenCoreReferencePath())])
+            .ToArray();
+        var compilation = Compilation.Create(
+            "test",
+            [syntaxTree],
+            references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        if (bindDiagnosticsFirst)
+            compilation.GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == Raven.CodeAnalysis.DiagnosticSeverity.Error)
+            .ShouldBeEmpty();
+
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var root = syntaxTree.GetRoot();
+        var errorIdentifier = root.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Single(id => id.Identifier.ValueText == "Error");
+        errorIdentifier.Parent.ShouldBeAssignableTo<NominalDeconstructionPatternSyntax>();
+        var hoverOffset = errorIdentifier.Identifier.SpanStart + 1;
+        var hoverToken = root.FindToken(hoverOffset);
+        hoverToken.ShouldBe(errorIdentifier.Identifier);
+        var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
+
+        resolution.ShouldNotBeNull();
+
+        var buildSignatureForResolvedHover = typeof(HoverHandler)
+            .GetMethod("BuildSignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var signature = (string)buildSignatureForResolvedHover.Invoke(
+            null,
+            [resolution.Value, semanticModel, root, hoverOffset])!;
+
+        signature.ShouldContain("Error");
+        signature.ShouldContain("string");
+        signature.ShouldNotContain(" E");
+    }
+
     [Fact]
     public void MetadataResultCasePatternHover_PrefersUnionCaseOverVisibleTypeWithSameName()
     {

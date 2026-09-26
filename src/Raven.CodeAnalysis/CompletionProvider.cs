@@ -753,12 +753,8 @@ public static class CompletionProvider
             var insertionText = symbol is IMethodSymbol && !hasExistingArgumentList
                 ? escapedName + "()"
                 : escapedName;
-            var displayText = symbol is IUnionCaseTypeSymbol unionCase
-                ? ((INamedTypeSymbol)unionCase).FormatUnionCaseForDiagnostic()
-                : escapedName;
-            var dedupKey = symbol is IUnionCaseTypeSymbol
-                ? displayText
-                : symbol.Name;
+            var displayText = CompletionService.GetCompletionDisplayText(symbol, escapedName);
+            var dedupKey = CompletionService.GetCompletionDedupKey(symbol, displayText);
 
             return (displayText, insertionText, dedupKey);
         }
@@ -1675,6 +1671,7 @@ public static class CompletionProvider
                 IEventSymbol => true,
                 IMethodSymbol { IsConstructor: false } => true,
                 ITypeSymbol when allowTypes => true,
+                INamespaceSymbol => true,
                 _ => false
             };
 
@@ -2361,7 +2358,7 @@ public static class CompletionProvider
                     var (displayText, insertText, dedupKey) = CreateCompletionParts(symbol);
                     var cursorOffset = GetDefaultCursorOffset(symbol, insertText);
 
-                    if (seen.Add(symbol.Name))
+                    if (seen.Add(dedupKey))
                     {
                         completions.Add(new CompletionItem(
                             DisplayText: displayText,

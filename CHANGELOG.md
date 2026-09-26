@@ -10,6 +10,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   invocations reject compilation again; cold Fault control-flow queries remain
   terminal. No Runtime Contract configuration or emitted metadata changes.
 
+- **2026-09-27:** Include namespaces in expression completion and retain separate
+  generic arities for type and function suggestions, with type parameters in
+  their labels. Resolve imported member-union pattern heads to their constructed
+  variant types for semantic queries and hover.
+
 - **2026-09-26:** Preserve generic method-group arguments supplied by an enclosing
   method when converting to delegates or passing higher-order arguments. Such
   arguments are fixed context, not unresolved inference slots. Fix rejected typed

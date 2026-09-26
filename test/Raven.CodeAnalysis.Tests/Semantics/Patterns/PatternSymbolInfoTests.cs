@@ -11,6 +11,41 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class PatternSymbolInfoTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetSymbolInfo_MetadataResultIfPattern_UsesConcreteErrorType(bool bindDiagnosticsFirst)
+    {
+        const string source = """
+import System.*
+import System.Result.*
+
+class C {
+    func Test() {
+        let sent: Result<int, string> = Ok(2)
+        if let Error(sendError) = sent {
+            Console.WriteLine(sendError)
+        }
+    }
+}
+""";
+        var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);
+        if (bindDiagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        var name = tree.GetRoot().DescendantNodes().OfType<NominalDeconstructionPatternSyntax>().Single().Type;
+
+        for (var query = 0; query < 2; query++)
+        {
+            Assert.True(model.TryGetSymbolInfo(name, out var info));
+            var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(info.Symbol);
+            Assert.Equal(SpecialType.System_String, symbol.TypeArguments.Single().SpecialType);
+            symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(name).Symbol);
+            Assert.Equal("Error", symbol.Name);
+            Assert.Equal(SpecialType.System_String, symbol.TypeArguments.Single().SpecialType);
+        }
+    }
+
     [Fact]
     public void GetSymbolInfo_MemberPatternPathInMatchExpression_ResolvesUnionCase()
     {

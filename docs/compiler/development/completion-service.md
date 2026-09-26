@@ -12,7 +12,14 @@ var items = service.GetCompletions(compilation, syntaxTree, position);
 ```
 
 Each returned `CompletionItem` describes a text snippet that can be inserted
-at the requested position.
+at the requested position. Generic types and methods display their type parameters
+(for example `Func<T, TResult>` and `Create<T>`), and declarations with different
+generic arities remain separate completion entries. Type insertion uses the bare
+identifier; method insertion retains the existing call parentheses. Overloads with
+the same name and generic arity remain grouped.
+
+Unqualified expression prefixes also include visible namespaces, so `Syste` can
+complete to `System` before choosing a namespace member.
 
 ## Current coverage snapshots
 - Member and namespace access is driven by semantic lookup: after a dot the provider filters accessible static, instance, and extension members, while also supporting qualified names and `self` access when available.【F:src/Raven.CodeAnalysis/CompletionProvider.cs†L526-L663】
