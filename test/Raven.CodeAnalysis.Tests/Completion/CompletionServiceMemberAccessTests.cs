@@ -879,7 +879,7 @@ numbers.
 
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
-        Assert.Contains(items, i => i.DisplayText == "Where");
+        Assert.Contains(items, i => i.Symbol is IMethodSymbol { Name: "Where" });
     }
 
     [Fact]
@@ -1197,9 +1197,9 @@ numbers.
 
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
-        Assert.Contains(items, i => i.DisplayText == "Where");
-        Assert.Contains(items, i => i.DisplayText == "Select");
-        Assert.Contains(items, i => i.DisplayText == "FirstOrDefault");
+        Assert.Contains(items, i => i.Symbol is IMethodSymbol { Name: "Where" });
+        Assert.Contains(items, i => i.Symbol is IMethodSymbol { Name: "Select" });
+        Assert.Contains(items, i => i.Symbol is IMethodSymbol { Name: "FirstOrDefault" });
     }
 
     [Fact]
@@ -1234,8 +1234,8 @@ func Test<T>(items: T[]) {
 
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
-        Assert.Contains(items, i => i.DisplayText == "Where");
-        Assert.Contains(items, i => i.DisplayText == "Select");
+        Assert.Contains(items, i => i.Symbol is IMethodSymbol { Name: "Where" });
+        Assert.Contains(items, i => i.Symbol is IMethodSymbol { Name: "Select" });
     }
 
     [Fact]

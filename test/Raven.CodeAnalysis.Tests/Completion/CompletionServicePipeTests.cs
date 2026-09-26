@@ -106,7 +106,7 @@ let query = numbers |> Wh
         var position = code.LastIndexOf("Wh", StringComparison.Ordinal) + "Wh".Length;
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
-        Assert.Contains(items, static item => item.DisplayText == "Where");
+        Assert.Contains(items, static item => item.Symbol is IMethodSymbol { Name: "Where" });
     }
 
     [Fact]
@@ -146,7 +146,7 @@ func Main() {
         var position = code.LastIndexOf("|>", StringComparison.Ordinal) + "|>".Length;
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
-        Assert.Contains(items, static item => item.DisplayText == "Where");
-        Assert.Contains(items, static item => item.DisplayText == "Select");
+        Assert.Contains(items, static item => item.Symbol is IMethodSymbol { Name: "Where" });
+        Assert.Contains(items, static item => item.Symbol is IMethodSymbol { Name: "Select" });
     }
 }

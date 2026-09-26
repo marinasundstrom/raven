@@ -3803,6 +3803,14 @@ public partial class SemanticModel
     {
         using var semanticAccess = EnterSemanticAccess(cancellationToken);
 
+        // Pattern heads are contextual: an available named-type lookup can
+        // return an open definition (or an unrelated same-named type).
+        if (node is TypeSyntax patternType && TryGetPatternNodeForType(patternType, out _))
+        {
+            info = GetSymbolInfo(node, cancellationToken);
+            return info.Symbol is not null || !info.CandidateSymbols.IsDefaultOrEmpty;
+        }
+
         if (node is IdentifierNameSyntax functionParameterReference &&
             TryGetAvailableFunctionExpressionParameterReferenceSymbolInfo(functionParameterReference, out info))
         {
@@ -8830,6 +8838,8 @@ public partial class SemanticModel
 
     private void BindPatternContextForSemanticQuery(SyntaxNode patternNode)
     {
+        Compilation.EnsureSourceDeclarationsDeclared();
+
         if (patternNode.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
         {
             _ = GetBoundNode(matchExpression);
@@ -8937,6 +8947,13 @@ public partial class SemanticModel
             return false;
 
         BindPatternContextForSemanticQuery(patternNode);
+
+        if (TryGetCachedBoundNode(patternNode) is BoundUnionMemberPattern { MemberType: INamedTypeSymbol memberType } &&
+            memberType.TypeKind != TypeKind.Error)
+        {
+            symbol = memberType;
+            return true;
+        }
 
         if (TryGetCachedBoundNode(patternNode) is BoundDeclarationPattern { DeclaredType: INamedTypeSymbol declaredType } &&
             declaredType.TypeKind != TypeKind.Error)

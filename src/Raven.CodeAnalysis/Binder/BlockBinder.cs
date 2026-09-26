@@ -16666,6 +16666,8 @@ partial class BlockBinder : Binder
     public override IEnumerable<ISymbol> LookupAvailableSymbols()
     {
         var seen = new HashSet<string>();
+        var seenTypes = new HashSet<(string Name, int Arity)>();
+        var seenMethods = new HashSet<(string Name, int Arity)>();
         Binder? current = this;
 
         while (current is not null)
@@ -16681,7 +16683,7 @@ partial class BlockBinder : Binder
 
                 foreach (var localType in block._localTypes.Values)
                 {
-                    if (seen.Add(localType.Symbol.Name))
+                    if (TryAddSymbol(localType.Symbol))
                         yield return localType.Symbol;
                 }
 
@@ -16704,7 +16706,7 @@ partial class BlockBinder : Binder
                     {
                         foreach (var member in GetNamespaceScopeCompletionMembers(namespaceSymbol))
                         {
-                            if (seen.Add(member.Name))
+                            if (TryAddSymbol(member))
                                 yield return member;
                         }
                     }
@@ -16715,7 +16717,7 @@ partial class BlockBinder : Binder
                             if (!ImportBinder.IsImportableTypeScopeMember(member))
                                 continue;
 
-                            if (seen.Add(member.Name))
+                            if (TryAddSymbol(member))
                                 yield return member;
                         }
                     }
@@ -16784,14 +16786,14 @@ partial class BlockBinder : Binder
                     continue;
                 }
 
-                if (seen.Add(containingType.Name))
+                if (TryAddSymbol(containingType))
                     yield return containingType;
 
                 for (var type = containingType; type is not null; type = type.BaseType)
                 {
                     foreach (var member in type.GetMembers())
                     {
-                        if (seen.Add(member.Name))
+                        if (TryAddSymbol(member))
                             yield return member;
                     }
                 }
@@ -16805,7 +16807,7 @@ partial class BlockBinder : Binder
         {
             foreach (var member in GetNamespaceScopeCompletionMembers(currentNamespace))
             {
-                if (seen.Add(member.Name))
+                if (TryAddSymbol(member))
                     yield return member;
             }
         }
@@ -16813,7 +16815,7 @@ partial class BlockBinder : Binder
         // Include source and referenced global roots as a last fallback.
         foreach (var member in Compilation.SymbolLookup.GetGlobalMembers())
         {
-            if (seen.Add(member.Name))
+            if (TryAddSymbol(member))
                 yield return member;
         }
 
@@ -16821,9 +16823,20 @@ partial class BlockBinder : Binder
         {
             foreach (var member in GetNamespaceMemberCompletionSymbols(Compilation.SourceGlobalNamespace))
             {
-                if (seen.Add(member.Name))
+                if (TryAddSymbol(member))
                     yield return member;
             }
+        }
+
+        bool TryAddSymbol(ISymbol symbol)
+        {
+            if (symbol is INamedTypeSymbol type)
+                return !seen.Contains(type.Name) && seenTypes.Add((type.Name, type.Arity));
+
+            if (symbol is IMethodSymbol method)
+                return !seen.Contains(method.Name) && seenMethods.Add((method.Name, method.Arity));
+
+            return seen.Add(symbol.Name);
         }
 
         IEnumerable<ISymbol> GetNamespaceScopeCompletionMembers(INamespaceSymbol namespaceSymbol)
