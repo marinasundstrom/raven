@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-26:** Preserve generic method-group arguments supplied by an enclosing
+  method when converting to delegates or passing higher-order arguments. Such
+  arguments are fixed context, not unresolved inference slots. Fix rejected typed
+  delegates and direct higher-order calls that previously emitted default returns
+  without diagnostics. Uninferred methods remain invalid. No Runtime Contract
+  setting or metadata convention changes.
+
 - **2026-09-26:** Distinguish member overloads by generic arity when checking
   duplicate declarations, reusing/filtering signature skeletons and looking up
   members. Ordinary and generic methods with identical value parameters can coexist in either declaration order;

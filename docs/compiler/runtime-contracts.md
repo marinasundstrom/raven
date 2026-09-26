@@ -396,3 +396,27 @@ higher-arity candidate uses Raven's partial type-argument inference. Return-type
 overloads are not enabled. Regression coverage uses
 standard .NET references; execution is checked on .NET 11, not .NET Framework or
 NanoFramework.
+
+
+### Generic method groups in generic callers — 2026-09-26
+
+Method-level construction can remain open over the caller's type parameters.
+For example, inside `Run<T>`, `Convert<T>` can initialize `Func<object, T>` or
+be passed to a generic higher-order method. Overload inference must preserve the
+constructed method rather than try to infer its already-supplied arguments again.
+Delegate compatibility checks use the constructed signature; they must not reject
+all type-parameter arguments as unresolved. A method whose arguments cannot be
+inferred from the delegate parameters still reports a diagnostic.
+
+This follows [C# method-group conversion](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/conversions#108-method-group-conversions)
+(retrieved 2026-09-26): explicit generic arguments and inference both participate
+in delegate binding. The fix uses ordinary CLI generic method/delegate metadata,
+without a Runtime Contract switch or a runtime-specific convention. Public semantic
+queries use the same binder selection; no language-server or syntax changes are
+needed. Regression tests execute typed and inline method groups with reference and
+value instantiations on .NET 11, and reject an uninferred method. This does not
+claim execution validation on .NET Framework or NanoFramework.
+
+Validation: all 399 focused overload-resolution checks pass before and after the
+fix; five new focused runtime/diagnostic regressions pass (four failed before).
+A standalone C# .NET 11 comparison also preserves identity and the integer result.
