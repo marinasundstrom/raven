@@ -7,7 +7,7 @@ write Raven code.
 
 For a runnable first look, start with the [language tour](introduction.md).
 Use the [language reference](lang/spec/index.md) for the complete rules.
-These examples target Raven 0.1.12; see [release compatibility](status.md).
+These examples target Raven 0.1.13; see [release compatibility](status.md).
 
 <a id="gradually-adopt-idiomatic-raven"></a>
 <a id="a-quick-translation-table"></a>

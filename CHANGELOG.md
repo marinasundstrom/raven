@@ -1,8 +1,23 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
+Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
+
+### Breaking changes
+
+- None recorded.
+
+## 0.1.13 - 2026-09-27
+
+### Breaking changes
+
+- Standalone postfix propagation now surrounds the complete `await` or `try`
+  expression: `await operation?` means `(await operation)?`, and `try operation?`
+  means `(try operation)?`. Use `await (operation?)` or `try (operation?)` when
+  propagation must occur inside the operand.
+
+### Changes
 
 - **2026-09-27:** Include namespaces in expression completion and retain separate
   generic arities for type and function suggestions, with type parameters in
@@ -441,10 +456,6 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   .NET regression set reproduces 12 failures before the fixes and passes all
   122 checks afterwards. After both integration batches, the broader baseline
   passes 5,489 tests with no failures or skips.
-
-### Breaking changes
-
-- None recorded.
 
 ## 0.1.12 - 2026-09-12
 
