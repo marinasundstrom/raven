@@ -53,7 +53,9 @@ Use overloading when the same operation makes sense for different sets or types
 of arguments.
 
 Functions and methods may share a name as long as their parameter counts or
-types differ. Overload resolution selects the best match based on argument
+types differ. Member methods may also differ in generic arity: `Read(string)`,
+`Read<T>(string)` and `Read<T, U>(string)` are distinct declarations. Return types
+alone do not distinguish declarations. Overload resolution selects the best match based on argument
 types, `out`/by-ref modifiers, and nullability. Ambiguous calls produce a
 diagnostic.
 

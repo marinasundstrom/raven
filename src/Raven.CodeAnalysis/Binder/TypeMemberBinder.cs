@@ -1213,7 +1213,7 @@ internal partial class TypeMemberBinder : Binder
                 methodSymbol.MarkAsPartialDefinition();
         }
 
-        CheckForDuplicateSignature(metadataName, displayName, signatureArray, identifierToken.GetLocation(), methodDecl);
+        CheckForDuplicateSignature(metadataName, displayName, signatureArray, identifierToken.GetLocation(), methodDecl, methodSymbol.TypeParameters.Length);
 
         if (hasInvalidAsyncReturnType)
             methodSymbol.MarkAsyncReturnTypeError();
@@ -1249,11 +1249,14 @@ internal partial class TypeMemberBinder : Binder
         out SourceMethodSymbol skeleton)
     {
         var expectedParameterCount = declaredParameterCount + (isExtensionMember ? 1 : 0);
+        var expectedArity = (methodDecl.TypeParameterList?.Parameters.Count ?? 0)
+            + (IsExtensionContainer ? _containingType.TypeParameters.Length : 0);
 
         SourceMethodSymbol? parameterMatch = null;
         foreach (var method in _containingType.GetMembers(metadataName).OfType<SourceMethodSymbol>())
         {
             if (!method.IsSignatureSkeleton ||
+                method.TypeParameters.Length != expectedArity ||
                 method.Parameters.Length != expectedParameterCount)
             {
                 continue;
@@ -1330,7 +1333,7 @@ internal partial class TypeMemberBinder : Binder
 
     private static bool MethodParameterSignaturesMatch(IMethodSymbol left, IMethodSymbol right)
     {
-        if (left.Parameters.Length != right.Parameters.Length)
+        if (left.Arity != right.Arity || left.Parameters.Length != right.Parameters.Length)
             return false;
 
         for (var i = 0; i < left.Parameters.Length; i++)
@@ -2516,11 +2519,11 @@ internal partial class TypeMemberBinder : Binder
         RegisterMember(delegateSymbol, invoke);
     }
 
-    private void CheckForDuplicateSignature(string searchName, string displayName, (ITypeSymbol type, RefKind refKind)[] parameters, Location location, SyntaxNode? currentDeclaration)
+    private void CheckForDuplicateSignature(string searchName, string displayName, (ITypeSymbol type, RefKind refKind)[] parameters, Location location, SyntaxNode? currentDeclaration, int arity = 0)
     {
         foreach (var method in _containingType.GetMembers(searchName).OfType<IMethodSymbol>())
         {
-            if (method is SourceMethodSymbol { IsSignatureSkeleton: true })
+            if (method.Arity != arity || method is SourceMethodSymbol { IsSignatureSkeleton: true })
                 continue;
 
             if (currentDeclaration is not null &&

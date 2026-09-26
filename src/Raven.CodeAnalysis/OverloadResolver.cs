@@ -502,9 +502,10 @@ internal sealed class OverloadResolver
         if (explicitTypeArguments.IsDefault)
             explicitTypeArguments = ImmutableArray<ITypeSymbol>.Empty;
 
-        // If the method isn’t generic, nothing to do.
+        // Explicit type arguments cannot select a nongeneric overload, including
+        // when another candidate admits a partial explicit type-argument list.
         if (!method.IsGenericMethod || method.TypeParameters.IsDefaultOrEmpty || method.TypeParameters.Length == 0)
-            return method;
+            return explicitTypeArguments.IsDefaultOrEmpty || method.IsConstructor ? method : null;
 
         // Already-constructed generic methods (common for extension members on generic extension containers)
         // should not go through method-level inference again.

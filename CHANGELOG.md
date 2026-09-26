@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-26:** Distinguish member overloads by generic arity when checking
+  duplicate declarations, reusing/filtering signature skeletons and looking up
+  members. Ordinary and generic methods with identical value parameters can coexist in either declaration order;
+  same-arity duplicates still report RAV0111. Explicit type arguments no longer
+  select a nongeneric overload when another candidate accepts partial type arguments.
+  No Runtime Contract setting changed.
+
 - **2026-09-25:** Document neoCLR's EquatableTo/ComparableTo interface renames and
   explicit ConvertibleInto contract, target record configuration, artifact migration
   and focused validation. Record the pre-existing generated-record assignment

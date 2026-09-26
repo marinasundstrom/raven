@@ -269,7 +269,7 @@ internal readonly record struct SymbolQuery(
 
         return symbol switch
         {
-            IMethodSymbol method => $"M:{method.Name}({string.Join(",", method.Parameters.Select(p => p.Type.ToDisplayString()))})",
+            IMethodSymbol method => $"M:{method.Name}`{method.Arity}({string.Join(",", method.Parameters.Select(p => p.Type.ToDisplayString()))})",
             IPropertySymbol property => $"P:{property.Name}",
             IFieldSymbol field => $"F:{field.Name}",
             IEventSymbol evt => $"E:{evt.Name}",

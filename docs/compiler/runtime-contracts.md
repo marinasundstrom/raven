@@ -778,3 +778,19 @@ all three interfaces compiles and imports. Generated IL changes only the intende
 old identities, plus the new conversion declaration. Full tests and website builds
 were skipped by author instruction. This is target integration documentation only;
 no neoCLR-specific compiler change is proposed for main.
+
+
+### Member overload generic arity (2026-09-26)
+
+Duplicate member checking, signature-skeleton reuse/cleanup and stale-candidate
+filtering and member lookup preserve method
+generic arity. Ordinary and generic methods with the same value parameters remain
+distinct, regardless of declaration order. This follows the
+[C# signature rule](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/basic-concepts#75-signatures-and-overloading)
+(checked 2026-09-25). The semantic model retains the selected arity and emission
+uses ordinary CLI generic methods; no Runtime Contract switch or target policy is
+added. Explicit type arguments exclude nongeneric candidates, including when a
+higher-arity candidate uses Raven's partial type-argument inference. Return-type-only
+overloads are not enabled. Regression coverage uses
+standard .NET references; execution is checked on .NET 11, not .NET Framework or
+NanoFramework.
