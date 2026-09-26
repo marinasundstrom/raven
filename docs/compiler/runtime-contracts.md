@@ -818,3 +818,22 @@ claim execution validation on .NET Framework or NanoFramework.
 Validation: all 399 focused overload-resolution checks pass before and after the
 fix; five new focused runtime/diagnostic regressions pass (four failed before).
 A standalone C# .NET 11 comparison also preserves identity and the integer result.
+
+### Terminal-flow diagnostic ownership correction (2026-09-27)
+
+The neoCLR integration now reads a trailing expression from its bound statement,
+including expressions bound with a contextual return type. The flow walker no longer
+calls GetSymbolInfo recursively when its noncontextual expression cache is empty.
+That recursive query could replace an executable binder and lose its diagnostics:
+`func Main() { missing() }` incorrectly compiled successfully. Ordinary missing-name
+and noninvocable-value errors now remain compiler errors and prevent emission.
+Cold and warm AnalyzeControlFlow still recognize only the configured neoCLR Fault
+identity. This is a correction to the experimental branch's terminal-call policy;
+Raven main correctly rejected the same minimal program before this change.
+
+No Runtime Contract setting, target metadata shape, guest Fault behavior or .NET
+exception behavior changes. Validation: 55 focused invocation, terminal-flow,
+return-path and control-flow tests passed on .NET 11, including cold flow queries,
+failed emission and ordinary nonterminal Fault methods. Packaged MSBuild stale-output
+validation is performed by neoCLR's release gate. No new .NET Framework or
+NanoFramework execution claim is made.

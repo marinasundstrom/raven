@@ -6,6 +6,25 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class NeoClrFaultControlFlowTests : CompilationTestBase
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UnresolvedCall_ReportsDiagnosticsAndRejectsEmit(bool queryFlowFirst)
+    {
+        var (compilation, tree) = CreateCompilation("func Main() { missing() }");
+        if (queryFlowFirst)
+        {
+            var body = tree.GetRoot().DescendantNodes().OfType<BlockStatementSyntax>().Single();
+            Assert.True(compilation.GetSemanticModel(tree).AnalyzeControlFlow(body).EndPointIsReachable);
+        }
+
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0103");
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.False(result.Success);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Id == "RAV0103");
+    }
+
+    [Theory]
     [InlineData("NeoCLR.CoreProbe", true, "System.Fault", true)]
     [InlineData("NeoCLR.CoreProbe", true, "Fault", true)]
     [InlineData("OrdinaryLibrary", true, "System.Fault", false)]
@@ -58,6 +77,12 @@ public sealed class NeoClrFaultControlFlowTests : CompilationTestBase
                     }
                 }
                 """, references: TestMetadataReferences.Default.Concat([MetadataReference.CreateFromFile(path)]).ToArray());
+            var stop = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().First();
+            var body = stop.DescendantNodes().OfType<BlockStatementSyntax>().First();
+            var coldFlow = compilation.GetSemanticModel(tree).AnalyzeControlFlow(body);
+            Assert.True(coldFlow.Succeeded);
+            Assert.Equal(!terminates, coldFlow.EndPointIsReachable);
+
             var diagnostics = compilation.GetDiagnostics();
             Assert.Equal(terminates ? 1 : 0, diagnostics.Count(d => d.Id == CompilerDiagnostics.UnreachableCodeDetected.Id));
             Assert.Equal(terminates ? 0 : 1, diagnostics.Count(d => d.Id == CompilerDiagnostics.NotAllCodePathsReturnAValue.Id));
@@ -65,8 +90,6 @@ public sealed class NeoClrFaultControlFlowTests : CompilationTestBase
             Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error &&
                 d.Id != CompilerDiagnostics.NotAllCodePathsReturnAValue.Id && d.Id != "RAV1503");
 
-            var stop = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().First();
-            var body = stop.DescendantNodes().OfType<BlockStatementSyntax>().First();
             var flow = compilation.GetSemanticModel(tree).AnalyzeControlFlow(body);
             Assert.True(flow.Succeeded);
             Assert.Equal(!terminates, flow.EndPointIsReachable);

@@ -7,6 +7,14 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class InvocationDiagnosticsTests : DiagnosticTestBase
 {
     [Fact]
+    public void UnresolvedInvocationInMain_ReportsMissingName()
+    {
+        var verifier = CreateVerifier("func Main() { missing() }", expectedDiagnostics:
+        [new DiagnosticResult("RAV0103").WithSpan(1, 15, 1, 22).WithArguments("missing")]);
+        verifier.Verify();
+    }
+
+    [Fact]
     public void FunctionInvocation_BindsAsInvocable()
     {
         var code = """

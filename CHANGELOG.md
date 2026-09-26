@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Fix neoCLR terminal-fault flow analysis losing diagnostics from
+  ordinary calls. Read contextually bound trailing expressions from their statement
+  instead of recursively binding during flow analysis. Missing names and invalid
+  invocations reject compilation again; cold Fault control-flow queries remain
+  terminal. No Runtime Contract configuration or emitted metadata changes.
+
 - **2026-09-26:** Preserve generic method-group arguments supplied by an enclosing
   method when converting to delegates or passing higher-order arguments. Such
   arguments are fixed context, not unresolved inference slots. Fix rejected typed
