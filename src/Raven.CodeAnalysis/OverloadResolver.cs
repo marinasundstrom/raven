@@ -509,9 +509,12 @@ internal sealed class OverloadResolver
 
         // Already-constructed generic methods (common for extension members on generic extension containers)
         // should not go through method-level inference again.
-        if (!method.TypeArguments.IsDefaultOrEmpty &&
-            method.TypeArguments.Length == method.TypeParameters.Length &&
-            method.TypeArguments.All(static t => t is not ITypeParameterSymbol))
+        // A constructed method may use an enclosing method/type parameter as an
+        // argument. That parameter is fixed in this context, not a new inference slot.
+        if (method is ConstructedMethodSymbol ||
+            (!method.TypeArguments.IsDefaultOrEmpty &&
+             method.TypeArguments.Length == method.TypeParameters.Length &&
+             method.TypeArguments.All(static t => t is not ITypeParameterSymbol)))
         {
             return method;
         }

@@ -4222,13 +4222,11 @@ partial class BlockBinder : Binder
         if (!hasReceiver && !method.IsStatic)
             return null;
 
-        method = OverloadResolver.TryConstructMethodGroupCandidate(method, invoke, Compilation, this) ?? method;
-
-        if (method.IsGenericMethod &&
-            method.TypeArguments.Any(static typeArgument => typeArgument is ITypeParameterSymbol))
-        {
+        var constructed = OverloadResolver.TryConstructMethodGroupCandidate(method, invoke, Compilation, this);
+        if (constructed is null)
             return null;
-        }
+
+        method = constructed;
 
         if (method.Parameters.Length != invoke.Parameters.Length)
             return null;
