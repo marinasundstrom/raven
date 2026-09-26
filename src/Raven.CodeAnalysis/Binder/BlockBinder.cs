@@ -1459,7 +1459,7 @@ partial class BlockBinder : Binder
     }
 
     private static string GetParameterOnlyMethodSignatureKey(IMethodSymbol method)
-        => $"{method.Name}({string.Join(",", method.Parameters.Select(static parameter => $"{parameter.RefKind}:{(parameter.IsVarParams ? "params " : string.Empty)}{parameter.Type.ToDisplayString()}"))})";
+        => $"{method.Name}`{method.Arity}({string.Join(",", method.Parameters.Select(static parameter => $"{parameter.RefKind}:{(parameter.IsVarParams ? "params " : string.Empty)}{parameter.Type.ToDisplayString()}"))})";
 
     private static string GetSymbolKindForDiagnostic(ISymbol symbol)
     {

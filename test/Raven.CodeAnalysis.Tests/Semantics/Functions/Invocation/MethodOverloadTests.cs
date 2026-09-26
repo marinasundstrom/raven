@@ -15,6 +15,67 @@ public class MethodOverloadTests : CompilationTestBase
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void GenericArity_DistinguishesMemberDeclarations(bool reverse)
+    {
+        const string plain = "static func Read(text: string) -> int => 1";
+        const string generic = "static func Read<T>(text: string) -> int => 2";
+        var source = $$"""
+class Reader {
+    {{(reverse ? generic : plain)}}
+    {{(reverse ? plain : generic)}}
+    static func Read<T, U>(text: string) -> int => 3
+}
+let plain = Reader.Read("value")
+let typed = Reader.Read<int>("value")
+let pair = Reader.Read<int, string>("value")
+""";
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+        var model = compilation.GetSemanticModel(tree);
+        var methods = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Select(node => Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(node).Symbol));
+        Assert.Equal(new[] { 0, 1, 2 }, methods.Select(method => method.Arity));
+    }
+
+    [Fact]
+    public void InstanceGenericArity_PreservesInheritedOverloads()
+    {
+        const string source = """
+open class BaseReader {
+    func Read<T>(text: string) -> int => 2
+}
+class Reader: BaseReader {
+    new func Read(text: string) -> int => 1
+}
+let reader = Reader()
+let plain = reader.Read("value")
+let typed = reader.Read<int>("value")
+""";
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.Empty(compilation.GetDiagnostics());
+        var model = compilation.GetSemanticModel(tree);
+        var methods = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Where(node => node.Expression is MemberAccessExpressionSyntax)
+            .Select(node => Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(node).Symbol));
+        Assert.Equal(new[] { 0, 1 }, methods.Select(method => method.Arity));
+    }
+
+    [Fact]
+    public void SameGenericArity_StillRejectsDuplicateMemberDeclarations()
+    {
+        const string source = """
+class Reader {
+    static func Read<T>(text: string) -> int => 1
+    static func Read<U>(text: string) -> int => 2
+}
+""";
+        var (compilation, _) = CreateCompilation(source);
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0111");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void GenericDelegateOverloads_PreferNestedParameterShape_RegardlessOfDeclarationOrder(bool reverse)
     {
         const string general = "static func Choose<T>(handler: Func<T>) -> int => 1";
