@@ -420,3 +420,11 @@ claim execution validation on .NET Framework or NanoFramework.
 Validation: all 399 focused overload-resolution checks pass before and after the
 fix; five new focused runtime/diagnostic regressions pass (four failed before).
 A standalone C# .NET 11 comparison also preserves identity and the integer result.
+
+### Nongeneric cases of generic unions
+
+A generic union's companion may contain both generic payload cases and nongeneric
+empty cases. Target-metadata emission preserves the actual CLI arity of each case: a
+constructed symbol for an empty case does not make its metadata type generic. This
+applies to ordinary separately compiled unions and does not require a target-specific
+Runtime Contract setting. Focused imported-union tests cover both emission paths.

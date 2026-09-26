@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-27:** Emit nongeneric companion cases from generic union consumers
+  without attempting to construct a generic metadata type. Matching an imported
+  empty case works in ordinary and target-metadata emission; no Runtime Contract
+  option or union metadata convention changes.
+
 ### Breaking changes
 
 - None recorded.

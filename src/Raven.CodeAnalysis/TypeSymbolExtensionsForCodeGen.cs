@@ -69,6 +69,10 @@ public static class TypeSymbolExtensionsForCodeGen
             TryGetTargetMetadataType(definition) is { } genericDefinition)
         {
             var arguments = constructed.GetAllTypeArguments().Select(TryGetTargetMetadataType).ToArray();
+            // A nongeneric companion case can have a constructed symbol because
+            // its union carrier is generic. Its metadata type still has arity zero.
+            if (!genericDefinition.IsGenericTypeDefinition)
+                return arguments.Length == 0 ? genericDefinition : null;
             if (arguments.All(argument => argument is not null))
                 return genericDefinition.MakeGenericType(arguments.Cast<Type>().ToArray());
         }
