@@ -1053,3 +1053,19 @@ there is no Runtime Contract configuration, semantic or emission change and no
 neoCLR-specific policy. Old process stacks also showed JSON-RPC input processing;
 the current SDK did not reproduce that CPU spin on closed stdin, so this fix does
 not claim to resolve every older language-server CPU or memory report.
+
+
+### Required interpolation member diagnostics (2026-09-27)
+
+String interpolation resolves String.Concat against the selected reference library.
+If no applicable overload exists, binding now reports the ordinary no-overload
+error and emission fails; an error node may not silently erase the expression.
+This is a general compiler correction, including reduced CLI reference profiles;
+no neoCLR policy or Runtime Contract option is added. Successful member selection,
+semantic expression type and emitted call contracts are unchanged. A runtime using
+object interpolation must provide a compatible overload and its implementation.
+
+Two modified System.Runtime-reference cases (leading text and interpolation-only)
+failed before the fix and pass afterward. Eight focused interpolation/error-recovery
+checks pass on .NET 11, including existing observable formatting and Unicode cases.
+This is not execution evidence for .NET Framework or NanoFramework.
