@@ -21,7 +21,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   companion-member merging, nominal generic/delegate names, namespace-function
   navigation, independently scrolling sidebars and direct union/enum navigation
   links. Measure available sidebar height below notices and wrapped headers so
-  the final navigation entries are reachable before scrolling the article.
+  the final navigation entries are reachable before scrolling the article. Wrap
+  long declaring-type headings and counts to prevent horizontal page overflow.
   Show inherited members, interface contracts, closed hierarchies and
   opt-in semantic extension lookup. Link inline interface origins and distinguish
   required/default interface bodies from declared, inherited and overridden
