@@ -1495,10 +1495,9 @@ state machine, with no source API or Runtime Contract configuration changes and 
 neoCLR policy dependency. Capturing a variable does not make simultaneous writes
 atomic or synchronized.
 
-The retained [generic-method repro](development/async-generic-capture.rvn) exposes
-a separate metadata-normalization failure, both with the unchanged compiler and
-with this fix. Generic-method closure type-parameter ownership needs an independent
-follow-up; this change does not claim that path is repaired. Async-lambda-owned
+The [generic-method repro](development/async-generic-capture.rvn) initially exposed
+a separate metadata-normalization failure. The subsequent generic-capture slice
+below repairs that method/type-parameter ownership path. Async-lambda-owned
 locals and iterator closure planning are also outside this source-method fix.
 
 Validation: all 17 focused async/capture runtime checks pass on .NET 11, including
@@ -1582,3 +1581,32 @@ still diagnoses an explicit integer return. All 64 focused regression, lambda in
 async Task.Run and expression-tree checks pass, covering the changed target-selection path.
 The general fix is suitable for main and individual integration into neoclr;
 .NET Framework and NanoFramework execution is not claimed.
+
+
+## Generic async capture parameter ownership — 2026-09-27
+
+The ordinary .NET reproduction passed source diagnostics but failed CLI metadata
+normalization: captured `T` fields and closure references in `MoveNext` retained
+method-owned generic slots although their owners were synthesized types. This was
+invalid Raven output, not a neoCLR runtime limitation or a target policy choice.
+
+Closure field definition now temporarily maps source method parameters to the
+closure's own type parameters. Async state-machine body emission maps them to its
+state-machine parameters, including references built from original capture symbols.
+The alias scopes always push and restore their mappings, including nested scopes
+with identical values. This follows normal CLI generic ownership and .NET closure
+semantics; source syntax, semantic-model contracts and Runtime Contract options
+are unchanged. The implementation belongs on main and is individually applicable
+to neoclr. No importer validation is weakened.
+
+All 11 focused runtime checks pass, covering scalar and array captures with both value and
+reference substitutions, alongside existing shared-capture and generic closure
+consumers. The original compiler failed the scalar regression during normalization;
+the corrected compiler emits and executes it. .NET Framework and NanoFramework
+execution is not claimed.
+
+A separate [generic containing-type reproduction](development/async-generic-containing-type.rvn)
+fails with a state-machine generic-arity TypeLoadException on ordinary .NET even
+without a capture. That async state-machine construction issue is retained for an
+independent follow-up. Async-lambda-owned locals and iterator capture planning also
+remain outside this bounded source-method fix.

@@ -1961,6 +1961,14 @@ internal partial class MethodBodyGenerator
             return;
         }
 
+        var codeGen = MethodGenerator.TypeGenerator.CodeGen;
+        var sourceParameters = asyncStateMachine.AsyncMethod.TypeParameters;
+        var stateParameterTypes = sourceParameters
+            .Select(parameter => ResolveClrType(asyncStateMachine.SubstituteAsyncMethodTypeParameters(parameter)))
+            .ToArray();
+        // Captured source symbols retain method-owned parameters even after lowering.
+        // Resolve them in this state machine's type context while emitting its body.
+        using var aliasScope = codeGen.PushGenericParameterAliases(sourceParameters, stateParameterTypes);
         try
         {
             if (SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.MoveNextMethod))
