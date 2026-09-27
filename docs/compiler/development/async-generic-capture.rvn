@@ -1,0 +1,16 @@
+// Known metadata-emission failure; intended output: 42, then after.
+// Tracked in ../neoclr-fix-integration.md, Async method shared captures.
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+
+async func Read<T>(initial: T, replacement: T) -> Task<T> {
+    var value = initial
+    let read: Func<T> = () => value
+    await Task.Yield()
+    value = replacement
+    return read()
+}
+
+WriteLine(await Read<int>(1, 42))
+WriteLine(await Read<string>("before", "after"))
