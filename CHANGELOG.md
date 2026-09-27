@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Exclude conventional target/artifacts build outputs from automatic
+  language-server solution/project discovery and watched-file reloads, including
+  nested restore assets. Preserve source project restore notifications and explicit
+  references. Generated solutions no longer displace the source workspace group.
+
 - **2026-09-27:** Keep generic extension-container parameters out of nested
   closure runtime identities. Extension parameters belong to emitted methods;
   closures already carry the corresponding aliases. Fix the SDK bootstrap's

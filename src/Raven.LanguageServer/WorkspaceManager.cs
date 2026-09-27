@@ -45,7 +45,9 @@ internal sealed class WorkspaceManager
         "bin",
         "node_modules",
         "obj",
-        "packages"
+        "packages",
+        "target",
+        "artifacts"
     };
 
     private static readonly HashSet<string> WatchedFileExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
@@ -57,7 +59,9 @@ internal sealed class WorkspaceManager
         "bin",
         "node_modules",
         "obj",
-        "packages"
+        "packages",
+        "target",
+        "artifacts"
     };
 
     private readonly RavenWorkspace _workspace;
@@ -836,6 +840,13 @@ internal sealed class WorkspaceManager
     internal static bool IsRelevantWatchedFileChangePath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        // A nested restore inside another tool's output is not a workspace
+        // restore. Preserve ordinary obj/project.assets.json notifications.
+        if (EnumeratePathSegments(path).Any(segment =>
+                string.Equals(segment, "target", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(segment, "artifacts", StringComparison.OrdinalIgnoreCase)))
             return false;
 
         if (IsProjectAssetsFilePath(path))

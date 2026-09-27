@@ -478,6 +478,23 @@ func Main() {
         candidates.ShouldBe([rootProjectPath]);
     }
 
+    [Theory]
+    [InlineData("target")]
+    [InlineData("artifacts")]
+    public void FindWorkspaceProjectFiles_SkipsBuildArtifactSolutionsAndProjects(string outputDirectory)
+    {
+        var rootProject = WriteProject(_tempRoot, "App", "<Project />");
+        var generated = Path.Combine(_tempRoot, outputDirectory, "generated");
+        _ = WriteProject(generated, "Generated", "<Project />");
+        _ = WriteSolution(generated, "Generated", "slnx", ("Generated", "Generated.rvnproj"));
+        var candidates = WorkspaceManager.FindWorkspaceProjectFiles(_tempRoot, new MsBuildProjectSystemService());
+        candidates.ShouldBe([rootProject]);
+        WorkspaceManager.ShouldReloadForWatchedFileChanges([
+            Path.Combine(generated, "Generated.rvnproj"),
+            Path.Combine(generated, "Main.rvn"),
+            Path.Combine(generated, "obj", "project.assets.json")]).ShouldBeFalse();
+    }
+
     [Fact]
     public void ShouldReloadForWatchedFileChanges_IgnoresGeneratedAndTemporaryPaths()
     {
