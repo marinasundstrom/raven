@@ -22,7 +22,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   navigation, independently scrolling sidebars and direct union/enum navigation
   links. Measure available sidebar height below notices and wrapped headers so
   the final navigation entries are reachable before scrolling the article. Wrap
-  long declaring-type headings and counts to prevent horizontal page overflow.
+  long declaring-type headings, counts and page-outline links to prevent
+  horizontal page overflow.
   Show inherited members, interface contracts, closed hierarchies and
   opt-in semantic extension lookup. Link inline interface origins and distinguish
   required/default interface bodies from declared, inherited and overridden
