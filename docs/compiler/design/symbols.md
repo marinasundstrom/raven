@@ -64,3 +64,20 @@ Other constructed type symbols serve particular purposes:
 ### Lazy initialization
 
 Every dependent type is resolved lazily via the injected `ReflectionTypeLoader`, which creates symbols for arrays and closed generic types on demand. The resolver caches the mapping between `Type` and `ITypeSymbol` internally to avoid recomputation.
+
+
+### Projected extension properties
+
+Extension properties synthesized from accessor methods retain the declaring
+container's `ContainingAssembly` and `ContainingModule`. This applies to semantic
+lookup over source and imported CLI metadata, so consumers such as RavenDoc can
+identify the property's origin without falling back to reflection or accessor
+names. Constructed extension properties forward this identity from their definition.
+This is a symbol-model correction; emission and Runtime Contract settings are
+unchanged. Focused extension lookup and RavenDoc source/metadata tests cover it.
+
+Imported methods use CLI virtual slot reuse to identify overrides even under
+metadata-only reflection, where `GetBaseDefinition` is unavailable. Constructors,
+ordinary methods and new-slot interface implementations are not overrides. This
+is a symbol interpretation correction; Runtime Contract configuration and emitted
+IL are unchanged. RavenDoc uses this information for member-origin labels.

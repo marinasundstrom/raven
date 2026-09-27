@@ -49,7 +49,10 @@ extension CounterExtensions for Counter {
         var result = model.LookupApplicableExtensionMembers(counterType);
 
         Assert.Contains(result.InstanceMethods, m => m.Name == "Increment");
-        Assert.Contains(result.InstanceProperties, p => p.Name == "Total");
+        var total = Assert.Single(result.InstanceProperties, p => p.Name == "Total");
+        Assert.NotNull(total.ContainingAssembly);
+        Assert.Equal(total.ContainingType!.ContainingAssembly, total.ContainingAssembly);
+        Assert.Equal(total.ContainingType.ContainingModule, total.ContainingModule);
         Assert.Contains(result.StaticMethods, m => m.Name == "Create");
         Assert.Contains(result.StaticProperties, p => p.Name == "Name");
     }

@@ -11,6 +11,31 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class PESymbolRegressionTests : CompilationTestBase
 {
     [Fact]
+    public void MetadataMethods_DistinguishOverridesFromConstructorsAndNewSlots()
+    {
+        var compilation = Compilation.Create("pe_override_contract")
+            .AddReferences([
+                .. TestMetadataReferences.Default,
+                MetadataReference.CreateFromFile(typeof(OverrideFixture).Assembly.Location),
+            ]);
+        var fixture = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName(
+            "Raven.CodeAnalysis.Tests.PESymbolRegressionTests+OverrideFixture"));
+        Assert.All(fixture.Constructors, constructor => Assert.False(constructor.IsOverride));
+        Assert.True(Assert.Single(fixture.GetMembers("ToString").OfType<IMethodSymbol>()).IsOverride);
+        Assert.False(Assert.Single(fixture.GetMembers("FreshSlot").OfType<IMethodSymbol>()).IsOverride);
+        Assert.False(Assert.Single(fixture.GetMembers("Dispose").OfType<IMethodSymbol>()).IsOverride);
+        Assert.False(Assert.Single(fixture.GetMembers("Ordinary").OfType<IMethodSymbol>()).IsOverride);
+    }
+
+    public class OverrideFixture : IDisposable
+    {
+        public override string ToString() => "fixture";
+        public virtual void FreshSlot() { }
+        public void Dispose() { }
+        public void Ordinary() { }
+    }
+
+    [Fact]
     public void ReflectionArrayType_LoadsStableElementSymbol()
     {
         var compilation = Compilation.Create("pe_array_element")

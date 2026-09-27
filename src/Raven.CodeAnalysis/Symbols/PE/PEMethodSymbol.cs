@@ -601,11 +601,19 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
     {
         get
         {
+            if (_methodInfo is not MethodInfo method || !method.IsVirtual)
+                return false;
+
+            // CLI slot reuse remains available in metadata-only reflection contexts,
+            // where GetBaseDefinition is not supported.
+            if ((method.Attributes & MethodAttributes.NewSlot) == 0)
+                return true;
+
             try
             {
-                return (_methodInfo as MethodInfo)?.GetBaseDefinition()?.DeclaringType != _methodInfo.DeclaringType;
+                return method.GetBaseDefinition().DeclaringType != method.DeclaringType;
             }
-            catch { return false; }
+            catch (NotSupportedException) { return false; }
         }
     }
 
