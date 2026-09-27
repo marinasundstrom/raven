@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Lay out inherited/extension member toggles side by side when
+  space permits, wrapping naturally on narrow screens beneath the grouping control.
+  Encode grouping and both filters in shareable URLs; valid URL choices override
+  saved preferences, preserving other parameters and fragments.
+
 - **2026-09-27:** Escape XML documentation prose when converting it into
   RavenDoc Markdown, keeping generic names and literal ampersands visible instead
   of treating them as HTML. Markdown-authored content keeps its existing behavior.

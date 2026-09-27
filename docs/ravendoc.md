@@ -761,3 +761,11 @@ extensions. It defaults to enabled, remembers the reader’s choice, and works
 independently of **Show inherited members** in either grouping mode. Hidden
 extensions are excluded from group counts and empty groups disappear. This
 filters extensions selected by the site, not all extensions in other assemblies.
+
+Member display controls wrap with the available width. Changing a control updates
+the current URL with `groupBy=kind|declaringType`, `inherited=true|false` and
+`extensions=true|false`, preserving other query parameters and the fragment.
+Valid URL choices override saved reader preferences; missing or invalid choices
+fall back to those preferences and site defaults. Opening a shared URL does not
+overwrite saved preferences. Changes replace the current history entry to avoid
+adding a Back-button step for every toggle.
