@@ -10,9 +10,11 @@ for (const code of document.querySelectorAll(
 (() => {
     const navigation = document.querySelector(".reference-navigation");
     const filter = document.querySelector("#navigation-filter");
-    for (const link of navigation?.querySelectorAll("a") ?? []) {
-        if (new URL(link.href).pathname === window.location.pathname)
-            link.setAttribute("aria-current", "page");
+    const links = [...navigation?.querySelectorAll("a") ?? []];
+    const pageLinks = links.filter(link => new URL(link.href).pathname === window.location.pathname);
+    if (pageLinks.length) {
+        for (const link of links) link.removeAttribute("aria-current");
+        for (const link of pageLinks) link.setAttribute("aria-current", "page");
     }
     filter?.addEventListener("input", () => {
         const query = filter.value.trim().toLocaleLowerCase();

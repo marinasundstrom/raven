@@ -4,6 +4,24 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
+    [Fact]
+    public void NamespaceNavigationDoesNotSelectEveryFunctionInTheCurrentDirectory()
+    {
+        var (compilation, _) = CreateCompilation("namespace Functions\npublic func Abs(value: int) -> int => value\npublic func Cos(value: int) -> int => value", assemblyName: "NavigationFixture");
+        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessCompilation(compilation, output);
+            var html = File.ReadAllText(Path.Combine(output, "Functions/index.html"));
+            html.ShouldContain("href=\"index.html\" aria-current=\"location\"");
+            html.ShouldContain("href=\"method_Abs.html\"");
+            html.ShouldNotContain("href=\"method_Abs.html\" aria-current");
+            html.ShouldNotContain("href=\"method_Cos.html\" aria-current");
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
