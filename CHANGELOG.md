@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-27:** Keep generic extension-container parameters out of nested
+  closure runtime identities. Extension parameters belong to emitted methods;
+  closures already carry the corresponding aliases. Fix the SDK bootstrap's
+  Raven.Core WithContext failure while retaining generic async owner support.
+
 - **2026-09-27:** Preserve enclosing generic arguments in async state-machine
   locals and generic await-registration signatures, including nongeneric methods
   on generic classes and nested generic owners. Redirect implicit field writes
