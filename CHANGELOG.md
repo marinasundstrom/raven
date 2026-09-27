@@ -42,6 +42,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 - **2026-09-27:** Omit receiver-bound generic parameters from compact extension
   member labels on receiver pages, retaining parameters chosen by the caller.
+  Substitute receiver arguments throughout partially inferred method labels.
   Extension-container declarations retain their generic parameter lists.
 
 - **2026-09-27:** Select only the current API navigation entry, rather than every

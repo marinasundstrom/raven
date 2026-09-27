@@ -1199,6 +1199,43 @@ public static partial class DocumentationGenerator
         return $"{name}({parameters})" + (method.IsConstructor ? "" : $" -> {NavigationType(method.ReturnType)}");
     }
 
+    private static ISymbol BindNavigationReceiver(ISymbol symbol, ITypeSymbol? context)
+    {
+        if (symbol is not IMethodSymbol method || context is null || !IsContributedExtension(symbol, context))
+            return symbol;
+        var pattern = method.OriginalDefinition.GetExtensionReceiverType();
+        var bindings = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+        bool Match(ITypeSymbol? expected, ITypeSymbol actual)
+        {
+            if (expected is ITypeParameterSymbol parameter)
+            {
+                if (bindings.TryGetValue(parameter.Name, out var bound))
+                    return SymbolEqualityComparer.Default.Equals(bound, actual);
+                bindings[parameter.Name] = actual;
+                return true;
+            }
+            if (expected is IArrayTypeSymbol leftArray && actual is IArrayTypeSymbol rightArray)
+                return leftArray.Rank == rightArray.Rank && Match(leftArray.ElementType, rightArray.ElementType);
+            if (expected is INamedTypeSymbol left && actual is INamedTypeSymbol right &&
+                SymbolEqualityComparer.Default.Equals(left.OriginalDefinition, right.OriginalDefinition))
+            {
+                var leftArguments = left.TypeArguments.IsEmpty ? left.TypeParameters.Cast<ITypeSymbol>().ToArray() : left.TypeArguments.ToArray();
+                var rightArguments = right.TypeArguments.IsEmpty ? right.TypeParameters.Cast<ITypeSymbol>().ToArray() : right.TypeArguments.ToArray();
+                return leftArguments.Length == rightArguments.Length && leftArguments.Zip(rightArguments).All(pair => Match(pair.First, pair.Second));
+            }
+            return SymbolEqualityComparer.Default.Equals(expected, actual);
+        }
+        foreach (var receiver in GetInheritanceChain(context).Reverse().Concat(context.AllInterfaces))
+        {
+            bindings.Clear();
+            if (!Match(pattern, receiver)) continue;
+            if (method.TypeParameters.Length == 0) return method;
+            return method.Construct(method.TypeParameters.Select(parameter =>
+                bindings.TryGetValue(parameter.Name, out var argument) ? argument : parameter).ToArray());
+        }
+        return method;
+    }
+
     private static string RenderMemberTable(
         string title,
         string currentDir,
@@ -1213,7 +1250,7 @@ public static partial class DocumentationGenerator
                 row.Signature,
                 row.Href,
                 row.Summary,
-                GetNavigationName(row.Symbol, IsContributedExtension(row.Symbol, context)),
+                GetNavigationName(BindNavigationReceiver(row.Symbol, context), IsContributedExtension(row.Symbol, context)),
                 row.Symbol switch
                 {
                     IMethodSymbol method => method.IsStatic && !method.IsInstanceExtensionMember,
