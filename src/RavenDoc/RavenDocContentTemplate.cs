@@ -8,13 +8,13 @@ internal sealed class RavenDocContentTemplate
             RenderLines(page.MetadataLines),
             RenderLines(page.RelationshipLines),
             page.DocumentationMarkdown,
-            RenderLines(page.MemberSections));
+            string.Join("\n\n", page.MemberSections));
 
     public string RenderNamespacePage(RavenDocNamespaceContentTemplateModel page)
         => RenderBlocks(
             page.HeroHtml,
             page.DocumentationMarkdown,
-            RenderLines(page.MemberSections));
+            string.Join("\n\n", page.MemberSections));
 
     public string RenderMemberPage(RavenDocMemberContentTemplateModel page)
         => RenderBlocks(

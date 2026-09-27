@@ -391,7 +391,7 @@ a.broken-xref {
 .member-name { font-weight: 650; font-size: 1rem; color: var(--accent); }
 
 .symbol-icon { position: relative; }
-.symbol-static-marker {
+.symbol-static-marker, .symbol-extension-marker {
   position: absolute;
   right: -0.4rem;
   bottom: -0.3rem;
@@ -534,3 +534,35 @@ body.with-api-navigation.without-outline .documentation-shell {
 .layout-landing .api-content > * { max-width: none; }
 .release-notice { max-width: 1440px; margin: 0 auto; padding: .5rem clamp(1rem, 4vw, 3rem); color: var(--muted); font-size: .8rem; }
 .release-notice a { margin-left: .5rem; }
+
+/* Keep the complete browser, including its heading and filter, within the viewport. */
+.api-sidebar[open] {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 7rem);
+}
+.api-sidebar > .api-browser-header,
+.api-sidebar > input { flex-shrink: 0; }
+.api-sidebar .api-navigation-panel {
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 760px) {
+  .api-sidebar:modal { max-height: 100dvh; }
+  .api-navigation-ready .api-sidebar[open]:not(:modal) { display: none; }
+}
+
+.member-origin { display: block; color: var(--muted); font-size: .85rem; margin-top: .35rem; }
+
+.member-grouping:not([hidden]) { display: flex; align-items: center; gap: .75rem; margin: 1.5rem 0; font-size: .9rem; }
+.member-grouping select { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--border); border-radius: .4rem; padding: .4rem .65rem; }
+
+.member-filter:not([hidden]) { display: flex; align-items: center; gap: .5rem; margin: 1rem 0; font-size: .9rem; }
+.member-card[hidden], .member-section[hidden] { display: none; }
+
+.symbol-static-marker { background: #a33e4b; }
+:root[data-theme="dark"] .symbol-static-marker { background: #f3a6b2; color: #481723; border-color: #481723; }
+.symbol-extension-marker { background: #7b3fb0; }
+:root[data-theme="dark"] .symbol-extension-marker { background: #d6b5f5; color: #301347; border-color: #301347; }

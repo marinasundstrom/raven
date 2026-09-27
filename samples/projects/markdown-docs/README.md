@@ -122,3 +122,14 @@ sidebar model, compact signatures and symbol icons. Switch Light/Dark/Auto
 themes, open the sidebar on a narrow screen, and compare highlighted code on
 authored and API pages. Branding, favicon and the development notice are site
 configuration; all rendering behaviors are RavenDoc features.
+
+
+The site's `api-content/` directory demonstrates independently authored additions
+for `Widget` and `Widget.GetTitle`. Their `uid` metadata binds them to generated
+pages without changing the library's documentation comments. The site enables
+extension discovery for `Samples.Docs`. On `WidgetLeaf`, switch member grouping
+between kind and declaring type, toggle inherited members, and compare linked
+origins with the purple E extension badge. Static members use a red S badge and
+appear only on their declaring type. Closed hierarchy information comes from
+semantic symbols without extra authoring. Union cases have individual pages and
+remain direct links from their union overview rather than expandable sidebar rows.

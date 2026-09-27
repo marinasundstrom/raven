@@ -50,5 +50,9 @@
       "label": "API reference",
       "url": "api/"
     }
+  ],
+  "apiContent": "api-content",
+  "extensionNamespaces": [
+    "Samples.Docs"
   ]
 }

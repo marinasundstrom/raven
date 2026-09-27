@@ -160,15 +160,18 @@ internal sealed class RavenDocSiteTemplate
                 ? member.Kind == RavenDocSymbolKind.Namespace ? "" : "<span class=\"member-summary member-summary--empty\">No summary available.</span>"
                 : $"<span class=\"member-summary\">{Escape(member.Summary)}</span>";
             var label = compact ? member.Name : member.Signature;
+            var labelHtml = $"<span class=\"{(compact ? "member-name" : "member-signature")}\">{Escape(label)}</span>";
+            if (member.Href.Length > 0) labelHtml = $"<a href=\"{Escape(member.Href)}\">{labelHtml}</a>";
             rows.AppendLine($"""
-              <a class="member-card" href="{Escape(member.Href)}">
-                {RenderIcon(member.Kind, member.IsStatic)}
+              <div class="member-card" data-member-kind="{Escape(title)}" data-member-origin="{Escape(member.DeclaringType)}" data-member-name="{Escape(member.Name)}" data-member-inherited="{member.IsInherited.ToString().ToLowerInvariant()}">
+                {RenderIcon(member.Kind, member.IsStatic, member.IsExtension)}
                 <span class="member-card-content">
-                  <span class="{(style != "signatures" ? "member-name" : "member-signature")}">{Escape(label)}</span>
+                  {labelHtml}
                   {summary}
+                  {member.OriginHtml}
                 </span>
                 <span class="member-arrow" aria-hidden="true">→</span>
-              </a>
+              </div>
             """);
         }
 
@@ -196,13 +199,13 @@ internal sealed class RavenDocSiteTemplate
                 : $"<span class=\"member-summary\">{Escape(@case.Summary)}</span>";
 
             rows.AppendLine($"""
-              <div class="member-card member-card--static">
+              <a class="member-card" href="{Escape(@case.Href)}">
                 {RenderIcon(RavenDocSymbolKind.Case)}
                 <span class="member-card-content">
                   <span class="member-signature">{Escape(@case.Signature)}</span>
                   {summary}
                 </span>
-              </div>
+              </a>
             """);
         }
 
@@ -224,7 +227,7 @@ internal sealed class RavenDocSiteTemplate
            <pre class="api-signature api-signature--variant"><code class="language-raven">{Escape(signature)}</code></pre>
            """;
 
-    internal static string RenderIcon(RavenDocSymbolKind kind, bool isStatic = false)
+    internal static string RenderIcon(RavenDocSymbolKind kind, bool isStatic = false, bool isExtension = false)
     {
         var (label, paths) = kind switch
         {
@@ -295,9 +298,9 @@ internal sealed class RavenDocSiteTemplate
         };
 
         return $"""
-               <span class="symbol-icon symbol-icon--{kind.ToString().ToLowerInvariant()}" title="{(isStatic ? "Static member" : label)}" aria-hidden="true">
-                 <svg viewBox="0 0 24 24" focusable="false">{paths}</svg>{(isStatic ? "<span class=\"symbol-static-marker\">S</span>" : "")}
-               </span>{(isStatic ? "<span class=\"visually-hidden\">Static member: </span>" : "")}
+               <span class="symbol-icon symbol-icon--{kind.ToString().ToLowerInvariant()}" title="{(isExtension ? (isStatic ? "Static extension member" : "Extension member") : isStatic ? "Static member" : label)}" aria-hidden="true">
+                 <svg viewBox="0 0 24 24" focusable="false">{paths}</svg>{(isExtension ? "<span class=\"symbol-extension-marker\">E</span>" : isStatic ? "<span class=\"symbol-static-marker\">S</span>" : "")}
+               </span>{(isStatic ? "<span class=\"visually-hidden\">Static member: </span>" : "")}{(isExtension ? "<span class=\"visually-hidden\">Extension member: </span>" : "")}
                """;
     }
 
@@ -381,11 +384,16 @@ internal sealed record RavenDocMemberTemplateModel(
     string Href,
     string Summary,
     string Name,
-    bool IsStatic);
+    bool IsStatic,
+    string OriginHtml = "",
+    string DeclaringType = "",
+    bool IsInherited = false,
+    bool IsExtension = false);
 
 internal sealed record RavenDocCaseTemplateModel(
     string Signature,
-    string Summary);
+    string Summary,
+    string Href);
 
 internal enum RavenDocSymbolKind
 {
