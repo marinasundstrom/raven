@@ -24,7 +24,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 - **2026-09-27:** Use a compact documentation type scale: 15px equivalent prose
   and member labels, 13px code blocks/signatures, and restrained headings. Sizes
   use relative units and overridable CSS variables; syntax highlighting and browser
-  text scaling remain intact.
+  text scaling remain intact. Wrap long inline code within prose on narrow screens
+  while preserving horizontal scrolling inside code blocks.
 
 - **2026-09-27:** Preserve containing assembly and module identity on synthesized
   extension-property symbols. Semantic API consumers can identify projected
