@@ -687,7 +687,7 @@ provided, including mixed property accessors. Inline origins on consuming types 
 and interface defaults, with links to the declarations providing the behavior.
 Incomparable default declarations are reported without guessing a winner. Links target documented declarations; external declarations without a local
 page remain readable text. Constructors and accessor implementation methods are
-not inherited entries. Static members appear only on their declaring type;
+not inherited entries. Static classes list only their own members. Static members appear only on their declaring type;
 applicable extensions are still included independently. Closed hierarchies list permitted direct subtypes and
 membership in closed base/interface hierarchies. These sections reflect semantic
 symbols, independently of XML summaries. Use authored content for deeper design
@@ -696,6 +696,10 @@ narratives or diagrams.
 Extension discovery is opt-in and uses Raven's semantic lookup, including generic
 applicability and constraints. Configure exact namespaces with
 `"extensionNamespaces": ["System.Linq", "System.Runtime.Reflection"]`.
+Use a curated list of namespaces containing useful extensions; discovery does not
+scan every namespace. Open generic receiver pages retain their type parameters
+during lookup, so applicable extensions can be inferred. Ordinary operators on
+non-extension types are not extension members.
 Optionally restrict the results further using `extensionMembers`, an array of
 exact member documentation IDs. Unselected namespaces do not contribute extension
 sections. Displayed extensions identify and link their declaring container. Only extensions
@@ -761,6 +765,8 @@ extensions. It defaults to enabled, remembers the reader’s choice, and works
 independently of **Show inherited members** in either grouping mode. Hidden
 extensions are excluded from group counts and empty groups disappear. This
 filters extensions selected by the site, not all extensions in other assemblies.
+An extension container always shows its own declarations, including their E badges;
+the toggle only filters members contributed from another container.
 
 Member display controls wrap with the available width. Changing a control updates
 the current URL with `groupBy=kind|declaringType`, `inherited=true|false` and

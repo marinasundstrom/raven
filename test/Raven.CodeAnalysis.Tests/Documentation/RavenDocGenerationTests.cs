@@ -4,6 +4,24 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
+    [Fact]
+    public void NamespaceNavigationDoesNotSelectEveryFunctionInTheCurrentDirectory()
+    {
+        var (compilation, _) = CreateCompilation("namespace Functions\npublic func Abs(value: int) -> int => value\npublic func Cos(value: int) -> int => value", assemblyName: "NavigationFixture");
+        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessCompilation(compilation, output);
+            var html = File.ReadAllText(Path.Combine(output, "Functions/index.html"));
+            html.ShouldContain("href=\"index.html\" aria-current=\"location\"");
+            html.ShouldContain("href=\"method_Abs.html\"");
+            html.ShouldNotContain("href=\"method_Abs.html\" aria-current");
+            html.ShouldNotContain("href=\"method_Cos.html\" aria-current");
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -76,6 +94,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
     {
         const string source = """
             namespace Relationships
+            public static class Factory { public static func Create() -> int => 1 }
             public interface IContract {
                 func Run() -> int
                 func DefaultRun() -> int => 8
@@ -100,6 +119,9 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             internal class HiddenImplementation : IContract { public func Run() -> int => 0 }
             public interface IGeneric<T> { func Echo(value: T) -> T }
             public class Generic<T> : IGeneric<T> { public func Echo(value: T) -> T => value }
+            public extension GenericExtras<T> for Generic<T> {
+                func Identity(value: T) -> T => value
+            }
             public extension Extras for Derived {
                 func Extra() -> int => 4
                 val ExtraValue: int => 7
@@ -127,6 +149,11 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             var options = new DocumentationSiteOptions([], ExtensionNamespaces: ["Relationships"], ApiContent: content);
             if (assembly is null) DocumentationGenerator.ProcessCompilation(compilation, output, options);
             else DocumentationGenerator.ProcessAssembly(compilation, assembly, output, options);
+            var factory = File.ReadAllText(Path.Combine(output, "Relationships/Factory/index.html"));
+            factory.ShouldContain("Create()");
+            factory.ShouldNotContain("data-member-inherited=\"true\"");
+            factory.ShouldNotContain("GetHashCode()");
+            factory.ShouldNotContain("ToString()");
             var page = File.ReadAllText(Path.Combine(output, "Relationships/Derived/index.html"));
             page.ShouldContain("Inherited from");
             page.ShouldContain("../Base/method_Read.html");
@@ -150,6 +177,13 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             page.ShouldContain("Extras.ExtraValue");
             File.ReadAllText(Path.Combine(output, "Relationships/Generic`1/index.html"))
                 .ShouldContain("IGeneric&lt;T&gt;.Echo</a>");
+            var genericPage = File.ReadAllText(Path.Combine(output, "Relationships/Generic`1/index.html"));
+            genericPage.ShouldContain(metadata ? "GenericExtras.Identity" : "GenericExtras&lt;T&gt;.Identity");
+            genericPage.ShouldContain("data-member-extension=\"true\"");
+            var containerPage = File.ReadAllText(Path.Combine(output, metadata ? "Relationships/GenericExtras/index.html" : "Relationships/GenericExtras`1/index.html"));
+            containerPage.ShouldContain("Identity");
+            containerPage.ShouldContain("symbol-extension-marker\">E</span>");
+            containerPage.ShouldNotContain("data-member-extension=\"true\"");
             page.ShouldContain("Extra()");
             page.ShouldContain("Type usage example.");
             page.ShouldContain("Uses default implementation from");

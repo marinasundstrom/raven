@@ -60,7 +60,7 @@ internal static class DocumentationNavigation
 
         bool Current(DocumentationNavigationItem item) => item.Url is { } url &&
             !Uri.TryCreate(url, UriKind.Absolute, out _) &&
-            (currentPage is null ? Path.GetDirectoryName(Path.GetFullPath(Path.Combine(root, url))) == Path.GetFullPath(currentDirectory)
+            (currentPage is null ? Path.GetFileName(url) == "index.html" && Path.GetDirectoryName(Path.GetFullPath(Path.Combine(root, url))) == Path.GetFullPath(currentDirectory)
                 : Path.GetFullPath(Path.Combine(root, url)) == currentPage);
         bool ContainsCurrent(DocumentationNavigationItem item) => Current(item) || item.Children?.Any(ContainsCurrent) == true;
         void Append(IReadOnlyList<DocumentationNavigationItem> nodes)
