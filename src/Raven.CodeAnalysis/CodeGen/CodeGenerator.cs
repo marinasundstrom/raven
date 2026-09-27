@@ -259,7 +259,7 @@ internal class CodeGenerator
 
             var constraintClrType = TypeSymbolExtensionsForCodeGen.GetClrType(constraintType, this);
 
-            if (constraintClrType.IsInterface)
+            if (constraintType.TypeKind == TypeKind.Interface)
             {
                 interfaces ??= new List<Type>();
                 if (!interfaces.Contains(constraintClrType))

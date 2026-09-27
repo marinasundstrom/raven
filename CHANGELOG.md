@@ -10,6 +10,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   static calls and property reads instead of special-casing `IParsable.Parse`.
   Include inherited instance and static abstract interface members in constrained
   type-parameter lookup, so a derived numeric contract retains base capabilities.
+  Classify generic constraint kinds from symbols during emission, avoiding unsupported
+  reflection queries on constructed target-metadata signature types.
   Executable tests cover custom methods, getters and unary/binary operators plus
   rejected mismatched implementations. Runtime Contract configuration is unchanged;
   target runtimes still need static abstract dispatch support.

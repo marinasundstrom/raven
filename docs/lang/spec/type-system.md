@@ -381,7 +381,9 @@ This requires runtime support for static abstract interface dispatch. It does no
 make arbitrary interface static members concrete operators, supply default
 implementations, or enable such dispatch on older CLR runtimes. Runtime Contract
 configuration is unchanged; target backends must independently support the emitted
-CLI contract. The focused `StaticInterfaceContractTests` exercise authored metadata,
+CLI contract. Constraint classification uses the semantic interface/class kind
+rather than querying a constructed reflection signature type, including configured
+target-metadata emission. The focused `StaticInterfaceContractTests` exercise authored metadata,
 constrained static methods, readonly properties, unary/binary operators and invalid
 implementations on the supported host runtime.
 

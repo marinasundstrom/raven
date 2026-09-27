@@ -74,4 +74,30 @@ public class StaticInterfaceContractTests
         Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ImportedInterfaceConstraintEmitsInTargetMetadataMode(bool targetMetadata)
+    {
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        if (targetMetadata)
+            options = options.WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+                .WithTargetCoreAssemblyName("System.Runtime");
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("ImportedConstraint", [SyntaxTree.ParseText("""
+            import System.*
+            public class Consumer {
+                static func Compare<T>(left: T, right: T) -> int where T: IComparable<T>
+                    => left.CompareTo(right)
+                static func Run() -> int => Compare<int>(1, 2)
+            }
+            """)], references, options);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(new MemoryStream(output.ToArray()), references);
+        Assert.Equal(-1, loaded.Assembly.GetType("Consumer", true)!.GetMethod("Run")!.Invoke(null, null));
+    }
+
 }
