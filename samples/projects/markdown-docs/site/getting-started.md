@@ -19,3 +19,9 @@ let title = widget.GetTitle()
 The same grammar and token colors are used on the Raven website and generated
 API pages. Try the header's theme selector, then open
 [Page controls](guides/page-controls.html) to see HTML content without an outline.
+
+## Reading and typography
+
+This sample uses RavenDoc’s default compact prose and code sizes. A site stylesheet
+can override `--doc-text-size` and `--doc-code-size` while retaining syntax
+highlighting, theme switching and browser text scaling.

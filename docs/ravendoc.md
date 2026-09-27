@@ -261,6 +261,26 @@ Other shared tokens include `--raven-bg`, `--raven-surface`, `--raven-ink`,
 colors, because the shared theme uses that selector too. The sample site
 includes a custom logo and this color scheme.
 
+### Typography
+
+RavenDoc defaults to compact technical documentation: `0.9375rem` prose and
+member labels (15px with the usual browser default), `0.8125rem` code blocks and
+API signatures (13px), and a 1.6 line height. Inline code is 90% of its surrounding
+text. Relative units preserve browser font preferences and zoom. Highlighted code
+uses the same size as plain code. Article headings range up to `2rem`.
+
+Override these defaults in the site `stylesheet`, without modifying the generator:
+
+```css
+:root {
+    --doc-text-size: 1rem;
+    --doc-code-size: 0.875rem;
+}
+```
+
+The sample site retains the shared defaults. Project-specific hero typography
+can be styled separately from documentation pages.
+
 ### Section navigation with toc.yml
 
 Set `"toc": "toc.yml"` in the site configuration. The small nested authoring
