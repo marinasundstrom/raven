@@ -1,0 +1,27 @@
+namespace Samples.Docs
+
+/// A closed family used to demonstrate hierarchy relationships.
+public sealed class WidgetNode permits WidgetLeaf {
+    /// Returns a readable name for the node.
+    public func Name() -> string => "widget node"
+}
+
+/// A permitted node that inherits Name.
+public class WidgetLeaf : WidgetNode { }
+
+/// Optional operations selected by the sample site's extension namespace setting.
+public extension WidgetNodeTools for WidgetLeaf {
+    /// Describes this kind of node.
+    func Describe() -> string => "A leaf in the widget hierarchy."
+}
+
+/// A named outcome whose cases have their own reference pages.
+public union WidgetOutcome<T> {
+    /// Contains an available value.
+    case Ready(value: T)
+    /// Indicates that no value is available.
+    case Missing
+}
+
+/// Formats a widget for display.
+public delegate WidgetFormatter(value: Widget) -> string

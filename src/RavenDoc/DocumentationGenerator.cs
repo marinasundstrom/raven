@@ -9,8 +9,10 @@ using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Syntax;
 
-public static class DocumentationGenerator
+public static partial class DocumentationGenerator
 {
+    private static ApiContentTree ApiContent = new(null);
+
     private static string outputDir = "_docs";
     private static string documentedAssemblyName = "Raven";
     private static IAssemblySymbol? documentedAssembly;
@@ -72,7 +74,8 @@ public static class DocumentationGenerator
                 return "";
 
             // Promote descendants past namespace rows omitted from navigation.
-            var directory = Path.GetDirectoryName(Path.GetDirectoryName(path));
+            var directory = Path.GetFileName(path) == "index.html"
+                ? Path.GetDirectoryName(Path.GetDirectoryName(path)) : Path.GetDirectoryName(path);
             while (directory is not null)
             {
                 var candidate = Path.Combine(directory, "index.html");
@@ -87,8 +90,9 @@ public static class DocumentationGenerator
         var children = ApiNavigation.Keys.ToLookup(ParentPath, StringComparer.Ordinal);
         DocumentationNavigationItem Build(string path) => ApiNavigation[path] with
         {
-            Children = children[path].OrderBy(child => ApiNavigation[child].Label, StringComparer.Ordinal)
-                .Select(Build).ToArray()
+            Children = ApiNavigation[path].Kind is "Union" or "Enum" ? [] :
+                children[path].OrderBy(child => ApiNavigation[child].Label, StringComparer.Ordinal)
+                    .Select(Build).ToArray()
         };
         var roots = ApiNavigation.Keys.Where(path => !ApiNavigation.ContainsKey(ParentPath(path)))
             .OrderBy(path => ApiNavigation[path].Label, StringComparer.Ordinal).Select(Build).ToArray();
@@ -209,6 +213,7 @@ public static class DocumentationGenerator
         ReportedBrokenXrefs.Clear();
         AdditionalNamespaceMembers.Clear();
         CurrentSiteOptions = siteOptions ?? DocumentationSiteOptions.Empty;
+        ApiContent = new ApiContentTree(CurrentSiteOptions.ApiContent);
         MemberListStyle = CurrentSiteOptions.MemberListStyle;
         IncludedTypes = CurrentSiteOptions.Types?.ToHashSet(StringComparer.Ordinal);
         ExcludedMembers = CurrentSiteOptions.ExcludedMembers?.ToHashSet(StringComparer.Ordinal) ?? [];
@@ -216,7 +221,11 @@ public static class DocumentationGenerator
             throw new InvalidOperationException("memberListStyle must be compact or signatures.");
         if (CurrentSiteOptions.NamespaceNavigation is not ("hierarchical" or "flat"))
             throw new InvalidOperationException("namespaceNavigation must be hierarchical or flat.");
+        if (CurrentSiteOptions.MemberGrouping is not ("kind" or "declaringType"))
+            throw new InvalidOperationException("memberGrouping must be kind or declaringType.");
         ApiNavigation.Clear();
+        CompanionOwners.Clear();
+        PrepareExtensionLookup(compilation);
         SiteLinks = siteOptions?.Links ?? [];
         SiteRootDirectory = Path.GetFullPath(siteOptions?.SiteRootDirectory ?? outputDir);
         TemplateValues = siteOptions?.TemplateValues ??
@@ -266,6 +275,7 @@ public static class DocumentationGenerator
         {
             ProcessSymbol(compilation, namespaceRoot);
         }
+        ApiContent.Validate();
     }
 
     private static void ProcessSymbol(Compilation compilation, ISymbol symbol)
@@ -353,6 +363,9 @@ public static class DocumentationGenerator
 
     private static string GetTypeDir(ITypeSymbol type)
     {
+        if (type is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase)
+            return Path.Combine(GetTypeDir(unionCase.Union), unionCase.Name);
+
         var nsDir = GetNamespaceDir(type.ContainingNamespace);
 
         var segments = new Stack<string>();
@@ -388,7 +401,7 @@ public static class DocumentationGenerator
     {
         var typeDir = member.ContainingType is { } containingType &&
                       !IsAdditionalNamespaceMember(member)
-            ? GetTypeDir(containingType)
+            ? GetTypeDir(CompanionOwners.TryGetValue(containingType, out var union) ? union : containingType)
             : GetNamespaceDir(member.ContainingNamespace);
         var groupKey = GetMemberGroupKey(member);
         var fileName = GetSafeFileName(groupKey) + ".html";
@@ -746,7 +759,8 @@ public static class DocumentationGenerator
     private static IReadOnlyList<string> RenderGroupedMemberSections(
         string currentDir,
         IEnumerable<ISymbol> members,
-        bool isNamespacePage)
+        bool isNamespacePage,
+        ITypeSymbol? context = null)
     {
         // Partition
         var grouped = members
@@ -768,9 +782,14 @@ public static class DocumentationGenerator
                 .ToArray();
 
             renderedSections.Add(
-                RenderMemberTable(GetSectionTitle(section), currentDir, ordered));
+                RenderMemberTable(GetSectionTitle(section), currentDir, ordered, context));
         }
 
+        if (!isNamespacePage && renderedSections.Count > 0)
+        {
+            renderedSections.Insert(0, $"<div class=\"member-display-controls\"><label class=\"member-grouping\" hidden>Group members <select id=\"member-grouping\"><option value=\"kind\">By member kind</option><option value=\"declaringType\">By declaring type</option></select></label><label class=\"member-filter\" hidden><input id=\"show-inherited-members\" type=\"checkbox\" checked /> Show inherited members</label></div>\n\n<div id=\"member-groups\" data-default-grouping=\"{CurrentSiteOptions.MemberGrouping}\">");
+            renderedSections.Add("</div>");
+        }
         return renderedSections;
     }
 
@@ -876,7 +895,12 @@ public static class DocumentationGenerator
 
     private static string GetMemberDocumentation(ISymbol member, string currentDir)
     {
-        var markdown = BuildDocumentationMarkdown(GetOrCreateDocInfo(member).Documentation, member, currentDir);
+        var markdown = ApiContent.Merge(GetXrefId(member),
+            BuildDocumentationMarkdown(GetOrCreateDocInfo(member).Documentation, member, currentDir));
+        if (InterfaceImplementationStatus(member) is { } status)
+            markdown = $"**Interface implementation**: {status}\n\n" + markdown;
+        var origins = RenderMemberOrigins(currentDir, member);
+        if (origins.Length > 0) markdown = origins + "\n\n" + markdown;
         return string.IsNullOrWhiteSpace(markdown) ? "_No documentation available._" : MarkdownTemplate.Apply(markdown, TemplateValues);
     }
 
@@ -1044,12 +1068,11 @@ public static class DocumentationGenerator
         return symbol switch
         {
             INamespaceSymbol ns => GetNamespaceIndexPath(ns),
-            IUnionCaseTypeSymbol @case => GetTypeIndexPath(@case.Union),
             ITypeSymbol ts => GetTypeIndexPath(ts),
-            IMethodSymbol { ContainingType: IUnionSymbol union } method
+            IMethodSymbol { ContainingType: IUnionSymbol { IsUnion: true } union } method
                 when IsUnionCaseProjectionArtifact(union, method) => GetTypeIndexPath(union),
-            IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: IUnionCaseTypeSymbol @case }
-                => GetTypeIndexPath(@case.Union),
+            IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: IUnionCaseTypeSymbol { IsUnionCase: true } @case }
+                => GetMemberGroupPath(symbol),
             _ => GetMemberGroupPath(symbol),
         };
     }
@@ -1060,8 +1083,8 @@ public static class DocumentationGenerator
 
         foreach (var m in members)
         {
-            var path = GetTargetPathForLink(m);
-            var href = RelLink(currentDir, path);
+            var href = XrefToTargetPath.TryGetValue(NormalizeXrefIdForIndex(GetXrefId(m)), out var path)
+                ? RelLink(currentDir, path) : "";
 
             var doc = GetOrCreateDocInfo(m);
             var summary = doc.Summary;
@@ -1100,7 +1123,7 @@ public static class DocumentationGenerator
 
     private static string NavigationType(ITypeSymbol type)
         => type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit
-            ? "()" : type.ToDisplayString(BaseTypeDisplayFormat);
+            ? "()" : type.TypeKind == TypeKind.Delegate ? GetTypeName(type) : type.ToDisplayString(BaseTypeDisplayFormat);
 
     private static string NavigationParameters(IEnumerable<IParameterSymbol> parameters)
         => string.Join(", ", parameters.Select(parameter =>
@@ -1122,8 +1145,7 @@ public static class DocumentationGenerator
         => symbol switch
         {
             INamespaceSymbol ns => GetNamespaceFullName(ns),
-            INamedTypeSymbol type when type.Arity > 0 => type.Name + "<" +
-                string.Join(", ", type.TypeParameters.Select(parameter => parameter.Name)) + ">",
+            ITypeSymbol type => GetTypeName(type),
             IFieldSymbol field => field.Name + ": " + NavigationType(field.Type),
             IPropertySymbol property => property.Name +
                 (property.Parameters.Length > 0 ? $"[{NavigationParameters(property.Parameters)}]" : "") +
@@ -1138,14 +1160,15 @@ public static class DocumentationGenerator
             : IsOperatorLike(method) ? GetOperatorGroupName(method) : method.Name;
         if (method.TypeParameters.Length > 0)
             name += "<" + string.Join(", ", method.TypeParameters.Select(parameter => parameter.Name)) + ">";
-        var parameters = NavigationParameters(method.Parameters);
+        var parameters = NavigationParameters(method.IsExtensionMethod ? method.Parameters.Skip(1) : method.Parameters);
         return $"{name}({parameters})" + (method.IsConstructor ? "" : $" -> {NavigationType(method.ReturnType)}");
     }
 
     private static string RenderMemberTable(
         string title,
         string currentDir,
-        IEnumerable<ISymbol> members)
+        IEnumerable<ISymbol> members,
+        ITypeSymbol? context = null)
     {
         var rows = BuildMemberRows(currentDir, members);
         return SiteTemplate.RenderMemberSection(
@@ -1156,7 +1179,17 @@ public static class DocumentationGenerator
                 row.Href,
                 row.Summary,
                 GetNavigationName(row.Symbol),
-                row.Symbol.IsStatic && row.Symbol is IMethodSymbol or IPropertySymbol or IFieldSymbol)).ToArray());
+                row.Symbol switch
+                {
+                    IMethodSymbol method => method.IsStatic && !method.IsInstanceExtensionMember,
+                    IPropertySymbol property => property.IsStatic && !property.IsInstanceExtensionMember,
+                    IFieldSymbol field => field.IsStatic,
+                    _ => false
+                },
+                RenderMemberOrigins(currentDir, row.Symbol, context),
+                LogicalMemberOwner(row.Symbol) is { } owner ? GetNamespaceFullName(owner.ContainingNamespace) + "." + GetTypeName(owner) : "",
+                context is not null && row.Symbol.GetExtensionReceiverType() is null && LogicalMemberOwner(row.Symbol) is { } declaringType && !SymbolEqualityComparer.Default.Equals(context, declaringType),
+                row.Symbol.GetExtensionReceiverType() is not null)).ToArray());
     }
 
     private static RavenDocSymbolKind GetTemplateSymbolKind(ISymbol symbol)
@@ -1164,7 +1197,8 @@ public static class DocumentationGenerator
         return symbol switch
         {
             INamespaceSymbol => RavenDocSymbolKind.Namespace,
-            IUnionSymbol => RavenDocSymbolKind.Union,
+            IUnionCaseTypeSymbol { IsUnionCase: true } => RavenDocSymbolKind.Case,
+            IUnionSymbol { IsUnion: true } => RavenDocSymbolKind.Union,
             ITypeSymbol { TypeKind: TypeKind.Enum } => RavenDocSymbolKind.Enum,
             ITypeSymbol { TypeKind: TypeKind.Delegate } => RavenDocSymbolKind.Delegate,
             ITypeSymbol { TypeKind: TypeKind.Struct } => RavenDocSymbolKind.Struct,
@@ -1196,7 +1230,8 @@ public static class DocumentationGenerator
             IFieldSymbol { IsConst: true } => "Constant",
             IFieldSymbol => "Field",
             IEventSymbol => "Event",
-            IUnionSymbol => "Union",
+            IUnionCaseTypeSymbol { IsUnionCase: true } => "Union case",
+            IUnionSymbol { IsUnion: true } => "Union",
             ITypeSymbol type => type.TypeKind.ToString(),
             _ => "Member"
         };
@@ -1319,21 +1354,24 @@ public static class DocumentationGenerator
 
             AddSymbolToXrefIndex(s);
 
-            if (s is IUnionSymbol union)
+            if (s is IUnionSymbol { IsUnion: true } union)
             {
+                foreach (var companion in GetUnionCompanions(union))
+                {
+                    CompanionOwners[companion] = union;
+                    XrefToTargetPath[GetXrefId(companion)] = GetTypeIndexPath(union);
+                    foreach (var member in companion.GetMembers().Where(member => member is not ITypeSymbol))
+                        Visit(member);
+                }
                 foreach (var @case in union.DeclaredCaseTypes)
                 {
-                    AddSymbolToXrefIndex(@case);
-                    foreach (var constructor in @case.GetMembers().OfType<IMethodSymbol>()
-                        .Where(method => method.MethodKind == MethodKind.Constructor &&
-                            method.DeclaredAccessibility == Accessibility.Public))
-                        AddSymbolToXrefIndex(constructor);
+                    Visit(@case);
                 }
             }
 
             if (s is INamespaceOrTypeSymbol nts)
             {
-                foreach (var m in nts.GetMembers())
+                foreach (var m in PreferDocumentableGenericDefinitions(nts.GetMembers()))
                     Visit(m);
             }
         }
@@ -1353,7 +1391,7 @@ public static class DocumentationGenerator
 
         var normalized = NormalizeXrefIdForIndex(id);
         XrefToTargetPath[normalized] = GetTargetPathForLink(symbol);
-        if ((symbol is INamespaceSymbol || symbol is ITypeSymbol) &&
+        if ((symbol is INamespaceSymbol || symbol is ITypeSymbol || IsAdditionalNamespaceMember(symbol)) &&
             IsDocumentableSymbol(symbol) && CanRenderSymbol(symbol) &&
             (symbol is not INamespaceSymbol nsWithMembers || CurrentSiteOptions.ShowEmptyNamespaces ||
                 NamespaceContainsDocumentableMembers(nsWithMembers, includeDescendants: false)) &&
@@ -1362,7 +1400,7 @@ public static class DocumentationGenerator
             var target = GetTargetPathForLink(symbol);
             var label = symbol is INamespaceSymbol navigationNamespace
                 ? (navigationNamespace.IsGlobalNamespace ? "API reference" : GetNamespaceFullName(navigationNamespace))
-                : symbol.ToDisplayString(ContainingTypeDisplayFormat);
+                : symbol is ITypeSymbol navigationType ? GetTypeName(navigationType) : GetNavigationName(symbol);
             ApiNavigation[target] = new DocumentationNavigationItem(label,
                 Path.GetRelativePath(SiteRootDirectory, target).Replace('\\', '/'), Kind: GetSymbolKindLabel(symbol));
         }
@@ -1649,7 +1687,7 @@ public static class DocumentationGenerator
 
     private static string FormatTypeLink(string currentDir, ITypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
-        var memberName = EscapeName(typeSymbol.ToDisplayString(format));
+        var memberName = EscapeName(GetTypeName(typeSymbol));
         var definition = typeSymbol is INamedTypeSymbol named ? named.OriginalDefinition : typeSymbol;
         if (!IsFromDocumentedAssembly(definition) ||
             !XrefToTargetPath.TryGetValue(GetXrefId(definition), out var target))
@@ -1666,11 +1704,7 @@ public static class DocumentationGenerator
         EnsureDirForFile(indexPath);
         var currentDir = Path.GetDirectoryName(indexPath)!;
 
-        string name = typeSymbol.ToDisplayString(
-            MemberDisplayFormat
-                .WithMiscellaneousOptions(MemberDisplayFormat.MiscellaneousOptions & ~SymbolDisplayMiscellaneousOptions.UseSpecialTypes)
-                .WithKindOptions(SymbolDisplayKindOptions.None)
-                .WithMemberOptions(SymbolDisplayMemberOptions.None));
+        string name = GetTypeName(typeSymbol);
         var signature = FormatSignature(typeSymbol);
         var heroHtml = SiteTemplate.RenderHero(
             GetTemplateSymbolKind(typeSymbol),
@@ -1717,25 +1751,30 @@ public static class DocumentationGenerator
                 $"**Implements**: {string.Join(", ", interfaceLinks)}<br />");
         }
 
-        var members = PreferDocumentableGenericDefinitions(typeSymbol.GetMembers())
+        relationshipLines.AddRange(ClosedHierarchyLines(currentDir, typeSymbol));
+
+        var members = PreferDocumentableGenericDefinitions(GetLogicalMembers(typeSymbol))
             .Where(GetMembersFilterPredicate)
             .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null)
-            .Where(member => !IsUnionCaseProjectionArtifact(typeSymbol, member))
+            .Where(member => !IsUnionCaseProjectionArtifact(typeSymbol, member) && member is not IUnionCaseTypeSymbol { IsUnionCase: true })
             .Where(CanRenderSymbol)
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
             .ToArray();
 
         var memberSections = new List<string>();
-        if (typeSymbol is IUnionSymbol unionSymbol &&
+        if (typeSymbol is IUnionSymbol { IsUnion: true } unionSymbol &&
             !unionSymbol.DeclaredCaseTypes.IsDefaultOrEmpty)
         {
-            memberSections.Add(RenderUnionCaseSection(unionSymbol));
+            memberSections.Add(RenderUnionCaseSection(currentDir, unionSymbol));
+            foreach (var unionCase in unionSymbol.DeclaredCaseTypes.Where(IsDocumentableSymbol))
+                GenerateTypePage(compilation, unionCase);
         }
         memberSections.AddRange(RenderGroupedMemberSections(
             currentDir,
-            members,
-            isNamespacePage: false));
+            VisibleTypeMembers(typeSymbol, members).Concat(ApplicableExtensionMembers(typeSymbol)),
+            isNamespacePage: false, context: typeSymbol));
+
 
         foreach (var nestedType in members.OfType<ITypeSymbol>())
         {
@@ -1756,7 +1795,7 @@ public static class DocumentationGenerator
                 heroHtml,
                 metadataLines,
                 relationshipLines,
-                commentInfo.RawMarkdown,
+                ApiContent.Merge(GetXrefId(typeSymbol), commentInfo.RawMarkdown),
                 memberSections));
         var contentHtml = RenderMarkdownWithXrefs(contentMarkdown, currentDir);
         var pageHtml = WrapHtml(currentDir, name, documentedAssemblyName, contentHtml);
@@ -1879,6 +1918,7 @@ public static class DocumentationGenerator
 
         var declaredNamespaceMembers =
             PreferDocumentableGenericDefinitions(namespaceSymbol.GetMembers())
+                .Where(member => !IsProjectedUnionCaseType(member))
                 .ToArray();
         var namespaceMemberContainers = declaredNamespaceMembers
             .OfType<INamedTypeSymbol>()
@@ -1967,8 +2007,28 @@ public static class DocumentationGenerator
         return s.Replace("<", "&lt;").Replace(">", "&gt;");
     }
 
+    private static string GetTypeName(ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return type.ToDisplayString(BaseTypeDisplayFormat);
+        if (type is IUnionCaseTypeSymbol { IsUnionCase: true })
+            return type.Name;
+        var arguments = named.TypeArguments;
+        var parameters = named.TypeParameters;
+        var suffix = arguments.Length > 0
+            ? string.Join(", ", arguments.Select(GetTypeName))
+            : string.Join(", ", parameters.Select(parameter => parameter.Name));
+        return named.Name + (named.Arity > 0 || arguments.Length > 0 ? "<" + suffix + ">" : "");
+    }
+
     private static string FormatSignature(ISymbol symbol)
     {
+        if (symbol is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase)
+            return FormatUnionCaseSignature(unionCase);
+        if (symbol is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
+            delegateType.GetDelegateInvokeMethod() is { } invoke)
+            return $"delegate {GetTypeName(delegateType)}({NavigationParameters(invoke.Parameters)}) -> {NavigationType(invoke.ReturnType)}";
+
         var signature = symbol is IPropertySymbol property
             ? FormatPropertySignature(property)
             : OmitRedundantPublicModifier(symbol.ToDisplayString(MemberDisplayFormat));
@@ -2010,16 +2070,18 @@ public static class DocumentationGenerator
         return signature;
     }
 
-    private static string RenderUnionCaseSection(IUnionSymbol union)
+    private static string RenderUnionCaseSection(string currentDir, IUnionSymbol union)
     {
         var cases = union.DeclaredCaseTypes
+            .Where(IsDocumentableSymbol)
             .OrderBy(static @case => @case.Ordinal)
             .Select(@case =>
             {
                 var documentation = GetOrCreateDocInfo(@case);
                 return new RavenDocCaseTemplateModel(
                     FormatUnionCaseSignature(@case),
-                    documentation.Summary);
+                    documentation.Summary,
+                    RelLink(currentDir, GetTypeIndexPath(@case)));
             })
             .ToArray();
         return SiteTemplate.RenderCaseSection(cases);
@@ -2039,7 +2101,7 @@ public static class DocumentationGenerator
         ITypeSymbol declaringType,
         ISymbol member)
     {
-        if (declaringType is not IUnionSymbol union ||
+        if (declaringType is not IUnionSymbol { IsUnion: true } union ||
             member is not IMethodSymbol method ||
             method.MethodKind != MethodKind.Constructor &&
             !string.Equals(method.Name, "TryGetValue", StringComparison.Ordinal))
@@ -2151,20 +2213,23 @@ public static class DocumentationGenerator
 
     private static bool IsSelected(ISymbol symbol)
         => IncludedTypes is null ||
+           symbol.ContainingType is { } companion && CompanionOwners.TryGetValue(companion, out var owner) && IsSelected(owner) ||
+           symbol is IUnionCaseTypeSymbol { IsUnionCase: true } selectedCase && IsSelected(selectedCase.Union) ||
+           symbol.ContainingType is IUnionCaseTypeSymbol { IsUnionCase: true } caseOwner && IsSelected(caseOwner.Union) ||
            symbol is INamespaceSymbol ns && (ns.IsGlobalNamespace ||
                IncludedTypes.Any(type => type.StartsWith(GetNamespaceFullName(ns) + ".", StringComparison.Ordinal))) ||
            symbol is not INamespaceSymbol && IncludedTypes.Contains(GetTypeDocName(symbol as ITypeSymbol ?? symbol.ContainingType!).Replace('+', '.'));
 
     private static bool IsDocumentableSymbol(ISymbol symbol)
         => IsSelected(symbol) &&
-           !ExcludedMembers.Contains(GetXrefId(symbol).Replace('+', '.').Replace("..ctor", ".#ctor")) && !IsProjectedUnionCaseType(symbol) &&
+           !ExcludedMembers.Contains(GetXrefId(symbol).Replace('+', '.').Replace("..ctor", ".#ctor")) &&
            !IsCompilerGeneratedExtensionArtifact(symbol) &&
            (symbol is INamespaceSymbol ||
             symbol.DeclaredAccessibility == Accessibility.Public);
 
     private static bool IsProjectedUnionCaseType(ISymbol symbol)
     {
-        if (symbol is IUnionCaseTypeSymbol)
+        if (symbol is IUnionCaseTypeSymbol { IsUnionCase: true })
             return true;
 
         if (symbol is not ITypeSymbol type ||
@@ -2356,7 +2421,11 @@ public sealed record DocumentationSiteOptions(
     string? Favicon = null,
     string NamespaceNavigation = "hierarchical",
     string? GoogleAnalyticsId = null,
-    bool ShowEmptyNamespaces = false)
+    bool ShowEmptyNamespaces = false,
+    IReadOnlyList<string>? ExtensionNamespaces = null,
+    IReadOnlyList<string>? ExtensionMembers = null,
+    string? ApiContent = null,
+    string MemberGrouping = "kind")
 {
     public static DocumentationSiteOptions Empty { get; } = new([]);
 }

@@ -17,6 +17,19 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   constructors and new-slot interface implementations. Runtime Contract
   configuration and emitted behavior are unchanged.
 
+- **2026-09-27:** Expand RavenDoc semantic API pages with separate union case pages,
+  companion-member merging, nominal generic/delegate names, namespace-function
+  navigation, independently scrolling sidebars and direct union/enum navigation
+  links. Show inherited members, interface contracts, closed hierarchies and
+  opt-in semantic extension lookup. Link inline interface origins and distinguish
+  required/default interface bodies from declared, inherited and overridden
+  implementations. Add reader controls for member-kind/declaring-type grouping
+  and inherited-member visibility, keeping static members on their declaring
+  type. Show extensions in the corresponding member
+  groups with an E icon badge and linked origins. Merge separately authored Markdown by exact
+  documentation ID, rejecting duplicate or unmatched content. Demonstrate authored
+  type/member additions in the sample site. No Runtime Contract changes.
+
 - **2026-09-27:** RavenDoc omits namespaces without documented members of their
   own from API navigation by default, promoting populated descendants without
   changing page URLs. Enable `showEmptyNamespaces` or `--show-empty-namespaces`

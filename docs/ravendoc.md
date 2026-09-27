@@ -508,7 +508,7 @@ RavenDoc keeps three independent navigation models:
 Set `"namespaceNavigation": "flat"` in the site configuration to list full namespace
 names as alphabetically sorted peers (for example `System`, `System.Networking`,
 `System.Web`). Each namespace still expands to its types; nested types and union
-cases retain their hierarchy. The default, `"hierarchical"`, nests child namespaces
+cases are linked from their union pages. The default, `"hierarchical"`, nests child namespaces
 beneath their parents. This changes only generated section navigation, not page
 URLs, namespace overview contents, authored `toc.yml` groups, or page outlines.
 Assembly/source CLI builds accept `--namespace-navigation flat` as well.
@@ -646,3 +646,78 @@ sections, with explicit Return value wording. [Rust](https://doc.rust-lang.org/s
 and [Kotlin](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.collections/-list/get.html)
 also provide navigable types in signatures; RavenDoc retains its highlighted Raven
 signature and places accessible type links in the structured contract below it.
+
+
+## Semantic API pages and authored enrichment
+
+RavenDoc presents Raven's interpretation of source and CLI metadata. Type names
+remain nominal in headings and navigation, including generic unions and delegates.
+A delegate's page also displays its declaration and invocation signature.
+Namespace-level functions appear alongside types in the API Browser; ordinary
+members remain on their type pages. Unions and enums are direct navigation links,
+not expandable groups. Union cases have their own type pages and payload-member
+pages, linked from the union's Cases section. Recognized generic-union companion
+containers contribute to the logical union rather than becoming duplicate types;
+the association comes from Raven's case metadata, not matching names.
+
+Type pages include public inherited members and interface contracts in the same
+member-kind lists as declared members. Inline labels link each implementing member to its interface declaration.
+Interface member pages state whether implementation is required or a default is
+provided, including mixed property accessors. Inline origins on consuming types distinguish declared implementations, inherited implementations, overrides
+and interface defaults, with links to the declarations providing the behavior.
+Incomparable default declarations are reported without guessing a winner. Links target documented declarations; external declarations without a local
+page remain readable text. Constructors and accessor implementation methods are
+not inherited entries. Static members appear only on their declaring type;
+applicable extensions are still included independently. Closed hierarchies list permitted direct subtypes and
+membership in closed base/interface hierarchies. These sections reflect semantic
+symbols, independently of XML summaries. Use authored content for deeper design
+narratives or diagrams.
+
+Extension discovery is opt-in and uses Raven's semantic lookup, including generic
+applicability and constraints. Configure exact namespaces with
+`"extensionNamespaces": ["System.Linq", "System.Runtime.Reflection"]`.
+Optionally restrict the results further using `extensionMembers`, an array of
+exact member documentation IDs. Unselected namespaces do not contribute extension
+sections. Displayed extensions identify and link their declaring container. Only extensions
+from the documented assembly are included, preventing host-only framework
+extensions from leaking into a different target's reference. Extension methods and
+properties appear alongside ordinary members in their respective groups, with an
+distinct E badge and a link to their declaring definition. The E badge replaces
+the S badge on extension members.
+
+Set `"apiContent": "api-content"` in the site configuration to merge a separate
+Markdown tree into type and member pages. Directory structure and filenames are
+for the author's organization; exact documentation IDs bind the files to symbols:
+
+```markdown
+---
+uid: M:Samples.Docs.Widget.GetTitle
+---
+## Using the returned title
+
+Additional guidance and [related APIs](xref:T:Samples.Docs.Widget).
+```
+
+Content is appended after generated documentation and contracts, before member
+lists on type pages. It does not replace signatures or XML/Markdown comments.
+Each overload uses its exact ID, including parameter types, even when several
+members share one output page. Duplicate IDs, missing IDs and IDs that do not
+match a rendered symbol fail the build, so stale content is not silently lost.
+Use `xref:` links for API references. Ordinary relative links are relative to the
+resulting API page, not the source Markdown directory. The site builder preserves
+previous published output if validation fails.
+
+The `samples/projects/markdown-docs/site` sample demonstrates separate authored
+type and member content alongside generated documentation and syntax highlighting.
+
+
+The **Group members** display control switches between **By member kind** and
+**By declaring type**, retaining the full member set and its origin labels. The
+page outline updates with the selection, which is remembered in the browser.
+`"memberGrouping": "kind"` is the default; set it to `"declaringType"` for a
+different initial preference. Without JavaScript, the member-kind lists remain
+available. Existing bookmarks to member-kind headings open in that layout.
+The **Show inherited members** checkbox is enabled by default, works in either
+grouping mode, and remembers the reader's choice. Counts and the page outline
+reflect visible members. Extensions participate in grouping but are independent
+of the inherited-member filter.

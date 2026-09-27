@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-internal sealed record PageFrontMatter(string Content, string? Title = null, bool? Toc = null, string Layout = "docs")
+internal sealed record PageFrontMatter(string Content, string? Title = null, bool? Toc = null, string Layout = "docs", string? Uid = null)
 {
     // A deliberately small, strict YAML scalar subset. Unknown options fail so
     // misspelled publishing controls cannot silently change the rendered result.
@@ -11,6 +11,7 @@ internal sealed record PageFrontMatter(string Content, string? Title = null, boo
         var end = source.IndexOf("\n---\n", 4, StringComparison.Ordinal);
         if (end < 0) throw new InvalidOperationException("Unclosed page front matter.");
         string? title = null;
+        string? uid = null;
         bool? toc = null;
         var layout = "docs";
         var keys = new HashSet<string>(StringComparer.Ordinal);
@@ -26,12 +27,13 @@ internal sealed record PageFrontMatter(string Content, string? Title = null, boo
             else if (value.StartsWith('\'') && value.EndsWith('\'')) value = value[1..^1].Replace("''", "'");
             switch (key)
             {
+                case "uid" when !string.IsNullOrWhiteSpace(value): uid = value; break;
                 case "title" when !string.IsNullOrWhiteSpace(value): title = value; break;
                 case "toc" when value is "true" or "false": toc = value == "true"; break;
                 case "layout" when value is "docs" or "landing": layout = value; break;
                 default: throw new InvalidOperationException($"Unsupported front matter: {key}: {value}");
             }
         }
-        return new(source[(end + 5)..], title, toc, layout);
+        return new(source[(end + 5)..], title, toc, layout, uid);
     }
 }

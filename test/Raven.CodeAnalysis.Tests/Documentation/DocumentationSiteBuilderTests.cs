@@ -190,6 +190,37 @@ public sealed class DocumentationSiteBuilderTests
         });
     }
 
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("unknown")]
+    [InlineData("duplicate")]
+    public void InvalidApiContentPreservesPublishedSite(string failure)
+    {
+        WithDirectory(root =>
+        {
+            File.WriteAllText(Path.Combine(root, "library.rvn"), "public class Widget { }");
+            File.WriteAllText(Path.Combine(root, "index.md"), "# Welcome");
+            var content = Path.Combine(root, "extras");
+            Directory.CreateDirectory(content);
+            var extra = Path.Combine(content, "widget.md");
+            File.WriteAllText(extra, "---\nuid: T:Widget\n---\n## Usage\n\nAdded separately.");
+            var config = Path.Combine(root, "ravendoc.json");
+            File.WriteAllText(config, JsonSerializer.Serialize(new
+            {
+                api = "library.rvn", apiContent = "extras",
+                pages = new[] { new { source = "index.md", output = "index.html" } }
+            }));
+            DocumentationSiteBuilder.Build(config);
+            var page = Path.Combine(root, "_site/api/Widget/index.html");
+            var published = File.ReadAllText(page);
+            published.ShouldContain("Added separately.");
+            if (failure == "duplicate") File.Copy(extra, Path.Combine(content, "duplicate.md"));
+            else File.WriteAllText(extra, failure == "missing" ? "# No ID" : "---\nuid: T:Missing\n---\n# Unknown ID");
+            Should.Throw<InvalidOperationException>(() => DocumentationSiteBuilder.Build(config));
+            File.ReadAllText(page).ShouldBe(published);
+        });
+    }
+
     [Fact]
     public void AuthoredOnlySiteWorksAndFailedRebuildPreservesPublishedOutput()
     {
