@@ -382,7 +382,18 @@ partial class BlockBinder
             hasInvalidAsyncReturnType = true;
         }
 
-        initialReturnType = annotatedReturnType ?? targetSignature?.ReturnType ?? Compilation.ErrorTypeSymbol;
+        // Keep the delegate hint for parameter inference, but do not commit an
+        // overloaded callback to completion-only returns before inspecting its body.
+        // A unique target or an explicit return annotation remains authoritative.
+        var inferOverloadedValueReturn = !isAsyncLambda &&
+            returnTypeSyntax is null &&
+            targetSignature?.ReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void &&
+            candidateDelegates.Any(candidate => candidate.GetDelegateInvokeMethod()?.ReturnType is { } candidateReturn &&
+                candidateReturn.SpecialType is not SpecialType.System_Unit and not SpecialType.System_Void);
+
+        initialReturnType = inferOverloadedValueReturn
+            ? Compilation.ErrorTypeSymbol
+            : annotatedReturnType ?? targetSignature?.ReturnType ?? Compilation.ErrorTypeSymbol;
         lambdaSymbol.SetReturnType(initialReturnType);
 
         if (hasInvalidAsyncReturnType)
@@ -405,7 +416,7 @@ partial class BlockBinder
 
         var destructuringPrologue = BindLambdaDestructuringPrologue(lambdaBinder, parameterSyntaxes, parameterSymbols);
 
-        ITypeSymbol? lambdaBodyTargetType = targetSignature?.ReturnType;
+        ITypeSymbol? lambdaBodyTargetType = inferOverloadedValueReturn ? null : targetSignature?.ReturnType;
         if (isAsyncLambda && lambdaBodyTargetType is not null)
             lambdaBodyTargetType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, lambdaBodyTargetType) ?? lambdaBodyTargetType;
 
