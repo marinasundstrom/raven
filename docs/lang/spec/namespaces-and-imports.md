@@ -29,6 +29,12 @@ import System.Collections.*
 // Members here
 ```
 
+For a simple type receiver such as `Task.Run`, a nongeneric type is preferred over
+same-name generic types in the same declaring scope. Metadata declaration order
+does not change that choice. Explicit type arguments such as `Task<int>` still
+select the generic type; local variables, parameters and aliases keep their
+normal precedence.
+
 Imports make existing names available; they do not create a new name. The
 wildcard may also be applied to a type name to bring its static members
 and nested types into scope:

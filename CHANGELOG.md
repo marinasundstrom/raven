@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-27:** Resolve simple imported type receivers independently of metadata
+  order: select the nongeneric member of a same-scope type family for calls such
+  as Task.Run, preserving explicit generic annotations, aliases and local/parameter
+  shadowing. No Runtime Contract setting or emitted metadata contract changes.
+
 - **2026-09-27:** Share captured locals between state-machine async methods and
   their callbacks across suspension and completion. The state machine retains one
   closure per invocation instead of copying values into separate callback storage.

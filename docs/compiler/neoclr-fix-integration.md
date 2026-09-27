@@ -273,3 +273,25 @@ Whitespace formatting and the compiler build pass. Bootstrap used
 macro/core builds were stopped and the unchanged main macro artifact was reused.
 Subsequent checks rebuild only the compiler and tests. No full suite or target
 matrix is implied; .NET Framework and NanoFramework execution remain unverified.
+
+
+## Simple imported type receivers (2026-09-27)
+
+Isolated on `codex/imported-type-arity` from main. An ordinary C# reference assembly
+containing Task<T> before a nongeneric static Task reproduces RAV0117 for Raven's
+wildcard-imported `Task.Run()`. Reversing metadata declaration order passes. This
+is independent of neoCLR contracts, async lowering and Task.Run scheduling.
+
+BlockBinder simple-symbol lookup now prefers a nongeneric type from the same
+declaring scope when the first candidate is generic. It retains the first local,
+parameter or alias and does not replace it with an imported type. Explicit generic
+annotations continue selecting their arity. This aligns simple static receivers
+with existing Raven type lookup and the familiar CLR nongeneric/generic type-family
+model; no Runtime Contract configuration or metadata format changes are introduced.
+
+The regression emits and executes both metadata orders, requires Run to return 42,
+and checks generic parameter/return signatures plus local and parameter shadowing.
+The original generic-first case failed before the fix. All 28 focused regression,
+import, alias and constructor lookup checks pass; .NET Framework and
+NanoFramework execution is not claimed. The independent fix can be integrated into
+main and then individually into neoclr; the target consumer remains neoCLR evidence.
