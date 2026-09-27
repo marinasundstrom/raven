@@ -8,6 +8,39 @@ public class TargetCoreGenericSignatureTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task ImportedTaskSignatureAcceptsConstructedSourceType(bool targetMetadata)
+    {
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        if (targetMetadata)
+            options = options.WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+                .WithTargetCoreAssemblyName("System.Runtime");
+        var compilation = Compilation.Create("ConstructedSourceAsync", [SyntaxTree.ParseText("""
+            import System.*
+            import System.Threading.Tasks.*
+            public class Holder<T> { }
+            public class Example {
+                static func Run() -> object {
+                    let holder = Holder<string>()
+                    let source = TaskCompletionSource<Holder<string>>()
+                    source.SetResult(holder)
+                    return source.Task
+                }
+            }
+            """)], TestMetadataReferences.Default, options);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
+        var holderType = loaded.Assembly.GetType("Holder`1")!.MakeGenericType(typeof(string));
+        var result = (Task)loaded.Assembly.GetType("Example")!.GetMethod("Run")!.Invoke(null, null)!;
+        await result;
+        Assert.Equal(holderType, result.GetType().GetProperty("Result")!.GetValue(result)!.GetType());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void ExtensionSignatureRetainsNullableReferenceGenericArgument(bool targetMetadata)
     {
         var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));

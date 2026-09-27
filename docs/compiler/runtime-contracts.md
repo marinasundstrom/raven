@@ -974,3 +974,26 @@ backend policy changes. Focused ordinary CLI metadata tests cover empty/payload
 cases, nongeneric/generic unions and invalid targets on .NET 11; this is not an
 execution claim for .NET Framework or NanoFramework. Downstream tools can inspect
 attributes without constructing attribute instances.
+
+### Constructed source types in target signatures (2026-09-27)
+
+Target-metadata emission accepts imported generic signatures whose arguments are
+constructed source types, such as `TaskCompletionSource<Holder<string>>`. A source
+`Holder<>` definition belongs to Reflection.Emit, even when its argument is a
+metadata-loaded `string`. The emitter recognizes that definition when deciding to
+use a persisted generic signature instead of asking MetadataLoadContext to load a
+foreign type. This is a general CLI emission correction: no syntax, semantic model,
+Runtime Contract option or platform-specific mapping changes.
+
+Validation: `TargetCoreGenericSignatureTests`, `AsyncGenericCaptureTests` and
+`GenericArrayElementTests` pass all 16 checks on ordinary .NET. The new regression
+executes a completed task holding the correct constructed source class in both
+normal and target-metadata modes. This is not .NET Framework/NanoFramework runtime
+certification. It does not resolve generic-containing-type async arity.
+
+A separate reduced observation remains open: in target-metadata mode using
+`System.Runtime`, an actual async method can fail while looking up the
+`AsyncMethodBuilderAttribute(System.Type)` constructor with reflection types from
+different contexts. The ordinary mode control succeeds. This attribute lookup
+failure is distinct from constructed-source signature resolution; it was observed
+while reducing the integration case, and is not claimed fixed here.

@@ -53,7 +53,8 @@ public static class TypeSymbolExtensionsForCodeGen
     private static bool ContainsEmittedType(Type type)
         => type is System.Reflection.Emit.TypeBuilder or System.Reflection.Emit.GenericTypeParameterBuilder ||
            type.HasElementType && ContainsEmittedType(type.GetElementType()!) ||
-           type.IsConstructedGenericType && type.GetGenericArguments().Any(ContainsEmittedType);
+           type.IsConstructedGenericType && (ContainsEmittedType(type.GetGenericTypeDefinition()) ||
+               type.GetGenericArguments().Any(ContainsEmittedType));
 
     private static Type? TryGetTargetMetadataType(ITypeSymbol symbol)
     {

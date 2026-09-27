@@ -18,6 +18,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   Encode grouping and both filters in shareable URLs; valid URL choices override
   saved preferences, preserving other parameters and fragments.
 
+- **2026-09-27:** Admit constructed source generic types inside imported target
+  metadata signatures, including `TaskCompletionSource<Holder<string>>` locals.
+  Recognize emitted generic definitions as well as their arguments before using a
+  persisted signature; normal CLR emission remains unchanged. Focused ordinary
+  .NET execution validates both default and target-metadata modes.
+
 - **2026-09-27:** Correct generic parameter ownership for shared captures in async
   methods: display-class fields and state-machine closure references now use their
   owning type's parameters. Scalar and array captures execute with value and reference
