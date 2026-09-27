@@ -160,6 +160,36 @@ public sealed class DocumentationSiteBuilderTests
         });
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EmptyNamespaceVisibilityIsConfigurable(bool showEmptyNamespaces)
+    {
+        WithDirectory(root =>
+        {
+            File.WriteAllText(Path.Combine(root, "library.rvn"), """
+                namespace Example.Child { public class Widget { } }
+                namespace Example { internal class Hidden { } }
+                """);
+            File.WriteAllText(Path.Combine(root, "index.md"), "# Documentation");
+            var config = Path.Combine(root, "ravendoc.json");
+            File.WriteAllText(config, JsonSerializer.Serialize(new
+            {
+                api = "library.rvn",
+                pages = new[] { new { source = "index.md", output = "index.html" } },
+                showEmptyNamespaces
+            }));
+            DocumentationSiteBuilder.Build(config);
+            var page = File.ReadAllText(Path.Combine(root, "_site/api/Example/Child/Widget/index.html"));
+            var navigation = System.Text.RegularExpressions.Regex.Match(page,
+                "<nav class=\"api-navigation-panel\"[^>]*>(.*?)</nav>",
+                System.Text.RegularExpressions.RegexOptions.Singleline).Groups[1].Value;
+            navigation.ShouldContain("Example.Child");
+            navigation.Contains("<summary title=\"Example\">").ShouldBe(showEmptyNamespaces);
+            File.Exists(Path.Combine(root, "_site/api/Example/index.html")).ShouldBeTrue();
+        });
+    }
+
     [Fact]
     public void AuthoredOnlySiteWorksAndFailedRebuildPreservesPublishedOutput()
     {

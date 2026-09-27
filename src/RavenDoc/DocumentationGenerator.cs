@@ -66,9 +66,24 @@ public static class DocumentationGenerator
 
     internal static IReadOnlyList<DocumentationNavigationItem> GetApiNavigation()
     {
-        string ParentPath(string path) => CurrentSiteOptions.NamespaceNavigation == "flat" &&
-            ApiNavigation[path].Kind == "Namespace" ? "" : Path.Combine(
-            Path.GetDirectoryName(Path.GetDirectoryName(path)) ?? outputDir, "index.html");
+        string ParentPath(string path)
+        {
+            if (CurrentSiteOptions.NamespaceNavigation == "flat" && ApiNavigation[path].Kind == "Namespace")
+                return "";
+
+            // Promote descendants past namespace rows omitted from navigation.
+            var directory = Path.GetDirectoryName(Path.GetDirectoryName(path));
+            while (directory is not null)
+            {
+                var candidate = Path.Combine(directory, "index.html");
+                if (ApiNavigation.ContainsKey(candidate))
+                    return candidate;
+                if (directory == outputDir)
+                    break;
+                directory = Path.GetDirectoryName(directory);
+            }
+            return "";
+        }
         var children = ApiNavigation.Keys.ToLookup(ParentPath, StringComparer.Ordinal);
         DocumentationNavigationItem Build(string path) => ApiNavigation[path] with
         {
@@ -1340,7 +1355,8 @@ public static class DocumentationGenerator
         XrefToTargetPath[normalized] = GetTargetPathForLink(symbol);
         if ((symbol is INamespaceSymbol || symbol is ITypeSymbol) &&
             IsDocumentableSymbol(symbol) && CanRenderSymbol(symbol) &&
-            (symbol is not INamespaceSymbol nsWithMembers || NamespaceContainsDocumentableMembers(nsWithMembers)) &&
+            (symbol is not INamespaceSymbol nsWithMembers || CurrentSiteOptions.ShowEmptyNamespaces ||
+                NamespaceContainsDocumentableMembers(nsWithMembers, includeDescendants: false)) &&
             (symbol is not INamedTypeSymbol type || !IsNamespaceMemberContainer(type)))
         {
             var target = GetTargetPathForLink(symbol);
@@ -2266,18 +2282,27 @@ public static class DocumentationGenerator
         }
     }
 
-    private static bool NamespaceContainsDocumentableMembers(INamespaceSymbol namespaceSymbol)
+    private static bool NamespaceContainsDocumentableMembers(INamespaceSymbol namespaceSymbol, bool includeDescendants = true)
     {
         foreach (var member in namespaceSymbol.GetMembers())
         {
             if (member is INamespaceSymbol childNamespace)
             {
-                if (NamespaceContainsDocumentableMembers(childNamespace))
+                if (includeDescendants && NamespaceContainsDocumentableMembers(childNamespace))
                     return true;
                 continue;
             }
 
-            if (IsDocumentableSymbol(member) && IsFromDocumentedAssembly(member))
+            if (!IsDocumentableSymbol(member) || !IsFromDocumentedAssembly(member))
+                continue;
+            if (member is INamedTypeSymbol container && IsNamespaceMemberContainer(container))
+            {
+                if (container.GetMembers().Any(promoted => promoted.IsStatic &&
+                    promoted is not IMethodSymbol { MethodKind: MethodKind.Constructor } &&
+                    IsDocumentableSymbol(promoted) && CanRenderSymbol(promoted)))
+                    return true;
+            }
+            else if (CanRenderSymbol(member))
                 return true;
         }
 
@@ -2330,7 +2355,8 @@ public sealed record DocumentationSiteOptions(
     bool ShowToc = true,
     string? Favicon = null,
     string NamespaceNavigation = "hierarchical",
-    string? GoogleAnalyticsId = null)
+    string? GoogleAnalyticsId = null,
+    bool ShowEmptyNamespaces = false)
 {
     public static DocumentationSiteOptions Empty { get; } = new([]);
 }

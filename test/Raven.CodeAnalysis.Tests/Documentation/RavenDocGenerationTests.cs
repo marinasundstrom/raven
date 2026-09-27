@@ -63,9 +63,11 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
     }
 
     [Theory]
-    [InlineData("hierarchical")]
-    [InlineData("flat")]
-    public void NamespaceNavigationPreservesTypesAndUrls(string style)
+    [InlineData("hierarchical", false)]
+    [InlineData("flat", false)]
+    [InlineData("hierarchical", true)]
+    [InlineData("flat", true)]
+    public void NamespaceNavigationPreservesTypesAndUrls(string style, bool showEmptyNamespaces)
     {
         var (compilation, _) = CreateCompilation("""
             namespace Example { public class Root { } }
@@ -77,15 +79,24 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
         try
         {
             DocumentationGenerator.ProcessCompilation(compilation, output,
-                new DocumentationSiteOptions([], NamespaceNavigation: style));
+                new DocumentationSiteOptions([], NamespaceNavigation: style, ShowEmptyNamespaces: showEmptyNamespaces));
             var page = File.ReadAllText(Path.Combine(output, "Example/Web/Request/index.html"));
             var treeHtml = System.Text.RegularExpressions.Regex.Match(page,
                 "<nav class=\"api-navigation-panel\"[^>]*>(<ul>.*?</ul>)<p", System.Text.RegularExpressions.RegexOptions.Singleline).Groups[1].Value;
             var tree = System.Xml.Linq.XElement.Parse(treeHtml.Replace(" open>", " open=\"open\">"));
             var labels = tree.Elements("li").Select(li => li.Element("details")?.Element("summary")?.Value).ToArray();
-            labels.ShouldBe(style == "flat" ? new[] { "Example", "Example.Networking", "Example.Runtime", "Example.Runtime.CompilerServices", "Example.Web" } : new[] { "Example" });
-            var runtime = tree.Descendants("details").Single(node => node.Element("summary")?.Value == "Example.Runtime");
-            runtime.Descendants("a").ShouldContain(link => link.Value == "Namespace overview");
+            labels.ShouldBe(style == "flat"
+                ? showEmptyNamespaces
+                    ? new[] { "Example", "Example.Networking", "Example.Runtime", "Example.Runtime.CompilerServices", "Example.Web" }
+                    : new[] { "Example", "Example.Networking", "Example.Runtime.CompilerServices", "Example.Web" }
+                : new[] { "Example" });
+            var runtime = tree.Descendants("details").SingleOrDefault(node => node.Element("summary")?.Value == "Example.Runtime");
+            if (showEmptyNamespaces)
+                runtime!.Descendants("a").ShouldContain(link => link.Value == "Namespace overview");
+            else
+                runtime.ShouldBeNull();
+            tree.Descendants("details").ShouldContain(node => node.Element("summary")!.Value == "Example.Runtime.CompilerServices");
+            File.Exists(Path.Combine(output, "Example/Runtime/index.html")).ShouldBeTrue();
             var web = tree.Descendants("details").Single(node => node.Element("summary")?.Value == "Example.Web");
             web.Attribute("open").ShouldNotBeNull();
             web.Descendants("a").ShouldContain(link => (string?)link.Attribute("href") == "../index.html");
