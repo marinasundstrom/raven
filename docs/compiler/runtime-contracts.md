@@ -958,3 +958,19 @@ using independent reference-only contracts and .NET 11 reference assemblies.
 Integer, string and jagged array regressions failed before the fix; nullable-element
 coverage preserves existing behavior. This does not claim execution validation on
 .NET Framework or NanoFramework.
+
+
+### Union case attributes (2026-09-27)
+
+Authored case-declaration attributes now participate in the ordinary source-symbol
+attribute lookup and semantic diagnostic walk. The existing type emitter writes
+those attributes on generated nested case types, including generic companions;
+constructors do not acquire duplicate attributes. Case symbols expose the same
+metadata through GetAttributes. AttributeUsage is checked against the case type,
+so a class-only attribute on a value case reports an error.
+
+No Runtime Contract option, union storage layout, metadata target selection or
+backend policy changes. Focused ordinary CLI metadata tests cover empty/payload
+cases, nongeneric/generic unions and invalid targets on .NET 11; this is not an
+execution claim for .NET Framework or NanoFramework. Downstream tools can inspect
+attributes without constructing attribute instances.

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Preserve authored attributes on union case type symbols and emit
+  them on the corresponding generated nested case types, including generic union
+  companions. Validate case attributes against the case type's AttributeUsage;
+  invalid targets are diagnosed instead of silently omitted. Case attributes are
+  not copied to constructors. Runtime Contract configuration is unchanged.
+
 - **2026-09-27:** Preserve array element types in the target metadata context when
   emitting constructed generic signatures. Reference-only contracts such as
   Box<int[]>, Box<string[]> and jagged arrays no longer mix compiler-host and target

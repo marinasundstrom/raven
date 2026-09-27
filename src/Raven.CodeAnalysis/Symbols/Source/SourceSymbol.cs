@@ -310,6 +310,7 @@ internal abstract class SourceSymbol : Symbol
                 typeDeclaration.AttributeLists.Where(static list => HasExplicitTarget(list, "method")),
             BaseTypeDeclarationSyntax typeDeclaration when this is ITypeSymbol => typeDeclaration.AttributeLists,
             DelegateDeclarationSyntax delegateDeclaration when this is ITypeSymbol => delegateDeclaration.AttributeLists,
+            CaseDeclarationSyntax caseDeclaration when this is IUnionCaseTypeSymbol => caseDeclaration.AttributeLists,
             EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
             MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
             FunctionStatementSyntax functionStatement => functionStatement.AttributeLists,

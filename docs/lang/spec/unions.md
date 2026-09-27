@@ -374,3 +374,14 @@ Choose **sealed hierarchies** when:
 
 Both are "closed-shape" constructs; prefer the one that matches your domain
 modeling style rather than forcing a single pattern for all cases.
+
+
+## Attributes on cases
+
+An attribute list before a `case` declaration applies to that case's generated
+nested type. It is available through the case type symbol's `GetAttributes()` and
+emitted on the nested case type, including cases in generic union companions.
+Normal AttributeUsage validation applies to the case type; attributes targeting
+only classes cannot annotate value-type cases. Attributes are not implicitly
+copied to the case constructor or the enclosing union. Existing parameter-target
+attributes retain their separate meaning.

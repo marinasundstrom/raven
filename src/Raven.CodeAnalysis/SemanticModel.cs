@@ -1503,6 +1503,7 @@ public partial class SemanticModel
                 BaseNamespaceDeclarationSyntax namespaceDeclaration => namespaceDeclaration.AttributeLists,
                 BaseTypeDeclarationSyntax typeDeclaration => typeDeclaration.AttributeLists,
                 DelegateDeclarationSyntax delegateDeclaration => delegateDeclaration.AttributeLists,
+                CaseDeclarationSyntax caseDeclaration => caseDeclaration.AttributeLists,
                 EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
                 MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
                 FunctionStatementSyntax functionStatement => functionStatement.AttributeLists,
@@ -1567,6 +1568,9 @@ public partial class SemanticModel
             {
                 return GetDeclaredTypeSymbol(declaration);
             }
+
+            if (declaration is CaseDeclarationSyntax caseDeclaration)
+                return GetUnionCaseSymbol(caseDeclaration);
 
             // Resolve member ownership through attached-macro replacement, just
             // as member body traversal does, while retaining authored attributes.
