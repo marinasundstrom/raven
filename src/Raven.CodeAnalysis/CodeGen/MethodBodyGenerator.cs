@@ -17,7 +17,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.CodeGen;
 
-internal class MethodBodyGenerator
+internal partial class MethodBodyGenerator
 {
     private TypeBuilder _typeBuilder;
     private MethodBase _methodBase;
@@ -1964,7 +1964,10 @@ internal class MethodBodyGenerator
         try
         {
             if (SymbolEqualityComparer.Default.Equals(MethodSymbol, asyncStateMachine.MoveNextMethod))
+            {
                 RegisterStateMachineSyntaxMappings(body, asyncStateMachine.AsyncMethod);
+                body = PrepareAsyncMethodClosure(asyncStateMachine, body);
+            }
             DeclareLocals(body);
             EmitMethodBlock(body);
         }

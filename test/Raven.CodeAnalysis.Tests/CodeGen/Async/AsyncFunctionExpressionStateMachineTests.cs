@@ -17,6 +17,127 @@ public sealed class AsyncFunctionExpressionStateMachineTests(ITestOutputHelper o
 {
     private readonly ITestOutputHelper _output = output;
 
+    [Theory]
+    [InlineData("_ = write()", "")]
+    [InlineData("_ = write()", "await Task.Yield()")]
+    [InlineData("_ = await Task.Run(write)", "await Task.Yield()")]
+    public void Async_method_mutable_local_is_shared_with_callbacks(string invoke, string suspend)
+    {
+        var output = CompileAndRun(
+            $$"""
+            import System.*
+            import System.Console.*
+            import System.Threading.Tasks.*
+
+            async func Run() -> Task<int> {
+                var count = 0
+                let write: Func<int> = () => {
+                    count = count + 40
+                    return count
+                }
+                let read: Func<int> = () => count
+                {{suspend}}
+                count = 2
+                {{invoke}}
+                {{suspend}}
+                WriteLine(read())
+                return count
+            }
+
+            WriteLine(await Run())
+            """);
+
+        Assert.Equal(new[] { "42", "42" }, output);
+    }
+
+    [Fact]
+    public void Async_method_closure_survives_completion_and_is_per_invocation()
+    {
+        var output = CompileAndRun(
+            """
+            import System.*
+            import System.Console.*
+            import System.Threading.Tasks.*
+
+            async func Create(seed: int) -> Task<Func<int>> {
+                var count = seed
+                let next: Func<int> = () => {
+                    count = count + 1
+                    return count
+                }
+                await Task.Yield()
+                count = count + 10
+                return next
+            }
+
+            let first = await Create(1)
+            let second = await Create(20)
+            WriteLine(first())
+            WriteLine(second())
+            WriteLine(first())
+            """);
+
+        Assert.Equal(new[] { "12", "31", "13" }, output);
+    }
+
+    [Fact]
+    public void Async_method_closure_initializes_receiver_and_parameter_captures()
+    {
+        var output = CompileAndRun(
+            """
+            import System.*
+            import System.Console.*
+            import System.Threading.Tasks.*
+
+            class Counter {
+                val Value: int => 40
+
+                async func Run(offset: int) -> Task<int> {
+                    var count = 0
+                    let update: Func<int> = () => {
+                        count = Value + offset
+                        return count
+                    }
+                    await Task.Yield()
+                    _ = update()
+                    return count
+                }
+            }
+
+            WriteLine(await Counter().Run(2))
+            """);
+
+        Assert.Equal(new[] { "42" }, output);
+    }
+
+    [Fact]
+    public void Async_method_local_function_and_lambda_share_captured_local()
+    {
+        var output = CompileAndRun(
+            """
+            import System.*
+            import System.Console.*
+            import System.Threading.Tasks.*
+
+            async func Run() -> Task<int> {
+                var count = 0
+                func Increment() -> int {
+                    count = count + 1
+                    return count
+                }
+                let read: Func<int> = () => count
+                await Task.Yield()
+                count = 41
+                _ = Increment()
+                return read()
+            }
+
+            WriteLine(await Run())
+            """);
+
+        Assert.Equal(new[] { "42" }, output);
+    }
+
     [Fact]
     public void TaskRun_async_lambda_executes_and_returns_value()
     {

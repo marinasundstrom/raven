@@ -1470,3 +1470,43 @@ import, and interpolated Console output after await is omitted. Both reproduce w
 a synchronous Main, so they are not entry-adapter behavior. neoCLR preserves the
 minimal sources under docs/experiments/entry-results/compiler-gaps. Establish
 independent CLR regressions before extracting fixes; no fix is claimed here.
+
+## Async method shared captures (2026-09-27)
+
+Isolated on `codex/async-mutable-captures`, based on main `2e04d3f4e`.
+Ordinary .NET regressions reproduce the same storage failure that neoCLR exposed:
+when a callback writes an async caller's mutable local, the caller and a second
+callback can observe separate values. The direct and `Task.Run` suspension cases
+reported `0` and `2` instead of `42` and `42` before the fix. Ten neighboring checks
+passed in that baseline.
+
+State-machine method emission now creates one retained shared closure per invocation.
+The reference survives state-machine copies and resumptions. Existing capture emission
+handles both caller and callback accesses; a scoped rewrite redirects the caller's
+previously hoisted local field accesses, assignments and addresses to that shared
+storage. Parameters and the receiver are initialized from state-machine storage.
+Already synthesized local fields can remain unused; removing those fields is an
+emission cleanup, not a correctness requirement for this slice.
+
+This restores the shared-variable semantics described in the
+[function specification](../lang/spec/functions.md#captured-values), matching the
+.NET closure model. It adds a private closure-reference field to the generated
+state machine, with no source API or Runtime Contract configuration changes and no
+neoCLR policy dependency. Capturing a variable does not make simultaneous writes
+atomic or synchronized.
+
+The retained [generic-method repro](development/async-generic-capture.rvn) exposes
+a separate metadata-normalization failure, both with the unchanged compiler and
+with this fix. Generic-method closure type-parameter ownership needs an independent
+follow-up; this change does not claim that path is repaired. Async-lambda-owned
+locals and iterator closure planning are also outside this source-method fix.
+
+Validation: all 17 focused async/capture runtime checks pass on .NET 11, including
+caller/callback writes, sibling callbacks, forced suspension, `.NET Task.Run`,
+per-invocation lifetime, receiver/parameter captures and local functions. The latter
+also requires state-machine call emission to look up the host method’s closure.
+Whitespace formatting and the compiler build pass. Bootstrap used
+`scripts/codex-build.sh`; after the compiler and core builds, unrelated repeated
+macro/core builds were stopped and the unchanged main macro artifact was reused.
+Subsequent checks rebuild only the compiler and tests. No full suite or target
+matrix is implied; .NET Framework and NanoFramework execution remain unverified.

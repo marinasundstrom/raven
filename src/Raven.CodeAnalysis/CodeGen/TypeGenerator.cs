@@ -1809,7 +1809,15 @@ internal class TypeGenerator
         if (methodSymbol.UnderlyingSymbol is IMethodSymbol underlyingMethod &&
             !ReferenceEquals(underlyingMethod, methodSymbol))
         {
-            return _methodClosures.TryGetValue(underlyingMethod, out closure);
+            if (_methodClosures.TryGetValue(underlyingMethod, out closure))
+                return true;
+        }
+
+        if (TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
+            stateMachine.AsyncMethod.ContainingType is { } hostType &&
+            !SymbolEqualityComparer.Default.Equals(hostType, TypeSymbol))
+        {
+            return CodeGen.GetOrCreateTypeGenerator(hostType).TryGetMethodClosure(methodSymbol, out closure);
         }
 
         closure = null!;

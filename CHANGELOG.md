@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Share captured locals between state-machine async methods and
+  their callbacks across suspension and completion. The state machine retains one
+  closure per invocation instead of copying values into separate callback storage.
+  Runtime Contract configuration is unchanged. Generic-method closure metadata
+  remains a separately tracked pre-existing limitation.
+
 - **2026-09-27:** RavenDoc omits namespaces without documented members of their
   own from API navigation by default, promoting populated descendants without
   changing page URLs. Enable `showEmptyNamespaces` or `--show-empty-namespaces`
