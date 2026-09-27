@@ -116,7 +116,7 @@ h1, h2, h3, h4 {
     line-height: 1.25;
     margin-top: 2rem;
     letter-spacing: -0.02em;
-    scroll-margin-top: 6rem;
+    scroll-margin-top: calc(var(--site-header-height, 4.5rem) + 1.5rem);
 }
 
 h1 {
@@ -298,7 +298,7 @@ pre code { padding: 0; }
 
 .page-outline-card {
     position: sticky;
-    top: 6.25rem;
+    top: calc(var(--site-header-height, 4.5rem) + 1.5rem);
     padding-left: 1rem;
     border-left: 1px solid var(--border);
     color: var(--muted);
@@ -427,7 +427,7 @@ body.with-api-navigation .documentation-shell {
 body.with-api-navigation.without-outline .documentation-shell {
   grid-template-columns: 15rem minmax(0, 1fr);
 }
-.api-sidebar { min-width: 0; align-self: start; position: sticky; top: 6rem; }
+.api-sidebar { min-width: 0; align-self: start; position: sticky; top: calc(var(--site-header-height, 4.5rem) + 1.5rem); }
 .api-navigation-panel { max-height: calc(100vh - 7rem); overflow-y: auto; }
 .api-navigation-panel > summary { font-weight: 700; margin-bottom: 1rem; }
 .api-sidebar summary { cursor: pointer; padding: .45rem .25rem; overflow-wrap: anywhere; }
@@ -460,7 +460,7 @@ body.with-api-navigation.without-outline .documentation-shell {
   border: 0;
   background: transparent;
   color: var(--fg);
-  top: 6rem;
+  top: calc(var(--site-header-height, 4.5rem) + 1.5rem);
 }
 .api-browser-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .8rem; }
 .api-browser-header h2 { margin: 0; font-size: .95rem; letter-spacing: .02em; }
@@ -539,7 +539,7 @@ body.with-api-navigation.without-outline .documentation-shell {
 .api-sidebar[open] {
   display: flex;
   flex-direction: column;
-  max-height: calc(100dvh - 7rem);
+  max-height: var(--sidebar-available-height, calc(100dvh - var(--site-header-height, 4.5rem) - 5.5rem));
 }
 .api-sidebar > .api-browser-header,
 .api-sidebar > input { flex-shrink: 0; }

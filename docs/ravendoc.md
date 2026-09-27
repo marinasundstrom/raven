@@ -721,3 +721,8 @@ The **Show inherited members** checkbox is enabled by default, works in either
 grouping mode, and remembers the reader's choice. Counts and the page outline
 reflect visible members. Extensions participate in grouping but are independent
 of the inherited-member filter.
+
+The API sidebar measures its available viewport space below the site header and
+release notice. The notice stays in normal document flow; it can scroll away
+without requiring the article to scroll before the last navigation entry is
+reachable. Wrapped headers and viewport resizing recalculate the available space.

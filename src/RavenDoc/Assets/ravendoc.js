@@ -162,3 +162,33 @@ for (const code of document.querySelectorAll(
     if (original.some(section => `#${section.querySelector("h2").id}` === location.hash)) control.value = "kind";
     render();
 })();
+
+
+// A notice or a wrapped header can move the sidebar below its sticky position.
+// Measure the actual available space so its final entries remain reachable even
+// before the article has scrolled past the notice.
+(() => {
+    const header = document.querySelector(".site-header");
+    const sidebar = document.querySelector(".api-sidebar");
+    if (!header) return;
+    let pending = false;
+    const measure = () => {
+        pending = false;
+        document.documentElement.style.setProperty("--site-header-height", `${header.getBoundingClientRect().height}px`);
+        if (!sidebar || window.matchMedia("(max-width: 760px)").matches) return;
+        const available = Math.max(0, window.innerHeight - sidebar.getBoundingClientRect().top - 16);
+        sidebar.style.setProperty("--sidebar-available-height", `${available}px`);
+    };
+    const schedule = () => {
+        if (pending) return;
+        pending = true;
+        requestAnimationFrame(measure);
+    };
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    const observer = new ResizeObserver(schedule);
+    observer.observe(header);
+    const notice = document.querySelector(".release-notice");
+    if (notice) observer.observe(notice);
+    measure();
+})();
