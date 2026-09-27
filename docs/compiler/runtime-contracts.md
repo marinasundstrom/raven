@@ -1026,3 +1026,14 @@ private `var` member in a generic class can incorrectly report RAV0200. The redu
 `docs/compiler/development/generic-private-var-assignment.rvn` records this remaining
 binding candidate. The field-write regression intentionally uses a declared field
 to test physical receiver semantics independently of private-variable projection.
+
+### Generic extension closure ownership (2026-09-27)
+
+The generic async owner correction must distinguish semantic and emitted owners.
+Raven generic extension containers emit as nongeneric static CLI types, with their
+parameters moved onto methods. Nested closures use their own method aliases and
+must not inherit the semantic extension's parameters a second time. The SDK's
+Raven.Core WithContext bootstrap exposed this boundary. The existing ordinary CLR
+ResultWithMessage success/error consumers reproduce the failure before the fix;
+focused extension, async owner/capture and nested union tests validate the repair.
+No Runtime Contract configuration or neoCLR-specific policy is involved.

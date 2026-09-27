@@ -757,6 +757,11 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         // signatures still require all enclosing arguments before their own.
         if (ContainingType is { } containingType)
         {
+            // Extension type parameters are emitted on methods, not on the
+            // static container. Closures already carry their method aliases.
+            if (containingType.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true })
+                return selfArgs;
+
             var outerArgs = containingType is ConstructedNamedTypeSymbol constructedContaining
                 ? constructedContaining.GetAllTypeArguments()
                 : new ConstructedNamedTypeSymbol(containingType, containingType.TypeParameters.Cast<ITypeSymbol>().ToImmutableArray()).GetAllTypeArguments();
