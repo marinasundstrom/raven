@@ -10,6 +10,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   substitutions on ordinary .NET. Generic containing-type async state-machine arity
   remains a separately reproduced limitation; no Runtime Contract option changes.
 
+- **2026-09-27:** Select only the current API navigation entry, rather than every
+  namespace function sharing its directory. Keep the containing type highlighted
+  on member pages without a dedicated navigation entry.
+
 - **2026-09-27:** Resolve applicable extensions for open generic API types using
   their type parameters. Keep extension-container declarations visible regardless
   of the reader filter, exclude ordinary operators from extension listings, and
