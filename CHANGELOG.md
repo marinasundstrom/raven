@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Document neoCLR's development Encoding/Decoder reference surface,
+  selected stream constructors and standard EncodingError union. Target integration
+  only: no compiler behavior or Runtime Contract configuration changes. Focused
+  neoCLR consumers verify built-in/custom codecs, stream ownership and errors.
+
 - **2026-09-27:** Emit nongeneric companion cases from generic union consumers
   without attempting to construct a generic metadata type. Matching an imported
   empty case works in ordinary and target-metadata emission; no Runtime Contract
