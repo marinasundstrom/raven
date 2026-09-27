@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Document the target-only System.Runtime.GC facade, exact scalar/control
+  service bridge, object-count limits and focused neoCLR validation. No compiler or
+  Runtime Contract configuration change.
+
 - **2026-09-27:** Document neoCLR import of explicit application interface methods,
   nominal receivers, private metadata and remaining admission limits. Compiler
   behavior and Runtime Contract configuration are unchanged.
