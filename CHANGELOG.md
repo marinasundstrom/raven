@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Document development Number static contracts and concrete parsing
+  in the neoCLR reference surface, the independently integrated general compiler
+  prerequisites and bounded target numeric specialization. No Runtime Contract
+  configuration change; broad static/default/interface accessibility remains
+  separate from this first consumer's admission limits.
+
 - **2026-09-27:** Document neoCLR's Unicode casing and Int64 parsing/formatting
   reference additions, standard error union, bounds properties and archived-profile
   boundary. Target integration only; no compiler behavior or Runtime Contract

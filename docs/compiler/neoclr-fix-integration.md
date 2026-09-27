@@ -1385,3 +1385,28 @@ The consumer binds an Int64 payload before comparing it with zero: an `Ok(0)`
 constant pattern emitted static System.Object.Equals, outside the current bridge
 contract. No pattern-lowering fix is claimed. Redundant returns following terminal
 Fault calls were removed from the older DOM fixture instead of suppressing warnings.
+
+## 2026-09-27: numeric interfaces and concrete parsing
+
+neoCLR's development core adds Number<T> with inherited ComparableTo<T>, static
+Zero/One and binary arithmetic operators for eight fixed-width integers, Single
+and Double. All numeric parsers use NumberParseError (including Int32/Int64); Boolean supports parsing
+without numeric conformance. No Parsable interface is selected.
+
+General authored-static-interface, inherited-constraint lookup and target-metadata
+constraint-classification fixes were isolated on main-based
+`codex/static-interface-contracts`, validated with 15 focused tests, then integrated
+into main (`d7d69fe69`, `8935c582e`, `721ea5cf5`) and the neoCLR branch. They stand on
+ordinary CLI metadata independently of neoCLR. Runtime Contract configuration is
+unchanged. The target projects exact static abstract metadata and validates source
+implementations against it; placeholder core bodies never execute.
+
+neoCLR currently specializes closed static application numeric functions with only
+Number<T> constraints, then imports the resulting concrete bodies through its
+existing checks. The selected ten primitive arguments, no additional constraints,
+no generic classes and a bounded copy count are target admission policies, not
+Raven language limits. General static/default/interface accessibility remains
+important direction; this numeric consumer does not establish support for every
+interface body or accessibility combination. Native default-body support is also
+distinct from Raven-facing importer support. Focused neoCLR consumers exercise all
+ten numeric implementations, concrete parsing, type rejection and exact metadata.
