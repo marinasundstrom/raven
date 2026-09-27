@@ -8,6 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   nominal receivers, private metadata and remaining admission limits. Compiler
   behavior and Runtime Contract configuration are unchanged.
 
+- **2026-09-27:** Document target-only neoCLR constructor/member reflection contracts,
+  params activation, source field admission and static ownership preservation. No
+  Raven compiler behavior or Runtime Contract setting changes.
+
 - **2026-09-27:** Document neoCLR development admission for nominal interface defaults
   and public/private static helpers, focused consumer evidence and the deferred
   private-instance-helper metadata candidate. Target documentation only; no compiler

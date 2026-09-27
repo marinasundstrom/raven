@@ -903,3 +903,21 @@ omits this new Parse/union surface, avoiding a new legacy manual carrier. The cu
 Raven profile exposes the complete API. Focused neoCLR source/native checks, a .NET
 10 comparison and 16 exact signature checks are recorded in
 neoCLR docs/experiments/casing-integer; no broad compiler suite or website build.
+
+## neoCLR reflection member integration — 2026-09-27
+
+The target bridge adds ConstructorInfo/GetConstructors and Result-based extensions
+for argument-taking typed/untyped activation, method invocation and instance-field
+access. Exact target signatures and source access metadata are required. The importer
+retains public nongeneric static IL methods with declaring-type ownership and source
+names, and public read-only fields with existing source-store checks. Field execution
+requires original field access/read-only flags; older origins are conservatively denied.
+
+No Raven Runtime Contract option or compiler semantic/emission change is required.
+The target's TypeInfo source slice uses a private TypeHandle<T> bridge intrinsic emitting
+existing ldtoken, because typeof(T) in that self-defining slice falls back to the host
+System.Type factory. ParamArrayAttribute is an internal target reference marker.
+Typed construction checks result assignability before user code. Exact scalar/reference
+matching, public nongeneric class execution and terminal user Faults remain deliberate
+limits. neoCLR docs/reflection-members.md and its reflection-members executable consumer
+own the contracts and focused validation. This note belongs to the neoclr feature branch.
