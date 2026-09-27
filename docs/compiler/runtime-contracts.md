@@ -885,3 +885,21 @@ custom final bytes, failure handling and a 65536-byte write. Larger fixtures use
 established measure_async host budget; runtime defaults stay unchanged. API/library
 snapshot checks accompany the implementation. No full suite or website build. See
 neoCLR docs/experiments/text-boundaries/public-encoder-validation.json.
+
+## neoCLR casing and Int64 reporting — 2026-09-27
+
+The target's development reference adds String.ToUpperInvariant/ToLowerInvariant,
+Int64.Parse/ToString, static MinValue/MaxValue getters and standard Raven
+Int64ParseError. Exact target catalogs admit these public signatures and the
+internal casing/parse services. No Runtime Contract configuration, language
+semantics, compiler emission or general importer admission changes. Primitive
+ToString retains the existing byref receiver; static bounds are properties rather
+than literal fields. Parsing returns an ordinary Result<long,Int64ParseError>.
+
+Unicode 17 full default casing intentionally differs from .NET invariant casing;
+strict Int64 parsing follows neoCLR's existing ASCII Int32 grammar. Rebuild matching
+native runtime, System library and reference artifacts. The archived Neo bootstrap
+omits this new Parse/union surface, avoiding a new legacy manual carrier. The current
+Raven profile exposes the complete API. Focused neoCLR source/native checks, a .NET
+10 comparison and 16 exact signature checks are recorded in
+neoCLR docs/experiments/casing-integer; no broad compiler suite or website build.

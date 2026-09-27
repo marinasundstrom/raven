@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Document neoCLR's Unicode casing and Int64 parsing/formatting
+  reference additions, standard error union, bounds properties and archived-profile
+  boundary. Target integration only; no compiler behavior or Runtime Contract
+  configuration changes. Record focused consumer and exact signature validation.
+
 - **2026-09-27:** Document neoCLR's development Encoding/Decoder/Encoder reference
   surface, selected stream constructors, standard state/error unions and explicit
   StreamWriter.Finish. Custom encodings need CreateEncoder. Target integration only:
