@@ -30,8 +30,8 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             var reference = (PortableExecutableReference)TestMetadataFactory.CreateFileReferenceFromSource(source, "ContractsFixture");
             File.WriteAllText(Path.ChangeExtension(reference.FilePath, ".xml"), """
                 <doc><members><member name="M:Contracts.Service.Wrap(Contracts.Item)">
-                <summary>Wraps a value.</summary><param name="value">The item to wrap.</param>
-                <returns>The wrapped item.</returns></member></members></doc>
+                <summary>Wraps a Box&lt;Item&gt;.</summary><param name="value">The item to wrap.</param>
+                <returns>The wrapped item.</returns><remarks>Use Box&lt;Item&gt; &amp; Item.</remarks></member></members></doc>
                 """);
             compilation = Compilation.Create("ContractHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
@@ -55,6 +55,13 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             method.ShouldContain("Item</a>[]");
             method.ShouldContain("The item to wrap.");
             method.ShouldContain("The wrapped item.");
+            if (metadata)
+            {
+                method.ShouldContain("Use Box&lt;Item&gt; &amp; Item.");
+                var typePage = File.ReadAllText(Path.Combine(output, "Contracts/Service/index.html"));
+                typePage.ShouldContain("Wraps a Box&lt;Item&gt;.");
+                typePage.ShouldNotContain("Box&amp;lt;");
+            }
             method.ShouldContain("<h4 id=\"return-value\">Return value</h4>");
             method.ShouldContain("Box</a>&lt;<a href=\"../Item/index.html\">Item</a>&gt;");
             method.Split("<th>Type</th>").Length.ShouldBe(3);
