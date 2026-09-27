@@ -25,3 +25,17 @@ public union WidgetOutcome<T> {
 
 /// Formats a widget for display.
 public delegate WidgetFormatter(value: Widget) -> string
+
+/// A contract with both a derived interface and a documented implementation.
+public interface WidgetDescription {
+    /// Returns the widget description.
+    func Describe() -> string
+}
+
+/// A more specific description contract.
+public interface DetailedWidgetDescription : WidgetDescription { }
+
+/// Implements the more specific interface and indirectly implements WidgetDescription.
+public class DescribedWidget : DetailedWidgetDescription {
+    public func Describe() -> string => "A described widget."
+}

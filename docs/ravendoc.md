@@ -746,3 +746,12 @@ The API sidebar measures its available viewport space below the site header and
 release notice. The notice stays in normal document flow; it can scroll away
 without requiring the article to scroll before the last navigation entry is
 reachable. Wrapped headers and viewport resizing recalculate the available space.
+
+### Types that derive from or implement a contract
+
+Type pages list documented derived types. Interfaces separately list derived
+interfaces and implementing types (including structs). These linked sections
+include indirect relationships, marked as such, and match constructed generic
+contracts to their original definitions. They describe the selected API surface
+of the documented assembly, not every possible implementation in other assemblies.
+Excluded/private types and compiler companion scaffolding remain omitted.

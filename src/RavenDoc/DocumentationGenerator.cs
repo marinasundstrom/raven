@@ -209,6 +209,8 @@ public static partial class DocumentationGenerator
         documentedAssembly = assembly;
         documentedAssemblyName = assembly.Name;
         DocInfoCache.Clear();
+        DocumentedTypes.Clear();
+        ReverseTypeRelationships.Clear();
         XrefToTargetPath.Clear();
         ReportedBrokenXrefs.Clear();
         AdditionalNamespaceMembers.Clear();
@@ -248,6 +250,8 @@ public static partial class DocumentationGenerator
         BuildXrefIndex(globalNamespace);
         foreach (var symbol in additionalNamespaceMembers)
             AddSymbolToXrefIndex(symbol);
+
+        BuildReverseTypeRelationships();
 
         AssemblyNameToPath.Clear();
 
@@ -1397,6 +1401,8 @@ public static partial class DocumentationGenerator
                 NamespaceContainsDocumentableMembers(nsWithMembers, includeDescendants: false)) &&
             (symbol is not INamedTypeSymbol type || !IsNamespaceMemberContainer(type)))
         {
+            if (symbol is INamedTypeSymbol documentedType)
+                DocumentedTypes[GetXrefId(documentedType)] = documentedType;
             var target = GetTargetPathForLink(symbol);
             var label = symbol is INamespaceSymbol navigationNamespace
                 ? (navigationNamespace.IsGlobalNamespace ? "API reference" : GetNamespaceFullName(navigationNamespace))
@@ -1748,7 +1754,7 @@ public static partial class DocumentationGenerator
             var interfaceLinks = implementedInterfaces
                 .Select(type => FormatTypeLink(currentDir, (ITypeSymbol)type, BaseTypeDisplayFormat));
             relationshipLines.Add(
-                $"**Implements**: {string.Join(", ", interfaceLinks)}<br />");
+                $"**{(typeSymbol.TypeKind == TypeKind.Interface ? "Inherits" : "Implements")}**: {string.Join(", ", interfaceLinks)}<br />");
         }
 
         relationshipLines.AddRange(ClosedHierarchyLines(currentDir, typeSymbol));
@@ -1763,6 +1769,7 @@ public static partial class DocumentationGenerator
             .ToArray();
 
         var memberSections = new List<string>();
+        memberSections.AddRange(RenderReverseTypeRelationships(currentDir, typeSymbol));
         if (typeSymbol is IUnionSymbol { IsUnion: true } unionSymbol &&
             !unionSymbol.DeclaredCaseTypes.IsDefaultOrEmpty)
         {

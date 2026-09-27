@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-27:** Add linked derived-type, derived-interface and implementing-type
+  sections to RavenDoc pages, including marked indirect relationships. Index only
+  documented types, respecting selections and exclusions; match generic contracts
+  by their original definitions for source and imported metadata. Label interface
+  base contracts as inherited rather than implemented.
+
 - **2026-09-27:** Infer unannotated synchronous block-lambda results independently
   of an initial completion-only delegate hint when other overloads can return a
   value. Preserve parameter inference. Task.Run value callbacks work with explicit

@@ -88,6 +88,9 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             public class OverridingProvider : InheritedProvider {
                 public override func Run() -> int => 6
             }
+            public interface IChild : IContract { }
+            public class ChildImplementation : IChild { public func Run() -> int => 9 }
+            internal class HiddenImplementation : IContract { public func Run() -> int => 0 }
             public interface IGeneric<T> { func Echo(value: T) -> T }
             public class Generic<T> : IGeneric<T> { public func Echo(value: T) -> T => value }
             public extension Extras for Derived {
@@ -151,9 +154,29 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             member.ShouldContain("Return value");
             member.ShouldContain("Member usage example.");
             var parent = File.ReadAllText(Path.Combine(output, "Relationships/Base/index.html"));
+            parent.ShouldContain("id=\"derived-types\"");
+            var contractPage = File.ReadAllText(Path.Combine(output, "Relationships/IContract/index.html"));
+            contractPage.ShouldContain("id=\"derived-interfaces\"");
+            contractPage.ShouldContain("id=\"implementing-types\"");
+            contractPage.ShouldContain("../IChild/index.html");
+            File.ReadAllText(Path.Combine(output, "Relationships/IChild/index.html"))
+                .ShouldContain("<strong>Inherits</strong>");
+            contractPage.ShouldContain("../ChildImplementation/index.html");
+            contractPage.ShouldContain("InheritingProvider</a> (indirect)");
+            contractPage.ShouldNotContain("HiddenImplementation");
+            File.ReadAllText(Path.Combine(output, "Relationships/IGeneric`1/index.html"))
+                .ShouldContain("../Generic`1/index.html");
             parent.ShouldContain("Permitted direct subtypes");
             parent.ShouldContain("CreateCount()");
             parent.ShouldContain("../Derived/index.html");
+
+            var selected = new DocumentationSiteOptions([], Types: ["Relationships.IContract", "Relationships.Derived"]);
+            if (assembly is null) DocumentationGenerator.ProcessCompilation(compilation, output, selected);
+            else DocumentationGenerator.ProcessAssembly(compilation, assembly, output, selected);
+            var selectedContract = File.ReadAllText(Path.Combine(output, "Relationships/IContract/index.html"));
+            selectedContract.ShouldContain("../Derived/index.html");
+            selectedContract.ShouldNotContain("ChildImplementation");
+            selectedContract.ShouldNotContain("id=\"derived-interfaces\"");
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
