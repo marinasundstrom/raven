@@ -28,6 +28,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   covers captures, explicit/implicit field receivers and nested generic types.
   No Runtime Contract options or source syntax change.
 
+- **2026-09-27:** Omit receiver-bound generic parameters from compact extension
+  member labels on receiver pages, retaining parameters chosen by the caller.
+  Extension-container declarations retain their generic parameter lists.
+
 - **2026-09-27:** Select only the current API navigation entry, rather than every
   namespace function sharing its directory. Keep the containing type highlighted
   on member pages without a dedicated navigation entry.

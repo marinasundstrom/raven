@@ -119,8 +119,10 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             internal class HiddenImplementation : IContract { public func Run() -> int => 0 }
             public interface IGeneric<T> { func Echo(value: T) -> T }
             public class Generic<T> : IGeneric<T> { public func Echo(value: T) -> T => value }
-            public extension GenericExtras<T> for Generic<T> {
+            public class Concrete : IGeneric<int> { public func Echo(value: int) -> int => value }
+            public extension GenericExtras<T> for IGeneric<T> {
                 func Identity(value: T) -> T => value
+                func Convert<U>(value: U) -> U => value
             }
             public extension Extras for Derived {
                 func Extra() -> int => 4
@@ -180,6 +182,14 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             var genericPage = File.ReadAllText(Path.Combine(output, "Relationships/Generic`1/index.html"));
             genericPage.ShouldContain(metadata ? "GenericExtras.Identity" : "GenericExtras&lt;T&gt;.Identity");
             genericPage.ShouldContain("data-member-extension=\"true\"");
+            genericPage.ShouldContain("Identity(value: T)");
+            genericPage.ShouldContain("Convert&lt;U&gt;(value: U)");
+            genericPage.ShouldNotContain("Identity&lt;T&gt;");
+            genericPage.ShouldNotContain("Convert&lt;T, U&gt;");
+            var concretePage = File.ReadAllText(Path.Combine(output, "Relationships/Concrete/index.html"));
+            concretePage.ShouldContain("Identity(value: int)");
+            concretePage.ShouldContain("Convert&lt;U&gt;(value: U)");
+            concretePage.ShouldNotContain("Identity&lt;T&gt;");
             var containerPage = File.ReadAllText(Path.Combine(output, metadata ? "Relationships/GenericExtras/index.html" : "Relationships/GenericExtras`1/index.html"));
             containerPage.ShouldContain("Identity");
             containerPage.ShouldContain("symbol-extension-marker\">E</span>");
