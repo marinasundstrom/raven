@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Document neoCLR import of explicit application interface methods,
+  nominal receivers, private metadata and remaining admission limits. Compiler
+  behavior and Runtime Contract configuration are unchanged.
+
 - **2026-09-27:** Document neoCLR development admission for nominal interface defaults
   and public/private static helpers, focused consumer evidence and the deferred
   private-instance-helper metadata candidate. Target documentation only; no compiler

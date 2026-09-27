@@ -1431,3 +1431,22 @@ feature branch before a general fix; do not make a neoCLR-specific emission rewr
 Static virtual defaults, explicit derived replacements and protected/internal member
 admission remain outside this target slice. Existing native default-diamond tests do
 not prove Raven import of those declarations.
+
+
+## neoCLR explicit application implementations — 2026-09-27
+
+Target integration only; no compiler semantic/emission change or Runtime Contract
+setting change. The neoCLR bridge now validates and imports ordinary explicit
+methods on non-generic application classes for application interfaces. Raven's
+Private/Virtual/Final/NewSlot MethodImpl bodies map to private runtime methods with
+explicit declaration identities, not class virtual slots. Nominal receivers retain
+the original object, including void-returning state updates. Source-qualified names
+remain visible in private reflection queries; runtime IsVirtual is false for these
+bodies, as documented in neoCLR's mapping model.
+
+neoCLR's `docs/experiments/explicit-interface-implementations` records focused
+same-name/public-method separation, shared state, private access and reflection
+checks alongside native explicit-mapping regressions. Explicit accessors, value-type
+bodies, generic application definitions, external core-library contracts and derived
+interface replacements remain outside this importer slice. Native runtime evidence
+for those forms does not establish Raven target admission.
