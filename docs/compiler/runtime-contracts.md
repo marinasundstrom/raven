@@ -865,3 +865,23 @@ custom providers, limits, partial-write failures, flushing and leaveOpen. Existi
 reader checks pass, including 65536 input bytes. Only necessary snapshot/contract
 checks run; no full compiler/runtime suite, website build or platform matrix. See
 neoCLR's docs/experiments/text-boundaries/encoding-validation.json for evidence.
+
+## Encoder reference and writer completion — 2026-09-27
+
+The development neoCLR reference adds Encoding.CreateEncoder, Encoder.Accept/Drain,
+EncoderProgress read-only properties, a standard EncoderState union and
+StreamWriter.Finish. EncodingError appends Busy without changing existing case order.
+Custom Encoding implementations must add the factory. Exact interface, constructor
+and getter signatures are admitted by the bridge; progress uses private mutable
+storage with an immutable public surface to fit the existing library profile.
+Internal provider helpers remain instance methods under that profile. No new
+Runtime Contract setting, compiler semantic rule, native opcode or general importer
+admission is introduced. Rebuild references and System together; this is not Preview
+10 compatibility. TextWriter itself does not gain Finish.
+
+Validation in neoCLR: four focused public Encoder/writer runs and three existing
+encoding/line runs pass, including independent state, scalar/output boundaries,
+custom final bytes, failure handling and a 65536-byte write. Larger fixtures use the
+established measure_async host budget; runtime defaults stay unchanged. API/library
+snapshot checks accompany the implementation. No full suite or website build. See
+neoCLR docs/experiments/text-boundaries/public-encoder-validation.json.
