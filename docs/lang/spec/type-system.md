@@ -349,7 +349,8 @@ properties, which are implicitly abstract. The `abstract` modifier is optional.
 Static operator declarations can also form interface requirements. A generic
 consumer uses the constrained type parameter as the receiver (`T.Create()` or
 `T.Zero`); unary and binary operator lookup considers that parameter's static
-abstract requirements. Matching implementations must be static and have compatible
+abstract requirements, including inherited interface requirements. Instance
+member lookup also includes inherited interfaces of the constraint. Matching implementations must be static and have compatible
 signatures. These calls emit CLI `constrained.` dispatch rather than a call to an
 abstract interface slot without a concrete implementing type.
 

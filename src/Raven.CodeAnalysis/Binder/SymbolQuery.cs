@@ -157,7 +157,7 @@ internal readonly record struct SymbolQuery(
         {
             var members = preferStaticMembers
                 ? GetStaticAbstractConstraintMembers(constraint)
-                : constraint.ResolveMembers(Name);
+                : ResolveInstanceMembersIncludingInterfaces(binder, constraint, Name);
 
             foreach (var member in members)
             {
@@ -175,9 +175,11 @@ internal readonly record struct SymbolQuery(
         if (constraint.TypeKind != TypeKind.Interface)
             return Enumerable.Empty<ISymbol>();
 
-        return constraint
-            .GetMembers(Name)
-            .Where(IsStaticAbstractMember);
+        var interfaces = constraint is INamedTypeSymbol named
+            ? new[] { constraint }.Concat(named.AllInterfaces)
+            : new[] { constraint };
+        var name = Name;
+        return interfaces.SelectMany(type => type.GetMembers(name)).Where(IsStaticAbstractMember);
     }
 
     private static bool IsStaticAbstractMember(ISymbol member)

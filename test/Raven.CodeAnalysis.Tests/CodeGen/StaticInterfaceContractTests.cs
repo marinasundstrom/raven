@@ -11,8 +11,13 @@ public class StaticInterfaceContractTests
     {
         var references = TestMetadataReferences.Default;
         var compilation = Compilation.Create("StaticNumericContract", [SyntaxTree.ParseText("""
-            public interface Number<T> {
+            public interface Identity<T> {
                 static ABSTRACTval Zero: T { get; }
+            }
+            public interface Ordered<T> {
+                func CompareTo(other: T) -> int
+            }
+            public interface Number<T> : Identity<T>, Ordered<T> {
                 static ABSTRACTfunc Add(left: T, right: T) -> T
                 static func +(left: T, right: T) -> T
                 static func +(value: T) -> T
@@ -20,6 +25,7 @@ public class StaticInterfaceContractTests
             public struct Count : Number<Count> {
                 public var Value: int
                 static val Zero: Count => Count()
+                func CompareTo(other: Count) -> int => Value - other.Value
                 static func Add(left: Count, right: Count) -> Count {
                     var result = Count()
                     result.Value = left.Value + right.Value
@@ -30,7 +36,11 @@ public class StaticInterfaceContractTests
             }
             public class Consumer {
                 static func Sum<T>(left: T, right: T) -> T where T: Number<T> {
-                    return +T.Add(left, right) + T.Zero
+                    let result = +T.Add(left, right) + T.Zero
+                    if result.CompareTo(T.Zero) < 0 {
+                        return T.Zero
+                    }
+                    return result
                 }
                 static func Run() -> int {
                     var value = Count()
