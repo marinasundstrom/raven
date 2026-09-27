@@ -8,6 +8,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   service bridge, object-count limits and focused neoCLR validation. No compiler or
   Runtime Contract configuration change.
 
+- **2026-09-27:** On the heap-async target with an explicit target core, recognize
+  target Task entry results and retain the selected Main's metadata signature for
+  target-owned startup adaptation. This includes unit/int/Result task payloads;
+  ordinary CLR targets keep their existing entry bridges. The resulting target
+  images require neoCLR import and are not CLR executables.
+
 - **2026-09-27:** Document neoCLR import of explicit application interface methods,
   nominal receivers, private metadata and remaining admission limits. Compiler
   behavior and Runtime Contract configuration are unchanged.

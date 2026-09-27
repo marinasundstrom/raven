@@ -921,3 +921,22 @@ Typed construction checks result assignability before user code. Exact scalar/re
 matching, public nongeneric class execution and terminal user Faults remain deliberate
 limits. neoCLR docs/reflection-members.md and its reflection-members executable consumer
 own the contracts and focused validation. This note belongs to the neoclr feature branch.
+
+
+### Target-owned Main completion (2026-09-27 development)
+
+With an explicit TargetCoreAssemblyName and UseHeapAsyncStateMachines enabled,
+entry selection uses the same System.Tasks.Task<T> identity as async lowering.
+Unit/int and Result<unit|int,E> payloads are admitted. The compiler retains the
+selected static Main and its return type in the intermediate PE instead of emitting
+a synchronous CLR bridge with host Task/Console dependencies. The neoCLR importer
+adapts arguments, drives pending default-queue/host work and maps success/error to
+process status and stderr. Target unit tasks are Task<unit>; there is no separate
+nongeneric target Task. Other CLR targets retain their existing bridges.
+
+Runtime Contract settings are unchanged: named unit, heap state machines,
+cancellation propagation and disabled exception capture. Target images are import
+inputs, not CLR executables. This is neoCLR target policy, not a general main-branch
+metadata fix. See neoCLR docs/experiments/entry-results/README.md for limits and
+executable validation, and TargetEntryPointTests plus the existing entry-point
+suites for compiler selection/regression coverage.

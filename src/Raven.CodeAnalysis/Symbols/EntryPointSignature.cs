@@ -31,6 +31,9 @@ internal static class EntryPointSignature
                 return true;
         }
 
+        if (UsesTargetEntryPoint(compilation))
+            return HasTargetReturnType(returnType, compilation);
+
         var taskType = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
 
         if (returnType is INamedTypeSymbol namedReturn && IsTaskType(namedReturn, taskType))
@@ -60,6 +63,25 @@ internal static class EntryPointSignature
             return true;
 
         return false;
+    }
+
+    // The heap-async target owns startup, task dispatch and process-result adaptation.
+    // Preserve its selected Main in metadata instead of emitting a host CLR bridge.
+    private static bool UsesTargetEntryPoint(Compilation compilation) =>
+        compilation.Options.UseHeapAsyncStateMachines && compilation.Options.TargetCoreAssemblyName is not null;
+
+    private static bool HasTargetReturnType(ITypeSymbol type, Compilation compilation)
+    {
+        if (type is INamedTypeSymbol { Arity: 1, IsUnboundGenericType: false } task &&
+            SymbolEqualityComparer.Default.Equals(task.OriginalDefinition,
+                compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T)))
+            type = task.TypeArguments[0];
+
+        if (type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Unit or SpecialType.System_Void)
+            return true;
+
+        return TryGetResultType(type, out _, out var okType, out _) &&
+            okType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Unit or SpecialType.System_Void;
     }
 
     public static bool IsAsyncReturnType(ITypeSymbol returnType, Compilation compilation, out bool returnsInt)
@@ -189,6 +211,9 @@ internal static class EntryPointSignature
 
     public static bool RequiresEntryPointBridge(ITypeSymbol returnType, Compilation compilation)
     {
+        if (UsesTargetEntryPoint(compilation))
+            return false;
+
         return IsAsyncReturnType(returnType, compilation, out _) ||
             TryGetResultPayloadTypes(returnType, out _, out _, out _);
     }

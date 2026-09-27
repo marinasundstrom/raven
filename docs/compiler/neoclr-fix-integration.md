@@ -1450,3 +1450,23 @@ checks alongside native explicit-mapping regressions. Explicit accessors, value-
 bodies, generic application definitions, external core-library contracts and derived
 interface replacements remain outside this importer slice. Native runtime evidence
 for those forms does not establish Raven target admission.
+
+
+### Target-owned entry completion (2026-09-27)
+
+Keep the heap-async target's Main selection/emission policy on `neoclr`. The target
+recognizes System.Tasks.Task<T> entry payloads and leaves the original Main signature
+for neoCLR import; the importer adapts Result errors and async completion. This
+removes dependence on host CLR entry bridge helpers without changing other .NET
+targets. No general fix is extracted or experimental branch merged wholesale.
+Runtime Contract settings and public System signatures are unchanged. Validate
+TargetEntryPointTests, AsyncEntryPointBridgeTests, EntryPointDiagnosticsTests and
+the neoCLR entry-results process matrix with matching compiler/bridge/runtime.
+
+
+Deferred general candidates found by that validation: capturing an async helper's
+string-array parameter in a nested callback produces a receiver/type mismatch at
+import, and interpolated Console output after await is omitted. Both reproduce with
+a synchronous Main, so they are not entry-adapter behavior. neoCLR preserves the
+minimal sources under docs/experiments/entry-results/compiler-gaps. Establish
+independent CLR regressions before extracting fixes; no fix is claimed here.
