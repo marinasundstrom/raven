@@ -16,6 +16,70 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class CustomAttributeEmissionTests
 {
+    [Fact]
+    public void UnionCaseAttributeUsageIsValidatedForTheCaseType()
+    {
+        const string source = """
+import System.*
+[AttributeUsage(AttributeTargets.Class)]
+class ClassOnlyAttribute : Attribute { init() { } }
+union Choice {
+    [ClassOnly]
+    case Empty
+}
+""";
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("InvalidCaseAttribute", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var symbol = compilation.GetSemanticModel(tree).GetDeclaredSymbol(
+            tree.GetRoot().DescendantNodes().OfType<CaseDeclarationSyntax>().Single())!;
+        Assert.DoesNotContain(symbol.GetAttributes(), a => a.AttributeClass?.Name == "ClassOnlyAttribute");
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UnionCaseAttributesAreAvailableOnSymbolsAndEmittedCaseTypes(bool generic)
+    {
+        var source = """
+import System.*
+union ChoiceGENERIC {
+    [Obsolete("empty case")]
+    case Empty
+    [Obsolete("payload case")]
+    case Value(value: PAYLOAD)
+}
+""".Replace("GENERIC", generic ? "<T>" : "").Replace("PAYLOAD", generic ? "T" : "int");
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("CaseAttributes", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<CaseDeclarationSyntax>())
+        {
+            var symbol = model.GetDeclaredSymbol(syntax)!;
+            var attribute = Assert.Single(symbol.GetAttributes(), a => a.AttributeClass?.Name == "ObsoleteAttribute");
+            Assert.Equal(syntax.Identifier.ValueText == "Empty" ? "empty case" : "payload case",
+                Assert.Single(attribute.ConstructorArguments).Value);
+        }
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+        Assert.True(emitted.Success, string.Join(Environment.NewLine, emitted.Diagnostics));
+        output.Position = 0;
+        using var assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(output);
+        var cases = assembly.MainModule.Types.SelectMany(t => t.NestedTypes)
+            .Where(t => t.Name.Split('`')[0] is "Empty" or "Value").ToArray();
+        Assert.Equal(2, cases.Length);
+        foreach (var type in cases)
+        {
+            var attribute = Assert.Single(type.CustomAttributes, a => a.AttributeType.Name == "ObsoleteAttribute");
+            Assert.Equal(type.Name.Split('`')[0] == "Empty" ? "empty case" : "payload case",
+                Assert.Single(attribute.ConstructorArguments).Value);
+            Assert.DoesNotContain(type.Methods.SelectMany(m => m.CustomAttributes),
+                a => a.AttributeType.Name == "ObsoleteAttribute");
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
