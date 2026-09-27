@@ -184,6 +184,24 @@ internal class CodeGenerator
         }
     }
 
+    internal IDisposable PushGenericParameterAliases(
+        ImmutableArray<ITypeParameterSymbol> parameters, Type[] runtimeTypes)
+    {
+        if (parameters.Length != runtimeTypes.Length)
+            throw new ArgumentException("Each generic parameter must have a runtime alias.");
+
+        for (var i = 0; i < parameters.Length; i++)
+            GetOrCreateGenericParameterStack(parameters[i]).Push(runtimeTypes[i]);
+
+        return new GenericParameterAliasScope(this, parameters);
+    }
+
+    private sealed class GenericParameterAliasScope(
+        CodeGenerator owner, ImmutableArray<ITypeParameterSymbol> parameters) : IDisposable
+    {
+        public void Dispose() => owner.UnregisterGenericParameters(parameters);
+    }
+
     internal void UnregisterGenericParameters(ImmutableArray<ITypeParameterSymbol> parameters)
     {
         if (parameters.IsDefaultOrEmpty)

@@ -2100,9 +2100,13 @@ internal class TypeGenerator
         return semanticModel.GetCapturedVariables(functionSyntax);
     }
 
-    private FieldBuilder DefineClosureField(TypeBuilder closureBuilder, ISymbol captured, int ordinal)
+    private FieldBuilder DefineClosureField(TypeBuilder closureBuilder, ISymbol captured, int ordinal,
+        ImmutableArray<ITypeParameterSymbol> aliasTypeParameters)
     {
         var capturedTypeSymbol = GetCapturedSymbolTypeSymbol(captured);
+        // A display-class field belongs to the type, never to the source method.
+        var aliases = closureBuilder.GetGenericArguments().TakeLast(aliasTypeParameters.Length).ToArray();
+        using var aliasScope = CodeGen.PushGenericParameterAliases(aliasTypeParameters, aliases);
         var fieldType = ResolveClrType(capturedTypeSymbol);
         var fieldName = CreateClosureFieldName(captured, ordinal);
         var fieldBuilder = closureBuilder.DefineField(fieldName, fieldType, FieldAttributes.Public);
@@ -2176,7 +2180,7 @@ internal class TypeGenerator
         var index = 0;
         foreach (var captured in capturedSymbols)
         {
-            var fieldBuilder = DefineClosureField(closureBuilder, captured, index++);
+            var fieldBuilder = DefineClosureField(closureBuilder, captured, index++, aliasTypeParameters);
             fields[captured] = fieldBuilder;
         }
 
@@ -2345,7 +2349,7 @@ internal class TypeGenerator
             // The TypeBuilder stored in this closure is the authoritative builder we can still mutate.
             // Field naming is ordinal-based to match CreateClosure's scheme.
             var ordinal = _nextFieldOrdinal++;
-            var fieldBuilder = _typeGenerator.DefineClosureField(TypeBuilder, captured, ordinal);
+            var fieldBuilder = _typeGenerator.DefineClosureField(TypeBuilder, captured, ordinal, AliasTypeParameters);
 
             _fields[captured] = fieldBuilder;
             _capturedSymbols = _capturedSymbols.Add(captured);

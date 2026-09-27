@@ -1,0 +1,14 @@
+// Known independent runtime failure: nested async state-machine generic arity.
+// No capture is needed. Intended output: 42.
+import System.*
+import System.Console.*
+import System.Threading.Tasks.*
+
+class Example<U> {
+    static async func Read<T>(replacement: T) -> Task<T> {
+        await Task.Yield()
+        return replacement
+    }
+}
+
+WriteLine(await Example<bool>.Read<int>(42))

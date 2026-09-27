@@ -1,5 +1,5 @@
-// Known metadata-emission failure; intended output: 42, then after.
-// Tracked in ../neoclr-fix-integration.md, Async method shared captures.
+// Positive generic async capture example; expected output: 42, then after.
+// Covered by AsyncGenericCaptureTests; see ../neoclr-fix-integration.md.
 import System.*
 import System.Console.*
 import System.Threading.Tasks.*
