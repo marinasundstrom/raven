@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Preserve array element types in the target metadata context when
+  emitting constructed generic signatures. Reference-only contracts such as
+  Box<int[]>, Box<string[]> and jagged arrays no longer mix compiler-host and target
+  reflection types. Nullable element annotations remain metadata annotations.
+  Runtime Contract settings and source semantics are unchanged.
+
 - **2026-09-27:** Document the target-only System.Runtime.GC facade, exact scalar/control
   service bridge, object-count limits and focused neoCLR validation. No compiler or
   Runtime Contract configuration change.

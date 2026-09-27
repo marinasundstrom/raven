@@ -62,6 +62,9 @@ public static class TypeSymbolExtensionsForCodeGen
         if (symbol is NullableTypeSymbol nullable &&
             nullable.GetNullableAbiProjection() != NullableAbiProjection.NullableValueType)
             return TryGetTargetMetadataType(nullable.UnderlyingType);
+        if (symbol is IArrayTypeSymbol array &&
+            TryGetTargetMetadataType(array.ElementType) is { } element)
+            return array.Rank == 1 ? element.MakeArrayType() : element.MakeArrayType(array.Rank);
         if (symbol is PENamedTypeSymbol peType)
             return peType.GetTypeInfo();
         if (symbol is ConstructedNamedTypeSymbol constructed &&
