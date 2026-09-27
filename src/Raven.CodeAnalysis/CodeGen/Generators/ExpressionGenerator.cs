@@ -7539,9 +7539,13 @@ internal partial class ExpressionGenerator : Generator
     }
 
     // A generic return remains a value-bearing CLI signature when instantiated
-    // with unit. Only an actual no-result call needs a synthesized unit value.
-    private static bool InvocationReturnsGenericUnitValue(BoundInvocationExpression invocation)
-        => invocation.Type.SpecialType == SpecialType.System_Unit
+    // with unit. Imported signatures can expose the configured representation
+    // rather than the source Unit symbol (including an inhabited System.Void).
+    // Only an actual no-result call needs a synthesized unit value.
+    private bool InvocationReturnsGenericUnitValue(BoundInvocationExpression invocation)
+        => (invocation.Type.SpecialType == SpecialType.System_Unit
+                || Compilation.Options.RuntimeUnitContract is not null
+                    && SymbolEqualityComparer.Default.Equals(invocation.Type, Compilation.UnitTypeSymbol))
             && (invocation.Method.OriginalDefinition ?? invocation.Method).ReturnType is ITypeParameterSymbol;
 
     /// <summary>

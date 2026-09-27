@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** On the neoCLR target, discard imported generic results whose
+  type is the configured unit representation exactly once. Direct completion-only
+  awaits no longer leave an inhabited System.Void on the evaluation stack.
+  Preserve CLI no-result returns and existing Runtime Contract configuration;
+  this target integration remains on the experimental branch.
+
 - **2026-09-27:** Share captured locals between state-machine async methods and
   their callbacks across suspension and completion. The state machine retains one
   closure per invocation instead of copying values into separate callback storage.

@@ -1510,3 +1510,30 @@ Whitespace formatting and the compiler build pass. Bootstrap used
 macro/core builds were stopped and the unchanged main macro artifact was reused.
 Subsequent checks rebuild only the compiler and tests. No full suite or target
 matrix is implied; .NET Framework and NanoFramework execution remain unverified.
+
+
+## Imported generic unit results on neoCLR (2026-09-27)
+
+Target-specific correction on `neoclr`; no main integration is claimed. The reduced
+neoCLR consumer `docs/experiments/task-run/UnitAwait.rvn` awaits completion-only
+Task.Run in an async Main. Before the correction, its raw CLI calls generic
+`Task<System.Void>.GetResult()` without discarding the returned unit. The importer
+correctly rejects a nonempty stack at the subsequent no-result return.
+
+Generic-unit invocation emission now compares imported result symbols with the
+explicitly selected RuntimeUnitContract representation as well as recognizing the
+source Unit symbol. A generic result is value-bearing even when the selected type
+is named System.Void. This is distinct from .NET CLI void: actual no-result calls
+retain their existing behavior. No Runtime Contract options, public signatures,
+async scheduling behavior or importer checks change. The fix does not normalize
+all imported unit symbols or claim to resolve unrelated lookup/inference issues.
+
+Validation: the ten ordinary CLR AsyncUnitResultTests pass at baseline; after the
+fix, all 24 async/unit contract neighbors pass on the experimental compiler.
+The CodeAnalysis project builds independently. The broader compiler-driver build
+encounters an unrelated RavenDoc missing ApiContentTree error; the bridge is rebuilt
+against the successfully built CodeAnalysis assembly with project references disabled.
+neoCLR's focused script compiles, typed-verifies and runs `unit-await`,
+`mutable-capture` and `capture-and-unwrap`; the latter two now use direct await.
+The reduced local-assignment variant also imports successfully, but its execution
+is not part of these three consumer checks. No full suite or website build is run.
