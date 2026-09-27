@@ -6,7 +6,10 @@ The Raven language server provides Language Server Protocol (LSP) support for `.
 - **Text synchronization:** Opens, changes, saves, and closes documents through `TextDocumentSyncHandlerBase`, storing the latest text in the workspace.
 - **Diagnostics:** Publishes Raven diagnostics for the current file after each change, keeping previous semantic results visible while newer snapshot diagnostics are pending when their ranges can be translated safely.
 - **Completions:** Maps the compiler's completion items into LSP responses with
-  snippet ranges for insertion. `#` triggers context-aware macro completion:
+  snippet ranges for insertion. Completion sort keys use the display name, so
+  namespaces, types, members, macros, and keywords share alphabetical ordering
+  instead of being grouped by kind. Editors may still prioritize matches to typed
+  text. `#` triggers context-aware macro completion:
   expression positions offer freestanding and token-tree macros, while
   declaration attributes offer attached macros.
 - **Hover symbol projection:** Hover on member-access segments resolves the member symbol for both identifier and access operators (for example `.Name` and `?.Name`), including carrier/conditional-access chains.
