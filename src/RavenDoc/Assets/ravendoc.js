@@ -98,18 +98,42 @@ for (const code of document.querySelectorAll(
     const control = document.querySelector("#member-grouping");
     if (!container || !control) return;
     const inherited = document.querySelector("#show-inherited-members");
-    try { inherited.checked = localStorage.getItem("raven-show-inherited") !== "false"; } catch { }
     inherited.closest("label").hidden = false;
     const original = [...container.children].filter(section => section.classList.contains("member-section"));
     const cards = [...container.querySelectorAll(".member-card")];
     const extensions = document.querySelector("#show-extension-members");
-    try { extensions.checked = localStorage.getItem("raven-show-extensions") !== "false"; } catch { }
     extensions.closest("label").hidden = !cards.some(card => card.dataset.memberExtension === "true");
     const storageKey = "raven-member-grouping";
-    let preferred = container.dataset.defaultGrouping || "kind";
-    try { preferred = localStorage.getItem(storageKey) || preferred; } catch { }
-    control.value = preferred === "declaringType" ? preferred : "kind";
+    const readSelection = () => {
+        let preferred = container.dataset.defaultGrouping || "kind";
+        inherited.checked = true;
+        extensions.checked = true;
+        try {
+            preferred = localStorage.getItem(storageKey) || preferred;
+            inherited.checked = localStorage.getItem("raven-show-inherited") !== "false";
+            extensions.checked = localStorage.getItem("raven-show-extensions") !== "false";
+        } catch { }
+        const query = new URL(location.href).searchParams;
+        const group = query.get("groupBy");
+        const explicitGroup = group === "kind" || group === "declaringType";
+        if (explicitGroup) preferred = group;
+        // A shared selection wins over the legacy member-kind bookmark fallback.
+        else if (original.some(section => `#${section.querySelector("h2").id}` === location.hash)) preferred = "kind";
+        control.value = preferred === "declaringType" ? preferred : "kind";
+        for (const [key, checkbox] of [["inherited", inherited], ["extensions", extensions]]) {
+            const value = query.get(key);
+            if (value === "true" || value === "false") checkbox.checked = value === "true";
+        }
+    };
+    const shareSelection = () => {
+        const url = new URL(location.href);
+        url.searchParams.set("groupBy", control.value);
+        url.searchParams.set("inherited", String(inherited.checked));
+        url.searchParams.set("extensions", String(extensions.checked));
+        history.replaceState(history.state, "", url);
+    };
     control.closest("label").hidden = false;
+    readSelection();
     const render = () => {
         container.replaceChildren();
         for (const card of cards) card.hidden =
@@ -157,18 +181,20 @@ for (const code of document.querySelectorAll(
     };
     control.addEventListener("change", () => {
         try { localStorage.setItem(storageKey, control.value); } catch { }
+        shareSelection();
         render();
     });
     inherited.addEventListener("change", () => {
         try { localStorage.setItem("raven-show-inherited", String(inherited.checked)); } catch { }
+        shareSelection();
         render();
     });
     extensions.addEventListener("change", () => {
         try { localStorage.setItem("raven-show-extensions", String(extensions.checked)); } catch { }
+        shareSelection();
         render();
     });
-    // Preserve bookmarks into the server-rendered member-kind sections.
-    if (original.some(section => `#${section.querySelector("h2").id}` === location.hash)) control.value = "kind";
+    window.addEventListener("popstate", () => { readSelection(); render(); });
     render();
 })();
 

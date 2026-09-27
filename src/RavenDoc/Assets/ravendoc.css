@@ -571,10 +571,12 @@ body.with-api-navigation.without-outline .documentation-shell {
 
 .member-origin { display: block; color: var(--muted); font-size: .85rem; margin-top: .35rem; }
 
-.member-grouping:not([hidden]) { display: flex; align-items: center; gap: .75rem; margin: 1.5rem 0; font-size: .9rem; }
+.member-display-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.5rem; margin: 1.5rem 0; }
+.member-grouping:not([hidden]) { display: flex; flex: 0 0 100%; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 0; font-size: .9rem; }
 .member-grouping select { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--border); border-radius: .4rem; padding: .4rem .65rem; }
 
-.member-filter:not([hidden]) { display: flex; align-items: center; gap: .5rem; margin: 1rem 0; font-size: .9rem; }
+.member-filter:not([hidden]) { display: flex; align-items: center; gap: .5rem; margin: 0; max-width: 100%; font-size: .9rem; }
+.member-filter input { flex: 0 0 auto; }
 .member-card[hidden], .member-section[hidden] { display: none; }
 
 .symbol-static-marker { background: #a33e4b; }
