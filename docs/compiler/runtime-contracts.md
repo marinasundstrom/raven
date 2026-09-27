@@ -485,3 +485,32 @@ A separate reduced observation remains open: in target-metadata mode using
 different contexts. The ordinary mode control succeeds. This attribute lookup
 failure is distinct from constructed-source signature resolution; it was observed
 while reducing the integration case, and is not claimed fixed here.
+
+### Generic async owners and instance field writes (2026-09-27)
+
+Nested state-machine signatures now carry all enclosing generic arguments before
+method-derived state arguments. A nongeneric async method inside a generic class
+also constructs its state type. Both ordinary local signatures and projected generic
+method arguments use the same runtime-arity selection, fixing invalid
+`AwaitUnsafeOnCompleted<TAwaiter,TState>` state arguments. Union-case companion
+ownership remains separate and is covered by existing regression checks.
+
+Async lowering redirects implicit instance field assignments through the retained
+original receiver, matching explicit `self.field` access. Previously a write could
+address the state machine while the subsequent read observed the unchanged source
+object. The regression checks both generic and nongeneric source classes.
+
+Validation: 35 focused ordinary .NET signature, generic-array, capture, generic-owner
+and sealed-hierarchy/union checks pass. The generic-owner cases include nongeneric
+and generic static async methods, captured locals, instance methods and two enclosing
+generic types. `docs/compiler/development/async-generic-containing-type.rvn` is now
+a positive 42-result example. Runtime Contract configuration, public compiler APIs,
+syntax and semantic intent are unchanged; these repairs implement the normal CLI
+contract. No .NET Framework/NanoFramework execution is claimed. Target import
+admission still belongs to the target, independently of this compiler correction.
+
+Separately observed during validation: explicit `self.value` assignment to a
+private `var` member in a generic class can incorrectly report RAV0200. The reduced
+`docs/compiler/development/generic-private-var-assignment.rvn` records this remaining
+binding candidate. The field-write regression intentionally uses a declared field
+to test physical receiver semantics independently of private-variable projection.

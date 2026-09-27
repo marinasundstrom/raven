@@ -1,0 +1,8 @@
+// Remaining binding candidate, observed 2026-09-27.
+// Expected: a mutable private storage member can be assigned through self.
+// Observed: RAV0200 reports value as read-only for this generic owner.
+class Example<T> {
+    private var value: T
+    init(initial: T) { value = initial }
+    func Replace(replacement: T) { self.value = replacement }
+}

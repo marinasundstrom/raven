@@ -1259,7 +1259,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 : runtimeType.GetGenericTypeDefinition();
 
             var runtimeArguments = runtimeType.GetGenericArguments();
-            var symbolArguments = named.TypeArguments;
+            var symbolArguments = TypeSymbolExtensionsForCodeGen.GetRuntimeTypeArguments(named, definition);
             var substitutedArguments = new Type[runtimeArguments.Length];
             var changed = false;
 
@@ -1758,7 +1758,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 if (!runtimeDefinition.IsGenericTypeDefinition)
                     return runtimeDefinition;
 
-                var runtimeArguments = named.TypeArguments
+                var runtimeArguments = TypeSymbolExtensionsForCodeGen.GetRuntimeTypeArguments(named, runtimeDefinition)
                     .Select(argument => GetProjectedRuntimeType(argument, codeGen, treatUnitAsVoid, isTopLevel: false, visiting))
                     .ToArray();
 

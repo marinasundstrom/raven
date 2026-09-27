@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-27:** Preserve enclosing generic arguments in async state-machine
+  locals and generic await-registration signatures, including nongeneric methods
+  on generic classes and nested generic owners. Redirect implicit field writes
+  after await through the original receiver. Focused ordinary .NET execution
+  covers captures, explicit/implicit field receivers and nested generic types.
+  No Runtime Contract options or source syntax change.
+
 - **2026-09-27:** Admit constructed source generic types inside imported target
   metadata signatures, including `TaskCompletionSource<Holder<string>>` locals.
   Recognize emitted generic definitions as well as their arguments before using a

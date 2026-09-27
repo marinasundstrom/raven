@@ -2999,6 +2999,21 @@ internal static class AsyncLowerer
             return node;
         }
 
+        public override BoundNode? VisitFieldAssignmentExpression(BoundFieldAssignmentExpression node)
+        {
+            var receiver = VisitExpression(node.Receiver) ?? node.Receiver;
+            if (receiver is null && !node.Field.IsStatic
+                && !SymbolEqualityComparer.Default.Equals(node.Field.ContainingType, _stateMachine)
+                && _stateMachine.ThisField is { } thisField)
+            {
+                // An implicit instance receiver still means the original object,
+                // not MoveNext's synthesized state-machine receiver.
+                receiver = new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), thisField);
+            }
+            var right = VisitExpression(node.Right) ?? node.Right;
+            return node.Update(receiver, node.Field, right, node.UnitType, node.RequiresReceiverAddress);
+        }
+
         private bool TryGetParameterField(IParameterSymbol parameter, out SourceFieldSymbol field)
         {
             if (_stateMachine.ParameterFieldMap.TryGetValue(parameter, out field))

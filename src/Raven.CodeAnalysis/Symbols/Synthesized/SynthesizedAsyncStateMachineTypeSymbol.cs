@@ -168,7 +168,14 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             throw new ArgumentException("State machine constructed for different method.", nameof(method));
 
         if (TypeParameters.Length == 0)
+        {
+            // A nongeneric async method can still require a constructed state
+            // because its enclosing class contributes generic parameters.
+            for (var owner = ContainingType; owner is not null; owner = owner.ContainingType)
+                if (!owner.TypeParameters.IsDefaultOrEmpty)
+                    return new ConstructedNamedTypeSymbol(this, ImmutableArray<ITypeSymbol>.Empty);
             return this;
+        }
 
         var typeArguments = method.TypeArguments;
         if ((typeArguments.IsDefaultOrEmpty || typeArguments.Length == 0) &&
