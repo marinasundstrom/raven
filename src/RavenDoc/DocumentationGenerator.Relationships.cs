@@ -91,6 +91,7 @@ public static partial class DocumentationGenerator
             seen.Add(MemberIdentity(member));
             yield return member;
         }
+        if (type.IsStatic) yield break;
         for (var ancestor = type.BaseType; ancestor is not null; ancestor = ancestor.BaseType)
             foreach (var member in PublicRelatedMembers(ancestor))
                 if (seen.Add(MemberIdentity(member))) yield return member;
@@ -140,7 +141,7 @@ public static partial class DocumentationGenerator
             return "";
         context ??= owner;
         var origins = new List<string>();
-        if (member.GetExtensionReceiverType() is not null)
+        if (IsDocumentationExtension(member))
             return "<span class=\"member-origin\">Extension from " + MemberDefinitionLink(directory, member) + "</span>";
         if (!SymbolEqualityComparer.Default.Equals(owner, context))
         {
@@ -236,6 +237,15 @@ public static partial class DocumentationGenerator
         };
     }
 
+    private static bool IsDocumentationExtension(ISymbol member)
+        => member.GetExtensionReceiverType() is not null &&
+            (member is not IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } ||
+             member.ContainingType?.GetExtensionReceiverType() is not null);
+
+    private static bool IsContributedExtension(ISymbol member, ITypeSymbol? context)
+        => context is not null && IsDocumentationExtension(member) &&
+            LogicalMemberOwner(member) is { } owner && TypeDefinitionId(owner) != TypeDefinitionId(context);
+
     private static SemanticModel? ExtensionModel;
 
     private static void PrepareExtensionLookup(Compilation compilation)
@@ -253,11 +263,15 @@ public static partial class DocumentationGenerator
 
     private static IEnumerable<ISymbol> ApplicableExtensionMembers(ITypeSymbol type)
     {
-        if (ExtensionModel is null) yield break;
-        var result = ExtensionModel.LookupApplicableExtensionMembers(type);
+        if (ExtensionModel is null || type.IsStatic) yield break;
+        // Definitions have no TypeArguments. Lookup needs the open constructed
+        // receiver so it can infer extension parameters from Task<T>, Result<T, E>, etc.
+        var receiver = type is INamedTypeSymbol { Arity: > 0 } named && named.TypeArguments.IsEmpty
+            ? named.Construct(named.TypeParameters.Cast<ITypeSymbol>().ToArray()) : type;
+        var result = ExtensionModel.LookupApplicableExtensionMembers(receiver);
         var members = result.InstanceMethods.Cast<ISymbol>().Concat(result.StaticMethods)
             .Concat(result.InstanceProperties).Concat(result.StaticProperties)
-            .Where(member => member.DeclaredAccessibility == Accessibility.Public &&
+            .Where(member => IsDocumentationExtension(member) && member.DeclaredAccessibility == Accessibility.Public &&
                 CurrentSiteOptions.ExtensionNamespaces!.Contains(GetNamespaceFullName(member.ContainingNamespace)) &&
                 (CurrentSiteOptions.ExtensionMembers is not { Count: > 0 } selected || selected.Contains(GetXrefId(member))))
             .Distinct(SymbolEqualityComparer.Default);

@@ -163,7 +163,7 @@ internal sealed class RavenDocSiteTemplate
             var labelHtml = $"<span class=\"{(compact ? "member-name" : "member-signature")}\">{Escape(label)}</span>";
             if (member.Href.Length > 0) labelHtml = $"<a href=\"{Escape(member.Href)}\">{labelHtml}</a>";
             rows.AppendLine($"""
-              <div class="member-card" data-member-kind="{Escape(title)}" data-member-origin="{Escape(member.DeclaringType)}" data-member-name="{Escape(member.Name)}" data-member-inherited="{member.IsInherited.ToString().ToLowerInvariant()}" data-member-extension="{member.IsExtension.ToString().ToLowerInvariant()}">
+              <div class="member-card" data-member-kind="{Escape(title)}" data-member-origin="{Escape(member.DeclaringType)}" data-member-name="{Escape(member.Name)}" data-member-inherited="{member.IsInherited.ToString().ToLowerInvariant()}" data-member-extension="{member.IsContributedExtension.ToString().ToLowerInvariant()}">
                 {RenderIcon(member.Kind, member.IsStatic, member.IsExtension)}
                 <span class="member-card-content">
                   {labelHtml}
@@ -388,7 +388,8 @@ internal sealed record RavenDocMemberTemplateModel(
     string OriginHtml = "",
     string DeclaringType = "",
     bool IsInherited = false,
-    bool IsExtension = false);
+    bool IsExtension = false,
+    bool IsContributedExtension = false);
 
 internal sealed record RavenDocCaseTemplateModel(
     string Signature,
