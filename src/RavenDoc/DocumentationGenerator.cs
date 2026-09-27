@@ -842,36 +842,44 @@ public static partial class DocumentationGenerator
         {
             Documentation = documentation,
             RawMarkdown = markdown,
-            Summary = ExtractFirstParagraphSummary(markdown)
+            Summary = System.Net.WebUtility.HtmlDecode(ExtractFirstParagraphSummary(markdown))
         };
 
         DocInfoCache[symbol] = info;
         return info;
     }
 
+    private static string? DocumentationText(RavenDocumentation documentation, string? text)
+        => documentation.SourceFormat == DocumentationFormat.Xml && text is not null
+            ? System.Net.WebUtility.HtmlEncode(text)
+            : text;
+
     private static string BuildDocumentationMarkdown(RavenDocumentation documentation, ISymbol? member = null, string? currentDir = null)
     {
+        string? Section(DocumentationSectionKind kind) => DocumentationText(documentation, documentation.GetSection(kind));
+        DocumentationAssociation[] Associations(DocumentationAssociationKind kind) => documentation.GetAssociations(kind)
+            .Select(item => item with { Content = DocumentationText(documentation, item.Content) ?? "" }).ToArray();
         var builder = new StringBuilder();
-        var details = documentation.GetSection(DocumentationSectionKind.Details);
-        var remarks = documentation.GetSection(DocumentationSectionKind.Remarks);
+        var details = Section(DocumentationSectionKind.Details);
+        var remarks = Section(DocumentationSectionKind.Remarks);
 
         AppendDocumentationSection(
             builder,
-            documentation.GetSection(DocumentationSectionKind.Summary));
+            Section(DocumentationSectionKind.Summary));
         AppendDocumentationSection(builder, details);
         AppendDocumentationAssociations(
             builder,
             "Type parameters",
             "Name",
-            documentation.GetAssociations(DocumentationAssociationKind.TypeParameter));
+            Associations(DocumentationAssociationKind.TypeParameter));
         if (member is not null && currentDir is not null)
             AppendMemberContract(builder, documentation, member, currentDir);
         else
         {
             AppendDocumentationAssociations(builder, "Parameters", "Name",
-                documentation.GetAssociations(DocumentationAssociationKind.Parameter));
-            AppendNamedDocumentationSection(builder, "Returns", documentation.GetSection(DocumentationSectionKind.Result));
-            AppendNamedDocumentationSection(builder, "Value", documentation.GetSection(DocumentationSectionKind.Value));
+                Associations(DocumentationAssociationKind.Parameter));
+            AppendNamedDocumentationSection(builder, "Returns", Section(DocumentationSectionKind.Result));
+            AppendNamedDocumentationSection(builder, "Value", Section(DocumentationSectionKind.Value));
         }
         AppendNamedDocumentationSection(
             builder,
@@ -882,17 +890,17 @@ public static partial class DocumentationGenerator
         AppendNamedDocumentationSection(
             builder,
             "Example",
-            documentation.GetSection(DocumentationSectionKind.Example));
+            Section(DocumentationSectionKind.Example));
         AppendDocumentationAssociations(
             builder,
             "Errors",
             "Error",
-            documentation.GetAssociations(DocumentationAssociationKind.Error));
+            Associations(DocumentationAssociationKind.Error));
         AppendDocumentationAssociations(
             builder,
             "See also",
             "Reference",
-            documentation.GetAssociations(DocumentationAssociationKind.RelatedLink));
+            Associations(DocumentationAssociationKind.RelatedLink));
 
         return builder.ToString().Trim();
     }
@@ -922,7 +930,7 @@ public static partial class DocumentationGenerator
             var table = new StringBuilder("| Name | Type | Description |\n| --- | --- | --- |\n");
             foreach (var parameter in parameters)
             {
-                var description = descriptions.FirstOrDefault(item => item.Name == parameter.Name)?.Content ?? "";
+                var description = DocumentationText(documentation, descriptions.FirstOrDefault(item => item.Name == parameter.Name)?.Content) ?? "";
                 var passing = parameter.RefKind switch
                 {
                     RefKind.Ref => "ref ",
@@ -946,7 +954,7 @@ public static partial class DocumentationGenerator
         };
         if (type is not null)
         {
-            var description = documentation.GetSection(section);
+            var description = DocumentationText(documentation, documentation.GetSection(section));
             AppendNamedDocumentationSection(builder, heading, FormatContractType(currentDir, type) +
                 (string.IsNullOrWhiteSpace(description) ? "" : "\n\n" + description));
         }
