@@ -428,3 +428,21 @@ empty cases. Target-metadata emission preserves the actual CLI arity of each cas
 constructed symbol for an empty case does not make its metadata type generic. This
 applies to ordinary separately compiled unions and does not require a target-specific
 Runtime Contract setting. Focused imported-union tests cover both emission paths.
+
+
+### Array arguments in target-metadata generic signatures — 2026-09-27
+
+Target-metadata emission resolves an array recursively from its target element type
+before constructing an imported generic signature. For example, a reference-only
+`Box<int[]>` must use the same metadata context for Box, Int32 and the array type;
+using the compiler host's Int32 array caused MakeGenericType to throw. Jagged
+arrays and nullable reference element annotations follow the same rule. Source
+array syntax, binding and semantic-model types are unchanged. No Runtime Contract
+setting is added or changed, and emitted CLI array/generic signatures remain
+ordinary metadata rather than runtime-specific contracts.
+
+The focused TargetMetadataEmissionTests compare emitted parameter/return metadata
+using independent reference-only contracts and .NET 11 reference assemblies.
+Integer, string and jagged array regressions failed before the fix; nullable-element
+coverage preserves existing behavior. This does not claim execution validation on
+.NET Framework or NanoFramework.

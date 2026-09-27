@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-27:** Preserve array element types in the target metadata context when
+  emitting constructed generic signatures. Reference-only contracts such as
+  Box<int[]>, Box<string[]> and jagged arrays no longer mix compiler-host and target
+  reflection types. Nullable element annotations remain metadata annotations.
+  Runtime Contract settings and source semantics are unchanged.
+
 - **2026-09-27:** Make bodyless authored interface static functions and getters
   abstract in source semantics, admit interface operator requirements, and resolve
   constrained operators through static abstract constraints. Emit general constrained

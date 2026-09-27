@@ -8,6 +8,47 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class TargetMetadataEmissionTests
 {
+    [Theory]
+    [InlineData("int[]", "System.Int32[]")]
+    [InlineData("string[]", "System.String[]")]
+    [InlineData("int[][]", "System.Int32[][]")]
+    [InlineData("string?[]", "System.String[]")]
+    public void RetargetedGenericArrayArgumentsStayInMetadataContext(string sourceType, string metadataType)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "raven-target-array", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "TargetArrayContracts.dll");
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("TargetArrayContracts",
+            [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText("namespace Contracts { public struct Box<T> { public T Value; } }")],
+            paths.Select(p => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(p)),
+            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        try
+        {
+            using (var stream = File.Create(path))
+            {
+                var emitted = declarations.Emit(stream, options: new Microsoft.CodeAnalysis.Emit.EmitOptions(metadataOnly: true));
+                Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+            }
+            var compilation = Compilation.Create("ArrayConsumer", [SyntaxTree.ParseText($$"""
+                import Contracts.*
+                func Echo(value: Box<{{sourceType}}>) -> Box<{{sourceType}}> { return value }
+                """)], paths.Append(path).Select(MetadataReference.CreateFromFile).ToArray(),
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+            using var output = new MemoryStream();
+            var result = compilation.Emit(output, null, new EmitOptions(AssemblyName.GetAssemblyName(paths.Single(p => Path.GetFileName(p) == "System.Runtime.dll"))));
+            Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+            output.Position = 0;
+            using var assembly = AssemblyDefinition.ReadAssembly(output);
+            var echo = assembly.MainModule.Types.SelectMany(t => t.Methods).Single(m => m.Name == "Echo");
+            Assert.Equal($"Contracts.Box`1<{metadataType}>", echo.ReturnType.FullName);
+            Assert.Equal(echo.ReturnType.FullName, Assert.Single(echo.Parameters).ParameterType.FullName);
+            Assert.Equal("TargetArrayContracts", echo.ReturnType.Scope.Name);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
     [Fact]
     public void RetargetedEmissionConstructsReferenceOnlyGenericDelegate()
     {
