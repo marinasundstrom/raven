@@ -761,7 +761,8 @@ internal partial class TypeMemberBinder : Binder
         var hasOverrideModifier = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isOverride = hasOverrideModifier;
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);
-        var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+        var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword)
+            || _containingType.TypeKind == TypeKind.Interface && methodDecl.Body is null && methodDecl.ExpressionBody is null;
         var isExtern = modifiers.Any(m => m.Kind == SyntaxKind.ExternKeyword);
         var isPartial = modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
         var hasNewModifier = modifiers.Any(m => m.Kind == SyntaxKind.NewKeyword);
@@ -1408,7 +1409,7 @@ internal partial class TypeMemberBinder : Binder
         var operatorAccessibility = AccessibilityUtilities.DetermineAccessibility(operatorDecl.Modifiers, defaultAccessibility);
         var hasStaticModifier = operatorDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
 
-        if (_containingType.TypeKind is not TypeKind.Class and not TypeKind.Struct)
+        if (_containingType.TypeKind is not TypeKind.Class and not TypeKind.Struct and not TypeKind.Interface)
             _diagnostics.ReportOperatorDeclarationMustBeInClassOrStruct(operatorText, operatorDecl.FuncKeyword.GetLocation());
 
         if (!hasStaticModifier)
@@ -1446,6 +1447,7 @@ internal partial class TypeMemberBinder : Binder
             [operatorDecl.GetReference()],
             isStatic: true,
             methodKind: MethodKind.UserDefinedOperator,
+            isAbstract: _containingType.TypeKind == TypeKind.Interface && operatorDecl.Body is null && operatorDecl.ExpressionBody is null,
             declaredAccessibility: operatorAccessibility);
 
         InitializeMethodTypeParameters(
@@ -4744,7 +4746,7 @@ internal partial class TypeMemberBinder : Binder
             isSealed = false;
         }
 
-        if (isAbstract && isStatic)
+        if (isAbstract && isStatic && _containingType.TypeKind != TypeKind.Interface)
         {
             _diagnostics.ReportInvalidMemberModifierCombination(memberName, "abstract", "static", location);
             isAbstract = false;

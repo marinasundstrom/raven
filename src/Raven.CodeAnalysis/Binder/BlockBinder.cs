@@ -9867,7 +9867,10 @@ partial class BlockBinder : Binder
         var method = resolution.Method!;
         ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
         var converted = ConvertArguments(method.Parameters, arguments, callSyntax);
-        return new BoundInvocationExpression(method, converted);
+        var constrainedReceiver = method.IsStatic && method.IsAbstract && method.ContainingType?.TypeKind == TypeKind.Interface
+            ? new BoundTypeExpression(leftType is ITypeParameterSymbol ? leftType : rightType)
+            : null;
+        return new BoundInvocationExpression(method, converted, constrainedReceiver);
     }
 
     private BoundExpression? TryBindLiftedUserDefinedEqualityOperator(
@@ -10046,7 +10049,10 @@ partial class BlockBinder : Binder
         var method = resolution.Method!;
         ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
         var converted = ConvertArguments(method.Parameters, arguments, callSyntax);
-        return new BoundInvocationExpression(method, converted);
+        var constrainedReceiver = method.IsStatic && method.IsAbstract && method.ContainingType?.TypeKind == TypeKind.Interface
+            ? new BoundTypeExpression(operandType)
+            : null;
+        return new BoundInvocationExpression(method, converted, constrainedReceiver);
     }
 
     private ImmutableArray<IMethodSymbol> GetUserDefinedOperatorCandidates(
@@ -10071,7 +10077,10 @@ partial class BlockBinder : Binder
 
         foreach (var type in types)
         {
-            foreach (var method in type.GetMembers(metadataName).OfType<IMethodSymbol>())
+            var declaredOperators = type is ITypeParameterSymbol
+                ? new SymbolQuery(metadataName, type, IsStatic: true).LookupMethods(this)
+                : type.GetMembers(metadataName).OfType<IMethodSymbol>();
+            foreach (var method in declaredOperators)
             {
                 if (method.MethodKind != MethodKind.UserDefinedOperator)
                     continue;

@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-27:** Make bodyless authored interface static functions and getters
+  abstract in source semantics, admit interface operator requirements, and resolve
+  constrained operators through static abstract constraints. Emit general constrained
+  static calls and property reads instead of special-casing `IParsable.Parse`.
+  Executable tests cover custom methods, getters and unary/binary operators plus
+  rejected mismatched implementations. Runtime Contract configuration is unchanged;
+  target runtimes still need static abstract dispatch support.
+
 - **2026-09-27:** Emit nongeneric companion cases from generic union consumers
   without attempting to construct a generic metadata type. Matching an imported
   empty case works in ordinary and target-metadata emission; no Runtime Contract

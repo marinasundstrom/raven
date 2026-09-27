@@ -355,6 +355,35 @@ types. Several constraints are conjunctive.
 Constraints also make static abstract interface members available through a
 type parameter, as in the `IParsable<T>` example.
 
+Raven-authored interfaces can declare bodyless static functions and getter
+properties, which are implicitly abstract. The `abstract` modifier is optional.
+Static operator declarations can also form interface requirements. A generic
+consumer uses the constrained type parameter as the receiver (`T.Create()` or
+`T.Zero`); unary and binary operator lookup considers that parameter's static
+abstract requirements. Matching implementations must be static and have compatible
+signatures. These calls emit CLI `constrained.` dispatch rather than a call to an
+abstract interface slot without a concrete implementing type.
+
+For example, the following contract can support an addition algorithm:
+
+```raven
+interface Addition<T> {
+    static val Zero: T { get; }
+    static func +(left: T, right: T) -> T
+}
+
+func add<T>(left: T, right: T) -> T where T: Addition<T>
+    => left + right + T.Zero
+```
+
+This requires runtime support for static abstract interface dispatch. It does not
+make arbitrary interface static members concrete operators, supply default
+implementations, or enable such dispatch on older CLR runtimes. Runtime Contract
+configuration is unchanged; target backends must independently support the emitted
+CLI contract. The focused `StaticInterfaceContractTests` exercise authored metadata,
+constrained static methods, readonly properties, unary/binary operators and invalid
+implementations on the supported host runtime.
+
 Constraint satisfaction is transitive: substituting one constrained type
 parameter for another carries its constraint set. A violation identifies the
 type argument and unmet constraint.
