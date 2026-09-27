@@ -102,6 +102,9 @@ for (const code of document.querySelectorAll(
     inherited.closest("label").hidden = false;
     const original = [...container.children].filter(section => section.classList.contains("member-section"));
     const cards = [...container.querySelectorAll(".member-card")];
+    const extensions = document.querySelector("#show-extension-members");
+    try { extensions.checked = localStorage.getItem("raven-show-extensions") !== "false"; } catch { }
+    extensions.closest("label").hidden = !cards.some(card => card.dataset.memberExtension === "true");
     const storageKey = "raven-member-grouping";
     let preferred = container.dataset.defaultGrouping || "kind";
     try { preferred = localStorage.getItem(storageKey) || preferred; } catch { }
@@ -109,7 +112,9 @@ for (const code of document.querySelectorAll(
     control.closest("label").hidden = false;
     const render = () => {
         container.replaceChildren();
-        for (const card of cards) card.hidden = !inherited.checked && card.dataset.memberInherited === "true";
+        for (const card of cards) card.hidden =
+            (!inherited.checked && card.dataset.memberInherited === "true") ||
+            (!extensions.checked && card.dataset.memberExtension === "true");
         if (control.value === "kind") {
             container.append(...original);
             for (const section of original) {
@@ -156,6 +161,10 @@ for (const code of document.querySelectorAll(
     });
     inherited.addEventListener("change", () => {
         try { localStorage.setItem("raven-show-inherited", String(inherited.checked)); } catch { }
+        render();
+    });
+    extensions.addEventListener("change", () => {
+        try { localStorage.setItem("raven-show-extensions", String(extensions.checked)); } catch { }
         render();
     });
     // Preserve bookmarks into the server-rendered member-kind sections.

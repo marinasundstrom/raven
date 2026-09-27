@@ -136,6 +136,8 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             page.ShouldNotContain("Extension methods");
             page.ShouldContain("symbol-extension-marker\">E</span>");
             page.ShouldContain("id=\"show-inherited-members\"");
+            page.ShouldContain("id=\"show-extension-members\"");
+            page.ShouldContain("data-member-extension=\"true\"");
             page.ShouldContain("Extras.Extra");
             page.ShouldNotContain("Extension properties");
             page.ShouldContain("Extras.ExtraValue");

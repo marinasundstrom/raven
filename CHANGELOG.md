@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Add a persisted Show extension members reader toggle when a
+  type has applicable extensions. Filter extensions independently of inherited
+  members in both grouping modes, updating counts and the page outline.
+
 - **2026-09-27:** Add linked derived-type, derived-interface and implementing-type
   sections to RavenDoc pages, including marked indirect relationships. Index only
   documented types, respecting selections and exclusions; match generic contracts

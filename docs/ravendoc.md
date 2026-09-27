@@ -755,3 +755,9 @@ include indirect relationships, marked as such, and match constructed generic
 contracts to their original definitions. They describe the selected API surface
 of the documented assembly, not every possible implementation in other assemblies.
 Excluded/private types and compiler companion scaffolding remain omitted.
+
+The **Show extension members** reader toggle appears on types with applicable
+extensions. It defaults to enabled, remembers the reader’s choice, and works
+independently of **Show inherited members** in either grouping mode. Hidden
+extensions are excluded from group counts and empty groups disappear. This
+filters extensions selected by the site, not all extensions in other assemblies.
