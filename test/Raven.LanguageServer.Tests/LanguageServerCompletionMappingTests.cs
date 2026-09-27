@@ -45,6 +45,29 @@ public class LanguageServerCompletionMappingTests
         mapped.InsertTextFormat.ShouldBe(expectedText.Contains("$0") ? InsertTextFormat.Snippet : InsertTextFormat.PlainText);
     }
 
+    [Theory]
+    [InlineData("import System.|")]
+    [InlineData("func Main() {\n    System.|\n}")]
+    public void ToLspCompletion_SystemMembers_InterleavesNamespacesAndTypes(string markedSource)
+    {
+        var position = markedSource.IndexOf('|');
+        var source = markedSource.Remove(position, 1);
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
+            .AddSyntaxTrees(tree)
+            .AddReferences(LanguageServerTestReferences.Default);
+        var text = SourceText.From(source);
+
+        var labels = compilation.GetCompletions(tree, position)
+            .Select(item => CompletionItemMapper.ToLspCompletion(item, text))
+            .OrderBy(item => item.SortText, StringComparer.OrdinalIgnoreCase)
+            .Select(item => item.Label)
+            .Where(label => label is "Collections" or "Console" or "DateTime")
+            .ToArray();
+
+        labels.ShouldBe(new[] { "Collections", "Console", "DateTime" });
+    }
+
     [Fact]
     public void ToLspCompletion_MethodCompletion_UsesSnippetAndCaretPlaceholder()
     {
@@ -81,7 +104,7 @@ public class LanguageServerCompletionMappingTests
     }
 
     [Fact]
-    public void ToLspCompletion_WildcardImportCompletion_UsesOperatorKindAndTopSort()
+    public void ToLspCompletion_WildcardImportCompletion_UsesOperatorKindAndLabelSort()
     {
         var text = SourceText.From("import System.");
         var item = new Raven.CodeAnalysis.CompletionItem(
@@ -96,6 +119,35 @@ public class LanguageServerCompletionMappingTests
         mapped.Detail.ShouldBe("Import all accessible members");
         mapped.SortText.ShouldBe("00_*");
         mapped.InsertText.ShouldBe("*");
+    }
+
+    [Fact]
+    public void ToLspCompletion_MixedKinds_SortAlphabeticallyAcrossKinds()
+    {
+        ISymbol?[] symbols =
+        [
+            new FakeMethodSymbol("Zebra", isExtensionMethod: false),
+            new FakeNamedTypeSymbol("Delta", TypeKind.Class),
+            new FakeNamespaceSymbol("Alpha"),
+            new FakeMacroSymbol("Echo"),
+            new FakeMethodSymbol("Bravo", isExtensionMethod: true),
+            null
+        ];
+        var text = SourceText.From(string.Empty);
+        var items = symbols.Select(symbol =>
+        {
+            var label = symbol?.Name ?? "return";
+            return CompletionItemMapper.ToLspCompletion(new Raven.CodeAnalysis.CompletionItem(
+                DisplayText: label,
+                InsertionText: label,
+                ReplacementSpan: new TextSpan(0, 0),
+                Symbol: symbol), text);
+        });
+
+        var sortedLabels = items.OrderBy(item => item.SortText, StringComparer.OrdinalIgnoreCase)
+            .Select(item => item.Label).ToArray();
+
+        sortedLabels.ShouldBe(new[] { "Alpha", "Bravo", "Delta", "Echo", "return", "Zebra" });
     }
 
     [Fact]

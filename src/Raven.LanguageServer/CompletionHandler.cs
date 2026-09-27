@@ -227,29 +227,6 @@ internal sealed class CompletionHandler : ICompletionHandler
 
         return CompletionItemKind.Text;
     }
-
-    internal static string GetSortText(RavenCompletionItem item)
-    {
-        if (item.Symbol is null && item.DisplayText == "*")
-            return "00_*";
-
-        var rank = item.Symbol switch
-        {
-            IFieldSymbol => 10,
-            IPropertySymbol => 10,
-            IEventSymbol => 10,
-            ILocalSymbol => 15,
-            IParameterSymbol => 15,
-            IMethodSymbol { IsExtensionMethod: false } => 20,
-            IMethodSymbol { IsExtensionMethod: true } => 40,
-            ITypeSymbol => 50,
-            INamespaceSymbol => 60,
-            null when SyntaxFacts.TryParseKeyword(item.DisplayText, out _) => 70,
-            _ => 80
-        };
-
-        return $"{rank:D2}_{item.DisplayText}";
-    }
 }
 
 internal static class CompletionItemMapper
@@ -268,7 +245,8 @@ internal static class CompletionItemMapper
             Detail = item.Description,
             LabelDetails = TryCreateLabelDetails(item.Symbol),
             Kind = CompletionHandler.MapCompletionItemKind(item),
-            SortText = CompletionHandler.GetSortText(item),
+            // Use one rank for all Raven items; embedded-language suggestions use a later rank.
+            SortText = $"00_{item.DisplayText}",
             CommitCharacters = s_defaultCommitCharacters,
             InsertText = newText,
             TextEdit = new TextEditOrInsertReplaceEdit(new TextEdit
