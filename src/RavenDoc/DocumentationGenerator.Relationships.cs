@@ -5,6 +5,65 @@ using Raven.CodeAnalysis.Syntax;
 
 public static partial class DocumentationGenerator
 {
+    private static readonly Dictionary<string, INamedTypeSymbol> DocumentedTypes = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, List<(INamedTypeSymbol Type, bool Direct)>> ReverseTypeRelationships = new(StringComparer.Ordinal);
+
+    private static string TypeDefinitionId(ITypeSymbol type)
+        => GetXrefId(type is INamedTypeSymbol named ? named.OriginalDefinition : type);
+
+    private static void BuildReverseTypeRelationships()
+    {
+        foreach (var type in DocumentedTypes.Values)
+        {
+            var related = new Dictionary<string, bool>(StringComparer.Ordinal);
+            for (var ancestor = type.BaseType; ancestor is not null; ancestor = ancestor.BaseType)
+                related[TypeDefinitionId(ancestor)] = SymbolEqualityComparer.Default.Equals(ancestor, type.BaseType);
+            foreach (var contract in type.AllInterfaces)
+            {
+                var id = TypeDefinitionId(contract);
+                // Imported CLI symbols can expose the transitive interface closure in
+                // Interfaces. Keep inherited contracts distinct from effective direct edges.
+                var inheritedFromBase = type.BaseType?.AllInterfaces.Any(inherited =>
+                    SymbolEqualityComparer.Default.Equals(inherited, contract)) == true;
+                var inheritedFromInterface = type.Interfaces.Any(other =>
+                    !SymbolEqualityComparer.Default.Equals(other, contract) &&
+                    other.AllInterfaces.Any(inherited => SymbolEqualityComparer.Default.Equals(inherited, contract)));
+                var direct = !inheritedFromBase && !inheritedFromInterface;
+                related[id] = related.GetValueOrDefault(id) || direct;
+            }
+            foreach (var (id, direct) in related)
+            {
+                if (!DocumentedTypes.ContainsKey(id) || id == TypeDefinitionId(type))
+                    continue;
+                if (!ReverseTypeRelationships.TryGetValue(id, out var descendants))
+                    ReverseTypeRelationships[id] = descendants = [];
+                descendants.Add((type, direct));
+            }
+        }
+    }
+
+    private static IEnumerable<string> RenderReverseTypeRelationships(string directory, ITypeSymbol type)
+    {
+        if (!ReverseTypeRelationships.TryGetValue(TypeDefinitionId(type), out var descendants))
+            yield break;
+        foreach (var group in descendants.GroupBy(item => type.TypeKind == TypeKind.Interface
+            ? item.Type.TypeKind == TypeKind.Interface ? "Derived interfaces" : "Implementing types"
+            : "Derived types").OrderBy(group => group.Key, StringComparer.Ordinal))
+        {
+            var lines = new StringBuilder();
+            lines.AppendLine($"## {group.Key}").AppendLine();
+            lines.AppendLine("Documented types in this API reference. Indirect relationships are marked.").AppendLine();
+            foreach (var item in group.OrderBy(item => GetTypeDocName(item.Type), StringComparer.Ordinal))
+            {
+                lines.Append("- ").Append(FormatTypeLink(directory, item.Type, ContainingTypeDisplayFormat));
+                if (!item.Direct)
+                    lines.Append(" (indirect)");
+                lines.AppendLine();
+            }
+            yield return lines.ToString();
+        }
+    }
+
     private static IEnumerable<ISymbol> PublicRelatedMembers(ITypeSymbol type)
         => type.GetMembers().Where(member => member.DeclaredAccessibility == Accessibility.Public && !member.IsStatic &&
             member is not ITypeSymbol && member is not IMethodSymbol { IsConstructor: true } &&

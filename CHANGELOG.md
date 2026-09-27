@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Add linked derived-type, derived-interface and implementing-type
+  sections to RavenDoc pages, including marked indirect relationships. Index only
+  documented types, respecting selections and exclusions; match generic contracts
+  by their original definitions for source and imported metadata. Label interface
+  base contracts as inherited rather than implemented.
+
 - **2026-09-27:** On the neoCLR target, discard imported generic results whose
   type is the configured unit representation exactly once. Direct completion-only
   awaits no longer leave an inhabited System.Void on the evaluation stack.
