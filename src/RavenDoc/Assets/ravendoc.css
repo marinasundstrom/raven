@@ -186,6 +186,7 @@ pre code { padding: 0; }
 
 .section-heading {
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
@@ -193,12 +194,16 @@ pre code { padding: 0; }
 }
 
 .section-heading h2 {
+    min-width: 0;
+    flex: 1 1 12rem;
+    overflow-wrap: anywhere;
     padding: 0;
     margin: 0;
     border: 0;
 }
 
 .section-heading > span {
+    flex: 0 0 auto;
     color: var(--muted);
     font-size: 0.78rem;
 }
