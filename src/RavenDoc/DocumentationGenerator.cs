@@ -791,7 +791,7 @@ public static partial class DocumentationGenerator
 
         if (!isNamespacePage && renderedSections.Count > 0)
         {
-            renderedSections.Insert(0, $"<div class=\"member-display-controls\"><label class=\"member-grouping\" hidden>Group members <select id=\"member-grouping\"><option value=\"kind\">By member kind</option><option value=\"declaringType\">By declaring type</option></select></label><label class=\"member-filter\" hidden><input id=\"show-inherited-members\" type=\"checkbox\" checked /> Show inherited members</label></div>\n\n<div id=\"member-groups\" data-default-grouping=\"{CurrentSiteOptions.MemberGrouping}\">");
+            renderedSections.Insert(0, $"<div class=\"member-display-controls\"><label class=\"member-grouping\" hidden>Group members <select id=\"member-grouping\"><option value=\"kind\">By member kind</option><option value=\"declaringType\">By declaring type</option></select></label><label class=\"member-filter\" hidden><input id=\"show-inherited-members\" type=\"checkbox\" checked /> Show inherited members</label><label class=\"member-filter\" hidden><input id=\"show-extension-members\" type=\"checkbox\" checked /> Show extension members</label></div>\n\n<div id=\"member-groups\" data-default-grouping=\"{CurrentSiteOptions.MemberGrouping}\">");
             renderedSections.Add("</div>");
         }
         return renderedSections;
