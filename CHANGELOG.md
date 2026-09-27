@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Resolve applicable extensions for open generic API types using
+  their type parameters. Keep extension-container declarations visible regardless
+  of the reader filter, exclude ordinary operators from extension listings, and
+  omit inherited instance members from static classes.
+
 - **2026-09-27:** Lay out inherited/extension member toggles side by side when
   space permits, wrapping naturally on narrow screens beneath the grouping control.
   Encode grouping and both filters in shareable URLs; valid URL choices override

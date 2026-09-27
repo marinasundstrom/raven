@@ -1200,8 +1200,9 @@ public static partial class DocumentationGenerator
                 },
                 RenderMemberOrigins(currentDir, row.Symbol, context),
                 LogicalMemberOwner(row.Symbol) is { } owner ? GetNamespaceFullName(owner.ContainingNamespace) + "." + GetTypeName(owner) : "",
-                context is not null && row.Symbol.GetExtensionReceiverType() is null && LogicalMemberOwner(row.Symbol) is { } declaringType && !SymbolEqualityComparer.Default.Equals(context, declaringType),
-                row.Symbol.GetExtensionReceiverType() is not null)).ToArray());
+                context is not null && !IsDocumentationExtension(row.Symbol) && LogicalMemberOwner(row.Symbol) is { } declaringType && !SymbolEqualityComparer.Default.Equals(context, declaringType),
+                IsDocumentationExtension(row.Symbol),
+                IsContributedExtension(row.Symbol, context))).ToArray());
     }
 
     private static RavenDocSymbolKind GetTemplateSymbolKind(ISymbol symbol)
