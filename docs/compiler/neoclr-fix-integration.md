@@ -1558,3 +1558,27 @@ The original generic-first case failed before the fix. All 28 focused regression
 import, alias and constructor lookup checks pass; .NET Framework and
 NanoFramework execution is not claimed. The independent fix can be integrated into
 main and then individually into neoclr; the target consumer remains neoCLR evidence.
+
+
+## Overloaded block-lambda return inference (2026-09-27)
+
+Isolated on `codex/task-run-block-lambda` from main. Ordinary .NET
+`Task.Run<int>(() => { let value = 40; return value + 2 })` reported RAV1503,
+converting int to unit, before overload resolution selected Func<int>. Initial
+argument binding had used the first delegate overload (Action) as a target even
+when the candidates disagreed.
+
+Unannotated synchronous lambdas retain the initial delegate parameter hint, but
+infer their return independently when that hint is completion-only and another
+candidate can return a value. A unique target or explicit return annotation still
+controls return checking. Existing common-target handling and overload replay remain
+responsible for final shaping. Method groups and async lambda rules are unchanged. This follows the CLR ergonomic expectation
+that a value-returning callback selects the appropriate Task.Run overload; it does
+not change async scheduling, emitted metadata contracts or Runtime Contract options.
+
+The ordinary CLR regression executes block callbacks with explicit and inferred
+type arguments, completion-only work and a captured object. A unique Action target
+still diagnoses an explicit integer return. All 64 focused regression, lambda inference,
+async Task.Run and expression-tree checks pass, covering the changed target-selection path.
+The general fix is suitable for main and individual integration into neoclr;
+.NET Framework and NanoFramework execution is not claimed.

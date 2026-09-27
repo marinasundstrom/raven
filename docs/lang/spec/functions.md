@@ -291,6 +291,13 @@ let write: (string) -> () = value => Console.WriteLine(value)
 The same function expression can therefore be assigned to, passed to, or
 returned as any compatible delegate type.
 
+When invocation overloads include both completion-only and value-returning
+callbacks, an initial completion-only delegate hint does not constrain the return
+of an unannotated synchronous function expression. Raven retains parameter hints
+while inferring the body result. Explicit value returns can therefore select a
+value-returning callback such as `Func<int>` alongside `Action`. A uniquely known
+`Action` target or an explicit return annotation remains authoritative.
+
 Compatibility is based on the delegate's parameter types, `ref`/`out`
 modifiers, and return type. Delegate types themselves are not implicitly
 convertible to one another merely because their signatures match; converting

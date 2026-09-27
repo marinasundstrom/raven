@@ -10,6 +10,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   Preserve CLI no-result returns and existing Runtime Contract configuration;
   this target integration remains on the experimental branch.
 
+- **2026-09-27:** Infer unannotated synchronous block-lambda results independently
+  of an initial completion-only delegate hint when other overloads can return a
+  value. Preserve parameter inference. Task.Run value callbacks work with explicit
+  or inferred type arguments; a unique Action target still rejects explicit value
+  returns. Runtime Contract options are unchanged.
+
 - **2026-09-27:** Resolve simple imported type receivers independently of metadata
   order: select the nongeneric member of a same-scope type family for calls such
   as Task.Run, preserving explicit generic annotations, aliases and local/parameter
