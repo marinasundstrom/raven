@@ -752,9 +752,14 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
         if (TryGetCaseDefinition(out _))
             return selfArgs;
 
-        if (_containingTypeOverride is ConstructedNamedTypeSymbol constructedContaining)
+        // An open source owner contributes parameters too. Synthesized nested
+        // state machines commonly have no constructed-owner override, but CLI
+        // signatures still require all enclosing arguments before their own.
+        if (ContainingType is { } containingType)
         {
-            var outerArgs = constructedContaining.GetAllTypeArguments();
+            var outerArgs = containingType is ConstructedNamedTypeSymbol constructedContaining
+                ? constructedContaining.GetAllTypeArguments()
+                : new ConstructedNamedTypeSymbol(containingType, containingType.TypeParameters.Cast<ITypeSymbol>().ToImmutableArray()).GetAllTypeArguments();
             if (selfArgs.IsDefaultOrEmpty || selfArgs.Length == 0)
                 return outerArgs;
 

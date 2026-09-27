@@ -343,6 +343,14 @@ public static class TypeSymbolExtensionsForCodeGen
         }
     }
 
+    internal static ImmutableArray<ITypeSymbol> GetRuntimeTypeArguments(INamedTypeSymbol symbol, Type runtimeDefinition)
+    {
+        var constructed = symbol as ConstructedNamedTypeSymbol
+            ?? new ConstructedNamedTypeSymbol(symbol, symbol.TypeArguments);
+        return SelectRuntimeTypeArguments(runtimeDefinition,
+            constructed.GetExplicitTypeArgumentsForInference(), symbol.TypeArguments, constructed.GetAllTypeArguments());
+    }
+
     private static ImmutableArray<ITypeSymbol> SelectRuntimeTypeArguments(
         Type genericDefinition,
         ImmutableArray<ITypeSymbol> explicitArguments,
@@ -478,7 +486,7 @@ public static class TypeSymbolExtensionsForCodeGen
         var genericDefinition = runtimeType.IsGenericTypeDefinition
             ? runtimeType
             : runtimeType.GetGenericTypeDefinition();
-        var arguments = symbol.TypeArguments
+        var arguments = GetRuntimeTypeArguments(symbol, genericDefinition)
             .Select(argument => GetClrTypeInternal(
                 argument,
                 codeGen,

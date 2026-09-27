@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Preserve enclosing generic arguments in async state-machine
+  locals and generic await-registration signatures, including nongeneric methods
+  on generic classes and nested generic owners. Redirect implicit field writes
+  after await through the original receiver. Focused ordinary .NET execution
+  covers captures, explicit/implicit field receivers and nested generic types.
+  No Runtime Contract options or source syntax change.
+
 - **2026-09-27:** Select only the current API navigation entry, rather than every
   namespace function sharing its directory. Keep the containing type highlighted
   on member pages without a dedicated navigation entry.

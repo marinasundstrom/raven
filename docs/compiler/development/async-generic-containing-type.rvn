@@ -1,5 +1,5 @@
-// Known independent runtime failure: nested async state-machine generic arity.
-// No capture is needed. Intended output: 42.
+// Positive regression: async methods retain enclosing generic arguments.
+// Expected output: 42.
 import System.*
 import System.Console.*
 import System.Threading.Tasks.*
