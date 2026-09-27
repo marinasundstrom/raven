@@ -525,3 +525,19 @@ Raven.Core WithContext bootstrap exposed this boundary. The existing ordinary CL
 ResultWithMessage success/error consumers reproduce the failure before the fix;
 focused extension, async owner/capture and nested union tests validate the repair.
 No Runtime Contract configuration or neoCLR-specific policy is involved.
+
+### Workspace build-output discovery — 2026-09-27
+
+Language-server automatic solution/project discovery and watched-file reloads now
+exclude conventional `target` and `artifacts` output directories, like the existing
+`bin`/`obj` exclusions. A generated solution must not replace the source workspace's
+project group. Nested project.assets.json files under those output trees do not
+trigger reload; the normal source project's obj/project.assets.json still does.
+Explicit project/solution references retain their normal loading path.
+
+Two focused generated-solution cases reproduce the old discovery error before
+the fix. This reduces irrelevant editor scanning in mixed-language repositories;
+there is no Runtime Contract configuration, semantic or emission change and no
+neoCLR-specific policy. Old process stacks also showed JSON-RPC input processing;
+the current SDK did not reproduce that CPU spin on closed stdin, so this fix does
+not claim to resolve every older language-server CPU or memory report.
