@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-27:** Document neoCLR development admission for nominal interface defaults
+  and public/private static helpers, focused consumer evidence and the deferred
+  private-instance-helper metadata candidate. Target documentation only; no compiler
+  behavior or Runtime Contract configuration changes.
+
 - **2026-09-27:** Document development Number static contracts and concrete parsing
   in the neoCLR reference surface, the independently integrated general compiler
   prerequisites and bounded target numeric specialization. No Runtime Contract

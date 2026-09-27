@@ -1410,3 +1410,24 @@ important direction; this numeric consumer does not establish support for every
 interface body or accessibility combination. Native default-body support is also
 distinct from Raven-facing importer support. Focused neoCLR consumers exercise all
 ten numeric implementations, concrete parsing, type rejection and exact metadata.
+
+
+## neoCLR interface helper admission — 2026-09-27
+
+Target integration only; no Raven semantic/emission change or Runtime Contract
+configuration change is included. neoCLR's development bridge admits non-generic
+application interfaces with public instance defaults and ordinary public/private
+static helpers. Owned static metadata and access are preserved, nominal defaults
+execute on the original class receiver, and helpers have no conformance obligation.
+The focused neoCLR `docs/experiments/interface-helpers` consumer checks nested
+interface calls, class precedence, void defaults, reflection and private-access
+rejection; native default/static-contract tests cover the runtime boundary.
+
+Private instance helpers remain a deferred general compiler candidate: the probed
+`private func Twice(value: int) -> int => value * 2` on an interface emits Private,
+Virtual, NewSlot with a body. The target currently rejects this shape. Independently
+validate intended CLI/.NET behavior and semantic/metadata/access tests on a main-based
+feature branch before a general fix; do not make a neoCLR-specific emission rewrite.
+Static virtual defaults, explicit derived replacements and protected/internal member
+admission remain outside this target slice. Existing native default-diamond tests do
+not prove Raven import of those declarations.
