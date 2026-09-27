@@ -27,6 +27,10 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
 
     public override SymbolKind Kind => SymbolKind.Property;
 
+    public override IAssemblySymbol? ContainingAssembly => ContainingType?.ContainingAssembly;
+
+    public override IModuleSymbol? ContainingModule => ContainingType?.ContainingModule;
+
     public override string Name
     {
         get

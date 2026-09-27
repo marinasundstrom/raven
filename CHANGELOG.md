@@ -10,6 +10,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Runtime Contract configuration is unchanged. Generic-method closure metadata
   remains a separately tracked pre-existing limitation.
 
+- **2026-09-27:** Preserve containing assembly and module identity on synthesized
+  extension-property symbols. Semantic API consumers can identify projected
+  properties by their declaring assembly for source and imported CLI metadata.
+  Correct imported method override flags using CLI slot reuse, excluding
+  constructors and new-slot interface implementations. Runtime Contract
+  configuration and emitted behavior are unchanged.
+
 - **2026-09-27:** RavenDoc omits namespaces without documented members of their
   own from API navigation by default, promoting populated descendants without
   changing page URLs. Enable `showEmptyNamespaces` or `--show-empty-namespaces`
