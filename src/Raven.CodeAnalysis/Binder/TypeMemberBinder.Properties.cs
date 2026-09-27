@@ -69,7 +69,10 @@ internal partial class TypeMemberBinder : Binder
                 propertyDecl.Identifier.ValueText,
                 propertyDecl.Identifier.GetLocation());
         }
-        var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+        var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword)
+            || _containingType.TypeKind == TypeKind.Interface && propertyDecl.ExpressionBody is null
+                && propertyDecl.AccessorList is { } interfaceAccessors
+                && interfaceAccessors.Accessors.All(a => a.Body is null && a.ExpressionBody is null);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);

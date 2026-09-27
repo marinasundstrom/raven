@@ -6918,6 +6918,11 @@ internal partial class ExpressionGenerator : Generator
                 if (!propertySymbol.IsStatic && !propertySymbol.ContainingType!.IsValueType)
                     EmitBoxIfNeeded(propertySymbol.ContainingType!, getter);
 
+                if (propertySymbol.IsStatic && propertySymbol.GetMethod.IsAbstract &&
+                    propertySymbol.ContainingType?.TypeKind == TypeKind.Interface &&
+                    receiver?.Type is ITypeParameterSymbol constrainedType)
+                    ILGenerator.Emit(OpCodes.Constrained, ResolveClrType(constrainedType));
+
                 ILGenerator.Emit(propertySymbol.IsStatic || propertySymbol.ContainingType!.IsValueType ? OpCodes.Call : OpCodes.Callvirt, getter);
 
                 if (ShouldDiscardCurrentResult(memberAccessExpression))
@@ -7937,10 +7942,7 @@ internal partial class ExpressionGenerator : Generator
             target.IsStatic &&
             target.IsAbstract &&
             isInterfaceCall &&
-            receiverType is SourceTypeParameterSymbol &&
-            target is IMethodSymbol interfaceMethod &&
-            string.Equals(interfaceMethod.MetadataName, "Parse", StringComparison.Ordinal) &&
-            string.Equals(interfaceMethod.ContainingType?.ToFullyQualifiedMetadataName(), "System.IParsable`1", StringComparison.Ordinal);
+            receiverType is ITypeParameterSymbol;
 
         var targetMethodInfo = GetMethodInfo(target);
 
