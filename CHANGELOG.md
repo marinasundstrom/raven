@@ -15,6 +15,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Runtime Contract configuration is unchanged. Generic-method closure metadata
   remains a separately tracked pre-existing limitation.
 
+- **2026-09-27:** Use a compact documentation type scale: 15px equivalent prose
+  and member labels, 13px code blocks/signatures, and restrained headings. Sizes
+  use relative units and overridable CSS variables; syntax highlighting and browser
+  text scaling remain intact.
+
 - **2026-09-27:** Preserve containing assembly and module identity on synthesized
   extension-property symbols. Semantic API consumers can identify projected
   properties by their declaring assembly for source and imported CLI metadata.

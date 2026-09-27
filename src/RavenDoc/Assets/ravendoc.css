@@ -1,5 +1,7 @@
 @import url("./raven-highlight.css");
 :root {
+    --doc-text-size: 0.9375rem;
+    --doc-code-size: 0.8125rem;
     --bg: var(--raven-bg);
     --surface: var(--raven-surface);
     --fg: var(--raven-ink);
@@ -25,7 +27,8 @@ body {
         radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--raven-accent) 8%, transparent), transparent 32rem),
         var(--bg);
     color: var(--fg);
-    line-height: 1.65;
+    font-size: var(--doc-text-size);
+    line-height: 1.6;
 }
 
 .site-header {
@@ -121,17 +124,17 @@ h1, h2, h3, h4 {
 
 h1 {
     margin: 0;
-    font-size: clamp(1.55rem, 2.6vw, 1.9rem);
+    font-size: clamp(1.6rem, 2.6vw, 2rem);
     overflow-wrap: anywhere;
 }
 
 h2 {
-    font-size: 1.3rem;
+    font-size: 1.25rem;
     padding-bottom: 0.4rem;
     border-bottom: 1px solid var(--border);
 }
 
-h3 { font-size: 1.12rem; }
+h3 { font-size: 1.0625rem; }
 
 a {
     color: var(--link);
@@ -146,6 +149,8 @@ pre, code {
 }
 
 pre {
+    font-size: var(--doc-code-size);
+    line-height: 1.6;
     padding: 1rem;
     overflow-x: auto;
     border: 1px solid var(--border);
@@ -153,17 +158,18 @@ pre {
 }
 
 code {
+    font-size: 0.9em;
     padding: 0.12rem 0.32rem;
     border-radius: 0.35rem;
 }
 
-pre code { padding: 0; }
+pre code { padding: 0; font-size: inherit; line-height: inherit; }
 
 .api-signature {
     margin: 1.25rem 0 0;
     border-left: 3px solid var(--accent);
     box-shadow: inset 0 1px color-mix(in srgb, var(--raven-ink) 4%, transparent);
-    font-size: 0.92rem;
+    font-size: var(--doc-code-size);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
@@ -396,7 +402,7 @@ a.broken-xref {
 .skip-link { position: absolute; top: -5rem; left: 1rem; z-index: 10; }
 .skip-link:focus { top: 1rem; background: Canvas; color: CanvasText; padding: .75rem; }
 
-.member-name { font-weight: 650; font-size: 1rem; color: var(--accent); }
+.member-name { font-weight: 650; font-size: var(--doc-text-size); color: var(--accent); }
 
 .symbol-icon { position: relative; }
 .symbol-static-marker, .symbol-extension-marker {
