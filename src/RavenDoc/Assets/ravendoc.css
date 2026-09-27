@@ -321,10 +321,13 @@ pre code { padding: 0; }
 
 #page-outline-links {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.15rem;
 }
 
 #page-outline-links a {
+    min-width: 0;
+    overflow-wrap: anywhere;
     padding: 0.24rem 0;
     color: var(--muted);
 }
