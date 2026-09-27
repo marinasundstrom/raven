@@ -683,11 +683,26 @@ partial class BlockBinder : Binder
 
     public override ISymbol? LookupSymbol(string name)
     {
-        // Forward to LookupSymbols so import directives and alias mappings are considered
-        // when binding identifier references. Previously this method bypassed the import
-        // binder, causing namespace or type aliases to be ignored and resulting in missing
-        // completions for alias-qualified names.
-        return LookupSymbols(name).FirstOrDefault();
+        // Preserve lexical and alias precedence while choosing the nongeneric
+        // spelling from a same-scope type family independently of metadata order.
+        using var candidates = LookupSymbols(name).GetEnumerator();
+        if (!candidates.MoveNext())
+            return null;
+
+        var first = candidates.Current;
+        if (first is not INamedTypeSymbol { Arity: > 0 } || first.IsAlias)
+            return first;
+
+        while (candidates.MoveNext())
+        {
+            if (candidates.Current is INamedTypeSymbol { Arity: 0 } candidate &&
+                SymbolEqualityComparer.Default.Equals(candidate.ContainingSymbol, first.ContainingSymbol))
+            {
+                return candidate;
+            }
+        }
+
+        return first;
     }
 
     public override ITypeSymbol? LookupType(string name)
