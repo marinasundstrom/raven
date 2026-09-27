@@ -8,6 +8,33 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class StringInterpolationTests
 {
+    [Theory]
+    [InlineData("Value $value")]
+    [InlineData("${value}")]
+    public void MissingConcatOverloadReportsDiagnostic(string expression)
+    {
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var core = paths.Single(path => Path.GetFileName(path) == "System.Runtime.dll");
+        using var image = Mono.Cecil.AssemblyDefinition.ReadAssembly(core);
+        var stringType = image.MainModule.GetType("System.String");
+        foreach (var method in stringType.Methods.Where(method => method.Name == "Concat").ToArray())
+            stringType.Methods.Remove(method);
+        using var modified = new MemoryStream();
+        image.Write(modified);
+        var references = paths.Select(path => path == core
+            ? MetadataReference.CreateFromImage(modified.ToArray())
+            : MetadataReference.CreateFromFile(path)).ToArray();
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+            .WithTargetCoreAssemblyName("System.Runtime");
+        var tree = SyntaxTree.ParseText("class Example { static func Run(value: int) { let text = \"" + expression + "\" } }");
+        var compilation = Compilation.Create("MissingConcat", [tree], references, options);
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error
+            && diagnostic.GetMessage().Contains("Concat"));
+        using var output = new MemoryStream();
+        Assert.False(compilation.Emit(output).Success);
+    }
+
     [Fact]
     public void InterpolatedString_FormatsCorrectly()
     {

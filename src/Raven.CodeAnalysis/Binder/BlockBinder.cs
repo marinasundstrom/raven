@@ -8212,9 +8212,12 @@ partial class BlockBinder : Binder
                     Compilation.GetSpecialType(SpecialType.System_String));
 
                 var firstConcat = ResolveStringConcatMethod(empty, right);
-                return firstConcat is null
-                    ? ErrorExpression(reason: BoundExpressionReason.OtherError)
-                    : new BoundInvocationExpression(firstConcat, [empty, right]);
+                if (firstConcat is null)
+                {
+                    _diagnostics.ReportNoOverloadForMethod("method", "String.Concat", 2, syntax.GetLocation());
+                    return ErrorExpression(reason: BoundExpressionReason.OtherError);
+                }
+                return new BoundInvocationExpression(firstConcat, [empty, right]);
             }
 
             if (left is BoundErrorExpression)
@@ -8227,9 +8230,12 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.OtherError);
 
             var concatMethod = ResolveStringConcatMethod(left, right);
-            return concatMethod is null
-                ? ErrorExpression(reason: BoundExpressionReason.OtherError)
-                : new BoundInvocationExpression(concatMethod, [left, right]);
+            if (concatMethod is null)
+            {
+                _diagnostics.ReportNoOverloadForMethod("method", "String.Concat", 2, syntax.GetLocation());
+                return ErrorExpression(reason: BoundExpressionReason.OtherError);
+            }
+            return new BoundInvocationExpression(concatMethod, [left, right]);
         }
 
         static List<string> SplitBySentinel(string s, char sentinel)

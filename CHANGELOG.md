@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-27:** Report an error when string interpolation cannot find a usable String.Concat
+  overload in the selected reference library, instead of silently dropping the
+  expression. Existing successful .NET interpolation behavior is unchanged.
+
 - **2026-09-27:** Exclude conventional target/artifacts build outputs from automatic
   language-server solution/project discovery and watched-file reloads, including
   nested restore assets. Preserve source project restore notifications and explicit
