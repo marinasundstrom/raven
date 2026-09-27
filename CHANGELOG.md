@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-27:** RavenDoc omits namespaces without documented members of their
+  own from API navigation by default, promoting populated descendants without
+  changing page URLs. Enable `showEmptyNamespaces` or `--show-empty-namespaces`
+  to retain namespace grouping rows in hierarchical or flat navigation.
+
 - **2026-09-27:** Preserve authored attributes on union case type symbols and emit
   them on the corresponding generated nested case types, including generic union
   companions. Validate case attributes against the case type's AttributeUsage;

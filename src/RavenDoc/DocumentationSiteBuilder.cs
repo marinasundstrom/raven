@@ -113,7 +113,7 @@ public static class DocumentationSiteBuilder
                 configuration.Name, configuration.Logo, configuration.Stylesheet, menu,
                 configuration.Footer ?? configuration.Name, configuration.MemberListStyle,
                 configuration.Types, configuration.ExcludedMembers, configuration.Subtitle,
-                configuration.Notice, configuration.ReleaseUrl, configuration.ReleaseLabel, configuration.ShowToc, configuration.Favicon, configuration.NamespaceNavigation, configuration.GoogleAnalyticsId);
+                configuration.Notice, configuration.ReleaseUrl, configuration.ReleaseLabel, configuration.ShowToc, configuration.Favicon, configuration.NamespaceNavigation, configuration.GoogleAnalyticsId, configuration.ShowEmptyNamespaces);
             var template = new RavenDocSiteTemplate();
             template.WriteAssets(staging);
             IReadOnlyList<DocumentationNavigationItem> apiNavigation = [];
@@ -230,6 +230,7 @@ public static class DocumentationSiteBuilder
         public string ApiPath { get; init; } = "api";
         public string MemberListStyle { get; init; } = "compact";
         public string NamespaceNavigation { get; init; } = "hierarchical";
+        public bool ShowEmptyNamespaces { get; init; }
         public List<string>? Types { get; init; }
         public List<string>? ExcludedMembers { get; init; }
         public string? Subtitle { get; init; }

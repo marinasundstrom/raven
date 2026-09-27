@@ -212,6 +212,7 @@ internal static class RavenDocCommand
         string? siteRootPath = null;
         var memberListStyle = "compact";
         var namespaceNavigation = "hierarchical";
+        var showEmptyNamespaces = false;
         var siteLinks = new List<DocumentationSiteLink>();
         var templateValues = new Dictionary<string, string>(StringComparer.Ordinal);
         var referencePaths = new List<string>();
@@ -253,6 +254,9 @@ internal static class RavenDocCommand
                         return false;
                     }
                     siteLinks.Add(navigationLink);
+                    break;
+                case "--show-empty-namespaces":
+                    showEmptyNamespaces = true;
                     break;
                 case "--namespace-navigation":
                     if (!TryReadValue(args, ref index, out var namespaceStyle) ||
@@ -331,7 +335,7 @@ internal static class RavenDocCommand
             new DocumentationSiteOptions(
                 siteLinks,
                 templateValues,
-                siteRootPath is null ? null : Path.GetFullPath(siteRootPath), MemberListStyle: memberListStyle, NamespaceNavigation: namespaceNavigation),
+                siteRootPath is null ? null : Path.GetFullPath(siteRootPath), MemberListStyle: memberListStyle, NamespaceNavigation: namespaceNavigation, ShowEmptyNamespaces: showEmptyNamespaces),
             referencePaths,
             showHelp);
         return true;
@@ -407,6 +411,7 @@ internal static class RavenDocCommand
               -f, --framework <tfm>       Target framework used for references (default: net10.0)
                   --list-signatures        Show full declarations in API lists
                   --namespace-navigation   hierarchical (default) or flat namespace sidebar
+                  --show-empty-namespaces  Include namespaces containing only child namespaces
                   --site-root <directory>  Link the header brand to this site's root
                   --nav <label=url>        Add a related-site link to the generated header
                   --value <name=value>     Replace {{name}} in Markdown; may be repeated
