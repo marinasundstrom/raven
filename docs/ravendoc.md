@@ -707,7 +707,10 @@ from the documented assembly are included, preventing host-only framework
 extensions from leaking into a different target's reference. Extension methods and
 properties appear alongside ordinary members in their respective groups, with an
 distinct E badge and a link to their declaring definition. The E badge replaces
-the S badge on extension members.
+the S badge on extension members. Compact labels on receiver pages omit generic
+parameters already bound by receiver lookup: `Any()` rather than `Any<T>()`,
+while a caller-selected result parameter remains, such as `Map<U>(...)`. The
+extension container and declaration signature preserve the full generic contract.
 
 Set `"apiContent": "api-content"` in the site configuration to merge a separate
 Markdown tree into type and member pages. Directory structure and filenames are

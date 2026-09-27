@@ -1153,7 +1153,7 @@ public static partial class DocumentationGenerator
             return $"{parameter.Name}{optional}: {passing}{variadic}{NavigationType(parameter.Type)}";
         }));
 
-    private static string GetNavigationName(ISymbol symbol)
+    private static string GetNavigationName(ISymbol symbol, bool receiverBound = false)
         => symbol switch
         {
             INamespaceSymbol ns => GetNamespaceFullName(ns),
@@ -1162,16 +1162,39 @@ public static partial class DocumentationGenerator
             IPropertySymbol property => property.Name +
                 (property.Parameters.Length > 0 ? $"[{NavigationParameters(property.Parameters)}]" : "") +
                 ": " + NavigationType(property.Type),
-            IMethodSymbol method => GetNavigationMethod(method),
+            IMethodSymbol method => GetNavigationMethod(method, receiverBound),
             _ => symbol.Name
         };
 
-    private static string GetNavigationMethod(IMethodSymbol method)
+    private static string GetNavigationMethod(IMethodSymbol method, bool receiverBound = false)
     {
         var name = method.IsConstructor ? method.ContainingType.Name
             : IsOperatorLike(method) ? GetOperatorGroupName(method) : method.Name;
-        if (method.TypeParameters.Length > 0)
-            name += "<" + string.Join(", ", method.TypeParameters.Select(parameter => parameter.Name)) + ">";
+        // Extension-container parameters are lifted onto imported methods. Match
+        // names in the original receiver declaration, before lookup substitution.
+        var receiverParameters = new HashSet<string>(StringComparer.Ordinal);
+        void CollectReceiverParameters(ITypeSymbol? type)
+        {
+            switch (type)
+            {
+                case ITypeParameterSymbol parameter:
+                    receiverParameters.Add(parameter.Name);
+                    break;
+                case IArrayTypeSymbol array:
+                    CollectReceiverParameters(array.ElementType);
+                    break;
+                case INamedTypeSymbol named:
+                    foreach (var argument in named.TypeArguments.IsEmpty
+                        ? named.TypeParameters.Cast<ITypeSymbol>() : named.TypeArguments)
+                        CollectReceiverParameters(argument);
+                    break;
+            }
+        }
+        if (receiverBound)
+            CollectReceiverParameters(method.OriginalDefinition.GetExtensionReceiverType());
+        var typeParameters = method.TypeParameters.Where(parameter => !receiverParameters.Contains(parameter.Name)).ToArray();
+        if (typeParameters.Length > 0)
+            name += "<" + string.Join(", ", typeParameters.Select(parameter => parameter.Name)) + ">";
         var parameters = NavigationParameters(method.IsExtensionMethod ? method.Parameters.Skip(1) : method.Parameters);
         return $"{name}({parameters})" + (method.IsConstructor ? "" : $" -> {NavigationType(method.ReturnType)}");
     }
@@ -1190,7 +1213,7 @@ public static partial class DocumentationGenerator
                 row.Signature,
                 row.Href,
                 row.Summary,
-                GetNavigationName(row.Symbol),
+                GetNavigationName(row.Symbol, IsContributedExtension(row.Symbol, context)),
                 row.Symbol switch
                 {
                     IMethodSymbol method => method.IsStatic && !method.IsInstanceExtensionMember,
