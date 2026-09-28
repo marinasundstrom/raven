@@ -357,6 +357,9 @@ runtime intersection type. The compiler symbol for a whole intersection constrai
 is a normalized semantic type; the type parameter still exposes individual nominal
 constraint bounds.
 This query behavior does not enable intersection values or a new runtime ABI.
+The compiler API also classifies a limited set of reference membership/projection
+conversions for these semantic types; see the
+[compiler API boundary](../../compiler/intersection-types.md#reference-conversions).
 The broader [compound-type draft](../proposals/drafts/union-and-intersection-types.md) remains
 under consideration.
 

@@ -1,5 +1,31 @@
 # Runtime Contracts
 
+## Intersection reference conversion classification (2026-09-28)
+
+The compiler API classifies implicit membership and projection for intersections
+of non-nullable named reference types. Every destination bound must be proven by
+identity or a nominal reference relationship. An intersection source can supply
+that proof through its constituents. Ordinary nullable reference wrappers use
+existing lifting; nullable constituents and type-parameter entailment remain
+deferred. See [intersection type APIs](intersection-types.md#reference-conversions)
+for the supported boundary.
+
+The classifier does not combine numeric, boxing, or user-defined conversions to
+establish membership. Unsupported membership and runtime-checked narrowing return
+no conversion. Source storage positions still report RAV0363; no emitter change,
+native runtime contract, public ABI, or actual-value conversion execution is
+introduced. This general compiler mechanism is separate from future neoCLR
+structural-type metadata and dispatch.
+
+Validation on .NET 11: the overload-resolution suite passed all 399 tests before
+and after the change. All 118 focused intersection, conversion-classification,
+and conversion-operator tests passed afterward. Coverage includes cold/warm
+membership, inherited and variant interface projection, nullable wrappers,
+rejected boxing/user conversions, and unchanged source-position diagnostics.
+Targeted builds, whitespace formatting, and diff checks succeeded. This is
+compiler classification coverage, not compound-value runtime execution; the
+previously recorded full-baseline union-import failures remain outside this slice.
+
 ## Intersection constraint queries (2026-09-28)
 
 `GetTypeInfo` and `GetSymbolInfo` now expose the normalized semantic type of a

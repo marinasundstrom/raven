@@ -319,8 +319,9 @@ experimental branch and receive independent runtime validation.
 
 ### Next semantic slice: acceptance criteria
 
-The symbol API foundation and whole-constraint semantic queries are implemented;
-value binding, conversions, and inherited-member lookup on intersection receivers
+The symbol API foundation, whole-constraint semantic queries, and initial named
+reference membership/projection conversion classification are implemented;
+value binding, broader conversions, and inherited-member lookup on intersection receivers
 remain follow-up slices. The full acceptance
 criteria below span those slices, before enabling stored values or selecting a
 runtime carrier.

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Classify implicit reference membership and projection conversions
+  for semantic intersections of named reference types. Require every destination
+  bound without combining boxing, numeric, or user-defined conversions. Source
+  storage, checked narrowing, and runtime ABI support remain disabled.
+
 - **2026-09-28:** Expose normalized intersection types through `GetTypeInfo` and
   `GetSymbolInfo` for whole conjunction constraints, including grouped and nested
   bounds. Individual CLI constraints and unsupported storage diagnostics remain

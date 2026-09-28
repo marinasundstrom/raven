@@ -1,8 +1,8 @@
 # Semantic intersection types
 
-Status: compiler API foundation and source constraint queries. Source value
-binding, compound-type conversion
-classification, and runtime representation are not enabled by this slice.
+Status: compiler API foundation, source constraint queries, and initial reference
+membership conversions. Source value binding and runtime representation remain
+disabled.
 
 `Compilation.CreateIntersectionTypeSymbol(params ITypeSymbol[])` constructs an
 immutable semantic intersection. Its return type is `ITypeSymbol`: normalization
@@ -37,6 +37,29 @@ Display uses `A & B`, groups nullable and array intersections as `(A & B)?` and
 identity or dispatch rule. Constructed type and method substitution traverses all
 constituents and reruns normalization after replacements; an unchanged substitution
 preserves the existing symbol instance.
+
+## Reference conversions
+
+`Compilation.ClassifyConversion` recognizes implicit reference membership for
+intersections of non-nullable named reference types (classes, interfaces, and
+delegates). Entry requires the source to satisfy every destination constituent.
+Projection may use any source constituent that proves the destination's nominal
+reference relationship, including inherited interfaces and existing variance
+rules. A stronger conjunction can therefore convert to a weaker conjunction.
+Equivalent intersections remain identity conversions regardless of source order.
+
+Membership and projection report `IsImplicit` and `IsReference`, not boxing,
+numeric, or user-defined conversion flags. They cannot combine two conversions
+that produce different objects. Failure to prove membership returns no conversion;
+checked narrowing is not implemented here, even when ordinary interface casts
+would exist. This is a semantic classification, not an implemented emit path.
+
+Existing nullable reference wrappers lift supported conversions: `(A & B)?` can
+project to `A?`, but a nullable source cannot establish non-null intersection
+membership. Adding a nullable destination wrapper is allowed. Nullable constituents
+such as `A? & B?`, type-parameter entailment, array participation, and value-type
+intersection conversions remain deferred, apart from ordinary identity. This
+slice does not introduce union conversion algebra or an empty/bottom type.
 
 ## Members and source boundary
 
@@ -73,6 +96,11 @@ generic symbols can describe combinations that cannot be emitted. Consumers must
 not infer runtime support from the existence of a semantic symbol.
 
 ## Validation
+
+Reference-conversion integration passed all 399 overload-resolution tests before
+and after the change, plus 118 focused intersection and conversion tests afterward
+on .NET 11. This validates semantic classification and the retained source gates,
+not runtime intersection storage, dispatch, or reference-identity execution.
 
 Whole-constraint query integration passed 247 focused intersection, constraint,
 generic method/type, and accessibility tests on .NET 11, including cold/warm
