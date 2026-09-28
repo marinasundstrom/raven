@@ -151,7 +151,7 @@ internal abstract partial class Binder
             ParenthesizedTypeSyntax p => BindTypeCore(p.Type, typeParams, importedScopes, allowBinderLookup),
             TupleTypeSyntax t => BindTuple(t, typeParams, importedScopes, allowBinderLookup),
             UnionTypeSyntax u => BindUnion(u, typeParams, importedScopes, allowBinderLookup),
-            IntersectionTypeSyntax i => Fail(i, TypeResolutionFailureKind.IntersectionTypeNotSupported),
+            IntersectionTypeSyntax i => BindIntersectionConstraint(i, typeParams, importedScopes, allowBinderLookup),
             FunctionTypeSyntax f => BindFunction(f, typeParams, importedScopes, allowBinderLookup),
             ArrayTypeSyntax a => BindArray(a, typeParams, importedScopes, allowBinderLookup),
             ByRefTypeSyntax br => BindByRef(br, typeParams, importedScopes, allowBinderLookup),
@@ -748,6 +748,36 @@ internal abstract partial class Binder
         return new ResolveTypeResult
         {
             ResolvedType = Compilation.CreateFunctionTypeSymbol(parameterTypes.ToArray(), returnResult.ResolvedType)
+        };
+    }
+
+    private ResolveTypeResult BindIntersectionConstraint(
+        IntersectionTypeSyntax intersection,
+        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
+        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        bool allowBinderLookup)
+    {
+        // Only conjunctions flattened by constraint analysis have an implemented
+        // runtime contract. A generic argument or other wrapper is not such a bound.
+        SyntaxNode root = intersection;
+        while (root.Parent is ParenthesizedTypeSyntax or IntersectionTypeSyntax)
+            root = root.Parent;
+
+        if (root.Parent is not TypeConstraintSyntax || intersection.Types.Count == 0)
+            return Fail(intersection, TypeResolutionFailureKind.IntersectionTypeNotSupported);
+
+        var constituents = ImmutableArray.CreateBuilder<ITypeSymbol>(intersection.Types.Count);
+        foreach (var syntax in intersection.Types)
+        {
+            var result = BindTypeCore(syntax, typeParams, importedScopes, allowBinderLookup);
+            if (!result.Success)
+                return result;
+            constituents.Add(result.ResolvedType);
+        }
+
+        return new ResolveTypeResult
+        {
+            ResolvedType = Compilation.CreateIntersectionTypeSymbol(constituents.ToArray())
         };
     }
 

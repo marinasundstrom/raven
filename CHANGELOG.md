@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Expose normalized intersection types through `GetTypeInfo` and
+  `GetSymbolInfo` for whole conjunction constraints, including grouped and nested
+  bounds. Individual CLI constraints and unsupported storage diagnostics remain
+  unchanged; this does not enable first-class intersection values. Preserve
+  failed constraint diagnostics after semantic queries and resolve function
+  constraint types in the method's generic scope.
+
 - **2026-09-28:** Add the compiler API foundation for semantic intersections:
   `IIntersectionTypeSymbol`, a normalizing compilation factory, structural equality
   and hashing, display, generated visitor support, and generic substitution.

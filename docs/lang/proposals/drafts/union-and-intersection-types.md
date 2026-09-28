@@ -268,6 +268,13 @@ claim equivalent support for value types or byref-like types.
 
 ## neoCLR representation
 
+neoCLR is planned to distinguish nominal types from structural types, including
+tuples, unions, intersections, and function types. This is future runtime work:
+Raven's semantic identity and constituent information should support that model
+without treating today's .NET carrier or delegate identities as its definition.
+"Structural" here does not imply that arbitrary nominal classes or interfaces
+gain shape-based assignability; their constituents retain nominal membership.
+
 A native compound-type facility could remove the need to port the ad-hoc
 `Union<T1, ...>` carrier family. This is a proposed capability, not a claim about
 current neoCLR support, and does not eliminate named union case representations.
@@ -312,8 +319,9 @@ experimental branch and receive independent runtime validation.
 
 ### Next semantic slice: acceptance criteria
 
-The symbol API foundation is implemented; binding, conversions, inherited-member
-lookup, and source semantic queries remain follow-up slices. The full acceptance
+The symbol API foundation and whole-constraint semantic queries are implemented;
+value binding, conversions, and inherited-member lookup on intersection receivers
+remain follow-up slices. The full acceptance
 criteria below span those slices, before enabling stored values or selecting a
 runtime carrier.
 

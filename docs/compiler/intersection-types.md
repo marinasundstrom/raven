@@ -1,6 +1,7 @@
 # Semantic intersection types
 
-Status: compiler API foundation. Source value binding, compound-type conversion
+Status: compiler API foundation and source constraint queries. Source value
+binding, compound-type conversion
 classification, and runtime representation are not enabled by this slice.
 
 `Compilation.CreateIntersectionTypeSymbol(params ITypeSymbol[])` constructs an
@@ -49,8 +50,22 @@ lookups do not choose an arbitrary candidate when several remain.
 The existing constraint subset continues to expose ordinary flattened nominal
 bounds through `ITypeParameterSymbol.ConstraintTypes`. Source intersection syntax
 outside supported constraints still reports RAV0363, including expressions that
-would normalize to a single type. `GetTypeInfo` on compound syntax does not yet
-bind this new symbol; the factory is the public entry point for this stage.
+would normalize to a single type. `GetTypeInfo` and `GetSymbolInfo` on a top-level
+intersection constraint, including nested conjunctions and parentheses, expose
+the normalized semantic type. A redundant conjunction may return an ordinary
+nominal type instead of `IIntersectionTypeSymbol`. Constituent names still resolve
+individually, and the declaration's `ConstraintTypes` remain ordinary CLI bounds.
+Resolution of a missing constituent does not return a partial intersection.
+
+This source binding is limited to conjunctions that constraint analysis flattens.
+Intersections inside generic arguments, nullable types, arrays, or other wrappers
+do not become supported merely because the enclosing syntax is a constraint.
+Declaration validation remains authoritative for legality and accessibility of
+bounds; a type query is not a successful-compilation or emit guarantee.
+
+Language services can obtain the compound constraint's type and display through
+the normal semantic APIs, without reconstructing types in the LSP. This slice
+does not add intersection receiver completion or change TextMate syntax coverage.
 
 No emitter mapping, storage erasure, ABI annotation, Runtime Contract option,
 or native neoCLR support is introduced. APIs that create array or constructed
@@ -58,6 +73,11 @@ generic symbols can describe combinations that cannot be emitted. Consumers must
 not infer runtime support from the existence of a semantic symbol.
 
 ## Validation
+
+Whole-constraint query integration passed 247 focused intersection, constraint,
+generic method/type, and accessibility tests on .NET 11, including cold/warm
+queries and diagnostics after failed queries. Targeted builds and whitespace
+formatting succeeded. See the Runtime Contract notes for the test boundaries.
 
 The generator/build script and targeted test-project build succeeded. All 285
 focused intersection, symbol equality/display, nullable substitution, and generic

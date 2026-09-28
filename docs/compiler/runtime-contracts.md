@@ -1,5 +1,27 @@
 # Runtime Contracts
 
+## Intersection constraint queries (2026-09-28)
+
+`GetTypeInfo` and `GetSymbolInfo` now expose the normalized semantic type of a
+whole intersection constraint, including grouped/nested conjunctions. Constraint
+declarations retain ordinary nominal `ConstraintTypes` and CLI metadata. Function
+constraint queries use the method's type-parameter scope. Missing constituents
+do not yield a partial compound type.
+
+The diagnostic path rechecks failed constraint resolution in the owning binder
+when an earlier query or declaration binder already resolved the symbols. This
+also preserves errors for ordinary comma-separated constraints. No diagnostic
+state is added to public symbols or language services. Intersections in value
+positions or inside generic, array, and nullable constraint wrappers remain
+unsupported. There is no new runtime option or storage ABI.
+
+Validation on .NET 11: the 52-test intersection/constraint baseline passed before
+changes. Targeted compiler and test-project builds succeeded, followed by all 247
+intersection, constraint, generic method/type, and accessibility tests. Coverage
+includes cold/warm compound queries, method scope, missing bounds, and rejected
+wrapper positions. Formatting and diff checks passed. The existing full-baseline
+union-import failures remain outside this slice; no neoCLR execution is claimed.
+
 ## Semantic intersection symbols (2026-09-28)
 
 The compiler API can construct normalized semantic intersections independently

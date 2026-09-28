@@ -2223,8 +2223,24 @@ internal abstract partial class Binder
 
     private void EnsureTypeParameterConstraintTypesResolved(ITypeParameterSymbol typeParameter)
     {
-        if (typeParameter is not SourceTypeParameterSymbol source || source.HasResolvedConstraintTypes)
+        if (typeParameter is not SourceTypeParameterSymbol source)
             return;
+
+        if (source.HasResolvedConstraintTypes)
+        {
+            if (!ReferenceEquals(source.ContainingSymbol, ContainingSymbol))
+                return;
+
+            // Resolution may have happened in a non-reporting query or an earlier
+            // declaration binder. The active binder must own failures as well.
+            for (var i = 0; i < source.ConstraintTypes.Length; i++)
+            {
+                if (source.ConstraintTypes[i].TypeKind == TypeKind.Error &&
+                    source.ConstraintTypeReferences[i].GetSyntax() is TypeSyntax failedConstraint)
+                    _ = BindTypeSyntaxAndReport(failedConstraint);
+            }
+            return;
+        }
 
         if (source.ConstraintTypeReferences.IsDefaultOrEmpty)
         {

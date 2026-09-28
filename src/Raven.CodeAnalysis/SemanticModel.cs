@@ -867,6 +867,10 @@ public partial class SemanticModel
                 return;
 
             BindDeclarationAttributes(node, currentBinder);
+            if (node is BaseTypeDeclarationSyntax or DelegateDeclarationSyntax &&
+                currentBinder is TypeDeclarationBinder typeDeclarationBinder)
+                typeDeclarationBinder.EnsureTypeParameterConstraintTypesResolved(typeDeclarationBinder.ContainingSymbol.TypeParameters);
+
             if (node is TypeDeclarationSyntax typeDeclaration)
                 ValidatePrimaryConstructorParameters(typeDeclaration, currentBinder);
 
@@ -1303,8 +1307,9 @@ public partial class SemanticModel
         {
             ValidateRegularParameters(function.ParameterList.Parameters, functionBinder.Diagnostics);
 
-            _ = functionBinder.GetMethodSymbol();
+            var methodSymbol = functionBinder.GetMethodSymbol();
             var methodBinder = functionBinder.GetMethodBodyBinder();
+            methodBinder.EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
             // A reused method symbol can outlive the binder that resolved its signature.
             // Revalidate annotations on the current diagnostic path, as for parameters.
             if (function.ReturnType is { } returnType)
@@ -13946,6 +13951,7 @@ public partial class SemanticModel
         {
             null => false,
             TypeAnnotationClauseSyntax => true,
+            TypeConstraintSyntax => true,
             ArrowTypeClauseSyntax => true,
             TypeArgumentSyntax => true,
             TypeSyntax => true,

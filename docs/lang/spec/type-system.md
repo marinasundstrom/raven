@@ -353,8 +353,11 @@ normalized. Duplicate identical bounds are permitted and deduplicated for emissi
 
 Intersections used as value types, generic arguments, or other non-constraint type
 positions still report RAV0363. An intersection constraint does not introduce a
-runtime intersection type. The broader
-[compound-type draft](../proposals/drafts/union-and-intersection-types.md) remains
+runtime intersection type. The compiler symbol for a whole intersection constraint
+is a normalized semantic type; the type parameter still exposes individual nominal
+constraint bounds.
+This query behavior does not enable intersection values or a new runtime ABI.
+The broader [compound-type draft](../proposals/drafts/union-and-intersection-types.md) remains
 under consideration.
 
 Constraints restrict acceptable type arguments. They can follow a type
