@@ -1,5 +1,25 @@
 # Runtime Contracts
 
+## Intersection local reference representation probe (2026-09-28)
+
+An executable Raven-source probe explores `object` local storage with nominal
+constituent casts. It covers reference identity, shared mutation, class virtual
+dispatch, conflicting explicit interface implementations, and all-bounds
+membership checks. See the [candidate lowering and remaining gates](intersection-types.md#standard-net-local-representation-probe).
+
+The probe uses existing CLI contracts and requires no carrier or runtime hook.
+It does not add a compiler lowering, enable intersection annotations, change
+Runtime Contract configuration, or establish a public compound-type ABI.
+neoCLR's future nominal/structural distinction remains independent of this
+standard .NET experiment.
+
+Validation: the five existing constraint-emission/reference-owner runtime tests
+passed before adding the probe. All four new emitted-program tests and the
+combined nine-test runtime set passed on .NET 11. The targeted test-project build,
+whitespace formatting, and diff checks succeeded. These tests execute hand-written
+lowering equivalents, not compound-typed locals. No neoCLR, .NET Framework, or
+NanoFramework execution was performed.
+
 ## Intersection receiver ambiguity (2026-09-28)
 
 Member-expression binding on an already-typed semantic intersection receiver

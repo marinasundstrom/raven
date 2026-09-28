@@ -238,6 +238,13 @@ of unions or intersections to fit a particular representation.
 | Compound generic arguments | Carrier or explicitly specified erasure | Changes runtime generic identity and interoperability |
 | Disjunctive constraints | Native target support or diagnostic | No direct ordinary CLI constraint encoding |
 
+An executable [local reference-representation probe](../../../compiler/intersection-types.md#standard-net-local-representation-probe)
+now exercises ordinary object storage and constituent casts, including identity,
+shared mutation, virtual dispatch, and distinct explicit interface implementations.
+It is evidence for a candidate lowering on standard .NET, not implemented source
+intersection locals. Storage-aware lowering and escape diagnostics are still
+required before enabling those annotations.
+
 An erased signature might use a class constituent or `object`. An ABI proposal
 must select a deterministic rule and define recursive type annotations for
 arrays, delegates, and nested generic arguments. It must also define imports,

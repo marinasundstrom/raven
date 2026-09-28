@@ -119,7 +119,47 @@ or native neoCLR support is introduced. APIs that create array or constructed
 generic symbols can describe combinations that cannot be emitted. Consumers must
 not infer runtime support from the existence of a semantic symbol.
 
+## Standard .NET local representation probe
+
+`IntersectionReferenceErasureTests` executes a candidate reference representation
+using ordinary Raven source: store one object reference, then cast that same
+reference to the selected member's declaring class or interface. These are
+hand-written equivalents of a possible lowering, not tests of enabled `A & B`
+local syntax or an implemented intersection lowering pass.
+
+The probes cover interface/interface identity and shared mutation,
+class/interface identity and virtual dispatch, and distinct explicit interface
+implementations with the same signature. A separate membership probe requires
+both bounds on the same value and rejects objects satisfying only one bound and
+null. No carrier, synthesized interface, proxy, or native structural-type runtime
+facility is needed for these cases.
+
+The candidate implementation should keep the semantic intersection on the source
+local while lowering its storage to `object`. Evaluate the initializer once.
+Every assignment must prove all bounds before storing the reference. Project
+to the selected declaration's owner before member access, or to the requested
+nominal type before passing or returning a constituent view. Member ambiguity
+must be resolved before lowering; erasure must never choose an implementation.
+Runtime-checked entry must test every bound against that single reference, with
+an explicit null policy. The probe does not implement checked intersection casts.
+
+This is a local-only design candidate, not a global `GetClrType` mapping. A global
+mapping would also affect fields, signatures, arrays, and generic arguments
+without an agreed ABI. Before opening the source gate, the compiler needs a
+storage-aware lowering and tests for reassignment, inferred escapes, captures,
+async/iterator hoisting, byref aliases, and member operations beyond these probes.
+Until those paths have a supported representation or deliberate diagnostic,
+RAV0363 remains in force. Value-type intersections and compound generic identity
+are outside this reference-only experiment.
+
 ## Validation
+
+The local reference-representation probe passed all four emitted-program tests
+on .NET 11, plus the combined nine-test constraint-emission/reference-owner runtime
+set. The five existing runtime tests passed before the addition. The targeted
+test-project build, whitespace formatting, and diff checks succeeded. This is
+runtime evidence for ordinary reference storage and casts, not for an implemented
+intersection lowering, native neoCLR behavior, or other runtime targets.
 
 Receiver-binding fixtures inject a semantic intersection local and bind parsed
 member expressions and assignment statements. They cover same/different property
