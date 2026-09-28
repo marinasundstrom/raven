@@ -11760,8 +11760,9 @@ partial class BlockBinder : Binder
 
         BoundPattern bound = patternSyntax switch
         {
-            NominalDeconstructionPatternSyntax nominal when nominal.Ancestors().OfType<ParameterSyntax>().Any()
-                => BindNominalParameterPattern(nominal, valueType, declarationBindingKeywordKind),
+            PatternSyntax structural when structural is NominalDeconstructionPatternSyntax or PropertyPatternSyntax &&
+                structural.Ancestors().OfType<ParameterSyntax>().Any()
+                => BindStructuralParameterPattern(structural, valueType, declarationBindingKeywordKind),
             VariablePatternSyntax variablePattern => BindVariablePatternForAssignment(variablePattern, valueType, declarationBindingKeywordKind),
             PositionalPatternSyntax tuplePattern => BindPositionalPatternForAssignment(tuplePattern, valueType, declarationBindingKeywordKind),
             SequencePatternSyntax sequencePattern => BindSequencePatternForAssignment(sequencePattern, valueType, declarationBindingKeywordKind),

@@ -5689,6 +5689,10 @@ internal partial class ExpressionGenerator : Generator
                 EmitDictionaryPatternAssignment(dictionaryPattern, valueLocal, valueType);
                 break;
 
+            case BoundPropertyPattern propertyPattern:
+                EmitPropertyPatternAssignment(propertyPattern, valueLocal, valueType);
+                break;
+
             case BoundDeconstructPattern deconstructPattern:
                 EmitDeconstructPatternAssignment(deconstructPattern, valueLocal, valueType);
                 break;
@@ -6024,6 +6028,49 @@ internal partial class ExpressionGenerator : Generator
 
             collectionAccess = (candidate, countGetter, indexerGetter, indexerGetter.ReturnType);
             return true;
+        }
+    }
+
+    private void EmitPropertyPatternAssignment(BoundPropertyPattern pattern, IILocal valueLocal, ITypeSymbol valueType)
+    {
+        var receiverType = pattern.ReceiverType;
+        var receiverLocal = ILGenerator.DeclareLocal(ResolveClrType(receiverType));
+        ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
+        EmitConversion(valueType, receiverType, Compilation.ClassifyConversion(valueType, receiverType));
+        ILGenerator.Emit(OpCodes.Stloc, receiverLocal);
+
+        if (pattern.Designator is not null)
+            EmitPatternDesignator(pattern.Designator, receiverLocal, this);
+
+        foreach (var member in pattern.Properties)
+        {
+            // Coverage was proved by the binder. Extract each member exactly once,
+            // including getters whose extracted value is discarded.
+            ILGenerator.Emit(RequiresValueTypeHandling(receiverType) ? OpCodes.Ldloca : OpCodes.Ldloc, receiverLocal);
+            switch (member.Member)
+            {
+                case IPropertySymbol property:
+                    if (receiverType is ITypeParameterSymbol)
+                    {
+                        ILGenerator.Emit(OpCodes.Constrained, ResolveClrType(receiverType));
+                        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(property.GetMethod!));
+                    }
+                    else
+                    {
+                        ILGenerator.Emit(receiverType.IsValueType ? OpCodes.Call : OpCodes.Callvirt,
+                            GetMethodInfo(property.GetMethod!));
+                    }
+                    break;
+                case IFieldSymbol field:
+                    ILGenerator.Emit(OpCodes.Ldfld, GetField(field));
+                    break;
+                default:
+                    throw new InvalidOperationException("Property deconstruction requires a readable property or field.");
+            }
+
+            var memberLocal = ILGenerator.DeclareLocal(ResolveClrType(member.Type));
+            ILGenerator.Emit(OpCodes.Stloc, memberLocal);
+            EmitPatternAssignment(member.Pattern, memberLocal, member.Type);
         }
     }
 

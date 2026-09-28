@@ -36,8 +36,8 @@ internal partial class BlockBinder
         return statements.ToImmutable();
     }
 
-    private BoundPattern BindNominalParameterPattern(
-        NominalDeconstructionPatternSyntax syntax, ITypeSymbol inputType, SyntaxKind bindingKeyword)
+    private BoundPattern BindStructuralParameterPattern(
+        PatternSyntax syntax, ITypeSymbol inputType, SyntaxKind bindingKeyword)
     {
         var previousKeyword = _ambientPatternDeclarationBindingKeyword;
         _ambientPatternDeclarationBindingKeyword = bindingKeyword;
@@ -85,6 +85,7 @@ internal partial class BlockBinder
             BoundDeclarationPattern or BoundDiscardPattern => true,
             BoundPositionalPattern positional => positional.Elements.All(CanEmitParameterDeconstruction),
             BoundDeconstructPattern deconstruction => deconstruction.Arguments.All(CanEmitParameterDeconstruction),
+            BoundPropertyPattern property => property.Properties.All(member => CanEmitParameterDeconstruction(member.Pattern)),
             BoundDictionaryPattern dictionary => dictionary.Entries.All(entry => CanEmitParameterDeconstruction(entry.Pattern)),
             _ => false
         };

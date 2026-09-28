@@ -92,14 +92,15 @@ declare promoted members.
 
 ### Destructuring parameters
 
-Named functions and methods with bodies also accept tuple, sequence, and nominal deconstruction
-patterns on by-value parameters:
+Named functions and methods with bodies also accept tuple, sequence, nominal,
+and property deconstruction patterns on by-value parameters:
 
 ```raven
 func sum((x, y): (int, int)) -> int => x + y
 func sum([x, y]: int[2]) -> int => x + y
 func count([..items]: int[]) -> int => items.Length
 func name(Person(let name): Person) -> string => name
+func sum({ x: let x, y: let y }: Point) -> int => x + y
 ```
 
 Parameter deconstruction consumes one argument and makes its components
@@ -117,12 +118,20 @@ extraction in the body instead.
 
 This support applies to block and expression bodies, including local functions.
 By-reference patterns and patterns on declarations without bodies currently
-report `RAV1619`. Constructor parameters retain their existing syntax. Property parameter syntax remains part of the ongoing parameter redesign.
+report `RAV1619`. Constructor parameters retain their existing syntax.
 Nominal patterns call the type's `Deconstruct` method. They also work in short
 lambdas: `people.Select(Person(let name) => name)`. A nominal head does not make
 a parameter refutable by itself; its resolved input type and nested patterns
 must cover every possible argument. Forms whose extraction is not yet supported
 report `RAV1619` separately from coverage errors.
+
+Property deconstruction reads the named instance properties or fields, with each
+listed member evaluated once in source order. Member names and local binding
+names are distinct: `{ x: let horizontal }` reads `x` and declares `horizontal`.
+Use the explicit member-and-pattern form; `{ x, y }` shorthand is not part of
+this change. Nested patterns use the same coverage checks, and getter exceptions
+propagate normally. Parenthesized lambdas also accept property parameters:
+`points.Select(({ x: let x }) => x)`.
 
 Caller-facing signatures show the binding pattern alongside the input type,
 including for referenced assemblies. `PatternParameterAttribute` preserves the

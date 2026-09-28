@@ -943,7 +943,8 @@ internal class StatementSyntaxParser : SyntaxParser
 
                 if (t.IsKind(SyntaxKind.EndOfFileToken) ||
                     t.IsKind(SyntaxKind.CloseParenToken) ||
-                    IsParameterListRecoveryBoundary(t))
+                    (IsParameterListRecoveryBoundary(t) &&
+                     !(allowDestructuringPatterns && LooksLikePropertyParameterPattern())))
                 {
                     break;
                 }
@@ -983,7 +984,7 @@ internal class StatementSyntaxParser : SyntaxParser
                 PatternSyntax? pattern = null;
                 SyntaxToken name;
                 if (allowDestructuringPatterns &&
-                    (PeekToken().Kind is SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken ||
+                    (PeekToken().Kind is SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken or SyntaxKind.OpenBraceToken ||
                      LooksLikeNominalParameterPattern()))
                 {
                     pattern = new PatternSyntaxParser(
@@ -1095,6 +1096,26 @@ internal class StatementSyntaxParser : SyntaxParser
                 or SyntaxKind.VarKeyword
                 or SyntaxKind.ConstKeyword
                 or SyntaxKind.IdentifierToken;
+        }
+        finally
+        {
+            checkpoint.Rewind();
+        }
+    }
+
+    private bool LooksLikePropertyParameterPattern()
+    {
+        if (!PeekToken().IsKind(SyntaxKind.OpenBraceToken))
+            return false;
+
+        var checkpoint = CreateCheckpoint("property-parameter-pattern");
+        try
+        {
+            var pattern = new PatternSyntaxParser(this,
+                allowImplicitDeconstructionElementBindings: true,
+                allowWholePatternDesignation: false).ParsePattern();
+            return pattern is PropertyPatternSyntax && PeekToken().Kind is
+                SyntaxKind.ColonToken or SyntaxKind.CommaToken or SyntaxKind.CloseParenToken;
         }
         finally
         {

@@ -13,8 +13,10 @@ public sealed class LanguageServerSignatureHelpTests : IDisposable
 {
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-sighelp-{Guid.NewGuid():N}");
 
-    [Fact]
-    public async Task SignatureHelpHandler_PatternParameter_ShowsBindingStructureAsync()
+    [Theory]
+    [InlineData("func sum((x, y): (int, int)) -> int => x + y\nlet result = sum((1, 2))", "func sum((x, y): (int, int)) -> int")]
+    [InlineData("record class Point(x: int, y: int)\nfunc sum({x: let x, y: let y}: Point) -> int => x + y\nlet result = sum(Point(1, 2))", "func sum({ x: let x, y: let y }: Point) -> int")]
+    public async Task SignatureHelpHandler_PatternParameter_ShowsBindingStructureAsync(string code, string expectedLabel)
     {
         Directory.CreateDirectory(_tempRoot);
         var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
@@ -30,7 +32,6 @@ public sealed class LanguageServerSignatureHelpTests : IDisposable
         var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
         var handler = new SignatureHelpHandler(store, NullLogger<SignatureHelpHandler>.Instance);
         var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
-        const string code = "func sum((x, y): (int, int)) -> int => x + y\nlet result = sum((1, 2))";
         await store.UpsertDocumentAsync(uri, code);
         var sourceText = SourceText.From(code);
         var offset = code.LastIndexOf("sum(", StringComparison.Ordinal) + "sum(".Length;
@@ -42,7 +43,7 @@ public sealed class LanguageServerSignatureHelpTests : IDisposable
 
         result.ShouldNotBeNull();
         var signature = result.Signatures.Single();
-        signature.Label.ShouldBe("func sum((x, y): (int, int)) -> int");
+        signature.Label.ShouldBe(expectedLabel);
         signature.Parameters!.Count().ShouldBe(1);
 
         var hints = await new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance).Handle(
