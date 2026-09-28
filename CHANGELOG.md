@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Diagnose ambiguous non-method access on semantic intersection
+  receivers with RAV0365, preserving all accessible candidates instead of choosing
+  by constituent order. Cover property reads, assignments, shared inheritance,
+  and accessibility with focused binder fixtures. Source intersection annotations
+  and storage remain disabled; no runtime ABI or neoCLR mapping is introduced.
 - **2026-09-28:** Add binder instance-member candidate lookup for semantic
   intersections, including inherited members and shared-declaration deduplication.
   Preserve unrelated same-signature declarations for overload ambiguity instead

@@ -1340,4 +1340,8 @@
     Title="Unsupported intersection constraint bound"
     Message="Intersection constraints currently require interfaces and at most one distinct class bound, without a struct constraint"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0365" Identifier="AmbiguousIntersectionMember"
+    Title="Ambiguous intersection member"
+    Message="Member '{name}' is ambiguous between '{member1}' and '{member2}'. Use an explicit constituent view."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

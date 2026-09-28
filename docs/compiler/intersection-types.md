@@ -1,8 +1,8 @@
 # Semantic intersection types
 
 Status: compiler API foundation, source constraint queries, initial reference
-membership conversions, and binder member-candidate lookup. Source value binding
-and runtime representation remain disabled.
+membership conversions, binder member-candidate lookup, and non-method receiver
+ambiguity diagnostics. Source value binding and runtime representation remain disabled.
 
 `Compilation.CreateIntersectionTypeSymbol(params ITypeSymbol[])` constructs an
 immutable semantic intersection. Its return type is `ITypeSymbol`: normalization
@@ -80,9 +80,16 @@ query, not a public or cross-snapshot cache.
 
 These method candidates feed normal overload resolution: distinct applicable
 overloads can be selected, while indistinguishable unrelated declarations remain
-ambiguous regardless of constituent order. Property/event conflicts remain
-multiple candidates; expression-level selection and diagnostics are not enabled
-by this slice. Static lookup on the compound type returns no candidates because
+ambiguous regardless of constituent order. For an already-typed semantic intersection
+receiver, ordinary member-expression binding filters non-method candidates by
+accessibility before selecting a member. Multiple accessible candidates report
+RAV0365 and produce an ambiguous bound expression retaining every candidate,
+even when property types match. Shared inherited declarations bind once; an
+inaccessible declaration does not hide an accessible sibling. Property reads and
+assignments use this check. This is binder groundwork, not support for source
+intersection annotations or runtime dispatch.
+
+Static lookup on the compound type returns no candidates because
 the intersection has no static dispatch owner. Ordinary nominal and type-parameter
 constraint lookup are unchanged. This does not yet bind source intersection
 receivers or provide their completion, indexing, extension lookup, or emission.
@@ -113,6 +120,14 @@ generic symbols can describe combinations that cannot be emitted. Consumers must
 not infer runtime support from the existence of a semantic symbol.
 
 ## Validation
+
+Receiver-binding fixtures inject a semantic intersection local and bind parsed
+member expressions and assignment statements. They cover same/different property
+types, both constituent orders, all ambiguity candidates, shared inherited
+properties, and accessibility. They do not enable or test intersection storage
+or runtime execution. The 233-test baseline, all 10 new receiver tests, and the
+expanded 271-test regression set passed on .NET 11. The generator/build script,
+targeted test build, whitespace formatting, and diff checks succeeded.
 
 Member-candidate integration passed 162 focused intersection, lookup, interface,
 constraint, and overload tests on .NET 11 after targeted builds. The tests include

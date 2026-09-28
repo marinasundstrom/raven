@@ -1,5 +1,26 @@
 # Runtime Contracts
 
+## Intersection receiver ambiguity (2026-09-28)
+
+Member-expression binding on an already-typed semantic intersection receiver
+reports RAV0365 when multiple accessible non-method declarations remain. The
+ambiguous bound expression preserves all candidates. Property reads and assignments
+no longer choose a constituent by order; inaccessible declarations do not hide
+accessible siblings. Nominal receiver behavior and method overload resolution
+are unchanged.
+
+This is compiler-layer groundwork tested using injected semantic locals, not
+support for source intersection annotations, storage, or execution. The RAV0363
+source gate, CLI constraint metadata, Runtime Contract configuration, and future
+neoCLR structural-type contract are unchanged. No runtime ABI is introduced.
+
+Validation on .NET 11: the 233-test intersection/member/property baseline passed.
+All 10 new receiver tests and the expanded 271-test focused regression set passed.
+The generator/build script, targeted test build, whitespace formatting, and diff
+checks succeeded. This is not execution evidence for intersection values on .NET,
+neoCLR, .NET Framework, or NanoFramework. Previously recorded full-baseline
+union-import failures remain outside this slice.
+
 ## Intersection member candidates (2026-09-28)
 
 The binder collects instance-member candidates from semantic intersection

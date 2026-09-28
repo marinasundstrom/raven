@@ -4385,9 +4385,32 @@ partial class BlockBinder
                 }
             }
 
-            var nonMethodMember = new SymbolQuery(name, receiverType, IsStatic: false)
+            var nonMethodMembers = new SymbolQuery(name, receiverType, IsStatic: false)
                 .Lookup(this)
-                .FirstOrDefault(static m => m is not IMethodSymbol);
+                .Where(static m => m is not IMethodSymbol);
+            ISymbol? nonMethodMember;
+            if (receiverType is IIntersectionTypeSymbol)
+            {
+                var candidates = nonMethodMembers.ToImmutableArray();
+                var accessibleCandidates = candidates.Where(IsSymbolAccessible).ToImmutableArray();
+                if (accessibleCandidates.Length > 1)
+                {
+                    _diagnostics.ReportAmbiguousIntersectionMember(
+                        name,
+                        accessibleCandidates[0].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                        accessibleCandidates[1].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                        nameLocation);
+                    return ErrorExpression(
+                        reason: BoundExpressionReason.Ambiguous,
+                        candidates: accessibleCandidates);
+                }
+
+                nonMethodMember = accessibleCandidates.FirstOrDefault() ?? candidates.FirstOrDefault();
+            }
+            else
+            {
+                nonMethodMember = nonMethodMembers.FirstOrDefault();
+            }
 
             if (nonMethodMember is not null)
             {

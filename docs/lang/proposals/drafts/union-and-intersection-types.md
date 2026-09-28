@@ -319,13 +319,14 @@ experimental branch and receive independent runtime validation.
 
 ### Next semantic slice: acceptance criteria
 
-The symbol API foundation, whole-constraint semantic queries, and initial named
+The symbol API foundation, whole-constraint semantic queries, initial named
 reference membership/projection conversion classification, and inherited instance
-member-candidate lookup are implemented; value binding, broader conversions, and
-expression-level intersection receiver diagnostics
-remain follow-up slices. The full acceptance
-criteria below span those slices, before enabling stored values or selecting a
-runtime carrier.
+member-candidate lookup are implemented. Non-method receiver ambiguity diagnostics
+are implemented for already-typed semantic intersection receivers, with focused
+binder fixtures; source intersection annotations remain disabled. Value binding,
+broader conversions, and remaining receiver operations are follow-up slices.
+The full acceptance criteria below span those slices, before enabling stored
+values or selecting a runtime carrier.
 
 - `A & B` and `B & A` have equal semantic identity and equal hashes. Source order
   remains available in syntax for presentation.
