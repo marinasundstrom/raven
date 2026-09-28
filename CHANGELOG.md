@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-28:** Document the isolated neoCLR Function migration and nominal type
+  descriptor split. Runtime typeof configuration stays unchanged; updated references
+  expose NominalTypeInfo and TypeInfo.IsNominalType/DisplayName. Record target consumer
+  evidence, structural member/documentation direction and a deferred source-order
+  getter-emission candidate. Callable import
+  migration remains incomplete; no ordinary CLR compiler behavior is changed here.
+
 - **2026-09-28:** Keep newline-separated match arms distinct when an identifier
   result is followed by a union-case pattern. Nominal lambda lookahead respects
   newlines in trailing token trivia.
