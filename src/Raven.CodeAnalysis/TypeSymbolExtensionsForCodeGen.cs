@@ -60,6 +60,8 @@ public static class TypeSymbolExtensionsForCodeGen
     {
         // Reference nullability annotates the target type; it must not cause a
         // generic argument to fall back to the compiler host's reflection types.
+        if (symbol is ITupleTypeSymbol { UnderlyingTupleType: { } tuple })
+            return TryGetTargetMetadataType(tuple);
         if (symbol is NullableTypeSymbol nullable &&
             nullable.GetNullableAbiProjection() != NullableAbiProjection.NullableValueType)
             return TryGetTargetMetadataType(nullable.UnderlyingType);
@@ -103,7 +105,7 @@ public static class TypeSymbolExtensionsForCodeGen
         {
             var compilation = codeGen.Compilation;
 
-            if (usage != RuntimeTypeUsage.CustomAttribute && codeGen.UsesTargetMetadata && typeSymbol.SpecialType == SpecialType.None &&
+            if (usage != RuntimeTypeUsage.CustomAttribute && codeGen.UsesTargetMetadata && typeSymbol.SpecialType is (SpecialType.None or >= SpecialType.System_ValueTuple_T1 and <= SpecialType.System_ValueTuple_TRest) &&
                 TryGetTargetMetadataType(typeSymbol) is { } metadataType)
                 return metadataType;
 

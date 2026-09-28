@@ -557,3 +557,15 @@ Two modified System.Runtime-reference cases (leading text and interpolation-only
 failed before the fix and pass afterward. Eight focused interpolation/error-recovery
 checks pass on .NET 11, including existing observable formatting and Unicode cases.
 This is not execution evidence for .NET Framework or NanoFramework.
+
+
+### Tuple metadata emission (2026-09-28)
+
+Tuple syntax continues to use System.ValueTuple on ordinary .NET targets. Target
+metadata emission retains the tuple projection's underlying constructed type for
+nested generic arguments and field owners; labels remain source/attribute metadata.
+Construction emits an ordinary instance constructor reference rather than applying
+MakeGenericMethod to a temporary metadata proxy. Tuple types remain in the selected
+metadata context when used in signatures. No new Runtime Contract option is needed.
+The focused .NET 11 regression inspects nested ValueTuple metadata and executes the
+result (42); this does not claim .NET Framework or NanoFramework execution.

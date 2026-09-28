@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Preserve underlying generic tuple identities during target metadata
+  emission, including nested tuple fields and constructor references. Emit tuple
+  construction through its ordinary value-type constructor; avoid constructing a
+  generic factory from a metadata proxy. Ordinary .NET ValueTuple tests cover this
+  independently of target-specific naming policies.
+
 - **2026-09-27:** Report an error when string interpolation cannot find a usable String.Concat
   overload in the selected reference library, instead of silently dropping the
   expression. Existing successful .NET interpolation behavior is unchanged.
