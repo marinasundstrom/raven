@@ -166,8 +166,10 @@ an intersection-typed CLI local accidentally.
 
 Implicit membership conversions erase to an ordinary object reference. Implicit
 semantic projections become explicit CLI reference conversions after erasure.
-Instance method calls and property/field reads project an erased receiver to the
-selected declaration's containing type. Lowering does not perform member lookup,
+Instance method calls, property/field reads and writes, and indexer reads/writes
+project an erased receiver to the selected declaration's containing type.
+Indexer assignment reuses the projected indexer access, preserving ordinary
+receiver, index-argument, and right-hand-side evaluation. Lowering does not perform member lookup,
 resolve ambiguity, prove membership, or implement runtime-checked intersection
 entry. Those obligations remain with binding and conversion classification.
 
@@ -177,16 +179,41 @@ hand-written representation probes, these tests execute the implemented lowering
 They cover both constituent orders, reassignment, property reads, method calls,
 class virtual dispatch, nominal projections, shared mutation, reference identity,
 and single evaluation of an initializer. They also check that the semantic local
-retains its original type after lowering.
+retains its original type after lowering. Write coverage verifies shared state
+through another constituent, both constituent orders, and single evaluation of
+index arguments and assigned values. These emitted assemblies are also checked
+with ILVerify when the tool is available: JIT execution alone can accept missing
+receiver projections that are not verifiable CLI code.
 
 This internal path is not a source feature switch or an escape checker. Captures,
 async/iterator hoisting, byref access, compound signatures/generic arguments,
-nullable/value-type intersections, property writes, indexers, and events have not
+nullable/value-type intersections, and events have not
 been integrated or validated here. The existing RAV0363 source gate still rejects
 all intersection local annotations, so incomplete paths cannot be reached by
 ordinary Raven source. Language-service support and TextMate syntax are unchanged.
 
+Before enabling source locals, a storage/escape gate must diagnose unsupported
+uses at binding time, including inferred uses without an intersection annotation:
+
+- Capturing the compound local in a lambda or local function.
+- Hoisting it into an async or iterator state machine.
+- Taking its address or passing it through `ref`/`out` storage aliases.
+- Letting the compound type escape into an inferred return, field, array element,
+  delegate signature, or generic type/method argument.
+- Using still-unimplemented receiver operations or nullable/value-type shapes.
+
+Projection to a supported nominal reference type is not itself an illegal escape:
+that view can use the normal nominal ABI. These are implementation requirements,
+not new diagnostics in this slice; RAV0363 remains the current source boundary.
+
 ## Validation
+
+Member-write lowering passed all 13 internal-local runtime tests with ILVerify
+available and used, plus the 164-test intersection/indexer/property-assignment
+regression set on .NET 11. The 158-test pre-change baseline passed. Before adding
+the projections, the six new cases executed but failed IL verification; afterward
+they passed both checks. Targeted compiler/test builds, whitespace formatting,
+and diff checks succeeded. Source binding and escape checks remain gated.
 
 Internal local lowering passed seven emitted-program tests and the expanded
 114-test intersection/control-flow/use/propagation regression set on .NET 11.

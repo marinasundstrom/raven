@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Project erased intersection receivers for property setters,
+  field stores, and indexer reads/writes. Add runtime and optional ILVerify
+  coverage, including single evaluation of index arguments and assigned values.
+  Source intersection locals remain gated by RAV0363 pending escape checks.
 - **2026-09-28:** Add internal lowering for reference intersection locals using
   per-body object storage and nominal receiver/projection casts. Execute focused
   tests for identity, mutation, reassignment, property reads, and virtual dispatch.

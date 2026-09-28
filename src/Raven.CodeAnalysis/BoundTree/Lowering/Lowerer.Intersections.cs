@@ -44,6 +44,27 @@ internal sealed partial class Lowerer
         return node.Update(receiver, node.Member, node.Reason);
     }
 
+    public override BoundNode? VisitPropertyAssignmentExpression(BoundPropertyAssignmentExpression node)
+    {
+        var rewritten = (BoundPropertyAssignmentExpression)base.VisitPropertyAssignmentExpression(node)!;
+        var receiver = ProjectIntersectionReceiver(node.Receiver, rewritten.Receiver, node.Property.ContainingType);
+        return rewritten.Update(receiver, rewritten.Property, rewritten.Left, rewritten.Right, rewritten.UnitType);
+    }
+
+    public override BoundNode? VisitFieldAssignmentExpression(BoundFieldAssignmentExpression node)
+    {
+        var rewritten = (BoundFieldAssignmentExpression)base.VisitFieldAssignmentExpression(node)!;
+        var receiver = ProjectIntersectionReceiver(node.Receiver, rewritten.Receiver, node.Field.ContainingType);
+        return rewritten.Update(receiver, rewritten.Field, rewritten.Right, rewritten.UnitType, rewritten.RequiresReceiverAddress);
+    }
+
+    public override BoundNode? VisitIndexerAccessExpression(BoundIndexerAccessExpression node)
+    {
+        var rewritten = (BoundIndexerAccessExpression)base.VisitIndexerAccessExpression(node)!;
+        var receiver = ProjectIntersectionReceiver(node.Receiver, rewritten.Receiver, node.Indexer.ContainingType)!;
+        return rewritten.Update(receiver, rewritten.Arguments, rewritten.Indexer);
+    }
+
     private BoundExpression? ProjectIntersectionReceiver(
         BoundExpression? original, BoundExpression? rewritten, ITypeSymbol? owner)
     {

@@ -8,10 +8,11 @@ using Raven.CodeAnalysis.Testing;
 using Raven.CodeAnalysis.Tests.Utilities;
 
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Raven.CodeAnalysis.Tests;
 
-public sealed class IntersectionLocalLoweringTests
+public sealed class IntersectionLocalLoweringTests(ITestOutputHelper output)
 {
     [Theory]
     [InlineData(false, false)]
@@ -55,17 +56,73 @@ public sealed class IntersectionLocalLoweringTests
             """, "int", reverse, removeReceiverCasts: true, classView: true));
     }
 
-    private static object? EmitAndRun(string body, string returnType, bool reverse, bool removeReceiverCasts, bool classView = false)
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LoweredPropertyWrite_UpdatesTheSameObject(bool reverse)
+    {
+        Assert.Equal(42, EmitAndRun("""
+            let stored: object = Cell()
+            ((IWrite)stored).Content = 42
+            return ((IRead)stored).Value
+            """, "int", reverse, removeReceiverCasts: true));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LoweredFieldWrite_UsesTheClassView(bool reverse)
+    {
+        Assert.Equal(42, EmitAndRun("""
+            let stored: object = Cell()
+            ((Base)stored).Data = 42
+            return ((Base)stored).Data
+            """, "int", reverse, removeReceiverCasts: true, classView: true));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LoweredIndexerWrite_EvaluatesArgumentsOnce(bool reverse)
+    {
+        Assert.Equal(true, EmitAndRun("""
+            let stored: object = Cell()
+            ((IWrite)stored)[Cell.NextIndex()] = Cell.NextValue()
+            return ((IWrite)stored)[2] == 42 && ((IRead)stored).Value == 40 &&
+                Cell.IndexCalls == 1 && Cell.ValueCalls == 1
+            """, "bool", reverse, removeReceiverCasts: true));
+    }
+
+    private object? EmitAndRun(string body, string returnType, bool reverse, bool removeReceiverCasts, bool classView = false)
     {
         var tree = SyntaxTree.ParseText($$"""
             interface IRead { val Value: int }
-            interface IWrite { func Write(value: int) -> unit }
-            open class Base { public virtual func ReadBase() -> int => 1 }
+            interface IWrite {
+                func Write(value: int) -> unit
+                var Content: int
+                var self[index: int]: int { get; set; }
+            }
+            open class Base {
+                public field Data: int = 0
+                public virtual func ReadBase() -> int => 1
+            }
             class Cell: Base, IRead, IWrite {
                 public static field Created: int = 0
+                public static field IndexCalls: int = 0
+                public static field ValueCalls: int = 0
                 private field value: int = 0
                 init() { Created = Created + 1 }
                 public val Value: int => value
+                public var Content: int {
+                    get => self.value
+                    set => self.value = value
+                }
+                public var self[index: int]: int {
+                    get => self.value + index
+                    set => self.value = value - index
+                }
+                public static func NextIndex() -> int { IndexCalls = IndexCalls + 1; return 2 }
+                public static func NextValue() -> int { ValueCalls = ValueCalls + 1; return 42 }
                 public override func ReadBase() -> int => 40
                 public func Write(next: int) -> unit { value = next }
             }
@@ -98,6 +155,19 @@ public sealed class IntersectionLocalLoweringTests
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        if (IlVerifyTestHelper.TryResolve(output))
+        {
+            var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.dll");
+            try
+            {
+                File.WriteAllBytes(path, stream.ToArray());
+                Assert.True(IlVerifyRunner.Verify(null, path, compilation), "Intersection local lowering must produce verifiable IL.");
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
         using var loaded = TestAssemblyLoader.LoadFromStream(stream, TestMetadataReferences.Default);
         return loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, null);
     }

@@ -1,5 +1,29 @@
 # Runtime Contracts
 
+## Intersection member-write lowering (2026-09-28)
+
+Internal reference-local lowering now projects erased receivers for property
+setters, field stores, and indexer access. Indexer assignments reuse that access
+path without duplicating index or value evaluation. The existing declaring type
+owns dispatch; no adapter, public ABI, or Runtime Contract setting is introduced.
+
+The supplied-bound-input runtime tests now optionally run ILVerify as well as
+executing the emitted assembly. Before the fix, all six new write/indexer cases
+executed successfully but failed IL verification; the seven existing cases
+passed verification. This distinction matters for CLI receiver typing.
+
+Source annotations still report RAV0363. Capture, hoisting, byref, inferred
+compound escapes, events, and other unsupported shapes still require a binding
+gate before source locals can be enabled. Nominal projections remain distinct
+from escaping compound metadata. No native neoCLR policy is changed.
+
+Validation: the 158-test baseline passed. All 13 internal-local tests subsequently
+passed runtime execution and ILVerify, and the expanded 164-test intersection/
+indexer/property-assignment set passed on .NET 11. Targeted compiler builds for
+net10.0/net11.0, the test build, whitespace formatting, and diff checks succeeded.
+No neoCLR, .NET Framework, or NanoFramework execution was performed; the earlier
+full-baseline failures remain outside this slice.
+
 ## Internal intersection local lowering (2026-09-28)
 
 The compiler lowerer can erase already-bound reference intersection locals to
