@@ -1,4 +1,7 @@
 using System.Collections.Immutable;
+using System.Linq;
+
+using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
@@ -52,7 +55,7 @@ internal static class TypeParameterConstraintAnalyzer
                     }
 
                     kind |= TypeParameterConstraintKind.TypeConstraint;
-                    typeRefs.Add(typeConstraint.GetReference());
+                    AddTypeReferences(typeConstraint.Type, typeRefs);
                     break;
 
                 case ConstructorConstraintSyntax:
@@ -72,5 +75,55 @@ internal static class TypeParameterConstraintAnalyzer
     {
         return typeConstraint.Type is IdentifierNameSyntax identifier &&
                string.Equals(identifier.Identifier.Text, "notnull", StringComparison.Ordinal);
+    }
+
+    private static void AddTypeReferences(TypeSyntax type, ImmutableArray<SyntaxReference>.Builder references)
+    {
+        switch (type)
+        {
+            case ParenthesizedTypeSyntax parenthesized:
+                AddTypeReferences(parenthesized.Type, references);
+                break;
+            case IntersectionTypeSyntax intersection:
+                foreach (var constituent in intersection.Types)
+                    AddTypeReferences(constituent, references);
+                break;
+            default:
+                references.Add(type.GetReference());
+                break;
+        }
+    }
+
+    internal static void ValidateIntersectionBounds(SourceTypeParameterSymbol parameter, DiagnosticBag diagnostics)
+    {
+        if (!parameter.ConstraintTypeReferences.Any(reference =>
+                reference.GetSyntax().Ancestors().Any(node => node is IntersectionTypeSyntax)))
+            return;
+
+        ITypeSymbol? classBound = null;
+        for (var i = 0; i < parameter.ConstraintTypes.Length; i++)
+        {
+            var type = parameter.ConstraintTypes[i];
+            var syntax = parameter.ConstraintTypeReferences[i].GetSyntax();
+            if (syntax is UnionTypeSyntax)
+            {
+                diagnostics.ReportInvalidIntersectionConstraint(syntax.GetLocation());
+                continue;
+            }
+
+            if (type.TypeKind is TypeKind.Error or TypeKind.Interface)
+                continue;
+
+            if (type.TypeKind == TypeKind.Class &&
+                (parameter.ConstraintKind & TypeParameterConstraintKind.ValueType) == 0 &&
+                (classBound is null || SymbolEqualityComparer.Default.Equals(classBound, type)))
+            {
+                classBound = type;
+                continue;
+            }
+
+            diagnostics.ReportInvalidIntersectionConstraint(
+                syntax.GetLocation());
+        }
     }
 }

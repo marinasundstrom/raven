@@ -809,7 +809,8 @@ Type                     ::= UnionType ;
 UnionType                ::= IntersectionType {'|' IntersectionType} ;
 
 IntersectionType         ::= FunctionType {'&' FunctionType} ;
-(* Intersection syntax is preserved; semantic support is staged separately. *)
+(* Semantic intersection support currently covers conjunctions of nominal
+   generic constraint bounds; other type positions are diagnosed. *)
 
 ByRefType                ::= '&' Type ;
 PointerType              ::= '*' Type ;

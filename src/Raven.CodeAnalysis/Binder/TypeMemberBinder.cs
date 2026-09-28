@@ -4441,12 +4441,13 @@ internal partial class TypeMemberBinder : Binder
     {
         foreach (var typeParameter in typeParameters.OfType<SourceTypeParameterSymbol>())
         {
+            TypeParameterConstraintAnalyzer.ValidateIntersectionBounds(typeParameter, diagnostics);
             for (var i = 0; i < typeParameter.ConstraintTypes.Length; i++)
             {
                 var constraintType = typeParameter.ConstraintTypes[i];
                 var location = i < typeParameter.ConstraintTypeReferences.Length &&
-                    typeParameter.ConstraintTypeReferences[i].GetSyntax() is TypeConstraintSyntax constraintSyntax
-                        ? constraintSyntax.Type.GetLocation()
+                    typeParameter.ConstraintTypeReferences[i].GetSyntax() is TypeSyntax constraintSyntax
+                        ? constraintSyntax.GetLocation()
                         : typeParameter.Locations.FirstOrDefault() ?? Location.None;
 
                 ValidateTypeAccessibility(

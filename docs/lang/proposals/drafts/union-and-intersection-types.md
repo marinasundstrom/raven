@@ -1,7 +1,16 @@
 # Proposal: Union and intersection types
 
-Status: Draft design; not implemented by this proposal. Examples below describe
-proposed syntax and semantics, not verified runnable programs.
+Status: Draft design. The initial syntax and nominal generic-constraint subset
+are implemented; first-class compound semantic types and their runtime
+representations remain proposed. Examples outside that subset describe proposed
+syntax and semantics, not verified runnable programs.
+
+The initial constraint subset accepts interfaces and at most one distinct class
+bound, including grouped conjunctions. Other compound constraint bounds are
+diagnosed. See the current [constraint specification](../../spec/type-system.md#constraints)
+and [compiler contract notes](../../../compiler/runtime-contracts.md) for supported
+behavior and validation limits. The semantic algebra below is the broader goal,
+not a claim that normalization or native compound types have shipped.
 
 ## Motivation and current behavior
 
@@ -241,5 +250,5 @@ Tests should cover type equivalence, substitution, ambiguous members, overlappin
 union patterns, nullability, rejected target positions, cross-assembly imports,
 and observable identity. Do not substitute emitted-opcode assertions for behavior.
 Modern .NET execution is not evidence of .NET Framework, NanoFramework, or neoCLR
-execution. This documentation-only draft introduces no shipped behavior and has
-not run compiler or runtime validation.
+execution. Validation of implemented slices belongs in the compiler contract
+notes; the broader semantic model and target ABIs in this draft remain unvalidated.

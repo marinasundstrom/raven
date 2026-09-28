@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Support intersection syntax in generic constraints, including
+  inline and `where` forms. Interface bounds and one class bound become ordinary
+  CLI constraints, preserving constituent locations and member lookup. Unsupported
+  compound bounds report RAV0364; value/storage intersection types remain unsupported.
+  Also validate generic constraints in storage annotations (including nested
+  generic, array, nullable, and reference types), closing an existing gap that
+  also affected comma-separated constraints.
+
 - **2026-09-28:** Parse intersection type expressions (`A & B`), preserving
   grouping and giving `&` higher precedence than `|`. This syntax foundation
   reports RAV0363 for unsupported semantic uses; it does not introduce a runtime

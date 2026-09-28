@@ -332,11 +332,30 @@ consistent choice, the type arguments must be written.
 
 ### Constraints
 
-Intersection type syntax (`A & B`) is recognized with higher precedence than
-union syntax (`|`). Semantic support is being introduced in stages; unsupported
-positions report RAV0363. Parsing an intersection does not imply a runtime
-intersection representation. See the
-[compound-type draft](../proposals/drafts/union-and-intersection-types.md).
+Intersection type syntax (`A & B`) has higher precedence than union syntax (`|`).
+At present it is supported as a conjunction in generic constraints:
+
+```raven
+class StreamConsumer<T: InputStream & OutputStream> {}
+func Use<T>(value: T) where T: MyBase & Disposable {}
+```
+
+These examples assume the corresponding class and interface declarations exist.
+Each constituent becomes an ordinary constraint, equivalent to listing the bounds
+with commas. Parentheses may group nested intersections. Every constituent must
+be satisfied, and members from all bounds are available through the type parameter.
+
+This initial implementation accepts interface bounds and at most one distinct
+class bound across the constraint list. Class bounds cannot accompany `struct`.
+Type-parameter constituents, union constituents, value-type bounds, and multiple
+distinct class bounds report RAV0364. Redundant related class bounds are not yet
+normalized. Duplicate identical bounds are permitted and deduplicated for emission.
+
+Intersections used as value types, generic arguments, or other non-constraint type
+positions still report RAV0363. An intersection constraint does not introduce a
+runtime intersection type. The broader
+[compound-type draft](../proposals/drafts/union-and-intersection-types.md) remains
+under consideration.
 
 Constraints restrict acceptable type arguments. They can follow a type
 parameter after `:` or appear in a `where` clause:

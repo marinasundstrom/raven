@@ -1336,4 +1336,8 @@
     Title="Intersection type is not supported in this position"
     Message="Intersection types are not supported in this type position"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0364" Identifier="InvalidIntersectionConstraint"
+    Title="Unsupported intersection constraint bound"
+    Message="Intersection constraints currently require interfaces and at most one distinct class bound, without a struct constraint"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

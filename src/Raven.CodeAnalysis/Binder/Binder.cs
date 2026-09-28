@@ -2250,9 +2250,9 @@ internal abstract partial class Binder
         var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(source.ConstraintTypeReferences.Length);
         foreach (var reference in source.ConstraintTypeReferences)
         {
-            if (reference.GetSyntax() is TypeConstraintSyntax typeConstraint)
+            if (reference.GetSyntax() is TypeSyntax constraintType)
             {
-                var resolved = BindTypeSyntaxAndReport(typeConstraint.Type, options);
+                var resolved = BindTypeSyntaxAndReport(constraintType, options);
                 builder.Add(resolved);
             }
         }

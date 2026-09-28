@@ -1,5 +1,48 @@
 # Runtime Contracts
 
+## Intersection constraints (2026-09-28)
+
+Top-level intersection constraints flatten into ordinary nominal constraint
+entries. Parenthesized/nested conjunctions retain each constituent's syntax
+reference for accessibility diagnostics. `ITypeParameterSymbol.ConstraintTypes`
+exposes the flattened bounds; `IntersectionTypeSyntax` remains available for
+source presentation. No first-class semantic intersection symbol is introduced
+in this slice. Existing compiler member lookup and constraint checks consume the
+same bounds for inline constraints and `where` clauses, including generic macro
+declarations. Macro declaration resolution retains its existing skeleton-type path.
+
+The accepted subset is interfaces plus at most one distinct class bound across
+the full list. Class bounds cannot accompany `struct`; type-parameter operands,
+value-type/union bounds, and multiple distinct class bounds are diagnosed with
+RAV0364. This prevents those intersection forms from reaching emission as an
+incomplete set of runtime requirements. Generic arguments and value/storage
+positions still report RAV0363. No public storage ABI, disjunctive constraint,
+native compound runtime type, or new Runtime Contract option is provided.
+
+Emission uses existing CLI generic parameter constraints and existing duplicate
+bound elimination. Other CLI consumers observe ordinary nominal constraints;
+they do not need Raven-specific intersection metadata. Semantic queries for
+members and individual bound names use the normal compiler API. A query for the
+whole compound syntax is not a first-class intersection type query in this slice.
+
+The storage-type validation path now checks constructed generic arguments,
+including nested generic, array, nullable, and by-reference element types. This
+also corrects an existing omission for comma-separated constraints in parameter
+annotations. Constraint declarations are resolved separately, so recursive bounds
+do not recursively invoke storage validation. Intersection-bound declaration
+diagnostics are reported alongside constraint accessibility checks, rather than
+being lost when an earlier lazy resolver's binder is replaced.
+
+Validation on .NET 11: 276 combined syntax, semantic, accessibility, generic
+storage, and metadata/runtime checks passed; after adding nested-storage and
+recursive-bound regressions, all 42 intersection/storage checks passed. The
+overload-resolution feature suite passed all 399 tests. Metadata tests execute
+both constituent orders, inspect ordinary CLI bounds, compile separate consumers,
+and confirm runtime rejection of an invalid generic argument. The generator/build
+script and subsequent targeted builds succeeded. The pre-change full baseline
+stopped on the two union-import failures recorded below; no full-green baseline,
+.NET Framework, NanoFramework, or neoCLR execution is claimed.
+
 ## Intersection syntax foundation (2026-09-28)
 
 The syntax API preserves `A & B` as `IntersectionTypeSyntax`, with a separated
