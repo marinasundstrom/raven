@@ -1,8 +1,10 @@
 # Proposal: Union and intersection types
 
 Status: Draft design. The initial syntax and nominal generic-constraint subset
-are implemented; first-class compound semantic types and their runtime
-representations remain proposed. Examples outside that subset describe proposed
+are implemented. A [semantic intersection symbol API](../../../compiler/intersection-types.md)
+now provides normalization, identity, display, and substitution. Binding those
+symbols from source values and their runtime representations remain proposed.
+Examples outside the supported constraint subset describe proposed
 syntax and semantics, not verified runnable programs.
 
 The initial constraint subset accepts interfaces and at most one distinct class
@@ -222,6 +224,12 @@ Partition II, sections on generic parameters and `GenericParamConstraint`.
 
 ## .NET representation options
 
+The portability goal is the standard .NET platform, not specifically the legacy
+.NET Framework. Explore and validate useful compiler-supported subsets on the
+standard CLR even if full compound-type semantics ultimately require neoCLR.
+Keep unsupported positions explicit rather than weakening the semantic meaning
+of unions or intersections to fit a particular representation.
+
 | Position | Candidate implementation | Limitation |
 | --- | --- | --- |
 | Conjunctive generic constraints | Existing CLI constraint entries | Constituents must normalize to legal constraints |
@@ -304,8 +312,10 @@ experimental branch and receive independent runtime validation.
 
 ### Next semantic slice: acceptance criteria
 
-The next code slice introduces the intersection symbol and its type-system
-operations, before enabling stored values or selecting a runtime carrier.
+The symbol API foundation is implemented; binding, conversions, inherited-member
+lookup, and source semantic queries remain follow-up slices. The full acceptance
+criteria below span those slices, before enabling stored values or selecting a
+runtime carrier.
 
 - `A & B` and `B & A` have equal semantic identity and equal hashes. Source order
   remains available in syntax for presentation.

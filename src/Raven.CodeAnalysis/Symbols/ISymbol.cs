@@ -673,6 +673,11 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
     }
 }
 
+public interface IIntersectionTypeSymbol : ITypeSymbol
+{
+    ImmutableArray<ITypeSymbol> ConstituentTypes { get; }
+}
+
 public enum TypeKind
 {
     Unknown,
@@ -690,7 +695,8 @@ public enum TypeKind
     Tuple,
     Nullable,
     Null,
-    Unit
+    Unit,
+    Intersection
 }
 
 [Flags]

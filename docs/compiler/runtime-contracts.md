@@ -1,5 +1,17 @@
 # Runtime Contracts
 
+## Semantic intersection symbols (2026-09-28)
+
+The compiler API can construct normalized semantic intersections independently
+of a runtime representation. See [intersection type APIs](intersection-types.md)
+for normalization, structural identity, display, member enumeration, substitution,
+and limits. Existing source constraint lowering remains unchanged. Source value
+positions remain diagnosed; no Runtime Contract option or target ABI is added.
+
+Validation on .NET 11: the generator/build script succeeded, and all 285 focused
+intersection, equality/display, substitution, and generic method/type tests passed.
+This validates compiler APIs, not native compound-type execution or a storage ABI.
+
 ## Intersection constraints (2026-09-28)
 
 Top-level intersection constraints flatten into ordinary nominal constraint

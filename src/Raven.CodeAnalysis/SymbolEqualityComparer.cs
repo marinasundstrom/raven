@@ -197,6 +197,32 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return HaveEquivalentDeclarationIdentity(labelX, labelY);
         }
 
+        if (x is IIntersectionTypeSymbol intersectionX && y is IIntersectionTypeSymbol intersectionY)
+        {
+            if (intersectionX.ConstituentTypes.Length != intersectionY.ConstituentTypes.Length)
+                return false;
+
+            var matched = new bool[intersectionY.ConstituentTypes.Length];
+            foreach (var left in intersectionX.ConstituentTypes)
+            {
+                var index = -1;
+                for (var i = 0; i < matched.Length; i++)
+                {
+                    if (!matched[i] && EqualsCore(left, intersectionY.ConstituentTypes[i], new HashSet<SymbolPair>(visited)))
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+
+                if (index < 0)
+                    return false;
+                matched[index] = true;
+            }
+
+            return true;
+        }
+
         // Arrays have structural identity. Imported and source-created array
         // symbols may have different construction containers for the same CLI type.
         if (x is IArrayTypeSymbol arrayX && y is IArrayTypeSymbol arrayY)
@@ -412,6 +438,19 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 hash.Add(typeSymbol.SpecialType);
                 return hash.ToHashCode();
             }
+        }
+
+        if (obj is IIntersectionTypeSymbol intersection)
+        {
+            // Each branch gets the same recursion ancestry so sibling ordering
+            // cannot change the hash through shared containing symbols.
+            var constituentHash = 0;
+            foreach (var constituent in intersection.ConstituentTypes)
+                constituentHash = unchecked(constituentHash + GetHashCodeCore(
+                    constituent, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            hash.Add(intersection.ConstituentTypes.Length);
+            hash.Add(constituentHash);
+            return hash.ToHashCode();
         }
 
         if (obj is IArrayTypeSymbol arrayType)

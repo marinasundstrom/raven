@@ -286,6 +286,13 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 }
             }
 
+            if (type is IIntersectionTypeSymbol intersection)
+            {
+                var result = TypeSubstitution.SubstituteIntersection(intersection,
+                    constituent => Substitute(constituent, visiting, cache).Type);
+                return cache[type] = new SubstitutionResult(result, Changed: !ReferenceEquals(result, type));
+            }
+
             if (type is NullableTypeSymbol nullableTypeSymbol)
             {
                 var underlying = Substitute(nullableTypeSymbol.UnderlyingType, visiting, cache);

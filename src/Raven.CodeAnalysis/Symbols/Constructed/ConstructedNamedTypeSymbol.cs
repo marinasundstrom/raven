@@ -275,6 +275,14 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
                 return result;
             }
 
+            if (type is IIntersectionTypeSymbol intersection)
+            {
+                result = TypeSubstitution.SubstituteIntersection(intersection,
+                    constituent => SubstituteCore(constituent, methodMap, inProgress, cache));
+                cache[type] = result;
+                return result;
+            }
+
             if (type is NullableTypeSymbol nullableTypeSymbol)
             {
                 var underlyingType = SubstituteCore(nullableTypeSymbol.UnderlyingType, methodMap, inProgress, cache);

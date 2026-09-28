@@ -2330,6 +2330,13 @@ public partial class Compilation
         return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, [], rank, fixedLength);
     }
 
+    /// <summary>
+    /// Creates a normalized semantic intersection, or returns its sole remaining
+    /// constituent. This does not select a runtime representation.
+    /// </summary>
+    public ITypeSymbol CreateIntersectionTypeSymbol(params ITypeSymbol[] constituentTypes)
+        => IntersectionTypeSymbol.Create(constituentTypes);
+
     public ITypeSymbol CreatePointerTypeSymbol(ITypeSymbol pointedAtType)
     {
         return new PointerTypeSymbol(pointedAtType);

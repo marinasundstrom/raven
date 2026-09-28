@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Add the compiler API foundation for semantic intersections:
+  `IIntersectionTypeSymbol`, a normalizing compilation factory, structural equality
+  and hashing, display, generated visitor support, and generic substitution.
+  Source intersection values and runtime representations remain unsupported.
+
 - **2026-09-28:** Support intersection syntax in generic constraints, including
   inline and `where` forms. Interface bounds and one class bound become ordinary
   CLI constraints, preserving constituent locations and member lookup. Unsupported
