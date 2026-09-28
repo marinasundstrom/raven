@@ -14,6 +14,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   unit-result functions. Other targets retain Action selection; 65 focused tests
   pass. No new syntax or Runtime Contract setting is introduced.
 
+- **2026-09-28:** Bind function type arguments in generic construction and
+  invocation expressions. Constructors such as `List<() -> ()>()` now initialize
+  their values instead of silently emitting no operation. Invalid signature
+  types report diagnostics; ordinary .NET constructor and runtime tests cover
+  this independently of target-specific transport policies.
+
 - **2026-09-28:** Keep newline-separated match arms distinct when an identifier
   result is followed by a union-case pattern. Nominal lambda lookahead respects
   newlines in trailing token trivia.
