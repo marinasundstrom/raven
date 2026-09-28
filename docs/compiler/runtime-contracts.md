@@ -1081,3 +1081,29 @@ MakeGenericMethod to a temporary metadata proxy. Tuple types remain in the selec
 metadata context when used in signatures. No new Runtime Contract option is needed.
 The focused .NET 11 regression inspects nested ValueTuple metadata and executes the
 result (42); this does not claim .NET Framework or NanoFramework execution.
+
+
+### neoCLR tuple identity (experimental, 2026-09-28)
+
+On the isolated neoCLR branch, TargetCoreAssemblyName = NeoCLR.CoreProbe selects
+System.Tuple instead of System.ValueTuple in tuple binding and runtime type lookup.
+The existing project property RavenTargetCoreAssemblyName supplies this selection;
+there is no new general RuntimeTupleContract option. Only the value-type Tuple
+family in NeoCLR.CoreProbe receives tuple special-type recognition. .NET's reference
+System.Tuple remains an ordinary reference class. The semantic tuple projection
+retains its element names, while emitted fields and constructors use the underlying
+constructed target type. TupleElementNamesAttribute is supplied by the target reference.
+
+The matching neoCLR reference/runtime currently supplies arities one through seven.
+Empty parentheses retain the existing RuntimeUnitContract (System.Void); one-element
+construction is nominal, since Raven rejects one-element tuple type syntax. Wider
+flat tuples/Rest and the full .NET ValueTuple library API are not claimed. The native
+consumer and metadata/layout checks live in neoCLR docs/experiments/tuples. Main's
+90b996b1b fixes metadata tuple projection independently using .NET; it was integrated
+here as ee3a23d15. The separate existing native void-pointer correction from
+adaaa3db2 is retained with this branch's nominal-Void generic signature handling.
+
+Validation: 41 focused target-branch compiler tests pass, as do nine neoCLR native
+consumer cases and 70 importer layout/signature checks. The matching API snapshot
+and focused tuple reference rendering pass; no full website build or SDK packaging
+is part of this slice.

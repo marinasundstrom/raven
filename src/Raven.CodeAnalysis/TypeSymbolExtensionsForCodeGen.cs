@@ -567,14 +567,14 @@ public static class TypeSymbolExtensionsForCodeGen
             SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationToken => FromRuntime(compilation, "System.Runtime.InteropServices.WindowsRuntime.EventRegistrationToken"),
             SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationTokenTable_T => FromRuntime(compilation, "System.Runtime.InteropServices.WindowsRuntime.EventRegistrationTokenTable`1"),
             SpecialType.System_Exception => FromRuntime(compilation, "System.Exception"),
-            SpecialType.System_ValueTuple_T1 => FromRuntime(compilation, "System.ValueTuple`1"),
-            SpecialType.System_ValueTuple_T2 => FromRuntime(compilation, "System.ValueTuple`2"),
-            SpecialType.System_ValueTuple_T3 => FromRuntime(compilation, "System.ValueTuple`3"),
-            SpecialType.System_ValueTuple_T4 => FromRuntime(compilation, "System.ValueTuple`4"),
-            SpecialType.System_ValueTuple_T5 => FromRuntime(compilation, "System.ValueTuple`5"),
-            SpecialType.System_ValueTuple_T6 => FromRuntime(compilation, "System.ValueTuple`6"),
-            SpecialType.System_ValueTuple_T7 => FromRuntime(compilation, "System.ValueTuple`7"),
-            SpecialType.System_ValueTuple_TRest => FromRuntime(compilation, "System.ValueTuple`8"),
+            SpecialType.System_ValueTuple_T1 => FromRuntime(compilation, $"{compilation.RuntimeTupleTypeName}`1"),
+            SpecialType.System_ValueTuple_T2 => FromRuntime(compilation, $"{compilation.RuntimeTupleTypeName}`2"),
+            SpecialType.System_ValueTuple_T3 => FromRuntime(compilation, $"{compilation.RuntimeTupleTypeName}`3"),
+            SpecialType.System_ValueTuple_T4 => FromRuntime(compilation, $"{compilation.RuntimeTupleTypeName}`4"),
+            SpecialType.System_ValueTuple_T5 => FromRuntime(compilation, $"{compilation.RuntimeTupleTypeName}`5"),
+            SpecialType.System_ValueTuple_T6 => FromRuntime(compilation, $"{compilation.RuntimeTupleTypeName}`6"),
+            SpecialType.System_ValueTuple_T7 => FromRuntime(compilation, $"{compilation.RuntimeTupleTypeName}`7"),
+            SpecialType.System_ValueTuple_TRest => FromRuntime(compilation, $"{compilation.RuntimeTupleTypeName}`8"),
             SpecialType.System_Unit => FromRuntime(compilation, "System.Void"),
             _ => throw new NotSupportedException($"Unsupported special type: {specialType}")
         };
@@ -583,11 +583,11 @@ public static class TypeSymbolExtensionsForCodeGen
     internal static Type GetValueTupleClrType(Type[] elementClrTypes, Compilation compilation)
     {
         if (elementClrTypes.Length == 0)
-            return ResolveRuntimeTypeOrThrow(compilation, "System.ValueTuple");
+            return ResolveRuntimeTypeOrThrow(compilation, compilation.RuntimeTupleTypeName);
 
         if (elementClrTypes.Length <= 7)
         {
-            var metadataName = $"System.ValueTuple`{elementClrTypes.Length}";
+            var metadataName = $"{compilation.RuntimeTupleTypeName}`{elementClrTypes.Length}";
             var definition = ResolveRuntimeTypeOrThrow(compilation, metadataName);
             return definition.MakeGenericType(elementClrTypes);
         }
@@ -601,7 +601,7 @@ public static class TypeSymbolExtensionsForCodeGen
         Array.Copy(elementClrTypes, args, 7);
         args[7] = restTuple;
 
-        var valueTuple8 = ResolveRuntimeTypeOrThrow(compilation, "System.ValueTuple`8");
+        var valueTuple8 = ResolveRuntimeTypeOrThrow(compilation, $"{compilation.RuntimeTupleTypeName}`8");
         return valueTuple8.MakeGenericType(args);
     }
 

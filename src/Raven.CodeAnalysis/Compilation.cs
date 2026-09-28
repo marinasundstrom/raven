@@ -2636,6 +2636,10 @@ public partial class Compilation
         return GetOrAddSynthesizedDelegate(parameterImmutable, refKinds, returnType);
     }
 
+    // Experimental neoCLR target policy; ordinary CLR tuple identity is unchanged.
+    internal string RuntimeTupleTypeName => Options.TargetCoreAssemblyName == "NeoCLR.CoreProbe"
+        ? "System.Tuple" : "System.ValueTuple";
+
     public ITypeSymbol CreateTupleTypeSymbol(IEnumerable<(string? name, ITypeSymbol type)> elements)
     {
         var elementArray = elements.ToArray();
@@ -2643,8 +2647,8 @@ public partial class Compilation
         if (arity == 0)
             return GetSpecialType(SpecialType.System_Unit);
 
-        var tupleDefinition = SymbolLookup.GetTypeByMetadataNameMetadataOnly($"System.ValueTuple`{arity}")
-            ?? GetTypeByMetadataName($"System.ValueTuple`{arity}");
+        var tupleDefinition = SymbolLookup.GetTypeByMetadataNameMetadataOnly($"{RuntimeTupleTypeName}`{arity}")
+            ?? GetTypeByMetadataName($"{RuntimeTupleTypeName}`{arity}");
 
         if (tupleDefinition is null)
             return ErrorTypeSymbol;
@@ -3803,14 +3807,14 @@ public partial class Compilation
             SpecialType.System_Threading_Tasks_Task_T => Options.UseHeapAsyncStateMachines && Options.TargetCoreAssemblyName is not null ? "System.Tasks.Task`1" : "System.Threading.Tasks.Task`1",
             SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationToken => "System.Runtime.InteropServices.WindowsRuntime.EventRegistrationToken",
             SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationTokenTable_T => "System.Runtime.InteropServices.WindowsRuntime.EventRegistrationTokenTable`1",
-            SpecialType.System_ValueTuple_T1 => "System.ValueTuple`1",
-            SpecialType.System_ValueTuple_T2 => "System.ValueTuple`2",
-            SpecialType.System_ValueTuple_T3 => "System.ValueTuple`3",
-            SpecialType.System_ValueTuple_T4 => "System.ValueTuple`4",
-            SpecialType.System_ValueTuple_T5 => "System.ValueTuple`5",
-            SpecialType.System_ValueTuple_T6 => "System.ValueTuple`6",
-            SpecialType.System_ValueTuple_T7 => "System.ValueTuple`7",
-            SpecialType.System_ValueTuple_TRest => "System.ValueTuple`8",
+            SpecialType.System_ValueTuple_T1 => $"{RuntimeTupleTypeName}`1",
+            SpecialType.System_ValueTuple_T2 => $"{RuntimeTupleTypeName}`2",
+            SpecialType.System_ValueTuple_T3 => $"{RuntimeTupleTypeName}`3",
+            SpecialType.System_ValueTuple_T4 => $"{RuntimeTupleTypeName}`4",
+            SpecialType.System_ValueTuple_T5 => $"{RuntimeTupleTypeName}`5",
+            SpecialType.System_ValueTuple_T6 => $"{RuntimeTupleTypeName}`6",
+            SpecialType.System_ValueTuple_T7 => $"{RuntimeTupleTypeName}`7",
+            SpecialType.System_ValueTuple_TRest => $"{RuntimeTupleTypeName}`8",
             SpecialType.System_Type => "System.Type",
             SpecialType.System_Exception => "System.Exception",
             SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine => "System.Runtime.CompilerServices.IAsyncStateMachine",

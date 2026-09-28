@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-28 (neoCLR experiment):** Target core NeoCLR.CoreProbe selects
+  System.Tuple for tuple syntax and special-type resolution; ordinary .NET targets
+  retain System.ValueTuple. The initial reference/runtime family supports one through
+  seven components; unit remains System.Void. Restore the existing main-branch
+  void-pointer projection from adaaa3db2 while retaining target nominal Void generics.
+  Requires matching neoCLR reference/importer/library artifacts; not a main-branch
+  naming policy or a full ValueTuple API implementation.
+
 - **2026-09-28:** Preserve underlying generic tuple identities during target metadata
   emission, including nested tuple fields and constructor references. Emit tuple
   construction through its ordinary value-type constructor; avoid constructing a
