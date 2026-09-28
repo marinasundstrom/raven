@@ -796,7 +796,7 @@ internal class StatementSyntaxParser : SyntaxParser
             typeParameterList = typeParameterParser.ParseTypeParameterList();
         }
 
-        var parameterList = ParseParameterList(allowDiscardParameters: true);
+        var parameterList = ParseParameterList(allowDestructuringPatterns: true, allowDiscardParameters: true);
 
         var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 
@@ -982,7 +982,8 @@ internal class StatementSyntaxParser : SyntaxParser
 
                 PatternSyntax? pattern = null;
                 SyntaxToken name;
-                if (canStartDestructuringPattern)
+                if (allowDestructuringPatterns &&
+                    PeekToken().Kind is SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken)
                 {
                     pattern = new PatternSyntaxParser(
                         this,

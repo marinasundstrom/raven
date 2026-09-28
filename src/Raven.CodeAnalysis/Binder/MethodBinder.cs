@@ -135,7 +135,7 @@ class MethodBinder : TypeMemberBinder
 
         foreach (var parameter in parameters)
         {
-            if (parameter.Name != "_")
+            if (parameter.Name != "_" && !parameter.HasImplicitName)
                 parametersByName.TryAdd(parameter.Name, parameter);
 
             foreach (var reference in parameter.DeclaringSyntaxReferences)

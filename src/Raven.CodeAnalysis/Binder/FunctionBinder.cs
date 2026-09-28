@@ -139,6 +139,7 @@ class FunctionBinder : Binder
         var seenOptionalParameter = false;
         foreach (var p in _syntax.ParameterList.Parameters)
         {
+            ParameterSyntaxUtilities.ValidatePatternContext(p, _syntax.Body is not null || _syntax.ExpressionBody is not null, _diagnostics);
             var typeSyntax = p.TypeAnnotation?.Type;
             if (typeSyntax is ByRefTypeSyntax &&
                 p.RefKindKeyword.Kind is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
@@ -194,19 +195,20 @@ class FunctionBinder : Binder
                 out var isVarParams);
 
             parameters.Add(new SourceParameterSymbol(
-                p.Identifier.ValueText,
+                ParameterSyntaxUtilities.GetParameterName(p, parameters.Count),
                 type,
                 _methodSymbol,
                 container.ContainingType,
                 container.ContainingNamespace,
-                [p.Identifier.GetLocation()],
+                [p.Pattern?.GetLocation() ?? p.Identifier.GetLocation()],
                 [p.GetReference()],
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
                 isMutable,
                 isVarParams,
-                ParameterSyntaxUtilities.GetScopedKind(p, type, _diagnostics)));
+                ParameterSyntaxUtilities.GetScopedKind(p, type, _diagnostics),
+                hasImplicitName: p.Pattern is not null));
         }
 
         _methodSymbol.SetParameters(parameters);

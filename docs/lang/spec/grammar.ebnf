@@ -77,7 +77,11 @@ MacroCapabilityKeyword  ::= 'keywords' | 'tokens' | 'tokenKinds'
                            | 'completion' | 'projection' ;
 MacroParameterList       ::= MacroParameter {',' MacroParameter} ;
 MacroParameter           ::= {AttributeList} 'on'? AccessModifier? ScopedModifier? RefKindModifier? ParamsModifier? ParameterBindingKeyword?
-                             Identifier ':' Type VarParamsSuffix? ['=' Expression] ;
+                             ParameterBinding ':' Type VarParamsSuffix? ['=' Expression] ;
+ParameterBinding         ::= Identifier | '_' | PositionalPattern | SequencePattern ;
+(* Tuple/sequence bindings are currently supported on by-value named function and
+   method parameters with bodies. Constructors retain identifier/discard bindings.
+   Bindings must be irrefutable for their input type. *)
 (* Exactly one `on` parameter selects attached application. It is supplied by
    the compiler and must name a supported Raven.CodeAnalysis syntax type. *)
 

@@ -90,6 +90,35 @@ Parameter types and `ref`/`out` modifiers participate in overload resolution.
 Primary-constructor parameter promotion is the exception, where `val` and `var`
 declare promoted members.
 
+### Destructuring parameters
+
+Named functions and methods with bodies also accept tuple and sequence binding
+patterns on by-value parameters:
+
+```raven
+func sum((x, y): (int, int)) -> int => x + y
+func sum([x, y]: int[2]) -> int => x + y
+func count([..items]: int[]) -> int => items.Length
+```
+
+Each pattern consumes one argument and introduces immutable local bindings in
+the body. Binding names must be unique across the parameter list. They are not
+named-argument labels and do not participate in overload identity. The incoming
+parameter has a generated metadata name; extracted bindings are locals, not
+additional parameters.
+
+Patterns must cover every value of the input type. `RAV1618` diagnoses a
+refutable pattern, including an uncovered nested pattern. For example,
+`[head, ..tail]: int[]` is rejected because the input can be empty; the same
+pattern on `int[2]` is total. Bind the complete input and handle conditional
+extraction in the body instead.
+
+This support applies to block and expression bodies, including local functions.
+By-reference patterns and patterns on declarations without bodies currently
+report `RAV1619`. Constructor parameters retain their existing syntax. General
+nominal/property parameter syntax and pattern-aware signature display are
+separate parts of the ongoing parameter redesign.
+
 ### Default arguments
 
 Parameters can provide default values:

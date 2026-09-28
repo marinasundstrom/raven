@@ -321,3 +321,13 @@ tests for binder/semantic-model behavior. Runtime/sample validation remains the
 authority for emitted program behavior.
 
 Macro fragment semantic queries resolve nested macro names in the authored invocation's scope, including its imports. They return the macro symbol and authored token span independently of symbols produced by the nested expansion, so hover can describe a nested macro as well as expressions inside its body.
+
+### Named parameter patterns
+
+Tuple/sequence parameter syntax declares one `IParameterSymbol` with an implicit
+metadata name. Its designations declare `ILocalSymbol`s populated by the owning
+body binder. Cold `GetDeclaredSymbol` queries on those designations bind the
+owning block or expression body through the semantic model; clients do not need
+to request diagnostics first. Both body forms bind parameter extraction before
+resolving body references. Refutability is diagnosed against the incoming type,
+without changing the method's ABI parameter count.

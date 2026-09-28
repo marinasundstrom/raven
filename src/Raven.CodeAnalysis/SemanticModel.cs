@@ -923,6 +923,15 @@ public partial class SemanticModel
                 return;
             }
 
+            if (node is ArrowExpressionClauseSyntax && currentBinder is MethodBodyBinder &&
+                currentBinder.ContainingSymbol is IMethodSymbol methodWithPatterns &&
+                methodWithPatterns.Parameters.Any(parameter => parameter.DeclaringSyntaxReferences
+                    .Any(reference => reference.GetSyntax() is ParameterSyntax { Pattern: not null })))
+            {
+                currentBinder.GetOrBind(node);
+                return;
+            }
+
             if (node is ExpressionSyntax or StatementSyntax)
             {
                 currentBinder.GetOrBind(node);
@@ -12484,6 +12493,24 @@ public partial class SemanticModel
     {
         Compilation.EnsureSourceDeclarationsDeclared();
         EnsureDeclarations();
+
+        var parameter = designation.Ancestors().OfType<ParameterSyntax>().FirstOrDefault();
+        var parameterBody = parameter?.Parent?.Parent switch
+        {
+            MethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody,
+            FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody,
+            _ => null
+        };
+        if (parameter?.Pattern is not null && parameterBody is not null)
+        {
+            _ = GetBoundNode(parameterBody);
+            if (TryGetCachedBoundNode(designation) is BoundSingleVariableDesignator parameterDesignator &&
+                (allowErrorType || !parameterDesignator.Local.Type.ContainsErrorType()))
+            {
+                localSymbol = parameterDesignator.Local;
+                return true;
+            }
+        }
 
         var bindingOwner = GetPatternDesignationBindingOwner(designation) ?? designation;
         if (bindingOwner is not PatternDeclarationAssignmentStatementSyntax &&

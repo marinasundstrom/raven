@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
@@ -6,6 +8,34 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BlockBinder
 {
+    internal ImmutableArray<BoundStatement> BindNamedParameterPatterns(IMethodSymbol method)
+    {
+        var statements = ImmutableArray.CreateBuilder<BoundStatement>();
+        var names = new HashSet<string>(method.Parameters.Where(parameter => !parameter.HasImplicitName)
+            .Select(parameter => parameter.Name));
+        foreach (var parameter in method.Parameters)
+        {
+            if (parameter.RefKind.IsByRef)
+                continue;
+            if (parameter.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not ParameterSyntax { Pattern: { } pattern })
+                continue;
+
+            foreach (var designation in pattern.DescendantNodesAndSelf().OfType<SingleVariableDesignationSyntax>())
+            {
+                var name = designation.Identifier.ValueText;
+                if (name != "_" && !names.Add(name))
+                    _diagnostics.ReportVariableAlreadyDefined(name, designation.GetLocation());
+            }
+
+            var assignment = BindPatternAssignment(pattern, new BoundParameterAccess(parameter), pattern, SyntaxKind.ValKeyword);
+            if (assignment is BoundPatternAssignmentExpression patternAssignment)
+                ValidateParameterPattern(pattern, parameter.Type, patternAssignment.Pattern);
+            statements.Add(new BoundExpressionStatement(assignment));
+        }
+
+        return statements.ToImmutable();
+    }
+
     private void ValidateParameterPattern(PatternSyntax syntax, ITypeSymbol inputType, BoundPattern pattern)
     {
         // Binding errors already explain invalid shapes and types. Coverage is a
