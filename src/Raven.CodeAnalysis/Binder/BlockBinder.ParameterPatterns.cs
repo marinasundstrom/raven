@@ -36,6 +36,21 @@ internal partial class BlockBinder
         return statements.ToImmutable();
     }
 
+    private BoundPattern BindNominalParameterPattern(
+        NominalDeconstructionPatternSyntax syntax, ITypeSymbol inputType, SyntaxKind bindingKeyword)
+    {
+        var previousKeyword = _ambientPatternDeclarationBindingKeyword;
+        _ambientPatternDeclarationBindingKeyword = bindingKeyword;
+        try
+        {
+            return BindPattern(syntax, inputType);
+        }
+        finally
+        {
+            _ambientPatternDeclarationBindingKeyword = previousKeyword;
+        }
+    }
+
     private void ValidateParameterPattern(PatternSyntax syntax, ITypeSymbol inputType, BoundPattern pattern)
     {
         // Binding errors already explain invalid shapes and types. Coverage is a
@@ -49,7 +64,11 @@ internal partial class BlockBinder
         }
 
         if (FindRefutableParameterPattern(inputType, pattern) is not { } failure)
+        {
+            if (!CanEmitParameterDeconstruction(pattern))
+                _diagnostics.ReportParameterPatternContextNotSupported("with this nested pattern form", syntax.GetLocation());
             return;
+        }
 
         var failureSyntax = syntax.DescendantNodesAndSelf().OfType<PatternSyntax>()
             .FirstOrDefault(candidate => ReferenceEquals(TryGetCachedBoundNode(candidate), failure.Pattern))
@@ -59,6 +78,16 @@ internal partial class BlockBinder
             failure.InputType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
             failureSyntax.GetLocation());
     }
+
+    private static bool CanEmitParameterDeconstruction(BoundPattern pattern)
+        => pattern switch
+        {
+            BoundDeclarationPattern or BoundDiscardPattern => true,
+            BoundPositionalPattern positional => positional.Elements.All(CanEmitParameterDeconstruction),
+            BoundDeconstructPattern deconstruction => deconstruction.Arguments.All(CanEmitParameterDeconstruction),
+            BoundDictionaryPattern dictionary => dictionary.Entries.All(entry => CanEmitParameterDeconstruction(entry.Pattern)),
+            _ => false
+        };
 
     private (ITypeSymbol InputType, BoundPattern Pattern)? FindRefutableParameterPattern(
         ITypeSymbol inputType,
@@ -132,6 +161,22 @@ internal partial class BlockBinder
                     for (var i = 0; i < deconstruction.Arguments.Length; i++)
                     {
                         if (FindRefutableParameterPattern(parameters[i + offset].Type, deconstruction.Arguments[i]) is { } failure)
+                            return failure;
+                    }
+
+                    return null;
+                }
+            case BoundPropertyPattern property:
+                {
+                    if (CanBeNull(inputType) ||
+                        property.NarrowedType is { } narrowedType && !IsAssignable(narrowedType, inputType, out _))
+                    {
+                        return (inputType, pattern);
+                    }
+
+                    foreach (var member in property.Properties)
+                    {
+                        if (FindRefutableParameterPattern(member.Type, member.Pattern) is { } failure)
                             return failure;
                     }
 

@@ -50,6 +50,27 @@ public class ParameterPatternMetadataTests
     }
 
     [Fact]
+    public void NominalPattern_PreservesImportedSignature()
+    {
+        const string source = "public record class Row(Value: int)\npublic class C { public static func Read(Row(let x): Row) -> int => x }";
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("NominalPatterns", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(references).AddSyntaxTrees(SyntaxTree.ParseText(source));
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(System.Environment.NewLine, result.Diagnostics));
+        var consumer = Compilation.Create("Consumer", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(references).AddReferences(MetadataReference.CreateFromImage(stream.ToArray()));
+        foreach (var current in new[] { compilation, consumer })
+        {
+            var method = Assert.Single(current.GetTypeByMetadataName("C")!.GetMembers("Read").OfType<IMethodSymbol>());
+            var parameter = Assert.Single(method.Parameters);
+            Assert.IsType<NominalDeconstructionPatternSyntax>(parameter.BindingPattern);
+            Assert.Equal("Row(let x): Row", parameter.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
+        }
+    }
+
+    [Fact]
     public void GenericPattern_PreservesBindingsWithSubstitutedTypes()
     {
         const string source = "public class C<T> { public static func M<U>((left, right): (T, U)) -> int => 1 }";

@@ -983,7 +983,8 @@ internal class StatementSyntaxParser : SyntaxParser
                 PatternSyntax? pattern = null;
                 SyntaxToken name;
                 if (allowDestructuringPatterns &&
-                    PeekToken().Kind is SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken)
+                    (PeekToken().Kind is SyntaxKind.OpenParenToken or SyntaxKind.OpenBracketToken ||
+                     LooksLikeNominalParameterPattern()))
                 {
                     pattern = new PatternSyntaxParser(
                         this,
@@ -1094,6 +1095,45 @@ internal class StatementSyntaxParser : SyntaxParser
                 or SyntaxKind.VarKeyword
                 or SyntaxKind.ConstKeyword
                 or SyntaxKind.IdentifierToken;
+        }
+        finally
+        {
+            checkpoint.Rewind();
+        }
+    }
+
+    internal bool LooksLikeNominalParameterPattern(bool requireLambdaArrow = false)
+    {
+        if (!CanTokenBeIdentifier(PeekToken()))
+            return false;
+
+        var checkpoint = CreateCheckpoint("nominal-parameter-pattern");
+        try
+        {
+            _ = new NameSyntaxParser(this).ParseTypeName();
+            if (!PeekToken().IsKind(SyntaxKind.OpenParenToken))
+                return false;
+            if (!requireLambdaArrow)
+                return true;
+
+            // An arrow inside a call argument does not make the whole call a
+            // nominal lambda parameter: rows.Select(Row(x) => x).
+            var depth = 0;
+            do
+            {
+                var token = ReadToken();
+                if (token.IsKind(SyntaxKind.EndOfFileToken))
+                    return false;
+                if (token.IsKind(SyntaxKind.OpenParenToken))
+                    depth++;
+                else if (token.IsKind(SyntaxKind.CloseParenToken))
+                    depth--;
+            } while (depth > 0);
+
+            var annotations = new TypeAnnotationClauseSyntaxParser(this);
+            _ = annotations.ParseTypeAnnotation();
+            _ = annotations.ParseReturnTypeAnnotation();
+            return PeekToken().IsKind(SyntaxKind.FatArrowToken);
         }
         finally
         {

@@ -1471,7 +1471,19 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             return false;
         }
 
-        var identifier = ReadSimpleLambdaParameterToken();
+        PatternSyntax? pattern = null;
+        SyntaxToken identifier;
+        if (new StatementSyntaxParser(this).LooksLikeNominalParameterPattern(requireLambdaArrow: true))
+        {
+            pattern = new PatternSyntaxParser(this,
+                allowImplicitDeconstructionElementBindings: true,
+                allowWholePatternDesignation: false).ParsePattern();
+            identifier = MissingToken(SyntaxKind.IdentifierToken);
+        }
+        else
+        {
+            identifier = ReadSimpleLambdaParameterToken();
+        }
 
         var typeAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseTypeAnnotation();
 
@@ -1509,7 +1521,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             expressionBody = null;
         }
 
-        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), Token(SyntaxKind.None), scopedKeyword, refKindKeyword, Token(SyntaxKind.None), bindingKeyword, identifier, null, typeAnnotation, Token(SyntaxKind.None), defaultValue);
+        var parameter = Parameter(attributeLists, Token(SyntaxKind.None), Token(SyntaxKind.None), scopedKeyword, refKindKeyword, Token(SyntaxKind.None), bindingKeyword, identifier, pattern, typeAnnotation, Token(SyntaxKind.None), defaultValue);
 
         lambda = SimpleFunctionExpression(
             staticKeyword ?? Token(SyntaxKind.None),
