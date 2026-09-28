@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Support explicit property parameter deconstruction such as
+  `{ x: let horizontal, y: let vertical }: Point` in named functions and
+  parenthesized lambdas. Read listed members once, preserve nested coverage
+  diagnostics, and render source/imported property patterns on one signature
+  line. This slice does not introduce `{ x, y }` shorthand.
+
 - **2026-09-28:** Support nominal parameter deconstruction on named functions and
   lambdas, including `rows.Select(Row(let value) => value)`. Reuse `Deconstruct`
   binding and extraction, preserve imported pattern display, and reject nullable,

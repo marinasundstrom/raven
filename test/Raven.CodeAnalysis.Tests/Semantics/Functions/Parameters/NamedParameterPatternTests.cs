@@ -7,6 +7,29 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class NamedParameterPatternTests : CompilationTestBase
 {
     [Theory]
+    [InlineData("func sum({x: let x, y: let y}: Point) -> int => x + y")]
+    [InlineData("class C { func sum({x: let x, y: let y}: Point) -> int { x + y } }")]
+    [InlineData("let f: (Point) -> int = ({x: let x, y: let y}) => x + y")]
+    public void PropertyParameter_BindsInput(string declaration)
+    {
+        var (compilation, tree) = CreateCompilation("record class Point(x: int, y: int)\n" + declaration);
+        var model = compilation.GetSemanticModel(tree);
+        var binding = tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().First();
+        Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(binding));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Theory]
+    [InlineData("{x: let x}: Point?")]
+    [InlineData("{x: 1}: Point")]
+    public void RefutablePropertyParameter_IsDiagnosed(string parameter)
+    {
+        var (compilation, _) = CreateCompilation("record class Point(x: int)\nfunc read(" + parameter + ") -> int => 0");
+        var error = Assert.Single(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Equal(CompilerDiagnostics.RefutableParameterPattern.Id, error.Id);
+    }
+
+    [Theory]
     [InlineData("func read(Row(let x): Row) -> int => x")]
     [InlineData("func read(Row(x): Row) -> int => x")]
     [InlineData("class C { func read(Row(let x): Row) -> int => x }")]
@@ -34,14 +57,16 @@ func read(Row<int>(let x): Row<int>) -> int => x
         Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);
     }
 
-    [Fact]
-    public void Select_NominalLambda_InfersInputAndOutput()
+    [Theory]
+    [InlineData("Row(let x)")]
+    [InlineData("({Value: let x})")]
+    public void Select_StructuralLambda_InfersInputAndOutput(string parameter)
     {
-        var (compilation, _) = CreateCompilation("""
+        var (compilation, _) = CreateCompilation($$"""
 import System.Linq.*
 record class Row(Value: int)
 let rows = [Row(1), Row(2)]
-let values = rows.Select(Row(let x) => x).ToArray()
+let values = rows.Select({{parameter}} => x).ToArray()
 """);
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
@@ -49,15 +74,14 @@ let values = rows.Select(Row(let x) => x).ToArray()
     [Theory]
     [InlineData("int", "let x")]
     [InlineData("int[]", "[..x]")]
-    public void NestedUnsupportedDeconstruction_ReportsContextError(string type, string nestedPattern)
+    public void NestedPropertyDeconstruction_Binds(string type, string nestedPattern)
     {
         var (compilation, _) = CreateCompilation($$"""
 record class Item(Value: {{type}})
 record class Row(Item: Item)
 func read(Row({Value: {{nestedPattern}}}): Row) -> unit => ()
 """);
-        var error = Assert.Single(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
-        Assert.Equal(CompilerDiagnostics.ParameterPatternContextNotSupported.Id, error.Id);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
     [Fact]

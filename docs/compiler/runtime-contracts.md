@@ -580,7 +580,8 @@ ignored for presentation. The normal parameter/type display remains available.
 Metadata parsing is bounded. Source comments and whitespace are not preserved.
 The present coverage proves tuple, sequence/rest, discard, nested bindings, and
 generic input types; nominal deconstruction also round-trips through this
-representation. Property syntax and semantic substitution inside typed pattern nodes remain part of the
+representation. Explicit property patterns also round-trip and display on one
+line. Semantic substitution inside typed pattern nodes remains part of the
 broader redesign.
 
 Validation: emitted metadata and separate-compilation import/display tests run

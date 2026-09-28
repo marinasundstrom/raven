@@ -1,3 +1,5 @@
+using System.Text;
+
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Syntax.InternalSyntax.Parser;
 using Raven.CodeAnalysis.Text;
@@ -18,7 +20,24 @@ internal static class ParameterPatternFacts
     }
 
     internal static string GetDisplayText(PatternSyntax pattern)
-        => new RemoveTriviaRewriter().Visit(pattern)!.NormalizeWhitespace().ToString();
+    {
+        var normalized = new RemoveTriviaRewriter().Visit(pattern)!.NormalizeWhitespace();
+        var builder = new StringBuilder();
+        var needsSpace = false;
+        foreach (var token in normalized.DescendantTokens())
+        {
+            needsSpace |= token.LeadingTrivia.Count > 0;
+            if (!string.IsNullOrEmpty(token.Text))
+            {
+                if (needsSpace && builder.Length > 0)
+                    builder.Append(' ');
+                builder.Append(token.Text);
+                needsSpace = false;
+            }
+            needsSpace |= token.TrailingTrivia.Count > 0;
+        }
+        return builder.ToString();
+    }
 
     // Metadata carries a versioned, trivia-free pattern, never a complete signature.
     // Reconstruct detached syntax without binding it in the consumer's scope.

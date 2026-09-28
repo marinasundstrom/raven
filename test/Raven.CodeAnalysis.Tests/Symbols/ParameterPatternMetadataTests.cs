@@ -49,10 +49,12 @@ public class ParameterPatternMetadataTests
         Assert.Equal(expected, imported.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
     }
 
-    [Fact]
-    public void NominalPattern_PreservesImportedSignature()
+    [Theory]
+    [InlineData("Row(let x)", "Row(let x)")]
+    [InlineData("{Value: let x}", "{ Value: let x }")]
+    public void StructuralPattern_PreservesImportedSignature(string pattern, string display)
     {
-        const string source = "public record class Row(Value: int)\npublic class C { public static func Read(Row(let x): Row) -> int => x }";
+        var source = $"public record class Row(Value: int)\npublic class C {{ public static func Read({pattern}: Row) -> int => x }}";
         var references = TestMetadataReferences.Default;
         var compilation = Compilation.Create("NominalPatterns", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(references).AddSyntaxTrees(SyntaxTree.ParseText(source));
@@ -65,8 +67,8 @@ public class ParameterPatternMetadataTests
         {
             var method = Assert.Single(current.GetTypeByMetadataName("C")!.GetMembers("Read").OfType<IMethodSymbol>());
             var parameter = Assert.Single(method.Parameters);
-            Assert.IsType<NominalDeconstructionPatternSyntax>(parameter.BindingPattern);
-            Assert.Equal("Row(let x): Row", parameter.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
+            Assert.NotNull(parameter.BindingPattern);
+            Assert.Equal($"{display}: Row", parameter.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
         }
     }
 

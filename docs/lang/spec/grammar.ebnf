@@ -78,8 +78,8 @@ MacroCapabilityKeyword  ::= 'keywords' | 'tokens' | 'tokenKinds'
 MacroParameterList       ::= MacroParameter {',' MacroParameter} ;
 MacroParameter           ::= {AttributeList} 'on'? AccessModifier? ScopedModifier? RefKindModifier? ParamsModifier? ParameterBindingKeyword?
                              ParameterBinding ':' Type VarParamsSuffix? ['=' Expression] ;
-ParameterBinding         ::= Identifier | '_' | PositionalPattern | SequencePattern | NominalDeconstructionPattern ;
-(* Tuple/sequence/nominal bindings are currently supported on by-value named function and
+ParameterBinding         ::= Identifier | '_' | PositionalPattern | SequencePattern | NominalDeconstructionPattern | PropertyPattern ;
+(* Tuple/sequence/nominal/property bindings are currently supported on by-value named function and
    method parameters with bodies. Constructors retain identifier/discard bindings.
    Bindings must be irrefutable for their input type. *)
 (* Exactly one `on` parameter selects attached application. It is supplied by
@@ -639,7 +639,8 @@ LambdaParameterList      ::= LambdaParameter {',' LambdaParameter} ;
 LambdaParameter          ::= Parameter
                            | PositionalPattern
                            | SequencePattern
-                           | NominalDeconstructionPattern ;
+                           | NominalDeconstructionPattern
+                           | PropertyPattern ;
 (* Parameter patterns must be irrefutable for their resolved input types,
    including nested patterns. This is a semantic restriction, not a ban on
    positional or sequence syntax. *)

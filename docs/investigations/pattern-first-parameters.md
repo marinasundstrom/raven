@@ -1,7 +1,7 @@
 # Pattern-first parameters
 
 Status: coverage validation is implemented for existing function-expression
-patterns, and tuple/sequence/nominal patterns now work on by-value named functions and
+patterns, and tuple/sequence/nominal/property patterns now work on by-value named functions and
 methods with bodies. Source and imported signatures now display these patterns through
 `IParameterSymbol.BindingPattern`; `PatternParameterAttribute` preserves their
 structure in referenced assemblies. Uniform syntax-model migration, additional
@@ -24,7 +24,7 @@ Proposed examples (not assertions of current compiler support):
 func foo(value: int)
 func foo(_: int)
 func foo((x, _): (int, int))
-func foo({ x, y }: Point)
+func foo({ x: let x, y: let y }: Point)
 ```
 
 ## User-facing model: parameter deconstruction
@@ -134,8 +134,8 @@ parameter-mismatch exception or runtime fault policy to implement.
 
 * `ParameterSyntax` still has an identifier token plus an optional pattern. The
   uniform syntax-model migration remains separate from these implementation slices.
-* Named functions/methods with bodies and lambdas accept tuple, sequence, and
-  nominal deconstruction. Short nominal lambdas work in calls such as
+* Named functions/methods with bodies and lambdas accept tuple, sequence, nominal, and
+  explicit property deconstruction. Short nominal lambdas work in calls such as
   `rows.Select(Row(let value) => value)`. Qualified and generic nominal heads use
   the existing type parser. Constructors keep their previous parameter grammar.
 * Named and lambda body binders extract patterns from one incoming parameter
@@ -150,8 +150,12 @@ parameter-mismatch exception or runtime fault policy to implement.
 * Source and imported parameter symbols expose `BindingPattern`. Shared symbol
   display and LSP signature help render it beside the incoming type.
   `PatternParameterAttribute` preserves presentation across assembly boundaries.
-* General property shorthand `{ x, y }`, nested property extraction, alternative
-  extraction forms, and generic substitution inside explicit nominal type syntax
+* Explicit property parameters use `{ x: let x, y: let y }: Point`. Extraction
+  reads each listed field/getter once, including discarded results. Nested
+  property extraction reuses the same recursive coverage and emission rules.
+  Shorthand `{ x, y }` remains undecided and is not introduced by this slice.
+* Property shorthand, alternative extraction forms, and generic substitution
+  inside explicit nominal type syntax
   remain unfinished. No syntax category should be called refutable merely
   because its extraction emitter is not implemented.
 
