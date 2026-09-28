@@ -39,7 +39,8 @@ internal class LanguageParser
         Type requestedSyntaxType,
         SourceText sourceText,
         int position,
-        bool consumeFullText = false)
+        bool consumeFullText = false,
+        bool parameterPattern = false)
     {
         using var textReader = sourceText.GetTextReader(position);
 
@@ -48,7 +49,10 @@ internal class LanguageParser
 
         try
         {
-            var root = ParseRequestedType(parseContext, requestedSyntaxType);
+            var root = parameterPattern && requestedSyntaxType == typeof(Syntax.PatternSyntax)
+                ? new PatternSyntaxParser(parseContext, allowImplicitDeconstructionElementBindings: true,
+                    allowWholePatternDesignation: false).ParsePattern()
+                : ParseRequestedType(parseContext, requestedSyntaxType);
             if (root is not null &&
                 consumeFullText &&
                 parseContext.PeekToken().Kind != SyntaxKind.EndOfFileToken)

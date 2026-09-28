@@ -101,8 +101,9 @@ func sum([x, y]: int[2]) -> int => x + y
 func count([..items]: int[]) -> int => items.Length
 ```
 
-Each pattern consumes one argument and introduces immutable local bindings in
-the body. Binding names must be unique across the parameter list. They are not
+Parameter deconstruction consumes one argument and makes its components
+available as immutable local bindings at the start of the body. It does not
+perform conditional matching at the call site. Binding names must be unique across the parameter list. They are not
 named-argument labels and do not participate in overload identity. The incoming
 parameter has a generated metadata name; extracted bindings are locals, not
 additional parameters.
@@ -116,8 +117,12 @@ extraction in the body instead.
 This support applies to block and expression bodies, including local functions.
 By-reference patterns and patterns on declarations without bodies currently
 report `RAV1619`. Constructor parameters retain their existing syntax. General
-nominal/property parameter syntax and pattern-aware signature display are
-separate parts of the ongoing parameter redesign.
+nominal/property parameter syntax remains part of the ongoing parameter redesign.
+
+Caller-facing signatures show the binding pattern alongside the input type,
+including for referenced assemblies. `PatternParameterAttribute` preserves the
+pattern for importing tools. This does not make individual binding names valid
+named-argument labels: `sum((1, 2))` still passes one tuple argument.
 
 ### Default arguments
 

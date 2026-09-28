@@ -13,6 +13,48 @@ public sealed class LanguageServerSignatureHelpTests : IDisposable
 {
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), $"raven-ls-sighelp-{Guid.NewGuid():N}");
 
+    [Fact]
+    public async Task SignatureHelpHandler_PatternParameter_ShowsBindingStructureAsync()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var workspace = RavenWorkspace.Create(targetFramework: "net10.0");
+        var manager = new WorkspaceManager(workspace, NullLogger<WorkspaceManager>.Instance);
+        manager.Initialize(new InitializeParams
+        {
+            WorkspaceFolders = new Container<WorkspaceFolder>(new WorkspaceFolder
+            {
+                Name = "temp",
+                Uri = DocumentUri.FromFileSystemPath(_tempRoot)
+            })
+        });
+        var store = new DocumentStore(manager, NullLogger<DocumentStore>.Instance);
+        var handler = new SignatureHelpHandler(store, NullLogger<SignatureHelpHandler>.Instance);
+        var uri = DocumentUri.FromFileSystemPath(Path.Combine(_tempRoot, "main.rvn"));
+        const string code = "func sum((x, y): (int, int)) -> int => x + y\nlet result = sum((1, 2))";
+        await store.UpsertDocumentAsync(uri, code);
+        var sourceText = SourceText.From(code);
+        var offset = code.LastIndexOf("sum(", StringComparison.Ordinal) + "sum(".Length;
+        var result = await handler.Handle(new SignatureHelpParams
+        {
+            TextDocument = new TextDocumentIdentifier(uri),
+            Position = PositionHelper.ToRange(sourceText, new Raven.CodeAnalysis.Text.TextSpan(offset, 0)).Start
+        }, CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        var signature = result.Signatures.Single();
+        signature.Label.ShouldBe("func sum((x, y): (int, int)) -> int");
+        signature.Parameters!.Count().ShouldBe(1);
+
+        var hints = await new InlayHintHandler(store, NullLogger<InlayHintHandler>.Instance).Handle(
+            new InlayHintParams
+            {
+                TextDocument = new TextDocumentIdentifier(uri),
+                Range = PositionHelper.ToRange(sourceText, new Raven.CodeAnalysis.Text.TextSpan(0, code.Length))
+            }, CancellationToken.None);
+        hints.ShouldNotBeNull();
+        hints.Any(hint => hint.Label.String?.Contains("<arg", StringComparison.Ordinal) == true).ShouldBeFalse();
+    }
+
     [Theory]
     [InlineData("import Raven.Macros.*\n\nval syntax = quote!() { 42 }", "quote!() { ... }")]
     [InlineData("let syntax = Raven.Macros.Quote!() { 42 }", "Raven.Macros.Quote!() { ... }")]

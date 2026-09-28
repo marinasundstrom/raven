@@ -2,9 +2,16 @@
 
 Status: coverage validation is implemented for existing function-expression
 patterns, and tuple/sequence patterns now work on by-value named functions and
-methods with bodies. The general syntax model and display redesign remain
-proposed. The next metadata/display slice will use `PatternParameterAttribute`
-to preserve binding structure for callers loading an assembly.
+methods with bodies. Source and imported signatures now display these patterns through
+`IParameterSymbol.BindingPattern`; `PatternParameterAttribute` preserves their
+structure in referenced assemblies. Uniform syntax-model migration, additional
+pattern forms, and richer editor interactions remain proposed.
+
+TextMate evaluation: existing function-declaration rules identify the function
+name without consuming its parameter list, and existing punctuation/rest rules
+cover the implemented tuple/sequence spelling. No new lexical token is required.
+Semantic signature help uses compiler display; generated incoming parameter
+names are suppressed in argument-name inlays.
 
 The proposed breaking change makes a source parameter consist of a binding
 pattern and an input type. The pattern introduces bindings in the function's
@@ -19,6 +26,14 @@ func foo(_: int)
 func foo((x, _): (int, int))
 func foo({ x, y }: Point)
 ```
+
+## User-facing model: parameter deconstruction
+
+The main benefit is making an incoming value's components available inside the
+method without a separate deconstruction statement. Patterns supply a common
+structural language, but invocation is unconditional binding, not case selection.
+Signature display communicates the decomposition and component names. The input
+type remains the caller's contract; refutable extraction belongs in the body.
 
 ## Decision: irrefutable parameter binding
 

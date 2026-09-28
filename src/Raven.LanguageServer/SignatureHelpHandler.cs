@@ -427,41 +427,11 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
     }
 
     private static string FormatParameter(IParameterSymbol parameter, SymbolDisplayFormat plainTypeFormat)
-    {
-        var paramsPrefix = parameter.IsVarParams ? "params " : string.Empty;
-        var refPrefix = parameter.RefKind switch
-        {
-            RefKind.Ref => "ref ",
-            RefKind.Out => "out ",
-            RefKind.In => "in ",
-            RefKind.RefReadOnly => "ref readonly ",
-            RefKind.RefReadOnlyParameter => "ref readonly ",
-            _ => string.Empty
-        };
-
-        var typeDisplay = parameter.Type.ToDisplayString(plainTypeFormat);
-        var defaultValue = FormatParameterDefaultValue(parameter, plainTypeFormat);
-        return $"{paramsPrefix}{refPrefix}{parameter.Name}: {typeDisplay}{defaultValue}";
-    }
-
-    private static string FormatParameterDefaultValue(IParameterSymbol parameter, SymbolDisplayFormat format)
-    {
-        if (!parameter.HasExplicitDefaultValue)
-            return string.Empty;
-
-        var parameterFormat = format.WithParameterOptions(
-            format.ParameterOptions |
+        => parameter.ToDisplayString(plainTypeFormat.WithParameterOptions(
             SymbolDisplayParameterOptions.IncludeName |
             SymbolDisplayParameterOptions.IncludeType |
             SymbolDisplayParameterOptions.IncludeDefaultValue |
-            SymbolDisplayParameterOptions.IncludeParamsRefOut);
-        var parameterDisplay = parameter.ToDisplayString(parameterFormat);
-        var marker = " = ";
-        var markerIndex = parameterDisplay.IndexOf(marker, StringComparison.Ordinal);
-        return markerIndex < 0
-            ? string.Empty
-            : parameterDisplay[markerIndex..];
-    }
+            SymbolDisplayParameterOptions.IncludeParamsRefOut));
 
     private static StringOrMarkupContent? FormatDocumentation(DocumentationComment? documentation)
     {

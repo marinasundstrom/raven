@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Preserve parameter patterns in `PatternParameterAttribute` and
+  expose source/imported binding structure through `IParameterSymbol.BindingPattern`.
+  Show patterns in shared symbol display and editor signature help, retain them
+  through generic substitution, and suppress generated argument-name inlays.
+  Unknown or malformed metadata falls back to ordinary parameter presentation.
+
 - **2026-09-28:** Support irrefutable tuple/sequence parameters on named functions
   and methods with bodies. Bind extracted names as locals while retaining one
   generated incoming parameter. Cover block/expression bodies, captured bindings,

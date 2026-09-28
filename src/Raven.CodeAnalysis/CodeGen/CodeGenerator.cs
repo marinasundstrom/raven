@@ -1235,6 +1235,54 @@ internal class CodeGenerator
                 "Missing RavenOptionNoneDefaultValueAttribute() constructor.");
     }
 
+    private ConstructorInfo? _patternParameterAttributeConstructor;
+
+    internal CustomAttributeBuilder? CreatePatternParameterAttribute(IParameterSymbol parameter)
+    {
+        if (parameter.BindingPattern is not { } pattern)
+            return null;
+
+        if (_patternParameterAttributeConstructor is null)
+        {
+            var existingType = TargetRuntimeTypeExists(ParameterPatternFacts.AttributeMetadataName)
+                ? Compilation.ResolveRuntimeType(ParameterPatternFacts.AttributeMetadataName)
+                : null;
+            _patternParameterAttributeConstructor = existingType?.GetConstructor([typeof(int), typeof(string)]);
+            if (_patternParameterAttributeConstructor is null)
+            {
+                var attributeType = TypeSymbolExtensionsForCodeGen.GetClrType(
+                    Compilation.GetTypeByMetadataName("System.Attribute"), this);
+                var builder = ModuleBuilder.DefineType(ParameterPatternFacts.AttributeMetadataName,
+                    TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed, attributeType);
+                var usageConstructor = typeof(AttributeUsageAttribute).GetConstructor([typeof(AttributeTargets)])!;
+                builder.SetCustomAttribute(new CustomAttributeBuilder(usageConstructor, [AttributeTargets.Parameter]));
+                var versionField = DefineReadOnlyBackingField(builder, "Version", typeof(int));
+                var patternField = DefineReadOnlyBackingField(builder, "Pattern", typeof(string));
+                DefineReadOnlyProperty(builder, "Version", typeof(int), versionField);
+                DefineReadOnlyProperty(builder, "Pattern", typeof(string), patternField);
+                var constructor = builder.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard,
+                    [typeof(int), typeof(string)]);
+                var baseConstructor = attributeType.GetConstructor(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    binder: null, types: Type.EmptyTypes, modifiers: null)!;
+                var il = constructor.GetILGenerator();
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Call, baseConstructor);
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Ldarg_1);
+                il.Emit(OpCodes.Stfld, versionField);
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Ldarg_2);
+                il.Emit(OpCodes.Stfld, patternField);
+                il.Emit(OpCodes.Ret);
+                _patternParameterAttributeConstructor = builder.CreateType()!.GetConstructor([typeof(int), typeof(string)]);
+            }
+        }
+
+        return new CustomAttributeBuilder(_patternParameterAttributeConstructor!,
+            [ParameterPatternFacts.MetadataVersion, ParameterPatternFacts.GetDisplayText(pattern)]);
+    }
+
     private static FieldBuilder DefineReadOnlyBackingField(TypeBuilder typeBuilder, string propertyName, Type propertyType)
         => typeBuilder.DefineField(
             $"<{propertyName}>k__BackingField",

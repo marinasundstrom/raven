@@ -1212,7 +1212,8 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     }
 
     private static bool ShouldDisplayParameterName(IParameterSymbol parameter)
-        => !string.IsNullOrWhiteSpace(parameter.Name) &&
+        => !parameter.HasImplicitName &&
+           !string.IsNullOrWhiteSpace(parameter.Name) &&
            parameter.Name != "_";
 
     private static void AddDeconstructionElementNameHints(

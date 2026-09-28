@@ -557,3 +557,31 @@ Two modified System.Runtime-reference cases (leading text and interpolation-only
 failed before the fix and pass afterward. Eight focused interpolation/error-recovery
 checks pass on .NET 11, including existing observable formatting and Unicode cases.
 This is not execution evidence for .NET Framework or NanoFramework.
+
+## Parameter pattern presentation metadata
+
+Patterned parameters emit
+`Raven.Runtime.CompilerServices.PatternParameterAttribute(int version, string pattern)`.
+The attribute targets parameters and has read-only `Version` and `Pattern`
+properties. The compiler embeds its definition when the target references do not
+supply the constructor. This requires no new Runtime Contract option or runtime
+pattern-matching service.
+
+Version 1 stores the trivia-free Raven binding-pattern spelling, such as `(x, y)`
+or `[head, ..tail]`, without the input type or a complete method signature. The
+consumer reconstructs detached pattern syntax and combines it with the actual
+CLI parameter type. Generic substitutions therefore update the displayed input
+type while preserving binding names. The attribute supplies presentation data;
+it does not change parameter count, overload identity, named-argument labels,
+or invocation behavior. Extraction still belongs to the callee.
+
+Unknown versions, malformed patterns, and duplicate pattern attributes are
+ignored for presentation. The normal parameter/type display remains available.
+Metadata parsing is bounded. Source comments and whitespace are not preserved.
+The present coverage proves tuple, sequence/rest, discard, nested bindings, and
+generic input types; richer nominal/property syntax and semantic substitution
+inside typed pattern nodes remain part of the broader redesign.
+
+Validation: emitted metadata and separate-compilation import/display tests run
+on .NET 11; editor signature-help tests run on .NET 10. This does not establish
+execution on .NET Framework, NanoFramework, or neoCLR.

@@ -46,6 +46,8 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
 
     public bool HasImplicitName { get; }
 
+    public Syntax.PatternSyntax? BindingPattern => ParameterPatternFacts.GetSourcePattern(this);
+
     public bool IsVarParams { get; }
 
     public RefKind RefKind { get; }

@@ -303,6 +303,10 @@ internal class MethodGenerator
             if (tupleNamesAttr is not null)
                 parameterBuilder.SetCustomAttribute(tupleNamesAttr);
 
+            var patternAttribute = TypeGenerator.CodeGen.CreatePatternParameterAttribute(parameterSymbol);
+            if (patternAttribute is not null)
+                parameterBuilder.SetCustomAttribute(patternAttribute);
+
             var fixedLengthArrayAttr = TypeGenerator.CodeGen.CreateFixedLengthArrayAttribute(parameterSymbol.Type);
             if (fixedLengthArrayAttr is not null)
                 parameterBuilder.SetCustomAttribute(fixedLengthArrayAttr);

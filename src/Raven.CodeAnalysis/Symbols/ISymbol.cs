@@ -472,6 +472,13 @@ public interface IParameterSymbol : ISymbol
     bool HasImplicitName => false;
 
     /// <summary>
+    /// Gets the binding structure presented to callers, or null for an ordinary
+    /// named parameter or unavailable metadata. Imported patterns are detached
+    /// syntax for presentation, not declarations in the consuming compilation.
+    /// </summary>
+    PatternSyntax? BindingPattern => null;
+
+    /// <summary>
     /// Gets how this parameter is supplied when it belongs to a macro
     /// function, or <see cref="MacroParameterRole.None"/> otherwise.
     /// </summary>

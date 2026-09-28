@@ -331,3 +331,12 @@ owning block or expression body through the semantic model; clients do not need
 to request diagnostics first. Both body forms bind parameter extraction before
 resolving body references. Refutability is diagnosed against the incoming type,
 without changing the method's ABI parameter count.
+
+`IParameterSymbol.BindingPattern` exposes caller-facing pattern syntax for source
+and imported parameters, including generic substitutions. This is an intentional
+Raven-specific API: imported syntax is detached presentation data, not source
+that clients should bind or navigate. Ordinary named parameters return null.
+Source patterns retain their source locations; imported patterns have no source
+declaration. Symbol display uses this structure when `IncludeName` is requested;
+`IncludeType` alone continues to display only the input type. Editor signature
+help delegates parameter formatting to this shared compiler display path.

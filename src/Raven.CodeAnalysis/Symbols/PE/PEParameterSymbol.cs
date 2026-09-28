@@ -20,6 +20,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
     private object? _explicitDefaultValue;
     private bool _explicitDefaultValueIsTypeDefault;
     private ImmutableArray<AttributeData>? _attributes;
+    private readonly Lazy<Syntax.PatternSyntax?> _bindingPattern;
 
     public PEParameterSymbol(ReflectionTypeLoader reflectionTypeLoader, ParameterInfo parameterInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
@@ -27,6 +28,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
         _reflectionTypeLoader = reflectionTypeLoader;
         _parameterInfo = parameterInfo;
         _name = parameterInfo.Name ?? string.Empty;
+        _bindingPattern = new Lazy<Syntax.PatternSyntax?>(ReadBindingPattern);
         _parameterRuntimeType = parameterInfo.ParameterType;
         _isIn = parameterInfo.IsIn;
         _isOut = parameterInfo.IsOut;
@@ -41,6 +43,22 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
 
     public bool HasImplicitName => _parameterInfo.GetCustomAttributesData()
         .Any(attribute => attribute.AttributeType.FullName == "System.Runtime.CompilerServices.CompilerGeneratedAttribute");
+
+    public Syntax.PatternSyntax? BindingPattern => _bindingPattern.Value;
+
+    private Syntax.PatternSyntax? ReadBindingPattern()
+    {
+        var attributes = _parameterInfo.GetCustomAttributesData()
+            .Where(attribute => attribute.AttributeType.FullName == ParameterPatternFacts.AttributeMetadataName)
+            .ToArray();
+        if (attributes.Length != 1)
+            return null;
+
+        var arguments = attributes[0].ConstructorArguments;
+        return arguments.Count == 2 && arguments[0].Value is int version && arguments[1].Value is string pattern
+            ? ParameterPatternFacts.Decode(version, pattern)
+            : null;
+    }
 
     public bool IsVarParams => _isParams;
 
