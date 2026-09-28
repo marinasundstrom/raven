@@ -11,6 +11,24 @@ namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 public class ReturnExpressionParserTests
 {
     [Fact]
+    public void MatchArm_IdentifierBeforeCasePattern_DoesNotBecomeNominalLambda()
+    {
+        var lexer = new Lexer(new StringReader("""
+match value {
+    .Ok(let number) => number
+    .Error(_) => -1
+}
+"""));
+        var context = new BaseParseContext(lexer);
+        var parser = new ExpressionSyntaxParser(context);
+        var match = Assert.IsType<MatchExpressionSyntax>(parser.ParseExpression().CreateRed());
+
+        Assert.Equal(2, match.Arms.Count);
+        Assert.IsType<IdentifierNameSyntax>(match.Arms[0].Expression);
+        Assert.Empty(context.Diagnostics);
+    }
+
+    [Fact]
     public void ReturnExpression_ParsesAsExpression()
     {
         var lexer = new Lexer(new StringReader("return -1"));
