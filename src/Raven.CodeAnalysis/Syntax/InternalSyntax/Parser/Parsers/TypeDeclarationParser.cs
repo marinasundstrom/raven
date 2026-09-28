@@ -928,7 +928,9 @@ internal class TypeDeclarationParser : SyntaxParser
             typeParameterList = ParseTypeParameterList();
         }
 
-        var parameterList = ParseParameterList(allowDiscardParameters: true);
+        var parameterList = identifier.IsKind(SyntaxKind.InitKeyword)
+            ? ParseParameterList(allowDiscardParameters: true)
+            : new StatementSyntaxParser(this).ParseParameterList(allowDestructuringPatterns: true, allowDiscardParameters: true);
 
         var returnParameterAnnotation = new TypeAnnotationClauseSyntaxParser(this).ParseReturnTypeAnnotation();
 

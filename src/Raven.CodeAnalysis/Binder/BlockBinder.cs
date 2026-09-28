@@ -17024,10 +17024,12 @@ partial class BlockBinder : Binder
         else if (function.ExpressionBody is not null)
         {
             var expressionBinder = (BlockBinder)SemanticModel.GetBinder(function.ExpressionBody, methodBinder);
+            var parameterPrologue = expressionBinder.BindNamedParameterPatterns(symbol);
             var expression = expressionBinder.BindExpression(function.ExpressionBody.Expression, allowReturn: true);
             var returnType = symbol.ReturnType;
             var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
             var statements = new List<BoundStatement>(capacity: 1);
+            statements.AddRange(parameterPrologue);
 
             if (symbol is SourceMethodSymbol sourceMethod &&
                 sourceMethod.RequiresAsyncReturnTypeInference &&

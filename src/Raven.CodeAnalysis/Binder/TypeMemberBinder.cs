@@ -736,6 +736,7 @@ internal partial class TypeMemberBinder : Binder
         var paramInfos = new List<(string name, TypeSyntax? typeSyntax, RefKind refKind, ParameterSyntax syntax, bool isMutable)>();
         foreach (var p in methodDecl.ParameterList.Parameters)
         {
+            ParameterSyntaxUtilities.ValidatePatternContext(p, methodDecl.Body is not null || methodDecl.ExpressionBody is not null, _diagnostics);
             var typeSyntax = p.TypeAnnotation?.Type;
             ReportParameterModifierByRefTypeConflictIfNeeded(p);
             var refKind = ParameterSyntaxUtilities.GetRefKind(p);
@@ -749,7 +750,7 @@ internal partial class TypeMemberBinder : Binder
             }
 
             var isMutable = refKind is RefKind.Ref or RefKind.Out;
-            paramInfos.Add((p.Identifier.ValueText, typeSyntax, refKind, p, isMutable));
+            paramInfos.Add((ParameterSyntaxUtilities.GetParameterName(p, paramInfos.Count), typeSyntax, refKind, p, isMutable));
         }
 
         var modifiers = methodDecl.Modifiers;
@@ -1155,14 +1156,15 @@ internal partial class TypeMemberBinder : Binder
                 methodSymbol,
                 _containingType,
                 CurrentNamespace!.AsSourceNamespace(),
-                [syntax.Identifier.GetLocation()],
+                [syntax.Pattern?.GetLocation() ?? syntax.Identifier.GetLocation()],
                 [syntax.GetReference()],
                 refKind,
                 defaultResult.HasExplicitDefaultValue,
                 defaultResult.ExplicitDefaultValue,
                 isMutable,
                 isVarParams,
-                ParameterSyntaxUtilities.GetScopedKind(syntax, effectiveParamType, _diagnostics)
+                ParameterSyntaxUtilities.GetScopedKind(syntax, effectiveParamType, _diagnostics),
+                hasImplicitName: syntax.Pattern is not null
             );
             parameters.Add(pSymbol);
         }

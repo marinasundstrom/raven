@@ -51,11 +51,20 @@ class MethodBodyBinder : BlockBinder
 
     public override BoundBlockStatement BindBlockStatement(BlockStatementSyntax block)
     {
-        var bound = base.BindBlockStatement(block);
         if (!IsMethodLikeBodyBlock(block))
-            return bound;
+            return base.BindBlockStatement(block);
 
-        return FinalizeMethodBody(block, bound, () => base.BindBlockStatement(block));
+        if (TryGetCachedBoundNode(block) is BoundBlockStatement cached)
+            return cached;
+
+        var prologue = BindNamedParameterPatterns(_methodSymbol);
+        BoundBlockStatement BindBody()
+        {
+            var body = base.BindBlockStatement(block);
+            return prologue.IsEmpty ? body : new BoundBlockStatement(prologue.Concat(body.Statements), body.LocalsToDispose, body.IntroduceILScope);
+        }
+
+        return FinalizeMethodBody(block, BindBody(), BindBody);
     }
 
     private static bool IsMethodLikeBodyBlock(BlockStatementSyntax block)
@@ -80,10 +89,11 @@ class MethodBodyBinder : BlockBinder
 
     private BoundBlockStatement BindArrowExpressionClauseCore(ArrowExpressionClauseSyntax clause)
     {
+        var prologue = BindNamedParameterPatterns(_methodSymbol);
         var expression = BindExpression(clause.Expression);
 
         if (expression is BoundBlockExpression blockExpression)
-            return new BoundBlockStatement(blockExpression.Statements, blockExpression.LocalsToDispose);
+            return new BoundBlockStatement(prologue.Concat(blockExpression.Statements), blockExpression.LocalsToDispose);
 
         BoundStatement statement;
         if (_methodSymbol.ReturnType.SpecialType == SpecialType.System_Unit)
@@ -121,7 +131,7 @@ class MethodBodyBinder : BlockBinder
             statement = new BoundReturnStatement(ValidateByRefReturnExpression(_methodSymbol, convertedExpression, clause.Expression));
         }
 
-        return new BoundBlockStatement([statement]);
+        return new BoundBlockStatement(prologue.Add(statement));
     }
 
     private BoundBlockStatement FinalizeMethodBody(SyntaxNode bodySyntax, BoundBlockStatement bound, Func<BoundBlockStatement> rebind)

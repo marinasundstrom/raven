@@ -1042,7 +1042,8 @@ internal partial class MethodBodyGenerator
         BoundBlockStatement? boundBody = syntax switch
         {
             MethodDeclarationSyntax m when m.Body != null => semanticModel.GetBoundNode(m.Body, BoundTreeView.Lowered) as BoundBlockStatement,
-            MethodDeclarationSyntax m when m.ExpressionBody is not null && MethodSymbol is SourceMethodSymbol { IsAsync: true }
+            MethodDeclarationSyntax m when m.ExpressionBody is not null &&
+                (MethodSymbol is SourceMethodSymbol { IsAsync: true } || m.ParameterList.Parameters.Any(parameter => parameter.Pattern is not null))
                 => GetLoweredArrowExpressionBody(semanticModel, m.ExpressionBody),
             OperatorDeclarationSyntax o when o.Body != null => semanticModel.GetBoundNode(o.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             ConversionOperatorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body, BoundTreeView.Lowered) as BoundBlockStatement,
@@ -2335,7 +2336,8 @@ internal partial class MethodBodyGenerator
 
     private BoundBlockStatement? GetLoweredArrowExpressionBody(SemanticModel semanticModel, ArrowExpressionClauseSyntax expressionBody)
     {
-        var originalBody = expressionBody.Parent is MethodDeclarationSyntax &&
+        var originalBody = expressionBody.Parent is MethodDeclarationSyntax method &&
+            !method.ParameterList.Parameters.Any(parameter => parameter.Pattern is not null) &&
             MethodSymbol is SourceMethodSymbol { IsAsync: true } &&
             semanticModel.GetBoundNode(expressionBody.Expression, BoundTreeView.Original) is BoundExpression expression
                 ? new BoundBlockStatement([new BoundReturnStatement(expression)])

@@ -4,6 +4,20 @@ namespace Raven.CodeAnalysis;
 
 internal static class ParameterSyntaxUtilities
 {
+    public static string GetParameterName(ParameterSyntax parameter, int ordinal)
+        => parameter.Pattern is null ? parameter.Identifier.ValueText : $"<arg{ordinal}>";
+
+    public static void ValidatePatternContext(ParameterSyntax parameter, bool hasBody, DiagnosticBag diagnostics)
+    {
+        if (parameter.Pattern is not { } pattern)
+            return;
+
+        if (!hasBody)
+            diagnostics.ReportParameterPatternContextNotSupported("on declarations without a body", pattern.GetLocation());
+        if (GetRefKind(parameter).IsByRef)
+            diagnostics.ReportParameterPatternContextNotSupported("on by-reference parameters", pattern.GetLocation());
+    }
+
     public static RefKind GetRefKind(ParameterSyntax parameter)
     {
         var typeSyntax = parameter.TypeAnnotation?.Type;

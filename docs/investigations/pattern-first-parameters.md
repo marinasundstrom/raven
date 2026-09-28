@@ -1,8 +1,10 @@
 # Pattern-first parameters
 
-Status: design with an initial implementation of coverage validation for existing
-function-expression parameter patterns. The general syntax and display redesign
-remains proposed.
+Status: coverage validation is implemented for existing function-expression
+patterns, and tuple/sequence patterns now work on by-value named functions and
+methods with bodies. The general syntax model and display redesign remain
+proposed. The next metadata/display slice will use `PatternParameterAttribute`
+to preserve binding structure for callers loading an assembly.
 
 The proposed breaking change makes a source parameter consist of a binding
 pattern and an input type. The pattern introduces bindings in the function's

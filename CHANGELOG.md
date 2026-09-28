@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-28:** Support irrefutable tuple/sequence parameters on named functions
+  and methods with bodies. Bind extracted names as locals while retaining one
+  generated incoming parameter. Cover block/expression bodies, captured bindings,
+  and cold declaration queries; reject duplicate bindings and unsupported
+  by-reference/bodyless contexts. Validated on modern .NET only.
+
 - **2026-09-28:** Reject refutable function-expression parameter patterns with
   `RAV1618`, including nested patterns. Preserve fixed-length array destructuring,
   rest-only sequence binding, and total tuple/record deconstruction. Existing
