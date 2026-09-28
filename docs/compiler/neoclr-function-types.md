@@ -67,5 +67,22 @@ signature through the normal type binder; constructor operations and runtime
 initialization now work, and invalid result types produce diagnostics. Fifteen
 focused ordinary .NET tests pass (three function-shape cases failed before the fix).
 This is independent of Runtime Contract configuration and the unit transport policy.
-The standalone fix is ready for main integration; this experimental branch must
-not be merged wholesale. Other target frameworks have not been rerun for this fix.
+The standalone fix was fast-forwarded into main after confirming the main
+worktree was clean. This experimental branch must not be merged wholesale. Other target frameworks have not been rerun for this fix.
+
+## Structural runtime replacement
+
+neoCLR now rejects nominal delegate declarations, legacy binding encodings and
+serialized Delegate representations. All library callback APIs use structural
+shapes; compiler Func/Action carriers stay at the import boundary. Comparer adapters
+are FunctionComparer/FunctionEqualityComparer. Existing function notation and Runtime
+Contract configuration remain unchanged. The common/nominal descriptor split and
+Function extension syntax are unchanged from the verified checkpoint above.
+
+Function values compare shape/closed target/receiver and preserve shared captures.
+Native null Invoke reports NullReference; constructors explicitly initialize callback
+fields. Ordinary Object conversion, synthetic Invoke descriptors and general
+structural member enumeration remain bounded follow-up work. This does not select
+named function identity or change .NET target delegate behavior. Matching updated
+compiler, reference, importer and runtime artifacts are required; see neoCLR's
+Function fixture for final validation and API snapshot evidence.

@@ -8,18 +8,20 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   descriptor split. Runtime typeof configuration stays unchanged; updated references
   expose NominalTypeInfo and TypeInfo.IsNominalType/DisplayName. Record target consumer
   evidence, structural member/documentation direction and a deferred source-order
-  getter-emission candidate. Callable import
-  migration remains incomplete. On the isolated neoCLR target, unit-returning
+  getter-emission candidate. Callable import now uses structural Function shapes. On the isolated neoCLR target, unit-returning
   function syntax now selects inhabited Func transport so it agrees with generic
   unit-result functions. Other targets retain Action selection; 65 focused tests
-  pass. No new syntax or Runtime Contract setting is introduced.
+  pass. No new syntax or Runtime Contract setting is introduced. Record completed
+  native delegate removal, structural comparer adapters and bounded Object/member
+  introspection limitations in the integration guide.
 
 - **2026-09-28:** Bind function type arguments in generic construction and
   invocation expressions. Constructors such as `List<() -> ()>()` now initialize
   their values instead of silently emitting no operation. Invalid signature
   types report diagnostics; ordinary .NET constructor and runtime tests cover
   this independently of target-specific transport policies. Record the standalone
-  main-based fix and its isolated neoCLR integration in the compiler integration guide.
+  main-based fix, its independent main integration and isolated neoCLR integration
+  in the compiler integration guide.
 
 - **2026-09-28:** Keep newline-separated match arms distinct when an identifier
   result is followed by a union-case pattern. Nominal lambda lookahead respects
