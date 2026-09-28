@@ -18,7 +18,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   invocation expressions. Constructors such as `List<() -> ()>()` now initialize
   their values instead of silently emitting no operation. Invalid signature
   types report diagnostics; ordinary .NET constructor and runtime tests cover
-  this independently of target-specific transport policies.
+  this independently of target-specific transport policies. Record the standalone
+  main-based fix and its isolated neoCLR integration in the compiler integration guide.
 
 - **2026-09-28:** Keep newline-separated match arms distinct when an identifier
   result is followed by a union-case pattern. Nominal lambda lookahead respects

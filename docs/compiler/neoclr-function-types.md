@@ -6,9 +6,8 @@ delegate feature. Named function types may follow later; alias versus nominal
 identity is undecided. This is not a change to Raven's ordinary CLR delegate model.
 
 The native neoCLR foundation accepts structural signatures, checked binding and
-Invoke without nominal declarations. Raven callable import and library migration
-are still incomplete; existing Func/CLI delegate metadata remains the transport
-baseline. No new function syntax or Runtime Contract setting is claimed here.
+Invoke without nominal declarations. Raven callable imports and library signatures now use structural neoCLR shapes;
+Func/Action CLI metadata remains a compiler transport detail. No new function syntax or Runtime Contract setting is claimed here.
 
 The context-owned typeof contract still names System.Introspection.TypeInfo in
 NeoCLR.CoreProbe and System.Runtime.RuntimeContext. TypeInfo now exposes DisplayName
@@ -57,3 +56,16 @@ Validation: 62 focused function syntax/diagnostic/inference tests passed before
 the change; 65 pass afterward, including three target-selection cases. neoCLR's
 Tasks and Array source slices compile and import with structural callback shapes.
 Full library and executable callback migration validation remains in neoCLR.
+
+## Generic construction binding
+
+A general compiler bug independently reproduced on ordinary .NET silently omitted
+`List<() -> ()>()` constructor expressions: the expression-side type binder lacked
+FunctionTypeSyntax handling. The standalone fix is `e316703ca` on main-based
+`fix/function-type-construction`, integrated here as `6b5418e57`. It binds the
+signature through the normal type binder; constructor operations and runtime
+initialization now work, and invalid result types produce diagnostics. Fifteen
+focused ordinary .NET tests pass (three function-shape cases failed before the fix).
+This is independent of Runtime Contract configuration and the unit transport policy.
+The standalone fix is ready for main integration; this experimental branch must
+not be merged wholesale. Other target frameworks have not been rerun for this fix.
