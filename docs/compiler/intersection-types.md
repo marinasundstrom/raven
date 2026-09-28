@@ -2,7 +2,8 @@
 
 Status: compiler API foundation, source constraint queries, initial reference
 membership conversions, binder member-candidate lookup, and non-method receiver
-ambiguity diagnostics. Source value binding and runtime representation remain disabled.
+ambiguity diagnostics, and internal reference-local lowering. Source value binding
+and public runtime representation remain disabled.
 
 `Compilation.CreateIntersectionTypeSymbol(params ITypeSymbol[])` constructs an
 immutable semantic intersection. Its return type is `ITypeSymbol`: normalization
@@ -52,7 +53,8 @@ Membership and projection report `IsImplicit` and `IsReference`, not boxing,
 numeric, or user-defined conversion flags. They cannot combine two conversions
 that produce different objects. Failure to prove membership returns no conversion;
 checked narrowing is not implemented here, even when ordinary interface casts
-would exist. This is a semantic classification, not an implemented emit path.
+would exist. Classification alone does not guarantee emission; only the internal
+local subset described below has a lowering path.
 
 Existing nullable reference wrappers lift supported conversions: `(A & B)?` can
 project to `A?`, but a nullable source cannot establish non-null intersection
@@ -114,8 +116,9 @@ Language services can obtain the compound constraint's type and display through
 the normal semantic APIs, without reconstructing types in the LSP. This slice
 does not add intersection receiver completion or change TextMate syntax coverage.
 
-No emitter mapping, storage erasure, ABI annotation, Runtime Contract option,
-or native neoCLR support is introduced. APIs that create array or constructed
+No global emitter mapping, ABI annotation, Runtime Contract option,
+or native neoCLR support is introduced. Internal local erasure is described below.
+APIs that create array or constructed
 generic symbols can describe combinations that cannot be emitted. Consumers must
 not infer runtime support from the existence of a semantic symbol.
 
@@ -143,16 +146,54 @@ must be resolved before lowering; erasure must never choose an implementation.
 Runtime-checked entry must test every bound against that single reference, with
 an explicit null policy. The probe does not implement checked intersection casts.
 
-This is a local-only design candidate, not a global `GetClrType` mapping. A global
+This is a local-only representation, not a global `GetClrType` mapping. A global
 mapping would also affect fields, signatures, arrays, and generic arguments
 without an agreed ABI. Before opening the source gate, the compiler needs a
-storage-aware lowering and tests for reassignment, inferred escapes, captures,
-async/iterator hoisting, byref aliases, and member operations beyond these probes.
+complete storage-aware lowering and tests for inferred escapes, captures,
+async/iterator hoisting, byref aliases, and remaining member operations.
 Until those paths have a supported representation or deliberate diagnostic,
 RAV0363 remains in force. Value-type intersections and compound generic identity
 are outside this reference-only experiment.
 
+## Internal local lowering
+
+The lowerer now maps already-bound locals whose intersection constituents are
+non-nullable named reference types to fresh `object` storage locals. The source
+symbols are not mutated, and the mapping belongs to that lowering instance.
+Declarations, local accesses, and local reassignment share the mapped storage.
+Registration precedes initializer rewriting so an earlier rewrite cannot retain
+an intersection-typed CLI local accidentally.
+
+Implicit membership conversions erase to an ordinary object reference. Implicit
+semantic projections become explicit CLI reference conversions after erasure.
+Instance method calls and property/field reads project an erased receiver to the
+selected declaration's containing type. Lowering does not perform member lookup,
+resolve ambiguity, prove membership, or implement runtime-checked intersection
+entry. Those obligations remain with binding and conversion classification.
+
+`IntersectionLocalLoweringTests` supplies semantic intersection locals to the
+normal lowerer and caches the resulting body for ordinary emission. Unlike the
+hand-written representation probes, these tests execute the implemented lowering.
+They cover both constituent orders, reassignment, property reads, method calls,
+class virtual dispatch, nominal projections, shared mutation, reference identity,
+and single evaluation of an initializer. They also check that the semantic local
+retains its original type after lowering.
+
+This internal path is not a source feature switch or an escape checker. Captures,
+async/iterator hoisting, byref access, compound signatures/generic arguments,
+nullable/value-type intersections, property writes, indexers, and events have not
+been integrated or validated here. The existing RAV0363 source gate still rejects
+all intersection local annotations, so incomplete paths cannot be reached by
+ordinary Raven source. Language-service support and TextMate syntax are unchanged.
+
 ## Validation
+
+Internal local lowering passed seven emitted-program tests and the expanded
+114-test intersection/control-flow/use/propagation regression set on .NET 11.
+The pre-change 104-test intersection/control-flow baseline passed. Targeted
+compiler builds for net10.0/net11.0, the test build, whitespace formatting, and
+diff checks succeeded. Runtime evidence is limited to .NET 11 and the supplied
+bound-input subset; source annotations and escape paths were not enabled.
 
 The local reference-representation probe passed all four emitted-program tests
 on .NET 11, plus the combined nine-test constraint-emission/reference-owner runtime

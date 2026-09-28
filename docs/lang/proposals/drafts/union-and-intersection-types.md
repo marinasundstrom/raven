@@ -241,9 +241,10 @@ of unions or intersections to fit a particular representation.
 An executable [local reference-representation probe](../../../compiler/intersection-types.md#standard-net-local-representation-probe)
 now exercises ordinary object storage and constituent casts, including identity,
 shared mutation, virtual dispatch, and distinct explicit interface implementations.
-It is evidence for a candidate lowering on standard .NET, not implemented source
-intersection locals. Storage-aware lowering and escape diagnostics are still
-required before enabling those annotations.
+The compiler also has an [internal reference-local lowering](../../../compiler/intersection-types.md#internal-local-lowering)
+validated with supplied semantic locals and ordinary emission. Neither enables
+source intersection locals: remaining storage paths and escape diagnostics are
+still required before enabling those annotations.
 
 An erased signature might use a class constituent or `object`. An ABI proposal
 must select a deterministic rule and define recursive type annotations for
@@ -330,7 +331,9 @@ The symbol API foundation, whole-constraint semantic queries, initial named
 reference membership/projection conversion classification, and inherited instance
 member-candidate lookup are implemented. Non-method receiver ambiguity diagnostics
 are implemented for already-typed semantic intersection receivers, with focused
-binder fixtures; source intersection annotations remain disabled. Value binding,
+binder fixtures. Internal reference-local erasure and nominal receiver projection
+are implemented and runtime-tested with supplied bound input; source intersection
+annotations remain disabled. Value binding,
 broader conversions, and remaining receiver operations are follow-up slices.
 The full acceptance criteria below span those slices, before enabling stored
 values or selecting a runtime carrier.

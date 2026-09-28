@@ -12,6 +12,8 @@ internal sealed partial class Lowerer
     public override BoundNode? VisitInvocationExpression(BoundInvocationExpression node)
     {
         var receiver = (BoundExpression?)VisitExpression(node.Receiver);
+        if (!node.Method.IsStatic)
+            receiver = ProjectIntersectionReceiver(node.Receiver, receiver, node.Method.ContainingType);
         var arguments = node.Arguments.Select(a => (BoundExpression)VisitExpression(a)!).ToArray();
         var staticQualifiedExtensionCall =
             node.Method.IsExtensionMethod &&

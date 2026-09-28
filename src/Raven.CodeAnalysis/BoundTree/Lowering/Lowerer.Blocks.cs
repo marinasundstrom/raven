@@ -16,6 +16,14 @@ internal sealed partial class Lowerer
 
         foreach (var statement in node.Statements)
         {
+            // Register erased storage before initializer rewrites can retain the source local.
+            if (statement is BoundLocalDeclarationStatement intersectionDeclaration &&
+                intersectionDeclaration.Declarators.Any(d => IsReferenceIntersection(d.Local.Type)))
+            {
+                statements.Add((BoundStatement)VisitStatement(statement));
+                continue;
+            }
+
             if (statement is BoundLocalDeclarationStatement localDeclarationWithInitializer
                 && TryRewriteObjectInitializerLocalDeclaration(localDeclarationWithInitializer, out var rewrittenObjectInitializerStatements))
             {

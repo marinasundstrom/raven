@@ -1,5 +1,27 @@
 # Runtime Contracts
 
+## Internal intersection local lowering (2026-09-28)
+
+The compiler lowerer can erase already-bound reference intersection locals to
+per-body `object` storage, preserving the original semantic symbols. Local
+reassignment uses that storage; implicit projections, instance calls, and member
+reads insert nominal receiver casts. This does not add a global CLR type mapping,
+public ABI, Runtime Contract setting, or native neoCLR policy.
+
+Source annotations still report RAV0363. The tests supply intersection-typed bound
+locals directly, run the real lowerer, and emit/execute its result. Capture,
+hoisting, byref escape, nullable/value-type storage, and remaining member-operation
+support or diagnostics must be completed before source locals can be enabled.
+See [internal local lowering](intersection-types.md#internal-local-lowering).
+
+Validation: 104 intersection/control-flow tests passed before changes. All seven
+new emitted-program tests and the expanded 114-test intersection/control-flow/
+use/propagation set passed on .NET 11. Targeted compiler builds for net10.0 and
+net11.0, the test build, whitespace formatting, and diff checks succeeded. This
+does not establish source-local support, native neoCLR behavior, or execution on
+.NET Framework or NanoFramework. The previously recorded full-baseline failures
+remain outside this slice.
+
 ## Intersection local reference representation probe (2026-09-28)
 
 An executable Raven-source probe explores `object` local storage with nominal

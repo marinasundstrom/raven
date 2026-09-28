@@ -25,6 +25,9 @@ internal sealed partial class Lowerer
 
         var rewrittenExpression = (BoundExpression?)Visit(node.Expression) ?? node.Expression;
 
+        if (LowerIntersectionConversion(node, rewrittenExpression) is { } intersectionConversion)
+            return intersectionConversion;
+
         if (node.Conversion.IsUnion)
         {
             return LowerDiscriminatedUnionConversion(node, rewrittenExpression);

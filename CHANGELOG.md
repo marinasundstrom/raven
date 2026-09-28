@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Add internal lowering for reference intersection locals using
+  per-body object storage and nominal receiver/projection casts. Execute focused
+  tests for identity, mutation, reassignment, property reads, and virtual dispatch.
+  Preserve semantic local symbols and the RAV0363 source gate; escape checking,
+  broader storage support, and a public compound-type ABI remain unimplemented.
 - **2026-09-28:** Add executable probes for a standard .NET local intersection
   representation using one object reference and constituent casts. Document
   identity, dispatch, membership, and the remaining storage/escape gates. This
