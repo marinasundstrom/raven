@@ -3459,6 +3459,12 @@ partial class BlockBinder : Binder
         if (operand is BoundErrorExpression)
             return operand;
 
+        if (IntersectionStorageFacts.ContainsIntersection(operand.Type))
+        {
+            _diagnostics.ReportIntersectionTypeNotSupported(syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+        }
+
         switch (operand)
         {
             case BoundLocalAccess or BoundParameterAccess:
@@ -3634,6 +3640,12 @@ partial class BlockBinder : Binder
 
         if (operand is BoundErrorExpression)
             return operand;
+
+        if (IntersectionStorageFacts.ContainsIntersection(operand.Type))
+        {
+            _diagnostics.ReportIntersectionTypeNotSupported(syntax.GetLocation());
+            return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
+        }
 
         if (refKind is RefKind.Ref or RefKind.Out)
         {

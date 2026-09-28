@@ -1,5 +1,25 @@
 # Runtime Contracts
 
+## Intersection address and byref restrictions (2026-09-28)
+
+Address-of expression binding and byref invocation-argument binding now reject
+operands whose semantic storage shape contains an intersection. They report
+RAV0363 before creating a bound address, including for arrays containing a
+compound type. Local and parameter operands are covered for `ref`, `out`, and
+`in`; ordinary nominal storage and by-value argument handling are unchanged.
+
+This closes two paths that bypassed shared storage validation. It does not add a
+byref ABI for erased compound storage or enable source intersection annotations.
+Return-type publication and overload-driven generic inference remain separate
+enforcement work. No Runtime Contract setting or native neoCLR policy changes.
+
+Validation on .NET 11: the 204-test baseline passed. All 17 new address/byref
+cases and the expanded 221-test regression set passed, along with 10 separately
+run byref runtime tests. Targeted compiler builds for net10.0/net11.0, the test
+build, whitespace formatting, and diff checks succeeded. No execution on neoCLR,
+.NET Framework, or NanoFramework was performed; earlier full-baseline failures
+remain outside this slice.
+
 ## Semantic intersection storage restrictions (2026-09-28)
 
 Shared binder storage validation now rejects semantic intersections recursively

@@ -229,13 +229,34 @@ check. Nominal constituent views remain eligible for the existing normal rules.
 Focused tests supply semantic symbols and bound bodies because source annotation
 binding is still deliberately disabled.
 
+Address-of expression binding and `ref`/`out`/`in` argument binding now check the
+operand's semantic storage type before constructing a bound address. They report
+RAV0363 for direct or nested intersections, including already-bound local and
+parameter symbols that did not pass through a source annotation. Ordinary nominal
+storage retains existing mutability and addressability checks. By-value arguments
+are not rejected by this address-specific check. A nominal projection stored in
+its own local is different from an alias to erased compound storage; this does
+not introduce byref conversions between those storage types.
+
 These checks do not yet constitute permission to enable source locals. The shared
 storage check still rejects all compound locals, including the internally lowered
-subset. Return/generic inference and direct address/ref argument paths need an
-audit, followed by a narrowly scoped local allowance. No new public compiler API,
+subset. Return/generic inference still needs complete enforcement before a
+narrowly scoped local allowance. The audit found that inferred return types are
+published through multiple function/lambda/async paths, while explicit method
+type-argument validation is separate from overload-driven inference. Guarding
+only explicit type syntax or a single constraint validator is therefore
+insufficient. Constructed-method references and inferred constructor arguments
+also need coverage. No new public compiler API,
 language-service bypass, TextMate change, or runtime metadata contract is added.
 
 ## Validation
+
+Address/byref binding passed 17 new cases within a 221-test intersection/byref/
+scoped regression set on .NET 11, plus 10 separately run byref runtime tests.
+The pre-change 204-test baseline passed. Before the fix, all 16 compound-address
+cases returned bound addresses instead of errors; the by-value control passed.
+Targeted compiler/test builds, whitespace formatting, and diff checks succeeded.
+The tests supply semantic symbols without enabling source annotations.
 
 Semantic storage checks passed 20 new diagnostic cases and the expanded 220-test
 intersection/static-type/ref-like/scoped/byref regression set on .NET 11. The

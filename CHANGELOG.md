@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Reject addresses and `ref`/`out`/`in` arguments for semantic
+  intersection storage with RAV0363 before constructing bound addresses. Cover
+  local/parameter operands and nested arrays while preserving nominal controls.
+  Source annotations remain disabled pending inference-boundary enforcement.
 - **2026-09-28:** Reject unsupported semantic intersection storage recursively
   through nested type shapes with RAV0363, including capture and suspension
   reporting. Preserve nominal projections and ordinary conjunctive type-parameter
