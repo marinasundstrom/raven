@@ -429,6 +429,11 @@ context is needed to select the intended overload:
 let writeLine: (string) -> () = Console.WriteLine
 ```
 
+Function types also work as explicit generic arguments in expressions, including
+constructor calls such as `List<() -> ()>()`. Binding these expressions preserves
+the normal constructor operation and initialization; unknown types inside the
+function signature produce ordinary type diagnostics.
+
 ### Method-reference diagnostics
 
 A method group cannot be used where no function or delegate type is available.
