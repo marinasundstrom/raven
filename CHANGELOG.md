@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-28:** Keep newline-separated match arms distinct when an identifier
+  result is followed by a union-case pattern. Nominal lambda lookahead respects
+  newlines in trailing token trivia.
+
 - **2026-09-28:** Support explicit property parameter deconstruction such as
   `{ x: let horizontal, y: let vertical }: Point` in named functions and
   parenthesized lambdas. Read listed members once, preserve nested coverage

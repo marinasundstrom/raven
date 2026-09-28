@@ -3574,11 +3574,11 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
 
             // Stop at line breaks.
             // When newlines are treated as tokens, we see them directly.
-            // When newlines are treated as trivia, the *next* token carries the newline in its leading trivia.
+            // Trivia can place the newline on either side of the token boundary.
             if (IsNewLineLike(t))
                 return false;
 
-            if (i > startOffset && TokenHasLeadingNewLine(t))
+            if (i > startOffset && (TokenHasLeadingNewLine(t) || HasTrailingEndOfLineTrivia(PeekToken(i - 1))))
                 return false;
 
             // If we're not nested, these tokens end the current expression/statement region.
