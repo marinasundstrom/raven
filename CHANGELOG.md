@@ -9,7 +9,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   expose NominalTypeInfo and TypeInfo.IsNominalType/DisplayName. Record target consumer
   evidence, structural member/documentation direction and a deferred source-order
   getter-emission candidate. Callable import
-  migration remains incomplete; no ordinary CLR compiler behavior is changed here.
+  migration remains incomplete. On the isolated neoCLR target, unit-returning
+  function syntax now selects inhabited Func transport so it agrees with generic
+  unit-result functions. Other targets retain Action selection; 65 focused tests
+  pass. No new syntax or Runtime Contract setting is introduced.
 
 - **2026-09-28:** Keep newline-separated match arms distinct when an identifier
   result is followed by a union-case pattern. Nominal lambda lookahead respects

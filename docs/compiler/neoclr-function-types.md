@@ -40,3 +40,20 @@ without nominal declaration names. TypeInfo member queries remain common. RavenD
 structural family pages (Array, Tuple, Union, Intersection, Function) should describe
 shape signatures and member/extension contracts without inventing nominal metadata.
 This is a documentation direction, not an implemented general renderer.
+
+## Unit-returning function transport
+
+With TargetCoreAssemblyName set to NeoCLR.CoreProbe, CreateFunctionTypeSymbol
+uses Func with the selected inhabited unit as its return argument for unit/void
+source function types. This makes `() -> ()` use the same transport as a generic
+`() -> T` instantiated with unit. Other targets continue to select Action for
+unit/void functions. The neoCLR importer maps the transport signature to structural
+`fn<...>` metadata and adapts a no-result target method to an inhabited unit result.
+No new Runtime Contract option or source syntax is introduced. Existing function
+notation, hover/display and grammar apply; this is an isolated target policy,
+not an ordinary CLR compiler change or a named function type feature.
+
+Validation: 62 focused function syntax/diagnostic/inference tests passed before
+the change; 65 pass afterward, including three target-selection cases. neoCLR's
+Tasks and Array source slices compile and import with structural callback shapes.
+Full library and executable callback migration validation remains in neoCLR.
