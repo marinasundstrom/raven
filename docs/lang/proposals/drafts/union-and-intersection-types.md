@@ -54,9 +54,11 @@ both candidates.
 
 With `InputStream | OutputStream`, the annotation alone provides no guarantee
 that either specific operation is available. Matching or a successful type test
-establishes the appropriate constituent view. Existing common-supertype members
-may still be used without narrowing; same-named members on unrelated constituents
-do not become a shared member merely because their spelling matches.
+establishes the appropriate constituent view. Initially, lookup on the union
+itself does not merge constituent members, even when names and signatures match.
+An explicit conversion to an established common supertype can expose that type's
+members through ordinary lookup. Automatic common-supertype member lookup on the
+union itself is not part of this initial design.
 
 "Either" is inclusive: a duplex stream belongs to both alternatives. The union
 does not remember a selected entry alternative. Matching tests the actual value,
@@ -150,9 +152,25 @@ conflicts require an explicit constituent view. Constituent order never chooses
 an implementation. Static abstract members remain subject to the target's
 generic dispatch rules, not ordinary instance-member projection.
 
-Initially, union member access should require narrowing, except for members
-obtained through an established common supertype. Structural merging of
-same-named members with different signatures is outside the initial feature.
+Initially, access to constituent members through a union requires matching or
+narrowing, including when all constituents declare a same-named member. The
+compiler must not select a declaration by constituent order or silently generate
+dispatch across alternatives. Completion must not present merged constituent
+members as directly callable on an unnarrowed union. Normal member lookup applies
+after narrowing or explicitly converting to a common supertype.
+
+This restriction leaves direct union member access open for a future proposal.
+Such a proposal must define compatibility of parameter and return types,
+properties and setters, overload resolution, generic members, and dispatch when
+the actual value satisfies several alternatives. Matching names, or even matching
+signatures, is not by itself an agreed dispatch rule.
+
+Overlapping membership and overlapping members are separate questions. A value
+implementing both interfaces can already satisfy either union type test under
+the proposed membership semantics. That does not authorize `value.Member()` on
+the union. Intersection member conflicts are separate again: intersections
+intentionally expose both sets of candidates and must diagnose unresolved
+ambiguity under their own lookup rules.
 
 Successful type tests refine the tested value by intersection. A union pattern
 matches any constituent; an intersection pattern requires every constituent on
@@ -311,6 +329,10 @@ operations, before enabling stored values or selecting a runtime carrier.
 The later union slice must additionally prove that overlapping alternatives use
 actual-value membership, source-view changes do not select an alternative, and
 match exhaustiveness does not treat overlapping interfaces as disjoint cases.
+It must also reject direct constituent-member access on an unnarrowed union,
+including identical member names/signatures, while accepting the corresponding
+calls after narrowing. Future union member-access support must be introduced as
+an explicit language change with its own lookup and dispatch tests.
 
 Every implementation slice must update the language spec, grammar, compiler/API
 documentation, and changelog as applicable. Evaluate hover, completion, semantic
