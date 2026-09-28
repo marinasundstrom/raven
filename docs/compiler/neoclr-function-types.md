@@ -86,3 +86,28 @@ structural member enumeration remain bounded follow-up work. This does not selec
 named function identity or change .NET target delegate behavior. Matching updated
 compiler, reference, importer and runtime artifacts are required; see neoCLR's
 Function fixture for final validation and API snapshot evidence.
+
+## Signature descriptors and OfType (2026-09-28)
+
+The matching neoCLR reference adds TypeInfo.IsFunctionType and FunctionTypeInfo with
+Parameters, ReturnType and InvokeMethod. No common function-info interface is
+introduced. GetMethods also returns the synthesized public instance Invoke.
+MemberInfo/ParameterInfo Module and MetadataToken and MethodInfo.DefinitionIndex
+are optional; synthetic descriptors have no declaration metadata. This changes the
+target library contract, not Raven typeof's static TypeInfo result or Runtime Contract
+configuration. Rebuild matching references, bridge, runtime library and applications.
+
+The target library also adds lazy OfType<U>() on Iterable<T>, with the source type
+inferred from the receiver, supporting module.GetTypes().OfType<NominalTypeInfo>().
+It imports through existing generic query bindings, type tests and Object casts.
+The executable neoCLR consumer validates filtering, null/boxed values, descriptor
+narrowing, order, deferred evaluation and disposal. No ordinary CLR, .NET Framework
+or NanoFramework behavior change is included.
+
+The existing deferred getter candidate was observed again: the concise
+InvokeMethod getter calling GetMethods()[0] emitted a null result. An explicit
+getter with a local RuntimeServices.TypeMethods result passes the target consumer.
+This observation is not a diagnosed root cause or compiler fix. General correction
+still requires an independent main-based reproduction and validation. Structural
+inheritance, named function types, Function-to-Object conversion and dynamic
+reflection invocation of synthesized Invoke remain neoCLR follow-up work.

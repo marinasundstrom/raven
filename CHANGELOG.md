@@ -6,7 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 - **2026-09-28:** Document the isolated neoCLR Function migration and nominal type
   descriptor split. Runtime typeof configuration stays unchanged; updated references
-  expose NominalTypeInfo and TypeInfo.IsNominalType/DisplayName. Record target consumer
+  expose NominalTypeInfo and TypeInfo.IsNominalType/DisplayName. The follow-up adds
+  FunctionTypeInfo.Parameters/ReturnType/InvokeMethod, IsFunctionType, GetMethods
+  discovery of synthesized Invoke, optional declaration metadata and lazy OfType
+  filtering. Record target consumer
   evidence, structural member/documentation direction and a deferred source-order
   getter-emission candidate. Callable import now uses structural Function shapes. On the isolated neoCLR target, unit-returning
   function syntax now selects inhabited Func transport so it agrees with generic
