@@ -1,5 +1,25 @@
 # Runtime Contracts
 
+## Intersection syntax foundation (2026-09-28)
+
+The syntax API preserves `A & B` as `IntersectionTypeSyntax`, with a separated
+constituent list and precedence above unions. Function returns retain recursive
+type parsing; prefix by-reference and pointer types retain their existing operand
+scope. This first slice does not expose a semantic intersection symbol or select
+a carrier/native ABI. Unsupported semantic type positions report RAV0363.
+No Runtime Contract option or emitted metadata convention is introduced.
+
+Syntax visitors and rewriters are regenerated. The existing TextMate operator
+rule and whitespace normalizer already cover `&`; semantic language-service
+support remains staged with binding, through ordinary compiler APIs.
+
+Validation: the generator/build script succeeds, and 215 focused syntax,
+generic-type/method, and constraint/unsupported-position diagnostic tests pass
+on .NET 11. Before compiler edits, the full baseline stopped on the two existing
+`AttributedCustomUnionTests.TypedCaseCarrierLoadsAsUnionWithoutBoxedValue`
+class/struct cases; the corresponding focused pre-change set passed 203 tests.
+This is not evidence of runtime intersection support on any target.
+
 The planned general model is a **runtime/platform contract** governing semantic
 rules, available types, representations, supported features, compatible symbol
 sources, and one or more code generators. See the

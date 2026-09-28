@@ -1332,4 +1332,8 @@
     Title="Macro capability requires a token-tree macro"
     Message="Macro capability '{capability}' can only be declared by a token-tree macro."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0363" Identifier="IntersectionTypeNotSupported"
+    Title="Intersection type is not supported in this position"
+    Message="Intersection types are not supported in this type position"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
 </Diagnostics>

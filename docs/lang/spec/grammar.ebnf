@@ -806,7 +806,10 @@ Literal                  ::= NumericLiteral
 
 Type                     ::= UnionType ;
 
-UnionType                ::= FunctionType {'|' FunctionType} ;
+UnionType                ::= IntersectionType {'|' IntersectionType} ;
+
+IntersectionType         ::= FunctionType {'&' FunctionType} ;
+(* Intersection syntax is preserved; semantic support is staged separately. *)
 
 ByRefType                ::= '&' Type ;
 PointerType              ::= '*' Type ;

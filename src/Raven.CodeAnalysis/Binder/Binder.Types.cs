@@ -18,6 +18,7 @@ internal abstract partial class Binder
         None = 0,
 
         UnsupportedTypeSyntax,
+        IntersectionTypeNotSupported,
         TypeNotFound,
         GenericTypeNotFound,
         QualifiedTypeNotFound,
@@ -150,6 +151,7 @@ internal abstract partial class Binder
             ParenthesizedTypeSyntax p => BindTypeCore(p.Type, typeParams, importedScopes, allowBinderLookup),
             TupleTypeSyntax t => BindTuple(t, typeParams, importedScopes, allowBinderLookup),
             UnionTypeSyntax u => BindUnion(u, typeParams, importedScopes, allowBinderLookup),
+            IntersectionTypeSyntax i => Fail(i, TypeResolutionFailureKind.IntersectionTypeNotSupported),
             FunctionTypeSyntax f => BindFunction(f, typeParams, importedScopes, allowBinderLookup),
             ArrayTypeSyntax a => BindArray(a, typeParams, importedScopes, allowBinderLookup),
             ByRefTypeSyntax br => BindByRef(br, typeParams, importedScopes, allowBinderLookup),

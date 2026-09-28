@@ -332,6 +332,12 @@ consistent choice, the type arguments must be written.
 
 ### Constraints
 
+Intersection type syntax (`A & B`) is recognized with higher precedence than
+union syntax (`|`). Semantic support is being introduced in stages; unsupported
+positions report RAV0363. Parsing an intersection does not imply a runtime
+intersection representation. See the
+[compound-type draft](../proposals/drafts/union-and-intersection-types.md).
+
 Constraints restrict acceptable type arguments. They can follow a type
 parameter after `:` or appear in a `where` clause:
 

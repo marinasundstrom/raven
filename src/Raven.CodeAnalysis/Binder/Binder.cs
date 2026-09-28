@@ -1723,6 +1723,9 @@ internal abstract partial class Binder
         var location = issueSyntax?.GetLocation() ?? fallbackLocation;
         switch (primaryIssue.Kind)
         {
+            case TypeResolutionFailureKind.IntersectionTypeNotSupported:
+                yield return Diagnostic.Create(CompilerDiagnostics.IntersectionTypeNotSupported, location);
+                break;
             case TypeResolutionFailureKind.ArityMismatch:
                 {
                     var typeName = issueSyntax?.ToString() ?? fallbackName;

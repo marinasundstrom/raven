@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Parse intersection type expressions (`A & B`), preserving
+  grouping and giving `&` higher precedence than `|`. This syntax foundation
+  reports RAV0363 for unsupported semantic uses; it does not introduce a runtime
+  intersection representation.
 - **2026-09-30:** Honor `SymbolDisplayMiscellaneousOptions.ExpandedValueTuple`
   for nominal tuple names, including nested generic arguments. Tuple declaration
   hovers request that format explicitly; ordinary source-oriented tuple display
