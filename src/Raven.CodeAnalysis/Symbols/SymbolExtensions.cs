@@ -1026,6 +1026,14 @@ public static partial class SymbolExtensions
             return "(" + string.Join(", ", elementTypes) + ")";
         }
 
+        // Metadata represents unnamed tuples as constructed System.ValueTuple types.
+        // Keep their caller-facing spelling consistent with source tuple types.
+        if (typeSymbol is INamedTypeSymbol { Name: "ValueTuple", TypeArguments.Length: >= 2 and <= 7 } runtimeTuple &&
+            runtimeTuple.ContainingNamespace is { Name: "System", ContainingNamespace.IsGlobalNamespace: true })
+        {
+            return "(" + string.Join(", ", runtimeTuple.TypeArguments.Select(type => FormatType(type, format))) + ")";
+        }
+
         static bool IsImplicitTupleElementName(string name, int elementIndex)
         {
             if (!name.StartsWith("Item", StringComparison.Ordinal))
@@ -1394,13 +1402,16 @@ public static partial class SymbolExtensions
         // Core "name: type" (or just type / just name depending on options)
         var parameterType = parameter.Type;
 
+        var pattern = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName)
+            ? parameter.BindingPattern
+            : null;
         var core = FormatNamedSymbol(
-            parameter.Name,
+            pattern is null ? parameter.Name : ParameterPatternFacts.GetDisplayText(pattern),
             parameterType,
             includeType,
             format,
-            includeName,
-            escapeName: !IsSelfReceiverParameter(parameter));
+            includeName || pattern is not null,
+            escapeName: pattern is null && !IsSelfReceiverParameter(parameter));
 
         if (parameter.IsVarParams)
             core = $"params {core}";

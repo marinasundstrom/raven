@@ -1404,6 +1404,8 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
 
         public bool HasImplicitName => _original.HasImplicitName;
 
+        public Syntax.PatternSyntax? BindingPattern => _original.BindingPattern;
+
         public SymbolKind Kind => _original.Kind;
 
         public string MetadataName => _original.MetadataName;
