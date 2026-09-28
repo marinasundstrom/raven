@@ -314,20 +314,29 @@ let pickSecond: ((int, string)) -> string =
     ((a, b)) => b
 ```
 
-Sequence deconstruction can unpack collections:
+Parameter patterns must match every value of their resolved input type. Sequence
+deconstruction can unpack a fixed-length array, or capture an entire sequence:
 
 ```raven
-let sumTail: (int[]) -> int =
-    ([head, ..tail]) => head + tail[0]
+let sumPair: (int[2]) -> int = ([x, y]) => x + y
+let count: (int[]) -> int = ([..items]) => items.Length
 ```
 
-Patterns can be nested:
+Patterns can be nested; each nested pattern must also cover its input:
 
 ```raven
 let project: (((int, string), int[])) -> string =
-    (((id, name), [head, ..tail])) =>
-        "$id:$name:$head:${tail.Length}"
+    (((id, name), [..items])) =>
+        "$id:$name:${items.Length}"
 ```
+
+`[head, ..tail]` is refutable for `int[]`, because the input can be empty.
+Likewise, `[x, y]` is refutable for an array without a guaranteed length, but
+irrefutable for `int[2]`. Refutable parameter patterns report `RAV1618` at the
+pattern that can fail. Bind the complete argument and explicitly handle the
+remaining cases inside the body when conditional extraction is needed.
+Ordinary exceptions from a getter or `Deconstruct` method do not make an
+otherwise total pattern refutable.
 
 Both `..name` and `...name` are accepted as rest syntax in sequence
 deconstruction.

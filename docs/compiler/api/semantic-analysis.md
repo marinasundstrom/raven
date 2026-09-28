@@ -49,6 +49,15 @@ information when generating IL or determining the program entry point.【F:src/R
 
 ## Symbol and type queries
 
+Function-expression parameter destructuring is checked for total coverage after
+the input type is resolved. Refutable patterns produce compiler error `RAV1618`,
+including nested sequence requirements. Fixed-length array shapes and rest-only
+sequence patterns are analyzed against their input types; sequence syntax is
+not rejected as a category. Binding still supplies local symbols for editor
+queries on an erroneous parameter, and cold symbol queries must not suppress
+the diagnostic when diagnostics are subsequently requested. This validation
+does not change the emitted input parameter list or add runtime mismatch checks.
+
 `GetSymbolInfo` retrieves the symbol associated with a syntax node by binding the
 node (or using cached results). For declarations, `GetDeclaredSymbol` resolves
 keys from the declaration table and uses the symbol factory to return the

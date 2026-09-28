@@ -3902,7 +3902,7 @@ class C {
         let rows = [[1, 2, 3]]
 
         let s = tuples.Select(((a, b)) => b)
-        let t = rows.Select(([head, ..rest]) => rest)
+        let t = rows.Select(([..rest]) => rest)
 
         _ = [s, t]
     }

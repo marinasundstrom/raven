@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-28:** Reject refutable function-expression parameter patterns with
+  `RAV1618`, including nested patterns. Preserve fixed-length array destructuring,
+  rest-only sequence binding, and total tuple/record deconstruction. Existing
+  length-constrained parameter patterns on arrays of unknown length must move
+  conditional extraction into the body. The incoming ABI parameter list is unchanged.
+
 - **2026-09-28 (neoCLR experiment):** Target core NeoCLR.CoreProbe selects
   System.Tuple for tuple syntax and special-type resolution; ordinary .NET targets
   retain System.ValueTuple. The initial reference/runtime family supports one through
