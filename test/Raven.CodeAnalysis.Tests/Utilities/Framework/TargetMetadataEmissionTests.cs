@@ -8,6 +8,39 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class TargetMetadataEmissionTests
 {
+    [Fact]
+    public void RetargetedNestedTupleFieldsPreserveUnderlyingGenericIdentity()
+    {
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var compilation = Compilation.Create("NestedTupleConsumer", [SyntaxTree.ParseText("""
+            public class Consumer {
+                public static func Read() -> int {
+                    let pair = ((42, "tuple"), (true, 7))
+                    return pair.Item1.Item1
+                }
+            }
+            """)], paths.Select(MetadataReference.CreateFromFile).ToArray(),
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output, null,
+            new EmitOptions(AssemblyName.GetAssemblyName(paths.Single(p => Path.GetFileName(p) == "System.Runtime.dll"))));
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        output.Position = 0;
+        using var assembly = AssemblyDefinition.ReadAssembly(output);
+        var fields = assembly.MainModule.GetMemberReferences().OfType<FieldReference>().ToArray();
+        var nested = Assert.Single(fields.Where(f => f.Name == "Item1" && f.DeclaringType is GenericInstanceType g
+            && g.GenericArguments[0] is GenericInstanceType));
+        var owner = Assert.IsType<GenericInstanceType>(nested.DeclaringType);
+        Assert.Equal("System.ValueTuple`2<System.ValueTuple`2<System.Int32,System.String>,System.ValueTuple`2<System.Boolean,System.Int32>>", owner.FullName);
+        Assert.All(owner.GenericArguments, argument =>
+        {
+            Assert.True(argument.IsValueType);
+            Assert.Equal("System.Runtime", argument.Scope.Name);
+        });
+        var loaded = System.Reflection.Assembly.Load(output.ToArray());
+        Assert.Equal(42, loaded.GetType("Consumer")!.GetMethod("Read")!.Invoke(null, null));
+    }
+
     [Theory]
     [InlineData("int[]", "System.Int32[]")]
     [InlineData("string[]", "System.String[]")]

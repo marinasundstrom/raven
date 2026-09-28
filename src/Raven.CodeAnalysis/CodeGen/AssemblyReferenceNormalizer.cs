@@ -368,6 +368,8 @@ internal static class AssemblyReferenceNormalizer
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences, MethodDefinition? context = null,
         bool asGenericArgument = false)
     {
+        if (symbol is ITupleTypeSymbol { UnderlyingTupleType: { } tuple })
+            return CreateTypeReference(module, tuple, targetReferences, context, asGenericArgument);
         if (symbol is ITypeParameterSymbol parameter)
         {
             var parameters = parameter.OwnerKind == TypeParameterOwnerKind.Method
