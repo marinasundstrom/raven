@@ -1,5 +1,31 @@
 # Runtime Contracts
 
+## Intersection member candidates (2026-09-28)
+
+The binder collects instance-member candidates from semantic intersection
+constituents, including class and interface inheritance. Shared declarations are
+deduplicated by symbol identity rather than merging equal signatures across
+unrelated interfaces. Existing overload resolution retains ambiguity between
+indistinguishable declarations; constituent order does not select an
+implementation. Object-member fallback and explicit-interface visibility follow
+the selected constituent views. Static compound lookup is empty.
+
+This is a candidate-lookup foundation, not source receiver binding or dispatch.
+Public `GetMembers` remains declared-member enumeration. Property/event ambiguity
+diagnostics, indexing, completion, and source value/storage support remain later
+work. Nominal lookup, generic constraint lowering, CLI metadata, and Runtime
+Contract configuration are unchanged. No native neoCLR facility is introduced.
+
+Validation on .NET 11: 87 intersection/interface/constraint checks and two nominal
+symbol-query tests passed before changes. Targeted compiler and test builds
+succeeded, and all 162 focused intersection, lookup, interface, constraint, and
+overload tests passed afterward. New tests cover cold/warm diamond lookup,
+order-independent ambiguity, argument-based overload selection, imported generic
+interface inheritance, explicit-interface visibility, object fallback, and static
+dispatch exclusion. Formatting and diff checks passed. This is compiler-layer
+candidate and overload coverage, not compound-receiver runtime execution; the
+previously recorded full-baseline union-import failures remain outside this slice.
+
 ## Intersection reference conversion classification (2026-09-28)
 
 The compiler API classifies implicit membership and projection for intersections

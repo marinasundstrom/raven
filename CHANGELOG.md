@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Add binder instance-member candidate lookup for semantic
+  intersections, including inherited members and shared-declaration deduplication.
+  Preserve unrelated same-signature declarations for overload ambiguity instead
+  of selecting by constituent order. Source intersection receivers and storage
+  remain disabled; ordinary nominal and constraint lookup are unchanged.
+
 - **2026-09-28:** Classify implicit reference membership and projection conversions
   for semantic intersections of named reference types. Require every destination
   bound without combining boxing, numeric, or user-defined conversions. Source

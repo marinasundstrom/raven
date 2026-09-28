@@ -1,8 +1,8 @@
 # Semantic intersection types
 
-Status: compiler API foundation, source constraint queries, and initial reference
-membership conversions. Source value binding and runtime representation remain
-disabled.
+Status: compiler API foundation, source constraint queries, initial reference
+membership conversions, and binder member-candidate lookup. Source value binding
+and runtime representation remain disabled.
 
 `Compilation.CreateIntersectionTypeSymbol(params ITypeSymbol[])` constructs an
 immutable semantic intersection. Its return type is `ITypeSymbol`: normalization
@@ -65,10 +65,27 @@ slice does not introduce union conversion algebra or an empty/bottom type.
 
 `GetMembers` combines the constituents' declared members and deduplicates the same
 symbol. Distinct declarations remain distinct even when their signatures match.
-The symbol also exposes combined interface sets. This does not implement
-expression-level overload resolution or inherited-member lookup for intersection
-receivers. Those belong to the following binder slice. Single-symbol convenience
+The symbol also exposes combined interface sets. Single-symbol convenience
 lookups do not choose an arbitrary candidate when several remain.
+
+The binder's `SymbolQuery` has a separate intersection instance-member path. It
+collects inherited members from each constituent and deduplicates by symbol
+identity, so a shared declaration in an interface diamond appears once. A derived
+interface declaration hides the matching inherited signature along its own path,
+but unrelated declarations survive even when their signatures match. Class views
+retain ordinary inheritance/hiding and do not expose explicit interface
+implementations. Object members are fallback candidates when no constituent
+supplies the matching signature. Interface traversal memoization is local to one
+query, not a public or cross-snapshot cache.
+
+These method candidates feed normal overload resolution: distinct applicable
+overloads can be selected, while indistinguishable unrelated declarations remain
+ambiguous regardless of constituent order. Property/event conflicts remain
+multiple candidates; expression-level selection and diagnostics are not enabled
+by this slice. Static lookup on the compound type returns no candidates because
+the intersection has no static dispatch owner. Ordinary nominal and type-parameter
+constraint lookup are unchanged. This does not yet bind source intersection
+receivers or provide their completion, indexing, extension lookup, or emission.
 
 The existing constraint subset continues to expose ordinary flattened nominal
 bounds through `ITypeParameterSymbol.ConstraintTypes`. Source intersection syntax
@@ -96,6 +113,12 @@ generic symbols can describe combinations that cannot be emitted. Consumers must
 not infer runtime support from the existence of a semantic symbol.
 
 ## Validation
+
+Member-candidate integration passed 162 focused intersection, lookup, interface,
+constraint, and overload tests on .NET 11 after targeted builds. The tests include
+source and imported inheritance, shared-declaration deduplication, ambiguity in
+both constituent orders, and cold/warm queries. Source receiver binding and
+runtime dispatch are not exercised or enabled by this slice.
 
 Reference-conversion integration passed all 399 overload-resolution tests before
 and after the change, plus 118 focused intersection and conversion tests afterward

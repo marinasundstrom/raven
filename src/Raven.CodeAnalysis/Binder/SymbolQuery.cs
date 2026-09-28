@@ -18,7 +18,14 @@ internal readonly record struct SymbolQuery(
     {
         IEnumerable<ISymbol> symbols;
         var containingType = NormalizeContainingType(ContainingType);
-        if (containingType is ITypeParameterSymbol typeParameter)
+        if (containingType is IIntersectionTypeSymbol intersection)
+        {
+            // A structural intersection does not introduce a static dispatch owner.
+            symbols = IsStatic == true
+                ? Enumerable.Empty<ISymbol>()
+                : ResolveIntersectionInstanceMembers(binder, intersection, Name);
+        }
+        else if (containingType is ITypeParameterSymbol typeParameter)
         {
             symbols = LookupTypeParameterMembers(binder, typeParameter);
         }
@@ -67,6 +74,68 @@ internal readonly record struct SymbolQuery(
     private static bool IsNeverInvocableRuntimeMethod(IMethodSymbol method)
     {
         return string.Equals(method.Name, "Finalize", StringComparison.Ordinal);
+    }
+
+    private static IEnumerable<ISymbol> ResolveIntersectionInstanceMembers(
+        Binder binder, IIntersectionTypeSymbol intersection, string name)
+    {
+        var results = new List<ISymbol>();
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var interfacePath = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var interfaceCache = new Dictionary<INamedTypeSymbol, ISymbol[]>(SymbolEqualityComparer.Default);
+
+        foreach (var constituent in intersection.ConstituentTypes)
+        {
+            var members = constituent is INamedTypeSymbol { TypeKind: TypeKind.Interface } iface
+                ? InterfaceMembers(iface)
+                : ResolveInstanceMembersIncludingInterfaces(binder, constituent, name);
+            foreach (var member in members)
+                if (member.ContainingType?.SpecialType != SpecialType.System_Object)
+                    Add(member);
+        }
+
+        // Object members are fallback candidates, not competing declarations
+        // introduced once per interface view.
+        var signatures = results.Select(GetSignatureKey).ToHashSet();
+        foreach (var member in binder.Compilation.GetSpecialType(SpecialType.System_Object).GetMembers(name))
+            if (!signatures.Contains(GetSignatureKey(member)))
+                Add(member);
+
+        return results;
+
+        void Add(ISymbol member)
+        {
+            if (!member.IsStatic && member is not ITypeSymbol &&
+                !IsExplicitInterfaceImplementation(member) && seen.Add(member))
+                results.Add(member);
+        }
+
+        IEnumerable<ISymbol> InterfaceMembers(INamedTypeSymbol type)
+        {
+            if (interfaceCache.TryGetValue(type, out var cached))
+                return cached;
+
+            if (!interfacePath.Add(type))
+                return Enumerable.Empty<ISymbol>();
+
+            var declared = type.GetMembers(name)
+                .Where(member => !member.IsStatic && !IsExplicitInterfaceImplementation(member))
+                .ToList();
+            var hiddenSignatures = declared.Select(GetSignatureKey).ToHashSet();
+            var members = new List<ISymbol>(declared);
+            var inheritedSeen = new HashSet<ISymbol>(declared, SymbolEqualityComparer.Default);
+            foreach (var parent in type.Interfaces)
+            {
+                // Hiding is local to this inheritance path. Equal signatures on
+                // unrelated interfaces must survive as distinct candidates.
+                foreach (var member in InterfaceMembers(parent))
+                    if (!hiddenSignatures.Contains(GetSignatureKey(member)) && inheritedSeen.Add(member))
+                        members.Add(member);
+            }
+
+            interfacePath.Remove(type);
+            return interfaceCache[type] = members.ToArray();
+        }
     }
 
     private static IEnumerable<ISymbol> ResolveInstanceMembersIncludingInterfaces(Binder binder, ITypeSymbol type, string name)
