@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Reject unsupported semantic intersection storage recursively
+  through nested type shapes with RAV0363, including capture and suspension
+  reporting. Preserve nominal projections and ordinary conjunctive type-parameter
+  constraints. Source-local annotations remain disabled pending remaining checks.
 - **2026-09-28:** Project erased intersection receivers for property setters,
   field stores, and indexer reads/writes. Add runtime and optional ILVerify
   coverage, including single evaluation of index arguments and assigned values.

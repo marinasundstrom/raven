@@ -11,6 +11,9 @@ internal static class RefSafetyDiagnosticReporter
     {
         foreach (var captured in capturedVariables)
         {
+            if (ReportUnsupportedIntersectionStorage(captured, fallbackLocation, diagnostics))
+                continue;
+
             var scopedKind = captured switch
             {
                 IParameterSymbol parameter => parameter.ScopedKind,
@@ -42,6 +45,9 @@ internal static class RefSafetyDiagnosticReporter
     {
         foreach (var local in AsyncLowerer.GetLocalsCapturedAcrossAwait(body))
         {
+            if (ReportUnsupportedIntersectionStorage(local, Location.None, diagnostics))
+                continue;
+
             if (local.ScopedKind != ScopedKind.None)
             {
                 diagnostics.ReportScopedVariableCannotCrossSuspension(
@@ -67,6 +73,9 @@ internal static class RefSafetyDiagnosticReporter
 
         foreach (var parameter in method.Parameters)
         {
+            if (ReportUnsupportedIntersectionStorage(parameter, Location.None, diagnostics))
+                continue;
+
             if (parameter.ScopedKind != ScopedKind.None)
             {
                 diagnostics.ReportScopedVariableCannotCrossSuspension(
@@ -98,6 +107,9 @@ internal static class RefSafetyDiagnosticReporter
 
         void ReportSymbol(ISymbol symbol)
         {
+            if (ReportUnsupportedIntersectionStorage(symbol, Location.None, diagnostics))
+                return;
+
             var scopedKind = symbol switch
             {
                 ILocalSymbol local => local.ScopedKind,
@@ -120,6 +132,15 @@ internal static class RefSafetyDiagnosticReporter
                 type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 symbol.Locations.FirstOrDefault() ?? Location.None);
         }
+    }
+
+    private static bool ReportUnsupportedIntersectionStorage(ISymbol symbol, Location fallbackLocation, DiagnosticBag diagnostics)
+    {
+        if (!IntersectionStorageFacts.ContainsIntersection(symbol.UnwrapType()))
+            return false;
+
+        diagnostics.ReportIntersectionTypeNotSupported(symbol.Locations.FirstOrDefault() ?? fallbackLocation);
+        return true;
     }
 
     public static void Report(

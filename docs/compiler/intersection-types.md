@@ -203,10 +203,48 @@ uses at binding time, including inferred uses without an intersection annotation
 - Using still-unimplemented receiver operations or nullable/value-type shapes.
 
 Projection to a supported nominal reference type is not itself an illegal escape:
-that view can use the normal nominal ABI. These are implementation requirements,
-not new diagnostics in this slice; RAV0363 remains the current source boundary.
+that view can use the normal nominal ABI. The storage and suspension checks below
+implement part of this boundary; RAV0363 remains the source restriction.
+
+## Semantic storage and capture checks
+
+The binder's shared storage validation now checks the semantic type rather than
+depending only on rejected intersection syntax. A direct intersection, or one
+inside an array, nullable wrapper, tuple, address/pointer/reference wrapper,
+delegate signature, generic argument, or constructed containing type, reports
+RAV0363 and becomes an error type. This also protects callers that supply inferred
+types to storage validation. The type factory itself remains descriptive and does
+not reject these combinations.
+
+The traversal follows stored type structure, not nominal members, base types, or
+type-parameter constraints. Thus a nominal `T` with ordinary conjunctive CLI
+constraints is not mistaken for an intersection storage type. Delegate traversal
+guards against revisiting named types. This is a representation restriction, not
+a declaration that intersections are ref-like or have stack-only semantics.
+
+Existing capture and suspension diagnostic paths also report RAV0363 for compound
+storage: captured locals/parameters, locals identified as crossing an await,
+async parameters, and iterator locals/parameters. They use the same nested-type
+check. Nominal constituent views remain eligible for the existing normal rules.
+Focused tests supply semantic symbols and bound bodies because source annotation
+binding is still deliberately disabled.
+
+These checks do not yet constitute permission to enable source locals. The shared
+storage check still rejects all compound locals, including the internally lowered
+subset. Return/generic inference and direct address/ref argument paths need an
+audit, followed by a narrowly scoped local allowance. No new public compiler API,
+language-service bypass, TextMate change, or runtime metadata contract is added.
 
 ## Validation
+
+Semantic storage checks passed 20 new diagnostic cases and the expanded 220-test
+intersection/static-type/ref-like/scoped/byref regression set on .NET 11. The
+115-test pre-change intersection/static-type baseline passed. New coverage
+includes ordinary and synthesized delegate signatures, nested containing types,
+capture locations, real bound await analysis, iterator storage, nominal controls,
+and constrained type parameters. Targeted compiler/test builds, whitespace
+formatting, and diff checks succeeded. This does not enable source locals or
+claim complete inferred-escape coverage.
 
 Member-write lowering passed all 13 internal-local runtime tests with ILVerify
 available and used, plus the 164-test intersection/indexer/property-assignment

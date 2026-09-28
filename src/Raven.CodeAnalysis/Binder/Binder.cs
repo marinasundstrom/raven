@@ -1820,6 +1820,12 @@ internal abstract partial class Binder
         if (type.TypeKind == TypeKind.Error)
             return type;
 
+        if (IntersectionStorageFacts.ContainsIntersection(type))
+        {
+            _diagnostics.ReportIntersectionTypeNotSupported(location);
+            return Compilation.ErrorTypeSymbol;
+        }
+
         if (!ValidateStorageTypeArgumentConstraints(type, location))
             return Compilation.ErrorTypeSymbol;
 

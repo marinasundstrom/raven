@@ -1,5 +1,30 @@
 # Runtime Contracts
 
+## Semantic intersection storage restrictions (2026-09-28)
+
+Shared binder storage validation now rejects semantic intersections recursively
+inside arrays, nullable types, tuples, reference/address/pointer wrappers,
+delegate signatures, generic arguments, and constructed containing types.
+RAV0363 is reported before ordinary storage validation continues, and the result
+is an error type. Type-parameter constraints and nominal members are not traversed.
+
+Capture, await-crossing local, async-parameter, and iterator storage reporting
+also reject these shapes. This is a compiler representation restriction, not
+ref-like classification. Nominal projections retain normal CLI behavior.
+
+The symbol API can still construct descriptive compound shapes, and internal
+lowering tests can still supply bound locals directly. Source annotations remain
+disabled; inference and direct byref-expression paths still need review before
+allowing supported locals through storage validation. No public ABI, Runtime
+Contract configuration, or native neoCLR policy changes.
+
+Validation: the 115-test pre-change baseline passed. All 20 new storage/capture/
+suspension cases and the expanded 220-test intersection/static/ref-like/scoped/
+byref set passed on .NET 11. Targeted compiler builds for net10.0/net11.0, the test
+build, whitespace formatting, and diff checks succeeded. No execution on neoCLR,
+.NET Framework, or NanoFramework was performed, and earlier full-baseline failures
+remain outside this slice.
+
 ## Intersection member-write lowering (2026-09-28)
 
 Internal reference-local lowering now projects erased receivers for property
