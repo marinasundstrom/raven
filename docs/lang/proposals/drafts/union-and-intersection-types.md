@@ -27,6 +27,46 @@ let result: int | string = 42
 The interfaces in these examples describe nominal implementation requirements.
 Having similarly named members alone does not establish membership.
 
+### Agreed language meaning (2026-09-28)
+
+The design decision is membership-based unions and combined-capability
+intersections:
+
+| Type | What the value guarantees | Available constituent members |
+| --- | --- | --- |
+| `A | B` | The value satisfies at least one of `A` or `B` | Narrow or match before accessing members specific to a constituent |
+| `A & B` | The same value satisfies both `A` and `B` | Members from both constituents are available directly |
+
+For example, given the appropriate interfaces and a value implementing both:
+
+```raven
+let stream: InputStream & OutputStream = duplexStream
+stream.Read()
+stream.Write(data)
+```
+
+The intersection changes the static view of that value. It does not merge object
+state, construct a new implementation, or require the object to declare a new
+combined interface. Completion lists accessible members from both constituents;
+hover and symbol lookup identify the selected member's actual declaring type.
+An unresolved member conflict remains an error even when completion can display
+both candidates.
+
+With `InputStream | OutputStream`, the annotation alone provides no guarantee
+that either specific operation is available. Matching or a successful type test
+establishes the appropriate constituent view. Existing common-supertype members
+may still be used without narrowing; same-named members on unrelated constituents
+do not become a shared member merely because their spelling matches.
+
+"Either" is inclusive: a duplex stream belongs to both alternatives. The union
+does not remember a selected entry alternative. Matching tests the actual value,
+and the first matching arm whose guard succeeds is selected. Two values with the
+same underlying object cannot match differently solely because one was assigned
+through an `InputStream` view and the other through an `OutputStream` view.
+
+This settles the intended language meaning. Migration from current ad-hoc union
+carriers and the representation of first-class intersections remain separate work.
+
 Raven already parses union types. The current [union specification](../../spec/unions.md)
 defines ad-hoc `T1 | T2` syntax through `System.Union<T1, T2>` carriers, with
 supported arities through five. This draft proposes a different semantic basis;
@@ -122,7 +162,7 @@ for overlapping constituents, rather than counting them as disjoint cases.
 
 ### Union overlap and existing carriers
 
-The recommended model for semantic unions is membership without a selected
+The agreed model for semantic unions is membership without a selected
 alternative. If an object implements both `A` and `B`, it satisfies both type
 tests even when held through `A | B`. Ordinary match arm ordering resolves
 overlap. A representation may carry implementation tags, but these must not
@@ -226,13 +266,16 @@ experimental branch and receive independent runtime validation.
 
 ## Implementation sequence
 
-1. Decide union overlap and migration policy; specify normalization, nullability,
-   member ambiguity, conversions, and target support diagnostics.
-2. Add intersection syntax and semantic compound-type symbols. Keep semantic
+1. Preserve the agreed overlap/member-access semantics above. Complete migration
+   policy, nullability, conversion ranking, and target support diagnostics before
+   changing existing ad-hoc union behavior.
+2. Build on the implemented intersection syntax with semantic compound-type
+   symbols. Keep semantic
    identity independent of storage; support substitution and public symbol/API
    display without exposing backend or cache internals.
-3. Implement intersections in legal CLI generic constraints, with diagnostics,
+3. Retain the implemented nominal CLI constraint subset and its diagnostics,
    imported/emitted metadata, member lookup, and observable execution coverage.
+   Integrate semantic normalization without silently broadening the supported ABI.
 4. Implement reference-value local intersections and narrowing. Diagnose uses
    requiring an ABI that has not yet been specified.
 5. Specify and validate public .NET ABI conventions and compound generic
@@ -240,6 +283,34 @@ experimental branch and receive independent runtime validation.
    choices, not semantic definitions.
 6. Integrate a separately specified neoCLR native contract and test its actual
    metadata, casts, dispatch, generic behavior, and execution.
+
+### Next semantic slice: acceptance criteria
+
+The next code slice introduces the intersection symbol and its type-system
+operations, before enabling stored values or selecting a runtime carrier.
+
+- `A & B` and `B & A` have equal semantic identity and equal hashes. Source order
+  remains available in syntax for presentation.
+- Nested intersections flatten, duplicate constituents disappear, and an
+  established subtype removes a redundant supertype. Normalization does not
+  convert a value or run user code.
+- Substitution recursively replaces type parameters in every constituent and
+  normalizes the result, including results that collapse to one ordinary type.
+- Public type/symbol APIs expose constituent identity and meaningful display.
+  Language services obtain the same facts through those APIs.
+- One value satisfying all constituents is assignable to the intersection;
+  satisfying only one is insufficient. Projection back to either constituent
+  preserves reference identity when reference-value support is enabled.
+- Member lookup combines candidates from all constituents, deduplicates the same
+  declaration reached through inheritance, and does not resolve distinct-member
+  ambiguity by constituent order.
+- Unsupported value/storage and generic-argument positions retain diagnostics
+  until their lowering and ABI are implemented. Adding a semantic symbol alone
+  must not admit such programs to emission.
+
+The later union slice must additionally prove that overlapping alternatives use
+actual-value membership, source-view changes do not select an alternative, and
+match exhaustiveness does not treat overlapping interfaces as disjoint cases.
 
 Every implementation slice must update the language spec, grammar, compiler/API
 documentation, and changelog as applicable. Evaluate hover, completion, semantic
