@@ -1041,6 +1041,10 @@
     Title="Runtime value patterns require an explicit comparison"
     Message="Runtime value '{value}' is not a stable implicit pattern; use '== {value}' to compare explicitly or a binding keyword to capture the matched value"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV1618" Identifier="RefutableParameterPattern"
+    Title="Parameter pattern is refutable"
+    Message="Parameter pattern does not match every value of type '{inputType}'. Bind the complete argument and handle the remaining cases in the body."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV2200" Identifier="LambdaParameterTypeCannotBeInferred"
     Title="Lambda parameter type cannot be inferred"
     Message="Cannot infer the type of parameter '{parameterName}'. Specify an explicit type or use the lambda in a delegate-typed context"

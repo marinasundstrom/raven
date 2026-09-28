@@ -2263,6 +2263,9 @@ partial class BlockBinder
                 pattern,
                 declarationBindingKeywordKind);
 
+            if (assignment is BoundPatternAssignmentExpression patternAssignment)
+                lambdaBinder.ValidateParameterPattern(pattern, parameterSymbols[index].Type, patternAssignment.Pattern);
+
             prologue.Add(new BoundExpressionStatement(assignment));
         }
 

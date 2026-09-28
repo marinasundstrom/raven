@@ -773,7 +773,7 @@ class Container {
         let words = pairs.Select(((number, text)) => text)
 
         let rows = [[1, 2, 3], [4, 5, 6]]
-        let tails = rows.Select(([head, ..tail]) => tail)
+        let tails = rows.Select(([..tail]) => tail)
     }
 }
 """;
@@ -1860,7 +1860,7 @@ class C {
     }
 
     [Fact]
-    public void Lambda_WithSequenceDestructuringParameter_SupportsJsStyleRest()
+    public void Lambda_WithSequenceDestructuringParameter_SupportsIrrefutableRest()
     {
         const string code = """
 import System.*
@@ -1870,7 +1870,7 @@ class C {
     }
 
     func Test() -> int {
-        return Apply(([a, ...rest]) => a + rest[0] + rest[1])
+        return Apply(([...rest]) => rest[0] + rest[1] + rest[2])
     }
 }
 """;
@@ -2012,7 +2012,7 @@ import System.Linq.*
 class Container {
     func Test() -> unit {
         let x2: int[][] = [[1, 2], [2, 3, 4]]
-        let r2 = x2.Select(([a, ..rest]) => b)
+        let r2 = x2.Select(([..rest]) => b)
     }
 }
 """;

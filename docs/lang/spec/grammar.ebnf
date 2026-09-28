@@ -635,6 +635,9 @@ LambdaParameterList      ::= LambdaParameter {',' LambdaParameter} ;
 LambdaParameter          ::= Parameter
                            | PositionalPattern
                            | SequencePattern ;
+(* Parameter patterns must be irrefutable for their resolved input types,
+   including nested patterns. This is a semantic restriction, not a ban on
+   positional or sequence syntax. *)
 
 CastExpression           ::= '(' Type ')' UnaryExpression ;
 

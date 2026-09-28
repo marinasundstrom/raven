@@ -271,6 +271,11 @@ positions:
 * function-expression parameter patterns (`((...), [...]) => ...`)
 * `is`/`match` pattern positions
 
+Function-expression parameter patterns additionally require total coverage of
+their input types, recursively. For example, a length-constrained sequence
+pattern may bind a fixed-length array parameter but cannot bind an arbitrary
+array parameter unless it covers every length. See [Functions](functions.md#destructuring-parameters).
+
 Only the first two bullets above are **deconstruction heads**. The latter two
 reuse the same nested positional/sequence forms inside broader general-pattern
 contexts that also support additional match-only pattern kinds.
