@@ -1026,7 +1026,7 @@ internal class PatternSyntaxParser : SyntaxParser
 
         // Parse as expression (NOT a pattern). This enables: `x`, `x.y`, `SomeType.StaticField`, etc.
         // NOTE: The expression parser will also consume `lo..hi` as a RangeExpression.
-        var expr = new ExpressionSyntaxParser(this, stopOnOpenBrace: StopsOnOpenBrace).ParseExpression();
+        var expr = new ExpressionSyntaxParser(this, stopOnOpenBrace: StopsOnOpenBrace, allowLambdaExpressions: false).ParseExpression();
 
         // If the expression is a range expression, convert it to a RangePatternSyntax.
         if (expr is RangeExpressionSyntax rangeExpr)

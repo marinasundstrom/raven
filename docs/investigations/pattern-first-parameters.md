@@ -1,7 +1,7 @@
 # Pattern-first parameters
 
 Status: coverage validation is implemented for existing function-expression
-patterns, and tuple/sequence patterns now work on by-value named functions and
+patterns, and tuple/sequence/nominal patterns now work on by-value named functions and
 methods with bodies. Source and imported signatures now display these patterns through
 `IParameterSymbol.BindingPattern`; `PatternParameterAttribute` preserves their
 structure in referenced assemblies. Uniform syntax-model migration, additional
@@ -132,49 +132,31 @@ parameter-mismatch exception or runtime fault policy to implement.
 
 ## Current implementation
 
-* `src/Raven.CodeAnalysis/Syntax/Model.xml` gives `Parameter` both a required
-  `Identifier` token and a nullable `Pattern`. Lambda destructuring uses a
-  missing identifier. This is an alternate representation, not a uniform
-  pattern-based syntax model.
-* `StatementSyntaxParser.ParseParameterList` optionally accepts destructuring,
-  but only recognizes an opening parenthesis or non-attribute opening bracket
-  as its start. Named functions enable discards without enabling destructuring.
-* `TypeDeclarationParser.ParseParameterList` is a separate implementation used
-  for member declarations and other declaration shapes. It always supplies a
-  null parameter pattern. It also supports primary-constructor promotion and
-  unnamed union payload types, which must survive a syntax migration.
-* `PatternSyntaxParser` already supports implicit variable bindings, but
-  `ParseDesignation` can consume a type annotation. A parameter-specific parse
-  context must leave the outer `: Type` on the parameter while allowing nested
-  annotations where the language permits them.
-* Property subpatterns currently parse a member, colon, and RHS pattern.
-  `{ x, y }` therefore needs explicit shorthand support; accepting an opening
-  brace in a parameter list is insufficient.
-* `BlockBinder.FunctionExpressions.BindLambdaDestructuringPrologue` binds each
-  pattern against a `BoundParameterAccess`, before binding the lambda body.
-  Missing parameter names become `__destructuredArgN` internally.
-* That prologue calls `BindPatternAssignment`. Its dispatch in `BlockBinder.cs`
-  supports variable, positional, sequence, dictionary, discard, and declaration
-  forms, but does not dispatch property or union-case patterns. The assignment
-  emitter likewise supports a restricted set of bound patterns. General match
-  patterns cannot simply be passed through this path.
-* `MethodBinder.CreateScopeState` exposes parameter symbols by name, excluding
-  `_`. Named methods need binder-owned pattern bindings before their bodies are
-  bound, including expression bodies and cold semantic queries.
-* Compiler parameter display in `Symbols/SymbolExtensions.cs` formats a name
-  and type, hiding implicit names unless requested. LSP
-  `SignatureHelpHandler.FormatParameter` independently formats `parameter.Name`.
-  These paths would otherwise disagree about patterns and generated names.
-* `OverloadResolver.FindParameterIndex` matches parameter names. Named
-  argument policy must be enforced in invocation binding, not just in displays.
+* `ParameterSyntax` still has an identifier token plus an optional pattern. The
+  uniform syntax-model migration remains separate from these implementation slices.
+* Named functions/methods with bodies and lambdas accept tuple, sequence, and
+  nominal deconstruction. Short nominal lambdas work in calls such as
+  `rows.Select(Row(let value) => value)`. Qualified and generic nominal heads use
+  the existing type parser. Constructors keep their previous parameter grammar.
+* Named and lambda body binders extract patterns from one incoming parameter
+  before binding the body. Pattern names declare locals. Cold declaration queries
+  go through the owning body binder; generated parameter names stay out of scope.
+* `BlockBinder.ParameterPatterns` checks typed recursive coverage and reports
+  `RAV1618` on the responsible refutable subpattern. Unsupported extraction forms
+  separately report `RAV1619`; they must not reach an unsupported emitter branch.
+* Nominal deconstruction uses existing `Deconstruct` binding and emission. It
+  accepts total ordinary types and diagnoses nullable/narrowing inputs and
+  refutable union cases. Calls preserve value-type copy behavior.
+* Source and imported parameter symbols expose `BindingPattern`. Shared symbol
+  display and LSP signature help render it beside the incoming type.
+  `PatternParameterAttribute` preserves presentation across assembly boundaries.
+* General property shorthand `{ x, y }`, nested property extraction, alternative
+  extraction forms, and generic substitution inside explicit nominal type syntax
+  remain unfinished. No syntax category should be called refutable merely
+  because its extraction emitter is not implemented.
 
-The initial implementation adds `BlockBinder.ParameterPatterns` and diagnostic
-`RAV1618` to existing lambda destructuring. It recursively validates the bound
-input shape, preserving fixed-length and rest-only sequence patterns and
-reporting refutable nested patterns. This does not yet expand the parameter
-grammar or add named-function destructuring. Focused validation on .NET 11
-passed 164 syntax/semantic tests and five runtime tests. This is not evidence
-of execution on .NET Framework, NanoFramework, or neoCLR.
+Validation covers modern .NET only; it is not evidence of execution on .NET
+Framework, NanoFramework, or neoCLR.
 
 ## Proposed representation and ownership
 

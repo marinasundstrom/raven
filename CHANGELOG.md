@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-28:** Support nominal parameter deconstruction on named functions and
+  lambdas, including `rows.Select(Row(let value) => value)`. Reuse `Deconstruct`
+  binding and extraction, preserve imported pattern display, and reject nullable,
+  narrowing, and refutable nested inputs. Unsupported extraction forms receive
+  a context diagnostic instead of reaching emission.
+
 - **2026-09-28:** Preserve parameter patterns in `PatternParameterAttribute` and
   expose source/imported binding structure through `IParameterSymbol.BindingPattern`.
   Show patterns in shared symbol display and editor signature help, retain them
