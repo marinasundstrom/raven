@@ -111,3 +111,46 @@ This observation is not a diagnosed root cause or compiler fix. General correcti
 still requires an independent main-based reproduction and validation. Structural
 inheritance, named function types, Function-to-Object conversion and dynamic
 reflection invocation of synthesized Invoke remain neoCLR follow-up work.
+
+
+## Function objects, target inspection and Object (2026-09-28)
+
+The neoCLR target reference now projects a read-only Function: MethodInfo property
+and ToString onto its CLI callback transport types. The importer maps these to
+synthesized structural Function members, not nominal delegate declarations. Callable
+comparisons lower to value equality. The property reports the closed bound method;
+FunctionTypeInfo.InvokeMethod still reports the shape's Invoke contract. A common
+FunctionInfo interface over methods and module functions is explicitly deferred.
+
+Function shapes inherit Object while retaining structural signature identity.
+Object upcasts, exact-shape casts back, GetType and virtual Equals/GetHashCode/ToString
+work through the native Function representation. Equal bindings share target and
+receiver identity; separate creation identity remains observable through
+ReferenceEquals. Source-qualified target names survive lowering for diagnostic
+ToString output, together with the closed signature. Other structural families do
+not acquire Object inheritance from this change.
+
+This supersedes the earlier Function-to-Object limitation. Dynamic invocation of
+synthetic descriptors remains unsupported; use typed calls and property access.
+Ownerless module target attributes and dynamic reflection invocation remain bounded
+by the existing type-based services. FunctionInfo, named nominal Function types,
+common callable base/interfaces and structural introspection factories remain
+future design. Runtime Contract configuration and ordinary CLR/.NET Framework/
+NanoFramework behavior are unchanged; the compiler implementation is unchanged in
+this slice. Matching bridge, reference and runtime artifacts are required.
+
+Validation is recorded in neoCLR's executable Function consumers and focused native
+Function/Object/reflection tests; the target documentation lives in its Function
+feature page and manual API reference.
+
+
+### Completion follow-up (2026-09-29)
+
+The neoCLR importer binds ordinary instance methods directly when no return adapter
+is needed, so Function reports the original member instead of a generated forwarding
+method. Necessary adapters without source declarations expose absent optional
+module/token metadata. This changes only the isolated target bridge/runtime contract,
+not Raven's general CLI emission. The source consumer checks original member identity,
+receiver-sensitive equality, unit target inspection and capture retention through
+Object views. RavenDoc's existing authored-page navigation now exposes the target's
+structural families; no general publisher or compiler change is required.

@@ -4,8 +4,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-29:** Record isolated neoCLR instance Function target preservation and
+  absent adapter declaration metadata, plus structural-family reference browsing
+  through RavenDoc's existing authored-page navigation. No general CLI emission
+  or publisher change is introduced.
+
 - **2026-09-28:** Document the isolated neoCLR Function migration and nominal type
-  descriptor split. Runtime typeof configuration stays unchanged; updated references
+  descriptor split. Document transitional Function: MethodInfo target inspection,
+  qualified target ToString, Function-specific Object inheritance and value/reference
+  equality, with target reference/import changes and the shared interface deferred.
+  Runtime typeof configuration stays unchanged; updated references
   expose NominalTypeInfo and TypeInfo.IsNominalType/DisplayName. The follow-up adds
   FunctionTypeInfo.Parameters/ReturnType/InvokeMethod, IsFunctionType, GetMethods
   discovery of synthesized Invoke, optional declaration metadata and lazy OfType
