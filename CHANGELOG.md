@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Preserve provider type-default facts through constructed method
+  and type parameter wrappers. Wrapped struct defaults now bind and display as
+  defaults instead of being treated as invalid literals.
+
 - **2026-09-30:** Make shared arrays independent of PE symbol inheritance. Move
   CLI interface and member-shape policy into the provider; non-PE arrays consume
   their own target shape without implicit .NET collection assumptions.
