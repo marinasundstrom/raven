@@ -11,14 +11,18 @@ public partial class Compilation
     private static Diagnostic TargetCoreError(string reason)
         => Diagnostic.Create(s_invalidTargetCore, Location.None, reason);
 
+    private Diagnostic? GetTargetOptionsDiagnostic()
+        => _target.RuntimeContract.GetConfigurationError() is { } error ? TargetCoreError(error) : null;
+
     private Diagnostic? GetTargetCoreConfigurationDiagnostic()
     {
+        if (GetTargetOptionsDiagnostic() is { } optionsDiagnostic)
+            return optionsDiagnostic;
+
         if (Options.RuntimeTypeOfContract is not null && ResolveRuntimeTypeOfContract() is null)
             return TargetCoreError("the typeof contract requires a public interface and context in the configured assembly, with public static Current and instance GetTypeInfoFromHandle(RuntimeTypeHandle) returning that interface");
         if (Options.RuntimeUnitContract is { } unit)
         {
-            if (Options.TargetCoreAssemblyName != unit.AssemblyName || string.IsNullOrWhiteSpace(unit.TypeName))
-                return TargetCoreError("the unit contract requires its explicitly configured target core assembly and type");
             var type = GetTypeByMetadataName(unit.TypeName, unit.AssemblyName);
             if (type is null || !type.IsValueType || type.Arity != 0 || type.ContainingType is not null || type.ContainingAssembly?.Name != unit.AssemblyName
                 || type.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic))

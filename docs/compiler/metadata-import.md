@@ -36,6 +36,10 @@ references through this preset.
 
 ## Target initialization failures
 
+Known option contradictions are checked first and reported as RAVT003, before
+reference loading. See [configuration validation](runtime-contracts.md#configuration-validation-before-loading).
+A consistent configuration can still fail to establish its core as described below.
+
 Compilation-wide, tree-scoped, and document-scoped diagnostic collection report
 RAVT004 when the .NET loader cannot establish its metadata core. This includes
 explicit-only discovery with no supplied core defining System.Object, and known

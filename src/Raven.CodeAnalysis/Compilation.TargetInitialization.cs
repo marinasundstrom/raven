@@ -10,6 +10,10 @@ public partial class Compilation
 
     private bool TryEnsureSetup(out Diagnostic? diagnostic)
     {
+        diagnostic = GetTargetOptionsDiagnostic();
+        if (diagnostic is not null)
+            return false;
+
         try
         {
             EnsureSetup();

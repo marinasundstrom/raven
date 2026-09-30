@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Validate target-core selection, unit-contract configuration and
+  required typeof contract names before loading metadata during diagnostic
+  collection or emission. Configuration contradictions report RAVT003 before
+  missing-core errors, without writing output; symbol-shape validation remains
+  after loading.
+
 - **2026-09-30:** Report missing or unloadable metadata cores as RAVT004 from
   compilation diagnostic collection and emission. Stop before output writes,
   preserve failed-snapshot isolation, and keep syntax-only diagnostics available

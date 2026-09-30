@@ -29,6 +29,31 @@ Syntax-only diagnostics remain available without target references. Direct seman
 queries still require successful setup; later metadata import failures are outside
 this initial diagnostic boundary.
 
+## Configuration validation before loading
+
+The .NET runtime contract checks configuration-only contradictions before
+compilation diagnostic collection or emission opens a metadata session:
+
+- An explicitly selected emission core must have compatible explicit import
+  settings. In discovered-core mode, its actual identity is checked after loading.
+- A unit contract must provide an assembly and type name and select that same
+  assembly as the explicit target core.
+- A typeof contract must provide assembly, type-info interface and context names.
+
+These checks report RAVT003 before a missing-core RAVT004 can obscure the
+configuration error. Checks run in core-selection, unit, then typeof order and
+return the first error. They require no reference I/O or imported symbols.
+Diagnostic collection stops on the contradiction, and emission writes neither
+output stream, including when precomputed diagnostics are supplied. These
+configuration failures remain errors even if suppression or severity overrides
+are requested. Syntax-only diagnostics remain independent of target configuration.
+
+Successful configuration validation does not establish target availability or
+contract compatibility: core discovery, unit type shape, and typeof provider
+members are still checked using loaded symbols. Named import/core matching retains
+its existing policy. Direct semantic queries have not acquired a new configuration
+validation API; this early boundary applies to diagnostic collection and emission.
+
 ## Current target composition
 
 `Targets.DotNetCompilationTarget` is the internal composition point for the

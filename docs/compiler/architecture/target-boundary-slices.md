@@ -523,3 +523,41 @@ used its previously built driver. Whitespace formatting completed with test
 workspace-load warnings, and `git diff --check` passed. Execution was on .NET 11;
 .NET 10/11 reference inputs were covered. No .NET Framework, NanoFramework,
 neoCLR execution, or bootstrap qualification is claimed.
+
+## Slice 15: configuration validation before metadata loading
+
+`DotNetRuntimeContract` owns configuration-only checks for explicit target/import
+core consistency, unit contract names/core selection, and required typeof contract
+names. Diagnostic collection and emission run these checks before EnsureSetup;
+RAVT003 identifies the first contradiction before missing-reference failures can
+produce RAVT004. Preflight configuration errors are fatal regardless of suppression
+or severity overrides, and output streams remain untouched.
+
+Post-load checks remain responsible for discovered core identity and resolved
+unit/typeof symbol shape. Successful option checks do not assert that the target
+exists or supports all requested operations. Syntax-only diagnostics still avoid
+target initialization; no new direct-semantic-query validation API is introduced.
+
+Coverage uses invalid configurations with no supplied references (explicit-reference
+cases would fail loading) to establish diagnostic precedence across
+compilation/tree/document APIs and emit
+with supplied diagnostics. Consistent configurations with missing references still
+reach RAVT004. Existing valid/invalid unit and typeof contract tests exercise
+post-load validation and successful emission/runtime behavior.
+
+Next: continue separating target-specific semantic configuration from shared
+compilation services, keeping the planned TargetPlatform/Contract API coherent.
+Main integration still requires independent validation; neoCLR-specific policies
+remain experimental and no wholesale branch merge is proposed.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 59 tests across
+MetadataImportOptionsTests, TargetCoreSelectionTests, DotNetCompilationPresetTests,
+TargetInitializationDiagnosticTests, RuntimeUnitContractTests, and
+RuntimeTypeOfContractTests. Adding TargetConfigurationDiagnosticTests produced
+72 passing tests with no failures/skips. Compiler builds passed for net10.0 and
+net11.0. Tests ran on .NET 11 with freshly built compiler outputs using
+`--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`;
+the existing driver subprocess fixture used its previously built driver.
+Whitespace formatting completed with test workspace-load warnings, and
+`git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution,
+or full bootstrap qualification is claimed.

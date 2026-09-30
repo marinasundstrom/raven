@@ -11,6 +11,35 @@ internal sealed class DotNetRuntimeContract(CompilationOptions options)
     internal string TupleTypeName => options.TargetCoreAssemblyName == "NeoCLR.CoreProbe"
         ? "System.Tuple" : "System.ValueTuple";
 
+    // Configuration-only checks must not open references or resolve symbols.
+    internal string? GetConfigurationError()
+    {
+        if (options.TargetCoreAssemblyName is { } coreName &&
+            (string.IsNullOrWhiteSpace(coreName) ||
+             (!options.UsesDiscoveredTargetCore && options.MetadataImportOptions?.CoreAssemblyName != coreName)))
+        {
+            return "emission requires the same explicitly supplied metadata core assembly";
+        }
+
+        if (options.RuntimeUnitContract is { } unit &&
+            (string.IsNullOrWhiteSpace(unit.AssemblyName) ||
+             string.IsNullOrWhiteSpace(unit.TypeName) ||
+             options.TargetCoreAssemblyName != unit.AssemblyName))
+        {
+            return "the unit contract requires its explicitly configured target core assembly and type";
+        }
+
+        if (options.RuntimeTypeOfContract is { } typeOf &&
+            (string.IsNullOrWhiteSpace(typeOf.AssemblyName) ||
+             string.IsNullOrWhiteSpace(typeOf.TypeInfoTypeName) ||
+             string.IsNullOrWhiteSpace(typeOf.ContextTypeName)))
+        {
+            return "the typeof contract requires assembly, type-info interface and context type names";
+        }
+
+        return null;
+    }
+
     internal string GetSpecialTypeMetadataName(SpecialType specialType)
     {
         return specialType switch
