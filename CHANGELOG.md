@@ -4,7 +4,36 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Synchronize the isolated Self feature with shared target-selection
+  APIs, preserving both platform and Self contracts through immutable copies and
+  incremental state checks. Target gating and Function-branch separation remain pending.
+
 - **2026-09-30:** neoCLR experiment: add explicitly configured native implementing-type `Self`, keeping interfaces nongeneric, substituting constrained member/property/operator signatures and concrete implementations, and preserving the transport marker for native import. Reject erased Self-member calls; ordinary CLR targets remain opt-out. Extend focused coverage to generic instance cloning and record the neoCLR borrowed-receiver integration. Document the subsequent actual System.Clonable<T> migration to Clonable with a native Self result; existing Runtime Contract settings suffice. Anchor inherited Self at its conformance declaration, reject derived generic bounds without redeclaration, and validate derived Self results including explicit implementations. Keep this feature isolated from the separate compiler-boundary/multi-target refactor. Record the importer rejection boundary for obsolete generic bounds and the deferred general compiler diagnostic candidate. See `docs/lang/native-self.md` and the Runtime Contract documentation.
+- **2026-09-30:** Document neoCLR CLI bridge behavior, semantic distinctions and
+  native metadata replacement requirements. Keep native Function types deferred
+  until the metadata layer and complete compiler support exist; feature-bundle
+  experiments do not qualify neoCLR main or enable the feature.
+
+- **2026-09-30:** Add experimental `CompilationOptions.NeoCLR` and
+  `RavenTargetPlatform=NeoCLR` CLI profile defaults, with explicit core/unit
+  consistency validation and supplied-reference-only loading. Project properties
+  can override profile fields. Self, record mappings, native codegen and a complete
+  capability matrix remain outside this preset; legacy CLI settings still work.
+
+- **2026-09-30:** Load and save `RavenTargetPlatform` in Raven projects, initially
+  accepting `DotNet`. Invalid platform names produce a clear project-loading error;
+  the compiler driver exits cleanly. Existing reference/core selection is preserved.
+
+- **2026-09-30:** Add immutable `CompilationOptions.TargetPlatform` selection,
+  initially supporting `TargetPlatform.DotNet`. Unknown values report RAVT005
+  before reference loading or output writes; platform changes block incremental
+  state reuse. Reference and experimental neoCLR CLI policies remain unchanged.
+
+- **2026-09-30:** Centralize the existing neoCLR CLI compatibility rules for
+  function results, tuples and terminal Fault calls in one target component.
+  Existing assembly-name triggers and ordinary .NET behavior are preserved;
+  explicit target selection and capability enforcement remain future work.
+
 - **2026-09-30:** Honor `SymbolDisplayMiscellaneousOptions.ExpandedValueTuple`
   for nominal tuple names, including nested generic arguments. Tuple declaration
   hovers request that format explicitly; ordinary source-oriented tuple display

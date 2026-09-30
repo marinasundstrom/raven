@@ -7,6 +7,8 @@ public sealed class NeoClrFunctionTypeTests : CompilationTestBase
     [Theory]
     [InlineData(null, false)]
     [InlineData("System.Runtime", false)]
+    [InlineData("OrdinaryLibrary", false)]
+    [InlineData("neoclr.coreprobe", false)]
     [InlineData("NeoCLR.CoreProbe", true)]
     public void UnitFunctionsUseTargetTransport(string? targetCore, bool inhabitedResult)
     {

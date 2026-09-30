@@ -405,6 +405,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 
         UpdateProperty(root, "AssemblyName", project.AssemblyName);
         UpdateProperty(root, "TargetFramework", project.TargetFramework);
+        UpdateProperty(root, "RavenTargetPlatform", (project.CompilationOptions?.TargetPlatform ?? TargetPlatform.DotNet).ToString());
         UpdateProperty(root, "OutputType", MapOutputType(project.CompilationOptions?.OutputKind ?? OutputKind.ConsoleApplication));
         UpdateProperty(root, "AllowUnsafeBlocks", (project.CompilationOptions?.AllowUnsafe ?? false).ToString().ToLowerInvariant());
         UpdateProperty(root, "RavenAllowGlobalStatements", (project.CompilationOptions?.AllowGlobalStatements ?? true).ToString().ToLowerInvariant());

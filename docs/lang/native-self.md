@@ -44,3 +44,14 @@ and target-configuration tests passed on .NET 11. These validate compiler
 semantics and CLI metadata transport, not native neoCLR execution. Whitespace
 formatting and diff checks passed. The branch remains separate while target
 mappings and unsupported-feature diagnostics are designed.
+
+
+## Explicit platform API synchronization — 2026-09-30
+
+Merged shared main c0a6344d0 into this feature branch without rewriting its published
+history. Immutable option copies retain both TargetPlatform and RuntimeSelfTypeContract;
+state-transfer compatibility checks include both. The pre-change Self baseline
+passed 12 tests; 27 focused Self/platform/profile tests passed after reconciliation
+on .NET 11. This synchronization does not yet enforce neoCLR-only Self or merge Self
+into main. Function/structural-type isolation is being handled separately before
+adding the target gate; the previous marker-only opt-in remains experimental here.

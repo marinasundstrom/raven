@@ -7,6 +7,10 @@ sources, and one or more code generators. See the
 The CLI-oriented options documented below are existing implementation mechanisms;
 they do not require every future symbol source to use metadata or CLI assemblies.
 
+The neoCLR bridge is a temporary transport, not the native platform specification.
+See the [bridge behavior and replacement inventory](neoclr-cli-bridge.md) for current
+encodings, limitations, semantic distinctions and branch-qualified exploratory evidence.
+
 ## CompilationOptions presets and planned configuration
 
 The public configuration type remains `CompilationOptions`. The agreed direction
@@ -21,6 +25,10 @@ selects no framework version and resolves no packages. The supplied references
 provide the core identity for both binding and emission. See
 [metadata import](metadata-import.md#net-compilation-preset) for examples,
 compatibility with existing constructors, and validation limitations.
+
+`CompilationOptions.NeoCLR` and `RavenTargetPlatform=NeoCLR` select the experimental
+CLI bridge profile described below. This still uses CLI metadata and emission;
+a native loader/backend and a complete capability matrix are not implemented.
 
 Known metadata-core initialization failures now report RAVT004 through compilation
 diagnostic collection and Emit, without writing output or manufacturing a partial
@@ -41,7 +49,8 @@ compilation diagnostic collection or emission opens a metadata session:
 - A typeof contract must provide assembly, type-info interface and context names.
 
 These checks report RAVT003 before a missing-core RAVT004 can obscure the
-configuration error. Checks run in core-selection, unit, then typeof order and
+configuration error. For the neoCLR profile, profile consistency is checked first. Remaining checks run
+in core-selection, unit, then typeof order and
 return the first error. They require no reference I/O or imported symbols.
 Diagnostic collection stops on the contradiction, and emission writes neither
 output stream, including when precomputed diagnostics are supplied. These
@@ -1593,3 +1602,120 @@ native runtime tests and a System.Clonable consumer covering inherited base resu
 virtual overrides, explicit derived mappings and invalid derived bounds/results.
 No new keyword, TextMate rule or language-service-specific state is introduced;
 existing semantic diagnostics carry the rule. LSP execution was not rerun.
+
+### Transitional neoCLR CLI compatibility (2026-09-30)
+
+`Targets.NeoClrCliCompatibility` owns the existing experimental assembly-name
+rules. `DotNetRuntimeContract` selects inhabited function results and the tuple
+family through it; the PE loader uses it to recognize value-type `System.Tuple`
+imports; shared bound-node facts use it to classify terminal `System.Fault` calls.
+This extraction preserves behavior and adds no public options.
+
+The configured core name must exactly equal `NeoCLR.CoreProbe` for unit-returning
+functions to use `Func<..., Unit>` and tuple construction to use `System.Tuple`.
+Other core names retain `Action` and `System.ValueTuple`. Imported tuple aliases
+require that exact assembly name and a value type. Terminal Fault recognition
+still depends on the method's own assembly, namespace-member marker and signature,
+independently of the configured core. Neither importing the assembly nor these
+compatibility rules constitute explicit target selection or capability validation.
+
+The explicit profile below adds target identity and preset defaults while retaining
+these compatibility triggers. No native neoCLR backend or cross-compilation is introduced.
+
+
+### Explicit platform option: .NET foundation (2026-09-30)
+
+`CompilationOptions.TargetPlatform` and `WithTargetPlatform(...)` identify the
+coherent loader/runtime-contract/emitter selection. `TargetPlatform.DotNet` was the initial supported value and remains the default
+for constructors and the
+`CompilationOptions.DotNet` preset. The latter still uses only supplied references;
+selecting a platform does not locate a reference framework, set a core assembly,
+or overwrite separately configured runtime contracts.
+
+All immutable option copies preserve this value. Unsupported enum values produce
+unsuppressible `RAVT005` before reference initialization; emission returns that
+error without changing PE/PDB streams, including when callers supply diagnostics.
+Incremental metadata/declaration reuse and semantic-state transfer reject platform
+changes. Workspace option changes can recover after an invalid platform selection.
+
+This is the .NET API foundation, not a completed multiple-platform implementation.
+At that initial checkpoint there was no NeoCLR preset or project selector; the
+subsequent slices below add them. The existing neoCLR CLI compatibility rules still apply within the
+current pipeline; this option does not enforce a strict .NET capability matrix.
+A supported neoCLR CLI profile, project configuration and caller migration must be
+defined together before replacing those rules with explicit target enforcement.
+
+
+### Project platform selection (2026-09-30)
+
+Projects may select the supported pipeline with
+`<RavenTargetPlatform>DotNet</RavenTargetPlatform>`. An absent or blank value keeps
+the existing .NET default. Names are case-insensitive and surrounding whitespace
+is ignored. The property is evaluated by MSBuild, including imports and property
+expansion. Saving a project writes the canonical platform name and loading it
+again preserves the selection. `TargetFramework`, metadata-core selection and
+explicit references remain independent; this property does not install or discover
+reference assemblies or replace existing core/contract settings.
+
+Both `DotNet` and `NeoCLR` are accepted names. Numeric enum values, combined names
+and unknown names are rejected during project evaluation with an
+`InvalidDataException` naming `RavenTargetPlatform` and its value. The compiler
+driver reports this as a project-loading error and exits unsuccessfully before
+emission. This project-format validation is distinct from RAVT005 for unsupported
+platform values supplied through the compiler API.
+
+The external neoCLR props file currently also selects the separate Self experiment.
+It must not be copied wholesale into a preset on main. The profile below defines the supported configuration independently of that
+feature. Migration of existing runtime consumers remains separate work. Existing integration props
+without RavenTargetPlatform retain their prior behavior.
+
+
+### Experimental neoCLR CLI preset (2026-09-30)
+
+Use `CompilationOptions.NeoCLR` or `<RavenTargetPlatform>NeoCLR</RavenTargetPlatform>`
+to select `TargetPlatform.NeoCLR`. This names the existing CLI bridge, using the
+same CLI loader/emitter implementation as the .NET pipeline. Supply matching
+`NeoCLR.CoreProbe` reference artifacts explicitly; the preset downloads nothing
+and does not select the compiler host's framework references. Projects also
+suppress default .NET prelude imports. No reference artifact is bundled here.
+
+| Contract or policy | Preset default |
+| --- | --- |
+| Metadata and emission core | `NeoCLR.CoreProbe`, explicit-only |
+| Unit | `NeoCLR.CoreProbe:System.Void` |
+| Iteration | `System.Collections.Iterable<T>` / `Iterator<T>`, `GetIterator`, `MoveNext`, `Current`; array shape `System.Array<T>` |
+| Propagation | `System.Propagatable<T, E, R>` (three-parameter interface) |
+| typeof | `System.Introspection.TypeInfo`, `System.Runtime.RuntimeContext` |
+| Characters | Grapheme representation enabled; Unicode-scalar option disabled |
+| Async | Heap state machines and cancellation propagation enabled; exception capture disabled |
+| Source nullable values and array covariance | Disabled |
+| Framework projections | None |
+
+These are existing compiler settings, not new runtime guarantees. Explicit project
+properties override individual defaults; partially specified contract properties
+inherit the remaining preset fields. API `With...` methods replace the requested
+option as usual. Core and unit changes that contradict the fixed CLI profile
+produce RAVT003 before loading references or writing output. Simply changing a
+.NET options object's TargetPlatform to NeoCLR does not apply preset defaults;
+start from `CompilationOptions.NeoCLR`. Missing references still produce RAVT004.
+
+The preset does not include Self or record-equatability/hash mappings. Their
+runtime props exist outside this main-line configuration, and consumers depending
+on them must retain the appropriate feature compiler/configuration. Full feature
+availability checks, native metadata/codegen, matching runtime execution tests and
+consumer migration are pending. Non-core feature/contract overrides are not yet
+validated against a complete neoCLR capability matrix. Existing per-contract
+symbol validation remains in effect.
+
+Explicit NeoCLR selection now chooses the inhabited function-result and tuple
+representations. Legacy core-name triggers and imported Fault/tuple recognition
+remain for compatibility until controlled callers migrate; ordinary .NET defaults
+are unchanged. Selecting DotNet does not yet prohibit all legacy neoCLR settings.
+
+
+An exploratory preset run used the neoCLR `feature/function-types` development
+bundle; it is not a supported-feature acceptance gate. Native Function types remain
+deliberately deferred until the metadata layer and complete compiler support exist. Native Function support is not on
+neoCLR main at e4f6fe41. Raven main's bridge support and that runtime feature branch
+must not be conflated. See the [bridge inventory](neoclr-cli-bridge.md) for the
+branch-qualified result and eventual native metadata replacement direction.
