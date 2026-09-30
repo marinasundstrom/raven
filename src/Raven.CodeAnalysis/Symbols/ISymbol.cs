@@ -641,7 +641,7 @@ public interface ITypeSymbol : INamespaceOrTypeSymbol
                 return true;
 
             return GetAttributes().Any(static attribute =>
-                attribute.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) is
+                attribute.AttributeClass?.ToFullyQualifiedMetadataName() is
                     "System.Runtime.CompilerServices.UnionAttribute" or
                     "System.Runtime.CompilerServices.DiscriminatedUnionAttribute");
         }

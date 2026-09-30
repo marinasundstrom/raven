@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Expose imported named-type attributes through GetAttributes and
+  validate inherited attribute usage from semantic symbols instead of host CLR reflection. Source and reference-only derived attributes now inherit
+  target restrictions and AllowMultiple correctly; a direct usage declaration
+  replaces the base contract and retains defaults for omitted settings. Compare
+  union marker metadata names directly to avoid recursive attribute-type display.
+
 - **2026-09-30:** Unify backend type resolution around explicit usage and Unit
   policy. Honor CustomAttribute requests and preserve method-body Unit when void
   conversion is disabled; keep nested Unit as a value type. Route specialized

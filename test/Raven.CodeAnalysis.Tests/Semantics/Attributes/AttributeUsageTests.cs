@@ -64,7 +64,7 @@ import System.Text.Json.Serialization.*
 
 [JsonDerivedType(typeof(Button), "Button")]
 [JsonDerivedType(typeof(StackPanel), "StackPanel")]
-class Control { }
+open class Control { }
 
 class Button : Control { }
 class StackPanel : Control { }

@@ -428,55 +428,26 @@ internal static class AttributeUsageHelper
         var attributeUsageType = compilation.GetTypeByMetadataName("System.AttributeUsageAttribute");
         if (attributeUsageType is not null)
         {
-            foreach (var attribute in attributeType.GetAttributes())
+            var visited = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            for (var current = attributeType; current is not null && visited.Add(current); current = current.BaseType)
             {
-                if (attribute.AttributeClass is not null &&
-                    SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeUsageType))
+                foreach (var attribute in current.GetAttributes())
                 {
-                    var validTargets = TryReadAttributeTargets(attribute.ConstructorArguments)
-                        ?? AttributeTargets.All;
-                    var allowMultiple = TryReadAllowMultiple(attribute.NamedArguments)
-                        ?? TryReadAllowMultipleFromClrType(compilation, attributeType)
-                        ?? false;
-
-                    return new AttributeUsageInfo(validTargets, allowMultiple);
+                    if (attribute.AttributeClass is not null &&
+                        SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeUsageType))
+                    {
+                        // A directly declared usage replaces the inherited contract.
+                        // Omitted named values take their defaults, not the base values.
+                        var validTargets = TryReadAttributeTargets(attribute.ConstructorArguments)
+                            ?? AttributeTargets.All;
+                        var allowMultiple = TryReadAllowMultiple(attribute.NamedArguments) ?? false;
+                        return new AttributeUsageInfo(validTargets, allowMultiple);
+                    }
                 }
             }
         }
 
-        if (TryGetClrAttributeUsage(compilation, attributeType) is { } clrUsage)
-            return clrUsage;
-
         return new AttributeUsageInfo(AttributeTargets.All, false);
-    }
-
-    private static AttributeUsageInfo? TryGetClrAttributeUsage(Compilation compilation, INamedTypeSymbol attributeType)
-    {
-        try
-        {
-            var metadataName = attributeType.ToFullyQualifiedMetadataName();
-            Type? clrType = null;
-
-            if (attributeType is PENamedTypeSymbol peAttributeType)
-                clrType = compilation.ResolveRuntimeType(peAttributeType);
-
-            if (!string.IsNullOrWhiteSpace(metadataName))
-                clrType ??= compilation.ResolveRuntimeType(metadataName);
-
-            clrType ??= attributeType.GetClrType(compilation);
-            if (clrType is null)
-                return null;
-
-            var usage = (AttributeUsageAttribute?)Attribute.GetCustomAttribute(clrType, typeof(AttributeUsageAttribute));
-            if (usage is null)
-                return null;
-
-            return new AttributeUsageInfo(usage.ValidOn, usage.AllowMultiple);
-        }
-        catch
-        {
-            return null;
-        }
     }
 
     private static AttributeTargets? TryReadAttributeTargets(ImmutableArray<TypedConstant> arguments)
@@ -521,12 +492,6 @@ internal static class AttributeUsageHelper
         }
 
         return null;
-    }
-
-    private static bool? TryReadAllowMultipleFromClrType(Compilation compilation, INamedTypeSymbol attributeType)
-    {
-        var usage = TryGetClrAttributeUsage(compilation, attributeType);
-        return usage?.AllowMultiple;
     }
 
     private static string GetTargetDisplay(AttributeTargets target)

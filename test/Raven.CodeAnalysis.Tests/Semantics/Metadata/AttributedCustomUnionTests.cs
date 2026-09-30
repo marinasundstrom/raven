@@ -71,14 +71,14 @@ public sealed class AttributedCustomUnionTests : CompilationTestBase
             Assert.Contains($"union {kind} Choice", html);
             Assert.Contains("id=\"cases\"", html);
             Assert.Contains("case First", html);
-            Assert.False(Directory.Exists(Path.Combine(site, "Independent/Choice/First")));
+            Assert.True(File.Exists(Path.Combine(site, "Independent/Choice/First/index.html")));
             Assert.True(File.Exists(Path.Combine(site, "Independent/First/index.html")));
             var ordinaryPage = File.ReadAllText(Path.Combine(site, "Independent/Ordinary/index.html"));
             Assert.Contains("symbol-icon--class", ordinaryPage);
             Assert.Contains("symbol-icon--class", html);
             Assert.DoesNotContain("symbol-icon--type", ordinaryPage);
             var xrefs = DocumentationGenerator.ExportXrefs(site);
-            Assert.Equal("Independent/Choice/index.html", xrefs["M:Independent.Choice+First..ctor"]);
+            Assert.Equal("Independent/Choice/First/method__ctor.html", xrefs["M:Independent.Choice+First..ctor"]);
             Assert.Equal("Independent/Choice/index.html", xrefs["M:Independent.Choice..ctor"]);
         }
         finally { Directory.Delete(directory, true); }

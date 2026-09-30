@@ -81,6 +81,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     internal Compilation Compilation => _reflectionTypeLoader.Compilation;
 
+    private ImmutableArray<AttributeData>? _attributes;
     protected readonly ReflectionTypeLoader _reflectionTypeLoader;
     protected readonly System.Reflection.TypeInfo _typeInfo;
     private readonly PETypeIdentity _metadataIdentity;
@@ -411,6 +412,26 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
 
     internal PETypeIdentity MetadataIdentity => _metadataIdentity;
 
+    public override ImmutableArray<AttributeData> GetAttributes()
+    {
+        if (_attributes.HasValue)
+            return _attributes.Value;
+
+        try
+        {
+            _attributes = ImmutableArray.CreateRange(
+                _typeInfo.GetCustomAttributesData()
+                    .Select(attribute => PEAttributeDataFactory.Create(_reflectionTypeLoader, attribute))
+                    .OfType<AttributeData>());
+        }
+        catch
+        {
+            _attributes = ImmutableArray<AttributeData>.Empty;
+        }
+
+        return _attributes.Value;
+    }
+
     public override Accessibility DeclaredAccessibility => _accessibility ??= MapAccessibility(_typeInfo.AsType());
 
     internal ITypeSymbol? GetExtensionReceiverType()
@@ -675,6 +696,10 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
     public bool IsType { get; } = true;
     public bool IsValueType => _isValueType;
     public bool IsReferenceType => !_isValueType;
+    // The metadata loader validates union shape and chooses PEUnionSymbol.
+    // A marker alone is insufficient and must not force attribute projection here.
+    public bool IsUnion => this is IUnionSymbol;
+
     public bool IsInterface => _typeInfo.IsInterface;
 
     public ImmutableArray<IMethodSymbol> Constructors => GetMembers(".ctor").OfType<IMethodSymbol>().ToImmutableArray();

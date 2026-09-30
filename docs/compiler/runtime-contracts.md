@@ -1341,3 +1341,39 @@ or runtime Unit type. Previously the backend facade ignored CustomAttribute usag
 and forced void for every method-body Unit request. Focused tests cover both fixes
 and nested Unit preservation. This remains an internal .NET backend policy, not a
 new source-language feature or a cross-platform type conversion API.
+
+## Semantic attribute usage validation
+
+Attribute target and multiplicity diagnostics read AttributeUsageAttribute from
+semantic AttributeData and walk the attribute type's semantic base chain. The
+nearest declared usage supplies the complete contract: an omitted AllowMultiple
+on that declaration defaults to false, even if a base declaration allows repeats.
+Without a declared usage, the existing defaults remain all targets and no repeats.
+A visited-type guard bounds traversal for erroneous inheritance cycles.
+
+Imported named types now project their metadata attributes through the existing
+PEAttributeDataFactory and cache the resulting semantic AttributeData per symbol,
+including constructor and named arguments. Previously these types inherited the
+empty default GetAttributes implementation, leaving the host fallback to supply
+missing usage information. Attribute decoding retains the existing PE-member
+best-effort policy: an unreadable attribute set returns empty.
+
+Validation no longer resolves or loads host CLR types to obtain AttributeUsage.
+Source-defined attributes and imported reference-only attributes therefore use the
+same semantic path, including inherited usage. Regression coverage uses a CLI
+reference assembly that the host rejects for execution and validates its derived
+attribute's target restriction and multiplicity through explicit references.
+System.AttributeUsageAttribute and AttributeTargets remain .NET contract names;
+a future platform may require different mappings. This change removes host
+execution from this validation decision, not all attribute-related .NET concepts.
+
+Imported attribute projection also requires marker classification to avoid symbol
+display: union detection compares attribute metadata names directly. Formatting a
+type to classify it can reenter union detection through attributes on that type
+and overflow the stack. A focused regression displays AttributeUsageAttribute
+itself and verifies it is not classified as a union.
+
+PE named-type union classification uses the loader's validated PEUnionSymbol shape,
+not attribute projection. A marker alone does not establish a supported union;
+classification must also avoid eagerly decoding attributes or initializing source
+declarations. Incremental demand-driven binding tests cover this distinction.

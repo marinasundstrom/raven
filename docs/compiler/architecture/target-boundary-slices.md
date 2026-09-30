@@ -969,3 +969,61 @@ Tests ran on .NET 11 with freshly built compiler outputs using
 Whitespace formatting completed with test workspace-load warnings;
 `git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
 full bootstrap qualification is claimed.
+
+## Slice 27: attribute usage from semantic data
+
+AttributeUsageHelper no longer resolves host runtime types or instantiates CLR
+attributes to determine allowed targets and multiplicity. It reads semantic
+AttributeData and traverses semantic base types, using the nearest usage declaration.
+A direct declaration replaces inherited settings; omitted AllowMultiple defaults to
+false. A visited set prevents an invalid inheritance cycle from making this walk
+unbounded. Existing no-declaration defaults remain unchanged.
+
+This fixes inherited usage for source and reference-only attribute types, whose
+base contracts were previously missed when CLR reflection could not supply them.
+New diagnostics coverage checks inherited class-only restrictions and repeatability,
+a direct declaration resetting repeatability, and a CLI reference-assembly fixture
+that is explicitly rejected by Assembly.Load. The latter is then consumed solely
+as metadata under CompilationOptions.DotNet with explicit core/reference inputs.
+
+The implementation still recognizes .NET AttributeUsageAttribute and AttributeTargets;
+it is not a platform-independent attribute contract mapping. Next: review the
+remaining public reflection adapters and isolate host type conversion from shared
+semantic services. Main integration still needs independent main-based validation;
+neoCLR-specific policies remain separate.
+
+Removing the fallback exposed missing imported named-type attribute projection:
+PENamedTypeSymbol inherited the empty Symbol.GetAttributes implementation. It now
+uses PEAttributeDataFactory and caches decoded attributes per symbol, matching the
+existing PE-member best-effort behavior for unreadable metadata. The reference-only
+fixture also verifies constructor/named argument contents and stable attribute
+objects across repeated queries. New source tests explicitly query declared
+attributes to exercise lazy binding, and the existing JsonDerivedType fixture's
+base class is marked open to remove unrelated inheritance errors.
+
+Expanded metadata tests exposed recursive union classification once imported type
+attributes became visible: IsUnion called ToDisplayString on attribute types, and
+display called IsUnion again. Marker detection now compares metadata names directly.
+A dedicated AttributeUsageAttribute display/classification regression covers the
+cycle, and validation was broadened to the repository baseline after the crash.
+
+PE named types additionally classify unions using the loader-selected IUnionSymbol
+shape, preserving validation of marked-but-unsupported CLI types and avoiding
+attribute decoding during routine classification. This restored demand-driven
+source declaration counts in the incremental regression. Documentation coverage
+contained stale expectations denying union-case pages, although RavenDoc has
+explicitly generated them since commit d08ac174ff; assertions now check the case
+page and its constructor xref instead. RavenDoc production code is unchanged.
+
+Validation: the pre-change attribute baseline passed 58 tests. Final focused
+coverage passed 145 tests on .NET 11 with no failures or skips, covering attribute
+usage/binding/semantic APIs, custom-attribute emission, reference-only inheritance,
+attributed unions, nullable metadata, and incremental compilation reuse. Compiler
+builds passed for net10.0 and net11.0. Whitespace formatting completed (the test
+workspace reported load warnings), and `git diff --check` passed.
+
+The expanded baseline run passed 419 tests before stopping on four fixture
+failures: two new inheritance fixtures and two stale union-documentation
+assertions. Those cases pass in the final focused run; the full baseline was not
+rerun to completion. No .NET Framework, NanoFramework, neoCLR execution or full
+bootstrap qualification is claimed.
