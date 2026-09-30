@@ -1956,3 +1956,24 @@ paths by testing for `PEMethodSymbol`. Source/full-signature behavior and scorin
 weights are unchanged. This is an internal available-state optimization contract,
 not a new language conversion rule or a requirement that native providers use
 CLI names. Other runtime-specific semantic paths remain future work.
+
+### Provider overload-priority fallback (2026-09-30)
+
+`IMethodOverloadPriority` supplies optional priority facts when ordinary semantic
+attributes do not provide them. Shared overload resolution retains source syntax
+handling, semantic attribute precedence, declaring-type/extension grouping and
+priority comparison. It asks the method or its original definition for the
+fallback without depending on PE symbols or reflection.
+
+PE owns raw OverloadResolutionPriorityAttribute decoding and GetBaseDefinition
+lookup, preserving existing precedence. Native providers can
+supply their own priority facts without synthesizing a CLI attribute. This slice
+does not redesign attribute-based priority policy or change override semantics;
+other target-specific policies remain future boundary work.
+
+The extraction exposed a metadata-only reflection bug: GetBaseDefinition was
+called even for nonvirtual methods, so MetadataLoadContext threw before attribute
+reading. PE now reads nonvirtual/new-slot declarations directly. Slot-reusing
+overrides still report no fallback fact if base-definition reflection is
+unsupported; determining that inherited fact needs a metadata-aware override
+relationship and is not guessed here.

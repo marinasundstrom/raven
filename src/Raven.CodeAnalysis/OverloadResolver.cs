@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
@@ -292,53 +293,20 @@ internal sealed class OverloadResolver
             }
         }
 
-        if (method is PEMethodSymbol peMethod &&
-            TryGetOverloadResolutionPriority(peMethod.ReflectionMethodBase, out var metadataPriority))
+        if (method is IMethodOverloadPriority priorityProvider &&
+            priorityProvider.TryGetOverloadResolutionPriority(out var metadataPriority))
         {
             return metadataPriority;
         }
 
         if (!ReferenceEquals(method.OriginalDefinition, method) &&
-            method.OriginalDefinition is PEMethodSymbol peDefinition &&
-            TryGetOverloadResolutionPriority(peDefinition.ReflectionMethodBase, out metadataPriority))
+            method.OriginalDefinition is IMethodOverloadPriority definitionProvider &&
+            definitionProvider.TryGetOverloadResolutionPriority(out metadataPriority))
         {
             return metadataPriority;
         }
 
         return 0;
-
-        static bool TryGetOverloadResolutionPriority(System.Reflection.MethodBase methodBase, out int priority)
-        {
-            priority = 0;
-
-            try
-            {
-                if (methodBase is System.Reflection.MethodInfo methodInfo)
-                    methodBase = methodInfo.GetBaseDefinition();
-
-                foreach (var attribute in methodBase.GetCustomAttributesData())
-                {
-                    if (!string.Equals(attribute.AttributeType.FullName,
-                            "System.Runtime.CompilerServices.OverloadResolutionPriorityAttribute",
-                            StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    if (attribute.ConstructorArguments.Count == 1 &&
-                        attribute.ConstructorArguments[0].Value is int constructorPriority)
-                    {
-                        priority = constructorPriority;
-                        return true;
-                    }
-                }
-            }
-            catch
-            {
-            }
-
-            return false;
-        }
     }
 
     private static bool TryGetSourceDeclaredOverloadResolutionPriority(IMethodSymbol method, out int priority)
@@ -389,9 +357,6 @@ internal sealed class OverloadResolver
                 case SourceMethodSymbol { OverriddenMethod: { } overriddenMethod }:
                     method = overriddenMethod.OriginalDefinition ?? overriddenMethod;
                     continue;
-
-                case PEMethodSymbol { ReflectionMethodBase: System.Reflection.MethodInfo methodInfo }:
-                    return method;
 
                 default:
                     return method;

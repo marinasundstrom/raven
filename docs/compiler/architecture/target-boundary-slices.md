@@ -1700,3 +1700,31 @@ External runtime artifacts are unchanged; no native neoCLR or .NET Framework/
 NanoFramework execution is claimed.
 
 Next: audit remaining shared symbol identity and runtime-specific type queries.
+
+## Slice 51: provider-owned overload-priority fallback
+
+Remove PE/reflection checks from shared overload resolution. The optional internal
+`IMethodOverloadPriority` capability supplies fallback metadata priority; PE owns
+raw attribute and base-definition reflection decoding. Source syntax and ordinary
+semantic attribute lookup retain precedence. Shared candidate applicability,
+grouping and priority comparison are unchanged. Remove a redundant PE case from
+source override traversal that behaved identically to its default case.
+
+Eight regressions cover positive/negative/absent non-PE priorities, constructed
+views and candidate-order independence through actual overload resolution, plus
+PE fallback decoding for nonvirtual and new-slot virtual methods. This exposed
+an unconditional GetBaseDefinition call that throws in MetadataLoadContext; skip
+it when CLI flags already establish the declaration as its own base definition.
+Slot-reusing overrides retain the unavailable fallback when base lookup fails.
+Existing source/metadata overload tests remain the
+behavior baseline. This extraction does not redesign attribute policy or all
+runtime-dependent overload rules.
+
+Validation: 60 baseline overload tests and 68 final tests pass on .NET 11.
+Compiler builds pass for .NET 10/11 with zero warnings/errors. Whitespace
+formatting and diff checks pass (formatter workspace-load warnings).
+No syntax, generated inputs, public API or emitted encoding changes; language
+service consumers retain existing compiler APIs. External runtime artifacts are
+unchanged; native neoCLR and .NET Framework/NanoFramework execution are not claimed.
+
+Next: audit runtime-specific type predicates outside the provider implementations.

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Move overload-priority reflection fallback into the PE provider.
+  Shared overload selection consumes provider facts and preserves source/attribute
+  precedence, priority grouping and constructed-method behavior. Fix metadata-only
+  fallback decoding for nonvirtual/new-slot methods by avoiding unsupported base
+  definition reflection when the declaration is already its own base.
+
 - **2026-09-30:** Separate available-state parameter conversion classification
   from shared candidate ranking. Keep CLI type-name shortcuts in the PE provider
   and remove PE method checks from semantic-model invocation scoring.
