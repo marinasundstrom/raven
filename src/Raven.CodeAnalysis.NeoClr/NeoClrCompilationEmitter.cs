@@ -2,8 +2,8 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-/// <summary>Opt-in native format-5 emitter for the documented static Int32/Unit source subset.</summary>
-/// <remarks>Uses public semantic operations and the existing .NET binding bootstrap. Uses the shared Compilation.Emit pipeline through an explicit backend.</remarks>
+/// <summary>Opt-in native format-5 emitter for the documented static primitive source subset.</summary>
+/// <remarks>Reuses compiler-lowered bodies and the existing .NET binding bootstrap. Uses the shared Compilation.Emit pipeline through an explicit backend.</remarks>
 public static class NeoClrCompilationEmitter
 {
     private static readonly DiagnosticDescriptor Unsupported = Descriptor("NEOMETA001", "Unsupported native source", "Native emission does not support {0}.");

@@ -104,6 +104,34 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).GetType("Selection")!.GetMethod("Main")!.Invoke(null, null));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void ShortCircuitConditionsAndAssignmentsSkipRightOperands(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Logic {
+                public static func Main() -> int {
+                    var selected = false && FailIfEvaluated()
+                    selected = true || FailIfEvaluated()
+                    if (false || selected) && (true || FailIfEvaluated()) {
+                        return 42
+                    }
+                    return 0
+                }
+                public static func FailIfEvaluated() -> bool {
+                    throw System.InvalidOperationException("short-circuited operand evaluated")
+                }
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
+        var model = compilation.GetSemanticModel(declaration.SyntaxTree);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+            model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail);
+        Assert.Equal(42, Emit(compilation).GetType("Logic")!.GetMethod("Main")!.Invoke(null, null));
+    }
+
     [Fact]
     public void UnsupportedBodyIsRejectedBeforeBuildingAndUsesGeneralDotNetGenerator()
     {

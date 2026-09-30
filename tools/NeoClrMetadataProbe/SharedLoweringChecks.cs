@@ -173,6 +173,26 @@ internal static class SharedLoweringChecks
                 }
             }
             """, "", 42);
+        await RunCase("SharedShortCircuit", """
+            func Main() -> int {
+                var selected = false && Mark()
+                var result = 0
+                selected = true || Mark()
+                if selected {
+                    result = 40
+                }
+                selected = true && Mark()
+                selected = false || Mark()
+                if (false || selected) && (true || Mark()) {
+                    result = result + 2
+                }
+                return result
+            }
+            func Mark() -> bool {
+                System.Console.WriteLine("Evaluated")
+                return true
+            }
+            """, "Evaluated\nEvaluated", 42);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
         Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 

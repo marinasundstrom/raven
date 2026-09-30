@@ -2361,3 +2361,23 @@ symbol projection is still pending.
 Validation adds a predicate-local program on both runtimes, C# Release/Debug coverage,
 and metadata contracts for reflected CLI local types, native projection and invalid
 cross-type stores. All 35 metadata groups and 33 focused compiler tests pass.
+
+
+## Short-circuit Boolean expressions — 2026-10-01
+
+The shared body planner emits built-in Boolean &&/|| with symbolic branches and a
+Boolean stack value at the join. Operands are evaluated left to right; the right side
+is skipped when the left determines the result. Nested expressions, local assignment
+and value returns reuse this plan on both backends. Overloaded operators, nullable
+logic and general conversions remain outside this subset.
+
+Runtime Contract configuration and primitive CLI projection are unchanged. This
+matches ordinary CLR Boolean short-circuit behavior; neoCLR uses its existing branch
+instructions and distinct Boolean stack type. No native schema or runtime change is
+required. The temporary projection is still owned by the metadata library and used
+by the compiler's .NET semantic provider; native semantic import remains deferred.
+
+Validation: 35 focused compiler tests, including Release/Debug skipped-operand cases,
+and the dual-runtime native probe. Console side effects prove that precisely two of
+five possible helper calls execute, while the program returns 42. Existing 35 metadata
+contract groups cover the unchanged branch/Boolean encoding and validation.

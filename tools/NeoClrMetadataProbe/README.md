@@ -229,3 +229,6 @@ same-arity overloads on both backends, plus separately compiled native library i
 
 Typed Boolean local coverage stores a predicate result, reassigns it and compares it
 through the shared path, executing the resulting binary assembly in neoCLR.
+
+Short-circuit cases assert output as well as return values: exactly two helper calls
+produce output, with the other three right operands skipped by Boolean conditions.

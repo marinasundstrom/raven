@@ -204,6 +204,21 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return LowerValue(parenthesized.Expression);
                 case BoundConversionExpression { IsIdentity: true } conversion:
                     return LowerValue(conversion.Expression);
+                case BoundBinaryExpression logical when logical.Operator.MethodSymbol is null &&
+                    logical.Operator.LeftType.SpecialType == SpecialType.System_Boolean &&
+                    logical.Operator.RightType.SpecialType == SpecialType.System_Boolean &&
+                    logical.Operator.OperatorKind is OperatorKind.LogicalAnd or OperatorKind.LogicalOr:
+                    var shortCircuit = nextLabel++;
+                    var completed = nextLabel++;
+                    var isOr = logical.Operator.OperatorKind == OperatorKind.LogicalOr;
+                    if (!LowerValue(logical.Left)) return false;
+                    Add(isOr ? LinearInstructionKind.BranchTrue : LinearInstructionKind.BranchFalse, Syntax(expression), shortCircuit);
+                    if (!LowerValue(logical.Right)) return false;
+                    Add(LinearInstructionKind.Branch, Syntax(expression), completed);
+                    Add(LinearInstructionKind.Label, Syntax(expression), shortCircuit);
+                    Add(LinearInstructionKind.Boolean, Syntax(expression), isOr ? 1 : 0);
+                    Add(LinearInstructionKind.Label, Syntax(expression), completed);
+                    return true;
                 case BoundBinaryExpression binary when binary.Operator.MethodSymbol is null &&
                     ((binary.Operator.LeftType.SpecialType == SpecialType.System_Int32 &&
                       binary.Operator.RightType.SpecialType == SpecialType.System_Int32) ||

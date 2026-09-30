@@ -47,7 +47,7 @@ public sealed class NeoClrEmitOptions
     }
     /// <summary>Gets the unsigned output identity; its name must match the compilation.</summary>
     public AssemblyIdentity Identity { get; }
-    /// <summary>Gets the explicit core-library identity for Int32 contracts.</summary>
+    /// <summary>Gets the explicit core-library identity for primitive contracts.</summary>
     public AssemblyIdentity CoreLibrary { get; }
     /// <summary>Gets the explicit compiler reference authorizing System.Console.WriteLine(string literal) mapping; null disables it.</summary>
     /// <remarks>The exact instance must be registered in the compilation. No other console overload or operation is mapped.</remarks>
