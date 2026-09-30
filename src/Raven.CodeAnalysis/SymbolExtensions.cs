@@ -48,16 +48,10 @@ public static partial class SymbolExtensions
             ? string.Empty
             : string.Join(",", method.TypeArguments.Select(static type => GetTypeLookupIdentityKey(type)));
 
-        if (definition is PEMethodSymbol peMethod &&
-            peMethod.TryGetMetadataIdentity(out var moduleVersionId, out var metadataToken))
-        {
-            return $"MPE:{moduleVersionId:N}:{metadataToken}:{method.Arity}|{typeArguments}";
-        }
+        if (definition is IMethodLookupIdentity identity)
+            return $"MP:{identity.ShallowDeclarationLookupKey}|{method.Arity}|{typeArguments}";
 
         var containingType = GetTypeLookupIdentityKey(definition.ContainingType);
-        if (definition is PEMethodSymbol peDefinition)
-            return $"M:{containingType}|{definition.MetadataName}|{method.Arity}|{typeArguments}|{peDefinition.ParameterCount}";
-
         var parameters = string.Join(",", definition.Parameters.Select(static p => $"{p.RefKind}:{GetTypeLookupIdentityKey(p.Type)}"));
         return $"M:{containingType}|{definition.MetadataName}|{method.Arity}|{typeArguments}|{parameters}";
     }
