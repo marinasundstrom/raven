@@ -56,7 +56,7 @@ internal readonly record struct SymbolQuery(
             symbol is not IPropertySymbol { IsIndexer: true } &&
             (symbol is not IMethodSymbol method || !IsNeverInvocableRuntimeMethod(method)));
 
-        if (containingType?.TypeKind == TypeKind.Interface && binder.Compilation.Options.RuntimeSelfTypeContract is not null)
+        if (containingType?.TypeKind == TypeKind.Interface && binder.Compilation.HasNativeSelfContract)
             symbols = symbols.Where(symbol => symbol switch
             {
                 IMethodSymbol method => !RuntimeSelfTypes.Contains(binder.Compilation, method),

@@ -180,7 +180,7 @@ internal abstract partial class Binder
         bool allowBinderLookup)
     {
         var name = id.Identifier.ValueText;
-        if (name == "Self" && Compilation.Options.RuntimeSelfTypeContract is not null)
+        if (name == "Self" && Compilation.HasNativeSelfContract)
         {
             INamedTypeSymbol? owner = null;
             for (Binder? scope = this; scope is not null && owner is null; scope = scope.ParentBinder)

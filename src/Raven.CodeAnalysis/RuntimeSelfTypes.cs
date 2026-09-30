@@ -19,7 +19,7 @@ internal static class RuntimeSelfTypes
     {
         if (!SemanticFacts.SatisfiesTypeConstraint(argument, constraint))
             return false;
-        if (compilation.Options.RuntimeSelfTypeContract is null
+        if (!compilation.HasNativeSelfContract
             || constraint is not INamedTypeSymbol { TypeKind: TypeKind.Interface } contract)
             return true;
         if (!HasSelfContract(compilation, contract))
@@ -32,7 +32,7 @@ internal static class RuntimeSelfTypes
     }
 
     internal static bool HasSelfContract(Compilation compilation, INamedTypeSymbol contract)
-        => compilation.Options.RuntimeSelfTypeContract is not null
+        => compilation.HasNativeSelfContract
             && contract.AllInterfaces.Prepend(contract).Any(i => Contains(compilation, i) || i.GetMembers().Any(member => member switch
             {
                 IMethodSymbol method => Contains(compilation, method),
@@ -41,7 +41,7 @@ internal static class RuntimeSelfTypes
             }));
 
     internal static bool IsSelf(Compilation compilation, ITypeSymbol type)
-        => compilation.Options.RuntimeSelfTypeContract is { } contract
+        => compilation.HasNativeSelfContract && compilation.Options.RuntimeSelfTypeContract is { } contract
             && type.ContainingAssembly?.Name == contract.AssemblyName
             && type.ToFullyQualifiedMetadataName() == contract.TypeName;
 

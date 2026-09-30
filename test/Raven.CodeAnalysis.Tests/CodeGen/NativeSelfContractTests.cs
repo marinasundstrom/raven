@@ -34,13 +34,28 @@ public class NativeSelfContractTests
         }
         """;
 
+    private static CompilationOptions SelfOptions() => CompilationOptions.NeoCLR
+        .WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
+        .WithRuntimeTypeOfContract(null)
+        .WithRuntimeSelfTypeContract(new("NativeSelfReference", "NativeSelfMarker"));
+
     private static MetadataReference[] References()
     {
         var marker = Compilation.Create("NativeSelfReference", [SyntaxTree.ParseText("public sealed class NativeSelfMarker {}")],
             TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         using var image = new MemoryStream();
         Assert.True(marker.Emit(image).Success);
-        return TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(image.ToArray())).ToArray();
+        // A synthetic CLI core keeps these compiler/metadata tests independent of
+        // external neoCLR bundles. Native execution is verified in the runtime repo.
+        var corePath = TestMetadataReferences.Default.OfType<PortableExecutableReference>()
+            .Single(reference => Path.GetFileName(reference.FilePath) == "System.Runtime.dll").FilePath!;
+        using var core = AssemblyDefinition.ReadAssembly(corePath);
+        core.Name.Name = "NeoCLR.CoreProbe";
+        core.Name.PublicKey = [];
+        using var coreImage = new MemoryStream();
+        core.Write(coreImage);
+        return [.. TestMetadataReferences.Default, MetadataReference.CreateFromImage(coreImage.ToArray()),
+            MetadataReference.CreateFromImage(image.ToArray())];
     }
 
     const string InheritanceSource = """
@@ -68,8 +83,7 @@ public class NativeSelfContractTests
                 .Replace("Check(value: Derived) -> Base => Copy<Base>(value)", "Check(value: Derived) -> Derived => Copy<Derived>(value)"),
             _ => InheritanceSource
         };
-        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-            .WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker"));
+        var options = SelfOptions();
         var compilation = Compilation.Create("SelfInheritance", [SyntaxTree.ParseText(source)], References(), options);
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("\n", diagnostics));
@@ -89,8 +103,7 @@ public class NativeSelfContractTests
     public void InheritedSelfDoesNotPromiseDerivedResult(bool inferred)
     {
         var source = InheritanceSource.Replace("Copy<Base>(value)", inferred ? "Copy(value)" : "Copy<Derived>(value)");
-        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-            .WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker"));
+        var options = SelfOptions();
         var compilation = Compilation.Create("SelfInheritance", [SyntaxTree.ParseText(source)], References(), options);
         Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
@@ -103,8 +116,7 @@ public class NativeSelfContractTests
         var source = InheritanceSource.Replace("class Derived : Base {}", wrongExplicitResult
             ? "class Derived : Base, Cloneable { func Cloneable.Clone() -> Base => self }"
             : "class Derived : Base, Cloneable {}");
-        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-            .WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker"));
+        var options = SelfOptions();
         var compilation = Compilation.Create("SelfInheritance", [SyntaxTree.ParseText(source)], References(), options);
         Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
@@ -121,17 +133,16 @@ public class NativeSelfContractTests
             """;
         if (redeclared)
             source = source.Replace("Derived : Base", "Derived : Base, CurrentValue");
-        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-            .WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker"));
+        var options = SelfOptions();
         var compilation = Compilation.Create("SelfPropertyInheritance", [SyntaxTree.ParseText(source)], References(), options);
         Assert.Equal(redeclared, compilation.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error));
     }
 
     [Fact]
-    public void NativeSelfKeepsInterfaceArityAndEmitsMarkerAndConstrainedCall()
+    public void NativeSelfKeepsInterfaceArityAndEmitsMarkerAndGenericResult()
     {
         var contract = new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker");
-        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+        var options = SelfOptions()
             .WithAllowNullableValueTypes(false)
             .WithRuntimeSelfTypeContract(contract)
             .WithAsyncCancellationPropagation(true);
@@ -167,12 +178,39 @@ public class NativeSelfContractTests
             Source.Replace("public static func Add(left: Self, right: Self) -> Self", "public static func Add(left: Self, right: Self) -> string").Replace("return result", "return \"wrong\"")
         })
         {
-            var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-                .WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker"))
+            var options = SelfOptions()
             .WithAsyncCancellationPropagation(true);
             var compilation = Compilation.Create("NativeSelfProbe", [SyntaxTree.ParseText(source)], References(), options);
             Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         }
+    }
+
+    [Fact]
+    public void DotNetRejectsConfiguredSelfBeforeLoadingReferencesOrWritingOutput()
+    {
+        var options = CompilationOptions.DotNet.WithRuntimeSelfTypeContract(new("Missing", "Self"));
+        var compilation = Compilation.Create("InvalidSelf", [], [], options);
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal("RAVT003", diagnostic.Id);
+        Assert.Contains("native Self requires TargetPlatform.NeoCLR", diagnostic.GetMessage());
+        using var output = new MemoryStream();
+        output.Write([1, 2, 3]);
+        Assert.False(compilation.Emit(output).Success);
+        Assert.Equal(new byte[] { 1, 2, 3 }, output.ToArray());
+    }
+
+    [Fact]
+    public void DotNetSemanticQueriesKeepUserDefinedSelfOrdinaryEvenWithInvalidContract()
+    {
+        var tree = SyntaxTree.ParseText("class Self {} class Example { val Value: Self { get; } }");
+        var compilation = Compilation.Create("OrdinarySelf", [tree], TestMetadataReferences.Default,
+            CompilationOptions.DotNet.WithRuntimeSelfTypeContract(new("Missing", "Marker")));
+        var identifier = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
+            .Single(node => node.Identifier.ValueText == "Self");
+        var type = compilation.GetSemanticModel(tree).GetTypeInfo(identifier).Type;
+        Assert.Equal("Self", type?.Name);
+        Assert.Equal("OrdinarySelf", type?.ContainingAssembly?.Name);
+        Assert.False(compilation.HasNativeSelfContract);
     }
 
     [Fact]

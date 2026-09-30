@@ -26,8 +26,9 @@ on neoCLR. Preserve snapshot-owned symbols and incremental correctness throughou
 
 ## Branch and artifact scope
 
-General Raven target plumbing is on shared main. Native Function-specific bridge
-work is on Raven `codex/neoclr-structural-types`, not enabled on main. Native structural
+General Raven target plumbing and the existing nominal delegate ABI are on shared
+main. Native structural Function work is reserved for Raven
+`codex/neoclr-structural-types` and is not enabled on main. Native structural
 Function support is on neoCLR's `feature/function-types` branch, also inherited by
 `codex/native-self`; it is not on neoCLR main at `e4f6fe41`. These are different
 repositories and different integration states. Native Function types remain deliberately deferred: the author requires neoCLR's
@@ -45,7 +46,7 @@ replacement direction, not a claim of an implemented native loader or backend.
 | --- | --- | --- |
 | Core and references | Explicit `NeoCLR.CoreProbe` metadata/emission core. The profile validates the exact core and unit mapping. No host reference injection. | Load the selected neoCLR platform's own semantic data and identities. The probe DLL/name is temporary transport; explicit reference ownership remains required. |
 | Unit and no-result calls | Named value-type `System.Void` represents inhabited unit in value/generic positions; CLI VOID denotes no stack result. The importer distinguishes these contexts. | Preserve neoCLR's unit value and separate call-result convention directly. This semantic distinction survives removal of the encoding. |
-| Function types | Raven transports function signatures through `Func`/`Action`-shaped CLI types. On Raven's structural-types feature branch, unit functions use an inhabited result shape; main retains ordinary Action-shaped nominal transport. The importer maps supported delegate shapes to native structural functions. | Load structural function signatures, identity and assignability directly; do not make CLR delegate families or their arities the native semantic model. |
+| Function types | Raven transports function signatures through `Func`/`Action`-shaped CLI types. neoCLR unit functions use an inhabited result shape even for the existing nominal Func ABI; ordinary .NET targets use Action. This encoding does not establish structural identity or assignability. The importer maps supported delegate shapes to native structural functions. | Load structural function signatures, identity and assignability directly; do not make CLR delegate families or their arities the native semantic model. |
 | Tuples | The profile selects value-type `System.Tuple` names. Import normalizes those probe types to Raven's existing tuple special-type identifiers, historically named System_ValueTuple. | Expose tuple structure and members from native metadata. CLI family names and the special-type alias are compatibility machinery, not native reference-type semantics. |
 | Namespace functions / terminal Fault | CLI containers and a TopLevel marker stand in for namespace functions. Fault classification checks assembly, namespace, static nongeneric signature, one by-value string parameter and void/unit result. It currently also applies through legacy imported-assembly recognition. | Represent callable ownership and terminal behavior in the native contract. Avoid permanent dependence on CLR container spelling, probe identity or attribute encoding. |
 | Iteration and arrays | Contract maps Iterable/Iterator and member names; a generic array-shape type describes APIs over CLI array transport. Array covariance defaults off. | Load actual neoCLR array/protocol relationships and capabilities. Retain target semantics; replace CLI projection assumptions. |
@@ -117,8 +118,9 @@ clarification, native Function/structural-type-specific work stays on feature br
 in both Raven and neoCLR. Raven function syntax and
 .NET delegate support are not the same feature as neoCLR native structural Function
 semantics; neither should be blanket-disabled merely because the latter is deferred.
-The native Function-specific bridge support remains on its feature branch while
-native metadata catches up.
+Structural Function semantics remain feature-branch work while native metadata
+catches up. The inhabited unit-result encoding remains shared because neoCLR main
+also requires it for nominal callbacks.
 
 Promotion requires explicit target capabilities and meaningful tests for native
 type identity, conversion/assignability, introspection and emission. Gate unsupported

@@ -55,3 +55,12 @@ passed 12 tests; 27 focused Self/platform/profile tests passed after reconciliat
 on .NET 11. This synchronization does not yet enforce neoCLR-only Self or merge Self
 into main. Function/structural-type isolation is being handled separately before
 adding the target gate; the previous marker-only opt-in remains experimental here.
+
+## Target-gated shared integration (2026-09-30)
+
+Self now requires explicit `TargetPlatform.NeoCLR` selection as well as its marker
+contract. Start with `CompilationOptions.NeoCLR.WithRuntimeSelfTypeContract(...)`;
+projects set `RavenTargetPlatform=NeoCLR` and their Self assembly/type properties.
+Configuring the marker on .NET reports RAVT003. The shared compiler supports this
+opt-in target feature without enabling structural Function types. Historical
+branch-only notes above describe earlier development checkpoints.

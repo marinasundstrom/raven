@@ -10,9 +10,15 @@ internal sealed partial class DotNetRuntimeContract(CompilationOptions options)
 
     internal string TupleTypeName => NeoClrCliCompatibility.GetTupleTypeName(options);
 
+    internal bool UsesInhabitedDelegateResults =>
+        NeoClrCliCompatibility.UsesInhabitedDelegateResults(options);
+
     // Configuration-only checks must not open references or resolve symbols.
     internal string? GetConfigurationError()
     {
+        if (options.RuntimeSelfTypeContract is not null && options.TargetPlatform != TargetPlatform.NeoCLR)
+            return "native Self requires TargetPlatform.NeoCLR; it is not supported by the .NET target";
+
         if (options.TargetPlatform == TargetPlatform.NeoCLR &&
             NeoClrCliProfile.GetConfigurationError(options) is { } profileError)
             return profileError;

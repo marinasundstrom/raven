@@ -2,6 +2,9 @@ namespace Raven.CodeAnalysis;
 
 public partial class Compilation
 {
+    internal bool HasNativeSelfContract => Options.TargetPlatform == TargetPlatform.NeoCLR
+        && Options.RuntimeSelfTypeContract is not null;
+
     internal ITypeSymbol SelfImplementingType(ITypeSymbol type)
     {
         // Runtime-library source shadows use the configured core's canonical primitive identity.
@@ -29,7 +32,7 @@ public partial class Compilation
 
     internal INamedTypeSymbol? ResolveRuntimeSelfType()
     {
-        if (Options.RuntimeSelfTypeContract is not { } contract)
+        if (!HasNativeSelfContract || Options.RuntimeSelfTypeContract is not { } contract)
             return null;
         var type = Assembly.Name == contract.AssemblyName
             ? Assembly.GetTypeByMetadataName(contract.TypeName)

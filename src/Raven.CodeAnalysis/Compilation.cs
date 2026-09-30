@@ -2342,6 +2342,13 @@ public partial class Compilation
 
         var allTypes = parameterTypes.ToList();
         bool isAction = returnType.SpecialType == SpecialType.System_Void || returnType.SpecialType == SpecialType.System_Unit;
+        // The neoCLR nominal delegate ABI uses an inhabited unit result too.
+        // This transport rule does not introduce structural function semantics.
+        if (isAction && _target.RuntimeContract.UsesInhabitedDelegateResults)
+        {
+            returnType = GetSpecialType(SpecialType.System_Unit);
+            isAction = false;
+        }
 
         if (!isAction)
             allTypes.Add(returnType);

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Gate native Self on the explicit neoCLR target and marker contract;
+  reject .NET configuration before loading references or writing output. Preserve
+  ordinary .NET semantic lookup. Retain inhabited unit-result transport for neoCLR's
+  existing nominal delegate ABI, independently of deferred structural Function semantics.
+  Allow projects to disable preset typeof mapping by explicitly clearing all three properties.
+
 - **2026-09-30:** Synchronize the isolated Self feature with shared target-selection
   APIs, preserving both platform and Self contracts through immutable copies and
   incremental state checks. Target gating and Function-branch separation remain pending.

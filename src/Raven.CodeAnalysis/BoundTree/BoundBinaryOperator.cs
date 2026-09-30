@@ -451,7 +451,7 @@ internal partial class BoundBinaryOperator
     private static bool RuntimeSelfTypesEnabled(Compilation compilation, SyntaxKind kind, ITypeSymbol left, ITypeSymbol right, out BoundBinaryOperator op)
     {
         op = default!;
-        if (compilation.Options.RuntimeSelfTypeContract is null || !OperatorFacts.TryGetUserDefinedOperatorInfo(kind, 2, out var info))
+        if (!compilation.HasNativeSelfContract || !OperatorFacts.TryGetUserDefinedOperatorInfo(kind, 2, out var info))
             return false;
         foreach (var contract in EnumerateOperatorInterfaceCandidates(left))
             foreach (var method in contract.GetMembers(info.MetadataName).OfType<IMethodSymbol>())

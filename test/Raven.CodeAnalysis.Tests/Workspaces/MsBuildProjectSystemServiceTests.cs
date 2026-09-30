@@ -50,6 +50,30 @@ public sealed class MsBuildProjectSystemServiceTests
     }
 
     [Fact]
+    public void Evaluate_ExplicitlyClearedTypeOfMappingDisablesPresetContract()
+    {
+        MsBuildLocatorRegistration.EnsureRegistered();
+        var root = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(path, """
+                <Project><PropertyGroup>
+                  <RavenTargetPlatform>NeoCLR</RavenTargetPlatform>
+                  <RavenTypeOfAssemblyName></RavenTypeOfAssemblyName>
+                  <RavenTypeOfInfoType></RavenTypeOfInfoType>
+                  <RavenTypeOfContextType></RavenTypeOfContextType>
+                </PropertyGroup></Project>
+                """);
+            var options = MsBuildProjectEvaluator.Evaluate(path, RavenProjectConventions.Default).CompilationOptions;
+            Assert.Null(options.RuntimeTypeOfContract);
+            Assert.Equal(TargetPlatform.NeoCLR, options.TargetPlatform);
+            Assert.Equal(CompilationOptions.NeoCLR.RuntimeUnitContract, options.RuntimeUnitContract);
+        }
+        finally { DeleteDirectoryIfExists(root); }
+    }
+
+    [Fact]
     public void Evaluate_NeoClrExplicitOverridesPreserveOtherProfileDefaults()
     {
         MsBuildLocatorRegistration.EnsureRegistered();
