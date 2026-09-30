@@ -170,3 +170,43 @@ the tested execution target was .NET 11, not neoCLR or browser/WASI.
 Next: separate reference-set construction from host path registration, preserving
 the characterized policies. Exact-identity admission and configuration diagnostics
 remain distinct future decisions; this coverage does not authorize changing them.
+
+## Slice 6: immutable reference inputs and explicit host registration
+
+`DotNetMetadataReferenceSet` now materializes normalized, identity-deduplicated,
+ordered reference entries using immutable strings and paths. It preserves the
+existing second identity-read/admission pass; this is an ownership extraction,
+not an I/O optimization. It snapshots selected inputs, not file contents.
+
+Context/session construction consumes that set without registration callbacks.
+`Compilation.CreateMetadataSession` explicitly registers its selected paths before
+constructing a new session. This preserves an important existing distinction:
+the resolver's simple-name map keeps the first sorted candidate, while host
+registration ends with the last selected candidate of that name. Reused sessions
+do not newly register paths, just as before.
+
+Two new tests cover retained ordered candidates (including duplicate identity
+elimination) and reuse of a reference set after the caller mutates its input
+list. The original ten precedence/failure cases now use the explicit reference
+set boundary. Host policy, import configuration, and public APIs are unchanged.
+
+Next: inventory concrete PE assembly discovery requirements in shared symbol
+lookup and establish an imported-symbol contract with a .NET implementation.
+Host runtime lookup still uses the shared registry; removing or changing its
+policy remains separate work. Main-based extraction remains pending.
+
+Validation with SDK `11.0.100-rc.1.26425.128`:
+
+- The slice 5 combined baseline passed all 99 tests before edits.
+- `dotnet build src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj --no-restore
+  --property WarningLevel=0` passed for net10.0 and net11.0 with no warnings/errors.
+- The same five-class filter passed all 101 tests after edits on net11.0, using
+  `dotnet test test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj
+  --no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`
+  and the freshly built compiler. No tests failed or were skipped.
+- Whitespace formatting completed (test workspace-load warnings only), and
+  `git diff --check` passed.
+
+This is .NET validation, not evidence of neoCLR, browser/WASI, .NET Framework,
+or NanoFramework execution. No performance improvement or bootstrap qualification
+is claimed.

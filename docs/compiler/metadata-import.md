@@ -2,17 +2,23 @@
 
 ## Implementation boundary
 
-The .NET implementation constructs metadata contexts through the internal
-`Metadata.DotNetMetadataContextFactory`. It owns path normalization, identity
-deduplication, the stream-backed resolver, and portable assembly identity reads.
+The .NET implementation materializes resolver inputs in an immutable
+`Metadata.DotNetMetadataReferenceSet`. It owns path normalization, identity
+deduplication, and ordered candidate selection. Entries contain identity strings
+and paths, not mutable reflection identities or a snapshot of assembly bytes.
+`DotNetMetadataContextFactory` owns the stream-backed resolver, context
+construction, and portable assembly identity reads.
 `DotNetMetadataSession` owns the resulting context and path/identity loading,
 including the existing path-to-identity fallback. `Compilation` selects the
 reference set/core, gates incremental session reuse, and retains its per-snapshot
-assembly cache and symbol projection. A construction-time callback preserves
-registration with the existing shared assembly-path map without giving the
-factory a dependency on compilation state.
+assembly cache and symbol projection. It explicitly registers the selected paths
+with the existing host assembly-path map before creating a new session. Metadata
+construction no longer accepts a host-registration callback. The resolver keeps
+the first sorted simple-name candidate; host registration still visits all
+selected entries in order and retains the last path for that name. These remain
+separate compatibility policies.
 
-This is the first extraction described in the
+These are incremental extractions described in the
 [target boundary plan](architecture/target-boundaries-and-bootstrap-plan.md).
 The factory is .NET-specific and returns `MetadataLoadContext`; it is not yet a
 platform-neutral provider. Public APIs, reference precedence, fallback policy,

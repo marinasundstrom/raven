@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Separate immutable .NET metadata reference-set construction
+  from host assembly-path registration. Metadata sessions and resolvers no longer
+  accept registration callbacks; compilation setup preserves the existing host
+  registration order and metadata lookup precedence. Add coverage for reference
+  set reuse and ordered candidates. Public target options are unchanged.
+
 - **2026-09-30:** Move .NET metadata-context ownership and path/identity loading
   into an internal metadata session shared by compatible compilation snapshots.
   Preserve reference policy, per-snapshot symbol/cache ownership, and existing

@@ -1,72 +1,21 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 
 namespace Raven.CodeAnalysis.Metadata;
 
-// Owns .NET metadata context construction. Reference policy and context reuse
-// remain with Compilation; the resulting context belongs to a metadata session.
+// Constructs a .NET context over an explicit reference set. Host registration
+// and session reuse remain outside this component.
 internal static class DotNetMetadataContextFactory
 {
     internal static MetadataLoadContext Create(
-        IEnumerable<string> paths,
-        string? coreAssemblyName,
-        Action<string, string> registerAssemblyPath)
+        DotNetMetadataReferenceSet references,
+        string? coreAssemblyName)
     {
-        var pathByAssemblyIdentity = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var path in paths)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-                continue;
-
-            string fullPath;
-            try
-            {
-                fullPath = Path.GetFullPath(path);
-            }
-            catch
-            {
-                continue;
-            }
-
-            if (!File.Exists(fullPath))
-                continue;
-
-            System.Reflection.AssemblyName assemblyIdentity;
-            try
-            {
-                assemblyIdentity = ReadAssemblyName(fullPath);
-            }
-            catch
-            {
-                continue;
-            }
-
-            if (string.IsNullOrWhiteSpace(assemblyIdentity.FullName))
-                continue;
-
-            var identityKey = assemblyIdentity.FullName;
-
-            if (!pathByAssemblyIdentity.TryGetValue(identityKey, out var existingPath))
-            {
-                pathByAssemblyIdentity[identityKey] = fullPath;
-                continue;
-            }
-
-            // Keep the first path for an identity (typically reference assemblies from project metadata).
-            // Preferring runtime assemblies here can hide reference-surface namespaces during binding.
-        }
-
-        var normalizedPaths = pathByAssemblyIdentity.Values
-            .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        var resolver = new StreamBackedPathAssemblyResolver(normalizedPaths, registerAssemblyPath);
+        var resolver = new StreamBackedPathAssemblyResolver(references);
         var resolvedCoreAssemblyName = string.IsNullOrWhiteSpace(coreAssemblyName) ? "System.Private.CoreLib" : coreAssemblyName;
         return new MetadataLoadContext(resolver, resolvedCoreAssemblyName);
     }
@@ -110,31 +59,18 @@ internal static class DotNetMetadataContextFactory
         private readonly Dictionary<string, string> _pathsByIdentity;
         private readonly Dictionary<string, string> _pathsBySimpleName;
 
-        public StreamBackedPathAssemblyResolver(IEnumerable<string> paths, Action<string, string> registerAssemblyPath)
+        public StreamBackedPathAssemblyResolver(DotNetMetadataReferenceSet references)
         {
             _pathsByIdentity = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             _pathsBySimpleName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var path in paths)
+            foreach (var reference in references.References)
             {
-                System.Reflection.AssemblyName identity;
-                try
-                {
-                    identity = ReadAssemblyName(path);
-                }
-                catch
-                {
-                    continue;
-                }
+                if (!string.IsNullOrWhiteSpace(reference.FullName))
+                    _pathsByIdentity.TryAdd(reference.FullName, reference.Path);
 
-                if (!string.IsNullOrWhiteSpace(identity.FullName))
-                    _pathsByIdentity.TryAdd(identity.FullName, path);
-
-                if (!string.IsNullOrWhiteSpace(identity.Name))
-                {
-                    _pathsBySimpleName.TryAdd(identity.Name, path);
-                    registerAssemblyPath(identity.Name, path);
-                }
+                if (!string.IsNullOrWhiteSpace(reference.SimpleName))
+                    _pathsBySimpleName.TryAdd(reference.SimpleName, reference.Path);
             }
         }
 

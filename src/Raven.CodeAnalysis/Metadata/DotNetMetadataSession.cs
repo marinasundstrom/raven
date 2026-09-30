@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 
@@ -18,10 +17,9 @@ internal sealed class DotNetMetadataSession
     }
 
     internal static DotNetMetadataSession Create(
-        IEnumerable<string> paths,
-        string? coreAssemblyName,
-        Action<string, string> registerAssemblyPath)
-        => new(DotNetMetadataContextFactory.Create(paths, coreAssemblyName, registerAssemblyPath));
+        DotNetMetadataReferenceSet references,
+        string? coreAssemblyName)
+        => new(DotNetMetadataContextFactory.Create(references, coreAssemblyName));
 
     internal Assembly CoreAssembly => _context.CoreAssembly!;
 

@@ -68,6 +68,39 @@ public sealed class DotNetMetadataResolutionTests : IDisposable
     }
 
     [Fact]
+    public void ReferenceSetRetainsOrderedCandidatesForHostRegistration()
+    {
+        var later = CreateAssembly("z.dll", "2.0.0.0", "Later");
+        var earlier = CreateAssembly("a.dll", "1.0.0.0", "Earlier");
+        var duplicate = CreateAssembly("duplicate.dll", "2.0.0.0", "Duplicate");
+
+        var references = DotNetMetadataReferenceSet.Create([later, earlier, duplicate]);
+
+        Assert.Equal(new[] { earlier, later }, references.References.Select(reference => reference.Path));
+        Assert.All(references.References, reference => Assert.Equal(AssemblySimpleName, reference.SimpleName));
+        Assert.Equal(AssemblyName.GetAssemblyName(later).FullName, references.References.Last().FullName);
+    }
+
+    [Fact]
+    public void ReferenceSetCanBeReusedAfterInputListChanges()
+    {
+        var original = CreateAssembly("original.dll", "1.0.0.0", "Original");
+        var replacement = CreateAssembly("replacement.dll", "1.0.0.0", "Replacement");
+        var paths = new List<string> { typeof(object).Assembly.Location, original };
+        var references = DotNetMetadataReferenceSet.Create(paths);
+        paths[1] = replacement;
+
+        using var first = DotNetMetadataContextFactory.Create(references, typeof(object).Assembly.GetName().Name);
+        using var second = DotNetMetadataContextFactory.Create(references, typeof(object).Assembly.GetName().Name);
+        foreach (var context in new[] { first, second })
+        {
+            var assembly = context.LoadFromAssemblyName(new AssemblyName(AssemblySimpleName));
+            Assert.NotNull(assembly.GetType("Contracts.Original"));
+            Assert.Null(assembly.GetType("Contracts.Replacement"));
+        }
+    }
+
+    [Fact]
     public void UnlistedHostAssemblyIsNotAnImplicitReference()
     {
         using var context = CreateContext([]);
@@ -82,8 +115,7 @@ public sealed class DotNetMetadataResolutionTests : IDisposable
     {
         var valid = CreateAssembly("valid.dll", "1.0.0.0", "Valid");
         var session = DotNetMetadataSession.Create(
-            [typeof(object).Assembly.Location, valid], typeof(object).Assembly.GetName().Name,
-            static (_, _) => { });
+            DotNetMetadataReferenceSet.Create([typeof(object).Assembly.Location, valid]), typeof(object).Assembly.GetName().Name);
         var unavailable = Path.Combine(_directory, "unavailable.dll");
         if (corrupt)
             File.WriteAllText(unavailable, "not a managed assembly");
@@ -97,8 +129,7 @@ public sealed class DotNetMetadataResolutionTests : IDisposable
     public void MissingPathWithoutFallbackReportsMissingFile()
     {
         var session = DotNetMetadataSession.Create(
-            [typeof(object).Assembly.Location], typeof(object).Assembly.GetName().Name,
-            static (_, _) => { });
+            DotNetMetadataReferenceSet.Create([typeof(object).Assembly.Location]), typeof(object).Assembly.GetName().Name);
 
         Assert.Throws<FileNotFoundException>(() => session.LoadFromPath(Path.Combine(_directory, "missing.dll"), null));
     }
@@ -109,16 +140,14 @@ public sealed class DotNetMetadataResolutionTests : IDisposable
         var corrupt = Path.Combine(_directory, "corrupt.dll");
         File.WriteAllText(corrupt, "not a managed assembly");
         var session = DotNetMetadataSession.Create(
-            [typeof(object).Assembly.Location], typeof(object).Assembly.GetName().Name,
-            static (_, _) => { });
+            DotNetMetadataReferenceSet.Create([typeof(object).Assembly.Location]), typeof(object).Assembly.GetName().Name);
 
         Assert.Throws<BadImageFormatException>(() => session.LoadFromPath(corrupt, null));
     }
 
     private static MetadataLoadContext CreateContext(string[] paths)
         => DotNetMetadataContextFactory.Create(
-            paths.Prepend(typeof(object).Assembly.Location), typeof(object).Assembly.GetName().Name,
-            static (_, _) => { });
+            DotNetMetadataReferenceSet.Create(paths.Prepend(typeof(object).Assembly.Location)), typeof(object).Assembly.GetName().Name);
 
     private string CreateAssembly(string fileName, string version, string marker)
     {

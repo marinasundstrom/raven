@@ -983,8 +983,7 @@ public partial class Compilation
         _portableReferenceFingerprints = CapturePortableReferenceFingerprints(_references);
         _metadataSession = TryReuseMetadataSession(_portableReferenceFingerprints, out var reusedMetadataSession)
             ? reusedMetadataSession
-            : DotNetMetadataSession.Create(paths, coreAssemblyName,
-                static (name, path) => s_globalAssemblyPathMap[name] = path);
+            : CreateMetadataSession(paths, coreAssemblyName);
         _previousMetadataSessionForReuse = null;
         _previousPortableReferenceFingerprints = null;
 
@@ -1053,6 +1052,20 @@ public partial class Compilation
             references.Add(localMacroReference);
 
         return references.ToImmutable();
+    }
+
+    private static DotNetMetadataSession CreateMetadataSession(IEnumerable<string> paths, string? coreAssemblyName)
+    {
+        var references = DotNetMetadataReferenceSet.Create(paths);
+        foreach (var reference in references.References)
+        {
+            // Preserve host lookup registration order independently of the
+            // metadata resolver's first-match simple-name policy.
+            if (!string.IsNullOrWhiteSpace(reference.SimpleName))
+                s_globalAssemblyPathMap[reference.SimpleName] = reference.Path;
+        }
+
+        return DotNetMetadataSession.Create(references, coreAssemblyName);
     }
 
     private bool TryReuseMetadataSession(
