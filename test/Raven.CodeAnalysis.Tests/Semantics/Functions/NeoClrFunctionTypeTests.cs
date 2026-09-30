@@ -5,12 +5,12 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class NeoClrFunctionTypeTests : CompilationTestBase
 {
     [Theory]
-    [InlineData(null, false)]
-    [InlineData("System.Runtime", false)]
-    [InlineData("OrdinaryLibrary", false)]
-    [InlineData("neoclr.coreprobe", false)]
-    [InlineData("NeoCLR.CoreProbe", true)]
-    public void UnitFunctionsUseTargetTransport(string? targetCore, bool inhabitedResult)
+    [InlineData(null)]
+    [InlineData("System.Runtime")]
+    [InlineData("OrdinaryLibrary")]
+    [InlineData("neoclr.coreprobe")]
+    [InlineData("NeoCLR.CoreProbe")]
+    public void UnitFunctionsKeepNominalDelegateTransport(string? targetCore)
     {
         var compilation = CreateCompilation(new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
             .WithTargetCoreAssemblyName(targetCore));
@@ -21,13 +21,9 @@ public sealed class NeoClrFunctionTypeTests : CompilationTestBase
         {
             var function = Assert.IsAssignableFrom<INamedTypeSymbol>(
                 compilation.CreateFunctionTypeSymbol([parameter], result));
-            Assert.Equal(inhabitedResult ? "Func" : "Action", function.Name);
-            Assert.Equal(inhabitedResult ? 2 : 1, function.TypeArguments.Length);
-            if (inhabitedResult)
-            {
-                var generic = compilation.GetTypeByMetadataName("System.Func`2")!.Construct(parameter, unit);
-                Assert.True(SymbolEqualityComparer.Default.Equals(generic, function));
-            }
+            Assert.Equal("Action", function.Name);
+            Assert.Single(function.TypeArguments);
+
         }
         var valueFunction = Assert.IsAssignableFrom<INamedTypeSymbol>(
             compilation.CreateFunctionTypeSymbol([], parameter));

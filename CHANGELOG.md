@@ -9,6 +9,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   incremental state checks. Target gating and Function-branch separation remain pending.
 
 - **2026-09-30:** neoCLR experiment: add explicitly configured native implementing-type `Self`, keeping interfaces nongeneric, substituting constrained member/property/operator signatures and concrete implementations, and preserving the transport marker for native import. Reject erased Self-member calls; ordinary CLR targets remain opt-out. Extend focused coverage to generic instance cloning and record the neoCLR borrowed-receiver integration. Document the subsequent actual System.Clonable<T> migration to Clonable with a native Self result; existing Runtime Contract settings suffice. Anchor inherited Self at its conformance declaration, reject derived generic bounds without redeclaration, and validate derived Self results including explicit implementations. Keep this feature isolated from the separate compiler-boundary/multi-target refactor. Record the importer rejection boundary for obsolete generic bounds and the deferred general compiler diagnostic candidate. See `docs/lang/native-self.md` and the Runtime Contract documentation.
+- **2026-09-30:** Isolate native Function/structural-type compiler work on
+  `codex/neoclr-structural-types`, paired with neoCLR's `feature/function-types`.
+  Main retains nominal Action transport for unit functions and ordinary Raven
+  function syntax/.NET delegates. Target plumbing and unrelated contracts remain shared.
+
 - **2026-09-30:** Document neoCLR CLI bridge behavior, semantic distinctions and
   native metadata replacement requirements. Keep native Function types deferred
   until the metadata layer and complete compiler support exist; feature-bundle

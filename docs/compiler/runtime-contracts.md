@@ -1719,3 +1719,20 @@ deliberately deferred until the metadata layer and complete compiler support exi
 neoCLR main at e4f6fe41. Raven main's bridge support and that runtime feature branch
 must not be conflated. See the [bridge inventory](neoclr-cli-bridge.md) for the
 branch-qualified result and eventual native metadata replacement direction.
+
+
+### Function/structural-type branch isolation (2026-09-30)
+
+The author clarified that native Function/structural-type work stays on feature
+branches in both repositories. Raven's `codex/neoclr-structural-types` retains the
+experimental inhabited unit-function transport, paired with neoCLR's existing
+`feature/function-types`. Main keeps ordinary function syntax and nominal .NET
+Func/Action behavior, including Action for unit-returning source functions.
+Neither a NeoCLR preset nor the legacy core name enables structural Function
+transport on main. This supersedes earlier recommendations to retain that
+native-specific behavior on main. General target plumbing and other contracts
+remain shared; native metadata/full compiler support are prerequisites for promotion.
+
+Validation: 40 focused function, tuple and NeoCLR profile tests passed on the .NET
+11 host; after simplifying the nominal-transport assertions, all five transport
+cases passed again. This is compiler/CLI validation, not native runtime execution.

@@ -1,5 +1,11 @@
 # neoCLR Function migration integration
 
+Current status (2026-09-30): native Function/structural-type work is deferred on
+feature branches in both repositories. Raven `codex/neoclr-structural-types` carries
+the experimental unit-function transport; neoCLR uses `feature/function-types`.
+The notes below describe that experimental history, not supported main behavior.
+Ordinary Raven function syntax and .NET delegates remain on main.
+
 Development integration, 2026-09-28, on the isolated `neoclr` branch. neoCLR has
 selected structural Function shapes and callable objects to replace its nominal
 delegate feature. Named function types may follow later; alias versus nominal
