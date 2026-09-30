@@ -1295,6 +1295,29 @@ semantic loader interface remains reflection-free. Its .NET implementation still
 uses CLI assembly symbols and a compilation-bound projector, so this is preparation
 for target replacement, not a new selectable target or cross-compilation mode.
 
+## Loader-owned metadata session reuse
+
+The .NET semantic-data loader validates any previous metadata session offered by
+its target. `Compilation` no longer fingerprints PE files or supplies a reuse
+boolean. The session retains only a compilation-independent input snapshot and
+metadata context; every compilation still creates its own loader and symbols.
+This applies to both ordinary .NET and the experimental neoCLR CLI bridge.
+A future native loader must own the revision and identity rules of its own inputs.
+
+Reuse requires the same import options, resolved core selection, and ordered
+supplied-file stamps (absolute path, existence, length, last-write time). Input
+order matters because core discovery and duplicate-identity admission select the
+first input. Reordering colliding references now opens a new context, preserving
+the old compilation's symbols while exposing the new reference surface. Changes
+between host-assisted and explicit-reference imports cannot reuse a session.
+
+This retains the existing size/time revision policy, not content hashing or an
+atomic snapshot during concurrent file writes. Host-assisted fallback paths keep
+their existing process-wide registration lifetime and are not independently
+revision-tracked. Prefer `CompilationOptions.DotNet` with a complete explicit
+reference closure for isolated inputs. No emission ABI or neoCLR bridge encoding
+changes in this extraction.
+
 ## Constructed type emission boundary
 
 `ConstructedNamedTypeSymbol` supplies semantic definitions and type substitutions.
