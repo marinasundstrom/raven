@@ -382,7 +382,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
                 }
             }
 
-            var right = ParseExpressionCore(0);
+            // Assignment RHS includes logical operators and coalescing, just like an initializer.
+            var right = ParseExpression();
 
             return AssignmentExpression(GetAssignmentExpressionKind(assignToken), leftNode, assignToken, right);
         }

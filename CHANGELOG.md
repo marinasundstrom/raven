@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Parse assignment right-hand sides through the full expression
+  grammar, accepting Boolean negation, logical operators and coalescing without
+  extra parentheses. Preserve right-associative chained assignments. The native
+  Boolean-local consumer exposed this general parser defect.
+
 - **2026-10-01:** Share ordered Int32/Boolean callable signatures across .NET and
   neoCLR declaration builders, body emission and imported-call matching. Preserve
   same-arity overload identity and execute Boolean helpers from separately compiled
