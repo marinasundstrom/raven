@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Isolate native Function/structural-type compiler work on
+  `codex/neoclr-structural-types`, paired with neoCLR's `feature/function-types`.
+  Main retains nominal Action transport for unit functions and ordinary Raven
+  function syntax/.NET delegates. Target plumbing and unrelated contracts remain shared.
+
 - **2026-09-30:** Document neoCLR CLI bridge behavior, semantic distinctions and
   native metadata replacement requirements. Keep native Function types deferred
   until the metadata layer and complete compiler support exist; feature-bundle

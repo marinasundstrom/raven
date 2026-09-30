@@ -10,9 +10,6 @@ internal sealed partial class DotNetRuntimeContract(CompilationOptions options)
 
     internal string TupleTypeName => NeoClrCliCompatibility.GetTupleTypeName(options);
 
-    internal bool UsesInhabitedFunctionResults =>
-        NeoClrCliCompatibility.UsesInhabitedFunctionResults(options);
-
     // Configuration-only checks must not open references or resolve symbols.
     internal string? GetConfigurationError()
     {
