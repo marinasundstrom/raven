@@ -12,9 +12,10 @@ dotnet run --project tools/NeoClrMetadataProbe \
 
 The project reference is explicit; the project is non-packable and not in the default
 solution build. It uses the independently built metadata library, never copied source.
-The runner compiles Library.rvn through the adapter to a native dependency, reads its declarations with
-`NativeAssemblyDefinition`, and creates a reference-only PE projection. It gives that
-projection to Raven's **existing .NET semantic loader**, and asks Raven to bind this program:
+The runner compiles Arithmetic.rvn and Library.rvn through the adapter into PE/#Neo
+containers. `RuntimeAssemblyContainer.ReadCliProjection` reads their reference-only
+CLI declarations; Raven's **existing .NET semantic loader** binds directly against
+these same files. The application binds this program:
 
 ```raven
 func Offset(value: int) -> int {
@@ -26,14 +27,14 @@ func Main() -> int {
 ```
 
 The compiler-owned adapter in `src/Raven.CodeAnalysis.NeoClr` consumes public semantic
-symbols and operation trees through `NeoClrCompilationEmitter.Emit`. It
+symbols and operation trees through `NeoClrCompilationEmitter.EmitMetadataAssembly`. It
 maps source top-level functions to native functions and the imported call to the
 matching projected read-only dependency definition through `AssemblyBuilder.ImportReference`.
 The adapter receives no producer builder graph; it explicitly asserts the fixture
-core contract. It emits native format-5 bytes through
-`AssemblyBuilder.WriteNativeAssembly`, then neoCLR verifies and executes the actual
-output and must report/exit with 42. No PE emission or CLI importer is used for the
-application. Unsupported division must produce NEOMETA001; an unresolved imported
+core contract. The separate API emits native format-5 bytes and embeds them in
+required #Neo section 256/schema 1 alongside a CLI reference projection. neoCLR
+loads the application and both library PE files, verifies native metadata/bodies,
+and must report/exit with 42. No CLI body importer is used. Unsupported division must produce NEOMETA001; an unresolved imported
 method must retain a compiler binding error. The runner retains source, outputs and
 hash evidence in `validation.json` and refuses to overwrite an existing directory.
 It also splits Offset and Main into Helper.rvn/Main.rvn and verifies/runs both
@@ -55,8 +56,8 @@ static classes support required Int32 value parameters and Int32 results, value 
 unlifted intrinsic addition/subtraction/multiplication are supported. Named/default/
 expanded arguments, references, generics, async, captures, fields, instance classes, statements
 other than returns, source attributes/modifiers, checked/lifted operators and structural
-types are rejected. Dependency binding is deliberately limited to the single fixture
-whose native artifact is compiled from Raven and whose reference projection the runner creates; this is not an arbitrary PE importer.
+types are rejected. Dependency binding is deliberately limited to the two-library fixture
+whose containers are compiled from Raven; this is not an arbitrary PE importer.
 
 The public operation consumer already drove shared compiler fixes for binary operator
 facts, invocation receivers and required signature-only parameters. The adapter now has explicit immutable configuration, registered assembly-symbol
@@ -106,8 +107,9 @@ Library.rvn compiles against its projected native declarations; the application
 compiles against Library.rvn's projection only. `NativeAssemblyDefinition.References`
 retains ArithmeticDependency as a native implementation dependency, although the outer
 reference PE omits it because signatures are primitive-only. The runner asserts that
-Arithmetic is absent from application symbol lookup. Both original native library
+Arithmetic is absent from application symbol lookup. Both PE/#Neo library
 files are explicitly supplied to neoCLR. Both module orders execute to 42; missing
 and wrong-revision direct/transitive dependencies must fail native verification.
-The validation report retains both dependency/projection hashes. This proves format-5
-runtime acceptance, not direct PE/#Neo runtime loading or a native semantic provider.
+The validation report retains both dependency/projection hashes. This now proves direct PE/#Neo runtime loading. The execution section still uses
+format-5 JSON, so text parsing cost is not removed. A native compiler semantic
+provider, binary native encoding and production target registration remain open.

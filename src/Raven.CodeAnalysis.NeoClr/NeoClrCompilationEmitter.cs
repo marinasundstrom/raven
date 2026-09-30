@@ -54,6 +54,29 @@ public static class NeoClrCompilationEmitter
         output.Write(image);
         return new(true, diagnostics);
     }
+    /// <summary>Emits a PE/#Neo assembly containing authoritative native metadata and a CLI reference projection.</summary>
+    /// <param name="compilation">Compilation using the same bounded subset and .NET bootstrap as Emit.</param>
+    /// <param name="output">Caller-owned writable stream; validation errors leave it unchanged.</param>
+    /// <param name="options">Explicit output/core identities and dependency bindings.</param>
+    /// <returns>Compiler diagnostics and emission success; container errors use NEOMETA003.</returns>
+    /// <remarks>CLI bodies are reference-only. neoCLR loads the required native section. Stream I/O errors propagate.</remarks>
+    public static NeoClrEmitResult EmitMetadataAssembly(Compilation compilation, Stream output, NeoClrEmitOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        if (!output.CanWrite) throw new ArgumentException("Output must be writable", nameof(output));
+        using var native = new MemoryStream();
+        var result = Emit(compilation, native, options);
+        if (!result.Success) return result;
+        byte[] image;
+        try { image = NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.Write(native.ToArray(), options.CoreLibrary); }
+        catch (Exception error) when (error is InvalidDataException or ArgumentException)
+        {
+            return new(false, result.Diagnostics.Add(Diagnostic.Create(Encoding, Location.None, error.Message)));
+        }
+        output.Write(image);
+        return result;
+    }
+
     private static DiagnosticDescriptor Descriptor(string id, string title, string message)
         => DiagnosticDescriptor.Create(id, title, "", "", message, "compiler", DiagnosticSeverity.Error, true);
 }

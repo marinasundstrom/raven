@@ -15,6 +15,8 @@ public static class NeoClrCompilationEmitter
 {
     public static NeoClrEmitResult Emit(
         Compilation compilation, Stream output, NeoClrEmitOptions options);
+    public static NeoClrEmitResult EmitMetadataAssembly(
+        Compilation compilation, Stream output, NeoClrEmitOptions options);
 }
 public sealed class NeoClrEmitResult
 {
@@ -154,3 +156,32 @@ sets: primitive reference projections omit implementation references, while
 `NativeAssemblyDefinition.References` retains them for explicit host/runtime resolution.
 The host must supply the native transitive closure to neoCLR; the emitter does not
 locate files, resolve that closure, or execute dependencies automatically.
+
+## PE/#Neo output
+
+`EmitMetadataAssembly` accepts the same compilation, stream and options as `Emit`.
+It validates/emits to a private native buffer, then calls the separate metadata API's
+`RuntimeAssemblyContainer.Write` before writing caller output. It returns the same
+diagnostic result: compiler/unsupported-input failures are preserved, container
+validation failures are NEOMETA003, and failed validation leaves the caller's bytes
+and position unchanged. Null/unwritable arguments throw; caller I/O exceptions
+propagate and may leave partial output. The stream is never closed.
+
+`Emit` continues returning format-5 JSON. `EmitMetadataAssembly` instead returns an
+unsigned PE32 with a reference-only CLI projection and required #Neo execution section
+256/schema 1 containing those native bytes. The native payload remains JSON; no
+faster-loading claim or binary-native decoder is implied. The entire envelope is
+limited to 1 MiB. Projection MVIDs are fresh, so PE byte determinism is not promised.
+
+The host can register a library container directly with `MetadataReference.CreateFromFile`
+and pair that exact file with `RuntimeAssemblyContainer.ReadCliProjection` for the
+`NeoClrMetadataDependency` snapshot. No temporary reference file is needed. neoCLR
+loads the native payload of the same library file through `--module`. CLI declarations
+are a compile-time projection; their throwing bodies are never the runtime implementation.
+The host must preserve file/snapshot consistency; the binding digest does not prove
+semantic equivalence of arbitrary dual metadata views or authenticity.
+
+The two-library probe checks actual PE loading and execution to 42, both module orders,
+missing/wrong dependencies, native/PE payload equivalence, failure output preservation
+and caller stream ownership/I/O behavior. This opt-in API does not register a native
+compiler symbol provider or change Runtime Contract/default .NET composition.

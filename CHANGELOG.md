@@ -4,11 +4,18 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-09-30:** Add an opt-in compiler operations consumer for the independent
+- **2026-09-30:** Add `EmitMetadataAssembly` to the opt-in neoCLR adapter: emit a
+  PE/#Neo native execution container through the separate metadata API. Use the same
+  library PE files for Raven reference binding and neoCLR runtime metadata loading;
+  the two-library chain and single/multi-file cases return 42 in both module orders.
+  Preserve diagnostics, failed output and caller stream/I/O contracts. The native
+  section still contains format-5 JSON; binary payloads, faster parsing, a native
+  symbol provider and production target registration remain pending.
+  Earlier slices add an opt-in compiler operations consumer for the independent
   neoCLR metadata library. Raven binds an API-produced PE dependency; the adapter
   emits a native application and neoCLR verifies/runs it with result 42. Unsupported
   operators and binding failures are checked. The .NET loader is still the bootstrap;
-  this does not install a native metadata loader or production target emitter.
+  this does not install a native compiler symbol provider or production target emitter.
   Import external calls directly from read-only definitions through the metadata
   API with an explicit dependency core contract; the emitter no longer takes the
   producer builder graph. The end-to-end result remains 42. Extract the emitter into

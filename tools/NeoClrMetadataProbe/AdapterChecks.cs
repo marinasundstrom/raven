@@ -39,6 +39,18 @@ internal static class AdapterChecks
         Throws<ArgumentException>(() => NeoClrCompilationEmitter.Emit(good, readOnly, options));
         using var failing = new FailingStream();
         Throws<IOException>(() => NeoClrCompilationEmitter.Emit(good, failing, options));
+        using var peOutput = new MemoryStream();
+        peOutput.Write(new byte[] { 1, 2, 3, 4 }); peOutput.Position = 2;
+        var peFailure = NeoClrCompilationEmitter.EmitMetadataAssembly(division, peOutput, options);
+        Check(!peFailure.Success && peFailure.Diagnostics.Any(d => d.Id == "NEOMETA001") && peOutput.Position == 2 &&
+            peOutput.ToArray().SequenceEqual(new byte[] { 1, 2, 3, 4 }), "PE validation preserves output");
+        Throws<ArgumentException>(() => NeoClrCompilationEmitter.EmitMetadataAssembly(good, readOnly, options));
+        Throws<IOException>(() => NeoClrCompilationEmitter.EmitMetadataAssembly(good, failing, options));
+        using var container = new MemoryStream();
+        Check(NeoClrCompilationEmitter.EmitMetadataAssembly(good, container, options).Success && container.CanWrite,
+            "PE output remains caller-owned");
+        Check(NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.Read(container.ToArray()).SequenceEqual(first.ToArray()),
+            "PE and JSON emission preserve identical native payload");
         Console.WriteLine("PASS adapter diagnostics, source locations, configuration, repeat emission and stream contracts");
     }
     private static NeoClrEmitResult Rejected(Compilation compilation, NeoClrEmitOptions options, string? expected = null)

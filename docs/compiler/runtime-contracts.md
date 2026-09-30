@@ -2193,3 +2193,30 @@ ownership and rejection checks; Raven adapter/library/multi-file contracts pass;
 runtime checks above pass. Reports include both native dependencies and both reference
 projection hashes. Compiler integration remains on codex/metadata-consumer and the
 independent metadata/runtime checkout on codex/extended-cli-metadata.
+
+## Initial direct runtime container — 2026-09-30
+
+The optional `NeoClrCompilationEmitter.EmitMetadataAssembly` now uses the independent
+metadata API to produce PE/#Neo files. The existing .NET primitive Runtime Contract
+and semantic provider remain the bootstrap: bind against reference-only CLI declarations
+in those files and pair them with `RuntimeAssemblyContainer.ReadCliProjection` snapshots.
+The metadata project owns encoding/projection; Raven owns semantic mapping and backend
+diagnostics; neoCLR owns native admission, dependency linking, verification and execution.
+Default .NET and existing production target composition are unchanged.
+
+The same PE library files are now runtime inputs. Required section 256/schema 1 carries
+authoritative native format-5 metadata and bodies; CLI stubs do not execute. This
+supersedes the earlier JSON-only runtime checkpoint above. Native bodies and dependency
+identities retain their semantics, including top-level functions and transitive references.
+The report records application/library/runtime/API hashes; single/multi-file cases
+and reversed module order execute to 42 and dependency rejection checks pass. C#
+adapter checks cover equivalent native payloads and unchanged failed output.
+
+This bridge still stores JSON inside the PE and makes no performance improvement claim.
+The author highlighted parsing cost; binary native encoding and separate loading, linking,
+verification and execution measurements are the next evaluation. Required structural
+schemas, native compiler symbol loading and production emitter registration remain
+pending. There is no guest Introspection assembly loader API yet. Work stays on
+`codex/metadata-consumer` with neoCLR's `codex/extended-cli-metadata`; ordinary .NET
+behavior and shared main are unaffected. See the [adapter API](api/neoclr-emission.md#peneo-output)
+and the probe's tracked validation report for the tested artifacts.
