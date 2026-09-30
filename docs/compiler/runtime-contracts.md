@@ -1977,3 +1977,17 @@ reading. PE now reads nonvirtual/new-slot declarations directly. Slot-reusing
 overrides still report no fallback fact if base-definition reflection is
 unsupported; determining that inherited fact needs a metadata-aware override
 relationship and is not guessed here.
+
+### Parameter default-kind ownership (2026-09-30)
+
+`IParameterDefaultValueInfo` distinguishes a provider-synthesized type default
+from an ordinary constant. Optional-argument binding and parameter display consume
+the fact without inspecting PE symbols. `HasExplicitDefaultValue` still controls
+whether the parameter has a default; the capability cannot make a required
+parameter optional. Source default syntax and Option.None behavior are unchanged.
+
+PE retains CLI optional/default attribute decoding and lazy default-value
+construction. The capability does not prescribe CLI attributes or boxed default
+representations for native providers. Existing constructed-parameter behavior is
+unchanged; forwarding all provider facts through symbol wrappers is separate
+work. No public symbol API or emitted encoding changes.
