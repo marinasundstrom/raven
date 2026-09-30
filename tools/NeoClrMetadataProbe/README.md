@@ -26,7 +26,9 @@ func Main() -> int {
 
 The experimental adapter consumes public semantic symbols and operation trees. It
 maps source top-level functions to native functions and the imported call to the
-matching API-produced dependency definition. It emits native format-5 bytes through
+matching read-only dependency definition through `AssemblyBuilder.ImportReference`.
+The adapter receives no producer builder graph; it explicitly asserts the fixture
+core contract. It emits native format-5 bytes through
 `AssemblyBuilder.WriteNativeAssembly`, then neoCLR verifies and executes the actual
 output and must report/exit with 42. No PE emission or CLI importer is used for the
 application. Unsupported division must produce NEOMETA001; an unresolved imported
@@ -46,7 +48,7 @@ unlifted intrinsic addition/subtraction/multiplication are supported. Named/defa
 expanded arguments, references, generics, async, captures, fields, classes, statements
 other than returns, source attributes/modifiers, checked/lifted operators and structural
 types are rejected. Dependency binding is deliberately limited to the single fixture
-whose PE and builder graph the runner creates; this is not an arbitrary PE importer.
+whose matching PE/native outputs the runner creates; this is not an arbitrary PE importer.
 
 The public operation consumer already drove shared compiler fixes for binary operator
 facts, invocation receivers and required signature-only parameters. Next isolate the

@@ -16,7 +16,7 @@ namespace NeoClrMetadataProbe;
 internal static class Int32Emitter
 {
     internal static byte[] Emit(Compilation compilation, SyntaxTree tree, AssemblyIdentity core,
-        AssemblyBuilder dependency, MetadataAssembly dependencyMetadata)
+        MetadataAssembly dependencyMetadata)
     {
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         if (errors.Length != 0) throw new InvalidDataException(string.Join("\n", errors.Select(d => d.ToString())));
@@ -74,24 +74,26 @@ internal static class Int32Emitter
                     CheckSignature(call.TargetMethod);
                     if (call.Arguments.Length != call.TargetMethod.Parameters.Length) throw Unsupported("optional/expanded arguments");
                     var local = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Symbol, call.TargetMethod)).Method;
-                    var target = local ?? Import(call.TargetMethod);
+                    var imported = local is null ? Import(call.TargetMethod) : null;
                     foreach (var argument in call.Arguments)
                     {
                         if (argument is IArgumentOperation { IsNamed: false, Value: { } argumentValue }) EmitValue(argumentValue, source, output);
                         else throw Unsupported("named or unavailable argument");
                     }
-                    output.Call(target); return;
+                    if (local is not null) output.Call(local);
+                    else output.Call(imported!);
+                    return;
                 default: throw Unsupported("operation " + operation.Kind);
             }
         }
-        MetadataMethod Import(IMethodSymbol symbol)
+        ImportedMethodReference Import(IMethodSymbol symbol)
         {
             if (!symbol.IsStatic || symbol.ContainingAssembly?.Name != dependencyMetadata.Name) throw Unsupported("unregistered dependency");
             var type = dependencyMetadata.MainModule.Types.SingleOrDefault(t => (t.Namespace.Length == 0 ? t.Name : t.Namespace + "." + t.Name) == symbol.ContainingType?.ToFullyQualifiedMetadataName())
                 ?? throw Unsupported("dependency type unavailable");
             var definition = type.Methods.SingleOrDefault(m => m.Name == symbol.MetadataName && m.TryGetStaticInt32Signature(out var count, out var result) && count == symbol.Parameters.Length && result)
                 ?? throw Unsupported("dependency method contract unavailable");
-            return dependency.Types.Single(t => t.Name == type.Name && t.Namespace == type.Namespace).Methods.Single(m => m.Name == definition.Name && m.ParameterCount == symbol.Parameters.Length && m.ReturnsValue);
+            return assembly.ImportReference(definition, core);
         }
     }
     private static void CheckSignature(IMethodSymbol method)

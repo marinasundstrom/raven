@@ -2049,3 +2049,13 @@ The supported source, command, diagnostics and exclusions are documented in the
 [probe](../../../tools/NeoClrMetadataProbe/README.md). This staged integration keeps
 compiler projections and lowering in Raven, format/model code in the library, and
 modern .NET as the default. A native semantic loader and target composition remain next.
+
+### Metadata probe reference imports (2026-09-30)
+
+The opt-in `NeoClrMetadataProbe` imports read-only callable definitions through the
+separate library's `ImportReference(definition, dependencyCoreLibrary)`. Its explicit
+core assertion is the fixture's .NET core identity, not inferred native platform
+compatibility. The emitter no longer receives the producer graph. Static Int32 calls
+retain native format-5 identity/naming; ordinary .NET binding/emission is unchanged.
+No native Runtime Contract/provider is registered. See the probe README and validation
+report for result 42 and rejection checks; generic/structural imports remain excluded.

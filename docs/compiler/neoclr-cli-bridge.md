@@ -345,3 +345,25 @@ frontend metadata loading remains .NET-owned. Exact restrictions and the reprodu
 command live in tools/NeoClrMetadataProbe/README.md. The native loader/emitter target
 adapters will replace that bootstrap. Owners: Raven for symbols/operations/adapters,
 the separate library for format/model/emission, neoCLR for native loading/verification.
+
+### Read-only call imports — 2026-09-30
+
+The independent host library now provides `AssemblyBuilder.ImportReference` and
+`MethodBuilder.Call(ImportedMethodReference)`. This follows the existing Cecil-style
+import direction: a compiler consumes immutable definitions and imports a scoped
+reference into its output. Compared with CLR reflection/Reflection.Emit, this needs
+no loaded runtime assembly or executable method handle. Compared with full Cecil
+imports it deliberately supports only unsigned, top-level-owner static Int32/void
+signatures; no generic substitution, access checking or arbitrary IL translation.
+The cost is an explicit host assertion of the dependency core contract and a bounded
+format-5 naming agreement. Private reference-only nodes reuse both writers' existing
+call encodings without retaining producer bodies. A future general signature model
+should replace these bounded nodes as supported compiler cases require it.
+
+Raven's feature-branch probe now receives only the read-only dependency snapshot;
+it does not receive its builder graph. The primitive .NET Runtime Contract remains
+the binding bootstrap, and ordinary .NET code generation is unchanged. Native
+semantic-data loading and production emitter installation remain the next integration
+stages; structural support stays later. C# contract tests pass (22 groups); both the
+native global-function gate and Raven probe verify/run to 42. Missing dependency,
+wrong revision, unsupported operation and binding diagnostics remain checked.

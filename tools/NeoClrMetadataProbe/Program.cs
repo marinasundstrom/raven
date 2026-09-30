@@ -43,7 +43,7 @@ byte[] Compile(string code)
     var compilation = Compilation.Create("MetadataProbeApp", [tree], [
         MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
         MetadataReference.CreateFromFile(libraryPath)], new CompilationOptions(OutputKind.ConsoleApplication));
-    return Int32Emitter.Emit(compilation, tree, core, library, metadata);
+    return Int32Emitter.Emit(compilation, tree, core, metadata);
 }
 var image = Compile(source);
 var application = Path.Combine(output, "MetadataProbeApp.neo.json");
@@ -61,6 +61,8 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     result = 42,
     source = "Raven public semantic operations",
     metadataLibraryIndependent = true,
+    importedReadOnlyDependency = true,
+    emitterRequiresDependencyBuilder = false,
     semanticLoader = "existing .NET provider over API-produced PE",
     emitter = "experimental operations adapter to native format 5",
     productionTargetIntegrated = false,
