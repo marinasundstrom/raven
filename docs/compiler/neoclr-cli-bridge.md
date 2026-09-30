@@ -1068,3 +1068,32 @@ the metadata API manual for the new public contract. General .NET debug/fallback
 remains intact. No performance claim or runtime optimization is included.
 
 Validation: 25 compiler tests, 33 metadata API groups and the API snapshot check passed; [runtime/driver evidence](../../tools/NeoClrMetadataProbe/validation.json).
+
+## Shared comparisons and control flow — 2026-10-01
+
+The shared body planner now consumes lowered labels/gotos and emits bound if statements
+through the same backend-neutral instruction plan. Signed Int32 equality/less/greater
+comparisons, Boolean constants, forward/backward branches and nested blocks support
+ordinary if/else and while-loop consumers. Local symbol identities remain distinct
+across lexical scopes. Disposal-bearing scopes, arbitrary Boolean/value signatures,
+other comparison operators and exception regions remain outside the admitted subset.
+The existing .NET general/debug/PDB path still handles unsupported bodies.
+
+The independent writer adds method-owned BranchLabel handles and typed branch/Boolean
+Emit overloads. A worklist validates stack types and definitely assigned locals across
+joins and cycles; unmarked targets, incompatible stacks, path-dependent uninitialized
+loads, reachable fallthrough and unreachable executable instructions reject before output.
+CLI byte offsets and native instruction indices are computed separately, after native
+Console expansion. Labels remain symbolic in the compiler and public writer API.
+
+This reuses existing runtime format-5 operations; no runtime or binary schema change is
+required. Compared with .NET/Reflection.Emit's broad branch surface, the metadata API
+checks a bounded typed graph while retaining separate representations (native comparison
+results are Boolean values). It costs graph state/initialization analysis during writing,
+not a new runtime translation layer. Source syntax is not reparsed to implement loops;
+the compiler Lowerer still owns loop rewriting. The historical LinearMethodBody name
+now denotes this bounded body planner, including control flow, pending naming cleanup.
+Runtime Contract selection, native symbol-loading deferral and explicit dependency
+policy remain unchanged.
+
+Validation: 27 compiler tests, 34 metadata API groups and API snapshot validation passed; [native runtime/driver evidence](../../tools/NeoClrMetadataProbe/validation.json).

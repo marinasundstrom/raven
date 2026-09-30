@@ -177,6 +177,41 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).GetType("Arithmetic")!.GetMethod("Value")!.Invoke(null, [20]));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void BranchesAndLoopUseLoweredControlFlow(OptimizationLevel optimization)
+    {
+        const string source = """
+            func Main() -> int {
+                Accumulate(6)
+            }
+            func Accumulate(limit: int) -> int {
+                var index = 0
+                var result = 0
+                while index < limit {
+                    if index < 3 {
+                        result = result + 5
+                    } else {
+                        result = result + 9
+                    }
+                    index = index + 1
+                }
+                return result
+            }
+            """;
+        var compilation = Compilation.Create("Flow" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>())
+        {
+            Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, model, syntax.Body!,
+                _ => false, out _, out var failure), failure?.Detail);
+        }
+        Assert.Equal(42, Emit(compilation).EntryPoint!.Invoke(null, null));
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));

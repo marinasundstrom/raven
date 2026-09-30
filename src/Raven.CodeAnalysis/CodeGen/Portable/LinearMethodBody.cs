@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleLiteral, Return, LoadLocal, StoreLocal }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleLiteral, Return, LoadLocal, StoreLocal, Boolean, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null);
@@ -16,6 +16,7 @@ internal readonly record struct LinearInstruction(
 internal interface ILinearMethodBuilder
 {
     void DeclareInt32Local();
+    void DefineLabel();
     void Emit(LinearInstruction instruction);
 }
 
@@ -24,11 +25,12 @@ internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
 // source-located boundary. Language rewrites remain owned by the existing Lowerer.
-internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, int localCount)
+internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, int localCount, int labelCount)
 {
     internal void Emit(ILinearMethodBuilder builder)
     {
         for (var i = 0; i < localCount; i++) builder.DeclareInt32Local();
+        for (var i = 0; i < labelCount; i++) builder.DefineLabel();
         foreach (var instruction in instructions) builder.Emit(instruction);
     }
 
@@ -41,11 +43,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         Func<BoundInvocationExpression, bool> permitsConsoleLiteral, out LinearMethodBody? lowered, out LinearBodyFailure? failure)
     {
         var instructions = ImmutableArray.CreateBuilder<LinearInstruction>();
+        var nextLabel = 0;
+        var labels = new Dictionary<ILabelSymbol, int>(SymbolEqualityComparer.Default);
         var locals = new Dictionary<ILocalSymbol, int>(SymbolEqualityComparer.Default);
         LinearBodyFailure? rejected = null;
         var body = model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement;
         var success = body is not null ? LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
-        lowered = success ? new(instructions.ToImmutable(), locals.Count) : null;
+        lowered = success ? new(instructions.ToImmutable(), locals.Count, nextLabel) : null;
         failure = rejected;
         return success;
 
@@ -59,12 +63,71 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
 
         SyntaxNode Syntax(BoundNode node) => model.GetSyntax(node) ?? bodySyntax;
 
+        int Label(ILabelSymbol symbol)
+        {
+            if (!labels.TryGetValue(symbol, out var index)) labels.Add(symbol, index = nextLabel++);
+            return index;
+        }
+
+        IEnumerable<BoundStatement> Flatten(BoundStatement statement)
+        {
+            if (statement is BoundBlockStatement block && block.LocalsToDispose.IsEmpty)
+            {
+                foreach (var child in block.Statements)
+                    foreach (var nested in Flatten(child)) yield return nested;
+            }
+            else
+            {
+                yield return statement;
+                if (statement is BoundLabeledStatement labeled)
+                    foreach (var nested in Flatten(labeled.Statement)) yield return nested;
+            }
+        }
+
         bool LowerBody(BoundBlockStatement body)
         {
             if (!HasSupportedSignature(source)) return Reject("only nongeneric Int32 parameters and Int32/Unit results", bodySyntax);
             if (!body.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(body));
-            foreach (var statement in body.Statements)
+            if (!LowerStatements(body)) return false;
+            if (!ReturnsValue(source) && instructions.LastOrDefault().Kind != LinearInstructionKind.Return)
+                Add(LinearInstructionKind.Return, Syntax(body));
+            return true;
+        }
+
+        bool LowerStatements(BoundStatement body)
+        {
+            foreach (var statement in Flatten(body))
             {
+                if (statement is BoundIfStatement conditionalIf)
+                {
+                    if (!LowerValue(conditionalIf.Condition)) return false;
+                    var otherwise = nextLabel++; var end = nextLabel++;
+                    Add(LinearInstructionKind.BranchFalse, Syntax(statement), otherwise);
+                    if (!LowerStatements(conditionalIf.ThenNode)) return false;
+                    if (instructions.LastOrDefault().Kind is not (LinearInstructionKind.Return or LinearInstructionKind.Branch))
+                        Add(LinearInstructionKind.Branch, Syntax(statement), end);
+                    Add(LinearInstructionKind.Label, Syntax(statement), otherwise);
+                    if (conditionalIf.ElseNode is { } alternative && !LowerStatements(alternative)) return false;
+                    Add(LinearInstructionKind.Label, Syntax(statement), end);
+                    continue;
+                }
+                if (statement is BoundLabeledStatement label)
+                {
+                    Add(LinearInstructionKind.Label, Syntax(statement), Label(label.Label));
+                    continue;
+                }
+                if (statement is BoundGotoStatement jump)
+                {
+                    Add(LinearInstructionKind.Branch, Syntax(statement), Label(jump.Target));
+                    continue;
+                }
+                if (statement is BoundConditionalGotoStatement conditional)
+                {
+                    if (!LowerValue(conditional.Condition)) return false;
+                    Add(conditional.JumpIfTrue ? LinearInstructionKind.BranchTrue : LinearInstructionKind.BranchFalse,
+                        Syntax(statement), Label(conditional.Target));
+                    continue;
+                }
                 if (statement is BoundLocalDeclarationStatement declaration)
                 {
                     if (declaration.IsUsing) return Reject("using local", Syntax(statement));
@@ -114,8 +177,6 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (!LowerValue(value)) return false;
                 Add(LinearInstructionKind.Return, Syntax(statement));
             }
-            if (!ReturnsValue(source) && body.Statements.LastOrDefault() is not BoundReturnStatement)
-                Add(LinearInstructionKind.Return, Syntax(body));
             return true;
         }
 
@@ -123,6 +184,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         {
             switch (expression)
             {
+                case BoundLiteralExpression { Value: bool boolean }:
+                    Add(LinearInstructionKind.Boolean, Syntax(expression), boolean ? 1 : 0); return true;
                 case BoundLiteralExpression { Value: int value }:
                     Add(LinearInstructionKind.Constant, Syntax(expression), value); return true;
                 case BoundLocalAccess local:
@@ -137,15 +200,20 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundConversionExpression { IsIdentity: true } conversion:
                     return LowerValue(conversion.Expression);
                 case BoundBinaryExpression binary when binary.Operator.MethodSymbol is null &&
-                    binary.Type.SpecialType == SpecialType.System_Int32:
-                    if (binary.Operator.OperatorKind is not (OperatorKind.Addition or OperatorKind.Subtraction or OperatorKind.Multiplication))
+                    binary.Operator.LeftType.SpecialType == SpecialType.System_Int32 &&
+                    binary.Operator.RightType.SpecialType == SpecialType.System_Int32:
+                    if (binary.Operator.OperatorKind is not (OperatorKind.Addition or OperatorKind.Subtraction or OperatorKind.Multiplication or
+                        OperatorKind.Equality or OperatorKind.LessThan or OperatorKind.GreaterThan))
                         return Reject("binary operator " + binary.Operator.OperatorKind, Syntax(expression));
                     if (!LowerValue(binary.Left) || !LowerValue(binary.Right)) return false;
                     Add(binary.Operator.OperatorKind switch
                     {
                         OperatorKind.Addition => LinearInstructionKind.Add,
                         OperatorKind.Subtraction => LinearInstructionKind.Subtract,
-                        _ => LinearInstructionKind.Multiply
+                        OperatorKind.Multiplication => LinearInstructionKind.Multiply,
+                        OperatorKind.Equality => LinearInstructionKind.Equal,
+                        OperatorKind.LessThan => LinearInstructionKind.Less,
+                        _ => LinearInstructionKind.Greater
                     }, Syntax(expression));
                     return true;
                 case BoundInvocationExpression call when call.Method.IsStatic && call.Receiver is null or BoundTypeExpression && call.ExtensionReceiver is null:

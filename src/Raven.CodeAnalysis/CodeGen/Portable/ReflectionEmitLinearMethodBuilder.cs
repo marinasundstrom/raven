@@ -10,6 +10,9 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, IILBuilder output) : ILinearMethodBuilder
 {
     private readonly List<IILocal> locals = [];
+    private readonly List<ILLabel> labels = [];
+
+    public void DefineLabel() => labels.Add(output.DefineLabel());
 
     public void DeclareInt32Local() => locals.Add(output.DeclareLocal(method.ResolveClrType(
         method.Compilation.GetSpecialType(SpecialType.System_Int32))));
@@ -52,6 +55,14 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.Boolean: output.Emit(OpCodes.Ldc_I4, instruction.Integer); break;
+            case LinearInstructionKind.Equal: output.Emit(OpCodes.Ceq); break;
+            case LinearInstructionKind.Less: output.Emit(OpCodes.Clt); break;
+            case LinearInstructionKind.Greater: output.Emit(OpCodes.Cgt); break;
+            case LinearInstructionKind.Label: output.MarkLabel(labels[instruction.Integer]); break;
+            case LinearInstructionKind.Branch: output.Emit(OpCodes.Br, labels[instruction.Integer]); break;
+            case LinearInstructionKind.BranchTrue: output.Emit(OpCodes.Brtrue, labels[instruction.Integer]); break;
+            case LinearInstructionKind.BranchFalse: output.Emit(OpCodes.Brfalse, labels[instruction.Integer]); break;
             case LinearInstructionKind.Constant: output.Emit(OpCodes.Ldc_I4, instruction.Integer); break;
             case LinearInstructionKind.Argument: output.Emit(OpCodes.Ldarg, instruction.Integer); break;
             case LinearInstructionKind.LoadLocal: output.Emit(OpCodes.Ldloc, locals[instruction.Integer]); break;

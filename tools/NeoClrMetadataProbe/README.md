@@ -216,3 +216,7 @@ is covered by the focused compiler C# tests.
 
 The shared-local case initializes immutable/mutable Int32 slots, calls a helper with its
 own local, assigns a new value, and returns 42 on .NET and native runtime loading.
+
+The control-flow consumer combines a backward loop, nested if/else, initialized locals
+and Console output. It verifies target indices after native Console expansion and returns
+42 on both runtimes. Metadata FlowChecks additionally rejects invalid joins and labels.

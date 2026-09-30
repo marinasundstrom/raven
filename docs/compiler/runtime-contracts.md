@@ -2313,3 +2313,8 @@ Shared Int32 locals use MethodGenerator's target-aware type resolution on .NET; 
 slots use the metadata writer's Int32 representation. Existing Runtime Contract and
 loader selection are unchanged. General locals and address-taking remain outside the
 bounded native backend.
+
+Shared control-flow planning uses compiler label identities and backend label handles.
+Native Boolean comparison results map to CLR stack conditions in the .NET adapter;
+this adds no Boolean method signature or runtime-helper mapping. Debug/PDB fallback
+and semantic Runtime Contract selection remain unchanged.

@@ -7,6 +7,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 - **2026-10-01:** Emit initialized Int32 locals and standalone assignments through the
   shared lowered-body path for .NET and native neoCLR. Native output uses typed locals
   from the independent metadata API; .NET resolves the selected target's Int32 type.
+  Extend the shared path to signed equality/less/greater comparisons, Boolean conditions,
+  if/else and lowered loop branches; keep label identity independent of backend offsets.
 
 - **2026-10-01:** Share compiler-lowered bodies between the bounded .NET and neoCLR
   emitters instead of walking source operations. Reuse implicit Int32 return lowering

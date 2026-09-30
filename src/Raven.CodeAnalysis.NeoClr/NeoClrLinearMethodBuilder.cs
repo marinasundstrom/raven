@@ -9,12 +9,23 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
     Action<LinearInstruction, MethodBuilder> emitCall) : ILinearMethodBuilder
 {
+    private readonly List<BranchLabel> labels = [];
+    public void DefineLabel() => labels.Add(method.DefineLabel());
+
     public void DeclareInt32Local() => method.DeclareInt32Local();
 
     public void Emit(LinearInstruction instruction)
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.Boolean: method.Emit(OpCode.Ldc_Bool, instruction.Integer != 0); break;
+            case LinearInstructionKind.Equal: method.Emit(OpCode.Ceq); break;
+            case LinearInstructionKind.Less: method.Emit(OpCode.Clt); break;
+            case LinearInstructionKind.Greater: method.Emit(OpCode.Cgt); break;
+            case LinearInstructionKind.Label: method.MarkLabel(labels[instruction.Integer]); break;
+            case LinearInstructionKind.Branch: method.Emit(OpCode.Br, labels[instruction.Integer]); break;
+            case LinearInstructionKind.BranchTrue: method.Emit(OpCode.Brtrue, labels[instruction.Integer]); break;
+            case LinearInstructionKind.BranchFalse: method.Emit(OpCode.Brfalse, labels[instruction.Integer]); break;
             case LinearInstructionKind.Constant: method.Emit(OpCode.Ldc_I4, instruction.Integer); break;
             case LinearInstructionKind.Argument: method.Emit(OpCode.Ldarg, instruction.Integer); break;
             case LinearInstructionKind.LoadLocal: method.Emit(OpCode.Ldloc, instruction.Integer); break;

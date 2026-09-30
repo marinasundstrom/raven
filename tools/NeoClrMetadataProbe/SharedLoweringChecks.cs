@@ -90,6 +90,25 @@ internal static class SharedLoweringChecks
                 value * factor
             }
             """, "", 42);
+        await RunCase("SharedControlFlow", """
+            func Main() -> int {
+                Accumulate(6)
+            }
+            func Accumulate(limit: int) -> int {
+                var index = 0
+                var result = 0
+                while index < limit {
+                    if index < 3 {
+                        System.Console.WriteLine("Flow")
+                        result = result + 5
+                    } else {
+                        result = result + 9
+                    }
+                    index = index + 1
+                }
+                return result
+            }
+            """, "Flow\nFlow\nFlow", 42);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
         Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 
