@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Move metadata-session reuse validation into the .NET semantic-data
+  loader, shared by .NET and the neoCLR CLI bridge. Preserve reference order when
+  checking reuse so reordered duplicate assembly identities expose the new first
+  reference's surface without changing earlier compilation symbols. Keep import
+  mode/core checks and file revision tracking inside the loader boundary.
+
 - **2026-09-30:** Bring the intersection feature branch onto shared main's Self
   and target-contract integration. Preserve the isolated experiment; validate
   178 focused intersection, Self, profile, constraint and metadata tests.
@@ -69,6 +75,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   grouping and giving `&` higher precedence than `|`. This syntax foundation
   reports RAV0363 for unsupported semantic uses; it does not introduce a runtime
   intersection representation.
+
 - **2026-09-30:** Track deferred structural Function work on Raven
   `codex/neoclr-structural-types` and neoCLR `codex/structural-types`, both based
   on their Self-integrated main branches; retire the previous integration names.

@@ -1424,3 +1424,35 @@ runtime passes 98 focused tests, regenerated library/API fingerprint checks, nat
 Self cloning with six rejections, and a nominal unit callback printing 42.
 This is not .NET Framework/NanoFramework execution evidence or a native metadata
 loader/backend implementation.
+
+## Slice 41: loader-owned metadata input revisions and reuse
+
+Move supplied-PE input snapshots and metadata-session admission out of Compilation
+and into the .NET loader. The target offers its previous session; the loader
+checks import options, resolved core and ordered file stamps before reusing it.
+Snapshots retain no compilation, symbols or host services. Per-compilation symbol
+projection and shared-session collection lifetime are unchanged. Both .NET and
+the neoCLR CLI bridge use this implementation; native source revision rules remain
+the responsibility of a future native loader.
+
+The old unordered path map missed duplicate-identity precedence changes. New
+regressions cover reversed input order, a previously missing file appearing,
+host-assisted-to-explicit import isolation, unchanged-input reuse, and compiler
+symbol queries across reordered snapshots. Three loader regressions were observed
+failing before the fix. Existing replacement-at-path, discarded-compilation
+collection and fresh-symbol tests continue to pass. File revisions still use
+size/time stamps; host fallback registration is not independently revision-tracked.
+These limitations are documented rather than hidden by a generic source API.
+
+Update the bootstrap plan to the completed shared-main integration strategy and
+retain unfinished intersection/structural work on main-based feature branches.
+Next: continue narrowing reflection-backed semantic services and separate the
+remaining platform contract decisions from CLI transport implementation before
+introducing a native metadata source. No public provider registry is introduced.
+
+Validation: baseline 124 tests; final 174 tests on .NET 11 covering metadata,
+incremental reuse, core selection, initialization, emission and neoCLR/Self
+configuration. Compiler builds pass for .NET 10 and .NET 11 with zero warnings or
+errors. Whitespace formatting and diff checks pass (formatter workspace-load
+warnings). No syntax/model changes, native neoCLR execution, Framework or
+NanoFramework execution, or full bootstrap qualification is claimed.

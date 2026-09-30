@@ -61,7 +61,6 @@ public partial class Compilation
     private BoundNodeFactory? _boundNodeFactory;
     private DeclarationTable? _declarationTable;
     private DeclarationTable? _previousDeclarationTableForReuse;
-    private IReadOnlyDictionary<string, PortableReferenceFingerprint>? _previousPortableReferenceFingerprints;
     private ErrorSymbol _errorSymbol;
     private bool isSettingUp;
     private int _setupThreadId;
@@ -70,7 +69,6 @@ public partial class Compilation
     private ImmutableArray<Diagnostic> _macroPartitionDiagnostics = ImmutableArray<Diagnostic>.Empty;
     private CompilationSymbolLookup? _symbolLookup;
     private SourceDeclarationIndex? _sourceDeclarationIndex;
-    private Dictionary<string, PortableReferenceFingerprint>? _portableReferenceFingerprints;
     private ImmutableArray<Diagnostic> _generatorDiagnostics = ImmutableArray<Diagnostic>.Empty;
     private SubmissionCompilationState? _submissionState;
     private int _runtimeSupportsAsyncMethods = -1;
@@ -899,10 +897,9 @@ public partial class Compilation
 
     private void AdoptMetadataReuseFrom(Compilation previousCompilation)
     {
-        if (previousCompilation.setup && Options.MetadataImportOptions == previousCompilation.Options.MetadataImportOptions)
+        if (previousCompilation.setup)
         {
             _target.AdoptMetadataReuseFrom(previousCompilation._target);
-            _previousPortableReferenceFingerprints = previousCompilation._portableReferenceFingerprints;
         }
     }
 
@@ -943,10 +940,7 @@ public partial class Compilation
     private void Setup()
     {
         _target.BeginSetup();
-        _portableReferenceFingerprints = CapturePortableReferenceFingerprints(_references);
-        _semanticDataLoader = _target.InitializeSemanticData(
-            reuseMetadataSession: HaveEquivalentPortableReferences(_portableReferenceFingerprints));
-        _previousPortableReferenceFingerprints = null;
+        _semanticDataLoader = _target.InitializeSemanticData();
 
         foreach (var metadataReference in References)
         {
@@ -1010,46 +1004,6 @@ public partial class Compilation
 
         return references.ToImmutable();
     }
-
-    private bool HaveEquivalentPortableReferences(
-        IReadOnlyDictionary<string, PortableReferenceFingerprint> currentFingerprints)
-    {
-        var previousFingerprints = _previousPortableReferenceFingerprints;
-        if (previousFingerprints is null || previousFingerprints.Count != currentFingerprints.Count)
-            return false;
-
-        foreach (var (path, fingerprint) in currentFingerprints)
-        {
-            if (!previousFingerprints.TryGetValue(path, out var previousFingerprint) ||
-                previousFingerprint != fingerprint)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static Dictionary<string, PortableReferenceFingerprint> CapturePortableReferenceFingerprints(
-        IEnumerable<MetadataReference> references)
-    {
-        var fingerprints = new Dictionary<string, PortableReferenceFingerprint>(StringComparer.OrdinalIgnoreCase);
-        foreach (var reference in references.OfType<PortableExecutableReference>())
-        {
-            if (string.IsNullOrWhiteSpace(reference.FilePath))
-                continue;
-
-            var fullPath = Path.GetFullPath(reference.FilePath);
-            var file = new FileInfo(fullPath);
-            fingerprints[fullPath] = file.Exists
-                ? new PortableReferenceFingerprint(file.Length, file.LastWriteTimeUtc.Ticks)
-                : default;
-        }
-
-        return fingerprints;
-    }
-
-    private readonly record struct PortableReferenceFingerprint(long Length, long LastWriteTimeUtcTicks);
 
     private DeclarationTable EnsureDeclarationTableCreated()
     {

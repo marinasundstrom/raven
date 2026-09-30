@@ -1,6 +1,6 @@
 # Target boundaries and Raven bootstrap plan
 
-Date: 2026-09-30. Status: planned; implementation and qualification remain open.
+Date: 2026-09-30. Status: incremental implementation; .NET bootstrap qualification remains open.
 
 Execution evidence and current work are tracked in the [slice ledger](target-boundary-slices.md).
 
@@ -36,28 +36,22 @@ allocation or establishing a new durable public target API.
 
 ## Branch strategy
 
-Use `neoclr` to investigate real differences and prototype separation. For each
-slice, classify language behavior, general target infrastructure, and neoCLR
-policy separately before editing.
+The shared compiler and both target implementations now develop on `main`.
+The temporary `neoclr` integration branch is retired; Self is integrated with
+explicit neoCLR target and marker-contract gating. Keep target-specific policy
+behind the runtime/platform contracts while preserving ordinary .NET defaults.
 
-General production changes follow the repository integration rule:
+For each slice, establish a focused baseline, implement the boundary and its
+regressions, document limitations and validation targets, and commit independently.
+Maintain the [slice ledger](target-boundary-slices.md). .NET compiler tests alone
+do not establish execution on neoCLR, .NET Framework or NanoFramework.
 
-1. Prove the proposed boundary against the experiment's requirements.
-2. Implement or extract the general change on a main-based feature branch.
-3. Validate it independently with ordinary .NET/CLI fixtures.
-4. Integrate the reviewed change into main, then into `neoclr`.
-5. Keep target-specific mappings, policies, and runtime tests on `neoclr`.
-
-Maintain a slice ledger with source commits, dependencies, regression fixtures,
-validation targets, main integration status, and experimental follow-ups. Do not
-merge the experimental branch wholesale. Reassess integration after each
-boundary is proven, rather than waiting for the entire refactoring.
-
-Early integration is appropriate for an abstraction with a complete .NET
-implementation and independent tests. neoCLR-specific support becomes a main
-candidate only after its contracts are documented, isolated from .NET defaults,
-and supported by a reproducible target validation path. Successful .NET tests
-alone cannot qualify neoCLR execution.
+Keep unfinished language experiments on main-based feature branches:
+`codex/intersection-constraints` and `codex/neoclr-structural-types` in Raven,
+and `codex/structural-types` in neoCLR. Bring shared changes into those branches
+as needed without promoting structural semantics to main. Native metadata/backend
+completion is a later milestone, not a prerequisite for developing the boundaries
+together on the shared line.
 
 ## Boundaries to establish
 

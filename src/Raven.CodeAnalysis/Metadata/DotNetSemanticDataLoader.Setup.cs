@@ -11,18 +11,20 @@ namespace Raven.CodeAnalysis.Metadata;
 
 internal sealed partial class DotNetSemanticDataLoader
 {
-    // Compilation decides whether an older session is reusable. The .NET loader
-    // owns which reference universe and core to open when a fresh one is needed.
+    // The .NET loader validates a previous session against its own input snapshot.
+    // Callers offer a candidate; they cannot assert that metadata is reusable.
     internal static DotNetMetadataSession OpenSession(
         IEnumerable<MetadataReference> metadataReferences,
         MetadataImportOptions? importOptions,
         DotNetHostRuntime hostRuntime,
-        DotNetMetadataSession? reusableSession)
+        DotNetMetadataSession? previousSession)
     {
         List<string> paths = metadataReferences
             .OfType<PortableExecutableReference>()
             .Select(portableExecutableReference => portableExecutableReference.FilePath)
             .ToList();
+
+        var inputs = DotNetMetadataInputSnapshot.Capture(paths, importOptions);
 
         // Establish the target type universe before adding optional host fallbacks.
         var coreAssemblyName = importOptions?.CoreAssemblyName ??
@@ -45,8 +47,8 @@ internal sealed partial class DotNetSemanticDataLoader
             }
         }
 
-        if (reusableSession is not null)
-            return reusableSession;
+        if (previousSession?.CanReuse(inputs, coreAssemblyName) == true)
+            return previousSession;
 
         var references = DotNetMetadataReferenceSet.Create(paths);
         foreach (var reference in references.References)
@@ -58,7 +60,7 @@ internal sealed partial class DotNetSemanticDataLoader
 
         try
         {
-            return DotNetMetadataSession.Create(references, coreAssemblyName);
+            return DotNetMetadataSession.Create(references, coreAssemblyName, inputs);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or BadImageFormatException or TypeLoadException)
         {
