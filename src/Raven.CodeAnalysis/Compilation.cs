@@ -2545,25 +2545,15 @@ public partial class Compilation
         return symbol;
     }
 
-    internal Type? ResolveRuntimeType(PENamedTypeSymbol symbol)
+    // Transitional access for .NET implementation code. Keep setup ordering here;
+    // host reflection lookup is not part of the shared semantic service contract.
+    internal DotNetHostRuntime DotNetHostRuntime
     {
-        ArgumentNullException.ThrowIfNull(symbol);
-        EnsureSetup();
-        return _target.HostRuntime.ResolveRuntimeType(symbol);
-    }
-
-    internal Type? ResolveRuntimeType(System.Reflection.TypeInfo metadataType)
-    {
-        ArgumentNullException.ThrowIfNull(metadataType);
-        EnsureSetup();
-        return _target.HostRuntime.ResolveRuntimeType(metadataType);
-    }
-
-    internal Type? ResolveRuntimeType(string metadataName)
-    {
-        ArgumentNullException.ThrowIfNull(metadataName);
-        EnsureSetup();
-        return _target.HostRuntime.ResolveRuntimeType(metadataName);
+        get
+        {
+            EnsureSetup();
+            return _target.HostRuntime;
+        }
     }
 
     internal INamespaceSymbol? GetNamespaceSymbolCached(string? ns)

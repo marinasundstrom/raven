@@ -8,6 +8,29 @@ namespace Raven.CodeAnalysis.Tests;
 public class DotNetHostRuntimeTests
 {
     [Fact]
+    public void CompilationHostAccessInitializesMetadataAndRemainsSnapshotLocal()
+    {
+        var compilation = Compilation.Create("HostAccess", syntaxTrees: [],
+            references: TestMetadataReferences.Default, options: CompilationOptions.DotNet);
+
+        var host = compilation.DotNetHostRuntime;
+
+        Assert.NotNull(compilation.CoreAssembly);
+        Assert.NotSame(typeof(object).Assembly, compilation.CoreAssembly);
+        Assert.Same(host, compilation.DotNetHostRuntime);
+        var metadataType = compilation.CoreAssembly.GetType("System.String", throwOnError: true)!.GetTypeInfo();
+        Assert.Same(typeof(string), host.ResolveRuntimeType(metadataType));
+        var symbol = Assert.IsAssignableFrom<Raven.CodeAnalysis.Symbols.PENamedTypeSymbol>(
+            compilation.GetSpecialType(SpecialType.System_String));
+        Assert.Same(typeof(string), host.ResolveRuntimeType(symbol));
+
+        var next = compilation.AddSyntaxTrees(Raven.CodeAnalysis.Syntax.SyntaxTree.ParseText("class Example { }"));
+        Assert.NotSame(host, next.DotNetHostRuntime);
+        Assert.Same(typeof(string), next.DotNetHostRuntime.ResolveRuntimeType("System.String"));
+        Assert.Same(host, compilation.DotNetHostRuntime);
+    }
+
+    [Fact]
     public void LocalRegisteredPathsRemainIndependentOfLaterSharedRegistration()
     {
         var name = "RavenHostPath_" + Guid.NewGuid().ToString("N");

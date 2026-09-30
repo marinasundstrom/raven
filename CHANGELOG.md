@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Route .NET reflection loading and codegen host-type lookup
+  directly through the target-owned host service. Remove the three internal
+  Compilation.ResolveRuntimeType forwarding overloads while preserving setup
+  ordering and per-compilation service ownership.
+
 - **2026-09-30:** Introduce a target-owned emission contract returning backend
   results and diagnostics. Normal and macro-plugin compilation preserve those
   results alongside semantic diagnostics; .NET option validation precedes output

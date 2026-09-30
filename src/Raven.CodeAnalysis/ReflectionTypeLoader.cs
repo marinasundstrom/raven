@@ -169,7 +169,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (declaringType is null)
             return null;
 
-        var runtimeType = compilation.ResolveRuntimeType(declaringType);
+        var runtimeType = compilation.DotNetHostRuntime.ResolveRuntimeType(declaringType);
         if (runtimeType is null)
             return null;
 

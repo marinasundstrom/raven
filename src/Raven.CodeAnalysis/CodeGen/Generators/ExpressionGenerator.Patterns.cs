@@ -726,7 +726,7 @@ internal partial class ExpressionGenerator
 
             EnsureObjectOnStack(ref inputType);
 
-            var tupleInterfaceType = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ITuple")
+            var tupleInterfaceType = Compilation.DotNetHostRuntime.ResolveRuntimeType("System.Runtime.CompilerServices.ITuple")
                 ?? throw new InvalidOperationException("Unable to resolve runtime type for System.Runtime.CompilerServices.ITuple.");
 
             var lengthGetter = tupleInterfaceType.GetProperty("Length")?.GetMethod;

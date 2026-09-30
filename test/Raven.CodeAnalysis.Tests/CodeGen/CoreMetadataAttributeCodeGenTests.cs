@@ -24,7 +24,7 @@ public sealed class CoreMetadataAttributeCodeGenTests
         var hostCompilation = Compilation.Create("host").AddReferences(TestMetadataReferences.DefaultWithRavenCore);
         Assert.NotNull(hostCompilation.GetTypeByMetadataName("Raven.Runtime.CompilerServices.RavenUnionCaseAttribute"));
         var hostOption = Assert.IsAssignableFrom<PENamedTypeSymbol>(hostCompilation.GetTypeByMetadataName("System.Option`1"));
-        Assert.NotNull(compilation.ResolveRuntimeType(hostOption));
+        Assert.NotNull(compilation.DotNetHostRuntime.ResolveRuntimeType(hostOption));
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));

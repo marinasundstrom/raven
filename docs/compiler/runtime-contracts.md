@@ -1432,3 +1432,18 @@ EmitOptions still carries the existing .NET core-identity option, and Compilatio
 still composes DotNetCompilationTarget directly. A future target requires its own
 loader, runtime/platform contract and emitter together; no cross-target emission
 or public backend selection is enabled here.
+
+## Explicit .NET host-service access
+
+The internal Compilation.ResolveRuntimeType overloads have been removed. .NET
+codegen and reflection projection now call the target-owned DotNetHostRuntime
+service directly. Compilation retains a single internal DotNetHostRuntime
+accessor that completes setup before exposing that service, preserving metadata
+registration and same-thread setup reentrancy behavior. This is a transitional
+.NET implementation entry point, not a platform-neutral semantic API.
+
+A compilation returns the same service on repeated access; derived snapshots
+receive their own service. Existing process-wide assembly/path caches remain
+unchanged. Host type resolution does not make the host type available to semantic
+binding or replace the target metadata core. Focused tests exercise initial
+access before metadata lookup and both metadata-type and semantic-symbol mapping.

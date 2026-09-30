@@ -82,7 +82,7 @@ namespace Lib {
         var webApplication = Assert.IsAssignableFrom<PENamedTypeSymbol>(
             compilation.GetTypeByMetadataName("Microsoft.AspNetCore.Builder.WebApplication"));
 
-        var runtimeType = compilation.ResolveRuntimeType(webApplication);
+        var runtimeType = compilation.DotNetHostRuntime.ResolveRuntimeType(webApplication);
 
         if (runtimeType is null)
             return;

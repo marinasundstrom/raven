@@ -188,7 +188,7 @@ public static class TypeSymbolExtensionsForCodeGen
 
             if (typeSymbol is PENamedTypeSymbol namedTypeSymbol)
             {
-                var runtimeType = compilation.ResolveRuntimeType(namedTypeSymbol);
+                var runtimeType = compilation.DotNetHostRuntime.ResolveRuntimeType(namedTypeSymbol);
                 if (runtimeType is not null)
                     return runtimeType;
 
@@ -313,7 +313,7 @@ public static class TypeSymbolExtensionsForCodeGen
                         return synthesizedType;
                 }
 
-                var runtimeType = compilation.ResolveRuntimeType(metadataName);
+                var runtimeType = compilation.DotNetHostRuntime.ResolveRuntimeType(metadataName);
                 if (runtimeType is not null)
                     return runtimeType;
 
@@ -590,7 +590,7 @@ public static class TypeSymbolExtensionsForCodeGen
 
     private static Type ResolveRuntimeTypeOrThrow(Compilation compilation, string metadataName)
     {
-        return compilation.ResolveRuntimeType(metadataName)
+        return compilation.DotNetHostRuntime.ResolveRuntimeType(metadataName)
             ?? throw new InvalidOperationException($"Type '{metadataName}' not found in runtime assemblies.");
     }
 

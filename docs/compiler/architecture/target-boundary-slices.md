@@ -1112,3 +1112,30 @@ builds passed for net10.0 and net11.0 with no warnings/errors. Whitespace
 formatting completed with test workspace-load warnings; `git diff --check` passed.
 No full baseline, compiler-driver rebuild, .NET Framework, NanoFramework, neoCLR
 execution or bootstrap qualification is claimed.
+
+## Slice 31: explicit .NET host lookup ownership
+
+Removed the three internal Compilation.ResolveRuntimeType overloads and routed
+all production callers (the reflection loader and .NET codegen) through the
+target-owned DotNetHostRuntime. A single explicitly .NET internal accessor keeps
+EnsureSetup ordering at the compilation boundary. This reduces shared semantic
+method surface without inventing a target-neutral reflection abstraction.
+
+The new regression accesses the service before any symbol lookup, verifies
+metadata/host separation, maps both TypeInfo and imported symbols to host types,
+and verifies that a derived compilation has a separate service. Existing caches
+and host fallback policies are unchanged; full constructor injection and removal
+of other reflection-facing Compilation APIs remain future boundary work.
+
+Next: review the remaining public reflection projection/core-handle APIs and
+move .NET-only consumers toward the selected target's implementation services.
+General changes still require independent main-based validation.
+
+Validation: the focused pre-change baseline passed 19 tests. Post-change coverage
+passed 28 tests on .NET 11, adding the new host-access regression and
+TargetCoreGenericSignatureTests to the original host service, nested reflection
+loader, metadata-name, core-attribute emission and runtime-type-resolution tests.
+No failures or skips. Compiler builds passed for net10.0/net11.0 without warnings
+or errors. Whitespace formatting completed with test workspace-load warnings;
+`git diff --check` passed. Full baseline, .NET Framework, NanoFramework, neoCLR
+execution and bootstrap qualification were not run for this slice.

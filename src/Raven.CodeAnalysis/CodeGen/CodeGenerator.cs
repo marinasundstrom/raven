@@ -937,7 +937,7 @@ internal class CodeGenerator
         if (TupleElementNamesAttributeType is not null)
             return;
 
-        TupleElementNamesAttributeType = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.TupleElementNamesAttribute")
+        TupleElementNamesAttributeType = Compilation.DotNetHostRuntime.ResolveRuntimeType("System.Runtime.CompilerServices.TupleElementNamesAttribute")
             ?? throw new InvalidOperationException("Type 'System.Runtime.CompilerServices.TupleElementNamesAttribute' not found in runtime assemblies.");
 
         _tupleElementNamesCtor = TupleElementNamesAttributeType.GetConstructor(new[] { typeof(string[]) })
@@ -1046,7 +1046,7 @@ internal class CodeGenerator
             return;
 
         RavenUnionCaseAttributeType = TargetRuntimeTypeExists("Raven.Runtime.CompilerServices.RavenUnionCaseAttribute")
-            ? Compilation.ResolveRuntimeType("Raven.Runtime.CompilerServices.RavenUnionCaseAttribute")
+            ? Compilation.DotNetHostRuntime.ResolveRuntimeType("Raven.Runtime.CompilerServices.RavenUnionCaseAttribute")
             : null;
         if (RavenUnionCaseAttributeType is not null)
         {
@@ -1122,7 +1122,7 @@ internal class CodeGenerator
             return;
 
         RavenUnionCompanionAttributeType = TargetRuntimeTypeExists("Raven.Runtime.CompilerServices.RavenUnionCompanionAttribute")
-            ? Compilation.ResolveRuntimeType("Raven.Runtime.CompilerServices.RavenUnionCompanionAttribute")
+            ? Compilation.DotNetHostRuntime.ResolveRuntimeType("Raven.Runtime.CompilerServices.RavenUnionCompanionAttribute")
             : null;
         if (RavenUnionCompanionAttributeType is not null)
         {
@@ -1185,7 +1185,7 @@ internal class CodeGenerator
         const string metadataName =
             "Raven.Runtime.CompilerServices.RavenOptionNoneDefaultValueAttribute";
         RavenOptionNoneDefaultValueAttributeType = TargetRuntimeTypeExists(metadataName)
-            ? Compilation.ResolveRuntimeType(metadataName)
+            ? Compilation.DotNetHostRuntime.ResolveRuntimeType(metadataName)
             : null;
         if (RavenOptionNoneDefaultValueAttributeType is not null)
         {
@@ -1245,7 +1245,7 @@ internal class CodeGenerator
         if (_patternParameterAttributeConstructor is null)
         {
             var existingType = TargetRuntimeTypeExists(ParameterPatternFacts.AttributeMetadataName)
-                ? Compilation.ResolveRuntimeType(ParameterPatternFacts.AttributeMetadataName)
+                ? Compilation.DotNetHostRuntime.ResolveRuntimeType(ParameterPatternFacts.AttributeMetadataName)
                 : null;
             _patternParameterAttributeConstructor = existingType?.GetConstructor([typeof(int), typeof(string)]);
             if (_patternParameterAttributeConstructor is null)
@@ -2044,15 +2044,15 @@ internal class CodeGenerator
 
     private void TryBindRuntimeCoreTypes()
     {
-        ExtensionMarkerNameAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionMarkerNameAttribute");
+        ExtensionMarkerNameAttributeType ??= Compilation.DotNetHostRuntime.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionMarkerNameAttribute");
         _extensionMarkerNameCtor ??= ExtensionMarkerNameAttributeType?.GetConstructor(new[] { typeof(string) });
         FixedLengthArrayAttributeType ??=
-            Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.FixedLengthArrayAttribute")
-            ?? Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.FixedSizeArrayAttribute");
+            Compilation.DotNetHostRuntime.ResolveRuntimeType("System.Runtime.CompilerServices.FixedLengthArrayAttribute")
+            ?? Compilation.DotNetHostRuntime.ResolveRuntimeType("System.Runtime.CompilerServices.FixedSizeArrayAttribute");
         _fixedLengthArrayCtor ??= FixedLengthArrayAttributeType?.GetConstructor(new[] { typeof(int) });
-        ExtensionAttributeType ??= Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionAttribute");
+        ExtensionAttributeType ??= Compilation.DotNetHostRuntime.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionAttribute");
         _extensionAttributeCtor ??= ExtensionAttributeType?.GetConstructor(Type.EmptyTypes);
-        UnitType ??= Compilation.ResolveRuntimeType("System.Unit");
+        UnitType ??= Compilation.DotNetHostRuntime.ResolveRuntimeType("System.Unit");
         TopLevelAttributeType ??= ResolveReferencedRuntimeType("System.Runtime.CompilerServices.TopLevelAttribute");
         _topLevelAttributeCtor ??= TopLevelAttributeType?.GetConstructor(Type.EmptyTypes);
 
@@ -2077,7 +2077,7 @@ internal class CodeGenerator
         if (Compilation.GetTypeByMetadataName(metadataName) is PENamedTypeSymbol metadataType)
             return metadataType.GetTypeInfo().AsType();
 
-        return Compilation.ResolveRuntimeType(metadataName);
+        return Compilation.DotNetHostRuntime.ResolveRuntimeType(metadataName);
     }
 
     private void CreateExtensionMarkerNameAttributeType()
@@ -2236,7 +2236,7 @@ internal class CodeGenerator
     internal CustomAttributeBuilder? CreateExtensionAttributeBuilder()
     {
         if (ExtensionAttributeType is null)
-            ExtensionAttributeType = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionAttribute");
+            ExtensionAttributeType = Compilation.DotNetHostRuntime.ResolveRuntimeType("System.Runtime.CompilerServices.ExtensionAttribute");
 
         _extensionAttributeCtor ??= ExtensionAttributeType?.GetConstructor(Type.EmptyTypes);
         if (_extensionAttributeCtor is null)
@@ -2249,7 +2249,7 @@ internal class CodeGenerator
     {
         if (_compilerGeneratedCtor is null)
         {
-            var type = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.CompilerGeneratedAttribute");
+            var type = Compilation.DotNetHostRuntime.ResolveRuntimeType("System.Runtime.CompilerServices.CompilerGeneratedAttribute");
             _compilerGeneratedCtor = type?.GetConstructor(Type.EmptyTypes);
         }
 
@@ -2263,7 +2263,7 @@ internal class CodeGenerator
     {
         if (_isByRefLikeCtor is null)
         {
-            var type = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.IsByRefLikeAttribute");
+            var type = Compilation.DotNetHostRuntime.ResolveRuntimeType("System.Runtime.CompilerServices.IsByRefLikeAttribute");
             _isByRefLikeCtor = type?.GetConstructor(Type.EmptyTypes);
         }
 
@@ -2277,7 +2277,7 @@ internal class CodeGenerator
     {
         if (_isReadOnlyCtor is null)
         {
-            var type = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.IsReadOnlyAttribute");
+            var type = Compilation.DotNetHostRuntime.ResolveRuntimeType("System.Runtime.CompilerServices.IsReadOnlyAttribute");
             _isReadOnlyCtor = type?.GetConstructor(Type.EmptyTypes);
         }
 
@@ -2291,7 +2291,7 @@ internal class CodeGenerator
     {
         if (_scopedRefCtor is null)
         {
-            var type = Compilation.ResolveRuntimeType("System.Runtime.CompilerServices.ScopedRefAttribute");
+            var type = Compilation.DotNetHostRuntime.ResolveRuntimeType("System.Runtime.CompilerServices.ScopedRefAttribute");
             _scopedRefCtor = type?.GetConstructor(Type.EmptyTypes);
         }
 
