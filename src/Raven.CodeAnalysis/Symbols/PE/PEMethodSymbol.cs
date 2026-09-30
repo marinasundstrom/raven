@@ -10,7 +10,7 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupIdentity
+internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupIdentity, IMethodParameterInfo
 {
     private static readonly ConditionalWeakTable<MethodBase, ParameterInfo[]> s_parameterInfoCache = new();
     private static readonly ConcurrentDictionary<MetadataMethodKey, int> s_parameterCountCache = new();
@@ -238,6 +238,19 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
             return _parameters.Value;
         }
     }
+
+    bool IMethodParameterInfo.TryGetParameterCount(out int count)
+    {
+        count = ParameterCount;
+        return true;
+    }
+
+    bool IMethodParameterInfo.TryGetParameterType(int index,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
+        => TryGetParameterType(index, out type);
+
+    bool IMethodParameterInfo.TryGetParameterUsage(int index, out bool isOptional, out bool isVariadic)
+        => TryGetParameterUsage(index, out isOptional, out isVariadic);
 
     internal int ParameterCount
     {
