@@ -10,7 +10,7 @@ using Raven.CodeAnalysis.Metadata;
 namespace Raven.CodeAnalysis.Symbols;
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbol, IUnionCaseTypeSymbol, IConstructedTypeSubstitutionInfo, INestedTypeDiscovery
+internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbol, IUnionCaseTypeSymbol, IConstructedTypeSubstitutionInfo, INestedTypeDiscovery, IExtensionTypeInfo
 {
     private readonly INamedTypeSymbol _originalDefinition;
     private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutionMap;
@@ -715,6 +715,23 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
 
         return argument;
     }
+
+    ITypeSymbol? IExtensionTypeInfo.ExtensionReceiverType
+    {
+        get
+        {
+            var receiver = _originalDefinition switch
+            {
+                IExtensionTypeInfo info => info.ExtensionReceiverType,
+                SourceNamedTypeSymbol source => source.ExtensionReceiverType,
+                _ => null
+            };
+            return receiver is null ? null : Substitute(receiver);
+        }
+    }
+
+    bool IExtensionTypeInfo.HasMemberLevelExtensions
+        => _originalDefinition is IExtensionTypeInfo { HasMemberLevelExtensions: true };
 
     IEnumerable<INamedTypeSymbol> INestedTypeDiscovery.GetNestedTypesForDiscovery()
         => _originalDefinition is INestedTypeDiscovery discovery

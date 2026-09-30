@@ -1574,3 +1574,27 @@ changes; external runtime artifacts remain unchanged. No native neoCLR,
 
 Next: audit remaining shared reflection-backed symbol queries and provider
 capabilities before defining a replaceable target lifecycle for bootstrap work.
+
+## Slice 46: provider-owned type-level extension discovery
+
+Move PE receiver and extension-presence checks from shared symbol queries into
+`IExtensionTypeInfo`. Constructed symbols own receiver substitution and forward
+provider presence facts. The PE provider retains existing lazy metadata decoding;
+source declaration behavior is preserved. The capability reports discovery facts,
+not member applicability or a target's feature support policy.
+
+Six non-PE provider regressions cover direct/constructed types with and without
+member-level extensions, no common receiver, and generic receiver substitution.
+Their ordinary-member and attribute access throws, ensuring shared discovery does
+not interpret provider metadata. Existing extension suites cover source and CLI
+lookup behavior. Member-level PE decoding remains a separate follow-up.
+
+Validation: 140-test extension baseline and 146 final tests pass on .NET 11.
+Compiler builds pass for .NET 10/11 with zero warnings/errors. Whitespace
+formatting and diff checks pass (formatter workspace-load warnings).
+No syntax, generated model inputs, public semantic APIs or emitted encodings
+change; language service clients retain the same compiler queries. External
+runtime artifacts are unchanged. No native neoCLR, .NET Framework/NanoFramework
+execution or bootstrap qualification is claimed.
+
+Next: audit member-level extension facts and remaining shared PE signature queries.

@@ -181,3 +181,15 @@ Use that schema to identify shared semantic-model extensions and capability gate
 Only promote a deferred feature once its native metadata, symbol/semantic behavior
 and supported emission/execution path are defined and tested. Designing native
 metadata support does not itself enable Function types, Self or intersections.
+
+## Extension discovery provider boundary (2026-09-30)
+
+The CLI bridge still obtains extension receiver and member-presence facts from
+PE metadata's extension attributes and markers. Shared type queries now consume
+`IExtensionTypeInfo`; constructed symbols substitute receiver types. This changes
+ownership, not the bridge encoding or supported extension semantics. Type-level
+facts alone do not establish member applicability; member-level decoding still
+contains PE-specific paths. Native metadata can replace this discovery encoding
+with semantic extension facts, but still needs corresponding member binding and
+backend support. The extension regression suite validates the current CLI path;
+non-PE fixture coverage validates capability dispatch, not native execution.
