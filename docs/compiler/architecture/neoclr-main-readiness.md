@@ -6,6 +6,19 @@ work. This supersedes the earlier project direction to keep neoCLR integration
 separate at this stage. It does not certify the experiment or authorize an
 unreviewed merge into main.
 
+## One shared development line
+
+The goal is to develop Raven features, .NET support and neoCLR support together
+on main with one consistent compiler architecture. neoclr is the temporary
+integration branch. Target differences belong in contracts and implementations,
+not permanently divergent compiler branches.
+
+Reconcile main and address integration regressions before merging. A complete
+native neoCLR loader/backend, NeoCLR preset or target feature matrix is not a
+prerequisite for merging: unfinished target work can continue on the shared line
+with explicit limitations. Preserve ordinary .NET behavior and identify any
+remaining experimental behavior that could affect it during reconciliation.
+
 ## Integrated checkpoint
 
 The local neoclr branch was fast-forwarded from b54d2999c to 1991973f8, incorporating
@@ -39,7 +52,7 @@ This inventory identifies concrete compiler triggers, not a complete supported
 feature matrix. There are also project-system mappings and generated runtime
 helpers to review before declaring the contracts complete.
 
-## Implementation slices
+## Architecture slices (may continue after integration)
 
 1. Consolidate existing implicit neoCLR policy in a named compatibility component,
    preserving behavior and adding ordinary .NET negative cases. Keep general fixes
@@ -83,4 +96,4 @@ Expanded pattern coverage found two qualified nested-union exhaustiveness failur
 reverted. Slice 34 fixes the distinction between complete payload coverage and
 unsupported analysis, with guard regressions. Full evidence is recorded in the
 slice ledger. The full baseline remains incomplete; main integration awaits the
-validation gates and the planned contract migrations.
+applicable integration validation gates; the contract roadmap can continue on main.

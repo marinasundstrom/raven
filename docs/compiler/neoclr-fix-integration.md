@@ -6,8 +6,10 @@ The author now intends to prepare neoCLR for eventual integration into main and
 has integrated codex/target-boundaries into the local neoclr branch. Earlier
 instructions below describe historical extraction policy. The current staged
 plan is [neoCLR main readiness](architecture/neoclr-main-readiness.md): reconcile
-main, separate implicit target policy, provide a coherent NeoCLR preset and
-validate feature contracts before main integration. Main has not been merged or
+main and validate the merged candidate, then continue target-contract work on
+one shared development line. Policy separation, a coherent NeoCLR preset and
+feature-contract validation remain architecture goals; full completion of the
+new target is not a prerequisite for merging. Main has not been merged or
 modified by this checkpoint.
 
 ## Qualified nested-union coverage follow-up — 2026-09-30

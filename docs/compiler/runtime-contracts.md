@@ -79,8 +79,11 @@ retains forwarding reflection APIs, and loading and codegen still depend on .NET
 reflection. A future replaceable target must remove those
 shared-layer dependencies and select a coherent loader/contract/codegen trio.
 Independent component selection and cross-compilation are outside current scope.
-General extraction work requires independent main-based validation before
-integration; experimental neoCLR policies must remain on the experiment branch.
+The development goal is one shared compiler line on main for .NET and neoCLR.
+The current neoclr branch is temporary integration work; experimental policies
+need explicit ownership and validation, not permanent branch separation. Native
+neoCLR loader/backend completion is not a prerequisite for integration. See the
+[main integration plan](architecture/neoclr-main-readiness.md).
 
 ## Context-owned typeof (experimental, 2026-09-17)
 

@@ -116,15 +116,19 @@ functions, and .NET boundary shapes.
 **External components:**
 No external type-union analyzer project is part of this repository.
 
-## Cross-target fixes and the neoCLR experiment
+## Shared compiler and target development
 
 - General Raven fixes belong on main, including fixes useful when targeting .NET
   Framework or NanoFramework, even when discovered through neoCLR integration.
-- Develop and validate fixes independently on a main-based feature branch, then
-  integrate them. Keep neoCLR-specific integration and policies on the experimental
-  branch; do not merge that branch wholesale into main. NeoCLR-specific code,
-  mappings and tests are not candidates for main yet. General regression fixtures
-  must stand independently on CLI metadata contracts.
+- Develop the shared compiler and the .NET and neoCLR targets together. The
+  current neoclr branch is a temporary integration branch toward main, not a
+  permanent separate compiler line. Reconcile and validate it before merging.
+- Keep target-specific mappings, capabilities and policies behind explicit target
+  contracts, preserving ordinary .NET behavior by default. Keep general regression
+  fixtures independent of neoCLR when they test general Raven behavior.
+- Completing a native neoCLR loader/backend or the entire target feature matrix
+  is not a prerequisite for integration. Document experimental limitations and
+  continue the architecture work on the shared line after merging.
 - Report the targets actually tested. Modern .NET validation is not proof of
   execution on .NET Framework or NanoFramework.
 
