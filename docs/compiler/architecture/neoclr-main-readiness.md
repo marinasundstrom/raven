@@ -1,10 +1,28 @@
 # neoCLR integration and target contract readiness
 
-Status: reconciled candidate validated for local main integration, 2026-09-30. The author now intends to prepare the
+Status: merged into local main and integration checks passed, 2026-09-30. The author now intends to prepare the
 neoCLR branch for eventual integration into main, including the target-boundary
 work. This supersedes the earlier project direction to keep neoCLR integration
 separate at this stage. It does not certify the experiment or authorize an
 unreviewed merge into main.
+
+## Completed local integration
+
+Main includes the reconciled neoCLR history and tuple-hover fix at b40fe495d.
+The full baseline passed 6,015 tests with no failures/skips. Focused emission and
+language-server evidence is recorded below; this is not release qualification.
+No remote push was performed.
+
+The intersection and native Self branches were rebased onto that shared base and
+remain separate feature experiments. Intersection passed its generator/build script
+and 188 focused checks. Self passed compiler builds for .NET 10/11 and 83 focused
+checks on .NET 11. Both preserve their gates and existing limitations. Their
+per-feature docs record reconciliation details. Old tips remain recoverable under
+refs/codex/rebase-backups/2026-09-30/intersection and native-self.
+
+Further target-boundary work can now proceed on main. Feature work branches inherit
+the same shared compiler foundation; target mappings and unsupported-feature
+diagnostics can evolve without a permanent main/neoCLR branch split.
 
 ## One shared development line
 
