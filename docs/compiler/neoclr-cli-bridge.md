@@ -208,3 +208,18 @@ provider that supplies receivers in the requested member context and matching
 metadata/backend support. Extension semantic regressions validate the CLI path;
 non-PE fixtures verify preservation of provider receiver identity and constructed
 member context. They do not constitute native neoCLR execution evidence.
+
+### Shallow method identity ownership (2026-09-30)
+
+The CLI bridge still uses PE module version IDs and metadata tokens to distinguish
+method declarations during shallow lookup. That encoding now lives behind
+`IMethodLookupIdentity`; core lookup treats the provider key as opaque and adds
+generic method arguments. If reflection cannot supply identity, the PE provider
+retains the old containing-type/name/parameter-count fallback, which can conflate
+same-count overloads. No new native semantic restriction is introduced.
+
+A native metadata provider should supply its own stable declaration keys without
+loading signatures or requiring CLI tokens. This is candidate deduplication, not
+complete native identity/equality support. Non-PE fixtures verify lazy dispatch
+and generic argument distinction; CLI overload, lookup and entry-point tests
+validate existing behavior. Native neoCLR execution is not claimed.

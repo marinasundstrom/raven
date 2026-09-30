@@ -6,9 +6,11 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
+using Raven.CodeAnalysis.Metadata;
+
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
+internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupIdentity
 {
     private static readonly ConditionalWeakTable<MethodBase, ParameterInfo[]> s_parameterInfoCache = new();
     private static readonly ConcurrentDictionary<MetadataMethodKey, int> s_parameterCountCache = new();
@@ -399,6 +401,20 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol
         {
             key = default;
             return false;
+        }
+    }
+
+    string IMethodLookupIdentity.ShallowDeclarationLookupKey
+    {
+        get
+        {
+            if (TryGetMetadataIdentity(out var moduleVersionId, out var metadataToken))
+                return $"PE:{moduleVersionId:N}:{metadataToken}";
+
+            // Preserve the existing shallow fallback when reflection cannot supply
+            // a metadata identity. Resolving parameter types here would defeat lazy lookup.
+            var containingType = ContainingType?.GetLookupIdentityKey() ?? string.Empty;
+            return $"PE:M:{containingType}|{MetadataName}|{ParameterCount}";
         }
     }
 
