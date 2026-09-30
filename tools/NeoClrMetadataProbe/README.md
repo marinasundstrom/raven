@@ -113,3 +113,26 @@ and wrong-revision direct/transitive dependencies must fail native verification.
 The validation report retains both dependency/projection hashes. This now proves direct PE/#Neo runtime loading. The execution section still uses
 format-5 JSON, so text parsing cost is not removed. A native compiler semantic
 provider, binary native encoding and production target registration remain open.
+
+## First acceptance cases: Hello World and a function call
+
+Append `--hello-only` to the runner arguments to focus on these two cases. Both
+compile through `EmitMetadataAssembly`, load in neoCLR, print exactly `Hello World`
+and exit zero. The second source is:
+
+```raven
+func Greet() -> int {
+    System.Console.WriteLine("Hello World")
+    return 0
+}
+func Main() -> int {
+    return Greet()
+}
+```
+
+The first puts WriteLine and return directly in Main. The host explicitly supplies
+the registered .NET Console reference in `NeoClrEmitOptions`; without that binding,
+console calls are unsupported. Only the string-literal WriteLine overload is mapped
+to the bundled native System library. Wrong/unregistered reference bindings, other
+overloads and Write are rejected with unchanged output. The full probe runs these
+cases as well as the existing arithmetic/dependency checks and records PE hashes.

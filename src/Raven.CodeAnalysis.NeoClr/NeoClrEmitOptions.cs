@@ -33,13 +33,14 @@ public sealed class NeoClrMetadataDependency
 public sealed class NeoClrEmitOptions
 {
     /// <summary>Copies the supplied bindings into an immutable configuration.</summary>
-    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies)
+    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(coreLibrary);
         ArgumentNullException.ThrowIfNull(dependencies);
         Identity = identity;
         CoreLibrary = coreLibrary;
+        ConsoleReference = consoleReference;
         Dependencies = dependencies.ToImmutableArray();
         if (Dependencies.Any(d => d is null)) throw new ArgumentException("Null dependency", nameof(dependencies));
     }
@@ -47,6 +48,9 @@ public sealed class NeoClrEmitOptions
     public AssemblyIdentity Identity { get; }
     /// <summary>Gets the explicit core-library identity for Int32 contracts.</summary>
     public AssemblyIdentity CoreLibrary { get; }
+    /// <summary>Gets the explicit compiler reference authorizing System.Console.WriteLine(string literal) mapping; null disables it.</summary>
+    /// <remarks>The exact instance must be registered in the compilation. No other console overload or operation is mapped.</remarks>
+    public MetadataReference? ConsoleReference { get; }
     /// <summary>Gets immutable host bindings. Duplicate identities/symbols are rejected during emission.</summary>
     public ImmutableArray<NeoClrMetadataDependency> Dependencies { get; }
 }

@@ -79,12 +79,29 @@ internal static class Int32Emitter
             foreach (var statement in body.Operations)
             {
                 diagnosticSyntax = statement.Syntax;
+                if (statement is IExpressionStatementOperation { Operation: IInvocationOperation consoleCall } && EmitConsole(consoleCall, current.Method))
+                    continue;
                 if (statement is not IReturnOperation { ReturnedValue: { } value }) throw Unsupported("only value-return statements");
                 EmitValue(value, current.Symbol, current.Method);
                 current.Method.Return();
             }
         }
         return assembly.WriteNativeAssembly();
+
+        bool EmitConsole(IInvocationOperation call, MetadataMethod output)
+        {
+            if (options.ConsoleReference is null) return false;
+            var method = call.TargetMethod;
+            if (call.Instance is not null || !method.IsStatic || method.IsGenericMethod || method.Name != "WriteLine" ||
+                method.ContainingType?.ToFullyQualifiedMetadataName() != "System.Console" ||
+                !SymbolEqualityComparer.Default.Equals(method.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(options.ConsoleReference)) ||
+                method.Parameters.Length != 1 || method.Parameters[0].Type.GetNonNullableType().SpecialType != SpecialType.System_String ||
+                method.Parameters[0].RefKind != RefKind.None || method.ReturnType.SpecialType is not (SpecialType.System_Void or SpecialType.System_Unit) ||
+                call.Arguments.Length != 1 || call.Arguments[0] is not IArgumentOperation { IsNamed: false, Value: ILiteralOperation { Value: string text } })
+                return false;
+            output.WriteConsoleLine(text);
+            return true;
+        }
 
         void EmitValue(IOperation operation, IMethodSymbol source, MetadataMethod output)
         {

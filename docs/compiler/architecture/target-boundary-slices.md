@@ -2042,3 +2042,18 @@ pending. There is no guest Introspection assembly loader API yet. Work stays on
 `codex/metadata-consumer` with neoCLR's `codex/extended-cli-metadata`; ordinary .NET
 behavior and shared main are unaffected. See the [adapter API](../api/neoclr-emission.md#peneo-output)
 and the probe's tracked validation report for the tested artifacts.
+
+### Hello World acceptance — 2026-09-30
+
+The author selects Hello World, then an entry-point call to another function, as
+the first acceptance targets. Both now pass through PE/#Neo runtime loading: the
+first prints in Main, the second calls Greet; both print exactly one line and exit 0.
+The host explicitly supplies `NeoClrEmitOptions.ConsoleReference`, an exact registered
+reference authorizing only System.Console.WriteLine with a non-null string literal.
+This adds no global Runtime Contract/default .NET mapping. The metadata API emits
+native ldstr/call/pop; pop discards the bundled System library's current Void value.
+Native string signatures, arbitrary Console overloads and no-result source entry
+points remain outside this slice. The production replacement belongs in the native
+platform-call/type contracts; Raven owns semantic matching, the independent API owns
+encoding, and neoCLR owns System output. C# checks reject missing/wrong/unregistered
+bindings and unsupported overloads without touching output.

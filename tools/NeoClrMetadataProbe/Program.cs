@@ -16,13 +16,19 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
-if (args.Length != 2) throw new ArgumentException("Usage: NeoClrMetadataProbe <neoclr executable> <fresh output directory>");
+if (args.Length is < 2 or > 3 || (args.Length == 3 && args[2] != "--hello-only"))
+    throw new ArgumentException("Usage: NeoClrMetadataProbe <neoclr executable> <fresh output directory> [--hello-only]");
 var runtime = Path.GetFullPath(args[0]);
 var output = Path.GetFullPath(args[1]);
 if (Directory.Exists(output)) throw new IOException("output directory must be fresh");
 Directory.CreateDirectory(output);
 var hostCore = typeof(object).Assembly.GetName();
 var core = new AssemblyIdentity(hostCore.Name!, hostCore.Version!, hostCore.CultureName ?? "", Convert.ToHexString(hostCore.GetPublicKeyToken() ?? []));
+if (args.Length == 3)
+{
+    await HelloWorldChecks.Run(core, output, Command);
+    return;
+}
 const string arithmeticSource = """
 public static class Arithmetic {
     static func Multiply(value: int, factor: int) -> int {
@@ -137,10 +143,13 @@ if (!wrongTransitive.Contains("module revision mismatch")) throw new Exception("
 await Command(0, "verify", application, "--module", arithmeticReferencePath, "--module", libraryPath);
 var reverseOrder = await Command(42, "run", application, "--module", arithmeticReferencePath, "--module", libraryPath, "--show-result");
 if (!reverseOrder.Contains("=> Int32(42)")) throw new Exception("reversed module order returned wrong result");
+var helloPaths = await HelloWorldChecks.Run(core, output, Command);
 File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
 {
     date = "2026-09-30",
     result = 42,
+    helloWorldDirectAndFunctionCall = true,
+    helloWorldPeSha256 = helloPaths.Select(Hash).ToArray(),
     source = "Raven public semantic operations",
     metadataLibraryIndependent = true,
     importedReadOnlyDependency = true,

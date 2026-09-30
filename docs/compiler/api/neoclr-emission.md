@@ -26,10 +26,11 @@ public sealed class NeoClrEmitResult
 public sealed class NeoClrEmitOptions
 {
     public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary,
-        IEnumerable<NeoClrMetadataDependency> dependencies);
+        IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null);
     public AssemblyIdentity Identity { get; }
     public AssemblyIdentity CoreLibrary { get; }
     public ImmutableArray<NeoClrMetadataDependency> Dependencies { get; }
+    public MetadataReference? ConsoleReference { get; }
 }
 public sealed class NeoClrMetadataDependency
 {
@@ -185,3 +186,26 @@ The two-library probe checks actual PE loading and execution to 42, both module 
 missing/wrong dependencies, native/PE payload equivalence, failure output preservation
 and caller stream ownership/I/O behavior. This opt-in API does not register a native
 compiler symbol provider or change Runtime Contract/default .NET composition.
+
+## Initial console contract
+
+`NeoClrEmitOptions.ConsoleReference` optionally authorizes a bounded mapping from the
+exact registered compiler assembly reference to native System.Console. Null disables
+console emission. An unregistered reference produces NEOMETA002. Matching uses the
+assembly symbol, fully qualified type name and resolved method signature, not source
+spelling. Only static `System.Console.WriteLine(string)` expression statements with
+one unnamed, non-null string literal are supported. Imported nullable string
+annotations are unwrapped through the public nullability API; the argument still must
+be a non-null literal. Other overloads, Write, unregistered/different assembly symbols
+and unsupported argument shapes produce NEOMETA001 before any output write.
+
+The native metadata builder's `WriteConsoleLine` emits `ldstr`, the bundled System
+WriteLine call and `pop` for its current Void-valued result. This is a temporary
+platform contract, not general CLR Console import or string signature support. The
+CLI reference projection needs no string signature because the literal exists only
+in the native body. Ordinary .NET target behavior remains unchanged.
+
+`tools/NeoClrMetadataProbe --hello-only` checks an Int32-returning Main printing
+Hello World directly, then Main returning `Greet()` where Greet prints the line. Both
+verify/load/run as PE/#Neo, print exactly one line and exit zero. Entry points and
+source helper signatures remain Int32 in this bounded slice.

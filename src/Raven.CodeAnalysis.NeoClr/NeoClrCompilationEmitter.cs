@@ -32,6 +32,9 @@ public static class NeoClrCompilationEmitter
             return Fail(Configuration, "requires source trees; macro trees are unsupported");
         if (options.Identity.Name != compilation.AssemblyName || options.Identity.PublicKeyToken.Length != 0 || options.Identity.Flags != 0)
             return Fail(Configuration, "requires matching unsigned output identity");
+        if (options.ConsoleReference is { } console &&
+            (!compilation.References.Any(r => ReferenceEquals(r, console)) || compilation.GetAssemblyOrModuleSymbol(console) is not IAssemblySymbol))
+            return Fail(Configuration, "console contract reference is not registered or has no assembly symbol");
         if (options.Dependencies.Length > 256) return Fail(Configuration, "too many dependencies");
         var bindings = new List<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)>();
         foreach (var dependency in options.Dependencies)
