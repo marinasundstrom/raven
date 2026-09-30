@@ -5,14 +5,14 @@ using System.Linq;
 using System.Reflection;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Targets;
 
 namespace Raven.CodeAnalysis.Metadata;
 
 // Per-compilation symbol ownership; only the underlying metadata session may
 // be reused by another snapshot. Reflection and PE symbol construction stay here.
-internal sealed partial class DotNetSemanticDataLoader(Compilation compilation, DotNetMetadataSession session, ReflectionTypeLoader typeLoader) : ISemanticDataLoader
+internal sealed partial class DotNetSemanticDataLoader(DotNetMetadataSession session, ReflectionTypeLoader typeLoader, DotNetHostRuntime hostRuntime) : ISemanticDataLoader
 {
-    private readonly Compilation _compilation = compilation;
     private readonly DotNetMetadataSession _session = session;
     private readonly ConcurrentDictionary<Assembly, IAssemblySymbol> _assemblySymbols = new();
     private readonly ConcurrentDictionary<string, Assembly> _lazyMetadataAssemblies = new();
@@ -34,7 +34,7 @@ internal sealed partial class DotNetSemanticDataLoader(Compilation compilation, 
             return null;
         }
 
-        _compilation.RegisterRuntimeAssembly(assembly, portable.FilePath);
+        hostRuntime.RegisterRuntimeAssembly(assembly, portable.FilePath);
         return GetAssembly(assembly, portable.FilePath);
     }
 
@@ -47,10 +47,10 @@ internal sealed partial class DotNetSemanticDataLoader(Compilation compilation, 
         System.Reflection.AssemblyName? identity = null;
         try
         {
-            identity = Compilation.ReadAssemblyName(fullPath);
+            identity = DotNetMetadataContextFactory.ReadAssemblyName(fullPath);
             if (identity.Name is not null)
             {
-                _compilation.RegisterMetadataAssemblyPath(identity.Name, fullPath);
+                hostRuntime.RegisterMetadataAssemblyPath(identity.Name, fullPath);
             }
         }
         catch
@@ -67,7 +67,7 @@ internal sealed partial class DotNetSemanticDataLoader(Compilation compilation, 
 
     private IAssemblySymbol GetAssembly(Assembly assembly, string? assemblyPathOverride = null)
     {
-        _compilation.RegisterRuntimeAssembly(assembly);
+        hostRuntime.RegisterRuntimeAssembly(assembly);
 
         if (_assemblySymbols.TryGetValue(assembly, out var asss))
         {
@@ -80,7 +80,7 @@ internal sealed partial class DotNetSemanticDataLoader(Compilation compilation, 
         string? assemblyPath = assemblyPathOverride;
         var identity = assembly.GetName();
         if (assemblyPath is null && identity.Name is not null)
-            assemblyPath = _compilation.GetRegisteredMetadataAssemblyPath(identity.Name);
+            assemblyPath = hostRuntime.GetRegisteredMetadataAssemblyPath(identity.Name);
         PEAssemblySymbol assemblySymbol = new PEAssemblySymbol(assembly, [], assemblyPath);
         _assemblySymbols[assembly] = assemblySymbol;
 
@@ -100,7 +100,7 @@ internal sealed partial class DotNetSemanticDataLoader(Compilation compilation, 
                         if (loadedAssembly is null)
                             return null;
 
-                        _compilation.RegisterRuntimeAssembly(loadedAssembly);
+                        hostRuntime.RegisterRuntimeAssembly(loadedAssembly);
                         return GetAssembly(loadedAssembly);
                     }
                     catch

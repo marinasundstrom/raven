@@ -14,15 +14,16 @@ internal sealed partial class DotNetSemanticDataLoader
     // Compilation decides whether an older session is reusable. The .NET loader
     // owns which reference universe and core to open when a fresh one is needed.
     internal static DotNetMetadataSession OpenSession(
-        Compilation compilation,
+        IEnumerable<MetadataReference> metadataReferences,
+        MetadataImportOptions? importOptions,
+        DotNetHostRuntime hostRuntime,
         DotNetMetadataSession? reusableSession)
     {
-        List<string> paths = compilation.References
+        List<string> paths = metadataReferences
             .OfType<PortableExecutableReference>()
             .Select(portableExecutableReference => portableExecutableReference.FilePath)
             .ToList();
 
-        var importOptions = compilation.Options.MetadataImportOptions;
         // Establish the target type universe before adding optional host fallbacks.
         var coreAssemblyName = importOptions?.CoreAssemblyName ??
             FindReferenceCoreAssemblyIdentity(paths);
@@ -37,7 +38,7 @@ internal sealed partial class DotNetSemanticDataLoader
                 paths.Add(runtimeCorePath);
 
             // Default .NET targeting retains host-assisted transitive dependency lookup.
-            foreach (var knownPath in compilation.GetHostMetadataAssemblyPaths())
+            foreach (var knownPath in hostRuntime.GetHostMetadataAssemblyPaths())
             {
                 if (!string.IsNullOrEmpty(knownPath) && File.Exists(knownPath) && !paths.Contains(knownPath, StringComparer.OrdinalIgnoreCase))
                     paths.Add(knownPath);
@@ -52,7 +53,7 @@ internal sealed partial class DotNetSemanticDataLoader
         {
             // Host registration is distinct from resolver first-match policy.
             if (!string.IsNullOrWhiteSpace(reference.SimpleName))
-                Compilation.RegisterSharedMetadataAssemblyPath(reference.SimpleName, reference.Path);
+                DotNetHostRuntime.RegisterSharedMetadataAssemblyPath(reference.SimpleName, reference.Path);
         }
 
         try

@@ -1272,3 +1272,13 @@ metadata sessions never own projection caches. This keeps symbol identity local
 to each snapshot without adding reflection methods to ISemanticDataLoader.
 Reflection APIs and core handles still exist on Compilation; full target replacement
 requires further separation.
+
+## Loader dependency composition
+
+The .NET target passes references and metadata import options explicitly to session
+setup, then constructs its loader with the session, reflection projector and host
+service. Host registration and discovery stay inside the .NET implementation;
+Compilation no longer serves as a host-service registry for the loader. The shared
+semantic loader interface remains reflection-free. Its .NET implementation still
+uses CLI assembly symbols and a compilation-bound projector, so this is preparation
+for target replacement, not a new selectable target or cross-compilation mode.

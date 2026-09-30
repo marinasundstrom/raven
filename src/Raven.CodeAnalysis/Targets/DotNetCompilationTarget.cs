@@ -48,13 +48,14 @@ internal sealed class DotNetCompilationTarget
 
     internal ISemanticDataLoader InitializeSemanticData(bool reuseMetadataSession)
     {
-        _metadataSession = DotNetSemanticDataLoader.OpenSession(_compilation,
+        _metadataSession = DotNetSemanticDataLoader.OpenSession(
+            _compilation.References, _compilation.Options.MetadataImportOptions, HostRuntime,
             reuseMetadataSession ? _previousMetadataSessionForReuse : null);
         _previousMetadataSessionForReuse = null;
         CoreAssembly = _metadataSession.CoreAssembly;
         EmitCoreAssembly = HostRuntime.ResolveEmitCoreAssembly() ?? RuntimeCoreAssembly;
         HostRuntime.RegisterRuntimeAssembly(CoreAssembly, RuntimeCoreAssembly.Location);
-        return new DotNetSemanticDataLoader(_compilation, _metadataSession, ReflectionTypeLoader);
+        return new DotNetSemanticDataLoader(_metadataSession, ReflectionTypeLoader, HostRuntime);
     }
 
     internal string? GetResolvedConfigurationError()

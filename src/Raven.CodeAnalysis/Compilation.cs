@@ -1009,12 +1009,6 @@ public partial class Compilation
         return references.ToImmutable();
     }
 
-    internal IEnumerable<string> GetHostMetadataAssemblyPaths()
-        => _target.HostRuntime.GetHostMetadataAssemblyPaths();
-
-    internal static void RegisterSharedMetadataAssemblyPath(string name, string path)
-        => DotNetHostRuntime.RegisterSharedMetadataAssemblyPath(name, path);
-
     private bool HaveEquivalentPortableReferences(
         IReadOnlyDictionary<string, PortableReferenceFingerprint> currentFingerprints)
     {
@@ -1205,9 +1199,6 @@ public partial class Compilation
         return _descriptorState.BinderParentAnchorDescriptorsByOwner.TryGetValue(syntaxTree, out var descriptors) &&
                descriptors.TryGetValue(key, out descriptor);
     }
-
-    internal static System.Reflection.AssemblyName ReadAssemblyName(string path)
-        => DotNetMetadataContextFactory.ReadAssemblyName(path);
 
     internal static System.Reflection.AssemblyName ReadAssemblyNameFromMetadata(string path)
         => DotNetMetadataContextFactory.ReadAssemblyNameFromMetadata(path);
@@ -2553,15 +2544,6 @@ public partial class Compilation
         }
         return symbol;
     }
-
-    internal void RegisterMetadataAssemblyPath(string name, string path)
-        => _target.HostRuntime.RegisterMetadataAssemblyPath(name, path);
-
-    internal string? GetRegisteredMetadataAssemblyPath(string name)
-        => _target.HostRuntime.GetRegisteredMetadataAssemblyPath(name);
-
-    internal Assembly? RegisterRuntimeAssembly(Assembly metadataAssembly, string? explicitPath = null)
-        => _target.HostRuntime.RegisterRuntimeAssembly(metadataAssembly, explicitPath);
 
     internal Type? ResolveRuntimeType(PENamedTypeSymbol symbol)
     {

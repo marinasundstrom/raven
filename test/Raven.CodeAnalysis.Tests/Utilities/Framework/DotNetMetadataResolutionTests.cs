@@ -1,6 +1,7 @@
 using System.Reflection;
 
 using Raven.CodeAnalysis.Metadata;
+using Raven.CodeAnalysis.Targets;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -143,6 +144,32 @@ public sealed class DotNetMetadataResolutionTests : IDisposable
             DotNetMetadataReferenceSet.Create([typeof(object).Assembly.Location]), typeof(object).Assembly.GetName().Name);
 
         Assert.Throws<BadImageFormatException>(() => session.LoadFromPath(corrupt, null));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SessionUsesRegisteredHostPathsOnlyForHostAssistedImport(bool explicitReferences)
+    {
+        var hostOnly = CreateAssembly("host-only.dll", "1.0.0.0", "HostOnly");
+        var host = new DotNetHostRuntime();
+        host.RegisterMetadataAssemblyPath(AssemblySimpleName, hostOnly);
+
+        var session = DotNetSemanticDataLoader.OpenSession(
+            [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)],
+            explicitReferences ? new MetadataImportOptions() : null,
+            host,
+            reusableSession: null);
+
+        if (explicitReferences)
+        {
+            Assert.Throws<FileNotFoundException>(() => session.LoadFromAssemblyName(new AssemblyName(AssemblySimpleName)));
+        }
+        else
+        {
+            var assembly = session.LoadFromAssemblyName(new AssemblyName(AssemblySimpleName));
+            Assert.NotNull(assembly.GetType("Contracts.HostOnly"));
+        }
     }
 
     private static MetadataLoadContext CreateContext(string[] paths)

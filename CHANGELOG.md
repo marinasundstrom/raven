@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Inject .NET host services directly into metadata import and
+  supply session setup with explicit references and import options. Remove unused
+  host-registration forwarding APIs from shared Compilation; preserve reference
+  isolation and add coverage for host paths under both import modes.
+
 - **2026-09-30:** Move metadata-session and core-assembly state into the .NET
   target. Compilation retains snapshot compatibility checks and forwards existing
   core APIs. Bind target validation and emission to their owning compilation;

@@ -66,8 +66,10 @@ initialization and lookup order. This extraction does not introduce deterministi
 unloading or change default AssemblyLoadContext behavior.
 
 The service performs runtime assembly registration/loading, host type lookup and
-host emit-core discovery. Compilation's internal forwarding methods retain setup
-and argument checks. The service does not retain Compilation or semantic symbols;
+host emit-core discovery. The target injects this service directly into its loader;
+metadata import no longer calls back through Compilation for path or runtime
+assembly registration. Compilation's remaining runtime-type lookup adapters retain
+setup and argument checks. The service does not retain Compilation or semantic symbols;
 symbols supplied for host lookup are only used during that call. Compatible
 metadata sessions may still be shared independently, while each new compilation
 gets its own host service and symbol caches.
@@ -158,15 +160,19 @@ construction, and portable assembly identity reads.
 `DotNetMetadataSession` owns the resulting context and path/identity loading,
 including the existing path-to-identity fallback. `DotNetSemanticDataLoader`
 selects the reference paths and metadata core and creates fresh sessions;
-`DotNetCompilationTarget` owns the session and any reuse candidate. `Compilation`
+`DotNetCompilationTarget` supplies explicit reference and import-option inputs to
+session setup and owns the resulting session and any reuse candidate. `Compilation`
 gates incremental session reuse using import options and portable-reference
 fingerprints. The target adopts only the previous session, never the previous
 compilation, target, projector or host service. Reference import passes
 through `ISemanticDataLoader`; `DotNetSemanticDataLoader` owns loaded-assembly and
 assembly-symbol caches, dependency traversal, and construction of PE assembly/module
-symbols for each compilation. Compilation-to-compilation references remain in
+symbols for each compilation. Its dependencies are the metadata session,
+reflection projector and host service. The projector still binds it indirectly to
+the owning compilation; this does not make the loader reusable across snapshots.
+Compilation-to-compilation references remain in
 the shared compilation layer. The .NET loader explicitly registers selected paths
-through compilation host services before creating a new session. Metadata
+through the .NET host service before creating a new session. Metadata
 construction no longer accepts a host-registration callback. The resolver keeps
 the first sorted simple-name candidate; host registration still visits all
 selected entries in order and retains the last path for that name. These remain

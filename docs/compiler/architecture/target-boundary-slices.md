@@ -742,3 +742,36 @@ warnings/errors. Tests ran on .NET 11 using freshly built compiler outputs with
 Whitespace formatting completed with test workspace-load warnings;
 `git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
 full bootstrap qualification is claimed.
+
+## Slice 21: explicit .NET loader dependencies
+
+DotNetCompilationTarget supplies reference inputs, metadata import options and its
+host service to session setup. It constructs the loader with that session, the
+compilation-bound reflection projector and the same host service. The loader now
+uses the service directly for runtime registration and metadata paths, and reads
+CLI identities through DotNetMetadataContextFactory. Six unused forwarding methods
+are removed from Compilation.
+
+This removes the loader's direct Compilation dependency, not its snapshot identity:
+the projector still belongs to one compilation and imported symbols must remain
+local to that snapshot. Reference ordering, registration ordering, fallback rules
+and session reuse remain unchanged. New coverage registers a host-only CLI fixture
+and verifies that host-assisted setup can resolve it while explicit-reference
+setup cannot, even though the supplied host service knows its path.
+
+Next: narrow reflection-facing semantic helpers and the imported-symbol/codegen
+boundary. This remains concrete .NET composition; no generic host-service interface,
+second target, or cross-compilation support is introduced. Main integration still
+requires independent main-based validation; neoCLR-specific policy stays separate.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 136 tests across
+MetadataImportOptionsTests, IncrementalCompilationReuseTests, DotNetHostRuntimeTests,
+DotNetMetadataResolutionTests, MetadataReferenceResolutionTests,
+DotNetCompilationPresetTests and TargetInitializationDiagnosticTests. Final
+validation passed 138 tests with the two new import-mode cases, no failures/skips.
+Compiler builds passed for net10.0 and net11.0 with no warnings/errors. Tests ran
+on .NET 11 with freshly built compiler outputs using
+`--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`.
+Whitespace formatting completed with test workspace-load warnings;
+`git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
+full bootstrap qualification is claimed.
