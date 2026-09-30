@@ -24,7 +24,7 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
 3. Int32 initialized locals and standalone assignments are now shared with metadata
    writer support. Initial signed comparisons, bound if statements and lowered loop
    labels/branches now execute through both backends. Broader signatures/conversions,
-   then instances/fields remain planned; other comparisons and exceptions are not implied. Pair each capability
+   then instances/fields remain planned; negated comparisons and loop exits are validated, while exceptions remain unsupported. Pair each capability
    with metadata writer/reader and runtime validation support as required.
 4. Centralize explicit representation and capability policies: Unit, entry points,
    function ownership, runtime helpers and strings. Reject unsupported native output

@@ -18,6 +18,7 @@ internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.Not: method.Emit(OpCode.Ldc_Bool, false); method.Emit(OpCode.Ceq); break;
             case LinearInstructionKind.Boolean: method.Emit(OpCode.Ldc_Bool, instruction.Integer != 0); break;
             case LinearInstructionKind.Equal: method.Emit(OpCode.Ceq); break;
             case LinearInstructionKind.Less: method.Emit(OpCode.Clt); break;

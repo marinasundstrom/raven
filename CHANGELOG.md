@@ -9,6 +9,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   from the independent metadata API; .NET resolves the selected target's Int32 type.
   Extend the shared path to signed equality/less/greater comparisons, Boolean conditions,
   if/else and lowered loop branches; keep label identity independent of backend offsets.
+  Add Boolean negation and !=/<=/>= comparisons, with executable break/continue coverage.
 
 - **2026-10-01:** Share compiler-lowered bodies between the bounded .NET and neoCLR
   emitters instead of walking source operations. Reuse implicit Int32 return lowering

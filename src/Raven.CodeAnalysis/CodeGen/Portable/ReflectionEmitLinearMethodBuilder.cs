@@ -55,6 +55,7 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.Not: output.Emit(OpCodes.Ldc_I4_0); output.Emit(OpCodes.Ceq); break;
             case LinearInstructionKind.Boolean: output.Emit(OpCodes.Ldc_I4, instruction.Integer); break;
             case LinearInstructionKind.Equal: output.Emit(OpCodes.Ceq); break;
             case LinearInstructionKind.Less: output.Emit(OpCodes.Clt); break;

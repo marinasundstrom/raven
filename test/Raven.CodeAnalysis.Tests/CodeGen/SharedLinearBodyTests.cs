@@ -212,6 +212,43 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).EntryPoint!.Invoke(null, null));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void NegatedComparisonsAndLoopExitsExecute(OptimizationLevel optimization)
+    {
+        const string source = """
+            func Main() -> int {
+                var index = 0
+                var result = 0
+                while true {
+                    index = index + 1
+                    if index == 3 {
+                        continue
+                    }
+                    if index >= 7 {
+                        break
+                    }
+                    if !(index != 6) {
+                        result = result + 6
+                    } else {
+                        if index <= 5 {
+                            result = result + index
+                        }
+                    }
+                }
+                return result * 2 + 6
+            }
+            """;
+        var compilation = Compilation.Create("LoopExits" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
+        var tree = compilation.SyntaxTrees[0]; var model = compilation.GetSemanticModel(tree);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, model, syntax.Body!,
+            _ => false, out _, out var failure), failure?.Detail);
+        Assert.Equal(42, Emit(compilation).EntryPoint!.Invoke(null, null));
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));

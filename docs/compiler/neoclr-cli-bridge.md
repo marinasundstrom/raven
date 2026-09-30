@@ -1097,3 +1097,21 @@ Runtime Contract selection, native symbol-loading deferral and explicit dependen
 policy remain unchanged.
 
 Validation: 27 compiler tests, 34 metadata API groups and API snapshot validation passed; [native runtime/driver evidence](../../tools/NeoClrMetadataProbe/validation.json).
+
+## Negated comparisons and loop exits — 2026-10-01
+
+The shared body plan adds `!`, `!=`, `<=` and `>=` for the admitted Boolean/Int32
+conditions. Negation emits Boolean false plus equality on native bodies; .NET uses its
+CLI Boolean stack representation. The metadata writer now accepts Ceq for matching
+Boolean operands as well as Int32, while rejecting mixed operand types. This matches
+the existing runtime's typed equality rather than conflating native Boolean with Int32.
+The signature/local subset remains Int32 with Unit/no-result methods.
+
+A consumer combines a constant-true loop, comparisons, negation, continue and break;
+loop exits reuse the labels/gotos produced by the existing Lowerer. No source-level
+loop rewrite or runtime change is added. Both runtimes execute the same source and
+return 42. Short-circuit expressions, general Boolean signatures/locals and exception
+regions remain separate capability work. Runtime Contract and reference loading remain
+unchanged, and unsupported .NET bodies retain general emission.
+
+Validation: 29 compiler tests, 34 metadata API groups and the API snapshot check passed; [native runtime/driver evidence](../../tools/NeoClrMetadataProbe/validation.json).

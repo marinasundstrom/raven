@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleLiteral, Return, LoadLocal, StoreLocal, Boolean, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleLiteral, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null);
@@ -195,6 +195,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     var index = source.Parameters.IndexOf(parameter.Parameter, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
                     if (index < 0) return Reject("captured parameter", Syntax(expression));
                     Add(LinearInstructionKind.Argument, Syntax(expression), index); return true;
+                case BoundUnaryExpression { Operator.OperatorKind: BoundUnaryOperatorKind.LogicalNot } unary:
+                    if (!LowerValue(unary.Operand)) return false;
+                    Add(LinearInstructionKind.Not, Syntax(expression)); return true;
                 case BoundParenthesizedExpression parenthesized:
                     return LowerValue(parenthesized.Expression);
                 case BoundConversionExpression { IsIdentity: true } conversion:
@@ -203,7 +206,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     binary.Operator.LeftType.SpecialType == SpecialType.System_Int32 &&
                     binary.Operator.RightType.SpecialType == SpecialType.System_Int32:
                     if (binary.Operator.OperatorKind is not (OperatorKind.Addition or OperatorKind.Subtraction or OperatorKind.Multiplication or
-                        OperatorKind.Equality or OperatorKind.LessThan or OperatorKind.GreaterThan))
+                        OperatorKind.Equality or OperatorKind.LessThan or OperatorKind.GreaterThan or
+                        OperatorKind.Inequality or OperatorKind.LessThanOrEqual or OperatorKind.GreaterThanOrEqual))
                         return Reject("binary operator " + binary.Operator.OperatorKind, Syntax(expression));
                     if (!LowerValue(binary.Left) || !LowerValue(binary.Right)) return false;
                     Add(binary.Operator.OperatorKind switch
@@ -211,10 +215,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         OperatorKind.Addition => LinearInstructionKind.Add,
                         OperatorKind.Subtraction => LinearInstructionKind.Subtract,
                         OperatorKind.Multiplication => LinearInstructionKind.Multiply,
-                        OperatorKind.Equality => LinearInstructionKind.Equal,
-                        OperatorKind.LessThan => LinearInstructionKind.Less,
+                        OperatorKind.Equality or OperatorKind.Inequality => LinearInstructionKind.Equal,
+                        OperatorKind.LessThan or OperatorKind.GreaterThanOrEqual => LinearInstructionKind.Less,
                         _ => LinearInstructionKind.Greater
                     }, Syntax(expression));
+                    if (binary.Operator.OperatorKind is OperatorKind.Inequality or OperatorKind.LessThanOrEqual or OperatorKind.GreaterThanOrEqual)
+                        Add(LinearInstructionKind.Not, Syntax(expression));
                     return true;
                 case BoundInvocationExpression call when call.Method.IsStatic && call.Receiver is null or BoundTypeExpression && call.ExtensionReceiver is null:
                     if (!HasSupportedSignature(call.Method)) return Reject("only nongeneric Int32 parameters and Int32/Unit results: " + call.Method.Name, Syntax(expression));
