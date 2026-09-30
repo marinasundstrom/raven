@@ -1814,6 +1814,9 @@ internal abstract partial class Binder
         if (type.TypeKind == TypeKind.Error)
             return type;
 
+        if (!ValidateStorageTypeArgumentConstraints(type, location))
+            return Compilation.ErrorTypeSymbol;
+
         if (TryFindRefLikeArrayElement(type, out var elementType))
         {
             var elementDisplay = elementType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
@@ -1827,6 +1830,33 @@ internal abstract partial class Binder
         var display = staticType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
         _diagnostics.ReportStaticTypeCannotBeUsedAsStorageType(display, location);
         return Compilation.ErrorTypeSymbol;
+    }
+
+    private bool ValidateStorageTypeArgumentConstraints(ITypeSymbol type, Location location)
+    {
+        switch (type)
+        {
+            case IArrayTypeSymbol array:
+                return ValidateStorageTypeArgumentConstraints(array.ElementType, location);
+            case NullableTypeSymbol nullable:
+                return ValidateStorageTypeArgumentConstraints(nullable.UnderlyingType, location);
+            case RefTypeSymbol reference:
+                return ValidateStorageTypeArgumentConstraints(reference.ElementType, location);
+            case INamedTypeSymbol named when !named.IsUnboundGenericType:
+                var valid = true;
+                if (named.ContainingType is { } containingType)
+                    valid &= ValidateStorageTypeArgumentConstraints(containingType, location);
+
+                foreach (var argument in named.TypeArguments)
+                    valid &= ValidateStorageTypeArgumentConstraints(argument, location);
+
+                if (!named.TypeArguments.IsDefaultOrEmpty)
+                    valid &= ValidateTypeArgumentConstraints(named, named.TypeArguments, _ => location);
+
+                return valid;
+            default:
+                return true;
+        }
     }
 
     internal ITypeSymbol EnsureTypeValidForField(ITypeSymbol type, Location location)

@@ -43,6 +43,17 @@ The neoCLR integration adds an actual source typeof(Date)
 execution test and handle-equivalence checks. These results do not claim .NET
 Framework or NanoFramework execution or full cross-context Emit composition.
 
+## Storage constraint validation (2026-09-30)
+
+Storage binding validates ordinary generic argument constraints recursively
+through constructed arguments, containing types, arrays, nullable types, and
+by-reference types. Failures use the existing constraint diagnostic and an
+error type; no new metadata encoding or Runtime Contract option is introduced.
+This fix was extracted from the parked intersection experiment without its
+syntax, semantic symbols, or target-specific policy. Focused tests use ordinary
+CLI contracts on modern .NET; they do not establish execution compatibility
+with .NET Framework, NanoFramework, or neoCLR.
+
 A Runtime Contract describes a compiler-facing requirement supplied by a target's
 CLI metadata. A target profile selects contracts and reference assemblies; it does
 not require a separate binder or emitter for each framework. These options are

@@ -380,6 +380,11 @@ Constraint satisfaction is transitive: substituting one constrained type
 parameter for another carries its constraint set. A violation identifies the
 type argument and unmet constraint.
 
+Storage annotations validate constructed generic types recursively, including
+generic arguments, containing types, and array, nullable, and by-reference
+element types. A declaration need not construct an instance to enforce its
+type argument constraints.
+
 Function-specific constraint forms and ordering are described under [Generic
 functions](functions.md#generic-functions).
 

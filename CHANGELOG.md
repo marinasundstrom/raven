@@ -31,6 +31,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   native delegate removal, structural comparer adapters and bounded Object/member
   introspection limitations in the integration guide.
 
+- **2026-09-30:** Validate generic argument constraints in storage annotations,
+  including nested generic arguments, array elements, nullable/byref element
+  types, and containing types. Invalid annotations report the existing constraint
+  diagnostic instead of reaching emission. This is an independent compiler fix;
+  experimental union/intersection syntax and runtime policies are not included.
+
 - **2026-09-28:** Bind function type arguments in generic construction and
   invocation expressions. Constructors such as `List<() -> ()>()` now initialize
   their values instead of silently emitting no operation. Invalid signature
