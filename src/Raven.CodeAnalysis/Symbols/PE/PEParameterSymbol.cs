@@ -173,7 +173,11 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParamete
         }
 
         var rawDefaultValue = _parameterInfo.RawDefaultValue;
-        if (rawDefaultValue != DBNull.Value && rawDefaultValue != System.Type.Missing)
+        // MetadataLoadContext reports null RawDefaultValue and HasDefaultValue=true
+        // for signature-only parameters without a Param row. Such a parameter
+        // cannot own a Constant row; do not turn that synthetic null into a default.
+        var hasParameterRow = (_parameterInfo.MetadataToken & 0x00ffffff) != 0;
+        if (hasParameterRow && _parameterInfo.HasDefaultValue && rawDefaultValue != DBNull.Value && rawDefaultValue != System.Type.Missing)
         {
             _hasExplicitDefaultValue = true;
             _explicitDefaultValue = rawDefaultValue;

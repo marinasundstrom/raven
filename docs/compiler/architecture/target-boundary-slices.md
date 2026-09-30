@@ -1846,3 +1846,22 @@ builds succeeded for .NET 10/11. Touched C# whitespace formatting completed with
 workspace-load warnings. No syntax/bound schema, grammar or default emitter changes.
 The public interface gains members; custom IBinaryOperation implementations must adapt.
 Native consumer results are recorded in its own subsequent slice.
+
+## Signature-only parameter import correction (2026-09-30)
+
+The consumer's required-parameter check exposed RawDefaultValue returning null for
+an imported signature parameter with no Param row. The PE provider treated that as an
+explicit null default. Require an actual Param row and ParameterInfo.HasDefaultValue before accepting a raw
+constant: MetadataLoadContext reports HasDefaultValue=true even for the missing-row
+synthetic null. Retain existing attribute fallback. A standalone SRM fixture (no neoCLR
+library dependency) checks absent Param rows, named required rows and genuine default
+constants, including binding an omitted call argument. The absent-row case failed
+before the fix; the two controls passed. This is a general .NET import correction,
+independent of the experimental native emitter.
+
+Validation: the absent-row regression failed before the fix and both controls passed.
+After checking row presence and default availability, all 87 focused operations,
+parameter-default and optional-parameter tests pass. Compiler builds pass for .NET
+10/11. No Runtime Contract option or CLI encoding changed; the provider now interprets
+existing valid signature-only parameters correctly. This fix should reach the shared
+line independently of the optional probe.

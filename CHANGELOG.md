@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Keep imported signature-only parameters required when their optional
+  CLI Param row is absent. Check row presence and default availability before
+  interpreting null as a constant, preserving ordinary explicit and attribute-based defaults.
+
 - **2026-09-30:** Expose resolved binary operator kind, lifting, checked arithmetic
   and operator-method facts through the public Operations API. Correct invocation
   Instance to return the bound receiver (null for static calls), rather than a
