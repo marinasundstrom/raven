@@ -1,5 +1,29 @@
 # General compiler fixes extracted from the neoCLR experiment
 
+## Storage constraints and experiment pause (2026-09-30)
+
+Main commit `046dc8532` independently extracts ordinary generic storage
+constraint validation from the intersection experiment; `3258b2745` applies
+that same fix to `neoclr`. Neither commit imports intersection syntax,
+intersection symbols, or compound runtime policy. The experiment is on hold,
+preserved separately on `codex/intersection-constraints` at `bed0415ee`.
+
+Both branches build Raven.CodeAnalysis for net10.0 and net11.0. The main-based
+worktree passed its fresh bootstrap and 304 focused constraint, generic-type,
+storage, and ref-like tests on net11.0. Seven new negative regressions failed
+before the fix; all eleven new positive/negative cases pass with it.
+
+The `neoclr` focused baseline passed 27 tests. Its broader post-backport run
+passed 302 of 303 tests. The unrelated
+`PatternSymbolInfoTests.GetSymbolInfo_OpenGenericTypePattern_ProjectsFromScrutineeType`
+still reports RAV0305 for `Box`. Disabling only the backported validation call
+reproduced the same pattern failure and all seven new negative failures;
+the validation call was then restored unchanged. This is an existing branch
+limitation, not a claim of a green full suite. These tests run on modern .NET,
+not the neoCLR runtime, .NET Framework, or NanoFramework.
+
+## Earlier integration
+
 2026-09-14. Branch `codex/compiler-fixes-integration`, based on upstream main
 `d92b02812740ae052f277c23151e9cc208f7672d`. The experimental target branch remains
 separate. This branch does not add neoCLR target selection, array invariance,
