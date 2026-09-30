@@ -7,6 +7,30 @@ sources, and one or more code generators. See the
 The CLI-oriented options documented below are existing implementation mechanisms;
 they do not require every future symbol source to use metadata or CLI assemblies.
 
+## Current target composition
+
+`Targets.DotNetCompilationTarget` is the internal composition point for the
+existing CLI implementation: it creates the semantic-data loader, owns a
+`DotNetRuntimeContract`, and invokes the existing .NET code generator. Each
+compilation constructs its target from its immutable options; macro-plugin
+compilations use their own target when emitting. Diagnostics and target-core
+compatibility checks still run before emission writes output.
+
+The contract currently owns special-type metadata names, the preferred
+`System.Runtime` assembly for those types, and the runtime tuple family.
+Compilation retains semantic lookup and per-snapshot symbol caches. Raven's Unit
+remains compiler-owned. Other protocol mappings and feature policies have not
+yet moved into this contract. Existing experimental tuple and task mappings are
+preserved on this branch; this is not a separate neoCLR target implementation.
+
+This is deliberately a concrete .NET composition, not a public provider registry.
+Compilation still holds reflection core/session handles, and loading and codegen
+still depend on .NET reflection. A future replaceable target must remove those
+shared-layer dependencies and select a coherent loader/contract/codegen trio.
+Independent component selection and cross-compilation are outside current scope.
+General extraction work requires independent main-based validation before
+integration; experimental neoCLR policies must remain on the experiment branch.
+
 ## Context-owned typeof (experimental, 2026-09-17)
 
 `CompilationOptions.WithRuntimeTypeOfContract(new RuntimeTypeOfContract(

@@ -388,3 +388,44 @@ Compiler builds passed for net10.0 and net11.0. Whitespace formatting completed
 with test workspace-load warnings, and `git diff --check` passed. Test execution
 was on .NET 11 with .NET 10/11 reference inputs; no neoCLR execution or full
 bootstrap qualification is claimed.
+
+## Slice 12: coherent .NET target composition
+
+`DotNetCompilationTarget` composes loader/session creation, the runtime contract,
+and existing CLI codegen. Each compilation owns a target built from its options;
+normal emission and the lowered macro-plugin compilation both use that target.
+Diagnostics and target-core checks remain ahead of emission. No public target
+selection or independently interchangeable component switches are added.
+
+`DotNetRuntimeContract` now owns special-type metadata names, preferred special-type
+assembly, and tuple-family mapping. Shared compilation code retains symbol lookup,
+Unit, and per-snapshot caches. Existing experimental task and tuple mappings are
+preserved rather than interpreted as a functioning neoCLR target. Other protocols,
+feature policies, reflection cores, and runtime type projection remain follow-up
+work. The composition is deliberately concrete while these .NET dependencies
+remain; a platform-neutral provider interface would currently overpromise.
+
+Added public symbol-behavior coverage with net10.0/net11.0 reference assemblies:
+Object, enumeration protocols, generic Task, tuple and async builder special types
+resolve from the imported contract, with stable identity even when a source type
+collides with the enumeration interface name. Existing runtime, tuple metadata,
+core-selection diagnostics and reusable macro-plugin coverage exercise the composed
+emission entry points.
+
+Next: continue removing reflection core/type-projection dependencies from shared
+compilation services before introducing a replaceable target boundary. General
+refactoring still needs independent main-based validation; this experiment-derived
+branch and its neoCLR-specific mappings are not candidates for wholesale merging.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: pre-change baseline passed 145
+import/reuse/CLI metadata/lookup/resolver/core selection/tuple/attached-macro cases.
+After extraction, the same filter plus the two new special-type cases and
+`MacroLibrary_EmitsReusableCompilerPluginFromSingleSourceTree` passed 148 tests,
+with no failures/skips on net11.0. Compiler builds passed for net10.0 and net11.0.
+Tests used `--no-restore /property:WarningLevel=0
+/property:BuildProjectReferences=false` after the compiler build. The existing
+compiler-driver subprocess fixture used its previously built driver; direct
+compiler API and emission tests used the freshly built compiler. Whitespace
+formatting completed with test workspace-load warnings; `git diff --check` passed.
+Execution was on .NET 11 with .NET 10/11 reference inputs. No neoCLR execution or
+full bootstrap qualification is claimed.

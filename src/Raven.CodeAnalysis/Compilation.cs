@@ -13,6 +13,7 @@ using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Scripting;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Targets;
 
 namespace Raven.CodeAnalysis;
 
@@ -44,6 +45,7 @@ public partial class Compilation
     private static readonly object s_missingMetadataType = new();
     private static int s_trustedPlatformAssembliesInitialized;
     private bool _trustedPlatformAssembliesCached;
+    private readonly DotNetCompilationTarget _target;
     private DotNetMetadataSession _metadataSession;
     private ISemanticDataLoader _semanticDataLoader;
     private GlobalBinder _globalBinder;
@@ -129,6 +131,7 @@ public partial class Compilation
         _references = references;
         _macroReferences = macroReferences;
         Options = options ?? new CompilationOptions();
+        _target = new DotNetCompilationTarget(Options);
         ScriptCompilationInfo = scriptCompilationInfo;
         _generatorDiagnostics = generatorDiagnostics.IsDefault
             ? ImmutableArray<Diagnostic>.Empty
@@ -955,14 +958,14 @@ public partial class Compilation
 
         _portableReferenceFingerprints = CapturePortableReferenceFingerprints(_references);
         TryReuseMetadataSession(_portableReferenceFingerprints, out var reusableMetadataSession);
-        _metadataSession = DotNetSemanticDataLoader.OpenSession(this, reusableMetadataSession);
+        _metadataSession = _target.OpenMetadataSession(this, reusableMetadataSession);
         _previousMetadataSessionForReuse = null;
         _previousPortableReferenceFingerprints = null;
 
         CoreAssembly = _metadataSession.CoreAssembly!;
         EmitCoreAssembly = ResolveEmitCoreAssembly() ?? RuntimeCoreAssembly;
         RegisterRuntimeAssembly(CoreAssembly, RuntimeCoreAssembly.Location);
-        _semanticDataLoader = new DotNetSemanticDataLoader(this, _metadataSession);
+        _semanticDataLoader = _target.CreateSemanticDataLoader(this, _metadataSession);
 
         foreach (var metadataReference in References)
         {
@@ -2449,9 +2452,7 @@ public partial class Compilation
         return GetOrAddSynthesizedDelegate(parameterImmutable, refKinds, returnType);
     }
 
-    // Experimental neoCLR target policy; ordinary CLR tuple identity is unchanged.
-    internal string RuntimeTupleTypeName => Options.TargetCoreAssemblyName == "NeoCLR.CoreProbe"
-        ? "System.Tuple" : "System.ValueTuple";
+    internal string RuntimeTupleTypeName => _target.RuntimeContract.TupleTypeName;
 
     public ITypeSymbol CreateTupleTypeSymbol(IEnumerable<(string? name, ITypeSymbol type)> elements)
     {
@@ -3467,78 +3468,15 @@ public partial class Compilation
 
     private INamedTypeSymbol ResolveSpecialType(SpecialType specialType)
     {
-        var metadataName = specialType switch
-        {
-            SpecialType.System_Object => "System.Object",
-            SpecialType.System_Enum => "System.Enum",
-            SpecialType.System_MulticastDelegate => "System.MulticastDelegate",
-            SpecialType.System_Delegate => "System.Delegate",
-            SpecialType.System_ValueType => "System.ValueType",
-            SpecialType.System_Void => "System.Void",
-            SpecialType.System_Boolean => "System.Boolean",
-            SpecialType.System_Char => "System.Char",
-            SpecialType.System_SByte => "System.SByte",
-            SpecialType.System_Byte => "System.Byte",
-            SpecialType.System_Int16 => "System.Int16",
-            SpecialType.System_UInt16 => "System.UInt16",
-            SpecialType.System_Int32 => "System.Int32",
-            SpecialType.System_UInt32 => "System.UInt32",
-            SpecialType.System_Int64 => "System.Int64",
-            SpecialType.System_UInt64 => "System.UInt64",
-            SpecialType.System_Decimal => "System.Decimal",
-            SpecialType.System_Single => "System.Single",
-            SpecialType.System_Double => "System.Double",
-            SpecialType.System_String => "System.String",
-            SpecialType.System_IntPtr => "System.IntPtr",
-            SpecialType.System_UIntPtr => "System.UIntPtr",
-            SpecialType.System_Array => "System.Array",
-            SpecialType.System_Collections_IEnumerable => "System.Collections.IEnumerable",
-            SpecialType.System_Collections_Generic_IEnumerable_T => "System.Collections.Generic.IEnumerable`1",
-            SpecialType.System_Collections_Generic_IList_T => "System.Collections.Generic.IList`1",
-            SpecialType.System_Collections_Generic_ICollection_T => "System.Collections.Generic.ICollection`1",
-            SpecialType.System_Collections_IEnumerator => "System.Collections.IEnumerator",
-            SpecialType.System_Collections_Generic_IEnumerator_T => "System.Collections.Generic.IEnumerator`1",
-            SpecialType.System_Nullable_T => "System.Nullable",
-            SpecialType.System_DateTime => "System.DateTime",
-            SpecialType.System_Runtime_CompilerServices_IsVolatile => "System.Runtime.CompilerServices.IsVolatile",
-            SpecialType.System_IDisposable => "System.IDisposable",
-            SpecialType.System_TypedReference => "System.TypedReference",
-            SpecialType.System_ArgIterator => "System.ArgIterator",
-            SpecialType.System_RuntimeArgumentHandle => "System.RuntimeArgumentHandle",
-            SpecialType.System_RuntimeFieldHandle => "System.RuntimeFieldHandle",
-            SpecialType.System_RuntimeMethodHandle => "System.RuntimeMethodHandle",
-            SpecialType.System_RuntimeTypeHandle => "System.RuntimeTypeHandle",
-            SpecialType.System_IAsyncResult => "System.IAsyncResult",
-            SpecialType.System_AsyncCallback => "System.AsyncCallback",
-            SpecialType.System_Runtime_CompilerServices_AsyncVoidMethodBuilder => "System.Runtime.CompilerServices.AsyncVoidMethodBuilder",
-            SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder => "System.Runtime.CompilerServices.AsyncTaskMethodBuilder",
-            SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T => "System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1",
-            SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute => "System.Runtime.CompilerServices.AsyncStateMachineAttribute",
-            SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute => "System.Runtime.CompilerServices.IteratorStateMachineAttribute",
-            SpecialType.System_Threading_Tasks_Task => "System.Threading.Tasks.Task",
-            SpecialType.System_Threading_Tasks_Task_T => Options.UseHeapAsyncStateMachines && Options.TargetCoreAssemblyName is not null ? "System.Tasks.Task`1" : "System.Threading.Tasks.Task`1",
-            SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationToken => "System.Runtime.InteropServices.WindowsRuntime.EventRegistrationToken",
-            SpecialType.System_Runtime_InteropServices_WindowsRuntime_EventRegistrationTokenTable_T => "System.Runtime.InteropServices.WindowsRuntime.EventRegistrationTokenTable`1",
-            SpecialType.System_ValueTuple_T1 => $"{RuntimeTupleTypeName}`1",
-            SpecialType.System_ValueTuple_T2 => $"{RuntimeTupleTypeName}`2",
-            SpecialType.System_ValueTuple_T3 => $"{RuntimeTupleTypeName}`3",
-            SpecialType.System_ValueTuple_T4 => $"{RuntimeTupleTypeName}`4",
-            SpecialType.System_ValueTuple_T5 => $"{RuntimeTupleTypeName}`5",
-            SpecialType.System_ValueTuple_T6 => $"{RuntimeTupleTypeName}`6",
-            SpecialType.System_ValueTuple_T7 => $"{RuntimeTupleTypeName}`7",
-            SpecialType.System_ValueTuple_TRest => $"{RuntimeTupleTypeName}`8",
-            SpecialType.System_Type => "System.Type",
-            SpecialType.System_Exception => "System.Exception",
-            SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine => "System.Runtime.CompilerServices.IAsyncStateMachine",
-            _ => throw new InvalidOperationException("Special type is not supported."),
-        };
+        var metadataName = _target.RuntimeContract.GetSpecialTypeMetadataName(specialType);
+        var preferredAssembly = _target.RuntimeContract.PreferredSpecialTypeAssemblyName;
 
         var type = TryGetMetadataReferenceTypeByMetadataName(metadataName);
 
         if (type is INamedTypeSymbol { ContainingAssembly: { Name: var assemblyName } } &&
-            !string.Equals(assemblyName, "System.Runtime", StringComparison.OrdinalIgnoreCase))
+            !string.Equals(assemblyName, preferredAssembly, StringComparison.OrdinalIgnoreCase))
         {
-            var preferred = GetTypeByMetadataName(metadataName, "System.Runtime");
+            var preferred = GetTypeByMetadataName(metadataName, preferredAssembly);
             if (preferred is not null)
                 type = preferred;
         }

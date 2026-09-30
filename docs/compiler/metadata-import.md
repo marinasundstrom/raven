@@ -36,8 +36,9 @@ not introduced by this extraction.
 The loader interface returns semantic symbols rather than reflection assemblies.
 It currently uses the existing `MetadataReference`/`IAssemblySymbol` reference
 surface; these shapes can be redesigned for neoCLR as needed. Selection is still
-fixed to .NET. Core-library discovery is loader-owned, but compilation still
-holds reflection core handles for its existing runtime/emission services.
+fixed to .NET through the internal `DotNetCompilationTarget`, which composes the
+loader with its runtime contract and existing code generator. Core-library
+discovery is loader-owned, but compilation still holds reflection core handles for its existing runtime/emission services.
 Reflection type projection and host runtime registration also retain .NET
 dependencies. This is an import boundary,
 not a claim that another target can already replace all semantic data loading.

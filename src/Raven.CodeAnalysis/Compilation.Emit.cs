@@ -2,7 +2,6 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 
-using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Macros;
 
 namespace Raven.CodeAnalysis;
@@ -52,11 +51,11 @@ public partial class Compilation
                 return new EmitResult(false, effectiveDiagnostics);
             }
 
-            new CodeGenerator(pluginCompilation, emitOptions).Emit(peStream, pdbStream);
+            pluginCompilation._target.Emit(pluginCompilation, emitOptions, peStream, pdbStream);
             return new EmitResult(true, effectiveDiagnostics);
         }
 
-        new CodeGenerator(this, emitOptions).Emit(peStream, pdbStream);
+        _target.Emit(this, emitOptions, peStream, pdbStream);
 
         return new EmitResult(true, effectiveDiagnostics);
     }
