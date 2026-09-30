@@ -12,6 +12,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Share per-emission callable identity resolution with backend-owned handles; register
   native definitions before bodies and preserve overload/owner distinctions. Validate
   repeated emission and repeated/forward calls on both runtimes.
+  Share source callable plans across declaration and bounded body emission. Separate
+  native source validation from definition creation, preserving assembly-function
+  ownership and empty static types; general .NET declaration traversal remains intact.
 
 - **2026-09-30:** Add `EmitMetadataAssembly` to the opt-in neoCLR adapter: emit a
   PE/#Neo native execution container through the separate metadata API. Use the same

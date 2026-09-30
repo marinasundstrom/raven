@@ -15,10 +15,9 @@ internal static class Int32Emitter
     internal static byte[] Emit(Compilation compilation, NeoClrEmitOptions options,
         IReadOnlyList<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)> dependencies)
     {
-        var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);
-        var functions = new NeoClrCallableDefinitionBuilder(assembly);
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
-        var methods = new List<(SemanticModel Model, IMethodSymbol Symbol, SyntaxNode Syntax, BlockStatementSyntax Body, MetadataMethod Method)>();
+        var plans = new List<SourceCallablePlan>();
+        var declaredTypes = new List<INamedTypeSymbol>();
         // Collect all declarations before emitting any body, so calls do not depend on file order.
         foreach (var tree in compilation.SyntaxTrees)
         {
@@ -39,8 +38,8 @@ internal static class Int32Emitter
                     var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
                     if (compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary && symbol.DeclaredAccessibility != Accessibility.Public)
                         throw Unsupported("nonpublic library functions require visibility metadata");
-                    var signature = GetSignature(symbol);
-                    methods.Add((model, symbol, declaration, declaration.Body, functions.DefineMethod(symbol.Name, signature)));
+                    var plan = GetPlan(symbol);
+                    plans.Add(plan);
                 }
                 else if (member is ClassDeclarationSyntax type)
                 {
@@ -51,9 +50,7 @@ internal static class Int32Emitter
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (!typeSymbol.IsStatic || typeSymbol.DeclaredAccessibility != Accessibility.Public || typeSymbol.Arity != 0)
                         throw Unsupported("only public nongeneric static classes");
-                    var fullName = typeSymbol.ToFullyQualifiedMetadataName();
-                    var typeNamespace = typeSymbol.ContainingNamespace.IsGlobalNamespace ? "" : fullName[..^(typeSymbol.MetadataName.Length + 1)];
-                    var owner = new NeoClrCallableDefinitionBuilder(assembly, assembly.AddType(typeNamespace, typeSymbol.MetadataName));
+                    declaredTypes.Add(typeSymbol);
                     foreach (var typeMember in type.Members)
                     {
                         diagnosticSyntax = typeMember;
@@ -63,12 +60,30 @@ internal static class Int32Emitter
                             throw Unsupported("only public static block-bodied methods");
                         var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
                         if (!symbol.IsStatic || symbol.DeclaredAccessibility != Accessibility.Public) throw Unsupported("only public static methods");
-                        var signature = GetSignature(symbol);
-                        methods.Add((model, symbol, method, method.Body, owner.DefineMethod(symbol.MetadataName, signature)));
+                        var plan = GetPlan(symbol);
+                        plans.Add(plan);
                     }
                 }
                 else throw Unsupported("only top-level functions and public static classes");
             }
+        }
+        // Materialize definitions only after collecting and validating source declarations.
+        // Every definition exists before reference resolution or method-body emission.
+        var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);
+        var functions = new NeoClrCallableDefinitionBuilder(assembly);
+        var owners = new Dictionary<INamedTypeSymbol, NeoClrCallableDefinitionBuilder>(SymbolEqualityComparer.Default);
+        foreach (var type in declaredTypes)
+        {
+            var fullName = type.ToFullyQualifiedMetadataName();
+            var typeNamespace = type.ContainingNamespace.IsGlobalNamespace ? "" : fullName[..^(type.MetadataName.Length + 1)];
+            owners.Add(type, new(assembly, assembly.AddType(typeNamespace, type.MetadataName)));
+        }
+        var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method)>();
+        foreach (var plan in plans)
+        {
+            diagnosticSyntax = plan.Syntax;
+            var owner = plan.IsAssemblyFunction ? functions : owners[plan.TypeOwner!];
+            methods.Add((plan, plan.Define(owner)));
         }
         var references = new CallableReferenceTable<NeoClrCallableReference>(target =>
         {
@@ -78,17 +93,17 @@ internal static class Int32Emitter
                 : NeoClrCallableReference.Create(Import(target));
         });
         foreach (var declaration in methods)
-            references.Declare(declaration.Symbol, NeoClrCallableReference.Create(declaration.Method));
+            references.Declare(declaration.Plan.Symbol, NeoClrCallableReference.Create(declaration.Method));
         if (compilation.Options.OutputKind == OutputKind.ConsoleApplication)
         {
             var entry = compilation.GetEntryPoint() ?? throw Unsupported("entry point unavailable");
-            assembly.EntryPoint = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Symbol, entry)).Method
+            assembly.EntryPoint = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Plan.Symbol, entry)).Method
                 ?? throw Unsupported("entry must be a declared Int32/Unit function or static method");
         }
         foreach (var current in methods)
         {
-            diagnosticSyntax = current.Syntax;
-            if (!LinearMethodBody.TryLower(current.Symbol, current.Model, current.Body, IsConsoleCall, out var lowered, out var failure))
+            diagnosticSyntax = current.Plan.Syntax;
+            if (!current.Plan.TryLowerBody(compilation, IsConsoleCall, out var lowered, out var failure))
                 throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
             lowered!.Emit(new NeoClrLinearMethodBuilder(current.Method, (instruction, output) =>
             {
@@ -151,11 +166,11 @@ internal static class Int32Emitter
 
         static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType == SpecialType.System_Int32;
 
-        Int32CallableSignature GetSignature(IMethodSymbol method)
+        SourceCallablePlan GetPlan(IMethodSymbol method)
         {
-            if (!Int32CallableSignature.TryCreate(method, out var signature))
+            if (!SourceCallablePlan.TryCreate(method, out var plan))
                 throw Unsupported("only nongeneric Int32 parameters and Int32/Unit results: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
-            return signature;
+            return plan!;
         }
     }
 }

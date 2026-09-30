@@ -2300,3 +2300,7 @@ see [the staged migration](architecture/native-target-codegen-migration.md).
 The bounded callable reference table is scoped to one emission and delegates .NET
 resolution to the existing target-aware resolver. It changes neither Runtime Contract
 selection nor semantic reference binding; native imports retain explicit dependencies.
+
+Shared source callable plans distinguish logical assembly ownership from CLI carrier
+ownership. The existing .NET builder still chooses emitted names, attributes and core
+types; native capability policy remains in its adapter. Target selection is unchanged.

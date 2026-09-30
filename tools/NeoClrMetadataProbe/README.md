@@ -206,3 +206,6 @@ pending. See the compiler's native target codegen migration plan.
 
 The callable-identity case additionally returns 42 from repeated/forward calls across
 same-named assembly functions, type methods and overloads on both runtimes.
+
+The source-plan case inspects native metadata for two assembly-owned functions and three
+type-owned methods, retains an empty static type, and runs the same source on both runtimes.

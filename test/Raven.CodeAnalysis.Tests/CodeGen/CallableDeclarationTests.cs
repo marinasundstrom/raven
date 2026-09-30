@@ -1,5 +1,6 @@
 using System.Reflection;
 
+using Raven.CodeAnalysis.CodeGen.Portable;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests.CodeGen;
@@ -39,5 +40,33 @@ public class CallableDeclarationTests
         var generic = type.GetMethod("Identity")!;
         Assert.True(generic.IsGenericMethodDefinition);
         Assert.Equal(42, generic.MakeGenericMethod(typeof(int)).Invoke(null, [42]));
+    }
+    [Fact]
+    public void SourcePlansSeparateAssemblyOwnershipFromCliCarriers()
+    {
+        const string source = """
+            func Main() -> int {
+                Helpers.Value()
+            }
+            public static class Helpers {
+                public static func Value() -> int { 42 }
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("SourcePlans", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(OptimizationLevel.Release));
+        var model = compilation.GetSemanticModel(tree);
+        var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(function)!, out var functionPlan));
+        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(method)!, out var methodPlan));
+        Assert.True(functionPlan!.IsAssemblyFunction);
+        Assert.Null(functionPlan.TypeOwner);
+        Assert.False(methodPlan!.IsAssemblyFunction);
+        Assert.Equal("Helpers", methodPlan.TypeOwner!.Name);
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Equal(42, Assembly.Load(output.ToArray()).EntryPoint!.Invoke(null, null));
     }
 }

@@ -2,7 +2,6 @@ using System.Reflection;
 using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.Symbols;
-using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
@@ -26,15 +25,8 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
         if (!LinearMethodBody.ReturnsValue(symbol) &&
             method.MethodBase is not MethodInfo { ReturnType.FullName: "System.Void" })
             return false;
-        var syntax = symbol.DeclaringSyntaxReferences[0].GetSyntax() switch
-        {
-            MethodDeclarationSyntax declaration => declaration.Body,
-            FunctionStatementSyntax declaration => declaration.Body,
-            _ => null
-        };
-        if (syntax is null) return false;
-        var model = method.Compilation.GetSemanticModel(syntax.SyntaxTree);
-        if (!LinearMethodBody.TryLower(symbol, model, syntax, IsConsoleLiteral, out var lowered, out _))
+        if (!SourceCallablePlan.TryCreate(symbol, out var declaration) ||
+            !declaration!.TryLowerBody(method.Compilation, IsConsoleLiteral, out var lowered, out _))
             return false;
         // Resolution can create metadata proxies just as in general codegen. Builders
         // are only opened after the complete body has passed shared lowering.

@@ -160,6 +160,8 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     sharedDotNetAndNativeBodyLowering = true,
     compilerLoweredBodyInput = true,
     sharedCallableIdentityResolution = true,
+    sharedSourceCallablePlans = true,
+    nativeAssemblyFunctionOwnershipAndEmptyTypes = true,
     implicitInt32Returns = true,
     namedUnitCall = true,
     sharedUnitFunctionsMethodsAndEntry = true,

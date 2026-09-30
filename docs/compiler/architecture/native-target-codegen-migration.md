@@ -13,7 +13,9 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
 2. Introduce typed target-neutral references and declaration handles incrementally.
    First callable slice implemented: per-emission symbol-identity tables with typed
    backend handles, native predeclared functions/methods and adapter-owned call encoding.
-   General type/field references and shared declaration traversal remain pending.
+   Shared source callable plans now supply identity, logical owner, signature and body
+   to both backends. Native collection/validation precedes builder creation. General
+   type/field references and full declaration traversal remain pending.
    Replace shared-path System.Type/MemberInfo dependencies; declare identities,
    signatures/members, bodies, then finalize. Preserve assembly-owned native functions
    and the existing CLI carrier representation. Static type wrappers alone are not

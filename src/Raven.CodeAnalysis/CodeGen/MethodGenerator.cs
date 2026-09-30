@@ -164,11 +164,11 @@ internal class MethodGenerator
                 else if (_lambdaClosure is null && !MethodSymbol.IsExtern && MethodSymbol.IsStatic &&
                     MethodSymbol.MethodKind is (MethodKind.Ordinary or MethodKind.Function) &&
                     TypeGenerator.GetExtensionTypeParameters().IsDefaultOrEmpty &&
-                    Portable.Int32CallableSignature.TryCreate(MethodSymbol, out var signature))
+                    Portable.SourceCallablePlan.TryCreate(MethodSymbol, out var declaration))
                 {
                     var builder = new Portable.ReflectionEmitCallableDefinitionBuilder(targetTypeBuilder, attributes,
                         specialType => ResolveClrType(Compilation.GetSpecialType(specialType)));
-                    methodBuilder = builder.DefineMethod(emittedMethodName, signature);
+                    methodBuilder = declaration!.Define(builder, emittedMethodName);
                     MethodBase = methodBuilder;
                     sharedSignatureDefined = true;
                 }

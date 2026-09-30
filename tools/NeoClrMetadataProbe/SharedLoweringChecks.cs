@@ -1,4 +1,7 @@
 using System.Reflection;
+using System.Text.Json;
+
+using RuntimeAssemblyContainer = NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer;
 
 using NeoCLR.Metadata.Experimental.Model;
 
@@ -54,6 +57,7 @@ internal static class SharedLoweringChecks
             }
             """, "", 42);
         await RunCase("SharedCallableIdentities", """
+            public static class Empty { }
             func Main() -> int {
                 Value(5) + Value(5) + Alpha.Value(10) + Beta.Value(10) + Alpha.Value()
             }
@@ -104,6 +108,15 @@ internal static class SharedLoweringChecks
             var options = new NeoClrEmitOptions(new(name, new Version(1, 0, 0, 0)), core, [], console);
             var nativeResult = compilation.Emit(native, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(options)));
             if (!nativeResult.Success) throw new Exception(string.Join("\n", nativeResult.Diagnostics));
+            if (name == "SharedCallableIdentities")
+            {
+                using var metadata = JsonDocument.Parse(RuntimeAssemblyContainer.Read(native.ToArray()));
+                var functions = metadata.RootElement.GetProperty("functions").EnumerateArray().ToArray();
+                if (functions.Length != 5 || functions.Count(f => f.GetProperty("owner").ValueKind == JsonValueKind.Null) != 2)
+                    throw new Exception("native source plans lost assembly/type ownership");
+                if (metadata.RootElement.GetProperty("types").GetArrayLength() != 3)
+                    throw new Exception("native declaration planning lost an empty type");
+            }
             var path = Path.Combine(output, name + ".dll");
             File.WriteAllBytes(path, native.ToArray());
             File.WriteAllText(Path.Combine(output, name + ".rvn"), source);
