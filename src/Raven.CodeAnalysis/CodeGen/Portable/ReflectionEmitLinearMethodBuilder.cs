@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Reflection.Emit;
 
 using Raven.CodeAnalysis.Operations;
@@ -17,11 +18,22 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
         // established path. Widen this gate as the shared model acquires those contracts.
         if (method.Compilation.Options.OptimizationLevel != OptimizationLevel.Release ||
             method.TypeGenerator.CodeGen.HasDebugOutput ||
-            !symbol.IsStatic || symbol.ReturnType.SpecialType != SpecialType.System_Int32 ||
+            !symbol.IsStatic || !LinearMethodBody.HasSupportedSignature(symbol) ||
             symbol.ContainingType is not { Arity: 0 } || method.LambdaClosure is not null ||
-            symbol.DeclaringSyntaxReferences.Length != 1 ||
-            symbol.DeclaringSyntaxReferences[0].GetSyntax() is not MethodDeclarationSyntax { Body: { } syntax })
+            symbol.DeclaringSyntaxReferences.Length != 1)
             return false;
+        // A logical no-result return can use ret directly only when the CLI signature
+        // is actually void. Keep any value-bearing Unit representation on general codegen.
+        if (!LinearMethodBody.ReturnsValue(symbol) &&
+            method.MethodBase is not MethodInfo { ReturnType.FullName: "System.Void" })
+            return false;
+        var syntax = symbol.DeclaringSyntaxReferences[0].GetSyntax() switch
+        {
+            MethodDeclarationSyntax declaration => declaration.Body,
+            FunctionStatementSyntax declaration => declaration.Body,
+            _ => null
+        };
+        if (syntax is null) return false;
         var model = method.Compilation.GetSemanticModel(syntax.SyntaxTree);
         if (model.GetOperation(syntax) is not IBlockOperation body ||
             !LinearMethodBody.TryLower(symbol, body, IsConsoleLiteral, out var lowered, out _))

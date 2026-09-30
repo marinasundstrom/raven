@@ -56,6 +56,55 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).GetType("Arithmetic")!.GetMethod("Divide")!.Invoke(null, [82]));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void UnitFunctionsAndClassHelpersKeepVoidSignatures(OptimizationLevel optimization)
+    {
+        const string source = """
+            func Main() {
+                Greet()
+            }
+            func Greet() {
+                Helpers.Finish(42)
+                return
+            }
+            public static class Helpers {
+                public static func Finish(value: int) {
+                }
+            }
+            """;
+        var compilation = Compilation.Create("SharedUnit" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        foreach (var declaration in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>())
+        {
+            var symbol = (IMethodSymbol)model.GetDeclaredSymbol(declaration)!;
+            Assert.True(LinearMethodBody.TryLower(symbol, (IBlockOperation)model.GetOperation(declaration.Body!)!,
+                _ => false, out _, out var failure), failure?.Detail);
+        }
+        var assembly = Emit(compilation);
+        Assert.Equal(typeof(void), assembly.EntryPoint!.ReturnType);
+        Assert.Null(assembly.EntryPoint.Invoke(null, null));
+        Assert.Equal(typeof(void), assembly.GetType("Helpers")!.GetMethod("Finish")!.ReturnType);
+    }
+
+    [Fact]
+    public void Int32AssemblyFunctionsCallHelpersThroughTheSharedPath()
+    {
+        const string source = """
+            func Main() -> int {
+                return Twice(20) + 2
+            }
+            func Twice(value: int) -> int {
+                return value * 2
+            }
+            """;
+        var compilation = Compilation.Create("SharedFunctions", [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(OptimizationLevel.Release));
+        Assert.Equal(42, Emit(compilation).EntryPoint!.Invoke(null, null));
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));

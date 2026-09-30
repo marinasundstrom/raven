@@ -190,3 +190,7 @@ Known follow-up: the optional System-symbol driver case has also been observed b
 NEOMETA001, leaving output absent. The direct API case passes. Do not treat historical
 driver success as a deterministic import contract; metadata loading is the next separate
 slice. See `system-symbol-validation.json` for the latest partial result.
+
+The same-compilation checks also cover Unit functions/static methods, explicit and
+implicit returns, and an empty entry point. CLI return signatures must be void; both
+runtimes print the same output and native Unit programs exit zero.

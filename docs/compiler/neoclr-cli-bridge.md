@@ -873,3 +873,22 @@ trick, reordered-reference workaround or silent native call substitution is adde
 The bounded Hello/helper case is the acceptance target for this codegen slice.
 The shared implementation is a general shared-line candidate; reconcile it separately
 from the native adapter when integrating the consumer branch into main.
+
+### Shared Unit functions and entry points — 2026-09-30
+
+The existing shared linear-body path now also serves eligible release-mode .NET
+assembly-level functions and Unit-returning static methods. A Unit method enters this
+path only when its already-created CLI method signature returns `System.Void`; a
+value-bearing Unit representation stays on the general generator. This reuses existing
+.NET declaration/signature construction rather than adding a second builder hierarchy.
+The same immutable plan handles helper calls, explicit/implicit return and empty bodies.
+Debug/PDB, captures, generic methods and unsupported bodies retain the established path.
+
+The end-to-end probe emits each compilation through both backends. The Unit function
+and static-method cases print Shared Hello and exit zero; an empty Unit entry also runs
+on both runtimes. The Int32 helper case still returns 42. C# tests additionally verify
+void signatures, release/debug behavior, assembly-function arithmetic and preserved PDB
+sequence points. Native format/API and Runtime Contract configuration are unchanged.
+Compared with CLI void, native no-result remains a backend representation choice; the
+common lowering does not manufacture a Unit value or erase a value-bearing CLI result.
+Metadata loading and the recorded optional System-driver collision remain deferred.

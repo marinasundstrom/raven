@@ -158,6 +158,7 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     date = "2026-09-30",
     result = 42,
     sharedDotNetAndNativeBodyLowering = true,
+    sharedUnitFunctionsMethodsAndEntry = true,
     helloWorldDirectAndFunctionCall = true,
     unitEntryPointsAndZeroExit = true,
     compilerDriverNativeCommand = args.Length == 4,

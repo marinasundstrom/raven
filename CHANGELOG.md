@@ -19,6 +19,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   methods and native Int32/Unit emission. Backend method builders own native/CLI handles,
   opcodes and Console mapping. Unsupported .NET bodies and debug/PDB emission retain the
   general generator. One compilation prints and returns 42 through both backends.
+  Extend the shared .NET path to assembly functions and Unit-returning static methods
+  whose CLI signatures are void. The same Unit Main/helper, explicit-return and empty-entry
+  compilations run on both runtimes; value-bearing Unit and debug/PDB paths remain unchanged.
   Record an optional translated-System driver failure: a host type collision causes
   explicit rejection. Direct API binding succeeds; shared metadata loading is deferred.
   Route the native operation emitter through the metadata library's typed opcode Emit
