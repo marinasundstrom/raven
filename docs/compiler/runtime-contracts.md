@@ -1524,3 +1524,23 @@ No Runtime Contract option changes. Tests cover emitted and reimported metadata,
 null/equal/different operands, explicit declarations and custom-operator isolation
 on .NET 11. The integration baseline compares .NET 10. No .NET Framework or
 NanoFramework execution is claimed. Nullable value support is unchanged.
+
+
+### Transitional neoCLR CLI compatibility (2026-09-30)
+
+`Targets.NeoClrCliCompatibility` owns the existing experimental assembly-name
+rules. `DotNetRuntimeContract` selects inhabited function results and the tuple
+family through it; the PE loader uses it to recognize value-type `System.Tuple`
+imports; shared bound-node facts use it to classify terminal `System.Fault` calls.
+This extraction preserves behavior and adds no public options.
+
+The configured core name must exactly equal `NeoCLR.CoreProbe` for unit-returning
+functions to use `Func<..., Unit>` and tuple construction to use `System.Tuple`.
+Other core names retain `Action` and `System.ValueTuple`. Imported tuple aliases
+require that exact assembly name and a value type. Terminal Fault recognition
+still depends on the method's own assembly, namespace-member marker and signature,
+independently of the configured core. Neither importing the assembly nor these
+compatibility rules constitute explicit target selection or capability validation.
+
+Explicit target identity and a coherent loader/contract/emitter preset are the
+next boundary step. No native neoCLR backend or cross-compilation is introduced.

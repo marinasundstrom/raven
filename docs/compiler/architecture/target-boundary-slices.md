@@ -1256,3 +1256,34 @@ tip (1991973f8) is an ancestor of neoclr. Its commits remain on neoclr; no remot
 branch was deleted and main was not modified. The author reaffirmed eventual
 integration of neoclr into main. Next: resume broad integration validation and
 then the target-policy consolidation in the readiness plan.
+
+## Slice 35: consolidate transitional neoCLR CLI policy on shared main
+
+After integration and feature-branch rebasing, the author synced the branches.
+Remote main at fe4a2372b, intersection at 62b5d8f9c and Self at 44e53dbde matched
+local tips; main is an ancestor of both feature branches. The retained remote
+neoclr tip b54d2999c has no commits absent from main. No remote refs were changed
+by this slice.
+
+NeoClrCliCompatibility now owns the existing assembly-name triggers for inhabited
+unit function results, tuple family names, imported tuple special types and
+terminal namespace Fault calls. DotNetRuntimeContract exposes the representation
+choices; PE symbols and shared bound-node facts delegate classification to that
+component. The exact triggers and behavior remain unchanged. In particular,
+Fault classification still depends on its declaring assembly independently of
+the compilation's configured core; this is not explicit target enforcement.
+
+The pre-change focused baseline passed 19 tests. Post-change target/function/flow
+and metadata tests passed 25 tests, including unrelated/case-different core names
+and value-type versus reference-type tuple imports. Existing tuple semantics and
+symbol-display coverage passed another 26 tests. All tests ran on .NET 11 with
+zero failures/skips; CLI fixtures use modern .NET reference assemblies. Compiler
+builds passed for net10.0 and net11.0 with zero warnings/errors. Whitespace
+formatting completed (test workspace-load warnings only), and diff checks passed.
+No syntax, generator inputs or language-service behavior changed. No native
+neoCLR, .NET Framework or NanoFramework execution is claimed.
+
+Next: explicit target identity and immutable contract selection, carried through
+option copies, project configuration and incremental compatibility. Preserve a
+coherent loader/contract/emitter composition and migrate controlled callers before
+removing compatibility inference.

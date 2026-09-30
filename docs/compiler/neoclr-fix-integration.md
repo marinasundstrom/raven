@@ -1702,3 +1702,20 @@ fails with a state-machine generic-arity TypeLoadException on ordinary .NET even
 without a capture. That async state-machine construction issue is retained for an
 independent follow-up. Async-lambda-owned locals and iterator capture planning also
 remain outside this bounded source-method fix.
+
+
+## Shared-main compatibility policy extraction — 2026-09-30
+
+The existing CLI experiment rules for inhabited function results, tuple names,
+imported tuple aliases and terminal Fault calls now live in
+`Targets.NeoClrCliCompatibility`. Callers keep the same behavior and configuration.
+The runtime requires no migration for this extraction. Assembly-name inference
+remains transitional; explicit target presets and capability checks are later work.
+
+This is a compiler ownership change, not a native neoCLR loader/backend change.
+Focused checks exercise CLI reference metadata and Raven symbols/control flow on
+modern .NET; they do not qualify execution in neoCLR, .NET Framework or NanoFramework.
+
+Validation: 25 focused target/function/flow/import checks and 26 existing tuple
+semantic/display checks passed on .NET 11. Compiler builds passed for .NET 10/11.
+The runtime integration configuration and artifacts are unchanged.

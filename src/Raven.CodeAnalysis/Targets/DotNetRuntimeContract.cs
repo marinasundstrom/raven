@@ -8,9 +8,10 @@ internal sealed partial class DotNetRuntimeContract(CompilationOptions options)
 {
     internal string PreferredSpecialTypeAssemblyName => "System.Runtime";
 
-    // Preserve the experimental branch policy until neoCLR has its own target.
-    internal string TupleTypeName => options.TargetCoreAssemblyName == "NeoCLR.CoreProbe"
-        ? "System.Tuple" : "System.ValueTuple";
+    internal string TupleTypeName => NeoClrCliCompatibility.GetTupleTypeName(options.TargetCoreAssemblyName);
+
+    internal bool UsesInhabitedFunctionResults =>
+        NeoClrCliCompatibility.UsesInhabitedFunctionResults(options.TargetCoreAssemblyName);
 
     // Configuration-only checks must not open references or resolve symbols.
     internal string? GetConfigurationError()

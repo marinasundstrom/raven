@@ -1,17 +1,17 @@
 # neoCLR integration and target contract readiness
 
-Status: merged into local main and integration checks passed, 2026-09-30. The author now intends to prepare the
-neoCLR branch for eventual integration into main, including the target-boundary
-work. This supersedes the earlier project direction to keep neoCLR integration
-separate at this stage. It does not certify the experiment or authorize an
-unreviewed merge into main.
+Status: integrated into main and synced to origin, 2026-09-30. Both retained
+feature branches include shared main. Target-boundary work has resumed; native
+neoCLR support and the target feature matrix remain experimental work.
 
 ## Completed local integration
 
 Main includes the reconciled neoCLR history and tuple-hover fix at b40fe495d.
 The full baseline passed 6,015 tests with no failures/skips. Focused emission and
 language-server evidence is recorded below; this is not release qualification.
-No remote push was performed.
+The author subsequently synced the branches. Remote main, intersection and Self
+tips were verified against the validated local commits. The old remote neoclr
+branch has no commits absent from main; it remains untouched.
 
 The intersection and native Self branches were rebased onto that shared base and
 remain separate feature experiments. Intersection passed its generator/build script
@@ -27,7 +27,7 @@ diagnostics can evolve without a permanent main/neoCLR branch split.
 ## One shared development line
 
 The goal is to develop Raven features, .NET support and neoCLR support together
-on main with one consistent compiler architecture. neoclr is the temporary
+on main with one consistent compiler architecture. neoclr served as a temporary
 integration branch. Target differences belong in contracts and implementations,
 not permanently divergent compiler branches.
 
@@ -56,10 +56,10 @@ as a coherent target; arbitrary cross-target combinations are out of scope.
 
 | Area | Current trigger and owner | Required boundary |
 | --- | --- | --- |
-| Unit-returning functions | Compilation.CreateFunctionTypeSymbol checks NeoCLR.CoreProbe and chooses Func with inhabited unit instead of Action. | Function representation selected by runtime contract; preserve .NET delegate behavior. |
-| Tuple construction | DotNetRuntimeContract checks NeoCLR.CoreProbe and selects System.Tuple instead of System.ValueTuple. | Contract-owned tuple family. |
-| Imported tuple recognition | PENamedTypeSymbol recognizes value-type System.Tuple from NeoCLR.CoreProbe as tuple special types. | Loader uses selected contract and validates shape; an assembly name alone must not select a platform. |
-| Terminal Fault calls | BoundNodeFacts recognizes a particular System.Fault signature and namespace-member marker in NeoCLR.CoreProbe. | Target-owned terminal-operation semantics shared by binding, flow, lowering and emission. |
+| Unit-returning functions | DotNetRuntimeContract delegates the NeoCLR.CoreProbe check to NeoClrCliCompatibility and chooses Func with inhabited unit instead of Action. | Function representation selected by runtime contract; preserve .NET delegate behavior. |
+| Tuple construction | DotNetRuntimeContract delegates the NeoCLR.CoreProbe check to NeoClrCliCompatibility and selects System.Tuple instead of System.ValueTuple. | Contract-owned tuple family. |
+| Imported tuple recognition | PENamedTypeSymbol delegates to NeoClrCliCompatibility to recognize value-type System.Tuple from NeoCLR.CoreProbe as tuple special types. | Loader uses selected contract and validates shape; an assembly name alone must not select a platform. |
+| Terminal Fault calls | BoundNodeFacts delegates to NeoClrCliCompatibility to recognize a particular System.Fault signature and namespace-member marker in NeoCLR.CoreProbe. | Target-owned terminal-operation semantics shared by binding, flow, lowering and emission. |
 | Async representation | UseHeapAsyncStateMachines, CaptureAsyncExceptions, PropagateAsyncCancellation and explicit core selection affect task names, builders and lowering. | Validated async capability/representation contract; do not treat any non-default core as neoCLR. |
 | Character representation | UseUnicodeScalarChar and UseGraphemeChar affect literal binding, conversions, constants and emission. | One coherent character representation with parser/compiler agreement and required API validation. |
 | Array conversions | AllowArrayCovariance affects conversion classification. | Target semantic capability, checked independently of optional source features. |
@@ -100,20 +100,20 @@ validate the fix. Whitespace formatting and diff checks passed.
 
 These are integration checks, not full release/bootstrap qualification, full
 runtime-suite coverage or native neoCLR/.NET Framework/NanoFramework execution.
-Boundary redesign is deferred until after main integration. After integration, rebase
-codex/intersection-constraints and codex/neoclr-native-self onto the shared main
-line before resuming boundary work. Keep those feature branches separate while
+At this checkpoint, boundary redesign was deferred until main integration and
+the rebase of codex/intersection-constraints and codex/neoclr-native-self. Those
+steps are now complete. Keep those feature branches separate while
 their target mappings are designed: source syntax is intended to stay shared,
 while .NET and neoCLR can use different representations, lowering and supported
 semantics. neoCLR may supply native support unavailable on .NET. Unsupported
 feature/target combinations should be diagnosed; updating the branches does not
 enable the features generally or finalize these policies.
 
-## Deferred architecture slices (resume after integration)
+## Architecture slices on shared main
 
-1. Consolidate existing implicit neoCLR policy in a named compatibility component,
-   preserving behavior and adding ordinary .NET negative cases. Keep general fixes
-   identifiable separately from target policy in commits and tests.
+1. Completed: consolidate existing implicit neoCLR policy in NeoClrCliCompatibility,
+   preserving behavior and adding ordinary .NET negative cases. Assembly-name
+   inference remains transitional, not explicit target enforcement.
 2. Introduce explicit target identity and immutable contract selection. Ensure all
    option copies, project loading and incremental compatibility checks carry it.
    Remove assembly-name and unrelated-option inference of target identity.
@@ -152,5 +152,5 @@ Expanded pattern coverage found two qualified nested-union exhaustiveness failur
 (RAV2100 for Problem). Both also reproduce with slice 33's production change
 reverted. Slice 34 fixes the distinction between complete payload coverage and
 unsupported analysis, with guard regressions. Full evidence is recorded in the
-slice ledger. The full baseline remains incomplete; main integration awaits the
-applicable integration validation gates; the contract roadmap can continue on main.
+slice ledger. That historical baseline was incomplete; the subsequent integration baseline
+passed as recorded above. The contract roadmap now continues on main.

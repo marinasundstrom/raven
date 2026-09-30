@@ -939,10 +939,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
         get
         {
             var type = _typeInfo.AsType();
-            var fullName = type.FullName;
-            if (type.Assembly.GetName().Name == "NeoCLR.CoreProbe" && type.IsValueType
-                && fullName?.StartsWith("System.Tuple`", StringComparison.Ordinal) == true)
-                fullName = fullName.Replace("System.Tuple`", "System.ValueTuple`", StringComparison.Ordinal);
+            var fullName = Targets.NeoClrCliCompatibility.GetSpecialTypeMetadataName(
+                type.Assembly.GetName().Name, type.IsValueType, type.FullName);
             if (fullName is not null &&
                 s_specialTypeByFullName.TryGetValue(fullName, out var specialType))
             {
