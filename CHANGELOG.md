@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Make shared arrays independent of PE symbol inheritance. Move
+  CLI interface and member-shape policy into the provider; non-PE arrays consume
+  their own target shape without implicit .NET collection assumptions.
+
 - **2026-09-30:** Make parameter type-default facts provider-owned. Optional argument
   binding and symbol display no longer depend on PE parameters; preserve existing
   CLI decoding, source defaults and required-parameter behavior.

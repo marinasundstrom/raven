@@ -1991,3 +1991,21 @@ construction. The capability does not prescribe CLI attributes or boxed default
 representations for native providers. Existing constructed-parameter behavior is
 unchanged; forwarding all provider facts through symbol wrappers is separate
 work. No public symbol API or emitted encoding changes.
+
+### Array semantic shape ownership (2026-09-30)
+
+Shared `ArrayTypeSymbol` derives from `Symbol`, not `PESymbol`. Its base type can
+provide `IArrayTypeProvider` to supply additional interfaces and member lookup for
+the actual array rank/element type. Shared code retains interface deduplication,
+inherited-interface closure and array-specific interface caching. Members retain
+their provider-declared owners for dispatch. Assembly/module ownership remains
+namespace-based; array documentation remains absent as before.
+
+PE owns CLI vector collection interfaces and RuntimeIterationContract iterable/
+array-shape projection, including validation and rejection of invalid explicit
+shapes without host-interface fallback. Ordinary CLI array member lookup still
+avoids loading vector interfaces unnecessarily. A base without the capability
+provides only its declared members/interfaces; shared code no longer synthesizes
+.NET collection interfaces merely because an assembly can resolve their names.
+Native targets can define different rank-dependent shapes through the capability.
+This does not provide native storage or emission support.
