@@ -1547,3 +1547,30 @@ bootstrap qualification is claimed. External runtime artifacts are unchanged.
 
 Next: continue auditing provider-specific nested-type and namespace traversal,
 preserving lazy discovery without exposing reflection or cache APIs to consumers.
+
+## Slice 45: provider-owned nested-type discovery
+
+Replace PE and constructed-PE checks in recursive namespace type traversal with
+the internal INestedTypeDiscovery capability. PE symbols retain their type-only
+metadata path and lazy nested-type cache. Constructed symbols delegate to the
+original definition's discovery capability; other definitions retain the existing
+member-substitution fallback. Traversal no longer knows the PE implementation or
+the constructed wrapper's representation.
+
+Six regressions cover direct and constructed non-PE providers whose ordinary
+member access throws, PE nested declaration identity under open/closed generic
+owners, and source fallback preserving nested containing-type substitution. This
+separates declaration discovery from normal closed-type member lookup; the public
+GetTypeMembers contract is unchanged. No generic construction algorithm, syntax,
+bridge encoding or emission policy changed. Current .NET and neoCLR CLI loading
+use the PE provider; a native source can implement type-only discovery later.
+
+Validation: 23-test baseline; 29 final nested metadata, global symbol lookup and
+merged-namespace tests pass on .NET 11. Compiler builds pass for .NET 10/11 with
+zero warnings/errors. Whitespace formatting and diff checks pass (formatter
+workspace-load warnings). No generated model inputs or language-service API
+changes; external runtime artifacts remain unchanged. No native neoCLR,
+.NET Framework/NanoFramework execution or bootstrap qualification is claimed.
+
+Next: audit remaining shared reflection-backed symbol queries and provider
+capabilities before defining a replaceable target lifecycle for bootstrap work.

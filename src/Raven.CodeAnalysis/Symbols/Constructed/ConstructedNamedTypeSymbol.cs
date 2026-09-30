@@ -5,11 +5,12 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbol, IUnionCaseTypeSymbol, IConstructedTypeSubstitutionInfo
+internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbol, IUnionCaseTypeSymbol, IConstructedTypeSubstitutionInfo, INestedTypeDiscovery
 {
     private readonly INamedTypeSymbol _originalDefinition;
     private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutionMap;
@@ -714,6 +715,11 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
 
         return argument;
     }
+
+    IEnumerable<INamedTypeSymbol> INestedTypeDiscovery.GetNestedTypesForDiscovery()
+        => _originalDefinition is INestedTypeDiscovery discovery
+            ? discovery.GetNestedTypesForDiscovery()
+            : GetMembers().OfType<INamedTypeSymbol>();
 
     public ImmutableArray<ISymbol> GetMembers()
     {

@@ -2133,3 +2133,23 @@ the CLI compatibility policy. A custom namespace's TopLevel marker can permit
 ordinary namespace lookup without making Fault terminate control flow. A future
 native provider/backend must represent namespace ownership and terminal behavior
 explicitly; the current container-based projection is not a universal native API.
+
+### Provider-owned nested-type discovery (2026-09-30)
+
+Recursive type traversal uses the optional internal `INestedTypeDiscovery`
+capability rather than recognizing PE symbol classes. Providers return only nested
+type candidates, avoiding ordinary member/signature materialization. Types without
+that capability retain the existing `GetMembers` fallback. The PE implementation
+keeps its lazy nested-type cache and reflection operations private.
+
+Constructed symbols delegate discovery to the original definition's capability
+when available. For PE types this preserves the existing nested declaration
+identities; it does not substitute a closed owner's arguments into those discovery
+candidates. Without a provider capability, constructed symbols retain their normal
+member-substitution fallback. Discovery is not a replacement for semantic member
+lookup on a closed generic type, and the public `GetTypeMembers` API is unchanged.
+
+The same traversal now accepts in-memory/non-PE providers. No CLI bridge encoding,
+source syntax, target feature rule or emitter behavior changes. Both current
+targets continue using the PE implementation; native metadata can later implement
+this capability without exposing reflection handles or eagerly loading methods.
