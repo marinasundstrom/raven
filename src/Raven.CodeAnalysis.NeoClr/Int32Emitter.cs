@@ -18,32 +18,64 @@ internal static class Int32Emitter
     {
         var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
-        var methods = new List<(SemanticModel Model, IMethodSymbol Symbol, FunctionStatementSyntax Syntax, MetadataMethod Method)>();
+        var methods = new List<(SemanticModel Model, IMethodSymbol Symbol, SyntaxNode Syntax, BlockStatementSyntax Body, MetadataMethod Method)>();
         // Collect all declarations before emitting any body, so calls do not depend on file order.
         foreach (var tree in compilation.SyntaxTrees)
         {
             var model = compilation.GetSemanticModel(tree);
             var root = (CompilationUnitSyntax)tree.GetRoot();
             diagnosticSyntax = root;
-            if (root.AttributeLists.Count != 0 || root.Members.Any(member => member is not GlobalStatementSyntax { Statement: FunctionStatementSyntax }))
-                throw Unsupported("only top-level function declarations");
-            foreach (var declaration in root.DescendantNodes().OfType<FunctionStatementSyntax>())
+            if (root.AttributeLists.Count != 0) throw Unsupported("assembly attributes");
+            foreach (var member in root.Members)
             {
-                diagnosticSyntax = declaration;
-                if (declaration.Ancestors().OfType<FunctionStatementSyntax>().Any() || declaration.Body is null || declaration.AttributeLists.Count != 0 || declaration.Modifiers.Count != 0)
-                    throw Unsupported("only top-level block-bodied functions");
-                var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
-                CheckSignature(symbol);
-                methods.Add((model, symbol, declaration, assembly.AddFunction(symbol.Name, symbol.Parameters.Length)));
+                diagnosticSyntax = member;
+                if (member is GlobalStatementSyntax { Statement: FunctionStatementSyntax declaration })
+                {
+                    diagnosticSyntax = declaration;
+                    if (declaration.Body is null || declaration.AttributeLists.Count != 0 || declaration.Modifiers.Count != 0)
+                        throw Unsupported("only top-level block-bodied functions");
+                    var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
+                    if (compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary && symbol.DeclaredAccessibility != Accessibility.Public)
+                        throw Unsupported("nonpublic library functions require visibility metadata");
+                    CheckSignature(symbol);
+                    methods.Add((model, symbol, declaration, declaration.Body, assembly.AddFunction(symbol.Name, symbol.Parameters.Length)));
+                }
+                else if (member is ClassDeclarationSyntax type)
+                {
+                    if (type.AttributeLists.Count != 0 || type.TypeParameterList is not null || type.ParameterList is not null ||
+                        type.BaseList is not null || type.ConstraintClauses.Count != 0 || type.PermitsClause is not null ||
+                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword)))
+                        throw Unsupported("only public nongeneric static classes without additional contracts");
+                    var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
+                    if (!typeSymbol.IsStatic || typeSymbol.DeclaredAccessibility != Accessibility.Public || typeSymbol.Arity != 0)
+                        throw Unsupported("only public nongeneric static classes");
+                    var owner = assembly.AddType("", typeSymbol.MetadataName);
+                    foreach (var typeMember in type.Members)
+                    {
+                        diagnosticSyntax = typeMember;
+                        if (typeMember is not MethodDeclarationSyntax method || method.Body is null || method.AttributeLists.Count != 0 ||
+                            method.ExplicitInterfaceSpecifier is not null || method.ConstraintClauses.Count != 0 ||
+                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword)))
+                            throw Unsupported("only public static block-bodied methods");
+                        var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
+                        if (!symbol.IsStatic || symbol.DeclaredAccessibility != Accessibility.Public) throw Unsupported("only public static methods");
+                        CheckSignature(symbol);
+                        methods.Add((model, symbol, method, method.Body, owner.AddMethod(symbol.MetadataName, symbol.Parameters.Length)));
+                    }
+                }
+                else throw Unsupported("only top-level functions and public static classes");
             }
         }
-        var entry = compilation.GetEntryPoint() ?? throw Unsupported("entry point unavailable");
-        assembly.EntryPoint = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Symbol, entry)).Method
-            ?? throw Unsupported("entry must be a declared top-level Int32 function");
+        if (compilation.Options.OutputKind == OutputKind.ConsoleApplication)
+        {
+            var entry = compilation.GetEntryPoint() ?? throw Unsupported("entry point unavailable");
+            assembly.EntryPoint = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Symbol, entry)).Method
+                ?? throw Unsupported("entry must be a declared Int32 function or static method");
+        }
         foreach (var current in methods)
         {
             diagnosticSyntax = current.Syntax;
-            var body = current.Model.GetOperation(current.Syntax.Body!) as IBlockOperation ?? throw Unsupported("function operation body unavailable");
+            var body = current.Model.GetOperation(current.Body) as IBlockOperation ?? throw Unsupported("function operation body unavailable");
             foreach (var statement in body.Operations)
             {
                 diagnosticSyntax = statement.Syntax;

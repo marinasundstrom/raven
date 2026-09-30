@@ -1958,3 +1958,29 @@ metadata project stays separate, and all work remains on the existing feature br
 C# contracts pass (23 groups), including malformed inputs, projection ownership,
 reference marking and rejection of execution loading by .NET. No production native
 semantic loader or target registration is claimed.
+
+### Raven library-to-application native case — 2026-09-30
+
+Both sides of the integration case now originate in Raven source. The optional adapter
+accepts library output without an entry point and public nongeneric static classes in
+the global namespace containing public static Int32 methods. Ordinary Raven default
+public method accessibility is accepted. Nonpublic members/types/library globals and
+additional type contracts are rejected; the public-only metadata writer must not
+silently widen a library's visibility. Console top-level functions remain native
+functions outside types. Broader visibility/namespace/type support is still pending.
+
+The producer declares MathLibrary.Twice overloads and a Multiply helper. Raven emits
+the library as native format 5; the independent metadata API reads it and projects
+reference-only declarations. A separate Raven application binds the one-argument
+overload, emits a native external call, and neoCLR executes the original library's
+local helper call. The one-file and both multi-file input orders return 42. No producer
+builder graph or hand-authored native dependency body is used in the case.
+
+The new case first failed with NEOMETA002 because the adapter accepted only console
+output. Focused C# checks now confirm entry-less library output, overload/local-call
+execution, source-located visibility/type rejection with unchanged output, and native
+missing-dependency/wrong-revision errors. Existing diagnostic/stream and multi-file
+checks pass. The .NET primitive Runtime Contract and reference-only input bridge remain
+explicit; no default .NET behavior, general binder, metadata library API or runtime
+format change was needed. The next replacement remains a native semantic provider and
+production target composition, with further supported constructs driven by real cases.

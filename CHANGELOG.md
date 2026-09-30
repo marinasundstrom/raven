@@ -22,7 +22,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Start dependency binding from native metadata through the independent library's
   reference-only PE projection. The producer no longer supplies a dependency PE;
   execution uses the original native artifact. All three native cases still return
-  42. The .NET semantic provider remains the temporary input bridge.
+  42. The .NET semantic provider remains the temporary input bridge. Compile both
+  the library and application from Raven: support library output and public static
+  classes/methods, preserving the public-only metadata boundary with explicit
+  rejection of unsupported visibility. Overload resolution, a library-local helper
+  call, missing dependencies and wrong revisions are covered end to end.
 
 - **2026-09-30:** Keep imported signature-only parameters required when their optional
   CLI Param row is absent. Check row presence and default availability before

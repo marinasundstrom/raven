@@ -16,7 +16,7 @@ internal static class AdapterChecks
         var location = diagnostic.Location;
         Check(location.IsInSource && ReferenceEquals(location.SourceTree, division.SyntaxTrees[0]), "unsupported source tree");
         Check(division.SyntaxTrees[0].GetRoot().ToFullString().Substring(location.SourceSpan.Start, location.SourceSpan.Length) == "value / 2", "unsupported expression span");
-        var broken = compile(source.Replace("Example.Math.Twice", "Example.Math.Missing"));
+        var broken = compile(source.Replace("MathLibrary.Twice", "MathLibrary.Missing"));
         var binding = Rejected(broken, options);
         Check(binding.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error && !d.Id.StartsWith("NEOMETA")), "binding diagnostics preserved");
         var originalErrors = broken.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.Id);

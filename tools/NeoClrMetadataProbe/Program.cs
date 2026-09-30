@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using NeoCLR.Metadata.Experimental.Model;
 
@@ -21,12 +22,30 @@ if (Directory.Exists(output)) throw new IOException("output directory must be fr
 Directory.CreateDirectory(output);
 var hostCore = typeof(object).Assembly.GetName();
 var core = new AssemblyIdentity(hostCore.Name!, hostCore.Version!, hostCore.CultureName ?? "", Convert.ToHexString(hostCore.GetPublicKeyToken() ?? []));
-var library = new AssemblyBuilder(new("MetadataProbeLibrary", new Version(1, 0, 0, 0)), core);
-var twice = library.AddType("Example", "Math").AddMethod("Twice", 1);
-twice.LoadArgument(0); twice.LoadConstant(2); twice.Multiply(); twice.Return();
+const string librarySource = """
+public static class MathLibrary {
+    static func Twice() -> int {
+        return 7
+    }
+    static func Twice(value: int) -> int {
+        return Multiply(value, 2)
+    }
+    static func Multiply(value: int, factor: int) -> int {
+        return value * factor
+    }
+}
+""";
+File.WriteAllText(Path.Combine(output, "Library.rvn"), librarySource);
+var libraryCompilation = Compilation.Create("MetadataProbeLibrary", [SyntaxTree.ParseText(librarySource, path: "Library.rvn")],
+    [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+var libraryOptions = new NeoClrEmitOptions(new("MetadataProbeLibrary", new Version(1, 0, 0, 0)), core, []);
+using var libraryOutput = new MemoryStream();
+var libraryResult = NeoClrCompilationEmitter.Emit(libraryCompilation, libraryOutput, libraryOptions);
+if (!libraryResult.Success) throw new Exception(string.Join("\n", libraryResult.Diagnostics));
+LibraryChecks.Run(libraryCompilation, librarySource, libraryOptions, libraryOutput.ToArray());
 var libraryPath = Path.Combine(output, "MetadataProbeLibrary.reference.dll");
 var nativeLibrary = Path.Combine(output, "MetadataProbeLibrary.neo.json");
-File.WriteAllBytes(nativeLibrary, library.WriteNativeAssembly());
+File.WriteAllBytes(nativeLibrary, libraryOutput.ToArray());
 var nativeMetadata = NativeAssemblyDefinition.ReadAssembly(File.ReadAllBytes(nativeLibrary));
 File.WriteAllBytes(libraryPath, nativeMetadata.CreateReferenceAssembly(core));
 var metadata = AssemblyDefinition.ReadAssembly(File.ReadAllBytes(libraryPath), false);
@@ -35,7 +54,7 @@ func Offset(value: int) -> int {
     return value + 2
 }
 func Main() -> int {
-    return Offset(Example.Math.Twice(20))
+    return Offset(MathLibrary.Twice(20))
 }
 """;
 File.WriteAllText(Path.Combine(output, "Program.rvn"), source);
@@ -70,6 +89,14 @@ for (int i = 0; i < multiFileImages.Length; i++)
     var multiResult = await Command(42, "run", path, "--module", nativeLibrary, "--show-result");
     if (!multiResult.Contains("=> Int32(42)")) throw new Exception("wrong multi-file runtime result");
 }
+var missingDependency = await Command(1, "verify", application);
+if (!missingDependency.Contains("missing referenced module")) throw new Exception("missing dependency diagnostic unavailable");
+var wrongRevision = JsonNode.Parse(File.ReadAllBytes(nativeLibrary))!;
+wrongRevision["revision"] = "2.0.0.0";
+var wrongRevisionPath = Path.Combine(output, "WrongRevision.neo.json");
+File.WriteAllText(wrongRevisionPath, wrongRevision.ToJsonString());
+var mismatchedDependency = await Command(1, "verify", application, "--module", wrongRevisionPath);
+if (!mismatchedDependency.Contains("module revision mismatch")) throw new Exception("wrong revision diagnostic unavailable");
 File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
 {
     date = "2026-09-30",
@@ -80,6 +107,11 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     emitterRequiresDependencyBuilder = false,
     semanticLoader = "existing .NET provider over projected native declarations",
     nativeDependencyInput = true,
+    dependencyCompiledFromRaven = true,
+    libraryLocalCallAndOverload = true,
+    libraryVisibilityChecksPassed = true,
+    missingDependencyRejected = true,
+    wrongRevisionRejected = true,
     referenceOnlyProjection = true,
     referenceProjectionSha256 = Hash(libraryPath),
     emitter = "compiler-owned opt-in adapter to native format 5",

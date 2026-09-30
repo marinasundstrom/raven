@@ -7,25 +7,30 @@
   "emitterRequiresDependencyBuilder": false,
   "semanticLoader": "existing .NET provider over projected native declarations",
   "nativeDependencyInput": true,
+  "dependencyCompiledFromRaven": true,
+  "libraryLocalCallAndOverload": true,
+  "libraryVisibilityChecksPassed": true,
+  "missingDependencyRejected": true,
+  "wrongRevisionRejected": true,
   "referenceOnlyProjection": true,
-  "referenceProjectionSha256": "b3b88eaad4ca9aa18477776bd32c27a8b369f6605d8006840f6c7b38d1b0fafb",
+  "referenceProjectionSha256": "f70d83929412dbc1ed98357eb5626b70d562acc27bf8954d619e18a24383e0b7",
   "emitter": "compiler-owned opt-in adapter to native format 5",
   "diagnosticAndStreamContractsChecked": true,
   "multiFileCrossFunctionCalls": true,
   "bothFileOrdersExecuted": true,
   "laterFileDiagnosticChecked": true,
   "multiFileApplicationSha256": [
-    "61702027d72e174d21b2b0c60557c83d3bd1eb9d677300249a3b4a5111d27326",
-    "b1355cdc82808725d3f91994e9561db7d8fc9785fe134b348df199dc199cdc25"
+    "5ceba329e0e9a60ef1d5d4c0d9869e1e268347b313d7585e703f69e2d4b6ed37",
+    "cdddef271ac5bf642915f12d8fecf5d6f21fd946f34b90111b5ab08df342cfad"
   ],
-  "adapterSha256": "8aa13e9ce8c0dd4de1a4dc22df1e816923488f02029971413fa5780c3dbe9e40",
+  "adapterSha256": "d0160c81b06c888989d455eb1b176daabf4e5b09a01fa663b2a9f6b7ce013596",
   "productionTargetIntegrated": false,
   "nativeMetadataLoader": false,
   "unsupportedOperationRejected": true,
   "bindingErrorRejected": true,
-  "compilerSha256": "fc93205efec551e5f01b4a9db2f762610ca750da51368ad4e673462341737d2e",
-  "metadataApiSha256": "aea5aa3af324ce04ef8e2cd983a3ce0e8744134ea559eb5f23b055a67ab3ccbf",
+  "compilerSha256": "74285f7d8a00efa0cc3d67ecccbea0cd69698a0cc1520dce16b0c89dae3cb9f3",
+  "metadataApiSha256": "8326422604e7c0b44c1a729b5ddca4d9cc51c930a3aae9d2180846d33eafef03",
   "runtimeSha256": "3f0f65f00fdeb6020eb9fc43ff14e7b41788ea04b306848a11961b2ff6504bf8",
-  "applicationSha256": "61702027d72e174d21b2b0c60557c83d3bd1eb9d677300249a3b4a5111d27326",
-  "dependencySha256": "a9f940985618d2eeab5c68adead611491f83419fde765884185843a03e6e7b62"
+  "applicationSha256": "5ceba329e0e9a60ef1d5d4c0d9869e1e268347b313d7585e703f69e2d4b6ed37",
+  "dependencySha256": "8ad97aeb1e5dd5ed4b552f45bb5290af4df76d634edace7873f608a0e2ed984c"
 }

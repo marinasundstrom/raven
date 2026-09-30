@@ -26,8 +26,8 @@ public static class NeoClrCompilationEmitter
         if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error && !d.IsSuppressed)) return new(false, diagnostics);
         NeoClrEmitResult Fail(DiagnosticDescriptor descriptor, string detail, Location? location = null)
             => new(false, diagnostics.Add(Diagnostic.Create(descriptor, location ?? Location.None, detail)));
-        if (compilation.Options.TargetPlatform != TargetPlatform.DotNet || compilation.Options.OutputKind != OutputKind.ConsoleApplication)
-            return Fail(Configuration, "requires the .NET primitive bootstrap and console output");
+        if (compilation.Options.TargetPlatform != TargetPlatform.DotNet || compilation.Options.OutputKind is not (OutputKind.ConsoleApplication or OutputKind.DynamicallyLinkedLibrary))
+            return Fail(Configuration, "requires the .NET primitive bootstrap and console or library output");
         if (compilation.SyntaxTrees.Length == 0 || compilation.MacroSyntaxTrees.Length != 0)
             return Fail(Configuration, "requires source trees; macro trees are unsupported");
         if (options.Identity.Name != compilation.AssemblyName || options.Identity.PublicKeyToken.Length != 0 || options.Identity.Flags != 0)

@@ -12,7 +12,7 @@ dotnet run --project tools/NeoClrMetadataProbe \
 
 The project reference is explicit; the project is non-packable and not in the default
 solution build. It uses the independently built metadata library, never copied source.
-The runner produces a native dependency through that API, reads its declarations with
+The runner compiles Library.rvn through the adapter to a native dependency, reads its declarations with
 `NativeAssemblyDefinition`, and creates a reference-only PE projection. It gives that
 projection to Raven's **existing .NET semantic loader**, and asks Raven to bind this program:
 
@@ -21,7 +21,7 @@ func Offset(value: int) -> int {
     return value + 2
 }
 func Main() -> int {
-    return Offset(Example.Math.Twice(20))
+    return Offset(MathLibrary.Twice(20))
 }
 ```
 
@@ -50,16 +50,42 @@ See the [adapter API](../../docs/compiler/api/neoclr-emission.md) for every publ
 member, the host snapshot-consistency requirement, source-located diagnostics,
 validation-before-write behavior and stream I/O limitations.
 
-Only top-level block-bodied functions with required Int32 value parameters and Int32
-results, value returns, constants, parameter loads, local/static calls and unchecked
+Top-level block-bodied functions and public static methods in public nongeneric
+static classes support required Int32 value parameters and Int32 results, value returns, constants, parameter loads, local/static calls and unchecked
 unlifted intrinsic addition/subtraction/multiplication are supported. Named/default/
-expanded arguments, references, generics, async, captures, fields, classes, statements
+expanded arguments, references, generics, async, captures, fields, instance classes, statements
 other than returns, source attributes/modifiers, checked/lifted operators and structural
 types are rejected. Dependency binding is deliberately limited to the single fixture
-whose native artifact and derived reference projection the runner creates; this is not an arbitrary PE importer.
+whose native artifact is compiled from Raven and whose reference projection the runner creates; this is not an arbitrary PE importer.
 
 The public operation consumer already drove shared compiler fixes for binary operator
 facts, invocation receivers and required signature-only parameters. The adapter now has explicit immutable configuration, registered assembly-symbol
 bindings and Raven diagnostic results. Next add a native metadata provider through
 ISemanticDataLoader and extend coverage from actual source cases.
 General shared fixes should be integrated independently of this experimental tool.
+
+## Raven library-to-application case
+
+The producer is now Raven source rather than a hand-built metadata fixture:
+
+```raven
+public static class MathLibrary {
+    static func Twice() -> int {
+        return 7
+    }
+    static func Twice(value: int) -> int {
+        return Multiply(value, 2)
+    }
+    static func Multiply(value: int, factor: int) -> int {
+        return value * factor
+    }
+}
+```
+
+The adapter receives `OutputKind.DynamicallyLinkedLibrary` and emits no entry point.
+The application resolves the one-argument overload through projected native metadata;
+the native dependency performs its local helper call. All three application variants
+return 42. The runner also checks missing/wrong-revision dependencies and rejects
+private methods, internal/nonstatic types and nonpublic library globals with source
+locations and unchanged failed output. This public-only library slice does not add
+visibility metadata or a native symbol provider; console globals remain supported.

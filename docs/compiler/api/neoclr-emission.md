@@ -58,7 +58,7 @@ The host is responsible for keeping the snapshot and reference file consistent
 artifacts. Raven's public assembly symbol currently has no complete identity/MVID
 contract: these checks do not authenticate snapshots or replace a native loader.
 
-At most 256 dependencies are accepted. One or more source trees with console output,
+At most 256 dependencies are accepted. One or more source trees with console or library output,
 no macro trees, and `TargetPlatform.DotNet` as the primitive binding bootstrap is
 supported. This does not enable the separate neoCLR CLI bridge Runtime Contract.
 
@@ -92,11 +92,20 @@ equality across reordered files is not promised.
 The existing primitive subset remains: top-level block-bodied functions with required
 Int32 value parameters/results, returns, Int32 constants, parameter loads, local/static
 calls, and intrinsic unchecked/unlifted addition, subtraction and multiplication.
+Public nongeneric static classes in the global namespace may contain public static
+block-bodied Int32 methods. Raven's default public method accessibility is accepted;
+explicit public is optional. Library output omits the entry point. Nonpublic library
+functions/methods/types are rejected rather than widened to the writer's public-only
+metadata contract. Top-level console functions remain supported; library exports in
+this slice use static classes. Namespace declarations, inheritance, primary
+constructors, nested types and additional class contracts remain unsupported.
+
 Fields, instance calls, generics, structural types, arbitrary statements, attributes,
 async, captures, checked/lifted operators and named/default/expanded arguments remain
 unsupported. The metadata writer also bounds methods, parameters, bodies and artifacts.
 
-The C# integration runner constructs a fixture PE/native dependency and registers the
+The C# integration runner compiles a Raven library to native metadata, derives its
+reference-only projection, and registers the
 same reference object used to create its compilation:
 
 ```csharp
