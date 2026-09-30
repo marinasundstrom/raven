@@ -23,7 +23,7 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
    It covers public top-level nongeneric static classes, not the general type boundary.
 3. Int32 initialized locals and standalone assignments are now shared with metadata
    writer support. Initial signed comparisons, bound if statements and lowered loop
-   labels/branches now execute through both backends. Broader signatures/conversions,
+   labels/branches now execute through both backends. Primitive Int32/Boolean signatures now preserve parameter/result identity through declarations, imports and native projection. Broader signatures/conversions,
    then instances/fields remain planned; negated comparisons and loop exits are validated, while exceptions remain unsupported. Pair each capability
    with metadata writer/reader and runtime validation support as required.
 4. Centralize explicit representation and capability policies: Unit, entry points,
@@ -52,7 +52,7 @@ as implicit returns) and avoids reimplementing them. It also couples the interna
 adapter to compiler bound nodes; those nodes are not a public metadata-library API.
 
 The shared instruction planner remains bounded and separate from the general .NET
-visitor. Full visitor convergence, synthesized methods, locals/control flow, general
+visitor. Full visitor convergence, synthesized methods, general locals/control flow, broader
 signatures and native target composition remain open. Debug/PDB and unsupported .NET
 bodies retain the established generator. This refactor is a shared-line candidate;
 validation on the consumer branch is not evidence of integration into main.

@@ -35,9 +35,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
     }
 
     internal static bool HasSupportedSignature(IMethodSymbol method)
-        => Int32CallableSignature.TryCreate(method, out _);
+        => PrimitiveCallableSignature.TryCreate(method, out _);
 
-    internal static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType == SpecialType.System_Int32;
+    internal static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Boolean;
 
     internal static bool TryLower(IMethodSymbol source, SemanticModel model, SyntaxNode bodySyntax,
         Func<BoundInvocationExpression, bool> permitsConsoleLiteral, out LinearMethodBody? lowered, out LinearBodyFailure? failure)
@@ -86,7 +86,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
 
         bool LowerBody(BoundBlockStatement body)
         {
-            if (!HasSupportedSignature(source)) return Reject("only nongeneric Int32 parameters and Int32/Unit results", bodySyntax);
+            if (!HasSupportedSignature(source)) return Reject("only nongeneric Int32/Boolean parameters and Int32/Boolean/Unit results", bodySyntax);
             if (!body.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(body));
             if (!LowerStatements(body)) return false;
             if (!ReturnsValue(source) && instructions.LastOrDefault().Kind != LinearInstructionKind.Return)
@@ -223,7 +223,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         Add(LinearInstructionKind.Not, Syntax(expression));
                     return true;
                 case BoundInvocationExpression call when call.Method.IsStatic && call.Receiver is null or BoundTypeExpression && call.ExtensionReceiver is null:
-                    if (!HasSupportedSignature(call.Method)) return Reject("only nongeneric Int32 parameters and Int32/Unit results: " + call.Method.Name, Syntax(expression));
+                    if (!HasSupportedSignature(call.Method)) return Reject("only nongeneric Int32/Boolean parameters and Int32/Boolean/Unit results: " + call.Method.Name, Syntax(expression));
                     var arguments = call.Arguments.ToArray();
                     if (arguments.Length != call.Method.Parameters.Length) return Reject("optional/expanded arguments", Syntax(expression));
                     foreach (var argument in arguments)

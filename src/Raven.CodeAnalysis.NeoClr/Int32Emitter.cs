@@ -142,7 +142,7 @@ internal static class Int32Emitter
                 !SymbolEqualityComparer.Default.Equals(symbol.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(system.Reference))) return null;
             var name = symbol.ContainingType?.ToFullyQualifiedMetadataName() + "." + symbol.MetadataName;
             var matches = system.Functions.Where(f => f.Name == name && f.TryGetStaticInt32Signature(out var count) &&
-                count == symbol.Parameters.Length && ReturnsValue(symbol)).Take(2).ToArray();
+                count == symbol.Parameters.Length && ReturnsValue(symbol) && symbol.Parameters.All(p => p.Type.SpecialType == SpecialType.System_Int32)).Take(2).ToArray();
             if (matches.Length != 1) throw Unsupported("System callable absent from explicit native selection");
             return matches[0];
         }
@@ -155,18 +155,27 @@ internal static class Int32Emitter
             var types = dependencyMetadata.MainModule.Types.Where(t => t.DeclaringType is null && t.GenericArity == 0 &&
                 (t.Namespace.Length == 0 ? t.Name : t.Namespace + "." + t.Name) == symbol.ContainingType?.ToFullyQualifiedMetadataName()).Take(2).ToArray();
             if (types.Length != 1) throw Unsupported("dependency type unavailable or ambiguous");
-            var definitions = types[0].Methods.Where(m => m.Name == symbol.MetadataName && m.TryGetStaticInt32Signature(out var count, out var result) && count == symbol.Parameters.Length && result == ReturnsValue(symbol)).Take(2).ToArray();
+            var definitions = types[0].Methods.Where(m => m.Name == symbol.MetadataName && MatchesSignature(m, symbol)).Take(2).ToArray();
             if (definitions.Length != 1) throw Unsupported("dependency method contract unavailable or ambiguous");
             return assembly.ImportReference(definitions[0], binding.CoreLibrary);
         }
         UnsupportedInputException Unsupported(string detail) => new(detail, diagnosticSyntax.GetLocation());
+
+        static bool MatchesSignature(MethodDefinition method, IMethodSymbol symbol)
+        {
+            if (!method.TryGetStaticPrimitiveSignature(out var metadata) ||
+                !PrimitiveCallableSignature.TryCreate(symbol, out var signature)) return false;
+            var expected = NeoClrCallableDefinitionBuilder.ToMetadata(signature);
+            return metadata!.ReturnType == expected.ReturnType &&
+                metadata.ParameterTypes.SequenceEqual(expected.ParameterTypes);
+        }
 
         static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType == SpecialType.System_Int32;
 
         SourceCallablePlan GetPlan(IMethodSymbol method)
         {
             if (!SourceCallablePlan.TryCreate(method, out var plan))
-                throw Unsupported("only nongeneric Int32 parameters and Int32/Unit results: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
+                throw Unsupported("only nongeneric Int32/Boolean parameters and Int32/Boolean/Unit results: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
             return plan!;
         }
     }

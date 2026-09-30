@@ -34,6 +34,44 @@ public class SharedLinearBodyTests
         Assert.Equal(unchecked(int.MaxValue * 2), assembly.GetType("Arithmetic")!.GetMethod("Twice")!.Invoke(null, [int.MaxValue]));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void BooleanSignaturesPreserveParametersResultsAndOverloads(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Predicates {
+                public static func Identity(value: bool) -> bool {
+                    value
+                }
+                public static func Identity(value: int) -> int {
+                    value
+                }
+                public static func Positive(value: int) -> bool {
+                    value > 0
+                }
+                public static func Choose(value: int, selected: bool) -> int {
+                    if Identity(selected) {
+                        return Identity(value)
+                    }
+                    return 0
+                }
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        foreach (var declaration in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+        {
+            Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+                model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail);
+        }
+        var type = Emit(compilation).GetType("Predicates")!;
+        Assert.Equal(true, type.GetMethod("Positive")!.Invoke(null, [1]));
+        Assert.Equal(false, type.GetMethod("Identity", [typeof(bool)])!.Invoke(null, [false]));
+        Assert.Equal(42, type.GetMethod("Choose")!.Invoke(null, [42, true]));
+        Assert.Equal(0, type.GetMethod("Choose")!.Invoke(null, [42, false]));
+    }
+
     [Fact]
     public void UnsupportedBodyIsRejectedBeforeBuildingAndUsesGeneralDotNetGenerator()
     {

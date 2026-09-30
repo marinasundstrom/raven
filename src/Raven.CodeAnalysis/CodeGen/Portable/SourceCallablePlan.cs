@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 // has no logical type owner even when the CLI symbol model supplies a carrier type.
 internal sealed record SourceCallablePlan(
     IMethodSymbol Symbol, SyntaxNode Syntax, BlockStatementSyntax? Body,
-    INamedTypeSymbol? TypeOwner, string MetadataName, Int32CallableSignature Signature)
+    INamedTypeSymbol? TypeOwner, string MetadataName, PrimitiveCallableSignature Signature)
 {
     internal bool IsAssemblyFunction => TypeOwner is null;
 
@@ -14,7 +14,7 @@ internal sealed record SourceCallablePlan(
     {
         plan = null;
         if (!symbol.IsStatic || symbol.IsExtern || symbol.DeclaringSyntaxReferences.Length != 1 ||
-            !Int32CallableSignature.TryCreate(symbol, out var signature)) return false;
+            !PrimitiveCallableSignature.TryCreate(symbol, out var signature)) return false;
         var syntax = symbol.DeclaringSyntaxReferences[0].GetSyntax();
         switch (syntax)
         {

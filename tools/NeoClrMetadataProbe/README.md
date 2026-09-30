@@ -223,3 +223,6 @@ and Console output. It verifies target indices after native Console expansion an
 
 The loop-exit consumer combines !/!=/<=/>=, continue and break, returning 42 on both
 runtimes through the shared lowered-body path.
+
+The primitive-signature cases cover Boolean parameters/results, mixed arguments and
+same-arity overloads on both backends, plus separately compiled native library imports.

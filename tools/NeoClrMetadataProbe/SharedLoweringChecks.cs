@@ -132,6 +132,28 @@ internal static class SharedLoweringChecks
                 return result * 2 + 6
             }
             """, "", 42);
+        await RunCase("SharedPrimitiveSignatures", """
+            func Main() -> int {
+                Helpers.Choose(42, Helpers.Identity(Helpers.Positive(1)))
+            }
+            public static class Helpers {
+                public static func Positive(value: int) -> bool {
+                    value > 0
+                }
+                public static func Identity(value: bool) -> bool {
+                    value
+                }
+                public static func Identity(value: int) -> int {
+                    value
+                }
+                public static func Choose(value: int, selected: bool) -> int {
+                    if selected {
+                        return Identity(value)
+                    }
+                    return 0
+                }
+            }
+            """, "", 42);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
         Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 

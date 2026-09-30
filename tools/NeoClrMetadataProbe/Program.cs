@@ -152,6 +152,7 @@ if (!reverseOrder.Contains("=> Int32(42)")) throw new Exception("reversed module
 var helloPaths = await HelloWorldChecks.Run(core, output, Command);
 var namespacePaths = await NamespaceChecks.Run(core, output, Command);
 await SharedLoweringChecks.Run(core, output, Command);
+await PrimitiveSignatureChecks.Run(core, output, Command);
 if (args.Length == 4) await DriverChecks.Run(Path.GetFullPath(args[3]), output, Command);
 File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
 {
@@ -165,6 +166,7 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     sharedInt32LocalsAndAssignments = true,
     sharedComparisonsBranchesAndLoops = true,
     negatedComparisonsAndLoopExits = true,
+    primitiveBooleanSignaturesAndImportedOverloads = true,
     nativeAssemblyFunctionOwnershipAndEmptyTypes = true,
     implicitInt32Returns = true,
     namedUnitCall = true,

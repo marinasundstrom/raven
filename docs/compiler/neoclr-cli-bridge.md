@@ -1115,3 +1115,26 @@ regions remain separate capability work. Runtime Contract and reference loading 
 unchanged, and unsupported .NET bodies retain general emission.
 
 Validation: 29 compiler tests, 34 metadata API groups and the API snapshot check passed; [native runtime/driver evidence](../../tools/NeoClrMetadataProbe/validation.json).
+
+
+## Primitive callable signatures — 2026-10-01
+
+The shared callable contract now carries ordered Int32/Boolean parameter types and
+Int32/Boolean/no-result return types. .NET resolves each through its selected core;
+neoCLR maps them to the independent metadata API's immutable primitive signatures.
+Overload resolution/import matching uses parameter types, not just parameter count.
+Runtime Contract selection and ordinary .NET defaults are unchanged.
+
+Compared with CLR Boolean signatures, native metadata preserves the same source type
+identity while validating Boolean evaluation-stack values distinctly from Int32.
+No implicit Boolean/integer conversion is introduced. Native entrypoints remain
+parameterless Int32/Unit. Locals and selected System inventory imports remain Int32-only.
+The CLI declaration projection remains a temporary semantic-loader bridge: it carries
+primitive declarations but no executable native body. Native semantic import, broader
+types/conversions, fields/instances and complete target composition remain pending.
+
+Validation: 31 focused C# compiler tests, 35 independent C# metadata contract groups,
+and the native probe cover same-source execution on both runtimes plus separately
+compiled Boolean library imports and same-name/same-arity Boolean/Int32 overloads.
+The binary assemblies are verified and run by neoCLR. General changes remain shared-line
+candidates on the consumer branch until independently integrated.
