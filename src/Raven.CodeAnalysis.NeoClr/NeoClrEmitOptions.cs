@@ -33,7 +33,7 @@ public sealed class NeoClrMetadataDependency
 public sealed class NeoClrEmitOptions
 {
     /// <summary>Copies the supplied bindings into an immutable configuration.</summary>
-    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null)
+    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(coreLibrary);
@@ -41,6 +41,7 @@ public sealed class NeoClrEmitOptions
         Identity = identity;
         CoreLibrary = coreLibrary;
         ConsoleReference = consoleReference;
+        SystemSymbols = systemSymbols;
         Dependencies = dependencies.ToImmutableArray();
         if (Dependencies.Any(d => d is null)) throw new ArgumentException("Null dependency", nameof(dependencies));
     }
@@ -51,6 +52,8 @@ public sealed class NeoClrEmitOptions
     /// <summary>Gets the explicit compiler reference authorizing System.Console.WriteLine(string literal) mapping; null disables it.</summary>
     /// <remarks>The exact instance must be registered in the compilation. No other console overload or operation is mapped.</remarks>
     public MetadataReference? ConsoleReference { get; }
+    /// <summary>Gets an explicit partial native System callable binding, or null.</summary>
+    public NeoClrSystemSymbols? SystemSymbols { get; }
     /// <summary>Gets immutable host bindings. Duplicate identities/symbols are rejected during emission.</summary>
     public ImmutableArray<NeoClrMetadataDependency> Dependencies { get; }
 }
@@ -63,4 +66,33 @@ public sealed class NeoClrEmitResult
     public bool Success { get; }
     /// <summary>Gets preserved compiler diagnostics and any native backend diagnostic.</summary>
     public ImmutableArray<Diagnostic> Diagnostics { get; }
+}
+
+
+/// <summary>A host-bound, explicitly partial static-callable view of translated native System metadata.</summary>
+/// <remarks>The host must build Reference from Library.CreateStaticInt32ReferenceAssembly with these exact selections.
+/// Only the selected methods are bound; this is not a complete runtime core library or a native symbol provider.</remarks>
+public sealed class NeoClrSystemSymbols
+{
+    /// <summary>Copies an explicit selection and associates its projected compiler reference.</summary>
+    public NeoClrSystemSymbols(MetadataReference reference, string projectionAssemblyName, NativeLibraryDefinition library,
+        IEnumerable<NativeFunctionDefinition> functions)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentNullException.ThrowIfNull(projectionAssemblyName);
+        ArgumentNullException.ThrowIfNull(library);
+        ArgumentNullException.ThrowIfNull(functions);
+        Reference = reference;
+        ProjectionAssemblyName = projectionAssemblyName;
+        Library = library;
+        Functions = functions.ToImmutableArray();
+    }
+    /// <summary>Gets the exact compiler reference instance for the static callable projection.</summary>
+    public MetadataReference Reference { get; }
+    /// <summary>Gets the explicit synthetic projection identity's simple name.</summary>
+    public string ProjectionAssemblyName { get; }
+    /// <summary>Gets the native inventory owning every selected method.</summary>
+    public NativeLibraryDefinition Library { get; }
+    /// <summary>Gets the immutable explicit function selection.</summary>
+    public ImmutableArray<NativeFunctionDefinition> Functions { get; }
 }

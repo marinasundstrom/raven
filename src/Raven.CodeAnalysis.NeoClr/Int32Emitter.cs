@@ -157,23 +157,35 @@ internal static class Int32Emitter
                     CheckSignature(call.TargetMethod);
                     if (call.Arguments.Length != call.TargetMethod.Parameters.Length) throw Unsupported("optional/expanded arguments");
                     var local = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Symbol, call.TargetMethod)).Method;
-                    var imported = local is null ? Import(call.TargetMethod) : null;
+                    var systemFunction = local is null ? ImportSystem(call.TargetMethod) : null;
+                    var imported = local is null && systemFunction is null ? Import(call.TargetMethod) : null;
                     foreach (var argument in call.Arguments)
                     {
                         if (argument is IArgumentOperation { IsNamed: false, Value: { } argumentValue }) EmitValue(argumentValue, source, output);
                         else throw Unsupported("named or unavailable argument");
                     }
                     if (local is not null) output.Call(local);
+                    else if (systemFunction is not null) output.Call(systemFunction);
                     else output.Call(imported!);
                     return;
                 default: throw Unsupported("operation " + operation.Kind);
             }
         }
+        NativeFunctionDefinition? ImportSystem(IMethodSymbol symbol)
+        {
+            if (options.SystemSymbols is not { } system ||
+                !SymbolEqualityComparer.Default.Equals(symbol.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(system.Reference))) return null;
+            var name = symbol.ContainingType?.ToFullyQualifiedMetadataName() + "." + symbol.MetadataName;
+            var matches = system.Functions.Where(f => f.Name == name && f.TryGetStaticInt32Signature(out var count) &&
+                count == symbol.Parameters.Length && ReturnsValue(symbol)).Take(2).ToArray();
+            if (matches.Length != 1) throw Unsupported("System callable absent from explicit native selection");
+            return matches[0];
+        }
         ImportedMethodReference Import(IMethodSymbol symbol)
         {
             if (!symbol.IsStatic) throw Unsupported("instance call");
             var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
-                ?? throw Unsupported("unregistered dependency");
+                ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name);
             var dependencyMetadata = binding.Definition;
             var types = dependencyMetadata.MainModule.Types.Where(t => t.DeclaringType is null && t.GenericArity == 0 &&
                 (t.Namespace.Length == 0 ? t.Name : t.Namespace + "." + t.Name) == symbol.ContainingType?.ToFullyQualifiedMetadataName()).Take(2).ToArray();

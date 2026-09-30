@@ -11,6 +11,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Preserve diagnostics, failed output and caller stream/I/O contracts. The native
   section now has a binary format-5 encoding; a native symbol provider and production
   target registration remain pending.
+  Add explicit partial callable import from translated System (`--system-symbols`,
+  repeated `--system-method Name/arity`). Reuse the existing semantic importer through
+  metadata-derived reference declarations; emit original System call identities and
+  execute Math.Min to 42 against that binary System. Reject unsupported signatures and
+  nonpublic declarations; full core import and richer metadata remain pending.
   Add opt-in `rvnc neoclr` source-file compilation with native library references and
   direct PE/#Neo output, enabled by the independent metadata project build property.
   Existing outputs and failed compilation output are preserved. C# process tests cover

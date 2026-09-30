@@ -16,6 +16,12 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args.Length == 5 && args[0] == "--system-symbols")
+{
+    await SystemSymbolChecks.Run(args[1], args[2], args[3], args[4]);
+    return;
+}
+
 if (args.Length is < 2 or > 4 || (args.Length == 3 && args[2] != "--hello-only") || (args.Length == 4 && args[2] != "--driver"))
     throw new ArgumentException("Usage: NeoClrMetadataProbe <neoclr executable> <fresh output directory> [--hello-only | --driver rvnc.dll]");
 var runtime = Path.GetFullPath(args[0]);

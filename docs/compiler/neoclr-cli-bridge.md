@@ -678,3 +678,62 @@ Validation also builds the compiler without `NeoClrMetadataProject`, checks that
 .deps.json has no native adapter/metadata dependency, confirms the explicit disabled
 command diagnostic and compiles a normal .NET Int32 application successfully. Testing
 used the net10.0 host; other host/target matrices were not rerun.
+
+### Translated System callable import — 2026-09-30
+
+Raven can now bind an explicitly selected static Int32 callable read from the translated
+standalone System assembly, then emit its original native call identity. The independent
+metadata library inventories the binary native module; `CreateStaticInt32ReferenceAssembly`
+builds a deliberately partial reference-only view. The existing DotNetSemanticDataLoader
+and reflection-backed PE symbols import that view. This reuses semantic import rather
+than introducing a second binder or substituting handwritten host declarations.
+
+```sh
+dotnet rvnc.dll neoclr --system-symbols System.neox \
+  --system-method System.Math.Min/2 -o App.dll App.rvn
+neoclr verify App.dll --system System.neox
+neoclr run App.dll --system System.neox --show-result
+```
+
+The tested source is `func Main() -> int { return System.Math.Min(42, 99) }`.
+The symbol test checks that the bound method belongs to the generated native view's
+assembly, not the host .NET implementation. Native execution returns 42 using the same
+translated collection System assembly (417 types, 4,090 functions). Both compiler API
+and actual rvnc process paths are covered. Generic-arity name collisions remain in the
+inventory; public visibility comes from native visibility and available origin metadata.
+Private methods, internal owners, missing selections and unsupported signatures fail.
+Native Result-returning `System.Math.Abs/1` is rejected rather than changed to .NET Abs.
+
+Each `--system-method` explicitly selects qualified native name plus Int32 parameter
+count; it can be repeated. No unselected methods are claimed to be imported. The static
+view preserves callable ownership/name/signature but projects owners as static classes;
+instance shape, fields, properties, generic contracts, parameter names and attributes
+remain unprojected. Primitive binding still uses the host core (`TargetPlatform.DotNet`);
+this is **not complete System/Core import**. In this mode host Console/System.Runtime
+facade references and literal Console mapping are disabled, because host forwarders can
+win name lookup. No Runtime Contract option changes. General namespace/type collisions
+still require native core composition, not lookup-order assumptions.
+
+`NeoClrEmitOptions.SystemSymbols` accepts an explicit `NeoClrSystemSymbols` binding
+(reference, projection assembly name, native inventory, selected functions). The exact
+reference must be registered; invalid selections produce NEOMETA002 without output.
+Native method selection additionally matches the bound assembly, owner, name, Int32
+parameters and result. Emission uses `MethodBuilder.Call(NativeFunctionDefinition)`;
+this bootstrap only supports the implicit `System` module. The caller must supply the
+matching System artifact to runtime verify/run: no System revision/image digest is yet
+encoded. General dependency identity, richer signatures and full core import remain
+required follow-up work. Projection files created by the command are temporary and
+removed after compilation. The metadata library remains separate from Raven.
+
+Reproduction through the C# consumer:
+`NeoClrMetadataProbe --system-symbols <runtime> <rvnc.dll> <System.neox> <fresh-output>`.
+The output includes source, reference projection, native assemblies and validation hashes.
+
+**Architecture direction:** ISemanticDataLoader and ICompilationEmitter are existing
+composition boundaries, but DotNetSemanticDataLoader and PE symbols still depend on
+MetadataLoadContext, Assembly/Type/MethodBase. This bridge adapts native metadata into
+that importer. Extract common declaration/signature inputs for shared symbol construction
+as coverage grows; the projection is not a permanent native representation. The native
+operation emitter already avoids Reflection.Emit. The general .NET code generator still
+uses ILGenerator and builders throughout, so removing that dependency requires a common
+body/instruction abstraction and backend writers, not just replacing one emitter class.

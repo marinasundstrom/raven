@@ -35,6 +35,13 @@ public static class NeoClrCompilationEmitter
         if (options.ConsoleReference is { } console &&
             (!compilation.References.Any(r => ReferenceEquals(r, console)) || compilation.GetAssemblyOrModuleSymbol(console) is not IAssemblySymbol))
             return Fail(Configuration, "console contract reference is not registered or has no assembly symbol");
+        if (options.SystemSymbols is { } system &&
+            (system.Library.ModuleName != "System" || system.Functions.IsDefaultOrEmpty || system.Functions.Length > 4096 ||
+            system.Functions.Distinct().Count() != system.Functions.Length ||
+            system.Functions.Any(f => f is null || !ReferenceEquals(f.Library, system.Library) || !f.TryGetStaticInt32Signature(out _)) ||
+            !compilation.References.Any(r => ReferenceEquals(r, system.Reference)) ||
+            compilation.GetAssemblyOrModuleSymbol(system.Reference) is not IAssemblySymbol systemAssembly || systemAssembly.Name != system.ProjectionAssemblyName))
+            return Fail(Configuration, "invalid explicit System callable selection or projection reference");
         if (options.Dependencies.Length > 256) return Fail(Configuration, "too many dependencies");
         var bindings = new List<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)>();
         foreach (var dependency in options.Dependencies)

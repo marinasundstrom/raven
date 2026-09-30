@@ -1,0 +1,17 @@
+{
+  "date": "2026-09-30",
+  "systemModule": "System",
+  "typeCount": 417,
+  "functionCount": 4090,
+  "selectedFunction": "System.Math.Min",
+  "selectedTableIndex": 347,
+  "result": 42,
+  "nativeSymbolBinding": true,
+  "fullCoreImport": false,
+  "existingDotNetImporterReused": true,
+  "systemSha256": "a19756e92fdc1357a71840db67b83361330887e93dada37a779230d4a62a86ec",
+  "driverSha256": "0b60417a6191bb7fc3661f5690817fe8fdc06e6a22d9652d3d80b9e5363db60a",
+  "applicationSha256": "67d4f606d30c73b7f601e7df5e0708424d209c61823a687dd3abbd940dbe3f26",
+  "cliApplicationSha256": "0ab0419ec98debd364ef3e4e8296d2d24fe0ccb7365f113892f4fcca3d7dcd56",
+  "runtimeSha256": "929b169bab427e67d18c052cabe130cab14b651d72e64c0d25da49ae90586150"
+}

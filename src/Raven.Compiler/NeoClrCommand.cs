@@ -20,15 +20,20 @@ internal static class NeoClrCommand
         {
             Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--reference library.dll] source.rvn ...");
             Console.WriteLine("Experimental PE/#Neo output; Int32/Unit static subset. References must be native PE/#Neo assemblies.");
+            Console.WriteLine("Optional: --system-symbols System.neox --system-method System.Math.Min/2 (repeat explicit selections).");
+            Console.WriteLine("Static Int32 callable view only; not a complete core-library import. Run with the matching --system assembly.");
             Console.WriteLine("Uses host .NET primitive references for binding. No project, publish, PDB or managed execution support.");
             return 0;
         }
+        string? projectionPath = null;
         try
         {
             var sources = new List<string>();
             var referencePaths = new List<string>();
             string? output = null;
             var library = false;
+            string? systemPath = null;
+            var systemMethods = new List<string>();
             for (var i = 0; i < args.Length; i++)
             {
                 switch (args[i])
@@ -40,6 +45,14 @@ internal static class NeoClrCommand
                     case "--reference":
                         if (++i == args.Length) throw new ArgumentException("--reference requires a native assembly path.");
                         referencePaths.Add(Path.GetFullPath(args[i]));
+                        break;
+                    case "--system-symbols":
+                        if (systemPath is not null || ++i == args.Length) throw new ArgumentException("Specify --system-symbols once with a native System path.");
+                        systemPath = Path.GetFullPath(args[i]);
+                        break;
+                    case "--system-method":
+                        if (++i == args.Length) throw new ArgumentException("--system-method requires Qualified.Name/Int32-arity.");
+                        systemMethods.Add(args[i]);
                         break;
                     case "--library":
                         if (library) throw new ArgumentException("Specify --library once.");
@@ -79,12 +92,40 @@ internal static class NeoClrCommand
                 references.Add(reference);
                 dependencies.Add(new(reference, definition, core));
             }
+            NeoClrSystemSymbols? systemSymbols = null;
+            if ((systemPath is null) != (systemMethods.Count == 0)) throw new ArgumentException("Use --system-symbols with explicit --system-method selections.");
+            if (systemPath is not null)
+            {
+                // Host facades can forward System.Math back to host implementations.
+                // This partial native mode retains only the primitive core bootstrap.
+                references.RemoveRange(1, 2);
+                if (new FileInfo(systemPath).Length > 8 * 1024 * 1024) throw new InvalidDataException("System image exceeds 8 MiB.");
+                var system = NativeLibraryDefinition.ReadAssembly(File.ReadAllBytes(systemPath));
+                if (system.ModuleName != "System") throw new InvalidDataException("System symbol input must declare module System.");
+                var selected = new List<NativeFunctionDefinition>();
+                foreach (var selection in systemMethods)
+                {
+                    var split = selection.LastIndexOf('/');
+                    if (split <= 0 || !int.TryParse(selection[(split + 1)..], out var count) || count is < 0 or > 256)
+                        throw new ArgumentException("Invalid System method selection: " + selection);
+                    var matches = system.Functions.Where(f => f.Name == selection[..split] && f.TryGetStaticInt32Signature(out var arity) && arity == count).ToArray();
+                    if (matches.Length != 1) throw new InvalidDataException("Unsupported, missing or ambiguous native System callable: " + selection);
+                    selected.Add(matches[0]);
+                }
+                var identity = new AssemblyIdentity("NeoCLR.System.StaticView", new Version(1, 0, 0, 0));
+                var projection = system.CreateStaticInt32ReferenceAssembly(identity, core, selected);
+                projectionPath = Path.GetTempFileName();
+                File.WriteAllBytes(projectionPath, projection);
+                var reference = MetadataReference.CreateFromFile(projectionPath);
+                references.Add(reference);
+                systemSymbols = new(reference, identity.Name, system, selected);
+            }
             var trees = sources.Select(path => SyntaxTree.ParseText(File.ReadAllText(path), path: path)).ToArray();
             var compilation = Compilation.Create(name, trees, references.ToArray(),
                 new CompilationOptions(library ? OutputKind.DynamicallyLinkedLibrary : OutputKind.ConsoleApplication));
             using var image = new MemoryStream();
             var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,
-                new(new(name, new Version(1, 0, 0, 0)), core, dependencies, console));
+                new(new(name, new Version(1, 0, 0, 0)), core, dependencies, systemSymbols is null ? console : null, systemSymbols));
             foreach (var diagnostic in result.Diagnostics) Console.Error.WriteLine(diagnostic);
             if (!result.Success) return 1;
             // No destination is opened until binding and native encoding succeed.
@@ -97,6 +138,10 @@ internal static class NeoClrCommand
         {
             Console.Error.WriteLine("neoCLR: " + error.Message);
             return 1;
+        }
+        finally
+        {
+            if (projectionPath is not null) File.Delete(projectionPath);
         }
     }
 }

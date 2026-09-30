@@ -163,3 +163,10 @@ To also exercise the actual compiler command, build `src/Raven.Compiler` with th
 `--driver /absolute/path/to/rvnc.dll` to the full probe invocation. See the
 [native compiler command](../../docs/compiler/neoclr-cli-bridge.md#opt-in-native-compiler-command--2026-09-30)
 for usage, native reference limits and the translated System symbol-loader gap.
+
+
+Translated System integration: invoke the probe with
+`--system-symbols <runtime> <rvnc.dll> <System.neox> <fresh-output>`. It verifies that
+Math.Min binds to a metadata-derived native callable view, then runs API and compiler
+command output against the same binary System to 42. Full core import is not claimed.
+See [scope and reproduction](../../docs/compiler/neoclr-cli-bridge.md#translated-system-callable-import--2026-09-30).
