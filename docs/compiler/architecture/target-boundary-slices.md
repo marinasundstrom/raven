@@ -1487,3 +1487,33 @@ and diff checks pass (formatter workspace-load warnings). No native neoCLR,
 Next: narrow shared semantic consumers' dependence on CLI-specific mappings,
 keeping loader/backend replacement coherent with the platform contract. Avoid
 turning temporary transport restrictions into native feature capability rules.
+
+## Slice 43: contract validation before backend dispatch
+
+Separate resolved platform-contract validation from backend artifact options.
+Compilation's shared emission path validates the emitting target before dispatch,
+including the lowered macro-plugin compilation and calls with supplied diagnostics.
+DotNetCompilationEmitter now owns core-identity option resolution and no longer
+retains or calls DotNetCompilationTarget. TargetDiagnostics centralizes the existing
+RAVT003/RAVT005 construction without changing identity, severity or precedence.
+ICompilationEmitter documents the shared validation precondition and its backend-only
+diagnostic responsibility; stateful code generators remain per-emission objects.
+
+New coverage exercises invalid resolved unit/typeof contracts with normal and
+supplied-diagnostic paths, preserving warnings, both streams' bytes and positions,
+and caller ownership. Existing macro-plugin success/backend-rejection tests cover
+the second dispatch path. Setup failures, semantic errors, selected/discovered core
+identity and output behavior remain unchanged. No new public backend selector or
+cross-compilation is added; EmitOptions and the concrete generator remain CLI-facing.
+
+Validation: 69-test baseline, 96 final tests on .NET 11 covering target configuration,
+core selection, initialization, typeof, metadata emission, neoCLR/Self and macro
+plugins. Compiler builds pass on .NET 10 and .NET 11 with zero warnings/errors.
+Whitespace formatting and diff checks pass (formatter workspace-load warnings).
+Bridge ownership documentation is updated; runtime importer inputs and external
+artifacts are unchanged, so no runtime consumer migration is required. No native
+neoCLR, .NET Framework/NanoFramework execution or bootstrap qualification is claimed.
+
+Next: continue reducing reflection-backed semantic dependencies while keeping
+metadata loading, platform policy and emission paired by the target. Backend
+replacement must preserve the shared validation gate rather than duplicate it.

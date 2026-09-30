@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Separate resolved runtime-contract validation from backend artifact
+  validation. Normal and macro-plugin emission share the compiler's contract gate;
+  the .NET emitter owns output-core option resolution without depending on target
+  composition. Preserve supplied warnings and caller streams on validation failure.
+
 - **2026-09-30:** Separate the selected .NET and neoCLR CLI runtime contracts while
   sharing CLI symbol mappings and validation. Route Self availability through the
   selected contract; preserve explicit marker opt-in, .NET defaults and legacy
