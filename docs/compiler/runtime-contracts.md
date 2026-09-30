@@ -1569,3 +1569,9 @@ library contract. Update conformances and generic bounds to Clonable and rebuild
 matching references. This is a neoCLR library/API change, with no additional
 compiler option or ordinary CLR behavior change. Copy depth remains an explicit
 implementation contract; Self guarantees only the result type relationship.
+
+Known migration diagnostic boundary: an obsolete `Clonable<T>` generic bound can
+reach the checked neoCLR importer, which rejects it as an unsupported bound.
+Earlier generic-arity diagnostics are a deferred general compiler candidate;
+validate independently before integrating outside this experiment. Missing
+cloning bounds, wrong Self results and erased calls are compiler diagnostics.
