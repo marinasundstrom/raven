@@ -1,7 +1,7 @@
 # Deferred neoCLR structural Function types
 
 Native structural Function work stays on Raven's
-`codex/neoclr-structural-types` and neoCLR's `feature/function-types`. The detailed
+`codex/neoclr-structural-types` and neoCLR's `codex/structural-types`. The detailed
 experiment notes are retained on the Raven feature branch. Main does not claim
 structural function identity, assignability or native Function introspection.
 Promotion requires neoCLR's native metadata layer and complete compiler support.

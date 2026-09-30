@@ -69,6 +69,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   grouping and giving `&` higher precedence than `|`. This syntax foundation
   reports RAV0363 for unsupported semantic uses; it does not introduce a runtime
   intersection representation.
+- **2026-09-30:** Track deferred structural Function work on Raven
+  `codex/neoclr-structural-types` and neoCLR `codex/structural-types`, both based
+  on their Self-integrated main branches; retire the previous integration names.
+
 - **2026-09-30:** Gate native Self on the explicit neoCLR target and marker contract;
   reject .NET configuration before loading references or writing output. Preserve
   ordinary .NET semantic lookup. Retain inhabited unit-result transport for neoCLR's
