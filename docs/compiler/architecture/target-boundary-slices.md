@@ -1598,3 +1598,30 @@ runtime artifacts are unchanged. No native neoCLR, .NET Framework/NanoFramework
 execution or bootstrap qualification is claimed.
 
 Next: audit member-level extension facts and remaining shared PE signature queries.
+
+## Slice 47: provider-owned member extension receiver resolution
+
+Remove concrete PE checks from shared method/property extension receiver queries.
+The internal `IExtensionReceiverResolver` exposes semantic receiver resolution in
+the requested member context. The PE type implementation owns marker decoding,
+constructed-owner substitution and CLI ordinal-based parameter remapping. Shared
+code retains source rules, explicit receiver parameters and accessor precedence.
+A future native provider can resolve its own receiver relationships without
+inheriting the CLI remapping convention.
+
+Five non-PE regressions exercise declaration/constructed method context, receiver
+identity without ordinal reinterpretation, present/missing property receivers and
+accessor precedence. Attribute/member enumeration throws in the provider fixture.
+Existing extension tests protect the source and CLI paths. PE symbol identity and
+fast signature dependencies elsewhere are follow-up work; this does not claim a
+fully replaceable native target yet.
+
+Validation: 146-test extension baseline and 151 final tests pass on .NET 11.
+Compiler builds pass for .NET 10/11 with zero warnings/errors. Whitespace
+formatting and diff checks pass (formatter workspace-load warnings).
+No syntax, generated inputs, public API or emitted encoding changes. Language
+service consumers retain existing compiler entry points. External runtime
+artifacts are unchanged; native neoCLR and .NET Framework/NanoFramework execution
+are not claimed.
+
+Next: audit the remaining shared PE identity and signature query dependencies.

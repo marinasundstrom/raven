@@ -220,13 +220,9 @@ public static partial class SymbolExtensions
         if (property.ContainingType?.GetExtensionReceiverType() is { } containerReceiver)
             return containerReceiver;
 
-        return property switch
-        {
-            PEPropertySymbol peProperty => peProperty.ContainingType is PENamedTypeSymbol peType
-                ? peType.GetExtensionMarkerReceiverType(peProperty)
-                : null,
-            _ => null
-        };
+        return property.ContainingType is IExtensionReceiverResolver resolver
+            ? resolver.GetExtensionReceiverType(property)
+            : null;
     }
 
     public static ITypeSymbol? GetExtensionReceiverType(this IMethodSymbol method)
@@ -243,48 +239,10 @@ public static partial class SymbolExtensions
         if (method.IsExtensionMethod && !method.Parameters.IsDefaultOrEmpty)
             return method.Parameters[0].Type;
 
-        if (method.OriginalDefinition is PEMethodSymbol peOriginal &&
-            method.ContainingType is ConstructedNamedTypeSymbol constructed)
-        {
-            var markerReceiverType = peOriginal.ContainingType is PENamedTypeSymbol peMarkerType
-                ? peMarkerType.GetExtensionMarkerReceiverType(peOriginal)
-                : null;
-
-            if (markerReceiverType is not null)
-                return constructed.Substitute(markerReceiverType);
-        }
-
-        if (method is PEMethodSymbol peMethod && peMethod.ContainingType is PENamedTypeSymbol peContaining)
-        {
-            var markerReceiver = peContaining.GetExtensionMarkerReceiverType(peMethod);
-            if (markerReceiver is not null)
-            {
-                if (!method.TypeParameters.IsDefaultOrEmpty)
-                {
-                    var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
-                    MapReceiverTypeParameters(markerReceiver, method.TypeParameters, map);
-
-                    if (map.Count > 0)
-                        return SubstituteTypeParameters(markerReceiver, map);
-                }
-
-                return markerReceiver;
-            }
-        }
-        if (method.ContainingType is PENamedTypeSymbol peType &&
-            peType.GetExtensionReceiverType() is { } peReceiverType)
-        {
-            if (!method.TypeParameters.IsDefaultOrEmpty)
-            {
-                var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
-                MapReceiverTypeParameters(peReceiverType, method.TypeParameters, map);
-
-                if (map.Count > 0)
-                    return SubstituteTypeParameters(peReceiverType, map);
-            }
-
-            return peReceiverType;
-        }
+        var resolver = method.OriginalDefinition?.ContainingType as IExtensionReceiverResolver
+            ?? method.ContainingType as IExtensionReceiverResolver;
+        if (resolver?.GetExtensionReceiverType(method) is { } providerReceiver)
+            return providerReceiver;
 
         if (method.ContainingType is SourceNamedTypeSymbol sourceType &&
             sourceType.IsExtensionDeclaration &&
@@ -319,7 +277,7 @@ public static partial class SymbolExtensions
         };
     }
 
-    private static ITypeSymbol SubstituteTypeParameters(
+    internal static ITypeSymbol SubstituteTypeParameters(
         ITypeSymbol type,
         Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
     {
@@ -403,44 +361,6 @@ public static partial class SymbolExtensions
         }
 
         return type;
-    }
-
-    private static void MapReceiverTypeParameters(
-        ITypeSymbol receiverType,
-        ImmutableArray<ITypeParameterSymbol> methodParameters,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
-    {
-        var methodOwner = methodParameters.IsDefaultOrEmpty ? null : methodParameters[0].ContainingSymbol;
-
-        switch (receiverType)
-        {
-            case ITypeParameterSymbol parameter:
-                if (!Equals(parameter.ContainingSymbol, methodOwner) &&
-                    parameter.Ordinal < methodParameters.Length)
-                {
-                    map.TryAdd(parameter, methodParameters[parameter.Ordinal]);
-                }
-                break;
-            case NullableTypeSymbol nullableType:
-                MapReceiverTypeParameters(nullableType.UnderlyingType, methodParameters, map);
-                break;
-            case RefTypeSymbol refType:
-                MapReceiverTypeParameters(refType.ElementType, methodParameters, map);
-                break;
-            case IAddressTypeSymbol address:
-                MapReceiverTypeParameters(address.ReferencedType, methodParameters, map);
-                break;
-            case IArrayTypeSymbol arrayType:
-                MapReceiverTypeParameters(arrayType.ElementType, methodParameters, map);
-                break;
-            case IPointerTypeSymbol pointerType:
-                MapReceiverTypeParameters(pointerType.PointedAtType, methodParameters, map);
-                break;
-            case INamedTypeSymbol namedType:
-                foreach (var arg in namedType.TypeArguments)
-                    MapReceiverTypeParameters(arg, methodParameters, map);
-                break;
-        }
     }
 
     public static ITypeSymbol? GetExtensionReceiverType(this ISymbol symbol)
