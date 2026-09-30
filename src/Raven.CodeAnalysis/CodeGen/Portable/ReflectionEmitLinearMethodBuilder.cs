@@ -9,6 +9,11 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 // mapping, type completion and PE writing remain owned by the existing code generator.
 internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, IILBuilder output) : ILinearMethodBuilder
 {
+    private readonly List<IILocal> locals = [];
+
+    public void DeclareInt32Local() => locals.Add(output.DeclareLocal(method.ResolveClrType(
+        method.Compilation.GetSpecialType(SpecialType.System_Int32))));
+
     internal static bool TryEmit(MethodGenerator method)
     {
         var symbol = method.MethodSymbol;
@@ -49,6 +54,8 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
         {
             case LinearInstructionKind.Constant: output.Emit(OpCodes.Ldc_I4, instruction.Integer); break;
             case LinearInstructionKind.Argument: output.Emit(OpCodes.Ldarg, instruction.Integer); break;
+            case LinearInstructionKind.LoadLocal: output.Emit(OpCodes.Ldloc, locals[instruction.Integer]); break;
+            case LinearInstructionKind.StoreLocal: output.Emit(OpCodes.Stloc, locals[instruction.Integer]); break;
             case LinearInstructionKind.Add: output.Emit(OpCodes.Add); break;
             case LinearInstructionKind.Subtract: output.Emit(OpCodes.Sub); break;
             case LinearInstructionKind.Multiply: output.Emit(OpCodes.Mul); break;

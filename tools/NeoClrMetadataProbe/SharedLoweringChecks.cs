@@ -78,6 +78,18 @@ internal static class SharedLoweringChecks
                 }
             }
             """, "", 42);
+        await RunCase("SharedLocals", """
+            func Main() -> int {
+                let start = 20
+                var result = Twice(start)
+                result = result + 2
+                result
+            }
+            func Twice(value: int) -> int {
+                let factor = 2
+                value * factor
+            }
+            """, "", 42);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
         Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 

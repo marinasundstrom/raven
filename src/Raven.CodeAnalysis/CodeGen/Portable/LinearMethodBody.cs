@@ -8,13 +8,14 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleLiteral, Return }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleLiteral, Return, LoadLocal, StoreLocal }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null);
 
 internal interface ILinearMethodBuilder
 {
+    void DeclareInt32Local();
     void Emit(LinearInstruction instruction);
 }
 
@@ -23,10 +24,11 @@ internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
 // source-located boundary. Language rewrites remain owned by the existing Lowerer.
-internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions)
+internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, int localCount)
 {
     internal void Emit(ILinearMethodBuilder builder)
     {
+        for (var i = 0; i < localCount; i++) builder.DeclareInt32Local();
         foreach (var instruction in instructions) builder.Emit(instruction);
     }
 
@@ -39,10 +41,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         Func<BoundInvocationExpression, bool> permitsConsoleLiteral, out LinearMethodBody? lowered, out LinearBodyFailure? failure)
     {
         var instructions = ImmutableArray.CreateBuilder<LinearInstruction>();
+        var locals = new Dictionary<ILocalSymbol, int>(SymbolEqualityComparer.Default);
         LinearBodyFailure? rejected = null;
         var body = model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement;
         var success = body is not null ? LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
-        lowered = success ? new(instructions.ToImmutable()) : null;
+        lowered = success ? new(instructions.ToImmutable(), locals.Count) : null;
         failure = rejected;
         return success;
 
@@ -62,6 +65,34 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             if (!body.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(body));
             foreach (var statement in body.Statements)
             {
+                if (statement is BoundLocalDeclarationStatement declaration)
+                {
+                    if (declaration.IsUsing) return Reject("using local", Syntax(statement));
+                    foreach (var variable in declaration.Declarators)
+                    {
+                        if (variable.Local.Type.SpecialType != SpecialType.System_Int32 || variable.Initializer is null ||
+                            variable.FixedAddressInitializer is not null || variable.FixedPinnedLocal is not null)
+                            return Reject("only initialized Int32 locals", Syntax(variable));
+                        if (!LowerValue(variable.Initializer)) return false;
+                        var slot = locals.Count;
+                        locals.Add(variable.Local, slot);
+                        Add(LinearInstructionKind.StoreLocal, Syntax(variable), slot);
+                    }
+                    continue;
+                }
+                var assignment = statement switch
+                {
+                    BoundAssignmentStatement { Expression: BoundLocalAssignmentExpression localAssignment } => localAssignment,
+                    BoundExpressionStatement { Expression: BoundLocalAssignmentExpression localAssignment } => localAssignment,
+                    _ => null
+                };
+                if (assignment is not null)
+                {
+                    if (!locals.TryGetValue(assignment.Local, out var slot)) return Reject("undeclared local", Syntax(statement));
+                    if (!LowerValue(assignment.Right)) return false;
+                    Add(LinearInstructionKind.StoreLocal, Syntax(assignment), slot);
+                    continue;
+                }
                 if (statement is BoundExpressionStatement { Expression: BoundInvocationExpression call })
                 {
                     if (permitsConsoleLiteral(call) && call.Arguments.ToArray() is [BoundLiteralExpression { Value: string text }])
@@ -94,6 +125,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             {
                 case BoundLiteralExpression { Value: int value }:
                     Add(LinearInstructionKind.Constant, Syntax(expression), value); return true;
+                case BoundLocalAccess local:
+                    if (!locals.TryGetValue(local.Local, out var slot)) return Reject("undeclared local", Syntax(expression));
+                    Add(LinearInstructionKind.LoadLocal, Syntax(expression), slot); return true;
                 case BoundParameterAccess parameter:
                     var index = source.Parameters.IndexOf(parameter.Parameter, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
                     if (index < 0) return Reject("captured parameter", Syntax(expression));

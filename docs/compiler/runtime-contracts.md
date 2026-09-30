@@ -2308,3 +2308,8 @@ types; native capability policy remains in its adapter. Target selection is unch
 Shared static type plans retain symbol ownership and metadata naming. .NET construction
 still receives the existing flags and target-aware base resolution; native capability
 validation remains adapter-owned. No Runtime Contract or semantic import change is implied.
+
+Shared Int32 locals use MethodGenerator's target-aware type resolution on .NET; native
+slots use the metadata writer's Int32 representation. Existing Runtime Contract and
+loader selection are unchanged. General locals and address-taking remain outside the
+bounded native backend.

@@ -1040,3 +1040,31 @@ The native probe retains empty types, namespaced library cases in both file orde
 assembly/type ownership, and actual runtime/driver loading and execution.
 
 Validation: 23 focused C# tests passed; [native runtime and driver evidence](../../tools/NeoClrMetadataProbe/validation.json).
+
+## Int32 locals and assignment — 2026-10-01
+
+The shared lowered-body path now admits initialized Int32 local declarations, local
+reads and standalone local assignments. Local symbol identity maps to slots before
+backend emission; the .NET adapter creates locals with the selected target's Int32 type,
+and the native adapter uses method-owned metadata local slots. No host type substitution
+or source-operation rewrite is involved. The same Main/helper program with immutable
+and mutable locals returns 42 on .NET and from a PE/#Neo assembly loaded by neoCLR.
+
+The independent metadata library adds typed LocalDefinition handles and raw Ldloc/Stloc
+operands, CLI local signatures and native format-5 local lists. Writes check ownership,
+slot bounds, stack balance and stores before loads for the current linear body subset.
+ClearBody retains declarations but resets initialization through revalidation. Older
+producer artifacts with no locals remain readable; older experimental host readers may
+reject newly written local lists. Runtime format-5 and binary transport schemas do not
+change: neoCLR already implements these locals and instructions. Reference-only CLI
+projections continue to omit executable body details.
+
+Compared with .NET's general local/IL surface this is deliberately bounded to Int32 and
+initialized declarations; arbitrary types, address-taking, control flow and debug local
+scopes remain later work. The extra slot/initialization bookkeeping makes compiler and
+assembler misuse fail at write time. Runtime Contract selection and the temporary symbol
+loader are unchanged; native metadata loading continues directly in the runtime. See
+the metadata API manual for the new public contract. General .NET debug/fallback emission
+remains intact. No performance claim or runtime optimization is included.
+
+Validation: 25 compiler tests, 33 metadata API groups and the API snapshot check passed; [runtime/driver evidence](../../tools/NeoClrMetadataProbe/validation.json).

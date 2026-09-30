@@ -21,7 +21,8 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
    and the existing CLI carrier representation. The earlier static-type prototype is
    now a shared source-type plan retaining symbol identity and backend builder contracts.
    It covers public top-level nongeneric static classes, not the general type boundary.
-3. Extend shared body operations through locals/assignments, comparisons/branches,
+3. Int32 initialized locals and standalone assignments are now shared with metadata
+   writer support. Extend shared body operations through comparisons/branches,
    loops, broader signatures/conversions, then instances/fields. Pair each capability
    with metadata writer/reader and runtime validation support as required.
 4. Centralize explicit representation and capability policies: Unit, entry points,

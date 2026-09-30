@@ -154,6 +154,29 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).EntryPoint!.Invoke(null, null));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void InitializedLocalsAndAssignmentExecute(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Arithmetic {
+                public static func Value(value: int) -> int {
+                    let start = value
+                    var result = start * 2
+                    result = result + 2
+                    result
+                }
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var method = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var model = compilation.GetSemanticModel(method.SyntaxTree);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+            _ => false, out _, out var failure), failure?.Detail);
+        Assert.Equal(42, Emit(compilation).GetType("Arithmetic")!.GetMethod("Value")!.Invoke(null, [20]));
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));

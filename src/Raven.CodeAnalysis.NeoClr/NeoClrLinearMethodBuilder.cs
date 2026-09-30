@@ -9,12 +9,16 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
     Action<LinearInstruction, MethodBuilder> emitCall) : ILinearMethodBuilder
 {
+    public void DeclareInt32Local() => method.DeclareInt32Local();
+
     public void Emit(LinearInstruction instruction)
     {
         switch (instruction.Kind)
         {
             case LinearInstructionKind.Constant: method.Emit(OpCode.Ldc_I4, instruction.Integer); break;
             case LinearInstructionKind.Argument: method.Emit(OpCode.Ldarg, instruction.Integer); break;
+            case LinearInstructionKind.LoadLocal: method.Emit(OpCode.Ldloc, instruction.Integer); break;
+            case LinearInstructionKind.StoreLocal: method.Emit(OpCode.Stloc, instruction.Integer); break;
             case LinearInstructionKind.Add: method.Emit(OpCode.Add); break;
             case LinearInstructionKind.Subtract: method.Emit(OpCode.Sub); break;
             case LinearInstructionKind.Multiply: method.Emit(OpCode.Mul); break;

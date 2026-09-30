@@ -213,3 +213,6 @@ type-owned methods, retains an empty static type, and runs the same source on bo
 Static-type plans are shared by the .NET and native builders. Existing namespaced/empty
 class and callable-owner probes exercise this boundary; generic/nested/instance fallback
 is covered by the focused compiler C# tests.
+
+The shared-local case initializes immutable/mutable Int32 slots, calls a helper with its
+own local, assigns a new value, and returns 42 on .NET and native runtime loading.
