@@ -25,7 +25,9 @@ internal sealed class DotNetCompilationTarget
     internal DotNetCompilationTarget(Compilation compilation)
     {
         _compilation = compilation;
-        RuntimeContract = new DotNetRuntimeContract(compilation.Options);
+        RuntimeContract = compilation.Options.TargetPlatform == TargetPlatform.NeoCLR
+            ? new NeoClrCliRuntimeContract(compilation.Options)
+            : new DotNetRuntimeContract(compilation.Options);
         Emitter = new DotNetCompilationEmitter(compilation, this);
         // Allocation must not bind or load references: reflection queries may
         // request this projector before setup or during same-thread setup reentrancy.
@@ -34,7 +36,7 @@ internal sealed class DotNetCompilationTarget
 
     internal ICompilationEmitter Emitter { get; }
     internal ReflectionTypeLoader ReflectionTypeLoader => _reflectionTypeLoader.Value;
-    internal DotNetRuntimeContract RuntimeContract { get; }
+    internal CliRuntimeContract RuntimeContract { get; }
     internal DotNetHostRuntime HostRuntime { get; } = new();
     internal Assembly CoreAssembly { get; private set; } = null!;
     internal Assembly RuntimeCoreAssembly { get; private set; } = null!;
