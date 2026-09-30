@@ -52,11 +52,18 @@ alone cannot qualify neoCLR execution.
 
 ## Boundaries to establish
 
+[ADR-0003](decisions/0003-target-owned-metadata-and-emission.md) defines the target
+as owner of metadata import, runtime contracts, and emission. Raven's semantic
+model is its own design; Roslyn informs structure without prescribing these APIs.
+Breaking interface changes are acceptable during this phase when controlled
+consumers migrate together. Changing target may require rebuilding imported
+symbols and rebinding; arbitrary importer/backend combinations are not promised.
+
 | Boundary | Responsibility | Direction |
 | --- | --- | --- |
-| Language and semantic model | Syntax, binding, conversions, diagnostics, symbols, operations | Keep shared and Roslyn-like; semantic state remains compiler-owned. |
-| Metadata provider | Reference resolution, assembly identity, imported definitions, signatures, attributes, lifetime | .NET initially owns `MetadataLoadContext`, reflection objects, and PE import details. |
-| Imported symbol implementation | Lazy projection of metadata into Raven symbols | Preserve shared symbol interfaces; isolate reflection-backed implementations and concrete PE assumptions. |
+| Language and semantic model | Syntax, binding, conversions, diagnostics, symbols, operations | Raven-owned design over target-aware symbols; semantic state remains compiler-owned. |
+| Target metadata provider | Reference resolution, metadata identity, imported definitions, signatures, attributes, lifetime | Selected by the target; .NET initially owns `MetadataLoadContext`, reflection objects, and PE import details. |
+| Imported symbol implementation | Lazy projection of target metadata into Raven symbols | Redesign shared contracts as needed; isolate reflection-backed implementations and concrete PE assumptions. |
 | Target runtime contracts | Core identity, required types/members, representation and capability decisions | Resolve explicitly from target inputs; distinguish language meaning from target representation. |
 | Emission backend | Target lowering, layout, member references, executable/debug artifacts | .NET initially owns Reflection.Emit, CLR instruction emission, and PE normalization. |
 | Host and deployment | Compiler execution, macros, filesystem, SDK/MSBuild, packaging | Keep host dependencies distinct from target references and deployment tools. |
