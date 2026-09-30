@@ -75,6 +75,11 @@ Existing frozen-bootstrap provenance and dependency gates remain unchanged.
 
 ## Follow-up
 
+Immediate scope is .NET first, neoCLR later, each as a coherent loader,
+platform/runtime contract, and codegen trio. No cross-compilation or independent
+loader/backend mixing is planned at this stage. Multiple source/backend support
+above is architectural latitude, not an implementation requirement now.
+
 Define target selection, target-owned import sessions and symbol factories,
 semantic capabilities, emission inputs, and reuse keys through verified slices.
 Define diagnostics for incompatible symbol-source/backend combinations and

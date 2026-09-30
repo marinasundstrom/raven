@@ -9,6 +9,12 @@ details selection, compatibility, and the next implementation slices.
 
 ## Objective and order
 
+Current delivery scope: a target consists of its semantic-data loader,
+platform/runtime contract, and codegen. Implement .NET first and neoCLR later.
+No cross-compilation or independently mixed target components at this stage;
+native backends and general source/backend admission frameworks are deferred.
+Keep the shared semantic model and make the loader genuinely replaceable.
+
 Separate Raven's language semantics from metadata import, runtime contracts,
 and code generation. Establish .NET as the first supported implementation of
 those boundaries. Adopt unions, `Result`, and `Option` in the C# compiler, then

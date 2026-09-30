@@ -5,6 +5,20 @@ Status: implementation design, 2026-09-30. Implements the direction of
 pipeline below is not implemented yet. The existing compiler still uses .NET
 symbol loading and CLI emission, with experimental target options.
 
+## Current implementation scope
+
+The immediate target is a coherent trio: a semantic-data loader, a
+platform/runtime contract mapping language operations to that platform, and its
+code generator. Support .NET first and neoCLR later, using Raven's shared semantic
+model. A neoCLR loader may read its own metadata instead of .NET metadata.
+
+Do not implement cross-compilation, arbitrary loader/backend combinations, native
+code generation, multiple backend selection, or a general plugin system at this
+stage. The broader compatibility discussion below is design context, not the
+current delivery checklist. Introduce only the seams needed to replace these
+three components together. Contract examples include IEnumerable<T>/Iterable<T>
+mapping and target-specific unsupported-feature rules.
+
 ## Ownership
 
 A runtime/platform contract defines the environment in which a Raven program
@@ -139,6 +153,9 @@ family. Unsupported mixed old/new configuration should fail explicitly rather
 than follow undocumented override precedence.
 
 ## Implementation slices and acceptance gates
+
+This is a longer-term outline. The current scope above takes priority; multiple
+source/backend admission machinery is deferred until a concrete need exists.
 
 1. Inventory all consumers of the existing options and target-name checks. Record
    classification and source/semantic/backend invalidation requirements. Include
