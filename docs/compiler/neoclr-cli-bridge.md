@@ -789,3 +789,40 @@ Target/runtime configuration and existing temporary reference projections are un
 C# checks compare helper/Emit artifacts, execute ordinary CLI output to 42, reject bad
 operands without body mutation, and cover imported/native calls. Raven's existing native
 compiler/runtime cases and selected translated-System calls validate its actual use.
+
+### Shared emission pipeline — 2026-09-30
+
+Native emission now enters the ordinary `Compilation.Emit` pipeline. Select it with
+`new EmitOptions().WithBackend(new NeoClrEmissionBackend(nativeOptions))`; the
+`rvnc neoclr` command and existing `NeoClrCompilationEmitter` convenience APIs use
+that same path. The compiler owns setup, declarations, semantic diagnostics, macro
+preparation and resolved Runtime Contract validation. The backend returns only its
+own diagnostics and creates fresh metadata builders on every call. No global backend
+registration or dependency from the core compiler to the independent metadata library
+is introduced. Clearing the backend restores the selected target's default emitter.
+
+`ICompilationEmissionBackend` is the artifact boundary, not a replacement for the
+semantic target. Native configuration still requires the .NET primitive bootstrap,
+explicit reference projections and matching native dependency artifacts. Binary PE/#Neo
+is the default native artifact; JSON interchange remains available explicitly. Native
+PDB output and `EmitOptions.TargetCoreLibraryIdentity` rewriting reject with NEOMETA002
+before either stream is changed; configure native core identity in `NeoClrEmitOptions`.
+The native source/signature subset and reference-only CLI bodies are unchanged.
+Macro preparation belongs to the common pipeline; native macro support is not established.
+
+Compared with the previous .NET-only emission entry point, this lets independently
+packaged backends reuse compiler validation without depending on Reflection.Emit.
+It does not make the existing .NET `TypeBuilder`, method handles or IL operands portable:
+those remain the next extraction boundary. Share declaration/body lowering where
+semantics agree, with backend-owned type/method handles and explicit capabilities
+where representations differ (notably assembly-owned native functions versus CLI
+carrier types). Do not turn unsupported native shapes into silent CLI fallbacks.
+The cost is an explicit backend API whose implementations must validate artifact options
+and keep per-emission mutable state private.
+
+Focused C# tests cover backend selection, preserved option copies, compiler/contract
+failure before backend entry and default .NET PE emission. The native executable probe
+covers shared-pipeline/wrapper equivalence, unchanged output on unsupported artifact
+options, Hello World, helper calls, dependencies and translated System.Math.Min.
+The general backend API is a shared-line integration candidate; it remains on the
+consumer branch with the native adapter pending reconciliation with Raven main.

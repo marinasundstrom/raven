@@ -51,6 +51,25 @@ internal static class AdapterChecks
             "PE output remains caller-owned");
         Check(NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.Read(container.ToArray()).SequenceEqual(first.ToArray()),
             "PE and JSON emission preserve identical native payload");
+        var backend = new NeoClrEmissionBackend(options);
+        using var sharedOutput = new MemoryStream();
+        var sharedResult = good.Emit(sharedOutput, null, new EmitOptions().WithBackend(backend));
+        Check(sharedResult.Success && NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.Read(sharedOutput.ToArray())
+            .SequenceEqual(NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.Read(container.ToArray())), "Compilation.Emit and compatibility wrapper agree");
+        foreach (var coreOverride in new[] { false, true })
+        {
+            using var rejectedOutput = new MemoryStream();
+            using var debug = new MemoryStream();
+            rejectedOutput.WriteByte(17);
+            debug.WriteByte(18);
+            var artifactOptions = new EmitOptions().WithBackend(backend);
+            if (coreOverride) artifactOptions = artifactOptions.WithTargetCoreLibraryIdentity(new System.Reflection.AssemblyName("Wrong.Core"));
+            var rejected = good.Emit(rejectedOutput, coreOverride ? null : debug, artifactOptions);
+            Check(!rejected.Success && rejected.Diagnostics.Any(d => d.Id == "NEOMETA002"), "unsupported backend artifact options rejected");
+            Check(rejectedOutput.ToArray().SequenceEqual(new byte[] { 17 }) && rejectedOutput.Position == 1 &&
+                debug.ToArray().SequenceEqual(new byte[] { 18 }) && debug.Position == 1, "backend option failure preserves both streams");
+        }
+        Console.WriteLine("PASS shared Compilation.Emit backend, option rejection and wrapper equivalence");
         Console.WriteLine("PASS adapter diagnostics, source locations, configuration, repeat emission and stream contracts");
     }
     private static NeoClrEmitResult Rejected(Compilation compilation, NeoClrEmitOptions options, string? expected = null)

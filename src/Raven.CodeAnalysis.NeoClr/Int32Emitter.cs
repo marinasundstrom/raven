@@ -9,7 +9,7 @@ using OperatorKind = Raven.CodeAnalysis.Operations.BinaryOperatorKind;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-// Experimental consumer, not an installed Compilation.Emit backend. It consumes public
+// Body/declaration lowering behind the explicitly selected native backend. It consumes public
 // semantic operations; no bound nodes, reflection emit or source-token operator guessing.
 internal static class Int32Emitter
 {

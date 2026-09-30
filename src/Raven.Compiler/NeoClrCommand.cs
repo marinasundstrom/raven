@@ -124,8 +124,9 @@ internal static class NeoClrCommand
             var compilation = Compilation.Create(name, trees, references.ToArray(),
                 new CompilationOptions(library ? OutputKind.DynamicallyLinkedLibrary : OutputKind.ConsoleApplication));
             using var image = new MemoryStream();
-            var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,
+            var backend = new NeoClrEmissionBackend(
                 new(new(name, new Version(1, 0, 0, 0)), core, dependencies, systemSymbols is null ? console : null, systemSymbols));
+            var result = compilation.Emit(image, null, new EmitOptions().WithBackend(backend));
             foreach (var diagnostic in result.Diagnostics) Console.Error.WriteLine(diagnostic);
             if (!result.Success) return 1;
             // No destination is opened until binding and native encoding succeed.

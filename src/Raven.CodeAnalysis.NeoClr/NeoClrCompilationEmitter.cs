@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.NeoClr;
 
 /// <summary>Opt-in native format-5 emitter for the documented static Int32/Unit source subset.</summary>
-/// <remarks>Uses public semantic operations and the existing .NET binding bootstrap. It is not installed in Compilation.Emit.</remarks>
+/// <remarks>Uses public semantic operations and the existing .NET binding bootstrap. Uses the shared Compilation.Emit pipeline through an explicit backend.</remarks>
 public static class NeoClrCompilationEmitter
 {
     private static readonly DiagnosticDescriptor Unsupported = Descriptor("NEOMETA001", "Unsupported native source", "Native emission does not support {0}.");
@@ -19,11 +19,18 @@ public static class NeoClrCompilationEmitter
     public static NeoClrEmitResult Emit(Compilation compilation, Stream output, NeoClrEmitOptions options)
     {
         ArgumentNullException.ThrowIfNull(compilation);
-        ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(output);
         if (!output.CanWrite) throw new ArgumentException("Output must be writable", nameof(output));
-        var diagnostics = compilation.GetDiagnostics().ToImmutableArray();
-        if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error && !d.IsSuppressed)) return new(false, diagnostics);
+        var result = compilation.Emit(output, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(options, emitMetadataAssembly: false)));
+        return new(result.Success, result.Diagnostics);
+    }
+
+    internal static NeoClrEmitResult EmitPrepared(Compilation compilation, Stream output, NeoClrEmitOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        if (!output.CanWrite) throw new ArgumentException("Output must be writable", nameof(output));
+        var diagnostics = ImmutableArray<Diagnostic>.Empty;
         NeoClrEmitResult Fail(DiagnosticDescriptor descriptor, string detail, Location? location = null)
             => new(false, diagnostics.Add(Diagnostic.Create(descriptor, location ?? Location.None, detail)));
         if (compilation.Options.TargetPlatform != TargetPlatform.DotNet || compilation.Options.OutputKind is not (OutputKind.ConsoleApplication or OutputKind.DynamicallyLinkedLibrary))
@@ -72,10 +79,20 @@ public static class NeoClrCompilationEmitter
     /// <remarks>CLI bodies are reference-only. neoCLR loads the required native section. Stream I/O errors propagate.</remarks>
     public static NeoClrEmitResult EmitMetadataAssembly(Compilation compilation, Stream output, NeoClrEmitOptions options)
     {
+        ArgumentNullException.ThrowIfNull(compilation);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(output);
+        if (!output.CanWrite) throw new ArgumentException("Output must be writable", nameof(output));
+        var result = compilation.Emit(output, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(options)));
+        return new(result.Success, result.Diagnostics);
+    }
+
+    internal static NeoClrEmitResult EmitPreparedMetadataAssembly(Compilation compilation, Stream output, NeoClrEmitOptions options)
+    {
         ArgumentNullException.ThrowIfNull(output);
         if (!output.CanWrite) throw new ArgumentException("Output must be writable", nameof(output));
         using var native = new MemoryStream();
-        var result = Emit(compilation, native, options);
+        var result = EmitPrepared(compilation, native, options);
         if (!result.Success) return result;
         byte[] image;
         try { image = NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(native.ToArray(), options.CoreLibrary); }

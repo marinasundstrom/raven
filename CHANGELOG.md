@@ -11,6 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Preserve diagnostics, failed output and caller stream/I/O contracts. The native
   section now has a binary format-5 encoding; a native symbol provider and production
   target registration remain pending.
+  Add explicit ICompilationEmissionBackend selection through EmitOptions.WithBackend.
+  Native wrappers and rvnc now reuse Compilation.Emit setup, diagnostics and resolved
+  contract checks. Default .NET emission remains unchanged; native debug output and CLI
+  core rewriting reject before writing. Backend builders remain private per emission.
   Route the native operation emitter through the metadata library's typed opcode Emit
   overloads, including local/imported/native call operands. Existing helpers share that
   path; artifact semantics, target contracts and runtime behavior remain unchanged.

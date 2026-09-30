@@ -175,3 +175,7 @@ See [scope and reproduction](../../docs/compiler/neoclr-cli-bridge.md#translated
 The full and `--hello-only` checks also execute Unit Main directly, through a helper,
 and as a public static class method, plus an empty entry. The `--driver` checks compile
 an actual Unit Main source file and verify native stdout and exit zero.
+
+Native API and driver calls now share `Compilation.Emit` via explicit
+`NeoClrEmissionBackend` selection. Adapter checks compare wrapper/shared-pipeline
+artifacts and reject debug/core-rewrite options without modifying either stream.

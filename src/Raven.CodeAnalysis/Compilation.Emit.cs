@@ -72,7 +72,9 @@ public partial class Compilation
         if (GetTargetCoreConfigurationDiagnostic() is { } diagnostic)
             return new EmitResult(false, diagnostics.Add(diagnostic));
 
-        var result = _target.Emitter.Emit(output, debugOutput, options);
+        var result = options?.Backend is { } backend
+            ? backend.Emit(this, output, debugOutput, options)
+            : _target.Emitter.Emit(output, debugOutput, options);
         return new EmitResult(result.Success, diagnostics.AddRange(result.Diagnostics));
     }
 

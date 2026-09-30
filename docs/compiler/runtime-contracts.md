@@ -2268,3 +2268,18 @@ authoritative as semantics diverge; keep projection mappings behind the compiler
 loader contract so a native ISemanticDataLoader can replace them. The independent
 metadata project stays separate from Raven. This is a bootstrap plan, not a claim
 that System.Runtime already compiles through this experimental emitter.
+
+### Artifact backend selection
+
+`EmitOptions.WithBackend(ICompilationEmissionBackend?)` selects an artifact producer
+for `Compilation.Emit`. It does not change `CompilationOptions.TargetPlatform`, the
+metadata importer, core identity or Runtime Contracts. The compiler validates these
+contracts before calling the backend, including when semantic diagnostics were supplied
+internally. `WithTargetCoreLibraryIdentity` preserves the backend; `WithBackend(null)`
+restores ordinary target emission. The backend receives prepared source and returns
+`EmitResult` with backend diagnostics only. Its public constructor normalizes a default
+diagnostic array to empty. Implementations own capability checks and per-call builder
+state, must leave caller streams open and must not recursively invoke Compilation.Emit.
+
+The optional native implementation and its restrictions are documented in the
+[neoCLR bridge](neoclr-cli-bridge.md#shared-emission-pipeline--2026-09-30).
