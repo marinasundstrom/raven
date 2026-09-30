@@ -66,8 +66,9 @@ validation API; this early boundary applies to diagnostic collection and emissio
 ## Current target composition
 
 `Targets.DotNetCompilationTarget` is the internal composition point for the
-existing CLI implementation: it creates the semantic-data loader, owns a
-`DotNetRuntimeContract`, and invokes the existing .NET code generator. Each
+existing CLI implementation: it creates the semantic-data loader, selects a
+`DotNetRuntimeContract` or `NeoClrCliRuntimeContract` from `TargetPlatform`, and
+invokes the existing .NET code generator. Each
 compilation constructs its target from its immutable options; macro-plugin
 compilations use their own target when emitting. Diagnostics and target-core
 compatibility checks still run before emission writes output.
@@ -1246,7 +1247,7 @@ execution on .NET Framework, NanoFramework, or neoCLR.
 
 ## Resolved contract ownership
 
-`DotNetRuntimeContract.ResolveTypeOf` validates provider visibility, type kinds,
+`CliRuntimeContract.ResolveTypeOf` validates provider visibility, type kinds,
 arity, assembly ownership, Current getter shape, and resolver signature. Binding
 and emission consume the resulting semantic symbols through the existing internal
 compilation entry point. The provider may be source-defined or imported; no host
@@ -1629,14 +1630,17 @@ existing semantic diagnostics carry the rule. LSP execution was not rerun.
 ### Transitional neoCLR CLI compatibility (2026-09-30)
 
 `Targets.NeoClrCliCompatibility` owns the existing experimental assembly-name
-rules. `DotNetRuntimeContract` selects inhabited function results and the tuple
-family through it; the PE loader uses it to recognize value-type `System.Tuple`
+rules. `DotNetRuntimeContract` preserves legacy core-name selection for inhabited
+function results and the tuple family; `NeoClrCliRuntimeContract` selects those
+representations directly. The PE loader uses the compatibility helper to recognize value-type `System.Tuple`
 imports; shared bound-node facts use it to classify terminal `System.Fault` calls.
 This extraction preserves behavior and adds no public options.
 
-The configured core name must exactly equal `NeoCLR.CoreProbe` for unit-returning
-functions to use `Func<..., Unit>` and tuple construction to use `System.Tuple`.
-Other core names retain `Action` and `System.ValueTuple`. Imported tuple aliases
+Under the legacy .NET contract, the configured core name must exactly equal
+`NeoCLR.CoreProbe` for unit-returning functions to use `Func<..., Unit>` and tuple
+construction to use `System.Tuple`. Other core names retain `Action` and
+`System.ValueTuple`. Explicit neoCLR selection chooses the inhabited result and
+tuple representations and separately validates the profile configuration. Imported tuple aliases
 require that exact assembly name and a value type. Terminal Fault recognition
 still depends on the method's own assembly, namespace-member marker and signature,
 independently of the configured core. Neither importing the assembly nor these
@@ -1793,3 +1797,21 @@ rebuild exposed and motivated the explicit-empty typeof regression test.
 
 Integration gate: `scripts/test-ci.sh` passes 315 compiler tests (.NET 11), 73
 core and 256 language-server tests (.NET 10), with three existing LSP skips.
+
+### Selected CLI runtime contracts (2026-09-30)
+
+Each compilation selects an immutable .NET or neoCLR CLI runtime contract from its
+platform option. The .NET implementation preserves ordinary representations and
+the legacy probe-core transport triggers, and rejects native Self configuration.
+The neoCLR implementation owns its profile check, inhabited delegate results,
+tuple family, and Self availability (still requiring an explicit marker mapping).
+Compilation's Self query delegates to that selected contract rather than checking
+the platform enum itself. Selection does not load references or resolve symbols.
+
+`CliRuntimeContract` shares the current special-type names, typeof handle protocol,
+and CLI core/unit/marker validation. It is deliberately a transport implementation,
+not the abstract contract for a future native loader/backend. Both concrete
+contracts still use the same .NET metadata loader and emitter. The selection does
+not introduce independent backend choices, new public options, or a capability
+registry. No syntax, bridge encoding, configuration diagnostic or emission ABI
+changes are intended. Native Self is not implicitly enabled by the neoCLR preset.

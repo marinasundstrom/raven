@@ -9,6 +9,10 @@ See [neoCLR integration readiness](neoclr-main-readiness.md) for the current
 merge objective, behavior-switch inventory and staged `CompilationOptions.NeoCLR`
 work. Explicit DotNet and experimental NeoCLR CLI presets now exist; the native
 metadata layer and full target-selection/capability architecture remain planned.
+The CLI composition now selects separate .NET and neoCLR runtime contracts; shared
+CLI mappings/validation stay in `CliRuntimeContract`. Both selected contracts still
+use the .NET loader/emitter. This is an internal policy boundary, not a native
+provider interface or independently selectable backend.
 
 The neoCLR CLI bridge is temporary. The goal is a native neoCLR semantic-data
 layer that supports the runtime's new features and semantics without CLI encoding

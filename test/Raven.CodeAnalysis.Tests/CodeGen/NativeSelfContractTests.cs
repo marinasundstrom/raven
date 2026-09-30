@@ -202,7 +202,7 @@ public class NativeSelfContractTests
     [Fact]
     public void DotNetSemanticQueriesKeepUserDefinedSelfOrdinaryEvenWithInvalidContract()
     {
-        var tree = SyntaxTree.ParseText("class Self {} class Example { val Value: Self { get; } }");
+        var tree = SyntaxTree.ParseText("class Self {}\nclass Example { val Value: Self { get; } }");
         var compilation = Compilation.Create("OrdinarySelf", [tree], TestMetadataReferences.Default,
             CompilationOptions.DotNet.WithRuntimeSelfTypeContract(new("Missing", "Marker")));
         var identifier = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
@@ -211,6 +211,25 @@ public class NativeSelfContractTests
         Assert.Equal("Self", type?.Name);
         Assert.Equal("OrdinarySelf", type?.ContainingAssembly?.Name);
         Assert.False(compilation.HasNativeSelfContract);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NeoClrWithoutSelfMappingKeepsUserDefinedSelfOrdinary(bool diagnosticsFirst)
+    {
+        var tree = SyntaxTree.ParseText("class Self {}\nclass Example { val Value: Self { get; } }");
+        var compilation = Compilation.Create("OrdinaryNeoSelf", [tree], References(),
+            SelfOptions().WithRuntimeSelfTypeContract(null));
+        if (diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var identifier = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
+            .Single(node => node.Identifier.ValueText == "Self");
+        var type = compilation.GetSemanticModel(tree).GetTypeInfo(identifier).Type;
+        Assert.Equal("Self", type?.Name);
+        Assert.Equal("OrdinaryNeoSelf", type?.ContainingAssembly?.Name);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
     [Fact]
