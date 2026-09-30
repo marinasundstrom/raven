@@ -48,6 +48,45 @@ public class TargetConfigurationDiagnosticTests
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ResolvedContractErrorsPreserveStreamsAndSuppliedDiagnostics(bool typeOfContract, bool suppliedDiagnostics)
+    {
+        var options = typeOfContract
+            ? NamedCore.WithRuntimeTypeOfContract(new("MissingProvider", "Contracts.Info", "Contracts.Context"))
+            : NamedCore.WithRuntimeUnitContract(new("System.Runtime", "System.Int32"));
+        var compilation = Compilation.Create("InvalidResolvedContract", [SyntaxTree.ParseText("class Example {}")],
+            TestMetadataReferences.Default, options);
+        var warning = Diagnostic.Create(DiagnosticDescriptor.Create(
+            "TEST001", "Test warning", "", "", "Semantic warning", "test", DiagnosticSeverity.Warning, true), Location.None);
+        using var output = new MemoryStream();
+        using var debugOutput = new MemoryStream();
+        output.Write([1, 2, 3]);
+        debugOutput.Write([4, 5]);
+        output.Position = 1;
+        debugOutput.Position = 0;
+
+        var result = compilation.Emit(output, debugOutput,
+            diagnostics: suppliedDiagnostics ? ImmutableArray.Create(warning) : null);
+
+        Assert.False(result.Success);
+        var error = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        Assert.Equal("RAVT003", error.Id);
+        Assert.Contains(typeOfContract ? "typeof contract" : "empty value type", error.GetMessage());
+        Assert.Equal(suppliedDiagnostics ? 2 : 1, result.Diagnostics.Length);
+        if (suppliedDiagnostics)
+            Assert.Same(warning, result.Diagnostics[0]);
+        Assert.Equal(new byte[] { 1, 2, 3 }, output.ToArray());
+        Assert.Equal(new byte[] { 4, 5 }, debugOutput.ToArray());
+        Assert.Equal(1, output.Position);
+        Assert.Equal(0, debugOutput.Position);
+        Assert.True(output.CanWrite);
+        Assert.True(debugOutput.CanWrite);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void ConsistentCoreConfigurationStillRequiresSuppliedReferences(bool discovered)
