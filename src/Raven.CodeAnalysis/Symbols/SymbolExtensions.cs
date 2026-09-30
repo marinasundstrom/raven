@@ -1006,8 +1006,12 @@ public static partial class SymbolExtensions
         }
 
         // Tuples
+        var expandTuples = format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandedValueTuple);
         if (typeSymbol is ITupleTypeSymbol tupleType)
         {
+            if (expandTuples && tupleType.UnderlyingTupleType is { } underlyingTuple)
+                return FormatType(underlyingTuple, format);
+
             var elementTypes = tupleType.TupleElements
                 .Select((e, index) =>
                 {
@@ -1028,7 +1032,7 @@ public static partial class SymbolExtensions
 
         // Metadata represents unnamed tuples as constructed System.ValueTuple types.
         // Keep their caller-facing spelling consistent with source tuple types.
-        if (typeSymbol is INamedTypeSymbol { Name: "ValueTuple", TypeArguments.Length: >= 2 and <= 7 } runtimeTuple &&
+        if (!expandTuples && typeSymbol is INamedTypeSymbol { Name: "ValueTuple", TypeArguments.Length: >= 2 and <= 7 } runtimeTuple &&
             runtimeTuple.ContainingNamespace is { Name: "System", ContainingNamespace.IsGlobalNamespace: true })
         {
             return "(" + string.Join(", ", runtimeTuple.TypeArguments.Select(type => FormatType(type, format))) + ")";

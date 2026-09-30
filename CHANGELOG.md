@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Honor `SymbolDisplayMiscellaneousOptions.ExpandedValueTuple`
+  for nominal tuple names, including nested generic arguments. Tuple declaration
+  hovers request that format explicitly; ordinary source-oriented tuple display
+  remains unchanged.
+
 - **2026-09-30:** Recognize complete coverage of qualified nested union cases
   in imported generic union payloads. An empty set of missing payloads no longer
   produces a spurious RAV2100 for the enclosing case; guards still constrain coverage.

@@ -23,6 +23,20 @@ behavior validated against CLI references on .NET, with no neoCLR runtime execut
 or target-policy change. The local codex/target-boundaries branch is retired; its
 commits are preserved on neoclr for eventual main integration.
 
+## Shared-main reconciliation — 2026-09-30
+
+Main 046dc8532 and neoclr 2da2ff5f1 were reconciled in ca4c539b6. The candidate
+retains the target-owned services and main's nullable-value/record/initialization
+fixes. All 6,015 baseline checks passed; 150 focused target/reconciliation checks
+and 34 emitted-code checks also passed. A tuple-hover presentation regression was
+fixed through the existing ExpandedValueTuple display flag, with 18 compiler
+formatting passes and 256 language-server passes (three existing skips).
+
+The shared line is the basis for both targets. Intersection and native Self remain
+separate feature branches to rebase onto it; their platform mappings are still
+under development. Further boundary redesign resumes after this integration.
+No native neoCLR execution or full release/bootstrap gate is claimed.
+
 ## Open-generic pattern follow-up — 2026-09-30
 
 The baseline rerun passed the constrained hierarchy checkpoint and stopped on

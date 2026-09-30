@@ -11,6 +11,28 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class SymbolDisplayTests : CompilationTestBase
 {
     [Fact]
+    public void TupleDisplay_CanExplicitlyRequestNominalNames()
+    {
+        var compilation = CreateCompilation();
+        var tuple = compilation.CreateTupleTypeSymbol([
+            ("count", compilation.GetSpecialType(SpecialType.System_Int32)),
+            ("text", compilation.GetSpecialType(SpecialType.System_String))]);
+        var format = SymbolDisplayFormat.RavenSignatureFormat
+            .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly)
+            .WithKindOptions(SymbolDisplayKindOptions.None)
+            .WithMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+                SymbolDisplayMiscellaneousOptions.IncludeTupleElementNames);
+        var expanded = format.WithMiscellaneousOptions(format.MiscellaneousOptions |
+            SymbolDisplayMiscellaneousOptions.ExpandedValueTuple);
+
+        Assert.Equal("(count: int, text: string)", tuple.ToDisplayString(format));
+        Assert.Equal("ValueTuple<int, string>", tuple.ToDisplayString(expanded));
+        var comparable = compilation.GetTypeByMetadataName("System.IComparable`1")!.Construct(tuple);
+        Assert.Equal("IComparable<ValueTuple<int, string>>", comparable.ToDisplayString(expanded));
+        Assert.Equal("IComparable<(count: int, text: string)>", comparable.ToDisplayString(format));
+    }
+
+    [Fact]
     public void ConstField_ToDisplayString_ExcludesStaticModifier()
     {
         const string source = """

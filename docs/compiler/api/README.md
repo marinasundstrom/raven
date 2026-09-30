@@ -400,3 +400,11 @@ project system when producing a runnable application.
 
 See [Runtime Contracts](../runtime-contracts.md) for target selection, unit representation,
 validation layers and the compiler/integration documentation workflow.
+
+## Nominal tuple display
+
+`SymbolDisplayMiscellaneousOptions.ExpandedValueTuple` requests the underlying
+nominal tuple type, including in generic arguments. Without this option, tuple
+symbols and imported `System.ValueTuple` types retain their source-oriented
+spelling. Tuple declaration hovers use the expanded form for the declaration
+and its interface list; ordinary value displays retain tuple element names.

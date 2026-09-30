@@ -3038,8 +3038,11 @@ internal sealed class HoverHandler : IHoverHandler
 
             if (typeSymbol is ITupleTypeSymbol tupleType)
             {
-                var tupleText = FormatTupleNominalType(tupleType, typeFormat);
-                return AppendBaseTypeList(tupleText, tupleType, declarationTypeFormat);
+                var nominalFormat = declarationTypeFormat.WithMiscellaneousOptions(
+                    declarationTypeFormat.MiscellaneousOptions | SymbolDisplayMiscellaneousOptions.ExpandedValueTuple);
+                var tupleText = FormatTupleNominalType(tupleType,
+                    nominalFormat.WithKindOptions(SymbolDisplayKindOptions.IncludeTypeKeyword));
+                return AppendBaseTypeList(tupleText, tupleType, nominalFormat);
             }
 
             if (typeSymbol is INamedTypeSymbol delegateType &&

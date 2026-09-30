@@ -1,6 +1,6 @@
 # neoCLR integration and target contract readiness
 
-Status: integration in progress, 2026-09-30. The author now intends to prepare the
+Status: reconciled candidate validated for local main integration, 2026-09-30. The author now intends to prepare the
 neoCLR branch for eventual integration into main, including the target-boundary
 work. This supersedes the earlier project direction to keep neoCLR integration
 separate at this stage. It does not certify the experiment or authorize an
@@ -70,9 +70,26 @@ The pre-reconciliation baseline was deliberately stopped after two completed
 batches (143 passes) when the priority changed to merging. It is not a complete
 baseline result. The combined candidate passed scripts/codex-build.sh and 150
 focused reconciliation tests and 34 emitted-code/metadata regressions on .NET 11.
-Broad validation is in progress. After main integration, rebase
+The full baseline completed with 6,015 passes, zero failures and zero skips
+(compiler tests on .NET 11; additional projects on .NET 10/11). A separate
+language-server run exposed tuple declaration hover using tuple sugar in place
+of the nominal type. Symbol display now honors the existing ExpandedValueTuple
+format flag and hover explicitly requests it. The final display tests passed
+18/18 on .NET 11, and the full language-server suite passed 256 tests with three
+existing skips on .NET 10. The baseline compiler batches tested the reconciled
+candidate before this isolated formatting fix; the focused display and LSP runs
+validate the fix. Whitespace formatting and diff checks passed.
+
+These are integration checks, not full release/bootstrap qualification, full
+runtime-suite coverage or native neoCLR/.NET Framework/NanoFramework execution.
+Boundary redesign is deferred until after main integration. After integration, rebase
 codex/intersection-constraints and codex/neoclr-native-self onto the shared main
-line before resuming boundary work.
+line before resuming boundary work. Keep those feature branches separate while
+their target mappings are designed: source syntax is intended to stay shared,
+while .NET and neoCLR can use different representations, lowering and supported
+semantics. neoCLR may supply native support unavailable on .NET. Unsupported
+feature/target combinations should be diagnosed; updating the branches does not
+enable the features generally or finalize these policies.
 
 ## Deferred architecture slices (resume after integration)
 
