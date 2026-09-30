@@ -1372,3 +1372,31 @@ Both repositories document the experimental preset and its limits. External
 runtime props and artifacts are unchanged; existing Self-enabled consumers are
 not migrated. Next: select a bounded matching-runtime consumer for migration and
 validation, then replace compatibility inference and enforce proven capabilities.
+
+
+## Slice 39: document bridge behavior and native metadata destination
+
+The author clarified the goal: replace the CLI bridge with native neoCLR metadata
+supporting the platform's semantics, and document every temporary bridge behavior.
+The new bridge inventory records encodings, semantic distinctions, ownership,
+restrictions, branch scope and replacement obligations. Repository instructions now
+require that documentation for subsequent bridge changes.
+
+An installed Function-types feature bundle was located and its four principal
+artifact hashes checked. A temporary consumer compiled with Raven 9a58e1356,
+imported, verified and executed. This was exploratory evidence only. Repository
+ancestry confirmed native Function support is on neoCLR feature/function-types and
+codex/native-self, not neoCLR main e4f6fe41. The author confirmed deferral until the
+metadata layer/full compiler support exists. The proposed Function-dependent smoke
+fixture and runtime-props migration were withdrawn before committing.
+
+In response to the author's question, the recommended path is to retain compiler-side
+plumbing and experimental bridge support on shared main while preserving .NET defaults;
+do not conflate that with enabling native Function semantics. Existing function syntax
+and .NET delegates remain valid. Define metadata/symbol/backend requirements and
+capabilities before promoting deferred features. No production code or runtime props
+changed in this slice; native execution observations are not an acceptance gate.
+
+Docs-only final changes; links, source ownership and branch ancestry were checked,
+and git diff --check passed. Existing compiler tests/build evidence from slice 38
+is unaffected. The external integration docs record the same scope and recommendation.

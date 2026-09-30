@@ -140,3 +140,8 @@ No external type-union analyzer project is part of this repository.
 - When an external runtime integration is affected, update its integration docs and
   changelog as well. Distinguish general compiler changes from target-specific policy
   and record validation evidence in both projects as appropriate.
+
+- Document every neoCLR CLI bridge behavior in `docs/compiler/neoclr-cli-bridge.md`:
+  native semantic intent, temporary CLI encoding, losses/restrictions, owning layers,
+  validation evidence and the native metadata/codegen capability that replaces it.
+  Bridge limitations must not silently become permanent neoCLR language rules.

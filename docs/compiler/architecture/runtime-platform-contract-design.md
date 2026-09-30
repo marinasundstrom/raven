@@ -7,7 +7,14 @@ symbol loading and CLI emission, with experimental target options.
 
 See [neoCLR integration readiness](neoclr-main-readiness.md) for the current
 merge objective, behavior-switch inventory and staged `CompilationOptions.NeoCLR`
-work. The preset and target-selection pipeline remain planned.
+work. Explicit DotNet and experimental NeoCLR CLI presets now exist; the native
+metadata layer and full target-selection/capability architecture remain planned.
+
+The neoCLR CLI bridge is temporary. The goal is a native neoCLR semantic-data
+layer that supports the runtime's new features and semantics without CLI encoding
+constraints. Track each transport behavior and its replacement in the
+[bridge inventory](../neoclr-cli-bridge.md). A native emitter must remove the output
+bridge as well; sharing the semantic model does not require sharing CLR type shapes.
 
 ## Current implementation scope
 

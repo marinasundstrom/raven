@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Document neoCLR CLI bridge behavior, semantic distinctions and
+  native metadata replacement requirements. Keep native Function types deferred
+  until the metadata layer and complete compiler support exist; feature-bundle
+  experiments do not qualify neoCLR main or enable the feature.
+
 - **2026-09-30:** Add experimental `CompilationOptions.NeoCLR` and
   `RavenTargetPlatform=NeoCLR` CLI profile defaults, with explicit core/unit
   consistency validation and supplied-reference-only loading. Project properties

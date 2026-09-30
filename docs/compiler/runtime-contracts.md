@@ -7,6 +7,10 @@ sources, and one or more code generators. See the
 The CLI-oriented options documented below are existing implementation mechanisms;
 they do not require every future symbol source to use metadata or CLI assemblies.
 
+The neoCLR bridge is a temporary transport, not the native platform specification.
+See the [bridge behavior and replacement inventory](neoclr-cli-bridge.md) for current
+encodings, limitations, semantic distinctions and branch-qualified exploratory evidence.
+
 ## CompilationOptions presets and planned configuration
 
 The public configuration type remains `CompilationOptions`. The agreed direction
@@ -1639,3 +1643,11 @@ Explicit NeoCLR selection now chooses the inhabited function-result and tuple
 representations. Legacy core-name triggers and imported Fault/tuple recognition
 remain for compatibility until controlled callers migrate; ordinary .NET defaults
 are unchanged. Selecting DotNet does not yet prohibit all legacy neoCLR settings.
+
+
+An exploratory preset run used the neoCLR `feature/function-types` development
+bundle; it is not a supported-feature acceptance gate. Native Function types remain
+deliberately deferred until the metadata layer and complete compiler support exist. Native Function support is not on
+neoCLR main at e4f6fe41. Raven main's bridge support and that runtime feature branch
+must not be conflated. See the [bridge inventory](neoclr-cli-bridge.md) for the
+branch-qualified result and eventual native metadata replacement direction.

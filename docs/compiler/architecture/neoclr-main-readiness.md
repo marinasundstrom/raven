@@ -125,7 +125,10 @@ enable the features generally or finalize these policies.
    and requires matching explicit core/unit configuration and supplied references.
    Self and record mappings are excluded. Native backend and full feature validation
    remain future work; controlled runtime callers have not yet migrated.
-4. Define supported-feature checks from demonstrated runtime/backend capabilities.
+4. Specify native neoCLR metadata/symbol requirements using the
+   [bridge replacement inventory](../neoclr-cli-bridge.md). Retain compiler-side
+   groundwork on shared main; native Function types remain deferred pending complete
+   metadata/compiler support. Define supported-feature checks from demonstrated runtime/backend capabilities.
    Distinguish disabled source features, unavailable contract APIs and unsupported
    backend operations. Diagnose invalid configuration early and unsupported use
    during binding; emission must reject remaining incompatibilities before writing.
