@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Route field emission through the per-emission runtime symbol
+  resolver alongside methods and constructors. Remove the field codegen extension
+  from semantic symbols, preserve tuple/metadata-proxy dispatch, and extend runtime
+  coverage with named generic tuple field access across repeated emissions.
+
 - **2026-09-30:** Move constructed generic method reflection resolution into
   .NET codegen. Semantic method symbols retain type substitutions; signature
   matching and async/closure runtime mapping use per-emission services. Extend

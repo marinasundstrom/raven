@@ -72,7 +72,7 @@ internal partial class MethodBodyGenerator
 
             ILGenerator.Emit(OpCodes.Ldloc, _outerMethodClosureLocal);
             ILGenerator.Emit(OpCodes.Ldarg_0);
-            ILGenerator.Emit(OpCodes.Ldfld, source.GetFieldInfo(codeGen));
+            ILGenerator.Emit(OpCodes.Ldfld, codeGen.RuntimeSymbolResolver.GetFieldInfo(source));
             ILGenerator.Emit(OpCodes.Stfld, closureType == _outerMethodClosure.TypeBuilder
                 ? target
                 : TypeBuilder.GetField(closureType, target));

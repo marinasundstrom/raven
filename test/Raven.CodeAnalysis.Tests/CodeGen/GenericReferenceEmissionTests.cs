@@ -31,7 +31,8 @@ public sealed class GenericReferenceEmissionTests(ITestOutputHelper output)
                     let copied = Copy<T>(System.Linq.Enumerable.First<T>(System.Linq.Enumerable.Repeat<T>(value, 1)))
                     let pair = System.ValueTuple<T>(copied)
                     let box = Box<T>(initial)
-                    box.Stored = pair.Item1
+                    let named: (replacement: T, initial: T) = (pair.Item1, initial)
+                    box.Stored = named.replacement
                     items.Add(Box<T>(box.Stored))
                     return items
                 }

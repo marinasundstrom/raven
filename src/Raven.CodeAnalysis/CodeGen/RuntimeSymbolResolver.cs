@@ -10,6 +10,7 @@ internal interface IRuntimeSymbolResolver
     Type GetType(ITypeSymbol typeSymbol, bool treatUnitAsVoid = false, RuntimeTypeUsage usage = RuntimeTypeUsage.Signature);
     MethodInfo GetMethodInfo(IMethodSymbol methodSymbol);
     ConstructorInfo GetConstructorInfo(IMethodSymbol constructorSymbol);
+    FieldInfo GetFieldInfo(IFieldSymbol fieldSymbol);
 }
 
 internal sealed class RuntimeSymbolResolver : IRuntimeSymbolResolver
@@ -37,4 +38,7 @@ internal sealed class RuntimeSymbolResolver : IRuntimeSymbolResolver
 
     public ConstructorInfo GetConstructorInfo(IMethodSymbol constructorSymbol)
         => MethodSymbolCodeGenResolver.GetClrConstructorInfo(constructorSymbol, _codeGenerator);
+
+    public FieldInfo GetFieldInfo(IFieldSymbol fieldSymbol)
+        => FieldSymbolCodeGenResolver.GetClrFieldInfo(fieldSymbol, _codeGenerator);
 }

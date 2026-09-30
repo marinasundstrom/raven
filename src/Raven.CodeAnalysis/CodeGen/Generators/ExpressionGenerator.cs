@@ -2129,12 +2129,12 @@ internal partial class ExpressionGenerator : Generator
             var resultLocal = ILGenerator.DeclareLocal(resultClrType);
             ILGenerator.Emit(OpCodes.Stloc, resultLocal);
 
-            var stateFieldInfo = stateField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            var stateFieldInfo = MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(stateField);
             ILGenerator.Emit(OpCodes.Ldarg_0);
             ILGenerator.Emit(OpCodes.Ldc_I4, -2);
             ILGenerator.Emit(OpCodes.Stfld, stateFieldInfo);
 
-            var builderFieldInfo = builderField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+            var builderFieldInfo = MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(builderField);
             ILGenerator.Emit(OpCodes.Ldarg_0);
             ILGenerator.Emit(OpCodes.Ldflda, builderFieldInfo);
             ILGenerator.Emit(OpCodes.Ldloc, resultLocal);
@@ -6410,7 +6410,7 @@ internal partial class ExpressionGenerator : Generator
 
     private FieldInfo GetField(IFieldSymbol fieldSymbol)
     {
-        return fieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+        return MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(fieldSymbol);
     }
 
     private void EmitStoreElement(ITypeSymbol elementType)
@@ -6968,7 +6968,7 @@ internal partial class ExpressionGenerator : Generator
                     var memberFieldInfo = fieldSymbol switch
                     {
                         SourceFieldSymbol sfs => (FieldInfo)GetMemberBuilder(sfs)!,
-                        _ => fieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen)
+                        _ => MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(fieldSymbol)
                     };
 
                     ILGenerator.Emit(OpCodes.Ldfld, memberFieldInfo);
@@ -6987,7 +6987,7 @@ internal partial class ExpressionGenerator : Generator
                     var closureFieldInfo = fieldSymbol switch
                     {
                         SourceFieldSymbol sfs => (FieldInfo)GetMemberBuilder(sfs)!,
-                        _ => fieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen)
+                        _ => MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(fieldSymbol)
                     };
 
                     ILGenerator.Emit(OpCodes.Ldfld, closureFieldInfo);
@@ -7030,7 +7030,7 @@ internal partial class ExpressionGenerator : Generator
                     var fieldInfo = fieldSymbol switch
                     {
                         SourceFieldSymbol sfs => (FieldInfo)GetMemberBuilder(sfs)!,
-                        _ => fieldSymbol.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen)
+                        _ => MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(fieldSymbol)
                     };
 
                     ILGenerator.Emit(opCode, fieldInfo);

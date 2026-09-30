@@ -945,7 +945,7 @@ internal partial class MethodBodyGenerator
             ILGenerator.Emit(OpCodes.Ldarg_0);
             ILGenerator.Emit(
                 OpCodes.Ldfld,
-                closureField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen));
+                MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(closureField));
             return;
         }
 
@@ -2174,7 +2174,7 @@ internal partial class MethodBodyGenerator
 
     private void EmitAutoEventAccessor(SourceEventSymbol eventSymbol, SourceFieldSymbol backingField)
     {
-        var fieldInfo = backingField.GetFieldInfo(MethodGenerator.TypeGenerator.CodeGen);
+        var fieldInfo = MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(backingField);
         var delegateType = MethodGenerator.ResolveClrType(eventSymbol.Type);
         var combineMethod = typeof(Delegate).GetMethod(nameof(Delegate.Combine), [typeof(Delegate), typeof(Delegate)]);
         var removeMethod = typeof(Delegate).GetMethod(nameof(Delegate.Remove), [typeof(Delegate), typeof(Delegate)]);

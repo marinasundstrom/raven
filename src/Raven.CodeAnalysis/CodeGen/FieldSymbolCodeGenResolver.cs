@@ -18,7 +18,7 @@ internal static class FieldSymbolCodeGenResolver
 
         return fieldSymbol switch
         {
-            TupleFieldSymbol tupleFieldSymbol => tupleFieldSymbol.UnderlyingField.GetFieldInfo(codeGen),
+            TupleFieldSymbol tupleFieldSymbol => GetClrFieldInfo(tupleFieldSymbol.UnderlyingField, codeGen),
             SourceFieldSymbol sourceField => (FieldInfo)codeGen.GetMemberBuilder(sourceField),
             PEFieldSymbol peField => ResolveRuntimeFieldInfo(peField, codeGen),
             SubstitutedFieldSymbol substituted => SubstitutedMemberCodeGenResolver.GetFieldInfo(substituted, codeGen),

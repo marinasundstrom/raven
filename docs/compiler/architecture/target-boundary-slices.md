@@ -893,3 +893,38 @@ on .NET 11 with freshly built compiler outputs using
 Whitespace formatting completed with test workspace-load warnings;
 `git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
 full bootstrap qualification is claimed.
+
+## Slice 25: field resolution through the backend member service
+
+IRuntimeSymbolResolver and RuntimeSymbolResolver now expose field resolution
+alongside constructors and methods. Field emission, async/closure storage and
+expression generation use the current emission's resolver. The forwarding
+FieldSymbolExtensions helper is removed from the Symbols namespace; no CodeGenerator
+or CodeGen namespace reference remains under Symbols. PE reflection metadata
+accessors remain for documentation and assembly normalization.
+
+FieldSymbolCodeGenResolver still owns target metadata proxy selection and dispatch
+for source, imported, substituted and tuple fields. Tuple unwrapping calls that
+same resolver internally, preserving its checks and order. This is consolidation
+of .NET backend entry points, not a platform-neutral reflection interface.
+Repeated-emission runtime coverage now reads a named generic tuple element before
+writing the generic source field, alongside existing imported tuple fields and
+source/imported generic method calls.
+
+Next: consolidate specialized type-resolution entry points and their signature,
+method-body and custom-attribute policies. Shared compiler reflection adapters and
+CLI metadata symbols still need separation before target selection. Main-based
+validation remains required for integration; neoCLR-specific policies stay separate.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline and final validation each
+passed 87 tests across GenericReferenceEmissionTests,
+AsyncGenericContainingTypeTests, AsyncGenericCaptureTests,
+TargetCoreGenericSignatureTests, MixedGenericMetadataTests,
+RuntimeSymbolResolverTests and tuple-related tests, no failures/skips. Final
+validation explicitly excluded Development tests and included the expanded named
+tuple regression. Compiler builds passed for net10.0 and net11.0 with no
+warnings/errors. Tests ran on .NET 11 with freshly built compiler outputs using
+`--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`.
+Whitespace formatting completed with test workspace-load warnings;
+`git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
+full bootstrap qualification is claimed.

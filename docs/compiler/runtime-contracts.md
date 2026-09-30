@@ -1310,3 +1310,17 @@ Repeated-emission coverage exercises imported generic containers and tuple field
 with source generic arguments, source field reads/writes, and both source and
 imported generic method calls. It checks resulting values, generic arguments and
 emitted assembly ownership.
+
+## Backend member entry points
+
+The per-emission RuntimeSymbolResolver exposes constructor, method and field
+resolution. Field emitters, including async/closure storage paths, use that backend
+entry point. The former field extension in the Symbols namespace is removed; tuple
+field unwrapping stays inside FieldSymbolCodeGenResolver, which retains target
+metadata proxy checks and source/imported/substituted field dispatch.
+
+The resolver is a .NET backend service returning reflection objects, not a
+platform-neutral target interface. PE metadata accessors remain available for
+metadata normalization and documentation. Type resolution still has additional
+specialized entry points to consolidate separately. Repeated-emission coverage
+includes named generic tuple field access alongside imported and source fields.
