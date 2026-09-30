@@ -73,3 +73,37 @@ Validation on .NET 11 with SDK `11.0.100-rc.1.26425.128`:
   workspace-load warnings; no formatting failure occurred.
 
 No neoCLR runtime, .NET Framework, NanoFramework, or browser execution was tested.
+
+## Slice 3: .NET context factory extraction
+
+Moved context construction, the stream-backed resolver, and portable assembly
+identity reading into `Metadata.DotNetMetadataContextFactory`. A static callback
+preserves shared path registration during construction without capturing a
+compilation. Existing internal identity-reading entry points forward to the
+factory. Reference selection, context reuse/lifetime, and imported symbol
+ownership remain in `Compilation`.
+
+This is a prototype on the experiment-derived feature branch. No public API,
+language semantics, Runtime Contract setting, or neoCLR mapping changes. The
+corresponding construction/resolver code exists on main; independent extraction
+and validation there are still pending. A source comparison confirmed that the
+moved implementation differs only in factory/callback plumbing.
+
+The next ownership slice must address metadata-session loading and lifetime,
+including the shared runtime path registry. Before removing that registry or
+changing resolution policy, add resolver-precedence and malformed-input fixtures.
+Do not infer a platform-neutral symbol model from this .NET-only extraction.
+
+Validation with SDK `11.0.100-rc.1.26425.128`:
+
+- `dotnet build src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj --no-restore
+  --property WarningLevel=0` — net10.0 and net11.0 builds passed.
+- `dotnet test test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj
+  --no-restore --filter 'FullyQualifiedName~MetadataImportOptionsTests|FullyQualifiedName~IncrementalCompilationReuseTests|FullyQualifiedName~WebAssemblyCompatibilityTests|FullyQualifiedName~CliMetadataCompatibilityTests'
+  /property:WarningLevel=0 /property:BuildProjectReferences=false` — 89 passed,
+  no failures/skips on net11.0. Tests used the newly built compiler; other
+  referenced projects came from the initial baseline.
+- Whitespace formatting of both compiler files and `git diff --check` passed.
+
+Portable metadata-reading tests executed on .NET, not in a browser/WASI host.
+No full baseline, release/bootstrap qualification, or neoCLR execution is claimed.

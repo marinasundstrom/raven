@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Extract .NET metadata-context construction, reference resolution,
+  and assembly identity reading into an internal .NET component as the first
+  target-boundary prototype. Preserve public APIs, reference fallback policy,
+  incremental context lifetime, and runtime contracts. Add coverage for import
+  mode and reference-set transitions between compilation snapshots.
+
 - **2026-09-30:** Document the independent neoCLR main backport of callback function
   syntax and OfType, preserving its existing nominal delegate metadata, runtime
   representation and introspection contracts. This target-library backport does
