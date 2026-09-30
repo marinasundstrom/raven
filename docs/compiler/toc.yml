@@ -4,6 +4,15 @@
   href: raven-compiler.md
 - name: Target platforms
   href: target-platforms.md
+- name: Runtime contracts
+  href: runtime-contracts.md
+  items:
+    - name: Metadata import
+      href: metadata-import.md
+    - name: Iteration contracts
+      href: runtime-iteration-contracts.md
+    - name: Propagation contracts
+      href: runtime-propagation-contracts.md
 - name: .NET nanoFramework
   href: nanoframework.md
 - name: WebAssembly targets

@@ -1,6 +1,6 @@
 # neoCLR integration and target contract readiness
 
-Status: planned follow-up, 2026-09-30. The author now intends to prepare the
+Status: integration in progress, 2026-09-30. The author now intends to prepare the
 neoCLR branch for eventual integration into main, including the target-boundary
 work. This supersedes the earlier project direction to keep neoCLR integration
 separate at this stage. It does not certify the experiment or authorize an
@@ -52,7 +52,29 @@ This inventory identifies concrete compiler triggers, not a complete supported
 feature matrix. There are also project-system mappings and generated runtime
 helpers to review before declaring the contracts complete.
 
-## Architecture slices (may continue after integration)
+## Reconciliation checkpoint — 2026-09-30
+
+The author explicitly deferred further boundary work until neoCLR is merged into
+main. The merge candidate combines main 046dc8532 with neoclr 2da2ff5f1. The
+merge preview found 29 conflicted files. Most conflicts arose from independently
+backported fixes and their later movement into target-owned services.
+
+Resolution retains the target-owned loader/emitter/host service implementations
+and their newer diagnostics. Main's nullable-value policy is preserved through
+all option copies and incremental transfer; the regression checks it alongside
+array, character and async options. Main's record nullability, initializer
+analysis and nested-union coverage changes remain included. Duplicate backport
+code and tests are not duplicated in the combined implementation.
+
+The pre-reconciliation baseline was deliberately stopped after two completed
+batches (143 passes) when the priority changed to merging. It is not a complete
+baseline result. The combined candidate passed scripts/codex-build.sh and 150
+focused reconciliation tests and 34 emitted-code/metadata regressions on .NET 11.
+Broad validation is in progress. After main integration, rebase
+codex/intersection-constraints and codex/neoclr-native-self onto the shared main
+line before resuming boundary work.
+
+## Deferred architecture slices (resume after integration)
 
 1. Consolidate existing implicit neoCLR policy in a named compatibility component,
    preserving behavior and adding ordinary .NET negative cases. Keep general fixes

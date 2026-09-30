@@ -125,3 +125,10 @@ generic argument, rather than substituting the CLI no-result marker. Ordinary vo
 method returns retain their existing encoding. neoCLR's array API probe exercises
 Func<T,Void> method groups and expression-bodied lambdas through execution.
 Interfaces declared by the ordinary array base type remain visible in either mode.
+
+## Cleanup boundary
+
+This contract selects iteration symbols; it does not select an exception model or
+change cleanup lowering. Iterator disposal and structured cleanup must be validated
+separately for a target. A target lacking the required cleanup facilities cannot gain
+correct disposal merely by renaming its iterable interfaces.

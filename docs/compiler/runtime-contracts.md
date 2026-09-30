@@ -1450,3 +1450,77 @@ receive their own service. Existing process-wide assembly/path caches remain
 unchanged. Host type resolution does not make the host type available to semantic
 binding or replace the target metadata core. Focused tests exercise initial
 access before metadata lookup and both metadata-type and semantic-symbol mapping.
+
+### Generated record Object equality annotations (2026-09-24)
+
+Generated record Equals copies the parameter type from the selected Object.Equals
+contract, including nullable reference metadata, instead of replacing it with an
+unannotated Object. Body selection unwraps that annotation to identify the Object
+overload. CLI method identity and equality behavior are unchanged: null and unrelated
+objects compare false, and matching record components compare equal.
+
+This is a general compiler correction requiring no Runtime Contract configuration.
+Regression coverage checks emitted metadata, imported symbols and execution on
+.NET 11. It does not widen the separately generated typed Equals parameter, add
+nullable value types to other targets or imply .NET Framework/NanoFramework testing.
+
+
+### Nullable value declaration policy (2026-09-24)
+
+AllowNullableValueTypes defaults to true for .NET compatibility. Targets can opt out
+through CompilationOptions.WithAllowNullableValueTypes(false), the project property
+RavenAllowNullableValueTypes=false, or --no-nullable-value-types. An explicit
+--nullable-value-types re-enables the policy for a compiler invocation. Project
+loading/saving preserves the option, and the language-server project fingerprint
+includes it so edits invalidate stale semantic state.
+
+Binding reports RAV0407, "Value types can't be declared as nullable", for source
+nullable value declarations, including primitive, enum, declared struct and
+struct-constrained generic types, nested annotations and explicit Nullable<T>
+declarations. Nullable references remain supported. Error bindings prevent emission;
+valid metadata and default .NET behavior are unchanged. This is a source declaration
+policy, not a ban on imported/inferred nullable values or a metadata rewrite.
+Unconstrained generic parameters are not classified as known value types.
+
+This general option does not select any runtime-specific defaults. A target that
+lacks Nullable<T> can enable the restriction for an earlier actionable diagnostic;
+it must still validate its runtime/importer surface independently. No .NET Framework
+or NanoFramework execution is claimed.
+
+
+### Typed record-class equality annotations (2026-09-24)
+
+Generated typed record-class Equals now takes the nullable record reference. Nullable
+record arguments and literal null select typed equality rather than falling back to
+Object.Equals. The existing body returns false for null and compares matching record
+components. Generated record-struct parameters stay non-nullable values. User-written
+Equals methods retain their annotations and suppress duplicate synthesis.
+
+The emitter also ignores top-level nullable reference annotations when matching
+interface parameter/return slots, consistent with binding and CLI reference type
+identity. It preserves nullable value wrappers. The mismatch previously caused a
+TypeLoadException after changing the synthesized Equals signature: IEquatable's
+implementation was no longer emitted with the required dispatch flags.
+
+No Runtime Contract configuration changes. Tests cover overload selection, reflection
+and reimported metadata, typed/interface invocation, explicit declarations and generic
+record-class construction on .NET 11. Nested generic signature matching is not redesigned
+here. The .NET comparison follows Microsoft's
+[record reference](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/record)
+and is separately checked on .NET 10 by the integration baseline. No .NET Framework
+or NanoFramework execution is claimed.
+
+
+### Record comparison operator annotations (2026-09-24)
+
+Generated record-class `==` and `!=` accept nullable references on both sides,
+matching their existing null and value-equality behavior and the .NET record
+contract. Record-struct operands remain values. Explicit operators retain their
+authored annotations and suppress synthesis, including mixed annotated operands.
+Internal equality null guards use Object.ReferenceEquals; invoking overloaded
+equality here can recurse or let custom operators change the null test.
+
+No Runtime Contract option changes. Tests cover emitted and reimported metadata,
+null/equal/different operands, explicit declarations and custom-operator isolation
+on .NET 11. The integration baseline compares .NET 10. No .NET Framework or
+NanoFramework execution is claimed. Nullable value support is unchanged.

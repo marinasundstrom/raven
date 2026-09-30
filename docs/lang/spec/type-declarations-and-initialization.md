@@ -342,6 +342,12 @@ Primary-constructor semantics differ between nominal types and records:
 * `class` / `struct`: only `val`/`var` parameters are promoted to properties; parameters without a binding keyword are captured in synthesized private instance storage for member access. Access modifiers on primary-constructor parameters are valid only when the parameter is promoted.
 * `record class` / `record struct`: positional parameters are promoted to properties by default (as `val` when no binding keyword is specified, or `var` when `var` is specified). The compiler synthesizes value-based members from the complete primary-constructor parameter list (`Equals`, `GetHashCode`, deconstruction, `ToString`, copy/with behavior, and record equality operators), regardless of the promoted property's accessibility.
 
+A generated record-class `Equals` overload accepts a nullable reference to the same
+record type and returns `false` when that argument is null. Record-struct typed
+`Equals` accepts the value type itself. This annotation difference does not introduce
+a nullable value wrapper. An explicit typed `Equals` declaration retains its own
+parameter annotation instead of receiving a duplicate generated overload.
+
 Record instance data is limited to the primary-constructor parameters. Record bodies may declare computed properties, methods, operators, nested types, `static` storage, and `const` members, but may not declare additional instance fields, instance storage/auto-properties, instance events, or instance constructor/initializer declarations. Prefer static factory methods for alternate construction names:
 
 ```raven

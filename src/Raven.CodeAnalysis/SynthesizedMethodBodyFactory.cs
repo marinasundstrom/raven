@@ -190,13 +190,13 @@ internal static partial class SynthesizedMethodBodyFactory
             method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
             TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true, IsValueType: false } equalsRecordType)
         {
-            if (method.Parameters[0].Type.SpecialType == SpecialType.System_Object)
+            if (method.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object)
             {
                 body = CreateRecordObjectEqualsBody(compilation, method, equalsRecordType);
                 return true;
             }
 
-            if (SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, method.ContainingType))
+            if (SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type.GetNonNullableType(), method.ContainingType))
             {
                 body = CreateRecordTypedEqualsBody(compilation, method, equalsRecordType);
                 return true;
@@ -208,8 +208,8 @@ internal static partial class SynthesizedMethodBodyFactory
             method.ReturnType.SpecialType == SpecialType.System_Boolean &&
             method.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
             TryGetSourceNamedTypeDefinition(method.ContainingType) is { IsRecord: true } operatorRecordType &&
-            SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, method.ContainingType) &&
-            SymbolEqualityComparer.Default.Equals(method.Parameters[1].Type, method.ContainingType))
+            SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type.GetNonNullableType(), method.ContainingType) &&
+            SymbolEqualityComparer.Default.Equals(method.Parameters[1].Type.GetNonNullableType(), method.ContainingType))
         {
             if (string.Equals(method.Name, "op_Equality", StringComparison.Ordinal))
             {

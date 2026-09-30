@@ -39,6 +39,7 @@ internal abstract partial class Binder
         ByRefElementFailed,
         PointerElementFailed,
         NullableUnderlyingFailed,
+        NullableValueTypesNotAllowed,
         PointerTypeRequiresUnsafe,
 
         Ambiguous
@@ -139,7 +140,7 @@ internal abstract partial class Binder
         IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
-        return syntax switch
+        var result = syntax switch
         {
             IdentifierNameSyntax id => BindIdentifier(id, typeParams, importedScopes, allowBinderLookup),
             GenericNameSyntax g => BindGenericName(g, typeParams, importedScopes, allowBinderLookup),
@@ -156,11 +157,21 @@ internal abstract partial class Binder
             NullableTypeSyntax n => BindNullable(n, typeParams, importedScopes, allowBinderLookup),
             _ => Fail(syntax, TypeResolutionFailureKind.UnsupportedTypeSyntax)
         };
+
+        if (!Compilation.Options.AllowNullableValueTypes && result.Success &&
+            IsNullableValueType(result.ResolvedType))
+            return Fail(syntax, TypeResolutionFailureKind.NullableValueTypesNotAllowed);
+
+        return result;
     }
 
     // -----------------------------
     // Identifier type: consult merged map first, then binder name lookup
     // -----------------------------
+
+    private static bool IsNullableValueType(ITypeSymbol type)
+        => type is NullableTypeSymbol { UnderlyingType.IsValueType: true } ||
+           type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T };
 
     private ResolveTypeResult BindIdentifier(
         IdentifierNameSyntax id,

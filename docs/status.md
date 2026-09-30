@@ -6,7 +6,7 @@ compiler APIs can still change between releases.
 
 ## Install a release
 
-[Release 0.1.12](https://github.com/marinasundstrom/raven/releases/tag/v0.1.12)
+[Release 0.1.13](https://github.com/marinasundstrom/raven/releases/tag/v0.1.13)
 provides installers and release notes. Follow [Install and run Raven](getting-started.md)
 for the first-run path.
 
@@ -29,12 +29,13 @@ examples to the compiler version you are using. The
 published versions; the [changelog on main](https://github.com/marinasundstrom/raven/blob/main/CHANGELOG.md)
 also includes unreleased work.
 
-These pages target Raven **0.1.12**, including the SDK and browser playground.
+These pages target Raven **0.1.13**, including the SDK and browser playground.
 The build footer marks this version as unreleased until its release tag exists.
-Use the matching SDK when running the tour examples locally: 0.1.12 fixes
-compound match guards and comparison patterns with variable operands.
+Use the matching SDK when running the tour examples locally. In 0.1.13,
+`await operation?` and `try operation?` propagate after the complete `await` or
+`try` expression. Use explicit operand parentheses to propagate inside it.
 
-Raven 0.1.12 removes `try?`. Use `(try expression)?`, which composes exception
+Raven 0.1.12 removed `try?`. Use `(try expression)?`, which composes exception
 capture with ordinary propagation. Each postfix `?` propagates one carrier
 layer. The older spelling remains accepted by the 0.1.11 compiler.
 

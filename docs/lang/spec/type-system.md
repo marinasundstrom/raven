@@ -228,6 +228,17 @@ records the annotation. This ABI difference does not change Raven's
 source-level rules. The expression's static type remains `T?`; Raven does not
 silently replace it with a separate flow-sensitive type after a null check.
 
+Targets may disable nullable value declarations with
+`<RavenAllowNullableValueTypes>false</RavenAllowNullableValueTypes>`,
+`--no-nullable-value-types`, or
+`CompilationOptions.WithAllowNullableValueTypes(false)`. RAV0407 then reports
+“Value types can't be declared as nullable” for known value types, including
+struct-constrained type parameters and explicit `System.Nullable<T>` declarations.
+Nullable reference annotations remain valid. The default is `true`; the explicit
+`--nullable-value-types` switch overrides a project restriction. This declaration
+policy does not rewrite imported signatures or ban every inferred nullable value.
+Unconstrained type parameters are not diagnosed as known value types.
+
 Explicit `System.Nullable<T>` remains available when interop code needs the CLR
 wrapper and its members. It is not the canonical Raven spelling of `T?`.
 

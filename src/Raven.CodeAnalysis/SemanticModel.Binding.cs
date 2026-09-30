@@ -6950,7 +6950,10 @@ public partial class SemanticModel
 
         var objectToString = GetObjectToStringMethod();
 
-        if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, recordSymbol))
+        var recordComparisonParameterType = recordSymbol.IsValueType
+            ? (ITypeSymbol)recordSymbol : recordSymbol.GetNullableType();
+        if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, recordSymbol) &&
+            !HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, recordComparisonParameterType))
         {
             var equalsTyped = new SourceMethodSymbol(
                 "Equals",
@@ -6967,7 +6970,7 @@ public partial class SemanticModel
 
             var otherParameter = new SourceParameterSymbol(
                 "other",
-                recordSymbol,
+                recordComparisonParameterType,
                 equalsTyped,
                 recordSymbol,
                 namespaceSymbol,
@@ -6976,7 +6979,8 @@ public partial class SemanticModel
             equalsTyped.SetParameters(ImmutableArray.Create(otherParameter));
         }
 
-        if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, objectType))
+        if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, objectType) &&
+            !HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, equalsObject.Parameters[0].Type))
         {
             var equalsObj = new SourceMethodSymbol(
                 "Equals",
@@ -6996,7 +7000,7 @@ public partial class SemanticModel
 
             var otherParameter = new SourceParameterSymbol(
                 "obj",
-                objectType,
+                equalsObject.Parameters[0].Type,
                 equalsObj,
                 recordSymbol,
                 namespaceSymbol,
@@ -7131,7 +7135,7 @@ public partial class SemanticModel
 
             var leftParameter = new SourceParameterSymbol(
                 "left",
-                recordSymbol,
+                recordComparisonParameterType,
                 equalsOperator,
                 recordSymbol,
                 namespaceSymbol,
@@ -7139,7 +7143,7 @@ public partial class SemanticModel
                 references);
             var rightParameter = new SourceParameterSymbol(
                 "right",
-                recordSymbol,
+                recordComparisonParameterType,
                 equalsOperator,
                 recordSymbol,
                 namespaceSymbol,
@@ -7165,7 +7169,7 @@ public partial class SemanticModel
 
             var leftParameter = new SourceParameterSymbol(
                 "left",
-                recordSymbol,
+                recordComparisonParameterType,
                 notEqualsOperator,
                 recordSymbol,
                 namespaceSymbol,
@@ -7173,7 +7177,7 @@ public partial class SemanticModel
                 references);
             var rightParameter = new SourceParameterSymbol(
                 "right",
-                recordSymbol,
+                recordComparisonParameterType,
                 notEqualsOperator,
                 recordSymbol,
                 namespaceSymbol,
@@ -7261,7 +7265,14 @@ public partial class SemanticModel
             var matches = true;
             for (var i = 0; i < parameters.Length; i++)
             {
-                if (!SymbolEqualityComparer.Default.Equals(method.Parameters[i].Type, parameters[i]))
+                var actualType = method.Parameters[i].Type;
+                var expectedType = parameters[i];
+                if (methodKind == MethodKind.UserDefinedOperator)
+                {
+                    actualType = StripNullableReference(actualType);
+                    expectedType = StripNullableReference(expectedType);
+                }
+                if (!SymbolEqualityComparer.Default.Equals(actualType, expectedType))
                 {
                     matches = false;
                     break;

@@ -422,7 +422,8 @@ internal partial class TypeMemberBinder : Binder
                 propertyDecl.Identifier.GetLocation());
         }
 
-        if (declaredMutable == true && !hasSetter && !hasStorageInitializer && !isImplicitAutoProperty)
+        if (declaredMutable == true && !hasSetter && !hasStorageInitializer &&
+            !isImplicitAutoProperty && !isPrivateInitializerOnlyStoredProperty)
         {
             _diagnostics.ReportVarPropertyRequiresWritableShape(
                 propertyName,

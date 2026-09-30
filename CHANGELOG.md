@@ -1,6 +1,6 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
+Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
@@ -456,6 +456,21 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   invocations reject compilation again; cold Fault control-flow queries remain
   terminal. No Runtime Contract configuration or emitted metadata changes.
 
+### Breaking changes
+
+- Compiler API consumers must rebuild for the target-boundary changes documented above.
+
+## 0.1.13 - 2026-09-27
+
+### Breaking changes
+
+- Standalone postfix propagation now surrounds the complete `await` or `try`
+  expression: `await operation?` means `(await operation)?`, and `try operation?`
+  means `(try operation)?`. Use `await (operation?)` or `try (operation?)` when
+  propagation must occur inside the operand.
+
+### Changes
+
 - **2026-09-27:** Include namespaces in expression completion and retain separate
   generic arities for type and function suggestions, with type parameters in
   their labels. Resolve imported member-union pattern heads to their constructed
@@ -684,6 +699,29 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
   and `try` expressions: `await Foo()?` means `(await Foo())?`, and `try Foo()?`
   means `(try Foo())?`. Explicit operand parentheses retain inner propagation;
   conditional access and one-carrier-per-`?` behavior are unchanged.
+
+- **2026-09-24:** Add AllowNullableValueTypes (default true), the
+  RavenAllowNullableValueTypes project property and --no-nullable-value-types /
+  --nullable-value-types compiler switches. Opting out rejects nullable value type
+  declarations with RAV0407 while retaining nullable reference annotations.
+  Preserve the option through project loading/saving and editor invalidation.
+
+- **2026-09-24:** Preserve the inherited Object.Equals parameter's nullable reference
+  annotation when synthesizing record equality. Body selection recognizes the
+  annotated Object type; emitted metadata and imported symbols retain its contract.
+  Generated typed record-class Equals now accepts a nullable record reference;
+  record-struct parameters remain values and explicit Equals declarations are kept.
+  Match top-level nullable reference annotations when emitting interface methods,
+  preserving dispatch without erasing nullable value wrappers. No new Runtime
+  Contract option or nullable-value behavior changes. Generated class comparison
+  operators also accept nullable record references, preserving explicit operators;
+  internal equality null guards use reference identity to avoid operator recursion.
+
+- **2026-09-23:** Match an explicitly configured unit value with its selected
+  imported type during symbol equality and hashing, including generic interface
+  return types. Preserve source unit semantics and no-result return emission;
+  unconfigured unit and unrelated/source-shadowing types remain distinct. Validate
+  ordinary .NET interfaces with an opt-in System.ValueTuple unit representation.
 
 - **2026-09-23:** Compare and hash array symbols by element type, rank and fixed
   length rather than their construction namespace/container. Imported CLI array

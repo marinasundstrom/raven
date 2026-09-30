@@ -1741,6 +1741,9 @@ internal abstract partial class Binder
                     yield return Diagnostic.Create(CompilerDiagnostics.CallIsAmbiguous, location, first, second);
                     break;
                 }
+            case TypeResolutionFailureKind.NullableValueTypesNotAllowed:
+                yield return Diagnostic.Create(CompilerDiagnostics.NullableValueTypesNotAllowed, location);
+                break;
             case TypeResolutionFailureKind.PointerTypeRequiresUnsafe:
                 yield return Diagnostic.Create(CompilerDiagnostics.PointerTypeRequiresUnsafe, location);
                 break;

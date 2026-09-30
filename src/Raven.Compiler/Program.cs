@@ -107,6 +107,7 @@ var ravenCoreExplicitlyProvided = false;
 var embedCoreTypes = false;
 var skipDefaultRavenCoreLookup = false;
 var allowUnsafe = false;
+bool? allowNullableValueTypesOverride = null;
 var allowGlobalStatements = true;
 var allowNamespaceMembers = true;
 var allowNamespaceMembersSpecified = false;
@@ -433,6 +434,12 @@ for (int i = 0; i < args.Length; i++)
                 hasInvalidOption = true;
             else
                 outputKind = kind;
+            break;
+        case "--no-nullable-value-types":
+            allowNullableValueTypesOverride = false;
+            break;
+        case "--nullable-value-types":
+            allowNullableValueTypesOverride = true;
             break;
         case "--unsafe":
             allowUnsafe = true;
@@ -1081,6 +1088,7 @@ var executionOptions = new CompilerExecutionOptions(
         ? OptimizationLevel.Release
         : OptimizationLevel.Debug,
     allowUnsafe,
+    allowNullableValueTypesOverride,
     allowGlobalStatements,
     allowNamespaceMembers,
     allowNamespaceMembersSpecified,
@@ -1246,6 +1254,7 @@ if (projectFileInput is not null)
             .WithRuntimeAsync(projectOptions.MetadataImportOptions is not null
                 ? runtimeAsyncOverride ?? projectOptions.UseRuntimeAsync : options.UseRuntimeAsync)
             .WithEnableIsNotNullNarrowing(projectOptions.EnableIsNotNullNarrowing)
+            .WithAllowNullableValueTypes(executionOptions.AllowNullableValueTypesOverride ?? projectOptions.AllowNullableValueTypes)
             .WithExternalConstantValues(
                 projectOptions.ExternalConstantValues.SetItems(options.ExternalConstantValues));
 
@@ -1948,6 +1957,7 @@ static (CompilationOptions Options, OverloadResolutionLog? OverloadResolutionLog
     var options = new CompilationOptions(executionOptions.OutputKind)
         .WithOptimizationLevel(executionOptions.OptimizationLevel)
         .WithAllowUnsafe(executionOptions.AllowUnsafe)
+        .WithAllowNullableValueTypes(executionOptions.AllowNullableValueTypesOverride ?? true)
         .WithAllowGlobalStatements(executionOptions.AllowGlobalStatements)
         .WithAllowNamespaceMembers(executionOptions.AllowNamespaceMembers)
         .WithAllowNamespaceMemberImports(executionOptions.AllowNamespaceMemberImports)
@@ -2730,6 +2740,8 @@ static void PrintHelp(bool compilerDriverOnly)
         Console.WriteLine("  --generated-files-output-path <path>  Write source-generator output to this directory.");
         Console.WriteLine("  --dependency-file <path>");
         Console.WriteLine("                     Write observed compile-time file dependencies.");
+        Console.WriteLine("  --no-nullable-value-types  Reject nullable value type declarations (references unaffected)");
+        Console.WriteLine("  --nullable-value-types     Allow nullable value types (default)");
         Console.WriteLine("  --unsafe           Enable unsafe mode (required for pointer declarations/usages)");
         Console.WriteLine("  --global-statements");
         Console.WriteLine("                     Enable top-level/global statements (default)");
@@ -2769,6 +2781,8 @@ static void PrintHelp(bool compilerDriverOnly)
     Console.WriteLine("  --emit-docs       Emit documentation from comments");
     Console.WriteLine("  --output-type <console|classlib>");
     Console.WriteLine("                     Output kind for the produced assembly.");
+    Console.WriteLine("  --no-nullable-value-types  Reject nullable value type declarations (references unaffected)");
+    Console.WriteLine("  --nullable-value-types     Allow nullable value types (default)");
     Console.WriteLine("  --unsafe         Enable unsafe mode (required for pointer declarations/usages)");
     Console.WriteLine("  --global-statements");
     Console.WriteLine("                     Enable top-level/global statements (default)");
@@ -3434,6 +3448,7 @@ readonly record struct CompilerExecutionOptions(
     OutputKind OutputKind,
     OptimizationLevel OptimizationLevel,
     bool AllowUnsafe,
+    bool? AllowNullableValueTypesOverride,
     bool AllowGlobalStatements,
     bool AllowNamespaceMembers,
     bool AllowNamespaceMembersSpecified,

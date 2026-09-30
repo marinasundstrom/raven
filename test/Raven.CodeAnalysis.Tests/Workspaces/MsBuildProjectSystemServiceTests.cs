@@ -541,6 +541,7 @@ public sealed class MsBuildProjectSystemServiceTests
                                             <RavenAllowGlobalStatements>false</RavenAllowGlobalStatements>
                                             <RavenRunAnalyzers>false</RavenRunAnalyzers>
                                             <EnableIsNotNullNarrowing>true</EnableIsNotNullNarrowing>
+                                            <RavenAllowNullableValueTypes>false</RavenAllowNullableValueTypes>
                                             <RavenDisabledAnalyzers>UnusedVariableAnalyzer;VarCanBeLetAnalyzer</RavenDisabledAnalyzers>
                                             <RavenReturnedValueHandlingMode>full</RavenReturnedValueHandlingMode>
                                             <RavenFrameworkProjections>None</RavenFrameworkProjections>
@@ -568,6 +569,7 @@ public sealed class MsBuildProjectSystemServiceTests
             Assert.False(project.CompilationOptions.AllowGlobalStatements);
             Assert.False(project.CompilationOptions.RunAnalyzers);
             Assert.True(project.CompilationOptions.EnableIsNotNullNarrowing);
+            Assert.False(project.CompilationOptions.AllowNullableValueTypes);
             Assert.Contains("UnusedVariableAnalyzer", project.CompilationOptions.DisabledAnalyzers);
             Assert.Contains("VarCanBeLetAnalyzer", project.CompilationOptions.DisabledAnalyzers);
             Assert.True(project.CompilationOptions.ReturnedValueHandlingModeConfigured);
@@ -1257,6 +1259,7 @@ func Main() {
             Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "AllowUnsafeBlocks").Value);
             Assert.Equal("false", rootElement.Descendants().First(e => e.Name.LocalName == "RavenAllowGlobalStatements").Value);
             Assert.Equal("false", rootElement.Descendants().First(e => e.Name.LocalName == "EnableIsNotNullNarrowing").Value);
+            Assert.Equal("true", rootElement.Descendants().First(e => e.Name.LocalName == "RavenAllowNullableValueTypes").Value);
             Assert.DoesNotContain(rootElement.Descendants(), e => e.Name.LocalName == "EnableNullFlowAnalysis");
             Assert.DoesNotContain(rootElement.Descendants(), e => e.Name.LocalName is "MembersPublicByDefault" or "RavenMembersPublicByDefault");
             Assert.Equal("None", rootElement.Descendants().First(e => e.Name.LocalName == "RavenFrameworkProjections").Value);

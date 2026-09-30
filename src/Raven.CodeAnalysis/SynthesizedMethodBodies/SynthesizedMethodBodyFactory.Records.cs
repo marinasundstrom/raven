@@ -277,7 +277,7 @@ internal static partial class SynthesizedMethodBodyFactory
         bool whenNull)
     {
         return new BoundIfStatement(
-            CreateBinaryExpression(compilation, SyntaxKind.EqualsEqualsToken, value, CreateNullLiteral(compilation)),
+            CreateReferenceEqualsInvocation(compilation, value, CreateNullLiteral(compilation)),
             new BoundReturnStatement(CreateBoolLiteral(compilation, whenNull)));
     }
 

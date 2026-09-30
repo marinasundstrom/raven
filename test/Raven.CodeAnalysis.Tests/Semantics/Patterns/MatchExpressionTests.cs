@@ -3150,18 +3150,23 @@ func Describe(result: LoginResult) -> string {
     }
 
     [Theory]
-    [InlineData(false, false, false)]
-    [InlineData(false, false, true)]
-    [InlineData(false, true, false)]
-    [InlineData(false, true, true)]
-    [InlineData(true, false, false)]
-    [InlineData(true, false, true)]
-    [InlineData(true, true, false)]
-    [InlineData(true, true, true)]
+    [InlineData(false, false, false, false)]
+    [InlineData(false, false, true, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(false, true, true, false)]
+    [InlineData(true, false, false, false)]
+    [InlineData(true, false, true, false)]
+    [InlineData(true, true, false, false)]
+    [InlineData(true, true, true, false)]
+    [InlineData(true, false, false, true)]
+    [InlineData(true, false, true, true)]
+    [InlineData(true, true, false, true)]
+    [InlineData(true, true, true, true)]
     public void MatchExpression_WithNestedMetadataUnionPayload_TracksAllCases(
         bool qualifyCases,
         bool omitSecondCase,
-        bool diagnosticsFirst)
+        bool diagnosticsFirst,
+        bool firstCaseHasPayload)
     {
         const string librarySource = """
 public union Container<T, E> {
@@ -3169,9 +3174,10 @@ public union Container<T, E> {
     case Problem(error: E)
 }
 """;
-        var issueTree = SyntaxTree.ParseText("""
+        var firstCase = firstCaseHasPayload ? "First(value: bool)" : "First";
+        var issueTree = SyntaxTree.ParseText($$"""
 union Issue {
-    case First
+    case {{firstCase}}
     case Second
 }
 """);

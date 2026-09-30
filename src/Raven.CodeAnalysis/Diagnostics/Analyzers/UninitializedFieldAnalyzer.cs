@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.Syntax;
 namespace Raven.CodeAnalysis.Diagnostics;
 
 /// <summary>
-/// Reports private explicit fields that are never initialized in a constructor or with an initializer.
+/// Reports private explicit fields that lack initialization on a normal constructor exit.
 /// </summary>
 public sealed class UninitializedFieldAnalyzer : DiagnosticAnalyzer
 {
@@ -15,7 +15,7 @@ public sealed class UninitializedFieldAnalyzer : DiagnosticAnalyzer
         title: "Field is not initialized",
         description: null,
         helpLinkUri: string.Empty,
-        messageFormat: "'{0}' needs an initial value. Set it in an initializer or in a constructor.",
+        messageFormat: "'{0}' needs an initial value. Set it in an initializer or on every normal constructor path.",
         category: "Initialization",
         defaultSeverity: DiagnosticSeverity.Warning);
 

@@ -127,3 +127,14 @@ mapping. Existing pattern syntax is unchanged.
 
 For value-type variants, deconstruction operates on an extracted copy. Matching the
 same carrier again must not observe mutations made by the earlier deconstructor.
+
+Qualified case type tests contribute to nested exhaustiveness just like case
+patterns. For example, if `Issue` has only `First` and `Second`, the arms
+`.Problem(Issue.First)` and `.Problem(Issue.Second)` together cover the `Problem`
+case whose payload is `Issue`. A case type test covers all payload values of that
+case. Omitting either case remains non-exhaustive.
+
+Declaration patterns may infer omitted generic arguments from a matching input
+type: `Box box` against a `Box<int>` input binds `box` as `Box<int>`. That inference
+precedes missing-type-argument diagnostics. An unrelated input, such as `object`,
+does not supply those arguments and still requires an explicit constructed type.

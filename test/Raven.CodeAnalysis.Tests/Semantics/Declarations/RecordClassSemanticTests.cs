@@ -10,6 +10,52 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class RecordClassSemanticTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData("Key", "Key")]
+    [InlineData("Key?", "Key?")]
+    [InlineData("Key", "Key?")]
+    [InlineData("Key?", "Key")]
+    public void RecordClass_PreservesExplicitComparisonOperators(string leftType, string rightType)
+    {
+        var source = $$"""
+            record class Key(Number: int) {
+                static func ==(left: {{leftType}}, right: {{rightType}}) -> bool => true
+                static func !=(left: {{leftType}}, right: {{rightType}}) -> bool => false
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.GetSemanticModel(tree);
+        var key = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Key"));
+        foreach (var name in new[] { "op_Equality", "op_Inequality" })
+        {
+            var method = Assert.Single(key.GetMembers(name).OfType<IMethodSymbol>());
+            Assert.False(method.DeclaringSyntaxReferences.IsDefaultOrEmpty);
+            Assert.Equal(leftType.EndsWith("?"), method.Parameters[0].Type.IsNullable);
+            Assert.Equal(rightType.EndsWith("?"), method.Parameters[1].Type.IsNullable);
+        }
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [InlineData("Key")]
+    [InlineData("Key?")]
+    public void RecordClass_PreservesExplicitTypedEquals(string parameterType)
+    {
+        var source = $$"""
+            record class Key(Number: int) {
+                func Equals(other: {{parameterType}}) -> bool => true
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        compilation.GetSemanticModel(tree);
+        var key = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Key"));
+        var equals = Assert.Single(key.GetMembers("Equals").OfType<IMethodSymbol>()
+            .Where(m => m.Parameters.Length == 1 && m.Parameters[0].Type.GetNonNullableType().Name == "Key"));
+        Assert.False(equals.DeclaringSyntaxReferences.IsDefaultOrEmpty);
+        Assert.Equal(parameterType.EndsWith("?"), equals.Parameters[0].Type.IsNullable);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
     [Fact]
     public void RecordClassPrimaryConstructorCreatesPropertiesAndValueMembers()
     {
@@ -44,11 +90,11 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         Assert.Contains(
             person.GetMembers("Equals").OfType<IMethodSymbol>(),
             method => method.Parameters.Length == 1 &&
-                      SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, person));
+                      SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type.GetNonNullableType(), person));
         Assert.Contains(
             person.GetMembers("Equals").OfType<IMethodSymbol>(),
             method => method.Parameters.Length == 1 &&
-                      method.Parameters[0].Type.SpecialType == SpecialType.System_Object);
+                      method.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object);
         Assert.Contains(
             person.GetMembers("GetHashCode").OfType<IMethodSymbol>(),
             method => method.Parameters.Length == 0 &&
@@ -250,7 +296,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
         var objectEquals = person.GetMembers(nameof(object.Equals)).OfType<IMethodSymbol>()
             .Single(method => method.Parameters.Length == 1 &&
-                              method.Parameters[0].Type.SpecialType == SpecialType.System_Object);
+                              method.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object);
 
         Assert.True(compilation.TryGetSynthesizedMethodBody(objectEquals, BoundTreeView.Original, out var objectBody));
         Assert.NotNull(objectBody);
@@ -272,7 +318,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
         var typedEquals = person.GetMembers(nameof(object.Equals)).OfType<IMethodSymbol>()
             .Single(method => method.Parameters.Length == 1 &&
-                              SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, person));
+                              SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type.GetNonNullableType(), person));
 
         Assert.True(compilation.TryGetSynthesizedMethodBody(typedEquals, BoundTreeView.Original, out var typedBody));
         Assert.NotNull(typedBody);
