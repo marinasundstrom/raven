@@ -15,19 +15,22 @@ public sealed class GenericReferenceEmissionTests(ITestOutputHelper output)
     private readonly ITestOutputHelper _output = output;
 
     [Fact]
-    public void RepeatedEmissionKeepsConstructedSourceAndImportedTypesInEachAssembly()
+    public void RepeatedEmissionKeepsConstructedSourceAndImportedMembersInEachAssembly()
     {
         var compilation = Compilation.Create("RepeatedGenericEmission", [SyntaxTree.ParseText("""
             import System.Collections.Generic.*
             public class Box<T> {
-                private var stored: T
-                public init(value: T) { stored = value }
-                public func Read() -> T { return stored }
+                public field Stored: T
+                public init(value: T) { Stored = value }
+                public func Read() -> T { return Stored }
             }
             public class Entry {
-                public static func Wrap<T>(value: T) -> List<Box<T>> {
+                public static func Wrap<T>(initial: T, value: T) -> List<Box<T>> {
                     let items = List<Box<T>>()
-                    items.Add(Box<T>(value))
+                    let pair = System.ValueTuple<T>(value)
+                    let box = Box<T>(initial)
+                    box.Stored = pair.Item1
+                    items.Add(Box<T>(box.Stored))
                     return items
                 }
             }
@@ -41,7 +44,7 @@ public sealed class GenericReferenceEmissionTests(ITestOutputHelper output)
             Assert.True(result.Success, string.Join("\n", result.Diagnostics));
             using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
             var wrap = loaded.Assembly.GetType("Entry")!.GetMethod("Wrap")!.MakeGenericMethod(typeof(int));
-            var values = Assert.IsAssignableFrom<System.Collections.IList>(wrap.Invoke(null, [42 + emission]));
+            var values = Assert.IsAssignableFrom<System.Collections.IList>(wrap.Invoke(null, [1, 42 + emission]));
             var box = Assert.Single(values.Cast<object>());
             Assert.Same(loaded.Assembly, box.GetType().Assembly);
             Assert.Equal(42 + emission, box.GetType().GetMethod("Read")!.Invoke(box, null));

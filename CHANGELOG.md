@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Move substituted constructor, method and field reflection
+  resolution into .NET codegen. Remove reflection/codegen dependencies from the
+  constructed-type symbol file while retaining lookup order and per-emission
+  caches. Extend repeated-emission coverage with generic field reads and writes.
+
 - **2026-09-30:** Move constructed generic reflection-type resolution and async
   parameter mapping from semantic type symbols into the .NET codegen layer.
   Preserve per-emission builder/cache ownership and add repeated-emission runtime

@@ -21,7 +21,7 @@ internal static class FieldSymbolCodeGenResolver
             TupleFieldSymbol tupleFieldSymbol => tupleFieldSymbol.UnderlyingField.GetFieldInfo(codeGen),
             SourceFieldSymbol sourceField => (FieldInfo)codeGen.GetMemberBuilder(sourceField),
             PEFieldSymbol peField => ResolveRuntimeFieldInfo(peField, codeGen),
-            SubstitutedFieldSymbol substituted => substituted.GetFieldInfo(codeGen),
+            SubstitutedFieldSymbol substituted => SubstitutedMemberCodeGenResolver.GetFieldInfo(substituted, codeGen),
             _ => throw new NotSupportedException($"Unsupported field type: {fieldSymbol.GetType().Name}")
         };
     }

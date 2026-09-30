@@ -40,7 +40,7 @@ internal static class MethodSymbolCodeGenResolver
             SourceLambdaSymbol sourceLambda
                 => ResolveSourceMethodInfo(sourceLambda, codeGen),
             SubstitutedMethodSymbol substitutedMethod
-                => substitutedMethod.GetMethodInfo(codeGen),
+                => SubstitutedMemberCodeGenResolver.GetMethodInfo(substitutedMethod, codeGen),
             ConstructedMethodSymbol constructedMethod
                 => constructedMethod.GetMethodInfo(codeGen),
             PEMethodSymbol peMethod
@@ -671,7 +671,7 @@ internal static class MethodSymbolCodeGenResolver
             SourceMethodSymbol sourceConstructor
                 => codeGen.CacheRuntimeConstructor(constructorSymbol, (ConstructorInfo)codeGen.GetMemberBuilder(sourceConstructor)),
             SubstitutedMethodSymbol substitutedConstructor
-                => codeGen.CacheRuntimeConstructor(constructorSymbol, substitutedConstructor.GetConstructorInfo(codeGen)),
+                => codeGen.CacheRuntimeConstructor(constructorSymbol, SubstitutedMemberCodeGenResolver.GetConstructorInfo(substitutedConstructor, codeGen)),
             ConstructedMethodSymbol constructedConstructor
                 => codeGen.CacheRuntimeConstructor(constructorSymbol, ResolveConstructedConstructorInfo(constructedConstructor, codeGen)),
             PEMethodSymbol peConstructor => codeGen.CacheRuntimeConstructor(constructorSymbol, ResolveRuntimeConstructorInfo(peConstructor, codeGen)),

@@ -1291,8 +1291,15 @@ those facts, obtains source type builders, and maps generic method/async paramet
 through the current CodeGenerator. It stores no reflection handles on the semantic
 type and adds no reflection methods to the semantic interfaces.
 
-Substituted method and field implementations still contain reflection member
-resolution and call this backend helper. Removing those dependencies is a later
-slice; moving constructed-type resolution alone does not make all symbols
-platform-neutral. Repeated-emission coverage exercises imported generic containers
-with source generic arguments and checks the resulting values and assembly owners.
+`SubstitutedMemberCodeGenResolver` resolves constructors, methods and fields from
+substituted semantic members. Reflection lookup, TypeBuilder mapping, fallback
+order and caching remain backend operations. Substituted symbols expose semantic
+original definitions and containing types; they no longer accept a CodeGenerator
+or return reflection members. All reflection/codegen dependencies have been removed
+from the constructed-type symbol file.
+
+Other symbol implementations, including ConstructedMethodSymbol, still contain
+backend dependencies; this does not make all symbols platform-neutral.
+Repeated-emission coverage exercises imported generic containers and tuple fields
+with source generic arguments, source field reads/writes, and method calls. It
+checks resulting values, generic arguments and emitted assembly ownership.

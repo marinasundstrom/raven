@@ -2773,7 +2773,7 @@ internal class TypeGenerator
                 methodInfo = CodeGen.RuntimeSymbolResolver.GetMethodInfo(peMethod);
                 return true;
             case SubstitutedMethodSymbol substitutedMethod:
-                methodInfo = substitutedMethod.GetMethodInfo(CodeGen);
+                methodInfo = SubstitutedMemberCodeGenResolver.GetMethodInfo(substitutedMethod, CodeGen);
                 return true;
         }
 

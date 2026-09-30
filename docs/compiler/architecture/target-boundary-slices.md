@@ -812,3 +812,42 @@ Tests ran on .NET 11 with freshly built compiler outputs using
 Whitespace formatting completed with test workspace-load warnings;
 `git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
 full bootstrap qualification is claimed.
+
+## Slice 23: substituted member resolution in codegen
+
+SubstitutedMemberCodeGenResolver owns reflection constructor, method and field
+resolution formerly implemented by SubstitutedMethodSymbol and
+SubstitutedFieldSymbol. Callers dispatch directly to the backend resolver.
+Substituted fields expose their original semantic definition internally; methods
+already expose it. Containing types and substituted parameter/field types remain
+semantic inputs. No reflection or CodeGenerator reference remains in the
+ConstructedNamedTypeSymbol file, including its substituted-symbol implementations.
+
+Lookup and fallback order, TypeBuilder handling, signature-placeholder checks,
+metadata-token matching, async parameter projections and per-CodeGenerator member
+caches are preserved. The repeated-emission runtime regression now includes a
+public generic source field, reading an imported ValueTuple<T> field, writing and
+reading the source field, and constructing another source instance from its value.
+It continues to check values, type arguments and emitted assembly ownership.
+
+Next: extract backend resolution from ConstructedMethodSymbol. Other symbols and
+compiler adapters remain .NET-specific; this slice does not establish a fully
+replaceable target. Independent main-based validation remains required before
+integration, and neoCLR-specific policies remain separate.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 36 tests across
+GenericReferenceEmissionTests, AsyncGenericContainingTypeTests,
+AsyncGenericCaptureTests, GenericSelfConstructionTests,
+TargetCoreGenericSignatureTests, MixedGenericMetadataTests and
+ImportedGenericMethodContextTests. Final validation included
+RuntimeSymbolResolverTests and ConstructedMethodSymbolTests and passed 57 tests,
+no failures/skips. Compiler builds passed for net10.0 and net11.0 with no
+warnings/errors. Tests ran on .NET 11 with freshly built compiler outputs using
+`--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`.
+Whitespace formatting completed with test workspace-load warnings;
+`git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
+full bootstrap qualification is claimed.
+
+Final test review strengthened the field-write fixture to replace a different
+initial value, making a missing write observable. That focused test was rebuilt
+and rerun successfully after the 57-test pass.
