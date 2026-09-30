@@ -851,3 +851,45 @@ full bootstrap qualification is claimed.
 Final test review strengthened the field-write fixture to replace a different
 initial value, making a missing write observable. That focused test was rebuilt
 and rerun successfully after the 57-test pass.
+
+## Slice 24: constructed generic method resolution in codegen
+
+ConstructedMethodCodeGenResolver owns the reflection method search, signature
+matching, runtime argument projection, async/closure parameter remapping and
+fallback policies previously implemented on ConstructedMethodSymbol. The shared
+method-codegen dispatcher calls it directly. The resolver is stateless and uses
+the current CodeGenerator's builders and runtime caches.
+
+ConstructedMethodSymbol keeps semantic construction and substitution. An internal
+TryGetTypeSubstitution lookup exposes an existing semantic mapping without exposing
+the dictionary or reconstructing it in the backend. This preserves canonicalized
+method parameters and containing-type substitutions. The symbol file no longer
+references reflection or codegen. The existing debug environment switch and message
+prefixes remain unchanged, with their implementation moved to the backend.
+
+Repeated-emission runtime coverage now calls a source Copy<U> method and imported
+Enumerable.Repeat<T>/First<T> methods inside the generic wrapper. It retains the
+source/imported generic fields, constructor/member calls and emitted assembly
+ownership assertions from the preceding slice.
+
+Next: review the remaining reflection-facing compiler adapters and consolidate
+backend entry points before adding target selection. CLI metadata symbols remain
+.NET-specific, and this extraction does not establish a second target or complete
+bootstrap support. General changes still require independent main-based validation;
+experimental neoCLR policies remain separate.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 62 tests across
+GenericReferenceEmissionTests, AsyncGenericContainingTypeTests,
+AsyncGenericCaptureTests, GenericSelfConstructionTests,
+TargetCoreGenericSignatureTests, MixedGenericMetadataTests,
+ImportedGenericMethodContextTests, RuntimeSymbolResolverTests,
+ConstructedMethodSymbolTests and GenericMethodGroupContextTests. Final validation
+added GenericInvocationCodeGenTests and passed 72 tests, no failures/skips.
+The first extraction build identified a receiver-name collision and the private
+substitution-map dependency; these were corrected before validation. Final
+compiler builds passed for net10.0 and net11.0 with no warnings/errors. Tests ran
+on .NET 11 with freshly built compiler outputs using
+`--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`.
+Whitespace formatting completed with test workspace-load warnings;
+`git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
+full bootstrap qualification is claimed.

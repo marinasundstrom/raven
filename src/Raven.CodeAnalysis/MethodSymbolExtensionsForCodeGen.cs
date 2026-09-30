@@ -42,7 +42,7 @@ internal static class MethodSymbolCodeGenResolver
             SubstitutedMethodSymbol substitutedMethod
                 => SubstitutedMemberCodeGenResolver.GetMethodInfo(substitutedMethod, codeGen),
             ConstructedMethodSymbol constructedMethod
-                => constructedMethod.GetMethodInfo(codeGen),
+                => ConstructedMethodCodeGenResolver.GetMethodInfo(constructedMethod, codeGen),
             PEMethodSymbol peMethod
                 => ResolveRuntimeMethodInfo(peMethod, codeGen),
             _ when methodSymbol.UnderlyingSymbol is IMethodSymbol underlying &&

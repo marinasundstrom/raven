@@ -25,9 +25,11 @@ public sealed class GenericReferenceEmissionTests(ITestOutputHelper output)
                 public func Read() -> T { return Stored }
             }
             public class Entry {
+                private static func Copy<U>(value: U) -> U { return value }
                 public static func Wrap<T>(initial: T, value: T) -> List<Box<T>> {
                     let items = List<Box<T>>()
-                    let pair = System.ValueTuple<T>(value)
+                    let copied = Copy<T>(System.Linq.Enumerable.First<T>(System.Linq.Enumerable.Repeat<T>(value, 1)))
+                    let pair = System.ValueTuple<T>(copied)
                     let box = Box<T>(initial)
                     box.Stored = pair.Item1
                     items.Add(Box<T>(box.Stored))

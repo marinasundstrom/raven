@@ -1298,8 +1298,15 @@ original definitions and containing types; they no longer accept a CodeGenerator
 or return reflection members. All reflection/codegen dependencies have been removed
 from the constructed-type symbol file.
 
-Other symbol implementations, including ConstructedMethodSymbol, still contain
-backend dependencies; this does not make all symbols platform-neutral.
+`ConstructedMethodCodeGenResolver` handles generic method reflection lookup,
+signature matching, runtime argument projection and async/closure parameter mapping.
+ConstructedMethodSymbol retains semantic substitution and exposes an internal lookup
+for a parameter's existing substitution. The backend does not rebuild that map or
+store reflection handles on the symbol; runtime caches stay on CodeGenerator.
+ConstructedMethodSymbol no longer contains reflection or codegen dependencies.
+Other symbol implementations and shared compiler adapters remain .NET-specific;
+this does not make all symbols platform-neutral.
 Repeated-emission coverage exercises imported generic containers and tuple fields
-with source generic arguments, source field reads/writes, and method calls. It
-checks resulting values, generic arguments and emitted assembly ownership.
+with source generic arguments, source field reads/writes, and both source and
+imported generic method calls. It checks resulting values, generic arguments and
+emitted assembly ownership.

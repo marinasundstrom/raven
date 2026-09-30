@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Move constructed generic method reflection resolution into
+  .NET codegen. Semantic method symbols retain type substitutions; signature
+  matching and async/closure runtime mapping use per-emission services. Extend
+  repeated-emission coverage with source and imported generic method calls.
+
 - **2026-09-30:** Move substituted constructor, method and field reflection
   resolution into .NET codegen. Remove reflection/codegen dependencies from the
   constructed-type symbol file while retaining lookup order and per-emission
