@@ -4,6 +4,9 @@ Date: 2026-09-30. Status: planned; implementation and qualification remain open.
 
 Execution evidence and current work are tracked in the [slice ledger](target-boundary-slices.md).
 
+The [runtime/platform contract design](runtime-platform-contract-design.md)
+details selection, compatibility, and the next implementation slices.
+
 ## Objective and order
 
 Separate Raven's language semantics from metadata import, runtime contracts,

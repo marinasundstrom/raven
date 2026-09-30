@@ -1,5 +1,12 @@
 # Runtime Contracts
 
+The planned general model is a **runtime/platform contract** governing semantic
+rules, available types, representations, supported features, compatible symbol
+sources, and one or more code generators. See the
+[selection and compatibility design](architecture/runtime-platform-contract-design.md).
+The CLI-oriented options documented below are existing implementation mechanisms;
+they do not require every future symbol source to use metadata or CLI assemblies.
+
 ## Context-owned typeof (experimental, 2026-09-17)
 
 `CompilationOptions.WithRuntimeTypeOfContract(new RuntimeTypeOfContract(
@@ -54,8 +61,9 @@ syntax, semantic symbols, or target-specific policy. Focused tests use ordinary
 CLI contracts on modern .NET; they do not establish execution compatibility
 with .NET Framework, NanoFramework, or neoCLR.
 
-A Runtime Contract describes a compiler-facing requirement supplied by a target's
-CLI metadata. A target profile selects contracts and reference assemblies; it does
+In the current CLI implementation, a Runtime Contract option describes a
+compiler-facing requirement supplied by a target's CLI metadata. A target profile
+selects contracts and reference assemblies; it does
 not require a separate binder or emitter for each framework. These options are
 independent of source syntax and are opt-in. Unconfigured compilations retain
 Raven's normal .NET behavior.

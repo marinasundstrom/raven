@@ -26,6 +26,10 @@ Use the [target boundaries and bootstrap plan](target-boundaries-and-bootstrap-p
 for metadata and emission separation, .NET-first validation, neoCLR branch
 integration, and the sequence from C# contract adoption to a Raven compiler.
 
+Use the [runtime/platform contract design](runtime-platform-contract-design.md)
+for target selection, symbol-source and code-generator compatibility, feature
+restrictions, and snapshot invalidation rules.
+
 Use [Raven-native Compiler API result shapes and pre-bootstrap
 adoption](../api/result-shapes.md) for the plan by which selected APIs adopt
 Raven.Core contracts inside the existing C# implementation after the

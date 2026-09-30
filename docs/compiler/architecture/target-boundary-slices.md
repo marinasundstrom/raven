@@ -297,3 +297,27 @@ Validation with SDK `11.0.100-rc.1.26425.128`:
 
 Execution evidence is .NET 11 only. This slice does not implement selectable
 runtime/platform contracts or validate neoCLR execution.
+
+## Slice 9: runtime/platform selection and compatibility design
+
+Added `runtime-platform-contract-design.md`, grounded in current
+`CompilationOptions`, `Compilation.Setup`, `Compilation.TargetCore.cs`,
+`EmitOptions`, project evaluation, and known neoCLR representation checks.
+It defines configuration resolution, source-environment validation, binding,
+backend admission, and emission as separate stages under one resolved contract.
+
+The design permits multiple source implementations and code generators, with
+explicit compatibility rules. It distinguishes platform feature restrictions,
+backend limitations, ordinary missing APIs, and supported lowering/emulation.
+It records semantic-versus-emission invalidation and the compiler-host boundary,
+including host-executable macros. It does not mandate a universal IR or plugin ABI.
+
+Updated architecture navigation and the Runtime Contracts guide, whose existing
+CLI-specific definition is now clearly scoped to the current implementation.
+No compiler API or behavior changed. The next implementation slice is the
+option/consumer inventory and invalidation classification, followed by internal
+resolved .NET contract selection.
+
+Validation: `git diff --check` and local Markdown-link checks passed. No builds or
+tests were run for this documentation-only slice. Contract selection and additional
+backends remain unimplemented; earlier execution evidence is unchanged.
