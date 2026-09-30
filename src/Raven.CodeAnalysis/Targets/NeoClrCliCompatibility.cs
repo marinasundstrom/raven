@@ -2,17 +2,17 @@ using System;
 
 namespace Raven.CodeAnalysis.Targets;
 
-// Transitional rules for the experimental CLI transport. These preserve existing
-// assembly-name triggers; they do not constitute explicit neoCLR target selection.
+// Transitional rules for the experimental CLI transport. Explicit neoCLR selection
+// coexists with legacy assembly-name triggers until controlled callers migrate.
 internal static class NeoClrCliCompatibility
 {
-    private const string CoreAssemblyName = "NeoCLR.CoreProbe";
+    private const string CoreAssemblyName = NeoClrCliProfile.CoreAssemblyName;
 
-    internal static bool UsesInhabitedFunctionResults(string? coreAssemblyName) =>
-        coreAssemblyName == CoreAssemblyName;
+    internal static bool UsesInhabitedFunctionResults(CompilationOptions options) =>
+        options.TargetPlatform == TargetPlatform.NeoCLR || options.TargetCoreAssemblyName == CoreAssemblyName;
 
-    internal static string GetTupleTypeName(string? coreAssemblyName) =>
-        coreAssemblyName == CoreAssemblyName ? "System.Tuple" : "System.ValueTuple";
+    internal static string GetTupleTypeName(CompilationOptions options) =>
+        UsesInhabitedFunctionResults(options) ? "System.Tuple" : "System.ValueTuple";
 
     internal static string? GetSpecialTypeMetadataName(string? assemblyName, bool isValueType, string? fullName)
     {

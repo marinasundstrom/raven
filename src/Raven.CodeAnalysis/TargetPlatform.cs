@@ -6,4 +6,7 @@ public enum TargetPlatform
 {
     /// <summary>The currently supported CLI metadata and .NET emission pipeline.</summary>
     DotNet = 0,
+
+    /// <summary>The experimental neoCLR CLI metadata/emission bridge, requiring NeoCLR.CoreProbe references.</summary>
+    NeoCLR = 1,
 }

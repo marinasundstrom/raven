@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Add experimental `CompilationOptions.NeoCLR` and
+  `RavenTargetPlatform=NeoCLR` CLI profile defaults, with explicit core/unit
+  consistency validation and supplied-reference-only loading. Project properties
+  can override profile fields. Self, record mappings, native codegen and a complete
+  capability matrix remain outside this preset; legacy CLI settings still work.
+
 - **2026-09-30:** Load and save `RavenTargetPlatform` in Raven projects, initially
   accepting `DotNet`. Invalid platform names produce a clear project-loading error;
   the compiler driver exits cleanly. Existing reference/core selection is preserved.

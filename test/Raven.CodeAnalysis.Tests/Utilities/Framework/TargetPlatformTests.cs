@@ -25,7 +25,7 @@ public sealed class TargetPlatformTests
         {
             var project = Path.Combine(directory, "App.rvnproj");
             File.WriteAllText(project,
-                "<Project><PropertyGroup><RavenTargetPlatform>NeoCLR</RavenTargetPlatform></PropertyGroup></Project>");
+                "<Project><PropertyGroup><RavenTargetPlatform>UnknownPlatform</RavenTargetPlatform></PropertyGroup></Project>");
             var outputDirectory = Path.Combine(directory, "output");
             Directory.CreateDirectory(outputDirectory);
             var output = Path.Combine(outputDirectory, "App.dll");
@@ -48,7 +48,7 @@ public sealed class TargetPlatformTests
             var message = await stdout + await stderr;
             Assert.Equal(1, process.ExitCode);
             Assert.Contains("Cannot load project", message);
-            Assert.Contains("RavenTargetPlatform 'NeoCLR'", message);
+            Assert.Contains("RavenTargetPlatform 'UnknownPlatform'", message);
             Assert.DoesNotContain("Unhandled exception", message);
             Assert.Equal(new byte[] { 1, 2, 3 }, File.ReadAllBytes(output));
             Assert.Single(Directory.GetFiles(outputDirectory));

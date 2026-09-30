@@ -14,6 +14,12 @@ public class CompilationOptions
     public static CompilationOptions DotNet => new(OutputKind.ConsoleApplication,
         metadataImportOptions: new MetadataImportOptions());
 
+    /// <summary>
+    /// Creates the experimental neoCLR CLI bridge defaults using explicitly supplied
+    /// NeoCLR.CoreProbe references. This does not select a native backend or Self support.
+    /// </summary>
+    public static CompilationOptions NeoCLR => Targets.NeoClrCliProfile.CreateOptions();
+
     /// <summary>Gets the platform whose loader, runtime contract and emitter are used together.</summary>
     public TargetPlatform TargetPlatform { get; }
 

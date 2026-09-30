@@ -8,14 +8,18 @@ internal sealed partial class DotNetRuntimeContract(CompilationOptions options)
 {
     internal string PreferredSpecialTypeAssemblyName => "System.Runtime";
 
-    internal string TupleTypeName => NeoClrCliCompatibility.GetTupleTypeName(options.TargetCoreAssemblyName);
+    internal string TupleTypeName => NeoClrCliCompatibility.GetTupleTypeName(options);
 
     internal bool UsesInhabitedFunctionResults =>
-        NeoClrCliCompatibility.UsesInhabitedFunctionResults(options.TargetCoreAssemblyName);
+        NeoClrCliCompatibility.UsesInhabitedFunctionResults(options);
 
     // Configuration-only checks must not open references or resolve symbols.
     internal string? GetConfigurationError()
     {
+        if (options.TargetPlatform == TargetPlatform.NeoCLR &&
+            NeoClrCliProfile.GetConfigurationError(options) is { } profileError)
+            return profileError;
+
         if (options.TargetCoreAssemblyName is { } coreName &&
             (string.IsNullOrWhiteSpace(coreName) ||
              (!options.UsesDiscoveredTargetCore && options.MetadataImportOptions?.CoreAssemblyName != coreName)))

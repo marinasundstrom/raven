@@ -1342,3 +1342,33 @@ preservation of existing output. Compiler/driver builds passed for .NET 10/11 wi
 zero warnings/errors. Whitespace formatting completed with workspace-load warnings
 and git diff --check passed. No syntax/model generation, SDK target changes or
 native neoCLR/.NET Framework/NanoFramework execution is claimed.
+
+## Slice 38: explicit experimental neoCLR CLI preset
+
+CompilationOptions.NeoCLR and TargetPlatform.NeoCLR now select the supported
+configuration surface of the existing CLI bridge. The profile owns explicit
+NeoCLR.CoreProbe import/emission cores and System.Void unit, plus existing
+iteration, propagation, typeof, grapheme and async defaults. Source nullable
+values and array covariance default off. Native loader/backend, Self, record
+mappings and a complete feature-capability matrix are not supplied by this preset.
+
+Project RavenTargetPlatform=NeoCLR starts from the same preset, excludes host
+framework references and .NET prelude defaults, and permits explicit field-level
+overrides. Inconsistent core/unit settings diagnose as RAVT003 before loading or
+output. Missing references still diagnose as RAVT004. Merely changing the enum on
+ordinary .NET options does not apply the preset. Existing CLI implementation and
+legacy name-based compatibility triggers remain until controlled callers migrate.
+
+The pre-change baseline passed 92 tests. Final focused coverage passed 109 tests
+on .NET 11: preset/copy defaults, six rejected configurations, absent references,
+project round trips/overrides, driver validation and existing compatibility tests.
+Compiler builds passed for .NET 10/11 with zero warnings/errors. Whitespace
+formatting completed (test workspace-load warnings) and diff checks passed.
+Matching runtime artifacts were not available at the expected local demo path;
+this is compiler/configuration evidence, not native neoCLR, Framework or
+NanoFramework execution. No generation input or syntax change was needed.
+
+Both repositories document the experimental preset and its limits. External
+runtime props and artifacts are unchanged; existing Self-enabled consumers are
+not migrated. Next: select a bounded matching-runtime consumer for migration and
+validation, then replace compatibility inference and enforce proven capabilities.

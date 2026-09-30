@@ -1745,3 +1745,24 @@ claimed by the project-system validation.
 Validation: 70 project/platform tests passed on .NET 11; compiler/driver builds
 passed for .NET 10/11. Invalid project selection is covered through the driver,
 including unsuccessful exit and preservation of existing output.
+
+
+## Explicit experimental neoCLR CLI preset — 2026-09-30
+
+Raven main now exposes CompilationOptions.NeoCLR and RavenTargetPlatform=NeoCLR.
+The preset configures existing CLI core/unit, iteration, propagation, typeof,
+grapheme and async options, disables array covariance/source nullable values,
+and requires supplied NeoCLR.CoreProbe references. Core/unit contradictions
+produce RAVT003; absent references produce RAVT004. Project contract overrides
+inherit unspecified preset fields. Ordinary .NET defaults remain unchanged.
+
+This does not incorporate the separate Self feature or record mappings. Native
+loader/backend support, full feature-capability validation and consumer migration
+remain pending. External build/NeoCLR.Raven.props is unchanged, as are legacy
+assembly-name compatibility rules. Matching reference/runtime artifacts were not
+available at the local demo/NeoCLR.CoreProbe.dll path; no native execution or
+runtime bridge qualification is claimed by this slice.
+
+Validation: 109 focused configuration/project/compatibility tests passed on .NET 11;
+compiler builds passed for .NET 10/11. The runtime repository's MSBuild integration
+notes and changelog record the new development preset without changing its props.

@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Targets;
 
-// Composition for one compilation's existing CLI implementation. Reflection
+// Composition for the .NET pipeline and the experimental neoCLR CLI bridge. Reflection
 // handles stay here; shared semantic services still have .NET-facing adapters.
 internal sealed class DotNetCompilationTarget
 {
@@ -70,7 +70,7 @@ internal sealed class DotNetCompilationTarget
         => error is null ? null : Diagnostic.Create(s_invalidTargetCore, Location.None, error);
 
     internal Diagnostic? GetConfigurationDiagnostic()
-        => _compilation.Options.TargetPlatform != TargetPlatform.DotNet
+        => _compilation.Options.TargetPlatform is not (TargetPlatform.DotNet or TargetPlatform.NeoCLR)
             ? Diagnostic.Create(s_unsupportedTargetPlatform, Location.None, _compilation.Options.TargetPlatform)
             : ConfigurationDiagnostic(RuntimeContract.GetConfigurationError());
 
