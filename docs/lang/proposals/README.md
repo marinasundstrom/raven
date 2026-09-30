@@ -11,6 +11,12 @@ This directory contains proposals for language features, e.g. new syntax and beh
 - Draft ideas live under [`drafts/`](drafts/).
 - Rejected proposals live under [`rejected/`](rejected/).
 
+## Type-system drafts
+
+- [Union and intersection types](drafts/union-and-intersection-types.md): semantic
+  compound types, generic constraints, .NET representation limits, and proposed
+  native runtime support.
+
 ## Status alerts
 
 *This might change*
