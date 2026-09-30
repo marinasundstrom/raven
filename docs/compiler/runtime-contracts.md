@@ -1409,3 +1409,26 @@ This is an ownership change, not a new conversion or target policy. Nullable and
 union normalization and binder-specific inference paths are unchanged. The
 selected loader still supplies the semantic type hierarchy; a future loader
 can supply that hierarchy without implementing .NET reflection conversion.
+
+## Target-owned emission service
+
+Each .NET compilation target composes an internal ICompilationEmitter. Its Emit
+operation accepts caller-owned output/debug streams and emission options and
+returns EmitResult containing only backend diagnostics. Compilation performs
+setup, semantic checks and macro preparation, then combines its diagnostics with
+the backend result without assuming success. Macro-plugin compilations use their
+own target's emitter and validate against their own resolved metadata context.
+
+DotNetCompilationEmitter asks its target to validate and resolve options before
+constructing a fresh CodeGenerator or writing either stream. The .NET target now
+owns RAVT003 construction as well as its policy. Setup and semantic errors still
+prevent emission. A backend failure preserves earlier semantic warnings. The
+service does not dispose caller streams or cache mutable code generators between
+emissions. Unexpected implementation or I/O exceptions retain existing behavior;
+this change does not catch all exceptions or promise transactional output.
+
+This is an internal boundary, not an independently selectable codegen plugin.
+EmitOptions still carries the existing .NET core-identity option, and Compilation
+still composes DotNetCompilationTarget directly. A future target requires its own
+loader, runtime/platform contract and emitter together; no cross-target emission
+or public backend selection is enabled here.

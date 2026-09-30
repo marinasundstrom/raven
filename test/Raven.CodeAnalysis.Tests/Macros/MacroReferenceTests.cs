@@ -511,6 +511,36 @@ public sealed class MacroReferenceTests
     }
 
     [Fact]
+    public void MacroLibrary_ReportsBackendConfigurationFailureWithoutWriting()
+    {
+        var tree = SyntaxTree.ParseText("""
+            import Raven.CodeAnalysis.Macros.*
+            [assembly: RavenCompilerPlugin]
+            public macro Answer(context: TokenTreeMacroContext) {
+                expand FreestandingMacroExpansionResult.FromExpression(
+                    Raven.CodeAnalysis.Syntax.SyntaxFactory.ParseExpression("42"))
+            }
+            """, path: "Answer.rvn");
+        var compilation = Compilation.Create("InvalidPluginTarget",
+                CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(tree);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        using var output = new MemoryStream();
+        using var debugOutput = new MemoryStream();
+
+        var result = compilation.Emit(output, debugOutput,
+            new EmitOptions(new System.Reflection.AssemblyName("Other.Core")));
+
+        Assert.False(result.Success);
+        Assert.Equal("RAVT003", Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)).Id);
+        Assert.Equal(0, output.Length);
+        Assert.Equal(0, debugOutput.Length);
+        Assert.True(output.CanWrite);
+        Assert.True(debugOutput.CanWrite);
+    }
+
+    [Fact]
     public void MacroLibrary_EmitsReusableCompilerPluginFromSingleSourceTree()
     {
         var instrumentation = new PerformanceInstrumentation();

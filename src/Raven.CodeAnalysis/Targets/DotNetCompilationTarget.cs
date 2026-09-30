@@ -1,8 +1,6 @@
 using System;
-using System.IO;
 using System.Reflection;
 
-using Raven.CodeAnalysis.CodeGen;
 using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Targets;
@@ -11,6 +9,10 @@ namespace Raven.CodeAnalysis.Targets;
 // handles stay here; shared semantic services still have .NET-facing adapters.
 internal sealed class DotNetCompilationTarget
 {
+    private static readonly DiagnosticDescriptor s_invalidTargetCore = DiagnosticDescriptor.Create(
+        "RAVT003", "Invalid target core configuration", "", "",
+        "Target core configuration cannot be used: {0}.", "compiler", DiagnosticSeverity.Error, true);
+
     private readonly Compilation _compilation;
     private readonly Lazy<ReflectionTypeLoader> _reflectionTypeLoader;
     private DotNetMetadataSession _metadataSession = null!;
@@ -20,11 +22,13 @@ internal sealed class DotNetCompilationTarget
     {
         _compilation = compilation;
         RuntimeContract = new DotNetRuntimeContract(compilation.Options);
+        Emitter = new DotNetCompilationEmitter(compilation, this);
         // Allocation must not bind or load references: reflection queries may
         // request this projector before setup or during same-thread setup reentrancy.
         _reflectionTypeLoader = new(() => new ReflectionTypeLoader(compilation));
     }
 
+    internal ICompilationEmitter Emitter { get; }
     internal ReflectionTypeLoader ReflectionTypeLoader => _reflectionTypeLoader.Value;
     internal DotNetRuntimeContract RuntimeContract { get; }
     internal DotNetHostRuntime HostRuntime { get; } = new();
@@ -58,13 +62,19 @@ internal sealed class DotNetCompilationTarget
         return new DotNetSemanticDataLoader(_metadataSession, ReflectionTypeLoader, HostRuntime);
     }
 
-    internal string? GetResolvedConfigurationError()
-        => RuntimeContract.GetResolvedConfigurationError(_compilation, CoreAssembly.GetName().Name);
+    private static Diagnostic? ConfigurationDiagnostic(string? error)
+        => error is null ? null : Diagnostic.Create(s_invalidTargetCore, Location.None, error);
 
-    internal string? ResolveEmitOptions(EmitOptions? requested, out EmitOptions? effective)
+    internal Diagnostic? GetConfigurationDiagnostic()
+        => ConfigurationDiagnostic(RuntimeContract.GetConfigurationError());
+
+    internal Diagnostic? GetResolvedConfigurationDiagnostic()
+        => ConfigurationDiagnostic(RuntimeContract.GetResolvedConfigurationError(_compilation, CoreAssembly.GetName().Name));
+
+    internal Diagnostic? ResolveEmitOptions(EmitOptions? requested, out EmitOptions? effective)
     {
         effective = requested;
-        if (GetResolvedConfigurationError() is { } error)
+        if (GetResolvedConfigurationDiagnostic() is { } error)
             return error;
         if (_compilation.Options.TargetCoreAssemblyName is null && !_compilation.Options.UsesDiscoveredTargetCore)
             return null;
@@ -73,12 +83,9 @@ internal sealed class DotNetCompilationTarget
         // from a runtime implementation loaded by the compiler host.
         var identity = CoreAssembly.GetName();
         if (requested?.TargetCoreLibraryIdentity is { } explicitIdentity && explicitIdentity.FullName != identity.FullName)
-            return "explicit emission options conflict with the project's target core identity";
+            return ConfigurationDiagnostic("explicit emission options conflict with the project's target core identity");
 
         effective = new EmitOptions(identity);
         return null;
     }
-
-    internal void Emit(EmitOptions? options, Stream peStream, Stream? pdbStream)
-        => new CodeGenerator(_compilation, options).Emit(peStream, pdbStream);
 }

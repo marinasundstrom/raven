@@ -1077,3 +1077,38 @@ early returns, function-expression inference and missing-return-type diagnostics
 Compiler builds passed for net10.0/net11.0 with no warnings/errors. Whitespace
 formatting completed (test workspace-load warnings only); `git diff --check` passed.
 No full baseline, neoCLR execution or bootstrap qualification is claimed.
+
+## Slice 30: target-owned emitter result contract
+
+Added ICompilationEmitter and the .NET implementation, composed by the target.
+Shared Compilation retains setup, semantic validation and macro preparation; the
+emitter validates options through its target, constructs a fresh CodeGenerator
+and returns backend-only EmitResult. Shared orchestration preserves the result's
+success flag and appends backend diagnostics to semantic diagnostics on both
+normal and plugin paths. Target configuration diagnostics now originate in the
+.NET target rather than shared Compilation.
+
+Coverage checks semantic-warning preservation on successful and rejected emission,
+untouched streams on target-core conflicts, caller stream ownership, and plugin
+emission failure propagation. Existing selected-core, metadata emission, setup
+diagnostics and successful macro-plugin coverage remains in the focused set.
+
+The emitter is internal and target-owned. EmitOptions remains .NET-shaped, and
+the compilation target is still concretely .NET; neither mixed-target composition
+nor a full pluggable target API is claimed. Macro preparation now precedes
+emission-option validation, so plugin semantic errors may be reported before
+conflicting emission options. No artifact is written in either failure case.
+
+Next: continue reducing .NET-facing adapters on Compilation before generalizing
+the complete target contract. Do not merge the experimental branch wholesale;
+general changes require independent main-based validation.
+
+Validation: focused pre-change coverage passed 45 tests; post-change coverage
+passed 48 tests on .NET 11, with no failures/skips. The filter covered
+TargetCoreSelectionTests (excluding the compiler-driver subprocess test),
+TargetInitializationDiagnosticTests, TargetMetadataEmissionTests,
+RuntimeTypeResolutionTests and the two MacroLibrary emission tests. Compiler
+builds passed for net10.0 and net11.0 with no warnings/errors. Whitespace
+formatting completed with test workspace-load warnings; `git diff --check` passed.
+No full baseline, compiler-driver rebuild, .NET Framework, NanoFramework, neoCLR
+execution or bootstrap qualification is claimed.

@@ -133,6 +133,37 @@ public class TargetCoreSelectionTests
         Assert.Equal(0, output.Length);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EmitPreservesSemanticDiagnosticsAndReportsBackendOutcome(bool conflictingCore)
+    {
+        var compilation = Create(Options);
+        var warning = Diagnostic.Create(DiagnosticDescriptor.Create(
+            "TEST001", "Test warning", "", "", "Semantic warning", "test", DiagnosticSeverity.Warning, true),
+            Location.None);
+        using var output = new MemoryStream();
+        using var debugOutput = new MemoryStream();
+        var result = compilation.Emit(output, conflictingCore ? debugOutput : null,
+            diagnostics: [warning], emitOptions: conflictingCore ? new EmitOptions(new AssemblyName("Other.Core")) : null);
+
+        Assert.Equal(!conflictingCore, result.Success);
+        Assert.Same(warning, result.Diagnostics[0]);
+        Assert.Equal(conflictingCore ? 2 : 1, result.Diagnostics.Length);
+        if (conflictingCore)
+        {
+            Assert.Equal("RAVT003", result.Diagnostics[1].Id);
+            Assert.Equal(0, output.Length);
+            Assert.Equal(0, debugOutput.Length);
+        }
+        else
+        {
+            Assert.True(output.Length > 0);
+        }
+        Assert.True(output.CanWrite);
+        Assert.True(debugOutput.CanWrite);
+    }
+
     [Fact]
     public void ClearingTheSelectionPreservesIndependentMetadataImportPolicy()
     {

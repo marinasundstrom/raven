@@ -42,9 +42,6 @@ public partial class Compilation
             return new EmitResult(false, effectiveDiagnostics);
         }
 
-        if (!TryResolveTargetEmitOptions(emitOptions, out emitOptions, out var targetDiagnostic))
-            return new EmitResult(false, effectiveDiagnostics.Add(targetDiagnostic!));
-
         if (_macroSyntaxTrees.Length > 0 &&
             _syntaxTrees.Concat(_macroSyntaxTrees).Any(LocalMacroSyntaxClassifier.IsCompilerPluginTree))
         {
@@ -57,13 +54,12 @@ public partial class Compilation
                 return new EmitResult(false, effectiveDiagnostics);
             }
 
-            pluginCompilation._target.Emit(emitOptions, peStream, pdbStream);
-            return new EmitResult(true, effectiveDiagnostics);
+            var pluginResult = pluginCompilation._target.Emitter.Emit(peStream, pdbStream, emitOptions);
+            return new EmitResult(pluginResult.Success, effectiveDiagnostics.AddRange(pluginResult.Diagnostics));
         }
 
-        _target.Emit(emitOptions, peStream, pdbStream);
-
-        return new EmitResult(true, effectiveDiagnostics);
+        var result = _target.Emitter.Emit(peStream, pdbStream, emitOptions);
+        return new EmitResult(result.Success, effectiveDiagnostics.AddRange(result.Diagnostics));
     }
 
     private Compilation CreateMacroPluginCompilation()

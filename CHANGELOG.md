@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Introduce a target-owned emission contract returning backend
+  results and diagnostics. Normal and macro-plugin compilation preserve those
+  results alongside semantic diagnostics; .NET option validation precedes output
+  writes and owns its RAVT003 diagnostic.
+
 - **2026-09-30:** Move common nominal type inference into semantic normalization,
   removing its dependency on the .NET codegen type helper. Existing base/interface
   preference and object fallback are preserved and covered with focused tests.
