@@ -1674,3 +1674,29 @@ runtime artifacts are unchanged; native neoCLR and .NET Framework/NanoFramework
 execution are not claimed.
 
 Next: separate fast conversion classification from PE parameter metadata names.
+
+## Slice 50: provider-owned available-state conversion classification
+
+Remove PE method checks from semantic-model available invocation/extension receiver
+scoring. Lazy parameter providers use `IMethodParameterInfo`; the optional
+`IParameterConversionClassifier` classifies encoded parameters without complete
+signature resolution. Core owns ranking and fallback. PE owns CLI names, numeric
+shortcut policy and array name matching; no CLI encoding is added to the shared
+interface. Existing scores and source/full-signature lookup behavior are retained.
+
+Eleven regressions cover non-PE category ranking and member context, rejection vs
+unavailable classification without signature loading, PE identity/numeric/object
+classifications and rejection, plus array rank handling and unsupported argument/missing parameter fallback.
+Existing semantic-model caching tests protect cold invocation selection. This
+removes the PE method coupling from these scoring paths, not every runtime-specific
+rule elsewhere in the compiler. The shortcut is not general conversion analysis.
+
+Validation: 92 baseline semantic-model caching and parameter tests passed.
+All 103 final tests pass on .NET 11. Compiler builds pass for .NET 10/11 with
+zero warnings/errors. Whitespace formatting and diff checks pass (formatter
+workspace-load warnings). No syntax, generated inputs, public API or emitted
+encoding changes. Language-service clients use the same compiler entry points.
+External runtime artifacts are unchanged; no native neoCLR or .NET Framework/
+NanoFramework execution is claimed.
+
+Next: audit remaining shared symbol identity and runtime-specific type queries.

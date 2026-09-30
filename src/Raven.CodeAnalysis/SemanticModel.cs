@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 
 using Raven.CodeAnalysis.Documentation;
 using Raven.CodeAnalysis.Macros;
+using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
@@ -4786,19 +4787,19 @@ public partial class SemanticModel
             return false;
         }
 
-        if (method is PEMethodSymbol peMethod)
+        if (method is IMethodParameterInfo parameterInfo)
         {
-            var peParameterCount = peMethod.ParameterCount;
-            if (peParameterCount < receiverOffset ||
-                !TryGetFastRequiredParameterCount(method, receiverOffset, out var peRequiredParameterCount, out var peHasParamsParameter))
+            if (!parameterInfo.TryGetParameterCount(out var parameterCount) ||
+                parameterCount < receiverOffset ||
+                !TryGetFastRequiredParameterCount(method, receiverOffset, out var providerRequiredParameterCount, out var providerHasParamsParameter))
             {
                 return false;
             }
 
-            var visibleParameterCount = peParameterCount - receiverOffset;
-            if (argumentTypes.Count < peRequiredParameterCount ||
+            var visibleParameterCount = parameterCount - receiverOffset;
+            if (argumentTypes.Count < providerRequiredParameterCount ||
                 argumentTypes.Count > visibleParameterCount ||
-                peHasParamsParameter)
+                providerHasParamsParameter)
             {
                 return false;
             }
@@ -4807,7 +4808,7 @@ public partial class SemanticModel
             {
                 var argumentExpression = invocation.ArgumentList.Arguments[i].Expression;
                 if (argumentExpression is FunctionExpressionSyntax functionExpression &&
-                    peMethod.TryGetParameterType(i + receiverOffset, out var functionParameterType) &&
+                    parameterInfo.TryGetParameterType(i + receiverOffset, out var functionParameterType) &&
                     functionParameterType is not null &&
                     TryScoreAvailableFunctionExpressionArgument(functionExpression, functionParameterType, ref score))
                 {
@@ -4820,11 +4821,11 @@ public partial class SemanticModel
                     return false;
                 }
 
-                if (TryScoreFastMetadataArgumentConversion(argumentTypes[i], peMethod, i + receiverOffset, ref score, out var handled))
+                if (ParameterConversionQueries.TryScore(argumentTypes[i], method, i + receiverOffset, ref score, out var handled))
                     continue;
 
                 if (handled ||
-                    !peMethod.TryGetParameterType(i + receiverOffset, out var parameterType) ||
+                    !parameterInfo.TryGetParameterType(i + receiverOffset, out var parameterType) ||
                         parameterType is null ||
                         !TryScoreAvailableArgumentConversion(argumentTypes[i], parameterType, ref score))
                 {
@@ -4891,13 +4892,12 @@ public partial class SemanticModel
             return false;
 
         var handled = false;
-        if (method is PEMethodSymbol peMethod &&
-            TryScoreFastMetadataArgumentConversion(receiverType, peMethod, 0, ref score, out handled))
+        if (ParameterConversionQueries.TryScore(receiverType, method, 0, ref score, out handled))
         {
             return true;
         }
 
-        if (method is PEMethodSymbol && handled)
+        if (handled)
             return false;
 
         return TryGetFastParameterType(method, 0, out var parameterType) &&
@@ -4943,93 +4943,6 @@ public partial class SemanticModel
                (string.Equals(plainType.Name, "Delegate", StringComparison.Ordinal) ||
                 string.Equals(plainType.Name, "MulticastDelegate", StringComparison.Ordinal));
     }
-
-    private bool TryScoreFastMetadataArgumentConversion(
-        ITypeSymbol? argumentType,
-        PEMethodSymbol method,
-        int parameterIndex,
-        ref int score,
-        out bool handled)
-    {
-        handled = false;
-
-        if (argumentType is null ||
-            argumentType.TypeKind == TypeKind.Error ||
-            !TryGetSpecialTypeMetadataName(argumentType.GetNonNullableType(), out var argumentMetadataName) ||
-            !method.TryGetParameterRuntimeTypeMetadataName(parameterIndex, out var parameterMetadataName) ||
-            string.IsNullOrWhiteSpace(parameterMetadataName))
-        {
-            return false;
-        }
-
-        handled = true;
-        if (string.Equals(parameterMetadataName, argumentMetadataName, StringComparison.Ordinal))
-        {
-            score += 8;
-            return true;
-        }
-
-        if (IsImplicitSpecialTypeMetadataConversion(argumentMetadataName, parameterMetadataName))
-        {
-            score += 5;
-            return true;
-        }
-
-        if (string.Equals(parameterMetadataName, "System.Object", StringComparison.Ordinal))
-        {
-            score += 4;
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool TryGetSpecialTypeMetadataName(ITypeSymbol type, out string metadataName)
-    {
-        if (type is IArrayTypeSymbol { Rank: 1, ElementType: { } elementType } &&
-            TryGetSpecialTypeMetadataName(elementType.GetNonNullableType(), out var elementMetadataName))
-        {
-            metadataName = elementMetadataName + "[]";
-            return true;
-        }
-
-        metadataName = type.SpecialType switch
-        {
-            SpecialType.System_Boolean => "System.Boolean",
-            SpecialType.System_Byte => "System.Byte",
-            SpecialType.System_Char => "System.Char",
-            SpecialType.System_Decimal => "System.Decimal",
-            SpecialType.System_Double => "System.Double",
-            SpecialType.System_Int16 => "System.Int16",
-            SpecialType.System_Int32 => "System.Int32",
-            SpecialType.System_Int64 => "System.Int64",
-            SpecialType.System_Object => "System.Object",
-            SpecialType.System_SByte => "System.SByte",
-            SpecialType.System_Single => "System.Single",
-            SpecialType.System_String => "System.String",
-            SpecialType.System_UInt16 => "System.UInt16",
-            SpecialType.System_UInt32 => "System.UInt32",
-            SpecialType.System_UInt64 => "System.UInt64",
-            _ => string.Empty
-        };
-
-        return metadataName.Length > 0;
-    }
-
-    private static bool IsImplicitSpecialTypeMetadataConversion(string sourceMetadataName, string targetMetadataName)
-        => sourceMetadataName switch
-        {
-            "System.Byte" => targetMetadataName is "System.Int16" or "System.UInt16" or "System.Int32" or "System.UInt32" or "System.Int64" or "System.UInt64" or "System.Single" or "System.Double" or "System.Decimal",
-            "System.SByte" => targetMetadataName is "System.Int16" or "System.Int32" or "System.Int64" or "System.Single" or "System.Double" or "System.Decimal",
-            "System.Int16" => targetMetadataName is "System.Int32" or "System.Int64" or "System.Single" or "System.Double" or "System.Decimal",
-            "System.UInt16" => targetMetadataName is "System.Int32" or "System.UInt32" or "System.Int64" or "System.UInt64" or "System.Single" or "System.Double" or "System.Decimal",
-            "System.Int32" => targetMetadataName is "System.Int64" or "System.Single" or "System.Double" or "System.Decimal",
-            "System.UInt32" => targetMetadataName is "System.Int64" or "System.UInt64" or "System.Single" or "System.Double" or "System.Decimal",
-            "System.Int64" => targetMetadataName is "System.Single" or "System.Double" or "System.Decimal",
-            "System.UInt64" => targetMetadataName is "System.Single" or "System.Double" or "System.Decimal",
-            "System.Single" => targetMetadataName is "System.Double",
-            _ => false
-        };
 
     private bool TryScoreAvailableArgumentConversion(ITypeSymbol? argumentType, ITypeSymbol parameterType, ref int score)
     {
