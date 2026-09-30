@@ -1256,3 +1256,171 @@ tip (1991973f8) is an ancestor of neoclr. Its commits remain on neoclr; no remot
 branch was deleted and main was not modified. The author reaffirmed eventual
 integration of neoclr into main. Next: resume broad integration validation and
 then the target-policy consolidation in the readiness plan.
+
+## Slice 35: consolidate transitional neoCLR CLI policy on shared main
+
+After integration and feature-branch rebasing, the author synced the branches.
+Remote main at fe4a2372b, intersection at 62b5d8f9c and Self at 44e53dbde matched
+local tips; main is an ancestor of both feature branches. The retained remote
+neoclr tip b54d2999c has no commits absent from main. No remote refs were changed
+by this slice.
+
+NeoClrCliCompatibility now owns the existing assembly-name triggers for inhabited
+unit function results, tuple family names, imported tuple special types and
+terminal namespace Fault calls. DotNetRuntimeContract exposes the representation
+choices; PE symbols and shared bound-node facts delegate classification to that
+component. The exact triggers and behavior remain unchanged. In particular,
+Fault classification still depends on its declaring assembly independently of
+the compilation's configured core; this is not explicit target enforcement.
+
+The pre-change focused baseline passed 19 tests. Post-change target/function/flow
+and metadata tests passed 25 tests, including unrelated/case-different core names
+and value-type versus reference-type tuple imports. Existing tuple semantics and
+symbol-display coverage passed another 26 tests. All tests ran on .NET 11 with
+zero failures/skips; CLI fixtures use modern .NET reference assemblies. Compiler
+builds passed for net10.0 and net11.0 with zero warnings/errors. Whitespace
+formatting completed (test workspace-load warnings only), and diff checks passed.
+No syntax, generator inputs or language-service behavior changed. No native
+neoCLR, .NET Framework or NanoFramework execution is claimed.
+
+Next: explicit target identity and immutable contract selection, carried through
+option copies, project configuration and incremental compatibility. Preserve a
+coherent loader/contract/emitter composition and migrate controlled callers before
+removing compatibility inference.
+
+## Slice 36: explicit .NET platform selection foundation
+
+CompilationOptions.TargetPlatform, WithTargetPlatform and the constructor argument
+now identify the coherent platform composition. DotNet is the only supported enum
+value; it preserves existing constructor and preset defaults. All 38 existing
+option copies forward the selection. Reference-framework resolution and core
+identity remain separate inputs; choosing a platform does not rewrite contracts.
+
+Unknown enum values return unsuppressible RAVT005 before reference initialization
+and cannot write PE/PDB output even when callers provide diagnostics. Platform
+changes reject both metadata/declaration reuse and semantic-state transfer. Tests
+cover defaults, copies, invalid-platform diagnostics and workspace recovery back
+to .NET with earlier snapshots retaining their own diagnostics.
+
+Pre-change validation passed seven framework tests and 99 configuration, metadata
+and incremental tests. Post-change validation passed 120 focused tests, including
+six new platform cases and the existing neoCLR CLI compatibility checks. The seven
+framework checks also passed again on the final build. Compiler
+builds passed for .NET 10/11 with zero warnings/errors. Tests ran on .NET 11.
+Whitespace formatting completed with test workspace-load warnings; diff checks
+passed. No generated model, syntax or language-service presentation changes were
+needed. Native neoCLR/.NET Framework/NanoFramework execution is not claimed.
+
+This intentionally completes only the .NET API foundation: there is no NeoCLR
+preset, project-file selector or strict .NET feature matrix yet. Existing implicit
+neoCLR CLI rules remain compatible. Next, define the supported neoCLR CLI profile,
+wire project configuration and migrate callers before removing those triggers.
+
+## Slice 37: project platform selection and driver errors
+
+MSBuild evaluation now reads RavenTargetPlatform into CompilationOptions.
+Absent/blank values retain the existing .NET default; DotNet is accepted
+case-insensitively with surrounding whitespace ignored. Project saving writes
+the canonical name, and reload preserves platform and existing core/reference
+settings. Unsupported names (including NeoCLR until its profile is implemented),
+numeric values and combined names produce an InvalidDataException identifying
+the property and value. The compiler driver catches project InvalidDataException
+and reports a concise error with exit code 1 instead of an unhandled exception.
+Compiler API validation continues to use RAVT005 for unsupported enum values.
+
+The external NeoCLR.Raven.props was inspected, not modified. It also selects the
+separate Self feature, so importing its entire configuration as a main preset
+would overstate current support. This slice finishes project selection first;
+next is defining the supported neoCLR CLI profile independently of Self and
+migrating consumers with explicit limits. Existing integration props without
+the new selector preserve prior behavior.
+
+The pre-change project/platform baseline passed 60 tests. The final suite passed
+70 tests on .NET 11, including four evaluated/imported-property round trips, five
+invalid-name cases and a driver regression proving the error text, exit code and
+preservation of existing output. Compiler/driver builds passed for .NET 10/11 with
+zero warnings/errors. Whitespace formatting completed with workspace-load warnings
+and git diff --check passed. No syntax/model generation, SDK target changes or
+native neoCLR/.NET Framework/NanoFramework execution is claimed.
+
+## Slice 38: explicit experimental neoCLR CLI preset
+
+CompilationOptions.NeoCLR and TargetPlatform.NeoCLR now select the supported
+configuration surface of the existing CLI bridge. The profile owns explicit
+NeoCLR.CoreProbe import/emission cores and System.Void unit, plus existing
+iteration, propagation, typeof, grapheme and async defaults. Source nullable
+values and array covariance default off. Native loader/backend, Self, record
+mappings and a complete feature-capability matrix are not supplied by this preset.
+
+Project RavenTargetPlatform=NeoCLR starts from the same preset, excludes host
+framework references and .NET prelude defaults, and permits explicit field-level
+overrides. Inconsistent core/unit settings diagnose as RAVT003 before loading or
+output. Missing references still diagnose as RAVT004. Merely changing the enum on
+ordinary .NET options does not apply the preset. Existing CLI implementation and
+legacy name-based compatibility triggers remain until controlled callers migrate.
+
+The pre-change baseline passed 92 tests. Final focused coverage passed 109 tests
+on .NET 11: preset/copy defaults, six rejected configurations, absent references,
+project round trips/overrides, driver validation and existing compatibility tests.
+Compiler builds passed for .NET 10/11 with zero warnings/errors. Whitespace
+formatting completed (test workspace-load warnings) and diff checks passed.
+Matching runtime artifacts were not available at the expected local demo path;
+this is compiler/configuration evidence, not native neoCLR, Framework or
+NanoFramework execution. No generation input or syntax change was needed.
+
+Both repositories document the experimental preset and its limits. External
+runtime props and artifacts are unchanged; existing Self-enabled consumers are
+not migrated. Next: select a bounded matching-runtime consumer for migration and
+validation, then replace compatibility inference and enforce proven capabilities.
+
+
+## Slice 39: document bridge behavior and native metadata destination
+
+The author clarified the goal: replace the CLI bridge with native neoCLR metadata
+supporting the platform's semantics, and document every temporary bridge behavior.
+The new bridge inventory records encodings, semantic distinctions, ownership,
+restrictions, branch scope and replacement obligations. Repository instructions now
+require that documentation for subsequent bridge changes.
+
+An installed Function-types feature bundle was located and its four principal
+artifact hashes checked. A temporary consumer compiled with Raven 9a58e1356,
+imported, verified and executed. This was exploratory evidence only. Repository
+ancestry confirmed native Function support is on neoCLR feature/function-types and
+codex/native-self, not neoCLR main e4f6fe41. The author confirmed deferral until the
+metadata layer/full compiler support exists. The proposed Function-dependent smoke
+fixture and runtime-props migration were withdrawn before committing.
+
+In response to the author's question, the recommended path is to retain compiler-side
+plumbing and experimental bridge support on shared main while preserving .NET defaults;
+do not conflate that with enabling native Function semantics. Existing function syntax
+and .NET delegates remain valid. Define metadata/symbol/backend requirements and
+capabilities before promoting deferred features. No production code or runtime props
+changed in this slice; native execution observations are not an acceptance gate.
+
+Docs-only final changes; links, source ownership and branch ancestry were checked,
+and git diff --check passed. Existing compiler tests/build evidence from slice 38
+is unaffected. The external integration docs record the same scope and recommendation.
+
+## Slice 40 — Target-gated Self, structural experiment isolation
+
+Integrate Self on the shared compiler line with explicit NeoCLR selection plus a
+marker contract. DotNet rejects configuration before reference loading/output;
+semantic queries preserve user-defined Self on DotNet. Extract native Self onto
+neoCLR nominal main instead of merging structural Function ancestry. The native
+metadata/backend remains future work; marker and importer limitations are recorded
+in the bridge inventory and native Self documentation.
+
+Rebuilding the nominal runtime established that inhabited unit-result transport is
+also required by its existing Func ABI. An attempted removal was reverted as a
+nominal compatibility rule. Structural Function identity/assignability remains on
+feature branches; detailed experimental notes are retained there. The rebuild also
+exposed explicit-empty typeof overrides being ignored by the new preset; clearing
+all three mapping properties now disables that optional contract.
+
+Validation: 107 focused compiler/project tests pass. `scripts/test-ci.sh` passes
+315 compiler tests on .NET 11, 73 core tests on .NET 10, and 256 LSP tests on .NET 10
+with three existing skips. Toolchain builds cover .NET 10/11. The external nominal
+runtime passes 98 focused tests, regenerated library/API fingerprint checks, native
+Self cloning with six rejections, and a nominal unit callback printing 42.
+This is not .NET Framework/NanoFramework execution evidence or a native metadata
+loader/backend implementation.

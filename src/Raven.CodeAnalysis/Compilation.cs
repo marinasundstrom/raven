@@ -883,7 +883,9 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
-        if (ReferenceEquals(this, previousCompilation) || Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
+        if (ReferenceEquals(this, previousCompilation)
+            || Options.TargetPlatform != previousCompilation.Options.TargetPlatform
+            || Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
             || Options.RuntimeIterationContract != previousCompilation.Options.RuntimeIterationContract
             || Options.RuntimePropagationContract != previousCompilation.Options.RuntimePropagationContract
             || Options.TargetCoreAssemblyName != previousCompilation.Options.TargetCoreAssemblyName)
@@ -2347,10 +2349,9 @@ public partial class Compilation
 
         var allTypes = parameterTypes.ToList();
         bool isAction = returnType.SpecialType == SpecialType.System_Void || returnType.SpecialType == SpecialType.System_Unit;
-        // neoCLR imports a structural Function shape with an inhabited unit result.
-        // Keep source unit functions and generic functions instantiated with unit
-        // on the same CLI transport type; ordinary CLR targets still use Action.
-        if (isAction && Options.TargetCoreAssemblyName == "NeoCLR.CoreProbe")
+        // The neoCLR nominal delegate ABI uses an inhabited unit result too.
+        // This transport rule does not introduce structural function semantics.
+        if (isAction && _target.RuntimeContract.UsesInhabitedDelegateResults)
         {
             returnType = GetSpecialType(SpecialType.System_Unit);
             isAction = false;

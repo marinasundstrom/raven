@@ -147,6 +147,8 @@ internal static class MsBuildProjectEvaluator
             .Where(static item => !string.IsNullOrWhiteSpace(item.Include))
             .ToImmutableArray();
 
+        var targetPlatform = ParseTargetPlatform(GetOptionalProperty(project, "RavenTargetPlatform"));
+        var defaults = targetPlatform == TargetPlatform.NeoCLR ? CompilationOptions.NeoCLR : new CompilationOptions();
         var outputType = project.GetPropertyValue("OutputType");
         var allowUnsafe = GetBooleanProperty(project, "AllowUnsafe") ?? GetBooleanProperty(project, "AllowUnsafeBlocks") ?? false;
         var allowGlobalStatements = GetBooleanProperty(project, "AllowGlobalStatements")
@@ -165,7 +167,7 @@ internal static class MsBuildProjectEvaluator
         var runAnalyzers = GetBooleanProperty(project, "RunAnalyzers")
             ?? GetBooleanProperty(project, "RavenRunAnalyzers")
             ?? true;
-        var allowNullableValueTypes = GetBooleanProperty(project, "RavenAllowNullableValueTypes") ?? true;
+        var allowNullableValueTypes = GetBooleanProperty(project, "RavenAllowNullableValueTypes") ?? defaults.AllowNullableValueTypes;
         var enableIsNotNullNarrowing = GetBooleanProperty(project, "EnableIsNotNullNarrowing") ?? false;
         var disabledAnalyzers = AnalyzerOptionUtilities.ParseAnalyzerNameSet(
             GetOptionalProperty(project, "DisabledAnalyzers") ??
@@ -177,15 +179,15 @@ internal static class MsBuildProjectEvaluator
         var implicitImports = GetImplicitImportsProperty(project)
             ?? GetBooleanProperty(project, "GeneratePreludeImports")
             ?? GetBooleanProperty(project, "RavenGeneratePreludeImports")
-            ?? true;
+            ?? (targetPlatform != TargetPlatform.NeoCLR);
         var sdkProvidesImplicitImports = GetBooleanProperty(project, "_RavenSdkProvidesImplicitImports") ?? false;
         var emitCoreTypesOnly = GetBooleanProperty(project, "RavenEmitCoreTypesOnly") ?? false;
-        var useHostFrameworkReferences = GetBooleanProperty(project, "RavenUseHostFrameworkReferences") ?? true;
+        var useHostFrameworkReferences = GetBooleanProperty(project, "RavenUseHostFrameworkReferences") ?? (targetPlatform != TargetPlatform.NeoCLR);
         var frameworkProjectionMode = emitCoreTypesOnly
             ? FrameworkProjectionMode.None
             : ParseFrameworkProjectionMode(
                 GetOptionalProperty(project, "FrameworkProjections") ??
-                GetOptionalProperty(project, "RavenFrameworkProjections"));
+                GetOptionalProperty(project, "RavenFrameworkProjections") ?? defaults.FrameworkProjectionMode.ToString());
         var macroOptions = project.GetItems("MacroOption")
             .Select(item => new
             {
@@ -214,7 +216,7 @@ internal static class MsBuildProjectEvaluator
             .WithPreprocessorSymbols(
                 ParsePreprocessorSymbols(project.GetPropertyValue("DefineConstants")));
 
-        var compilationOptions = new CompilationOptions(ParseOutputKind(outputType))
+        var compilationOptions = defaults.WithOutputKind(ParseOutputKind(outputType))
             .WithOptimizationLevel(ParseOptimizationLevel(project, configuration))
             .WithAllowUnsafe(allowUnsafe)
             .WithAllowGlobalStatements(allowGlobalStatements)
@@ -227,13 +229,13 @@ internal static class MsBuildProjectEvaluator
             .WithEnabledAnalyzers(enabledAnalyzers)
             .WithFrameworkProjectionMode(frameworkProjectionMode)
             .WithExternalConstantValues(externalConstantValues)
-            .WithUnicodeScalarChar(GetBooleanProperty(project, "RavenUnicodeScalarChar") ?? false)
-            .WithAsyncCancellationPropagation(GetBooleanProperty(project, "RavenPropagateAsyncCancellation") ?? false)
-            .WithHeapAsyncStateMachines(GetBooleanProperty(project, "RavenHeapAsyncStateMachines") ?? false)
-            .WithAsyncExceptionCapture(GetBooleanProperty(project, "RavenCaptureAsyncExceptions") ?? true)
-            .WithGraphemeChar(GetBooleanProperty(project, "RavenGraphemeChar") ?? false)
-            .WithAllowArrayCovariance(GetBooleanProperty(project, "RavenAllowArrayCovariance") ?? true)
-            .WithTargetCoreAssemblyName(GetOptionalProperty(project, "RavenTargetCoreAssemblyName"));
+            .WithUnicodeScalarChar(GetBooleanProperty(project, "RavenUnicodeScalarChar") ?? defaults.UseUnicodeScalarChar)
+            .WithAsyncCancellationPropagation(GetBooleanProperty(project, "RavenPropagateAsyncCancellation") ?? defaults.PropagateAsyncCancellation)
+            .WithHeapAsyncStateMachines(GetBooleanProperty(project, "RavenHeapAsyncStateMachines") ?? defaults.UseHeapAsyncStateMachines)
+            .WithAsyncExceptionCapture(GetBooleanProperty(project, "RavenCaptureAsyncExceptions") ?? defaults.CaptureAsyncExceptions)
+            .WithGraphemeChar(GetBooleanProperty(project, "RavenGraphemeChar") ?? defaults.UseGraphemeChar)
+            .WithAllowArrayCovariance(GetBooleanProperty(project, "RavenAllowArrayCovariance") ?? defaults.AllowArrayCovariance)
+            .WithTargetCoreAssemblyName(GetOptionalProperty(project, "RavenTargetCoreAssemblyName") ?? defaults.TargetCoreAssemblyName);
 
         var metadataCoreAssemblyName = GetOptionalProperty(project, "RavenMetadataCoreAssemblyName");
         if (metadataCoreAssemblyName is not null)
@@ -242,20 +244,31 @@ internal static class MsBuildProjectEvaluator
         var typeOfAssembly = GetOptionalProperty(project, "RavenTypeOfAssemblyName");
         var typeOfInfo = GetOptionalProperty(project, "RavenTypeOfInfoType");
         var typeOfContext = GetOptionalProperty(project, "RavenTypeOfContextType");
-        if (typeOfAssembly is not null || typeOfInfo is not null || typeOfContext is not null)
+        // Explicitly clearing the complete mapping disables a preset contract,
+        // as when compiling the runtime's own descriptor declarations.
+        if (typeOfAssembly is null && typeOfInfo is null && typeOfContext is null
+            && project.GetProperty("RavenTypeOfAssemblyName") is not null
+            && project.GetProperty("RavenTypeOfInfoType") is not null
+            && project.GetProperty("RavenTypeOfContextType") is not null)
+            compilationOptions = compilationOptions.WithRuntimeTypeOfContract(null);
+        else if (typeOfAssembly is not null || typeOfInfo is not null || typeOfContext is not null)
             compilationOptions = compilationOptions.WithRuntimeTypeOfContract(new RuntimeTypeOfContract(
-                typeOfAssembly ?? "", typeOfInfo ?? "", typeOfContext ?? ""));
+                typeOfAssembly ?? defaults.RuntimeTypeOfContract?.AssemblyName ?? "", typeOfInfo ?? defaults.RuntimeTypeOfContract?.TypeInfoTypeName ?? "", typeOfContext ?? defaults.RuntimeTypeOfContract?.ContextTypeName ?? ""));
 
         var unitAssembly = GetOptionalProperty(project, "RavenUnitAssemblyName");
+        var selfAssembly = GetOptionalProperty(project, "RavenSelfAssemblyName");
+        var selfType = GetOptionalProperty(project, "RavenSelfType");
+        if (selfAssembly is not null || selfType is not null)
+            compilationOptions = compilationOptions.WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract(selfAssembly ?? "", selfType ?? ""));
         var unitType = GetOptionalProperty(project, "RavenUnitType");
         if (unitAssembly is not null || unitType is not null)
-            compilationOptions = compilationOptions.WithRuntimeUnitContract(new RuntimeUnitContract(unitAssembly ?? "", unitType ?? ""));
+            compilationOptions = compilationOptions.WithRuntimeUnitContract(new RuntimeUnitContract(unitAssembly ?? defaults.RuntimeUnitContract?.AssemblyName ?? "", unitType ?? defaults.RuntimeUnitContract?.TypeName ?? ""));
 
         var propagationAssembly = GetOptionalProperty(project, "RavenPropagationAssemblyName");
         var propagationInterface = GetOptionalProperty(project, "RavenPropagationInterfaceType");
         if (propagationAssembly is not null || propagationInterface is not null)
             compilationOptions = compilationOptions.WithRuntimePropagationContract(new RuntimePropagationContract(
-                propagationAssembly ?? "", propagationInterface ?? ""));
+                propagationAssembly ?? defaults.RuntimePropagationContract?.AssemblyName ?? "", propagationInterface ?? defaults.RuntimePropagationContract?.InterfaceTypeName ?? ""));
 
         var iterationAssembly = GetOptionalProperty(project, "RavenIterationAssemblyName");
         var iterableType = GetOptionalProperty(project, "RavenIterationIterableType");
@@ -271,9 +284,9 @@ internal static class MsBuildProjectEvaluator
             // Preserve partial configuration so binding reports RAVT001 instead of
             // silently choosing the default .NET protocol.
             compilationOptions = compilationOptions.WithRuntimeIterationContract(new RuntimeIterationContract(
-                iterationAssembly ?? "", iterableType ?? "", iteratorType ?? "",
+                iterationAssembly ?? defaults.RuntimeIterationContract?.AssemblyName ?? "", iterableType ?? defaults.RuntimeIterationContract?.IterableTypeName ?? "", iteratorType ?? defaults.RuntimeIterationContract?.IteratorTypeName ?? "",
                 acquisitionMethod ?? "GetIterator", advanceMethod ?? "MoveNext", currentProperty ?? "Current",
-                bool.TryParse(arrayIteration, out var arraysImplementIterable) && arraysImplementIterable, arrayShapeType));
+                bool.TryParse(arrayIteration, out var arraysImplementIterable) && arraysImplementIterable, arrayShapeType ?? defaults.RuntimeIterationContract?.ArrayShapeTypeName));
         }
 
         if (emitCoreTypesOnly)
@@ -583,6 +596,19 @@ internal static class MsBuildProjectEvaluator
     {
         var value = project.GetPropertyValue(propertyName);
         return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    private static TargetPlatform ParseTargetPlatform(string? value)
+    {
+        if (value is null || string.Equals(value.Trim(), nameof(TargetPlatform.DotNet), StringComparison.OrdinalIgnoreCase))
+            return TargetPlatform.DotNet;
+
+        if (string.Equals(value.Trim(), nameof(TargetPlatform.NeoCLR), StringComparison.OrdinalIgnoreCase))
+            return TargetPlatform.NeoCLR;
+
+        throw new InvalidDataException(
+            $"Unsupported RavenTargetPlatform '{value}'. Supported values: DotNet, NeoCLR. " +
+            "Reference frameworks and core assemblies must be configured separately.");
     }
 
     private static FrameworkProjectionMode ParseFrameworkProjectionMode(string? value) =>

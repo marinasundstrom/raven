@@ -8,13 +8,21 @@ internal sealed partial class DotNetRuntimeContract(CompilationOptions options)
 {
     internal string PreferredSpecialTypeAssemblyName => "System.Runtime";
 
-    // Preserve the experimental branch policy until neoCLR has its own target.
-    internal string TupleTypeName => options.TargetCoreAssemblyName == "NeoCLR.CoreProbe"
-        ? "System.Tuple" : "System.ValueTuple";
+    internal string TupleTypeName => NeoClrCliCompatibility.GetTupleTypeName(options);
+
+    internal bool UsesInhabitedDelegateResults =>
+        NeoClrCliCompatibility.UsesInhabitedDelegateResults(options);
 
     // Configuration-only checks must not open references or resolve symbols.
     internal string? GetConfigurationError()
     {
+        if (options.RuntimeSelfTypeContract is not null && options.TargetPlatform != TargetPlatform.NeoCLR)
+            return "native Self requires TargetPlatform.NeoCLR; it is not supported by the .NET target";
+
+        if (options.TargetPlatform == TargetPlatform.NeoCLR &&
+            NeoClrCliProfile.GetConfigurationError(options) is { } profileError)
+            return profileError;
+
         if (options.TargetCoreAssemblyName is { } coreName &&
             (string.IsNullOrWhiteSpace(coreName) ||
              (!options.UsesDiscoveredTargetCore && options.MetadataImportOptions?.CoreAssemblyName != coreName)))
@@ -45,6 +53,11 @@ internal sealed partial class DotNetRuntimeContract(CompilationOptions options)
     {
         if (GetConfigurationError() is { } error)
             return error;
+
+        if (options.RuntimeSelfTypeContract is not null &&
+            (compilation.ResolveRuntimeSelfType() is not { Arity: 0, DeclaredAccessibility: Accessibility.Public } selfType ||
+             selfType.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic)))
+            return "native Self requires a public, nongeneric, fieldless marker in the configured assembly; this contract targets a native runtime, not CLR execution";
 
         if (options.RuntimeTypeOfContract is not null && ResolveTypeOf(compilation) is null)
             return "the typeof contract requires a public interface and context in the configured assembly, with public static Current and instance GetTypeInfoFromHandle(RuntimeTypeHandle) returning that interface";

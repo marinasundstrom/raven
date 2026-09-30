@@ -70,25 +70,8 @@ internal static class BoundNodeFacts
         }
     }
 
-    // Experimental neoCLR policy: identify the namespace function by its runtime
-    // assembly and namespace-member contract, never by container spelling.
-    internal static bool IsTerminalRuntimeFault(IMethodSymbol method)
-    {
-        if (method.Name != "Fault" || !method.IsStatic || method.IsGenericMethod ||
-            method.ContainingAssembly?.Name != "NeoCLR.CoreProbe" ||
-            method.ContainingNamespace?.ToMetadataName() != "System" ||
-            method.Parameters.Length != 1 ||
-            method.Parameters[0].RefKind != RefKind.None ||
-            method.Parameters[0].Type.SpecialType != SpecialType.System_String ||
-            method.ReturnType.SpecialType is not (SpecialType.System_Void or SpecialType.System_Unit))
-        {
-            return false;
-        }
-
-        return method.ContainingType is Symbols.SynthesizedNamespaceMembersClassSymbol ||
-            method.ContainingType is Symbols.PENamedTypeSymbol peType &&
-            peType.HasCustomAttribute(static name => name == "System.Runtime.CompilerServices.TopLevelAttribute");
-    }
+    internal static bool IsTerminalRuntimeFault(IMethodSymbol method) =>
+        Targets.NeoClrCliCompatibility.IsTerminalRuntimeFault(method);
 
     private static bool IsAbruptStatement(BoundStatement statement)
     {

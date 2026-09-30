@@ -1702,3 +1702,67 @@ fails with a state-machine generic-arity TypeLoadException on ordinary .NET even
 without a capture. That async state-machine construction issue is retained for an
 independent follow-up. Async-lambda-owned locals and iterator capture planning also
 remain outside this bounded source-method fix.
+
+
+## Shared-main compatibility policy extraction — 2026-09-30
+
+The existing CLI experiment rules for inhabited function results, tuple names,
+imported tuple aliases and terminal Fault calls now live in
+`Targets.NeoClrCliCompatibility`. Callers keep the same behavior and configuration.
+The runtime requires no migration for this extraction. Assembly-name inference
+remains transitional; explicit target presets and capability checks are later work.
+
+This is a compiler ownership change, not a native neoCLR loader/backend change.
+Focused checks exercise CLI reference metadata and Raven symbols/control flow on
+modern .NET; they do not qualify execution in neoCLR, .NET Framework or NanoFramework.
+
+Validation: 25 focused target/function/flow/import checks and 26 existing tuple
+semantic/display checks passed on .NET 11. Compiler builds passed for .NET 10/11.
+The runtime integration configuration and artifacts are unchanged.
+
+## Explicit platform API foundation — 2026-09-30
+
+CompilationOptions now carries TargetPlatform through immutable copies and
+incremental compatibility checks. DotNet is the sole supported value; unsupported
+values diagnose as RAVT005 before setup or output writes. Existing neoCLR CLI
+callers retain the default pipeline and their existing compatibility settings.
+No runtime artifacts or caller migration are required for this additive slice.
+A NeoCLR preset and project selector remain pending a supported CLI profile.
+The focused configuration/incremental/compatibility checks passed 120 tests on
+.NET 11; compiler builds passed for .NET 10/11. This is not neoCLR execution evidence.
+
+
+## Project platform selection foundation — 2026-09-30
+
+Raven projects now load/save RavenTargetPlatform, currently accepting only DotNet.
+The existing NeoCLR.Raven.props has no such selector and keeps its current CLI
+configuration. Its Self settings belong to the separate Self feature branch, so
+main does not advertise that complete props configuration as a supported preset.
+No external runtime files or configuration are changed by this slice. A supported
+neoCLR CLI profile and caller migration remain pending; no neoCLR execution is
+claimed by the project-system validation.
+
+Validation: 70 project/platform tests passed on .NET 11; compiler/driver builds
+passed for .NET 10/11. Invalid project selection is covered through the driver,
+including unsuccessful exit and preservation of existing output.
+
+
+## Explicit experimental neoCLR CLI preset — 2026-09-30
+
+Raven main now exposes CompilationOptions.NeoCLR and RavenTargetPlatform=NeoCLR.
+The preset configures existing CLI core/unit, iteration, propagation, typeof,
+grapheme and async options, disables array covariance/source nullable values,
+and requires supplied NeoCLR.CoreProbe references. Core/unit contradictions
+produce RAVT003; absent references produce RAVT004. Project contract overrides
+inherit unspecified preset fields. Ordinary .NET defaults remain unchanged.
+
+This does not incorporate the separate Self feature or record mappings. Native
+loader/backend support, full feature-capability validation and consumer migration
+remain pending. External build/NeoCLR.Raven.props is unchanged, as are legacy
+assembly-name compatibility rules. Matching reference/runtime artifacts were not
+available at the local demo/NeoCLR.CoreProbe.dll path; no native execution or
+runtime bridge qualification is claimed by this slice.
+
+Validation: 109 focused configuration/project/compatibility tests passed on .NET 11;
+compiler builds passed for .NET 10/11. The runtime repository's MSBuild integration
+notes and changelog record the new development preset without changing its props.

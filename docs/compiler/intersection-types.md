@@ -355,3 +355,15 @@ slice; no full-green baseline or neoCLR execution is claimed.
 See the [language proposal](../lang/proposals/drafts/union-and-intersection-types.md)
 for the intended full semantics and [Runtime Contracts](runtime-contracts.md) for
 the implemented constraint behavior and validation evidence.
+
+## Shared-main synchronization — 2026-09-30
+
+Merge shared main `eb0519d10`, including the target-gated Self integration and
+explicit target presets, into this published feature branch without rewriting
+history. Intersection semantics remain experimental and outside main; this sync
+does not establish a native neoCLR intersection representation.
+
+The pre-merge intersection baseline passes 147 tests. After merging, 178 focused
+intersection, Self, target-profile, generic-constraint and interface-metadata tests
+pass on .NET 11. The compiler source merged without manual code changes; only the
+changelog needed reconciliation. No native neoCLR intersection execution is claimed.

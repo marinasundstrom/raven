@@ -14,10 +14,12 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
-        if (Options.AllowNullableValueTypes != previousCompilation.Options.AllowNullableValueTypes
+        if (Options.TargetPlatform != previousCompilation.Options.TargetPlatform
+            || Options.AllowNullableValueTypes != previousCompilation.Options.AllowNullableValueTypes
             || Options.PropagateAsyncCancellation != previousCompilation.Options.PropagateAsyncCancellation
             || Options.UseHeapAsyncStateMachines != previousCompilation.Options.UseHeapAsyncStateMachines
             || Options.CaptureAsyncExceptions != previousCompilation.Options.CaptureAsyncExceptions
+            || Options.RuntimeSelfTypeContract != previousCompilation.Options.RuntimeSelfTypeContract
             || Options.RuntimeUnitContract != previousCompilation.Options.RuntimeUnitContract
             || Options.RuntimeTypeOfContract != previousCompilation.Options.RuntimeTypeOfContract
             || Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
