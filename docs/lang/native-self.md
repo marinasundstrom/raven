@@ -30,3 +30,17 @@ Explicit and inferred generic calls validate this rule under the configured Self
 Runtime Contract, with no additional target option. Metadata retains the declared
 return types and explicit interface mapping. These are bounded feature changes;
 broader neoCLR target integration follows the separate multi-target refactor.
+
+## Shared-main rebase — 2026-09-30
+
+The five native Self feature commits now build on merged main b40fe495d.
+Existing Self configuration validation follows main's target-owned runtime
+contract. Option copies retain both Self and main's nullable-value policy;
+the metadata test covers copies in both directions. The opt-in feature behavior
+and conformance rules are unchanged.
+
+Compiler builds passed for .NET 10 and .NET 11; all 83 focused Self, nullable-type
+and target-configuration tests passed on .NET 11. These validate compiler
+semantics and CLI metadata transport, not native neoCLR execution. Whitespace
+formatting and diff checks passed. The branch remains separate while target
+mappings and unsupported-feature diagnostics are designed.

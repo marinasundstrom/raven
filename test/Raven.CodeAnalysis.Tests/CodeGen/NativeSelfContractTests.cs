@@ -130,9 +130,13 @@ public class NativeSelfContractTests
     [Fact]
     public void NativeSelfKeepsInterfaceArityAndEmitsMarkerAndConstrainedCall()
     {
+        var contract = new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker");
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-            .WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker"))
+            .WithAllowNullableValueTypes(false)
+            .WithRuntimeSelfTypeContract(contract)
             .WithAsyncCancellationPropagation(true);
+        Assert.False(options.AllowNullableValueTypes);
+        Assert.Same(contract, options.WithAllowNullableValueTypes(true).RuntimeSelfTypeContract);
         var compilation = Compilation.Create("NativeSelfProbe", [SyntaxTree.ParseText(Source)], References(), options);
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("\n", diagnostics));
