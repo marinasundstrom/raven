@@ -10,7 +10,7 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupIdentity, IMethodParameterInfo
+internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupIdentity, IMethodParameterInfo, IParameterConversionClassifier
 {
     private static readonly ConditionalWeakTable<MethodBase, ParameterInfo[]> s_parameterInfoCache = new();
     private static readonly ConcurrentDictionary<MetadataMethodKey, int> s_parameterCountCache = new();
