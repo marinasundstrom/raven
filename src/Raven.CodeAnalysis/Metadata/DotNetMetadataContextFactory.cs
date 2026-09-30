@@ -9,7 +9,7 @@ using System.Reflection.PortableExecutable;
 namespace Raven.CodeAnalysis.Metadata;
 
 // Owns .NET metadata context construction. Reference policy and context reuse
-// remain with Compilation until the metadata-session boundary is extracted.
+// remain with Compilation; the resulting context belongs to a metadata session.
 internal static class DotNetMetadataContextFactory
 {
     internal static MetadataLoadContext Create(

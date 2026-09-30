@@ -92,6 +92,9 @@ public sealed class IncrementalCompilationReuseTests
 
         Assert.False(previous.IsAlive);
         Assert.Empty(current.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+        var textType = current.GetTypeByMetadataName("System.String");
+        Assert.NotNull(textType);
+        Assert.NotEmpty(textType.GetMembers("Substring").OfType<IMethodSymbol>());
         GC.KeepAlive(current);
     }
 
@@ -135,9 +138,13 @@ public sealed class IncrementalCompilationReuseTests
 
     private static object GetMetadataLoadContext(Compilation compilation)
     {
-        var field = typeof(Compilation).GetField("_metadataLoadContext", BindingFlags.Instance | BindingFlags.NonPublic);
+        var field = typeof(Compilation).GetField("_metadataSession", BindingFlags.Instance | BindingFlags.NonPublic);
         field.ShouldNotBeNull();
-        var value = field!.GetValue(compilation);
+        var session = field!.GetValue(compilation);
+        session.ShouldNotBeNull();
+        var contextField = session!.GetType().GetField("_context", BindingFlags.Instance | BindingFlags.NonPublic);
+        contextField.ShouldNotBeNull();
+        var value = contextField!.GetValue(session);
         value.ShouldNotBeNull();
         return value!;
     }
@@ -333,6 +340,10 @@ public sealed class IncrementalCompilationReuseTests
         var initialTree = initialCompilation.SyntaxTrees.Single();
         initialCompilation.GetSemanticModel(initialTree);
 
+        var originalMarker = initialCompilation.GetTypeByMetadataName("Marker")!;
+        Assert.NotEmpty(originalMarker.GetMembers("First"));
+        Assert.Empty(originalMarker.GetMembers("Second"));
+
         File.Copy(((PortableExecutableReference)secondReference).FilePath, referencePath, overwrite: true);
 
         var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
@@ -346,6 +357,12 @@ public sealed class IncrementalCompilationReuseTests
 
         Should.NotThrow(() => updatedCompilation.GetSemanticModel(updatedTree));
         GetMetadataLoadContext(updatedCompilation).ShouldNotBeSameAs(GetMetadataLoadContext(initialCompilation));
+
+        var updatedMarker = updatedCompilation.GetTypeByMetadataName("Marker")!;
+        Assert.NotEmpty(updatedMarker.GetMembers("Second"));
+        Assert.Empty(updatedMarker.GetMembers("First"));
+        Assert.NotEmpty(originalMarker.GetMembers("First"));
+        Assert.Empty(originalMarker.GetMembers("Second"));
 
         Directory.Delete(referenceDirectory, recursive: true);
     }

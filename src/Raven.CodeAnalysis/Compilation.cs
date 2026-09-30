@@ -48,7 +48,7 @@ public partial class Compilation
     private static readonly object s_missingMetadataType = new();
     private static int s_trustedPlatformAssembliesInitialized;
     private bool _trustedPlatformAssembliesCached;
-    private MetadataLoadContext _metadataLoadContext;
+    private DotNetMetadataSession _metadataSession;
     private GlobalBinder _globalBinder;
     private bool setup;
     private ErrorTypeSymbol _errorTypeSymbol;
@@ -72,7 +72,7 @@ public partial class Compilation
     private BoundNodeFactory? _boundNodeFactory;
     private DeclarationTable? _declarationTable;
     private DeclarationTable? _previousDeclarationTableForReuse;
-    private MetadataLoadContext? _previousMetadataLoadContextForReuse;
+    private DotNetMetadataSession? _previousMetadataSessionForReuse;
     private IReadOnlyDictionary<string, PortableReferenceFingerprint>? _previousPortableReferenceFingerprints;
     private ErrorSymbol _errorSymbol;
     private bool isSettingUp;
@@ -910,7 +910,7 @@ public partial class Compilation
     {
         if (previousCompilation.setup && Options.MetadataImportOptions == previousCompilation.Options.MetadataImportOptions)
         {
-            _previousMetadataLoadContextForReuse = previousCompilation._metadataLoadContext;
+            _previousMetadataSessionForReuse = previousCompilation._metadataSession;
             _previousPortableReferenceFingerprints = previousCompilation._portableReferenceFingerprints;
         }
     }
@@ -981,14 +981,14 @@ public partial class Compilation
         }
 
         _portableReferenceFingerprints = CapturePortableReferenceFingerprints(_references);
-        _metadataLoadContext = TryReuseMetadataLoadContext(_portableReferenceFingerprints, out var reusedMetadataLoadContext)
-            ? reusedMetadataLoadContext
-            : DotNetMetadataContextFactory.Create(paths, coreAssemblyName,
+        _metadataSession = TryReuseMetadataSession(_portableReferenceFingerprints, out var reusedMetadataSession)
+            ? reusedMetadataSession
+            : DotNetMetadataSession.Create(paths, coreAssemblyName,
                 static (name, path) => s_globalAssemblyPathMap[name] = path);
-        _previousMetadataLoadContextForReuse = null;
+        _previousMetadataSessionForReuse = null;
         _previousPortableReferenceFingerprints = null;
 
-        CoreAssembly = _metadataLoadContext.CoreAssembly!;
+        CoreAssembly = _metadataSession.CoreAssembly!;
         EmitCoreAssembly = ResolveEmitCoreAssembly() ?? RuntimeCoreAssembly;
         RegisterRuntimeAssembly(CoreAssembly, RuntimeCoreAssembly.Location);
 
@@ -1055,18 +1055,18 @@ public partial class Compilation
         return references.ToImmutable();
     }
 
-    private bool TryReuseMetadataLoadContext(
+    private bool TryReuseMetadataSession(
         IReadOnlyDictionary<string, PortableReferenceFingerprint> currentFingerprints,
-        out MetadataLoadContext metadataLoadContext)
+        out DotNetMetadataSession metadataSession)
     {
-        metadataLoadContext = null!;
-        if (_previousMetadataLoadContextForReuse is null ||
+        metadataSession = null!;
+        if (_previousMetadataSessionForReuse is null ||
             !HaveEquivalentPortableReferences(currentFingerprints))
         {
             return false;
         }
 
-        metadataLoadContext = _previousMetadataLoadContextForReuse;
+        metadataSession = _previousMetadataSessionForReuse;
         return true;
     }
 
@@ -2722,26 +2722,11 @@ public partial class Compilation
             // Fall through and attempt to load by path directly.
         }
 
-        Assembly assembly;
-        try
-        {
-            assembly = LoadMetadataAssemblyFromPath(fullPath);
-        }
-        catch when (identity is not null)
-        {
-            // Some resolvers work better by identity; keep this as a compatibility fallback.
-            assembly = _metadataLoadContext.LoadFromAssemblyName(identity);
-        }
+        var assembly = _metadataSession.LoadFromPath(fullPath, identity);
 
         _lazyMetadataAssemblies[fullPath] = assembly;
 
         return assembly;
-    }
-
-    private Assembly LoadMetadataAssemblyFromPath(string fullPath)
-    {
-        var bytes = File.ReadAllBytes(fullPath);
-        return _metadataLoadContext.LoadFromStream(new MemoryStream(bytes));
     }
 
     private IAssemblySymbol GetAssembly(Assembly assembly, string? assemblyPathOverride = null)
@@ -2775,7 +2760,7 @@ public partial class Compilation
                 {
                     try
                     {
-                        var loadedAssembly = _metadataLoadContext.LoadFromAssemblyName(x);
+                        var loadedAssembly = _metadataSession.LoadFromAssemblyName(x);
                         if (loadedAssembly is null)
                             return null;
 

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Move .NET metadata-context ownership and path/identity loading
+  into an internal metadata session shared by compatible compilation snapshots.
+  Preserve reference policy, per-snapshot symbol/cache ownership, and existing
+  context lifetime. Strengthen coverage of metadata queries after prior-snapshot
+  collection and reference replacement without mutating earlier symbol results.
+
 - **2026-09-30:** Extract .NET metadata-context construction, reference resolution,
   and assembly identity reading into an internal .NET component as the first
   target-boundary prototype. Preserve public APIs, reference fallback policy,

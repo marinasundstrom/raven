@@ -5,8 +5,10 @@
 The .NET implementation constructs metadata contexts through the internal
 `Metadata.DotNetMetadataContextFactory`. It owns path normalization, identity
 deduplication, the stream-backed resolver, and portable assembly identity reads.
-`Compilation` still selects the reference set/core and owns incremental reuse,
-loaded assemblies, and symbol projection. A construction-time callback preserves
+`DotNetMetadataSession` owns the resulting context and path/identity loading,
+including the existing path-to-identity fallback. `Compilation` selects the
+reference set/core, gates incremental session reuse, and retains its per-snapshot
+assembly cache and symbol projection. A construction-time callback preserves
 registration with the existing shared assembly-path map without giving the
 factory a dependency on compilation state.
 
@@ -14,7 +16,12 @@ This is the first extraction described in the
 [target boundary plan](architecture/target-boundaries-and-bootstrap-plan.md).
 The factory is .NET-specific and returns `MetadataLoadContext`; it is not yet a
 platform-neutral provider. Public APIs, reference precedence, fallback policy,
-configuration errors, and context lifetime are unchanged.
+configuration errors, and context lifetime are unchanged. Compatible snapshots
+share a session without retaining the previous compilation. A session keeps no
+compilation, symbol cache, or registration callback. Individual compilations do
+not dispose its context because other snapshots can still use it; the existing
+collection-based lifetime is retained. Deterministic shared-session disposal is
+not introduced by this extraction.
 
 ## Configuration
 

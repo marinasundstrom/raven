@@ -107,3 +107,31 @@ Validation with SDK `11.0.100-rc.1.26425.128`:
 
 Portable metadata-reading tests executed on .NET, not in a browser/WASI host.
 No full baseline, release/bootstrap qualification, or neoCLR execution is claimed.
+
+## Slice 4: shared .NET metadata session
+
+`DotNetMetadataSession` now owns the context and path/identity loading, including
+the existing identity fallback after a failed path load. Compatible compilations
+reuse the session under the existing option/fingerprint checks. The session
+retains no compilation, symbol, or registration callback. Per-compilation path
+caches and runtime path registration remain in `Compilation`; this slice does
+not broaden cache sharing or remove the host registry.
+
+Context lifetime remains collection-based. Disposing a session when one snapshot
+is discarded would invalidate other snapshots; deterministic shared disposal
+requires a separate ownership design. Existing weak-reference tests still
+inspect the actual context, rather than merely checking that its wrapper dies.
+Strengthened tests also resolve metadata after the previous compilation is
+collected and verify old/new member surfaces after same-path binary replacement.
+
+Next: cover resolver precedence and malformed-reference/fallback behavior before
+separating target reference admission from host runtime path registration.
+Main-based extraction remains pending; no neoCLR-specific policy was introduced.
+
+Validation used SDK `11.0.100-rc.1.26425.128` and the same build/test commands
+recorded for slice 3. The 89-test focused baseline passed before changes; all
+89 passed again after extraction and stronger assertions, with no failures or
+skips on net11.0. The compiler built for net10.0 and net11.0 with no warnings
+or errors. Whitespace formatting completed (the test formatter reported
+workspace-load warnings), and `git diff --check` passed. This is modern .NET
+validation, not neoCLR or browser execution or full bootstrap qualification.
