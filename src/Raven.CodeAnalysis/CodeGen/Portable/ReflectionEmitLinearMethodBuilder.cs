@@ -64,7 +64,7 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
                 output.Emit(OpCodes.Ldstr, instruction.Text!);
                 goto case LinearInstructionKind.Call;
             case LinearInstructionKind.Call:
-                var target = method.TypeGenerator.CodeGen.GetMethodInfoOrMetadataProxy(instruction.Method!);
+                var target = method.TypeGenerator.CodeGen.LinearCallReferences.Resolve(instruction.Method!);
                 output.Emit(OpCodes.Call, target);
                 // Raven Unit can have a value representation in imported CLI signatures.
                 // This linear subset uses Unit calls only as expression statements.

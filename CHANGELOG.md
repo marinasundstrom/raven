@@ -9,6 +9,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   and admit simple named calls that fit the lowered subset; preserve .NET fallback/PDB,
   source diagnostics and native Console/reference checks. Record the staged target
   abstraction plan; metadata loading and broader builder refactoring remain deferred.
+  Share per-emission callable identity resolution with backend-owned handles; register
+  native definitions before bodies and preserve overload/owner distinctions. Validate
+  repeated emission and repeated/forward calls on both runtimes.
 
 - **2026-09-30:** Add `EmitMetadataAssembly` to the opt-in neoCLR adapter: emit a
   PE/#Neo native execution container through the separate metadata API. Use the same

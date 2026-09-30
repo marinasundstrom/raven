@@ -2296,3 +2296,7 @@ Debug/PDB emission stays on the established .NET path. See the
 The native codegen migration now shares compiler-lowered linear bodies rather than
 source-operation rewriting. Runtime Contract and binding selection are unchanged;
 see [the staged migration](architecture/native-target-codegen-migration.md).
+
+The bounded callable reference table is scoped to one emission and delegates .NET
+resolution to the existing target-aware resolver. It changes neither Runtime Contract
+selection nor semantic reference binding; native imports retain explicit dependencies.

@@ -203,3 +203,6 @@ The 2026-10-01 lowered-body probe additionally runs implicit Int32 returns and a
 Unit helper call on both runtimes. The adapter now uses the compiler's lowered bound
 body, not an independent source-operation traversal. Full native control flow remains
 pending. See the compiler's native target codegen migration plan.
+
+The callable-identity case additionally returns 42 from repeated/forward calls across
+same-named assembly functions, type methods and overloads on both runtimes.

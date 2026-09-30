@@ -70,6 +70,15 @@ internal static class Int32Emitter
                 else throw Unsupported("only top-level functions and public static classes");
             }
         }
+        var references = new CallableReferenceTable<NeoClrCallableReference>(target =>
+        {
+            var systemFunction = ImportSystem(target);
+            return systemFunction is not null
+                ? NeoClrCallableReference.Create(systemFunction)
+                : NeoClrCallableReference.Create(Import(target));
+        });
+        foreach (var declaration in methods)
+            references.Declare(declaration.Symbol, NeoClrCallableReference.Create(declaration.Method));
         if (compilation.Options.OutputKind == OutputKind.ConsoleApplication)
         {
             var entry = compilation.GetEntryPoint() ?? throw Unsupported("entry point unavailable");
@@ -84,13 +93,7 @@ internal static class Int32Emitter
             lowered!.Emit(new NeoClrLinearMethodBuilder(current.Method, (instruction, output) =>
             {
                 diagnosticSyntax = instruction.Syntax;
-                var target = instruction.Method!;
-                var local = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Symbol, target)).Method;
-                var systemFunction = local is null ? ImportSystem(target) : null;
-                var imported = local is null && systemFunction is null ? Import(target) : null;
-                if (local is not null) output.Emit(OpCode.Call, local);
-                else if (systemFunction is not null) output.Emit(OpCode.Call, systemFunction);
-                else output.Emit(OpCode.Call, imported!);
+                references.Resolve(instruction.Method!).EmitCall(output);
             }));
         }
         return assembly.WriteNativeAssembly();

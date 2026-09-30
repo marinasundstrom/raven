@@ -950,3 +950,31 @@ plus native verification/loading, dependency failures, diagnostics and rvnc beha
 See [the staged codegen migration](architecture/native-target-codegen-migration.md).
 
 [Recorded binary/runtime probe evidence](../../tools/NeoClrMetadataProbe/validation.json).
+
+## Callable identity resolution — 2026-10-01
+
+The bounded .NET and neoCLR emitters now use a shared `CallableReferenceTable<THandle>`.
+Compiler method symbols are the target-neutral identities; symbol equality preserves
+owners, overloads and assemblies instead of relying on names. Each emission owns its
+table and backend handles. Native definitions are registered before bodies; unresolved
+references go through the existing explicit dependency/System import policy. Failed
+resolution is not cached. Native local, imported CLI-projection and selected native
+function handles are encoded inside the native backend, without casting between them.
+
+The .NET adapter resolves through the existing metadata-proxy/runtime resolver and
+caches only within its CodeGenerator. This preserves the CLI carrier representation of
+free functions; native functions retain assembly ownership. Runtime Contract selection,
+binding, metadata format and runtime loading are unchanged. No reference is shared
+across emissions or compilations. Broader Reflection-dependent mappings, type/field
+references and declaration traversal are still pending; this is the first callable
+reference boundary, not completion of the general backend refactor.
+
+Compared with the previous native per-call declaration-list search, the table centralizes
+symbol identity and separates call encoding from common resolution bookkeeping. The cost
+is a per-emission dictionary and backend handle objects; no execution-speed claim or
+benchmark is implied. Focused C# runtime tests and the dual-runtime probe cover repeated
+and forward calls, overloads and identical names across assembly functions and types.
+Existing checks retain core identity, PDB/fallback, dependency diagnostics and failed-output
+contracts. Native symbol loading and its known driver collision remain deferred.
+
+Validation: 20 focused C# tests passed; [runtime and driver evidence](../../tools/NeoClrMetadataProbe/validation.json).

@@ -40,6 +40,7 @@ internal class CodeGenerator
     int _metadataMethodProxyOrdinal;
 
     public IILBuilderFactory ILBuilderFactory { get; set; } = ReflectionEmitILBuilderFactory.Instance;
+    internal Portable.CallableReferenceTable<MethodInfo> LinearCallReferences { get; }
     internal RuntimeTypeMap RuntimeTypeMap { get; }
     internal IRuntimeSymbolResolver RuntimeSymbolResolver { get; }
 
@@ -1462,6 +1463,7 @@ internal class CodeGenerator
     {
         _compilation = compilation;
         _emitOptions = emitOptions;
+        LinearCallReferences = new(GetMethodInfoOrMetadataProxy);
         RuntimeTypeMap = new RuntimeTypeMap(this);
         RuntimeSymbolResolver = new RuntimeSymbolResolver(this);
     }

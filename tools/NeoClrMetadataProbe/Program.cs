@@ -159,6 +159,7 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     result = 42,
     sharedDotNetAndNativeBodyLowering = true,
     compilerLoweredBodyInput = true,
+    sharedCallableIdentityResolution = true,
     implicitInt32Returns = true,
     namedUnitCall = true,
     sharedUnitFunctionsMethodsAndEntry = true,

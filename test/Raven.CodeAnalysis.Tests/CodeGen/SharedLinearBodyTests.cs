@@ -124,6 +124,36 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).GetType("Arithmetic")!.GetMethod("Value")!.Invoke(null, [20]));
     }
 
+    [Fact]
+    public void ForwardCallsKeepOverloadsAndOwnersDistinctAcrossEmissions()
+    {
+        const string source = """
+            func Main() -> int {
+                Value(5) + Value(5) + Alpha.Value(10) + Beta.Value(10) + Alpha.Value()
+            }
+            func Value(value: int) -> int {
+                value
+            }
+            public static class Alpha {
+                public static func Value(value: int) -> int {
+                    value + 1
+                }
+                public static func Value() -> int {
+                    9
+                }
+            }
+            public static class Beta {
+                public static func Value(value: int) -> int {
+                    value + 2
+                }
+            }
+            """;
+        var compilation = Compilation.Create("CallableIdentities", [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(OptimizationLevel.Release));
+        Assert.Equal(42, Emit(compilation).EntryPoint!.Invoke(null, null));
+        Assert.Equal(42, Emit(compilation).EntryPoint!.Invoke(null, null));
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
