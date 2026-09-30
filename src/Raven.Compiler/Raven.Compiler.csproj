@@ -10,6 +10,13 @@
     <UseRavenCoreReference Condition="'$(UseRavenCoreReference)' == ''">true</UseRavenCoreReference>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(NeoClrMetadataProject)' != ''">
+    <DefineConstants>$(DefineConstants);NEOCLR_METADATA</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(NeoClrMetadataProject)' != ''">
+    <ProjectReference Include="../Raven.CodeAnalysis.NeoClr/Raven.CodeAnalysis.NeoClr.csproj" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Build" Version="17.7.2" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.Build.Locator" Version="1.9.1" />

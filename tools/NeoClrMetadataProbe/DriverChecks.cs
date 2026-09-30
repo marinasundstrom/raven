@@ -1,0 +1,72 @@
+using System.Diagnostics;
+
+namespace NeoClrMetadataProbe;
+
+internal static class DriverChecks
+{
+    internal static async Task Run(string driver, string directory, Func<int, string[], Task<string>> runtime)
+    {
+        var librarySource = Path.Combine(directory, "DriverLibrary.rvn");
+        var mainSource = Path.Combine(directory, "DriverMain.rvn");
+        var helperSource = Path.Combine(directory, "DriverHelper.rvn");
+        File.WriteAllText(librarySource, """
+            namespace Example
+            public static class Math {
+                public static func Twice(value: int) -> int { return value * 2 }
+            }
+            """);
+        File.WriteAllText(mainSource, """
+            func Main() -> int {
+                Greet()
+                return Example.Math.Twice(21)
+            }
+            """);
+        File.WriteAllText(helperSource, """
+            func Greet() {
+                System.Console.WriteLine("Hello World")
+            }
+            """);
+        var library = Path.Combine(directory, "DriverLibrary.dll");
+        var application = Path.Combine(directory, "DriverApplication.dll");
+        await Compile(0, "--library", "-o", library, librarySource);
+        await Compile(0, "--reference", library, "-o", application, mainSource, helperSource);
+        await runtime(0, ["verify", application, "--module", library]);
+        var result = await runtime(42, ["run", application, "--module", library]);
+        Check(result.Replace("\r\n", "\n") == "Hello World\n", "driver execution output");
+        var original = File.ReadAllBytes(application);
+        await Compile(1, "--reference", library, "-o", application, mainSource, helperSource);
+        Check(File.ReadAllBytes(application).SequenceEqual(original), "existing output was modified");
+        var invalidSource = Path.Combine(directory, "RejectedDriver.rvn");
+        var rejectedOutput = Path.Combine(directory, "RejectedDriver.dll");
+        File.WriteAllText(invalidSource, "func Main() -> int { return 42 / 2 }");
+        Check((await Compile(1, "-o", rejectedOutput, invalidSource)).Contains("NEOMETA001"), "unsupported source diagnostic");
+        Check(!File.Exists(rejectedOutput), "source error created output");
+        await Compile(1, "--reference", typeof(object).Assembly.Location, "-o", rejectedOutput, invalidSource);
+        await Compile(1, "--reference", typeof(Console).Assembly.Location, "-o", rejectedOutput, invalidSource);
+        Check(!File.Exists(rejectedOutput), "ordinary CLI reference created output");
+        await Compile(1, "--unknown");
+        await Compile(1, "-o");
+        await Compile(0, "--help");
+        Console.WriteLine("PASS rvnc native command: source/library emission, reference binding, assembly function call, runtime execution and failures");
+
+        async Task<string> Compile(int expected, params string[] args)
+        {
+            var start = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true };
+            start.ArgumentList.Add(driver);
+            start.ArgumentList.Add("neoclr");
+            foreach (var argument in args) start.ArgumentList.Add(argument);
+            using var process = Process.Start(start)!;
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            var text = await stdout + await stderr;
+            Check(process.ExitCode == expected, $"rvnc exit {process.ExitCode}, expected {expected}: {text}");
+            return text;
+        }
+    }
+
+    private static void Check(bool condition, string message)
+    {
+        if (!condition) throw new Exception(message);
+    }
+}

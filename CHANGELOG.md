@@ -11,6 +11,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Preserve diagnostics, failed output and caller stream/I/O contracts. The native
   section now has a binary format-5 encoding; a native symbol provider and production
   target registration remain pending.
+  Add opt-in `rvnc neoclr` source-file compilation with native library references and
+  direct PE/#Neo output, enabled by the independent metadata project build property.
+  Existing outputs and failed compilation output are preserved. C# process tests cover
+  compile/reference/verify/run and failures. Host primitive binding remains temporary;
+  translated standalone System symbol loading and project integration remain pending.
   Preserve namespaces for public static native library types, including nested and
   file-scoped namespace declarations. C# consumers verify distinct same-name types,
   reimport and execute imported/qualified calls in both source-file orders. Namespace

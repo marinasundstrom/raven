@@ -156,3 +156,10 @@ The full probe also checks namespaced libraries: nested block and file-scoped
 namespaces, distinct same-name types, calls between source files, compiler reimport
 and native execution in both file orders. Namespace-owned free functions and nested
 types are rejected until the native declaration contract supports them.
+
+
+To also exercise the actual compiler command, build `src/Raven.Compiler` with the same
+`NeoClrMetadataProject` property (`-f net10.0 -p:UseRavenCoreReference=false`), then add
+`--driver /absolute/path/to/rvnc.dll` to the full probe invocation. See the
+[native compiler command](../../docs/compiler/neoclr-cli-bridge.md#opt-in-native-compiler-command--2026-09-30)
+for usage, native reference limits and the translated System symbol-loader gap.

@@ -16,8 +16,8 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
-if (args.Length is < 2 or > 3 || (args.Length == 3 && args[2] != "--hello-only"))
-    throw new ArgumentException("Usage: NeoClrMetadataProbe <neoclr executable> <fresh output directory> [--hello-only]");
+if (args.Length is < 2 or > 4 || (args.Length == 3 && args[2] != "--hello-only") || (args.Length == 4 && args[2] != "--driver"))
+    throw new ArgumentException("Usage: NeoClrMetadataProbe <neoclr executable> <fresh output directory> [--hello-only | --driver rvnc.dll]");
 var runtime = Path.GetFullPath(args[0]);
 var output = Path.GetFullPath(args[1]);
 if (Directory.Exists(output)) throw new IOException("output directory must be fresh");
@@ -145,11 +145,14 @@ var reverseOrder = await Command(42, "run", application, "--module", arithmeticR
 if (!reverseOrder.Contains("=> Int32(42)")) throw new Exception("reversed module order returned wrong result");
 var helloPaths = await HelloWorldChecks.Run(core, output, Command);
 var namespacePaths = await NamespaceChecks.Run(core, output, Command);
+if (args.Length == 4) await DriverChecks.Run(Path.GetFullPath(args[3]), output, Command);
 File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
 {
     date = "2026-09-30",
     result = 42,
     helloWorldDirectAndFunctionCall = true,
+    compilerDriverNativeCommand = args.Length == 4,
+    compilerDriverSha256 = args.Length == 4 ? Hash(args[3]) : null,
     namespacedLibrariesAndBothFileOrders = true,
     namespacePeSha256 = namespacePaths.Select(Hash).ToArray(),
     unitHelpersExplicitAndImplicitReturns = true,

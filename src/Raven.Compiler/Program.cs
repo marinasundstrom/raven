@@ -23,6 +23,17 @@ using Spectre.Console;
 using static Raven.AppHostBuilder;
 using static Raven.ConsoleEx;
 
+if (args.Length > 0 && args[0] == "neoclr")
+{
+#if NEOCLR_METADATA
+    Environment.ExitCode = NeoClrCommand.Run(args[1..]);
+#else
+    Console.Error.WriteLine("Native emission is experimental. Rebuild rvnc with NeoClrMetadataProject pointing to the independent metadata project.");
+    Environment.ExitCode = 1;
+#endif
+    return;
+}
+
 if (args.Length == 1 && args[0] is "--version" or "version")
 {
     Console.WriteLine(
@@ -2728,6 +2739,9 @@ static void PrintHelp(bool compilerDriverOnly)
     if (compilerDriverOnly)
     {
         Console.WriteLine("Usage: rvnc [compiler-options] <source-files|project-file.rvnproj>");
+#if NEOCLR_METADATA
+        Console.WriteLine("       rvnc neoclr --help  Experimental native assembly compilation");
+#endif
         Console.WriteLine();
         Console.WriteLine("Compiler options:");
         Console.WriteLine("  --version          Print the Raven version");
