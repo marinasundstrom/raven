@@ -1,0 +1,122 @@
+# Experimental native neoCLR emission adapter
+
+Development API on `codex/metadata-consumer`, in the optional .NET 10 project
+`src/Raven.CodeAnalysis.NeoClr`. The metadata implementation remains the separate
+`NeoCLR.Metadata.Experimental` project; it does not depend on Raven. The adapter
+requires an explicit `NeoClrMetadataProject` build property and is not part of the
+default solution, compiler driver, or `Compilation.Emit` target composition.
+
+## Public API
+
+All types below are in `Raven.CodeAnalysis.NeoClr`:
+
+```csharp
+public static class NeoClrCompilationEmitter
+{
+    public static NeoClrEmitResult Emit(
+        Compilation compilation, Stream output, NeoClrEmitOptions options);
+}
+public sealed class NeoClrEmitResult
+{
+    public bool Success { get; }
+    public ImmutableArray<Diagnostic> Diagnostics { get; }
+}
+public sealed class NeoClrEmitOptions
+{
+    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary,
+        IEnumerable<NeoClrMetadataDependency> dependencies);
+    public AssemblyIdentity Identity { get; }
+    public AssemblyIdentity CoreLibrary { get; }
+    public ImmutableArray<NeoClrMetadataDependency> Dependencies { get; }
+}
+public sealed class NeoClrMetadataDependency
+{
+    public NeoClrMetadataDependency(MetadataReference reference,
+        AssemblyDefinition definition, AssemblyIdentity coreLibrary);
+    public MetadataReference Reference { get; }
+    public AssemblyDefinition Definition { get; }
+    public AssemblyIdentity CoreLibrary { get; }
+}
+```
+
+`AssemblyIdentity` and `AssemblyDefinition` are from
+`NeoCLR.Metadata.Experimental.Model`. Constructors reject null arguments; options
+copy the dependency sequence and reject null entries. All configuration properties
+are read-only. No constructor loads a runtime assembly or invokes the compiler.
+
+`Identity` supplies the native output name/version/culture; it must be unsigned,
+unflagged, and have the compilation's assembly name. `CoreLibrary` is an explicit
+host assertion of the primitive core contract, and each dependency must assert the
+same contract. No host identity is silently inferred by this library.
+
+Each dependency maps the **exact MetadataReference instance** registered with the
+compilation to a read-only metadata snapshot. Calls match the resolved assembly
+symbol using `SymbolEqualityComparer`, not just a simple assembly name. Snapshot
+names must match, and duplicate assembly symbols/metadata identities are rejected.
+The host is responsible for keeping the snapshot and reference file consistent
+(including version, signature and contents) and supplying matching native dependency
+artifacts. Raven's public assembly symbol currently has no complete identity/MVID
+contract: these checks do not authenticate snapshots or replace a native loader.
+
+At most 256 dependencies are accepted. Only a single source tree with console output,
+no macro trees, and `TargetPlatform.DotNet` as the primitive binding bootstrap is
+supported. This does not enable the separate neoCLR CLI bridge Runtime Contract.
+
+## Result, diagnostics and streams
+
+Semantic errors retain their original Raven diagnostics and prevent native emission.
+Warnings are preserved in the result. A successful result writes all validated native
+format-5 bytes at the stream's current position. The stream is never closed, rewound
+or truncated. Source/configuration/metadata validation completes before the first
+write, so validation failure preserves both bytes and position, including on an
+existing output stream. Host I/O failures propagate and can leave partial output;
+there is no filesystem transaction or rollback guarantee.
+
+| ID | Meaning | Location |
+| --- | --- | --- |
+| NEOMETA001 | Unsupported source operation, signature, declaration or dependency call | Relevant source syntax |
+| NEOMETA002 | Unsupported/mismatched output or dependency configuration | None |
+| NEOMETA003 | Metadata writer rejects the bounded graph or a resource limit | None |
+
+Only one backend diagnostic is reported per attempt. Null/unwritable stream arguments
+throw normal argument exceptions. Unexpected compiler failures and stream I/O errors
+are not hidden as source diagnostics. No cancellation API is offered in this slice.
+
+## Supported source and executable example
+
+The existing primitive subset remains: top-level block-bodied functions with required
+Int32 value parameters/results, returns, Int32 constants, parameter loads, local/static
+calls, and intrinsic unchecked/unlifted addition, subtraction and multiplication.
+Fields, instance calls, generics, structural types, arbitrary statements, attributes,
+async, captures, checked/lifted operators and named/default/expanded arguments remain
+unsupported. The metadata writer also bounds methods, parameters, bodies and artifacts.
+
+The C# integration runner constructs a fixture PE/native dependency and registers the
+same reference object used to create its compilation:
+
+```csharp
+var options = new NeoClrEmitOptions(outputIdentity, coreIdentity,
+    [new NeoClrMetadataDependency(reference, snapshot, coreIdentity)]);
+using var output = new MemoryStream();
+var result = NeoClrCompilationEmitter.Emit(compilation, output, options);
+if (!result.Success)
+    throw new InvalidOperationException(string.Join("\n", result.Diagnostics));
+var nativeBytes = output.ToArray();
+```
+
+Run the [probe](../../../tools/NeoClrMetadataProbe/README.md) for the complete example.
+It validates source spans, unchanged failed output, binding diagnostic identities,
+configuration rejection, writer limits, repeatability and host stream failures, then
+asks neoCLR to verify and run the emitted application with result 42. Its validation
+report records compiler, adapter, metadata library, runtime and artifact hashes.
+
+## Architecture and next boundary
+
+This uses the existing Raven `EmitResult` success/diagnostic pattern, but a separate
+result type avoids opening the core compiler's internal emitter composition solely
+for an experiment. Like the .NET emitter, the adapter consumes compiler semantic
+facts; unlike Reflection.Emit, it writes native metadata without executable reflection
+handles. Costs are a bounded source subset, explicit host reference contracts and the
+.NET input-provider bootstrap. Neither a native semantic loader nor production target
+registration is implemented. The next slice should drive those seams with an actual
+metadata input case, retaining shared compiler fixes on the shared line.

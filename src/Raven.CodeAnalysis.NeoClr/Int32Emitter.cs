@@ -1,34 +1,32 @@
 using NeoCLR.Metadata.Experimental.Model;
 
-using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
-using MetadataAssembly = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 using MetadataMethod = NeoCLR.Metadata.Experimental.Model.MethodBuilder;
 using OperatorKind = Raven.CodeAnalysis.Operations.BinaryOperatorKind;
 
-namespace NeoClrMetadataProbe;
+namespace Raven.CodeAnalysis.NeoClr;
 
 // Experimental consumer, not an installed Compilation.Emit backend. It consumes public
 // semantic operations; no bound nodes, reflection emit or source-token operator guessing.
 internal static class Int32Emitter
 {
-    internal static byte[] Emit(Compilation compilation, SyntaxTree tree, AssemblyIdentity core,
-        MetadataAssembly dependencyMetadata)
+    internal static byte[] Emit(Compilation compilation, SyntaxTree tree, NeoClrEmitOptions options,
+        IReadOnlyList<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)> dependencies)
     {
-        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
-        if (errors.Length != 0) throw new InvalidDataException(string.Join("\n", errors.Select(d => d.ToString())));
         var model = compilation.GetSemanticModel(tree);
-        var assembly = new AssemblyBuilder(new(compilation.AssemblyName!, new Version(1, 0, 0, 0)), core);
+        var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);
         var root = (CompilationUnitSyntax)tree.GetRoot();
+        SyntaxNode diagnosticSyntax = root;
         if (root.AttributeLists.Count != 0 || root.Members.Any(member => member is not GlobalStatementSyntax { Statement: FunctionStatementSyntax }))
             throw Unsupported("only top-level function declarations");
         var declarations = root.DescendantNodes().OfType<FunctionStatementSyntax>().ToArray();
         var methods = new List<(IMethodSymbol Symbol, FunctionStatementSyntax Syntax, MetadataMethod Method)>();
         foreach (var declaration in declarations)
         {
+            diagnosticSyntax = declaration;
             if (declaration.Ancestors().OfType<FunctionStatementSyntax>().Any() || declaration.Body is null || declaration.AttributeLists.Count != 0 || declaration.Modifiers.Count != 0)
                 throw Unsupported("only top-level block-bodied functions");
             var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
@@ -40,9 +38,11 @@ internal static class Int32Emitter
             ?? throw Unsupported("entry must be a declared top-level Int32 function");
         foreach (var current in methods)
         {
+            diagnosticSyntax = current.Syntax;
             var body = model.GetOperation(current.Syntax.Body!) as IBlockOperation ?? throw Unsupported("function operation body unavailable");
             foreach (var statement in body.Operations)
             {
+                diagnosticSyntax = statement.Syntax;
                 if (statement is not IReturnOperation { ReturnedValue: { } value }) throw Unsupported("only value-return statements");
                 EmitValue(value, current.Symbol, current.Method);
                 current.Method.Return();
@@ -52,6 +52,7 @@ internal static class Int32Emitter
 
         void EmitValue(IOperation operation, IMethodSymbol source, MetadataMethod output)
         {
+            diagnosticSyntax = operation.Syntax;
             switch (operation)
             {
                 case ILiteralOperation { Value: int value }:
@@ -88,19 +89,24 @@ internal static class Int32Emitter
         }
         ImportedMethodReference Import(IMethodSymbol symbol)
         {
-            if (!symbol.IsStatic || symbol.ContainingAssembly?.Name != dependencyMetadata.Name) throw Unsupported("unregistered dependency");
-            var type = dependencyMetadata.MainModule.Types.SingleOrDefault(t => (t.Namespace.Length == 0 ? t.Name : t.Namespace + "." + t.Name) == symbol.ContainingType?.ToFullyQualifiedMetadataName())
-                ?? throw Unsupported("dependency type unavailable");
-            var definition = type.Methods.SingleOrDefault(m => m.Name == symbol.MetadataName && m.TryGetStaticInt32Signature(out var count, out var result) && count == symbol.Parameters.Length && result)
-                ?? throw Unsupported("dependency method contract unavailable");
-            return assembly.ImportReference(definition, core);
+            if (!symbol.IsStatic) throw Unsupported("instance call");
+            var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
+                ?? throw Unsupported("unregistered dependency");
+            var dependencyMetadata = binding.Definition;
+            var types = dependencyMetadata.MainModule.Types.Where(t => t.DeclaringType is null && t.GenericArity == 0 &&
+                (t.Namespace.Length == 0 ? t.Name : t.Namespace + "." + t.Name) == symbol.ContainingType?.ToFullyQualifiedMetadataName()).Take(2).ToArray();
+            if (types.Length != 1) throw Unsupported("dependency type unavailable or ambiguous");
+            var definitions = types[0].Methods.Where(m => m.Name == symbol.MetadataName && m.TryGetStaticInt32Signature(out var count, out var result) && count == symbol.Parameters.Length && result).Take(2).ToArray();
+            if (definitions.Length != 1) throw Unsupported("dependency method contract unavailable or ambiguous");
+            return assembly.ImportReference(definitions[0], binding.CoreLibrary);
+        }
+        UnsupportedInputException Unsupported(string detail) => new(detail, diagnosticSyntax.GetLocation());
+
+        void CheckSignature(IMethodSymbol method)
+        {
+            if (method.IsGenericMethod || method.IsExtensionMethod || method.IsAsync || method.ReturnType.SpecialType != SpecialType.System_Int32 ||
+                method.Parameters.Any(p => p.Type.SpecialType != SpecialType.System_Int32 || p.RefKind != RefKind.None || p.HasExplicitDefaultValue || p.IsVarParams))
+                throw Unsupported("only nongeneric Int32 value signatures: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
         }
     }
-    private static void CheckSignature(IMethodSymbol method)
-    {
-        if (method.IsGenericMethod || method.IsExtensionMethod || method.IsAsync || method.ReturnType.SpecialType != SpecialType.System_Int32 ||
-            method.Parameters.Any(p => p.Type.SpecialType != SpecialType.System_Int32 || p.RefKind != RefKind.None || p.HasExplicitDefaultValue || p.IsVarParams))
-            throw Unsupported("only nongeneric Int32 value signatures: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
-    }
-    private static InvalidDataException Unsupported(string detail) => new("NEOMETA001: unsupported probe input: " + detail);
 }

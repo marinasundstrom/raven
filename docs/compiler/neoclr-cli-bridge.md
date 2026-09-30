@@ -367,3 +367,27 @@ semantic-data loading and production emitter installation remain the next integr
 stages; structural support stays later. C# contract tests pass (22 groups); both the
 native global-function gate and Raven probe verify/run to 42. Missing dependency,
 wrong revision, unsupported operation and binding diagnostics remain checked.
+
+### Compiler-owned native adapter checkpoint — 2026-09-30
+
+The working operations consumer is now the optional `Raven.CodeAnalysis.NeoClr`
+project, with `NeoClrCompilationEmitter.Emit`, immutable output/core/dependency options
+and a success/diagnostic result. The probe is a C# caller of this reusable adapter.
+The metadata API remains a separate project with no Raven dependency. The new project
+is opt-in through NeoClrMetadataProject; ordinary .NET behavior/default builds and
+`Compilation.Emit` composition are unchanged.
+
+Calls use explicit compiler-reference-to-snapshot bindings and resolved assembly-symbol
+identity instead of a simple-name selection. Host snapshot consistency and the primitive
+core assertion remain explicit responsibilities until a native provider owns them.
+NEOMETA001 carries source locations; NEOMETA002 rejects incompatible configuration;
+NEOMETA003 reports writer limits/invalid graphs. Original binding diagnostics survive.
+All validation precedes output writes; host I/O failures propagate and can partially
+write. Supported source/format-5 encoding remains the existing static Int32 subset.
+
+C# consumer checks cover expression spans, unchanged rejected output, original error
+identities, invalid/duplicate/unregistered/core bindings, writer limits, multi-tree
+rejection, repeated output and stream ownership/failure. The emitted application still
+verifies/runs in neoCLR with result 42. Hash evidence includes the new adapter binary.
+Native symbol loading and production target registration remain pending. Structural
+support remains later; this does not change the runtime bridge's platform capabilities.

@@ -11,7 +11,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   this does not install a native metadata loader or production target emitter.
   Import external calls directly from read-only definitions through the metadata
   API with an explicit dependency core contract; the emitter no longer takes the
-  producer builder graph. The end-to-end result remains 42.
+  producer builder graph. The end-to-end result remains 42. Extract the emitter into
+  the optional Raven.CodeAnalysis.NeoClr project with explicit immutable contracts,
+  registered assembly-symbol bindings, source-located backend diagnostics and
+  validation before stream writes. Preserve compiler diagnostics and propagate host
+  I/O failures. C# consumer checks and the native runtime case pass; default target
+  composition is unchanged.
 
 - **2026-09-30:** Keep imported signature-only parameters required when their optional
   CLI Param row is absent. Check row presence and default availability before

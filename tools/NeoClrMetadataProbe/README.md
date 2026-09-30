@@ -24,7 +24,8 @@ func Main() -> int {
 }
 ```
 
-The experimental adapter consumes public semantic symbols and operation trees. It
+The compiler-owned adapter in `src/Raven.CodeAnalysis.NeoClr` consumes public semantic
+symbols and operation trees through `NeoClrCompilationEmitter.Emit`. It
 maps source top-level functions to native functions and the imported call to the
 matching read-only dependency definition through `AssemblyBuilder.ImportReference`.
 The adapter receives no producer builder graph; it explicitly asserts the fixture
@@ -39,8 +40,11 @@ hash evidence in `validation.json` and refuses to overwrite an existing director
 
 The .NET frontend/runtime contract is the bootstrap for this primitive-only test.
 This does not install a native Runtime Contract, native semantic-data loader, or
-production ICompilationEmitter. The adapter lives in compiler tooling; the metadata
+production ICompilationEmitter. The adapter lives in an optional compiler project; the metadata
 library remains independent of Raven symbols and bound nodes.
+See the [adapter API](../../docs/compiler/api/neoclr-emission.md) for every public
+member, the host snapshot-consistency requirement, source-located diagnostics,
+validation-before-write behavior and stream I/O limitations.
 
 Only top-level block-bodied functions with required Int32 value parameters and Int32
 results, value returns, constants, parameter loads, local/static calls and unchecked
@@ -51,7 +55,7 @@ types are rejected. Dependency binding is deliberately limited to the single fix
 whose matching PE/native outputs the runner creates; this is not an arbitrary PE importer.
 
 The public operation consumer already drove shared compiler fixes for binary operator
-facts, invocation receivers and required signature-only parameters. Next isolate the
-adapter's target configuration and compiler diagnostic result, add a native metadata
-provider through ISemanticDataLoader, and extend coverage from actual source cases.
+facts, invocation receivers and required signature-only parameters. The adapter now has explicit immutable configuration, registered assembly-symbol
+bindings and Raven diagnostic results. Next add a native metadata provider through
+ISemanticDataLoader and extend coverage from actual source cases.
 General shared fixes should be integrated independently of this experimental tool.

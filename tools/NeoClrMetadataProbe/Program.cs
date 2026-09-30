@@ -9,6 +9,7 @@ using NeoClrMetadataProbe;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.NeoClr;
 
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
@@ -37,21 +38,23 @@ func Main() -> int {
 }
 """;
 File.WriteAllText(Path.Combine(output, "Program.rvn"), source);
-byte[] Compile(string code)
+var libraryReference = MetadataReference.CreateFromFile(libraryPath);
+var emitOptions = new NeoClrEmitOptions(new("MetadataProbeApp", new Version(1, 0, 0, 0)), core,
+    [new NeoClrMetadataDependency(libraryReference, metadata, core)]);
+Compilation CreateCompilation(string code)
 {
     var tree = SyntaxTree.ParseText(code);
-    var compilation = Compilation.Create("MetadataProbeApp", [tree], [
+    return Compilation.Create("MetadataProbeApp", [tree], [
         MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-        MetadataReference.CreateFromFile(libraryPath)], new CompilationOptions(OutputKind.ConsoleApplication));
-    return Int32Emitter.Emit(compilation, tree, core, metadata);
+        libraryReference], new CompilationOptions(OutputKind.ConsoleApplication));
 }
-var image = Compile(source);
+using var nativeOutput = new MemoryStream();
+var emitted = NeoClrCompilationEmitter.Emit(CreateCompilation(source), nativeOutput, emitOptions);
+if (!emitted.Success) throw new Exception(string.Join("\n", emitted.Diagnostics));
+var image = nativeOutput.ToArray();
 var application = Path.Combine(output, "MetadataProbeApp.neo.json");
 File.WriteAllBytes(application, image);
-try { Compile(source.Replace("value + 2", "value / 2")); throw new Exception("unsupported operation accepted"); }
-catch (InvalidDataException error) when (error.Message.Contains("NEOMETA001")) { Console.WriteLine("PASS unsupported operation diagnostic"); }
-try { Compile(source.Replace("Example.Math.Twice", "Example.Math.Missing")); throw new Exception("binding error accepted"); }
-catch (InvalidDataException error) when (!error.Message.Contains("NEOMETA001")) { Console.WriteLine("PASS compiler binding diagnostic"); }
+AdapterChecks.Run(CreateCompilation, source, emitOptions);
 await Command(0, "verify", application, "--module", nativeLibrary);
 var result = await Command(42, "run", application, "--module", nativeLibrary, "--show-result");
 if (!result.Contains("=> Int32(42)")) throw new Exception("wrong runtime result");
@@ -64,7 +67,9 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     importedReadOnlyDependency = true,
     emitterRequiresDependencyBuilder = false,
     semanticLoader = "existing .NET provider over API-produced PE",
-    emitter = "experimental operations adapter to native format 5",
+    emitter = "compiler-owned opt-in adapter to native format 5",
+    diagnosticAndStreamContractsChecked = true,
+    adapterSha256 = Hash(typeof(NeoClrCompilationEmitter).Assembly.Location),
     productionTargetIntegrated = false,
     nativeMetadataLoader = false,
     unsupportedOperationRejected = true,

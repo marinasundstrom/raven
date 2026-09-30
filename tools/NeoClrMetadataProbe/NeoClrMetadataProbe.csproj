@@ -7,10 +7,6 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" />
-    <ProjectReference Include="$(NeoClrMetadataProject)" Condition="'$(NeoClrMetadataProject)' != ''" />
+    <ProjectReference Include="../../src/Raven.CodeAnalysis.NeoClr/Raven.CodeAnalysis.NeoClr.csproj" />
   </ItemGroup>
-  <Target Name="RequireMetadataProject" BeforeTargets="PrepareForBuild">
-    <Error Condition="'$(NeoClrMetadataProject)' == ''" Text="Set NeoClrMetadataProject to the independent NeoCLR.Metadata.Experimental.csproj." />
-  </Target>
 </Project>
