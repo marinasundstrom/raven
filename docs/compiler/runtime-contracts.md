@@ -1282,3 +1282,17 @@ Compilation no longer serves as a host-service registry for the loader. The shar
 semantic loader interface remains reflection-free. Its .NET implementation still
 uses CLI assembly symbols and a compilation-bound projector, so this is preparation
 for target replacement, not a new selectable target or cross-compilation mode.
+
+## Constructed type emission boundary
+
+`ConstructedNamedTypeSymbol` supplies semantic definitions and type substitutions.
+The .NET backend's `ConstructedTypeCodeGenResolver` constructs reflection types from
+those facts, obtains source type builders, and maps generic method/async parameters
+through the current CodeGenerator. It stores no reflection handles on the semantic
+type and adds no reflection methods to the semantic interfaces.
+
+Substituted method and field implementations still contain reflection member
+resolution and call this backend helper. Removing those dependencies is a later
+slice; moving constructed-type resolution alone does not make all symbols
+platform-neutral. Repeated-emission coverage exercises imported generic containers
+with source generic arguments and checks the resulting values and assembly owners.

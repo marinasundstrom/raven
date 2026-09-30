@@ -775,3 +775,40 @@ on .NET 11 with freshly built compiler outputs using
 Whitespace formatting completed with test workspace-load warnings;
 `git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
 full bootstrap qualification is claimed.
+
+## Slice 22: constructed-type reflection resolution in codegen
+
+ConstructedNamedTypeSymbol no longer builds reflection generic types or maps
+runtime generic parameters. ConstructedTypeCodeGenResolver in the .NET codegen
+layer performs that work using the symbol's existing definition/substitution APIs
+and the current CodeGenerator's builders and parameter cache. TypeGenerator and
+substituted member resolution call the backend helper directly. No reflection
+operation is added to the semantic interfaces, and an unused signature-placeholder
+helper is removed from the constructed-type implementation.
+
+The resolution algorithm is preserved, including imported/source definitions,
+extension declaration handling, async state-machine parameter mapping and fallback
+order. A new runtime regression emits the same compilation twice, constructs an
+imported List of source Box<T> values through a generic method, and checks values,
+type arguments and the source type's emitted assembly ownership each time.
+
+Substituted method and field implementations still contain reflection resolution;
+extracting those is next. This slice does not claim all symbols are independent
+of codegen. No new target or public API is introduced. Main integration still
+requires independent main-based validation, with neoCLR-specific policies kept
+separate.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 23 tests across
+GenericReferenceEmissionTests, AsyncGenericContainingTypeTests,
+AsyncGenericCaptureTests, ReflectionTypeLoaderNestedTypeTests and
+TypeMetadataNameTests. Final validation added the repeated-emission test,
+GenericSelfConstructionTests, TargetCoreGenericSignatureTests,
+MixedGenericMetadataTests and ImportedGenericMethodContextTests: 44 passed,
+no failures/skips. The initial extraction build exposed Raven's TypeInfo name
+shadowing System.Reflection.TypeInfo; the return type was fully qualified.
+Final compiler builds passed for net10.0 and net11.0 with no warnings/errors.
+Tests ran on .NET 11 with freshly built compiler outputs using
+`--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`.
+Whitespace formatting completed with test workspace-load warnings;
+`git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
+full bootstrap qualification is claimed.

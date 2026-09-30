@@ -15,6 +15,41 @@ public sealed class GenericReferenceEmissionTests(ITestOutputHelper output)
     private readonly ITestOutputHelper _output = output;
 
     [Fact]
+    public void RepeatedEmissionKeepsConstructedSourceAndImportedTypesInEachAssembly()
+    {
+        var compilation = Compilation.Create("RepeatedGenericEmission", [SyntaxTree.ParseText("""
+            import System.Collections.Generic.*
+            public class Box<T> {
+                private var stored: T
+                public init(value: T) { stored = value }
+                public func Read() -> T { return stored }
+            }
+            public class Entry {
+                public static func Wrap<T>(value: T) -> List<Box<T>> {
+                    let items = List<Box<T>>()
+                    items.Add(Box<T>(value))
+                    return items
+                }
+            }
+            """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+
+        for (var emission = 0; emission < 2; emission++)
+        {
+            using var output = new MemoryStream();
+            var result = compilation.Emit(output);
+            Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+            using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
+            var wrap = loaded.Assembly.GetType("Entry")!.GetMethod("Wrap")!.MakeGenericMethod(typeof(int));
+            var values = Assert.IsAssignableFrom<System.Collections.IList>(wrap.Invoke(null, [42 + emission]));
+            var box = Assert.Single(values.Cast<object>());
+            Assert.Same(loaded.Assembly, box.GetType().Assembly);
+            Assert.Equal(42 + emission, box.GetType().GetMethod("Read")!.Invoke(box, null));
+            Assert.Equal(typeof(int), Assert.Single(box.GetType().GetGenericArguments()));
+        }
+    }
+
+    [Fact]
     public void GenericConstructor_WithWrongArity_ReportsDiagnostic()
     {
         var tree = SyntaxTree.ParseText("""

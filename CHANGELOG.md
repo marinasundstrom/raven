@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Move constructed generic reflection-type resolution and async
+  parameter mapping from semantic type symbols into the .NET codegen layer.
+  Preserve per-emission builder/cache ownership and add repeated-emission runtime
+  coverage for imported containers of source generic types.
+
 - **2026-09-30:** Inject .NET host services directly into metadata import and
   supply session setup with explicit references and import options. Remove unused
   host-registration forwarding APIs from shared Compilation; preserve reference

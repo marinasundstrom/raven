@@ -2319,7 +2319,7 @@ internal class TypeGenerator
                 throw new ArgumentNullException(nameof(codeGen));
 
             if (RuntimeTypeSymbol is ConstructedNamedTypeSymbol constructedRuntimeType)
-                return constructedRuntimeType.GetTypeInfo(codeGen).AsType();
+                return ConstructedTypeCodeGenResolver.GetTypeInfo(constructedRuntimeType, codeGen).AsType();
 
             return TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(RuntimeTypeSymbol, codeGen);
         }
