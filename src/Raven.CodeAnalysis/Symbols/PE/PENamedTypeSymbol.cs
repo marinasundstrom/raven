@@ -12,7 +12,7 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespaceMemberContainer
+internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespaceMemberContainer, INestedTypeDiscovery
 {
     private static readonly Dictionary<string, SpecialType> s_specialTypeByFullName = new(StringComparer.Ordinal)
     {
@@ -517,7 +517,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         return false;
     }
 
-    internal IEnumerable<INamedTypeSymbol> GetNestedTypeMembers()
+    IEnumerable<INamedTypeSymbol> INestedTypeDiscovery.GetNestedTypesForDiscovery()
     {
         if (_nestedTypes is { } nestedTypes)
             return nestedTypes;
