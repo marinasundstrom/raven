@@ -440,3 +440,42 @@ loader and codegen remain separately implemented but publicly selected together.
 Next implementation slice: a .NET preset with explicit-only reference inputs and
 core discovery from those references, retaining existing host-assisted constructors.
 Documentation-only; no compiler behavior changed in this clarification.
+
+## Slice 13: explicit-reference .NET preset
+
+`CompilationOptions.DotNet` supplies fresh defaults with explicit-only reference
+loading and automatic core discovery. Parameterless `MetadataImportOptions`
+selects this mode; its null CoreAssemblyName is distinct from null import options
+(the legacy host-assisted mode). Named-core import retains its previous independent
+emission policy. The preset resolves no frameworks or packages and adds no host
+reference paths; callers continue supplying references separately.
+
+Discovered-core mode also selects the same core identity for emission. Explicit
+target-core names must match the discovered simple name, and explicit emission
+identity conflicts produce RAVT003 before writing output. This uses existing
+import/core configuration as a transitional implementation; public TargetPlatform,
+LangVersion, Contract and Features are still planned, not placeholder APIs.
+Missing-core setup continues to throw FileNotFoundException and is documented.
+
+Coverage exercises net10.0/net11.0 binding and emitted core identities, preservation
+through option copies, fresh preset defaults, isolation after a host-assisted
+compilation with incremental reuse attempted, empty references, and matching or
+conflicting explicit target/emission selections. General main integration remains
+pending independent validation; no neoCLR policy is promoted by this slice.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 114 tests across
+MetadataImportOptionsTests, IncrementalCompilationReuseTests,
+DotNetMetadataResolutionTests, MetadataCoreIdentityTests, TargetCoreSelectionTests,
+and TargetSpecialTypeTests. The same filter plus DotNetCompilationPresetTests
+passed 122 tests, with no failures/skips. Compiler builds passed for net10.0 and
+net11.0. Tests ran on .NET 11 using freshly built compiler outputs and
+`--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`;
+the existing driver subprocess test used its previously built driver. Whitespace
+formatting completed with test workspace-load warnings; `git diff --check` passed.
+.NET 10/11 reference metadata was validated; no .NET Framework, NanoFramework,
+neoCLR execution, or full bootstrap qualification is claimed.
+
+Next: validate configuration before opening the symbol environment, translating
+known setup failures into compiler diagnostics, while continuing to separate
+reflection-dependent compilation services. Language version work must include
+parsing and syntax-tree compatibility rather than merely adding an options field.

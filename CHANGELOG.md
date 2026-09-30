@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Add `CompilationOptions.DotNet` for explicitly supplied .NET
+  references. Discover the reference core for binding and emission without adding
+  host framework definitions. Diagnose conflicting explicit emission identities;
+  preserve named-core import and legacy host-assisted constructors. Document the
+  planned TargetPlatform, LangVersion, Contract and Features API.
+
 - **2026-09-30:** Compose the existing .NET semantic-data loader, runtime contract,
   and code generator through one internal target. Move special-type names and
   tuple-family mapping into the contract while retaining shared symbol lookup,

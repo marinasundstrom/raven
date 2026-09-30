@@ -6,6 +6,16 @@ namespace Raven.CodeAnalysis;
 
 public class CompilationOptions
 {
+    /// <summary>
+    /// Creates .NET defaults using only supplied references. The core library is
+    /// discovered from those references and used for both binding and emission.
+    /// This preset does not select or resolve a target framework.
+    /// </summary>
+    public static CompilationOptions DotNet => new(OutputKind.ConsoleApplication,
+        metadataImportOptions: new MetadataImportOptions());
+
+    internal bool UsesDiscoveredTargetCore => MetadataImportOptions is { CoreAssemblyName: null };
+
     public CompilationOptions()
         : this(OutputKind.ConsoleApplication)
     {

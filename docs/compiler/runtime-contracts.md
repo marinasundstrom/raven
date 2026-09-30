@@ -7,6 +7,21 @@ sources, and one or more code generators. See the
 The CLI-oriented options documented below are existing implementation mechanisms;
 they do not require every future symbol source to use metadata or CLI assemblies.
 
+## CompilationOptions presets and planned configuration
+
+The public configuration type remains `CompilationOptions`. The agreed direction
+is TargetPlatform (coherent loader/codegen selection), LangVersion (Raven source
+version), Contract (platform mappings), and Features (requested optional features).
+See the [API direction](architecture/runtime-platform-contract-design.md#agreed-compilationoptions-api-direction)
+for ownership and validation stages, including language settings shared with
+parsing. These four settings are not yet implemented as a unified public API.
+
+`CompilationOptions.DotNet` is implemented as an explicit-reference preset. It
+selects no framework version and resolves no packages. The supplied references
+provide the core identity for both binding and emission. See
+[metadata import](metadata-import.md#net-compilation-preset) for examples,
+compatibility with existing constructors, and validation limitations.
+
 ## Current target composition
 
 `Targets.DotNetCompilationTarget` is the internal composition point for the

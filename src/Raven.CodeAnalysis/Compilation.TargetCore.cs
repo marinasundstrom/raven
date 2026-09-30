@@ -26,7 +26,10 @@ public partial class Compilation
         }
         if (Options.TargetCoreAssemblyName is not { } name)
             return null;
-        if (string.IsNullOrWhiteSpace(name) || Options.MetadataImportOptions?.CoreAssemblyName != name)
+        var metadataCoreName = Options.UsesDiscoveredTargetCore
+            ? CoreAssembly.GetName().Name
+            : Options.MetadataImportOptions?.CoreAssemblyName;
+        if (string.IsNullOrWhiteSpace(name) || metadataCoreName != name)
             return TargetCoreError("emission requires the same explicitly supplied metadata core assembly");
         return null;
     }
@@ -37,7 +40,7 @@ public partial class Compilation
         diagnostic = GetTargetCoreConfigurationDiagnostic();
         if (diagnostic is not null)
             return false;
-        if (Options.TargetCoreAssemblyName is null)
+        if (Options.TargetCoreAssemblyName is null && !Options.UsesDiscoveredTargetCore)
             return true;
 
         // Metadata setup has already resolved this assembly exclusively from the

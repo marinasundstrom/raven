@@ -1,5 +1,39 @@
 # Explicit-only metadata import
 
+## .NET compilation preset
+
+`CompilationOptions.DotNet` returns fresh immutable defaults for a .NET target
+whose semantic inputs are explicitly supplied references. Framework/package
+resolution remains with the caller or project tooling:
+
+```csharp
+var options = CompilationOptions.DotNet
+    .WithOutputKind(OutputKind.DynamicallyLinkedLibrary);
+var compilation = Compilation.Create("Example", syntaxTrees, references, options);
+```
+
+The preset uses `new MetadataImportOptions()`: discover the core defining
+`System.Object` from the supplied references, without adding host fallback paths.
+The .NET target uses that discovered core identity for emission as well. No
+framework version, installed SDK reference pack, or package is selected by this
+preset. Existing `With...` copies retain this policy. Host execution services are
+still separate and .NET-specific; this does not remove all host reflection from
+the emitter.
+
+`new MetadataImportOptions("Core.Name")` retains the older named-core import
+mode, with independent emission selection. `new CompilationOptions()` retains
+host-assisted import. A null `MetadataImportOptions` still means host-assisted;
+a non-null options object with a null `CoreAssemblyName` means explicit-only
+core discovery. This is a transitional representation using the current import
+options, pending the agreed TargetPlatform/Contract API.
+
+For discovered-core mode, an explicit `TargetCoreAssemblyName`, when supplied,
+must match the discovered core's simple name. Conflicting explicit `EmitOptions`
+core identities report RAVT003 before output is written. Missing-core setup still
+throws `FileNotFoundException`; translating loader setup failures into diagnostics
+is follow-up work. An empty reference list never gains implicit host references
+through this preset.
+
 ## Implementation boundary
 
 The .NET implementation materializes resolver inputs in an immutable
@@ -200,8 +234,10 @@ With this opt-in, ordinary `Compilation.Emit` and `rvnc project.rvnproj` use tha
 core identity without an external runner constructing EmitOptions. RAVT003 rejects
 inconsistent import/emission selection and conflicting explicit EmitOptions before
 writing the assembly. Missing or unusable core references still follow the existing
-metadata-loader configuration failure path. Import-only callers retain the old
-behavior when the emission setting is absent; default .NET emission and explicit
+metadata-loader configuration failure path. Named-core import-only callers retain the old
+behavior when the emission setting is absent. Discovered-core mode, including
+`CompilationOptions.DotNet`, selects emission automatically. Legacy default .NET
+emission and explicit
 `--target-core-library` use without a project selection remain available.
 
 Option copies preserve the selection; incremental semantic reuse accounts for changes.
