@@ -25,23 +25,24 @@ public sealed class NeoClrFaultControlFlowTests : CompilationTestBase
     }
 
     [Theory]
-    [InlineData("NeoCLR.CoreProbe", true, "System.Fault", true)]
-    [InlineData("NeoCLR.CoreProbe", true, "Fault", true)]
-    [InlineData("OrdinaryLibrary", true, "System.Fault", false)]
-    [InlineData("NeoCLR.CoreProbe", false, "System.ArbitraryContainer.Fault", false)]
+    [InlineData("NeoCLR.CoreProbe", true, "System.Fault", true, "System.Runtime.CompilerServices")]
+    [InlineData("NeoCLR.CoreProbe", true, "Fault", true, "System.Runtime.CompilerServices")]
+    [InlineData("OrdinaryLibrary", true, "System.Fault", false, "System.Runtime.CompilerServices")]
+    [InlineData("NeoCLR.CoreProbe", false, "System.ArbitraryContainer.Fault", false, "System.Runtime.CompilerServices")]
+    [InlineData("NeoCLR.CoreProbe", true, "System.Fault", false, "Custom.CompilerServices")]
     public void FaultCall_OnlyRuntimeNamespaceFunctionTerminates(
-        string assemblyName, bool namespaceMember, string call, bool terminates)
+        string assemblyName, bool namespaceMember, string call, bool terminates, string attributeNamespace)
     {
         var directory = Path.Combine(Path.GetTempPath(), "raven-fault-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         try
         {
             var declarations = $$"""
-                namespace System.Runtime.CompilerServices {
+                namespace {{attributeNamespace}} {
                     public sealed class TopLevelAttribute : System.Attribute { }
                 }
                 namespace System {
-                    {{(namespaceMember ? "[System.Runtime.CompilerServices.TopLevel]" : "")}}
+                    {{(namespaceMember ? "[" + attributeNamespace + ".TopLevel]" : "")}}
                     public static class ArbitraryContainer {
                         public static void Fault(string message) { }
                     }

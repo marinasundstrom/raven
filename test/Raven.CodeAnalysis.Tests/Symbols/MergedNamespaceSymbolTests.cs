@@ -51,14 +51,61 @@ public class MergedNamespaceSymbolTests
         Assert.Empty(merged.GetExtensionMethodContainers("Missing"));
     }
 
-    private sealed class ExtensionNamespace(string methodName, ImmutableArray<INamedTypeSymbol> containers)
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void NamespaceMemberDiscovery_AcceptsProviderFactsWithoutBindingAttributes(bool merge, bool promote)
+    {
+        var compilation = Compilation.Create("test",
+            [SyntaxTree.ParseText("namespace Shared { class Marker {} }")], TestMetadataReferences.Default);
+        var sourceNamespace = compilation.GetTypeByMetadataName("Shared.Marker")!.ContainingNamespace!;
+        var container = new MemberContainer(compilation, sourceNamespace, promote);
+        var value = new SourceMethodSymbol("Value", compilation.GetSpecialType(SpecialType.System_Int32), [],
+            container, container, sourceNamespace, [], [], isStatic: true);
+        _ = new SourceMethodSymbol("Instance", compilation.GetSpecialType(SpecialType.System_Int32), [],
+            container, container, sourceNamespace, [], [], isStatic: false);
+        INamespaceSymbol provider = new ExtensionNamespace("", [container, container], exposeContainers: true);
+        if (merge)
+            provider = new MergedNamespaceSymbol([new MergedNamespaceSymbol([provider], null), sourceNamespace, provider], null);
+
+        var all = compilation.GetNamespaceMembers(provider);
+        var named = compilation.GetNamespaceMembers(provider, "Value");
+        if (promote)
+        {
+            Assert.Same(value, Assert.Single(all));
+            Assert.Same(value, Assert.Single(named));
+        }
+        else
+        {
+            Assert.Empty(all);
+            Assert.Empty(named);
+        }
+        Assert.Empty(compilation.GetNamespaceMembers(provider, "Instance"));
+        Assert.Empty(compilation.GetNamespaceMembers(provider, "Missing"));
+        Assert.Empty(compilation.GetNamespaceMembers(provider, includeNamespaceMemberImports: false));
+        Assert.Empty(compilation.GetNamespaceMembers(provider, "Value", includeNamespaceMemberImports: false));
+    }
+
+    // In-memory semantic provider: no PE metadata, source attributes or syntax.
+    private sealed class MemberContainer(Compilation compilation, INamespaceSymbol owner, bool promote)
+        : SourceNamedTypeSymbol("ProviderContainer", compilation.GetSpecialType(SpecialType.System_Object), TypeKind.Class,
+            compilation.Assembly, null, owner, [], [], addAsMember: false), INamespaceMemberContainer
+    {
+        public bool IsNamespaceMemberContainer => promote;
+        public override ImmutableArray<AttributeData> GetAttributes()
+            => throw new InvalidOperationException("Namespace discovery must not bind provider attributes.");
+    }
+
+    private sealed class ExtensionNamespace(string methodName, ImmutableArray<INamedTypeSymbol> containers, bool exposeContainers = false)
         : Symbol(SymbolKind.Namespace, "Shared", null, null, null, [], []), INamespaceSymbol, INamespaceExtensionLookup
     {
         public bool IsNamespace => true;
         public bool IsType => false;
         public bool IsGlobalNamespace => false;
-        public ImmutableArray<ISymbol> GetMembers() => [];
-        public ImmutableArray<ISymbol> GetMembers(string name) => [];
+        public ImmutableArray<ISymbol> GetMembers() => exposeContainers ? containers.Cast<ISymbol>().ToImmutableArray() : [];
+        public ImmutableArray<ISymbol> GetMembers(string name) => GetMembers().Where(member => member.Name == name).ToImmutableArray();
         public ITypeSymbol? LookupType(string name) => null;
         public INamespaceSymbol? LookupNamespace(string name) => null;
         public string ToMetadataName() => Name;
