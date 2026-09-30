@@ -193,3 +193,18 @@ contains PE-specific paths. Native metadata can replace this discovery encoding
 with semantic extension facts, but still needs corresponding member binding and
 backend support. The extension regression suite validates the current CLI path;
 non-PE fixture coverage validates capability dispatch, not native execution.
+
+### Member receiver decoding ownership (2026-09-30)
+
+`IExtensionReceiverResolver` now isolates the bridge's member receiver decoding.
+Its PE implementation resolves marker receivers and preserves existing generic
+mapping: marker type parameters can be re-anchored to method parameters by
+ordinal; constructed owners use containing-type substitution. These are CLI
+encoding rules, not requirements imposed on native neoCLR metadata. Core lookup
+consumes the resolved receiver without applying those remappings itself.
+
+The encoding and its limitations are unchanged. Native replacement requires a
+provider that supplies receivers in the requested member context and matching
+metadata/backend support. Extension semantic regressions validate the CLI path;
+non-PE fixtures verify preservation of provider receiver identity and constructed
+member context. They do not constitute native neoCLR execution evidence.

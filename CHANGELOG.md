@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Move member extension receiver decoding behind a provider
+  boundary. Shared lookup no longer depends on PE symbols or applies CLI marker
+  parameter remapping; preserve source/CLI receiver and accessor behavior.
+
 - **2026-09-30:** Make type-level extension discovery provider-owned, preserving
   CLI marker interpretation and constructed receiver substitution. Cover non-PE
   providers without binding attributes or loading ordinary members.

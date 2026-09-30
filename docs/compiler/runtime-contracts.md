@@ -2168,3 +2168,21 @@ This is a type-level boundary only. Member-level extension decoding still has
 PE-specific paths. It neither enables native neoCLR extension metadata nor makes
 CLI marker encodings a requirement for future providers. Public semantic APIs,
 CLI encodings and target feature availability are unchanged.
+
+### Member extension receiver ownership (2026-09-30)
+
+The core compiler must not depend on the PE symbol model. PE symbols are the
+.NET target's implementation, currently reused by neoCLR's temporary CLI bridge.
+Shared method/property receiver queries now ask `IExtensionReceiverResolver` for
+provider-owned semantic facts. Method lookup finds the resolver on the original
+declaration's containing type (or the current containing type) and passes the
+actual member, including constructed views. The provider owns any mapping needed
+to interpret that context; core lookup does not remap the returned receiver.
+
+PE marker lookup, constructed-owner marker substitution and CLI ordinal-based
+receiver parameter remapping live in `PENamedTypeSymbol.ExtensionReceivers`.
+The general type-substitution algorithm remains shared. Explicit receiver
+parameters, operator receivers, source extension rules and property accessor
+precedence remain compiler-owned. This removes PE dependencies from these receiver
+queries, not from all shared symbol queries; identity and fast signature lookup
+still require further boundary work. No public API or extension encoding changes.
