@@ -630,3 +630,39 @@ Whitespace formatting completed with test workspace-load warnings;
 `git diff --check` passed. Temporary-layout tests establish path-selection behavior,
 not execution on those synthetic frameworks. No .NET Framework, NanoFramework,
 neoCLR execution or full bootstrap qualification is claimed.
+
+## Slice 18: .NET host assembly service
+
+`DotNetHostRuntime` owns per-compilation path/runtime caches and metadata-to-runtime
+assembly associations, alongside the existing process-wide path/runtime caches.
+It also owns trusted-platform discovery, assembly loading, runtime type lookup and
+host emit-core discovery. DotNetCompilationTarget creates one service per compilation;
+shared compilation keeps internal delegates with existing setup/argument checks.
+The service stores neither a compilation reference nor semantic symbols.
+
+Lookup order, global cache lifetime, core aliases, default AssemblyLoadContext
+loading and existing failure fallbacks are preserved. Metadata sessions and symbol
+caches retain separate ownership; sharing a metadata session does not share a host
+service. New behavior tests check local path registration survives later shared
+registration, later services see shared registrations, runtime assemblies are reused,
+and metadata core types map to executable host types without replacing metadata
+assembly objects. Existing snapshot lifetime and explicit-import tests cover the
+integration boundary.
+
+Next: move reflection-to-semantic-symbol projection ownership behind the .NET
+loader/target while retaining snapshot identity and setup reentrancy. Reflection
+core APIs still exist on Compilation; this slice does not make the target replaceable.
+Main integration remains pending independent validation, and experimental neoCLR
+policy remains on the experiment-derived branch.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 128 tests across
+MetadataImportOptionsTests, IncrementalCompilationReuseTests,
+CliMetadataCompatibilityTests, MetadataCoreIdentityTests,
+DotNetCompilationPresetTests, RuntimeTypeOfContractTests and
+DotNetRuntimeAssemblyPathResolverTests. Adding DotNetHostRuntimeTests produced
+131 passing tests with no failures/skips. Compiler builds passed for net10.0 and
+net11.0 with no warnings/errors. Tests ran on .NET 11 with freshly built compiler
+outputs using `--no-restore /property:WarningLevel=0
+/property:BuildProjectReferences=false`. Whitespace formatting completed with
+test workspace-load warnings; `git diff --check` passed. No .NET Framework,
+NanoFramework, neoCLR execution or full bootstrap qualification is claimed.

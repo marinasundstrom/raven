@@ -52,8 +52,32 @@ heuristics, not a new framework compatibility guarantee or cross-compilation pol
 The resolver accepts an internal shared-framework root override so path selection
 can be tested against temporary layouts without depending on the machine's installed
 frameworks. Production derives that root from the compiler host's runtime as before.
-Assembly loading, caches, and reflection-to-symbol projection remain separate and
-still have dependencies in Compilation.
+`DotNetHostRuntime` owns host assembly loading and caches separately from this
+path policy. Reflection-to-semantic-symbol projection still has dependencies in
+Compilation.
+
+## Host assembly service ownership
+
+Each `DotNetCompilationTarget` owns one `DotNetHostRuntime`. The service holds
+per-compilation metadata-to-runtime assembly associations, local path registrations,
+and local runtime assembly caches. Existing process-wide path/runtime caches and
+trusted-platform discovery move with it, retaining their current lifetime,
+initialization and lookup order. This extraction does not introduce deterministic
+unloading or change default AssemblyLoadContext behavior.
+
+The service performs runtime assembly registration/loading, host type lookup and
+host emit-core discovery. Compilation's internal forwarding methods retain setup
+and argument checks. The service does not retain Compilation or semantic symbols;
+symbols supplied for host lookup are only used during that call. Compatible
+metadata sessions may still be shared independently, while each new compilation
+gets its own host service and symbol caches.
+
+Host fallback paths remain available only under existing host-assisted import
+policy. Explicit-reference target definitions are not replaced by runtime
+implementations, even when those implementations are already in shared host caches.
+The compiler still exposes existing reflection core handles and uses
+ReflectionTypeLoader for semantic projection; replacing the target remains
+incomplete.
 
 ## Target initialization failures
 

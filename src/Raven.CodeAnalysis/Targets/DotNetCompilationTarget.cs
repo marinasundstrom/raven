@@ -10,6 +10,7 @@ namespace Raven.CodeAnalysis.Targets;
 internal sealed class DotNetCompilationTarget(CompilationOptions options)
 {
     internal DotNetRuntimeContract RuntimeContract { get; } = new(options);
+    internal DotNetHostRuntime HostRuntime { get; } = new();
 
     internal DotNetMetadataSession OpenMetadataSession(
         Compilation compilation,
@@ -41,9 +42,6 @@ internal sealed class DotNetCompilationTarget(CompilationOptions options)
         effective = new EmitOptions(identity);
         return null;
     }
-
-    internal string? FindRuntimeAssemblyPath(string? referencePath)
-        => DotNetRuntimeAssemblyPathResolver.FindImplementation(referencePath);
 
     internal void Emit(Compilation compilation, EmitOptions? options, Stream peStream, Stream? pdbStream)
         => new CodeGenerator(compilation, options).Emit(peStream, pdbStream);

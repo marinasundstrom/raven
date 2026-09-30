@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Move .NET host assembly loading, runtime type lookup, emit-core
+  discovery and assembly/path caches into a per-compilation host service owned
+  by the .NET target. Preserve process-wide cache sharing and lookup policies;
+  verify local path precedence, loaded-assembly reuse and metadata-to-host type
+  mapping alongside explicit-reference isolation and snapshot reuse coverage.
+
 - **2026-09-30:** Extract .NET host reference-to-runtime path lookup from shared
   compilation into the .NET target's path resolver. Preserve NuGet, SDK-pack and
   shared-framework fallback policies, and add deterministic filesystem coverage.

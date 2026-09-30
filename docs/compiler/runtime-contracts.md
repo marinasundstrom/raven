@@ -1250,3 +1250,14 @@ translates the target's validation errors into RAVT003.
 This extraction preserves validation rules, emitted core identity, and failure
 behavior. Reflection core handles and other .NET dependencies still exist in
 shared compilation services, so it does not establish a replaceable target yet.
+
+## Host assembly services
+
+`DotNetCompilationTarget.HostRuntime` owns host assembly registration/loading,
+trusted-platform discovery, assembly/path caches, runtime type lookup and host
+emit-core discovery. Shared compilation delegates through internal entry points
+that preserve setup ordering. This host execution service is distinct from the
+semantic-data loader and runtime contract: a host implementation is not evidence
+that a type is available in the selected target's reference universe. See
+[metadata import ownership](metadata-import.md#host-assembly-service-ownership)
+for cache lifetime and remaining reflection dependencies.
