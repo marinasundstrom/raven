@@ -84,6 +84,16 @@ passes 147 compiler tests on .NET 11, including Self, profile validation, typeof
 callback/tuple compatibility and incremental reuse; compiler builds cover .NET
 10/11. No new native runtime execution is claimed for this extraction.
 
+Resolved CLI contract checks now run in Compilation's shared emission dispatch,
+including the emitting macro-plugin compilation, before invoking the backend.
+The .NET emitter owns output-core identity validation and artifact options. A
+future native emitter must receive a compilation whose selected contract has
+already been validated, then enforce its own artifact/ABI requirements. This
+ownership change preserves current bridge encodings and importer inputs. Validation
+passed 96 compiler tests on .NET 11, including resolved-contract rejection with
+supplied diagnostics and macro-plugin emission; builds cover .NET 10/11. This is
+compiler/CLI evidence, not native runtime execution.
+
 ## Compatibility and replacement work
 
 Explicit selection coexists with legacy core-name triggers. The runtime props, installed bundles and existing callers have not yet migrated

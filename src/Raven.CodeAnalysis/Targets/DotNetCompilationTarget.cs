@@ -9,14 +9,6 @@ namespace Raven.CodeAnalysis.Targets;
 // handles stay here; shared semantic services still have .NET-facing adapters.
 internal sealed class DotNetCompilationTarget
 {
-    private static readonly DiagnosticDescriptor s_unsupportedTargetPlatform = DiagnosticDescriptor.Create(
-        "RAVT005", "Unsupported target platform", "", "",
-        "Target platform '{0}' is not supported by this compiler.", "compiler", DiagnosticSeverity.Error, true);
-
-    private static readonly DiagnosticDescriptor s_invalidTargetCore = DiagnosticDescriptor.Create(
-        "RAVT003", "Invalid target core configuration", "", "",
-        "Target core configuration cannot be used: {0}.", "compiler", DiagnosticSeverity.Error, true);
-
     private readonly Compilation _compilation;
     private readonly Lazy<ReflectionTypeLoader> _reflectionTypeLoader;
     private DotNetMetadataSession _metadataSession = null!;
@@ -28,7 +20,7 @@ internal sealed class DotNetCompilationTarget
         RuntimeContract = compilation.Options.TargetPlatform == TargetPlatform.NeoCLR
             ? new NeoClrCliRuntimeContract(compilation.Options)
             : new DotNetRuntimeContract(compilation.Options);
-        Emitter = new DotNetCompilationEmitter(compilation, this);
+        Emitter = new DotNetCompilationEmitter(compilation);
         // Allocation must not bind or load references: reflection queries may
         // request this projector before setup or during same-thread setup reentrancy.
         _reflectionTypeLoader = new(() => new ReflectionTypeLoader(compilation));
@@ -68,32 +60,11 @@ internal sealed class DotNetCompilationTarget
         return new DotNetSemanticDataLoader(_metadataSession, ReflectionTypeLoader, HostRuntime);
     }
 
-    private static Diagnostic? ConfigurationDiagnostic(string? error)
-        => error is null ? null : Diagnostic.Create(s_invalidTargetCore, Location.None, error);
-
     internal Diagnostic? GetConfigurationDiagnostic()
         => _compilation.Options.TargetPlatform is not (TargetPlatform.DotNet or TargetPlatform.NeoCLR)
-            ? Diagnostic.Create(s_unsupportedTargetPlatform, Location.None, _compilation.Options.TargetPlatform)
-            : ConfigurationDiagnostic(RuntimeContract.GetConfigurationError());
+            ? TargetDiagnostics.UnsupportedPlatform(_compilation.Options.TargetPlatform)
+            : TargetDiagnostics.InvalidConfiguration(RuntimeContract.GetConfigurationError());
 
     internal Diagnostic? GetResolvedConfigurationDiagnostic()
-        => ConfigurationDiagnostic(RuntimeContract.GetResolvedConfigurationError(_compilation, CoreAssembly.GetName().Name));
-
-    internal Diagnostic? ResolveEmitOptions(EmitOptions? requested, out EmitOptions? effective)
-    {
-        effective = requested;
-        if (GetResolvedConfigurationDiagnostic() is { } error)
-            return error;
-        if (_compilation.Options.TargetCoreAssemblyName is null && !_compilation.Options.UsesDiscoveredTargetCore)
-            return null;
-
-        // The selected metadata core supplies the emitted identity; never infer it
-        // from a runtime implementation loaded by the compiler host.
-        var identity = CoreAssembly.GetName();
-        if (requested?.TargetCoreLibraryIdentity is { } explicitIdentity && explicitIdentity.FullName != identity.FullName)
-            return ConfigurationDiagnostic("explicit emission options conflict with the project's target core identity");
-
-        effective = new EmitOptions(identity);
-        return null;
-    }
+        => TargetDiagnostics.InvalidConfiguration(RuntimeContract.GetResolvedConfigurationError(_compilation, CoreAssembly.GetName().Name));
 }

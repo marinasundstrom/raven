@@ -1538,9 +1538,9 @@ target singleton or reused across compilation snapshots.
 Post-load unit validation uses the compilation's assembly-qualified metadata
 lookup, retaining its existing precedence and cache. That helper remains internal;
 no lookup/cache API is added to public consumers. Discovered-core identity is
-passed to the runtime contract as a name. Reflection AssemblyName access and
-EmitOptions construction now reside in `DotNetCompilationTarget`; compilation
-translates the target's validation errors into RAVT003.
+passed to the runtime contract as a name. Emission-option identity comparison and
+EmitOptions construction reside in `DotNetCompilationEmitter`. Target and backend
+validation use `TargetDiagnostics` for the unchanged RAVT003 diagnostic identity.
 
 This extraction preserves validation rules, emitted core identity, and failure
 behavior. Reflection core handles and other .NET dependencies still exist in
@@ -1732,14 +1732,18 @@ can supply that hierarchy without implementing .NET reflection conversion.
 Each .NET compilation target composes an internal ICompilationEmitter. Its Emit
 operation accepts caller-owned output/debug streams and emission options and
 returns EmitResult containing only backend diagnostics. Compilation performs
-setup, semantic checks and macro preparation, then combines its diagnostics with
-the backend result without assuming success. Macro-plugin compilations use their
+setup, semantic checks, macro preparation and resolved-contract validation, then
+combines its diagnostics with the backend result without assuming success. Macro-plugin compilations use their
 own target's emitter and validate against their own resolved metadata context.
 
-DotNetCompilationEmitter asks its target to validate and resolve options before
-constructing a fresh CodeGenerator or writing either stream. The .NET target now
-owns RAVT003 construction as well as its policy. Setup and semantic errors still
-prevent emission. A backend failure preserves earlier semantic warnings. The
+The shared Compilation emission path validates the emitting compilation's resolved
+target contract even when semantic diagnostics were supplied by a caller. Normal
+and macro-plugin emission use that same path. DotNetCompilationEmitter owns .NET
+artifact-option validation and selects the output core identity from the metadata
+core before constructing a fresh CodeGenerator or writing either stream. It no
+longer depends on DotNetCompilationTarget. TargetDiagnostics preserves RAVT003 and
+RAVT005 identity across target/backend validation. Setup, semantic and resolved
+contract errors still prevent emission. A failure preserves earlier semantic warnings. The
 service does not dispose caller streams or cache mutable code generators between
 emissions. Unexpected implementation or I/O exceptions retain existing behavior;
 this change does not catch all exceptions or promise transactional output.
@@ -2096,3 +2100,14 @@ contracts still use the same .NET metadata loader and emitter. The selection doe
 not introduce independent backend choices, new public options, or a capability
 registry. No syntax, bridge encoding, configuration diagnostic or emission ABI
 changes are intended. Native Self is not implicitly enabled by the neoCLR preset.
+
+### Contract validation before backend dispatch (2026-09-30)
+
+Resolved contract validity belongs to the shared emission pipeline; each backend
+owns its artifact-specific option checks. Supplying cached semantic diagnostics
+cannot establish or bypass the resolved runtime contract. Missing typeof providers
+and invalid unit shapes reject before either caller-owned stream changes, retaining
+supplied warnings and stream positions. Existing emission-option conflicts remain
+backend errors. These internal ownership changes preserve public options, error
+precedence and output ABI for .NET and the neoCLR CLI bridge. The guarantee covers
+validation failures, not rollback after arbitrary I/O or code-generation failures.

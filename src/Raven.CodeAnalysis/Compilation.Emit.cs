@@ -54,12 +54,26 @@ public partial class Compilation
                 return new EmitResult(false, effectiveDiagnostics);
             }
 
-            var pluginResult = pluginCompilation._target.Emitter.Emit(peStream, pdbStream, emitOptions);
-            return new EmitResult(pluginResult.Success, effectiveDiagnostics.AddRange(pluginResult.Diagnostics));
+            return pluginCompilation.EmitThroughTarget(peStream, pdbStream, effectiveDiagnostics, emitOptions);
         }
 
-        var result = _target.Emitter.Emit(peStream, pdbStream, emitOptions);
-        return new EmitResult(result.Success, effectiveDiagnostics.AddRange(result.Diagnostics));
+        return EmitThroughTarget(peStream, pdbStream, effectiveDiagnostics, emitOptions);
+    }
+
+    private EmitResult EmitThroughTarget(
+        Stream output,
+        Stream? debugOutput,
+        ImmutableArray<Diagnostic> diagnostics,
+        EmitOptions? options)
+    {
+        // Supplied semantic diagnostics do not establish target compatibility.
+        // Validate the emitting compilation's resolved contract before entering
+        // any backend, including when emitting a lowered macro-plugin compilation.
+        if (GetTargetCoreConfigurationDiagnostic() is { } diagnostic)
+            return new EmitResult(false, diagnostics.Add(diagnostic));
+
+        var result = _target.Emitter.Emit(output, debugOutput, options);
+        return new EmitResult(result.Success, diagnostics.AddRange(result.Diagnostics));
     }
 
     private Compilation CreateMacroPluginCompilation()
