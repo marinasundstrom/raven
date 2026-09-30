@@ -305,3 +305,17 @@ interfaces for a non-PE base. Native storage, metadata and codegen are still nee
 Non-PE provider tests cover shape dispatch, duplicate interfaces and member owner
 identity; existing array, variance, iteration-contract and imported-array tests
 validate the CLI bridge. Native neoCLR execution is not claimed.
+
+### Constructed parameter default preservation (2026-09-30)
+
+The shared constructed-method and containing-type parameter wrappers now preserve
+the provider's type-default flag. CLI OptionalAttribute decoding remains PE-owned;
+wrapping the resulting parameter no longer erases that fact before binding or
+display. No bridge encoding changes. Native providers using the same capability
+benefit from identical forwarding without a dependency on CLI attributes.
+
+Six regressions cover generic method/type substitution and nested wrappers, with
+positive type-default and negative literal controls. Before the correction, all
+three type-default cases bound as errors; afterward they retain the constructed
+parameter type and display `default`. This is symbol/binding validation on .NET,
+not native neoCLR execution evidence.
