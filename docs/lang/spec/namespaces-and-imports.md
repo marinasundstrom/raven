@@ -217,7 +217,7 @@ when imported from a Raven library. Their CLI container carries
 `System.Runtime.CompilerServices.TopLevelAttribute`. The emitter resolves that marker
 from supplied reference metadata before considering host runtime types, so an
 alternative target can provide its own declaration without loading it into the host.
-Targets must provide the marker to preserve this metadata projection; its absence
+CLI targets must provide the marker to preserve this metadata projection; its absence
 currently leaves the container unmarked rather than producing a dedicated diagnostic.
 
 Wildcard imports and completion use the marked container's accessible static members.

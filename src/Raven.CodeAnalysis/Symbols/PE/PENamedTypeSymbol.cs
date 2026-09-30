@@ -8,10 +8,11 @@ using System.Net.NetworkInformation;
 using System.Reflection;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
+internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespaceMemberContainer
 {
     private static readonly Dictionary<string, SpecialType> s_specialTypeByFullName = new(StringComparer.Ordinal)
     {
@@ -336,6 +337,12 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol
             return null;
         }
     }
+
+    bool INamespaceMemberContainer.IsNamespaceMemberContainer => HasCustomAttribute(static name =>
+        string.Equals(name, "TopLevel", StringComparison.Ordinal) ||
+        string.Equals(name, "TopLevelAttribute", StringComparison.Ordinal) ||
+        name.EndsWith(".TopLevel", StringComparison.Ordinal) ||
+        name.EndsWith(".TopLevelAttribute", StringComparison.Ordinal));
 
     internal bool HasCustomAttribute(Func<string, bool> predicate)
     {
