@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Expose resolved binary operator kind, lifting, checked arithmetic
+  and operator-method facts through the public Operations API. Correct invocation
+  Instance to return the bound receiver (null for static calls), rather than a
+  callee method group. External IBinaryOperation implementers need the new members;
+  binding and ordinary .NET/CLI emission are unchanged.
+
 - **2026-09-30:** Preserve provider type-default facts through constructed method
   and type parameter wrappers. Wrapped struct defaults now bind and display as
   defaults instead of being treated as invalid literals.

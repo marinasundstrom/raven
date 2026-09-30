@@ -197,6 +197,18 @@ public interface IUnaryOperation : IOperation
 
 public interface IBinaryOperation : IOperation
 {
+    /// <summary>Gets the bound operator, not an interpretation of its syntax token.</summary>
+    BinaryOperatorKind OperatorKind { get; }
+
+    /// <summary>Gets whether the bound operator is lifted over nullable values.</summary>
+    bool IsLifted { get; }
+
+    /// <summary>Gets whether the bound operator carries checked arithmetic semantics.</summary>
+    bool IsChecked { get; }
+
+    /// <summary>Gets the selected operator method, or null for an intrinsic operation.</summary>
+    IMethodSymbol? OperatorMethod { get; }
+
     IOperation? Left { get; }
 
     IOperation? Right { get; }

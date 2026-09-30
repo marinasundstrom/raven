@@ -319,3 +319,14 @@ positive type-default and negative literal controls. Before the correction, all
 three type-default cases bound as errors; afterward they retain the constructed
 parameter type and display `default`. This is symbol/binding validation on .NET,
 not native neoCLR execution evidence.
+
+### Shared operation API prerequisite (2026-09-30)
+
+The first independent-metadata consumer exposed missing binary operator facts and an
+incorrect invocation Instance projection. Raven now exposes bound operator facts and
+actual receivers through its public operations API. No CLI encoding or Runtime Contract
+configuration changes. The correction belongs to shared compiler APIs, not to a permanent
+neoCLR-specific branch. The current CLI bridge still owns its existing mapping; this
+API improvement only makes a later native emitter possible without syntax guessing.
+Focused .NET operations tests cover this surface; native consumer evidence is recorded
+separately with its exact supported subset.

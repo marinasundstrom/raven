@@ -138,3 +138,35 @@ more control-flow and reference constructs now map to dedicated operation
 kinds, several concepts—such as control flow regions and data flow analysis—are
 not yet represented. Future work will flesh out specialized operation types,
 improve child synthesis, and surface additional semantic annotations.
+
+## Resolved binary operators and invocation receivers (2026-09-30)
+
+`IBinaryOperation` now exposes `OperatorKind`, `IsLifted`, `IsChecked`, and
+`OperatorMethod`. `Raven.CodeAnalysis.Operations.BinaryOperatorKind` describes the
+resolved base operation: Add, Subtract, Multiply, Divide, Remainder, comparisons,
+bitwise/logical operations, shifts, or Concatenate. None denotes no ordinary binary
+operator. It is not a flags enum; nullable lifting and checked arithmetic are separate
+facts copied from binding. `OperatorMethod` is the selected method where that bound
+binary representation carries one, otherwise null. These members expose existing
+semantic decisions rather than reinterpreting source tokens or changing evaluation.
+
+`ICoalesceOperation` retains its existing inheritance from `IBinaryOperation`, but
+returns None, false/false and null for these ordinary binary facts. Consumers must use
+its coalescing operation kind. User-defined operators may already bind as
+`IInvocationOperation`; consume their TargetMethod instead of requiring every operator
+syntax to produce an IBinaryOperation.
+
+`IInvocationOperation.Instance` now describes the bound runtime receiver. Static
+calls return null. Instance calls return a cached receiver operation that participates
+in child traversal and parent links. Previously it projected the invocation's callee
+syntax and could return a method group, including for static calls. This correction
+is useful for analyzers and alternate backends and does not alter binding or emitted IL.
+Arguments retain their existing surface; this change does not claim complete normalized
+argument/extension-receiver support.
+
+The reference behavior is Roslyn's
+[IInvocationOperation](https://learn.microsoft.com/en-us/dotnet/api/microsoft.codeanalysis.operations.iinvocationoperation?view=roslyn-dotnet-5.0.0)
+(receiver versus static calls; documentation checked 2026-09-30). Raven keeps its own
+operation shapes and does not claim exact Roslyn source compatibility. External
+implementations of IBinaryOperation must implement the new members. Ordinary consumers
+can use the semantic properties without depending on internal bound-node types.

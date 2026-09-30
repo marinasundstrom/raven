@@ -825,6 +825,39 @@ internal sealed class BinaryOperation : Operation, IBinaryOperation
 
     internal BoundBinaryOperator Operator => _bound.Operator;
 
+    public BinaryOperatorKind OperatorKind => (_bound.Operator.OperatorKind &
+        ~(global::Raven.CodeAnalysis.BinaryOperatorKind.Lifted | global::Raven.CodeAnalysis.BinaryOperatorKind.Checked)) switch
+    {
+        global::Raven.CodeAnalysis.BinaryOperatorKind.None => BinaryOperatorKind.None,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.Addition => BinaryOperatorKind.Add,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.Subtraction => BinaryOperatorKind.Subtract,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.Multiplication => BinaryOperatorKind.Multiply,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.Division => BinaryOperatorKind.Divide,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.Equality => BinaryOperatorKind.Equals,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.Inequality => BinaryOperatorKind.NotEquals,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.GreaterThan => BinaryOperatorKind.GreaterThan,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.LessThan => BinaryOperatorKind.LessThan,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.GreaterThanOrEqual => BinaryOperatorKind.GreaterThanOrEqual,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.LessThanOrEqual => BinaryOperatorKind.LessThanOrEqual,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.Modulo => BinaryOperatorKind.Remainder,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.BitwiseAnd => BinaryOperatorKind.And,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.BitwiseOr => BinaryOperatorKind.Or,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.BitwiseXor => BinaryOperatorKind.ExclusiveOr,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.LogicalAnd => BinaryOperatorKind.ConditionalAnd,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.LogicalOr => BinaryOperatorKind.ConditionalOr,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.StringConcatenation => BinaryOperatorKind.Concatenate,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.ShiftLeft => BinaryOperatorKind.LeftShift,
+        global::Raven.CodeAnalysis.BinaryOperatorKind.ShiftRight => BinaryOperatorKind.RightShift,
+        _ => BinaryOperatorKind.None
+    };
+
+    public bool IsLifted => (_bound.Operator.OperatorKind & global::Raven.CodeAnalysis.BinaryOperatorKind.Lifted) != 0;
+
+    public bool IsChecked => (_bound.Operator.OperatorKind & global::Raven.CodeAnalysis.BinaryOperatorKind.Checked) != 0;
+
+    public IMethodSymbol? OperatorMethod => _bound.Operator.MethodSymbol;
+
+
     public IOperation? Left => _left ??= SemanticModel.GetOperation(((InfixOperatorExpressionSyntax)Syntax).Left);
 
     public IOperation? Right => _right ??= SemanticModel.GetOperation(((InfixOperatorExpressionSyntax)Syntax).Right);
@@ -851,6 +884,14 @@ internal sealed class CoalesceOperation : Operation, ICoalesceOperation
         : base(semanticModel, OperationKind.Coalesce, syntax, bound.Type, isImplicit)
     {
     }
+
+    public BinaryOperatorKind OperatorKind => BinaryOperatorKind.None;
+
+    public bool IsLifted => false;
+
+    public bool IsChecked => false;
+
+    public IMethodSymbol? OperatorMethod => null;
 
     public IOperation? Left => _left ??= SemanticModel.GetOperation(((NullCoalesceExpressionSyntax)Syntax).Left);
 
@@ -1302,7 +1343,19 @@ internal sealed class InvocationOperation : Operation, IInvocationOperation
 
     public IMethodSymbol TargetMethod => _bound.Method;
 
-    public IOperation? Instance => _instance ??= (Syntax as InvocationExpressionSyntax)?.Expression is { } expr ? SemanticModel.GetOperation(expr) : null;
+    public IOperation? Instance
+    {
+        get
+        {
+            if (TargetMethod.IsStatic)
+                return null;
+            if (_instance is not null || _bound.Receiver is null)
+                return _instance;
+
+            var syntax = SemanticModel.GetSyntax(_bound.Receiver) ?? Syntax;
+            return _instance = OperationFactory.Create(SemanticModel, syntax, _bound.Receiver);
+        }
+    }
 
     public ImmutableArray<IOperation> Arguments
     {

@@ -2025,3 +2025,13 @@ default could therefore report an invalid optional literal, and display could
 lose `default`. The correction is shared across providers and does not change CLI
 encoding or native target availability. Other provider capabilities and synthesized
 parameter adapters require their own forwarding audit.
+
+### Public operation facts for alternate emitters (2026-09-30)
+
+Binary operations now publish resolved operator kind, lifting, checked semantics and
+operator method; invocation Instance now publishes the bound receiver, with null for
+static calls. These are shared compiler facts, with no new Runtime Contract option or
+neoCLR-only semantic policy. Existing .NET and CLI-bridge emission remain unchanged.
+Alternate emitters must reject unsupported flags/operators rather than infer behavior
+from syntax. The independent neoCLR metadata library remains outside compiler symbols
+and bound nodes; a consumer adapter owns the conversion into its builder objects.

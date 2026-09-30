@@ -1829,3 +1829,20 @@ claim .NET Framework, NanoFramework or native neoCLR execution.
 No compiler behavior, target policy or bridge encoding changed in this slice.
 Next: run the isolated runtime gate at the next broader validation checkpoint,
 and continue auditing fact preservation at constructed symbol boundaries.
+
+## Metadata-consumer prerequisite: public operation semantics (2026-09-30)
+
+On `codex/metadata-consumer`, based on main `89ba7ecc9`, expose binary operator facts
+and correct invocation receiver projection. A separate-library native emitter consumer
+found that syntax-only operand/callee views were insufficient. This is shared compiler
+API work, suitable for the shared line independently of the experimental consumer.
+It does not add a neoCLR dependency to Raven.CodeAnalysis.
+
+Baseline: 48 existing OperationTests passed on the unchanged base. Two new receiver
+regressions failed before the correction (static call returned a method group, instance
+call returned a method group rather than its parameter receiver). Final operations and
+contract filter: 58 passed on .NET 11. Fresh-worktree codex-build completed; compiler
+builds succeeded for .NET 10/11. Touched C# whitespace formatting completed with
+workspace-load warnings. No syntax/bound schema, grammar or default emitter changes.
+The public interface gains members; custom IBinaryOperation implementations must adapt.
+Native consumer results are recorded in its own subsequent slice.

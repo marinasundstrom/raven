@@ -154,3 +154,12 @@ latest slices:
 - `IElementAccessOperation`: `Instance`, `Arguments`, `Indexer`
 - `ITupleOperation`: `Elements`
 - `ILambdaOperation`: `Parameters`, `ReturnType`, `Body`, `CandidateDelegates`, `CapturedVariables`
+
+### Binary and invocation facts (2026-09-30)
+
+BinaryOperation now exposes its resolved public operator kind, IsLifted, IsChecked and
+OperatorMethod. CoalesceOperation reports None for the ordinary binary-kind contract.
+InvocationOperation uses its bound receiver instead of the callee method-group syntax,
+and returns null for static calls. This is a semantic API correction, not a new lowering
+or runtime implementation. User operators already represented as invocations retain
+that shape. See [operations API](operations.md#resolved-binary-operators-and-invocation-receivers-2026-09-30).
