@@ -148,3 +148,9 @@ The projection is marked reference-only and contains throwing placeholders, so u
 the original native artifact at runtime. Native bodies and transitive implementation
 dependencies are not projected. See the bridge document for limits and the intended
 replacement by a native semantic provider; the adapter public API is unchanged.
+
+The transitive consumer demonstrates separate compile-time and runtime dependency
+sets: primitive reference projections omit implementation references, while
+`NativeAssemblyDefinition.References` retains them for explicit host/runtime resolution.
+The host must supply the native transitive closure to neoCLR; the emitter does not
+locate files, resolve that closure, or execute dependencies automatically.

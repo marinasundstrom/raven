@@ -77,7 +77,7 @@ public static class MathLibrary {
         return Multiply(value, 2)
     }
     static func Multiply(value: int, factor: int) -> int {
-        return value * factor
+        return Arithmetic.Multiply(value, factor)
     }
 }
 ```
@@ -89,3 +89,25 @@ return 42. The runner also checks missing/wrong-revision dependencies and reject
 private methods, internal/nonstatic types and nonpublic library globals with source
 locations and unchanged failed output. This public-only library slice does not add
 visibility metadata or a native symbol provider; console globals remain supported.
+
+## Transitive runtime graph
+
+Arithmetic.rvn is compiled first:
+
+```raven
+public static class Arithmetic {
+    static func Multiply(value: int, factor: int) -> int {
+        return value * factor
+    }
+}
+```
+
+Library.rvn compiles against its projected native declarations; the application
+compiles against Library.rvn's projection only. `NativeAssemblyDefinition.References`
+retains ArithmeticDependency as a native implementation dependency, although the outer
+reference PE omits it because signatures are primitive-only. The runner asserts that
+Arithmetic is absent from application symbol lookup. Both original native library
+files are explicitly supplied to neoCLR. Both module orders execute to 42; missing
+and wrong-revision direct/transitive dependencies must fail native verification.
+The validation report retains both dependency/projection hashes. This proves format-5
+runtime acceptance, not direct PE/#Neo runtime loading or a native semantic provider.

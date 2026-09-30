@@ -2162,3 +2162,34 @@ checks pass. The .NET primitive Runtime Contract and reference-only input bridge
 explicit; no default .NET behavior, general binder, metadata library API or runtime
 format change was needed. The next replacement remains a native semantic provider and
 production target composition, with further supported constructs driven by real cases.
+
+### Transitive native runtime acceptance — 2026-09-30
+
+The end-to-end chain now consists entirely of Raven-compiled native assemblies:
+application -> MetadataProbeLibrary -> ArithmeticDependency. The outer library imports
+the inner library's native declarations through the temporary reference projection.
+The application references only the outer projection; Arithmetic is absent from its
+symbol lookup and the outer reference PE's AssemblyRef rows, since all public
+signatures use primitives. Like .NET reference assemblies, implementation dependencies
+remain outside that compile-time signature surface. They are still required at runtime.
+
+`NativeAssemblyDefinition.References` now exposes the exact direct native identities
+in manifest order as an owned read-only list. It does not resolve dependencies or build
+a transitive closure. The host explicitly supplies both native dependencies to neoCLR.
+The existing runtime reference validator (`src/references.rs` in neoCLR), loader,
+verifier and VM accept the emitted chain: all three application variants return 42,
+and reversed runtime module order also returns 42. Missing direct/transitive modules
+and wrong direct/transitive revisions fail verification with the expected diagnostics.
+No runtime implementation change was necessary for this supported format-5 graph.
+
+This is actual loading and execution of the emitted native format, not a claim based
+on PE readability or reader roundtrips. Reference-only PEs are compiler input only.
+The author reiterated runtime loading as a required acceptance gate. Direct PE/#Neo
+loading and structural NEOX semantics are still unimplemented, and the .NET primitive
+binding bootstrap remains temporary. Neither limitation is hidden by this test.
+
+Validation: 24 C# metadata contract groups pass, including direct identity/list
+ownership and rejection checks; Raven adapter/library/multi-file contracts pass; the
+runtime checks above pass. Reports include both native dependencies and both reference
+projection hashes. Compiler integration remains on codex/metadata-consumer and the
+independent metadata/runtime checkout on codex/extended-cli-metadata.

@@ -26,7 +26,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   the library and application from Raven: support library output and public static
   classes/methods, preserving the public-only metadata boundary with explicit
   rejection of unsupported visibility. Overload resolution, a library-local helper
-  call, missing dependencies and wrong revisions are covered end to end.
+  call, missing dependencies and wrong revisions are covered end to end. Extend the
+  case to two separately compiled native libraries and an application that references
+  only the outer library. Runtime checks cover transitive loading, reversed module
+  order, and missing/wrong-revision transitive dependencies; all successful cases return 42.
 
 - **2026-09-30:** Keep imported signature-only parameters required when their optional
   CLI Param row is absent. Check row presence and default availability before
