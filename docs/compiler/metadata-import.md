@@ -23,6 +23,25 @@ not dispose its context because other snapshots can still use it; the existing
 collection-based lifetime is retained. Deterministic shared-session disposal is
 not introduced by this extraction.
 
+### Existing resolver compatibility rules
+
+The .NET resolver keeps the first supplied path for each full assembly identity,
+then sorts the remaining paths case-insensitively. Resolution prefers an exact
+identity match and otherwise uses the first simple-name match in that sorted
+set. This fallback is not strict version admission. Invalid, missing, or
+non-managed candidates are skipped while constructing the resolver; this does
+not guarantee that directly importing those references will succeed.
+
+Session path loading first reads the requested file. If it fails and a fallback
+identity was supplied, the session attempts identity resolution. Without that
+identity, missing-file and invalid-image failures propagate. The resolver itself
+does not discover host assemblies outside its supplied paths; host-assisted
+discovery is performed by `Compilation` before constructing the session.
+
+`DotNetMetadataResolutionTests` characterizes these compatibility rules using
+isolated CLI fixtures. Future strict target admission needs a separate contract
+and diagnostics rather than an incidental change to these fallback rules.
+
 ## Configuration
 
 `CompilationOptions.WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))`

@@ -135,3 +135,38 @@ skips on net11.0. The compiler built for net10.0 and net11.0 with no warnings
 or errors. Whitespace formatting completed (the test formatter reported
 workspace-load warnings), and `git diff --check` passed. This is modern .NET
 validation, not neoCLR or browser execution or full bootstrap qualification.
+
+## Slice 5: reference resolution compatibility coverage
+
+Added ten cases in `DotNetMetadataResolutionTests`, using disposable temporary
+directories and minimal CLI assemblies with distinct public type surfaces:
+
+- Duplicate full identities preserve input precedence before path sorting.
+- Exact identity selection takes priority over simple-name fallback.
+- Simple-name fallback follows sorted paths, independently of input order.
+- Missing, malformed, empty, and invalid-path candidates do not prevent valid
+  reference resolution during context construction.
+- An assembly loaded in the host is not implicitly available to the resolver.
+- Missing/corrupt path loads can use a supplied identity fallback; without one,
+  the original missing-file or invalid-image failure is reported.
+
+These characterize current .NET behavior, including permissive fallback. They
+do not introduce strict target admission or new compiler diagnostics. The
+compiler implementation is unchanged. The import guide now describes the rules
+and distinguishes candidate filtering from direct reference loading.
+
+The 89-test baseline passed before changes. All ten new cases passed on net11.0
+with SDK `11.0.100-rc.1.26425.128`, using the test project with
+`--no-restore --filter 'FullyQualifiedName~DotNetMetadataResolutionTests'
+/property:WarningLevel=0 /property:BuildProjectReferences=false`.
+Whitespace formatting completed with workspace-load warnings.
+
+The post-change combined filter (slice 4's four classes plus
+`DotNetMetadataResolutionTests`) passed all 99 tests with no failures/skips,
+using `--no-build --no-restore /property:WarningLevel=0` after rebuilding the
+test project. `git diff --check` passed. No compiler production code changed;
+the tested execution target was .NET 11, not neoCLR or browser/WASI.
+
+Next: separate reference-set construction from host path registration, preserving
+the characterized policies. Exact-identity admission and configuration diagnostics
+remain distinct future decisions; this coverage does not authorize changing them.
