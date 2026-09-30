@@ -71,7 +71,7 @@ public static class NeoClrCompilationEmitter
         var result = Emit(compilation, native, options);
         if (!result.Success) return result;
         byte[] image;
-        try { image = NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.Write(native.ToArray(), options.CoreLibrary); }
+        try { image = NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(native.ToArray(), options.CoreLibrary); }
         catch (Exception error) when (error is InvalidDataException or ArgumentException)
         {
             return new(false, result.Diagnostics.Add(Diagnostic.Create(Encoding, Location.None, error.Message)));

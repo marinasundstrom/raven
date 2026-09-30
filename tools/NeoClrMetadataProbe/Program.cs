@@ -118,7 +118,7 @@ var multiFilePaths = new List<string>();
 for (int i = 0; i < multiFileImages.Length; i++)
 {
     var path = Path.Combine(output, $"MultiFile{i}.dll");
-    File.WriteAllBytes(path, RuntimeAssemblyContainer.Write(multiFileImages[i], core));
+    File.WriteAllBytes(path, RuntimeAssemblyContainer.WriteBinary(multiFileImages[i], core));
     multiFilePaths.Add(path);
     await Command(0, "verify", path, "--module", libraryPath, "--module", arithmeticReferencePath);
     var multiResult = await Command(42, "run", path, "--module", libraryPath, "--module", arithmeticReferencePath, "--show-result");
@@ -180,9 +180,10 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     productionTargetIntegrated = false,
     nativeMetadataLoader = true,
     nativeCompilerSymbolProvider = false,
-    nativePayloadEncoding = "UTF-8 JSON format 5",
-    parsingSpeedupMeasured = false,
-    runtimeContainer = "PE/#Neo required native execution section 256 schema 1",
+    nativePayloadEncoding = "CBOR execution schema 2, semantic format 5",
+    parsingSpeedupMeasured = false, // This correctness probe does not run the separate runtime benchmark.
+    runtimePayloadRequiresJsonParsing = false,
+    runtimeContainer = "PE/#Neo required native execution section 256 schema 2",
     samePeFilesUsedForCompilerReferencesAndRuntime = true,
     arbitraryCilExecution = false,
     unsupportedOperationRejected = true,

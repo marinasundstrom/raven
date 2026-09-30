@@ -32,7 +32,7 @@ maps source top-level functions to native functions and the imported call to the
 matching projected read-only dependency definition through `AssemblyBuilder.ImportReference`.
 The adapter receives no producer builder graph; it explicitly asserts the fixture
 core contract. The separate API emits native format-5 bytes and embeds them in
-required #Neo section 256/schema 1 alongside a CLI reference projection. neoCLR
+required #Neo section 256/schema 2 alongside a CLI reference projection. neoCLR
 loads the application and both library PE files, verifies native metadata/bodies,
 and must report/exit with 42. No CLI body importer is used. Unsupported division must produce NEOMETA001; an unresolved imported
 method must retain a compiler binding error. The runner retains source, outputs and
@@ -110,9 +110,10 @@ reference PE omits it because signatures are primitive-only. The runner asserts 
 Arithmetic is absent from application symbol lookup. Both PE/#Neo library
 files are explicitly supplied to neoCLR. Both module orders execute to 42; missing
 and wrong-revision direct/transitive dependencies must fail native verification.
-The validation report retains both dependency/projection hashes. This now proves direct PE/#Neo runtime loading. The execution section still uses
-format-5 JSON, so text parsing cost is not removed. A native compiler semantic
-provider, binary native encoding and production target registration remain open.
+The validation report retains both dependency/projection hashes. This now proves direct PE/#Neo runtime loading. The execution section now uses
+bounded CBOR and the runtime decodes directly to its module model. Compiler-host
+emission retains a JSON intermediate. A native compiler semantic provider, indexed
+native tables and production target registration remain open.
 
 ## First acceptance cases: Hello World and a function call
 
@@ -136,3 +137,10 @@ console calls are unsupported. Only the string-literal WriteLine overload is map
 to the bundled native System library. Wrong/unregistered reference bindings, other
 overloads and Write are rejected with unchanged output. The full probe runs these
 cases as well as the existing arithmetic/dependency checks and records PE hashes.
+
+The schema-2 binary decoder retains native semantic format 5 and all existing bounds,
+dependency identities, console behavior and diagnostics. This is a provisional object
+encoding, not a finalized indexed metadata layout. Older schema-1-only runtimes reject
+new output; the matching runtime retains schema-1 compatibility. Loading performance
+is measured separately in neoCLR's `examples/metadata_loading.rs`, not inferred from
+these execution results.

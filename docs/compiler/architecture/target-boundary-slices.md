@@ -2057,3 +2057,36 @@ points remain outside this slice. The production replacement belongs in the nati
 platform-call/type contracts; Raven owns semantic matching, the independent API owns
 encoding, and neoCLR owns System output. C# checks reject missing/wrong/unregistered
 bindings and unsupported overloads without touching output.
+
+### Binary payload boundary — 2026-09-30
+
+The opt-in PE emitter now uses the independent `RuntimeAssemblyContainer.WriteBinary`
+API. Required section 256/schema 2 carries bounded CBOR of the same native format-5
+model. neoCLR's CLI/module path preserves binary input and deserializes directly into
+runtime metadata, without JSON text conversion. The compiler-host intermediate and
+reference-only CLI projection remain unchanged. Explicit core/Console bindings and
+ordinary .NET target defaults are unchanged. Schema-1 containers remain readable;
+schema-1-only runtimes reject new output. Match the experimental runtime branch.
+
+Hello World, entry-point function calls, both source-file orders and the transitive
+library case pass with binary containers. Required schema/bounds/UTF-8/duplicate-key
+rejections are covered by the metadata/runtime tests. Native symbol-provider work,
+indexed tables, wider signatures and production registration remain open. The runtime
+repository records load/link/verify/execute timings separately; no execution-speed
+claim follows from avoiding JSON parsing.
+
+### Class-library bootstrap direction
+
+The author identifies compiling neoCLR's runtime class library and loading its symbols
+into Raven as the next important consumer. Existing JSON may first be translated into
+neoCLR assemblies, preserving native metadata and bodies, before direct emission
+covers the complete library. The current bounded writer/reader is not yet a general
+class-library translator. A real library slice should drive missing signature/member
+coverage, with unsupported information rejected rather than omitted.
+
+The existing .NET semantic provider can initially consume an explicit CLI reference
+projection because the declaration models are still similar. Native metadata remains
+authoritative as semantics diverge; keep projection mappings behind the compiler's
+loader contract so a native ISemanticDataLoader can replace them. The independent
+metadata project stays separate from Raven. This is a bootstrap plan, not a claim
+that System.Runtime already compiles through this experimental emitter.

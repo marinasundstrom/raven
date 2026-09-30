@@ -9,12 +9,19 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   library PE files for Raven reference binding and neoCLR runtime metadata loading;
   the two-library chain and single/multi-file cases return 42 in both module orders.
   Preserve diagnostics, failed output and caller stream/I/O contracts. The native
-  section still contains format-5 JSON; binary payloads, faster parsing, a native
-  symbol provider and production target registration remain pending.
+  section now has a binary format-5 encoding; a native symbol provider and production
+  target registration remain pending.
   Add the author's initial Hello World targets: direct output and Main calling a
   separate function both load/verify/run as PE/#Neo, print exactly one line and exit
   zero. Console literal output requires an explicit registered reference contract;
   missing/wrong bindings and unsupported overloads preserve failed output.
+  Switch experimental PE emission to binary execution schema 2 (bounded CBOR).
+  The runtime reads it directly into metadata without JSON parsing; Hello World,
+  function calls and the transitive dependency cases pass. Use a matching runtime:
+  older schema-1-only loaders reject schema 2. Explicit contracts and ordinary .NET
+  defaults are unchanged; JSON Emit remains available. Record the author-proposed
+  class-library JSON translation/bootstrap path for Raven symbol loading; that
+  broader translator and native symbol provider remain planned.
   Earlier slices add an opt-in compiler operations consumer for the independent
   neoCLR metadata library. Raven binds an API-produced PE dependency; the adapter
   emits a native application and neoCLR verifies/runs it with result 42. Unsupported

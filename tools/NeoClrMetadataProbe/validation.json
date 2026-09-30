@@ -3,8 +3,8 @@
   "result": 42,
   "helloWorldDirectAndFunctionCall": true,
   "helloWorldPeSha256": [
-    "8e0f37fb46fe7cec101bc04b32a68b5c300bf9ae3301fab8bfdf3d24615b9d1a",
-    "2c25bb754e60ab0cde2ef754ea7a8190aafe79786edbd01afbba1e1890dff408"
+    "93ff54c469f687cfe0aa655f75e53924903711225820dfa8123e46d8d49ef31e",
+    "bc02bdf97a590b7d23fb919e5c00627c2a3f4e816551bf10edfcd190c6173fbf"
   ],
   "source": "Raven public semantic operations",
   "metadataLibraryIndependent": true,
@@ -21,34 +21,35 @@
   "wrongTransitiveRevisionRejected": true,
   "bothRuntimeModuleOrdersExecuted": true,
   "transitiveDependencySha256": "6c81c6f593171c1a949d12ababc38c78a9bcd76dfb07be9be9a0ab0a909e03a2",
-  "transitiveReferenceProjectionSha256": "1f6a9b2cb0c029c5fb8d55aadd168bd13a57e685dad9de1358a5ed488a10194d",
+  "transitiveReferenceProjectionSha256": "79b8e3d5bda8472ae1c296fc008c21d0334c7ff61a4a27c980ebf316ceeb356e",
   "missingDependencyRejected": true,
   "wrongRevisionRejected": true,
   "referenceOnlyProjection": true,
-  "referenceProjectionSha256": "6eb0d1930ee86429cae59647a442e3e31134e46be07e622a9cdbe6c9556938d9",
+  "referenceProjectionSha256": "887315e5d4f930a10489b26b28fb6b5ab8bc853bf754b8841d313049eea120e8",
   "emitter": "compiler-owned opt-in adapter to PE/#Neo native format 5",
   "diagnosticAndStreamContractsChecked": true,
   "multiFileCrossFunctionCalls": true,
   "bothFileOrdersExecuted": true,
   "laterFileDiagnosticChecked": true,
   "multiFileApplicationSha256": [
-    "59d09d05aa8448fe490bd1a17289c482771099fd097ea9e6ae485dafdd2340f2",
-    "d4e0fa6feaa83a4caa419cb2d614c155a17488d39def3241892f06e2c4d499e6"
+    "f3db5ebd0552738405fb9a0e3e062a9c68ac474da96dda6c0e95e513f1ce4808",
+    "8663831979ee8f96fd6353e2ce1be906418bc6b927a4d6cd126b7ffbd55945d9"
   ],
-  "adapterSha256": "1a1768da37eb2656d989c6d43ae02d587529e123ea42a4cfb89490fc0ab09335",
+  "adapterSha256": "bc4be9b484c97e8cde74ef3c08299e23b4cdb5155a20e6ab511456a282c4962d",
   "productionTargetIntegrated": false,
   "nativeMetadataLoader": true,
   "nativeCompilerSymbolProvider": false,
-  "nativePayloadEncoding": "UTF-8 JSON format 5",
+  "nativePayloadEncoding": "CBOR execution schema 2, semantic format 5",
   "parsingSpeedupMeasured": false,
-  "runtimeContainer": "PE/#Neo required native execution section 256 schema 1",
+  "runtimePayloadRequiresJsonParsing": false,
+  "runtimeContainer": "PE/#Neo required native execution section 256 schema 2",
   "samePeFilesUsedForCompilerReferencesAndRuntime": true,
   "arbitraryCilExecution": false,
   "unsupportedOperationRejected": true,
   "bindingErrorRejected": true,
-  "compilerSha256": "5b567be27d2ff8f8effd1032c744db970f20a6007925fa47fc857751d0e58e6b",
-  "metadataApiSha256": "8ac8ad45a9d96c61fc715db772978935dfec2208b1acf110ee1f1ee1c7ced1eb",
-  "runtimeSha256": "92cdeff8b3cc6d968658e1aa85cca00664095399042b704f81e51b061eb14721",
-  "applicationSha256": "8f81503d7fca2b3d392b41efbc021d35b20324fe3f4825fc389a1e97f57706ec",
-  "dependencySha256": "6eb0d1930ee86429cae59647a442e3e31134e46be07e622a9cdbe6c9556938d9"
+  "compilerSha256": "ff9968071b8aae109b7c4e9eb7edadf82e2ca2c846e2df9a8bccf669d21b2bdc",
+  "metadataApiSha256": "313822ff7827501de650d21458ad54bd3a355961430275624eb3c2cb739c2da7",
+  "runtimeSha256": "6bd87333fe62463c427aaa5bec6edf00e278ffe2469b7732622ff533ed11ad9d",
+  "applicationSha256": "31dd5e20379c07395bff4debd2e06ba2a4ad57fac30b8937c0b896ec8e1fd1b0",
+  "dependencySha256": "887315e5d4f930a10489b26b28fb6b5ab8bc853bf754b8841d313049eea120e8"
 }

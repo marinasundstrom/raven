@@ -162,7 +162,7 @@ locate files, resolve that closure, or execute dependencies automatically.
 
 `EmitMetadataAssembly` accepts the same compilation, stream and options as `Emit`.
 It validates/emits to a private native buffer, then calls the separate metadata API's
-`RuntimeAssemblyContainer.Write` before writing caller output. It returns the same
+`RuntimeAssemblyContainer.WriteBinary` before writing caller output. It returns the same
 diagnostic result: compiler/unsupported-input failures are preserved, container
 validation failures are NEOMETA003, and failed validation leaves the caller's bytes
 and position unchanged. Null/unwritable arguments throw; caller I/O exceptions
@@ -170,8 +170,9 @@ propagate and may leave partial output. The stream is never closed.
 
 `Emit` continues returning format-5 JSON. `EmitMetadataAssembly` instead returns an
 unsigned PE32 with a reference-only CLI projection and required #Neo execution section
-256/schema 1 containing those native bytes. The native payload remains JSON; no
-faster-loading claim or binary-native decoder is implied. The entire envelope is
+256/schema 2 containing a bounded CBOR encoding of the native module. Runtime
+loading now avoids JSON parsing; schema 1 remains readable by the matching runtime.
+Compiler-host emission still uses JSON as an intermediate. The entire envelope is
 limited to 1 MiB. Projection MVIDs are fresh, so PE byte determinism is not promised.
 
 The host can register a library container directly with `MetadataReference.CreateFromFile`
@@ -209,3 +210,12 @@ in the native body. Ordinary .NET target behavior remains unchanged.
 Hello World directly, then Main returning `Greet()` where Greet prints the line. Both
 verify/load/run as PE/#Neo, print exactly one line and exit zero. Entry points and
 source helper signatures remain Int32 in this bounded slice.
+
+### Binary payload migration
+
+As of this feature-branch slice, EmitMetadataAssembly emits required execution schema
+2. A schema-1-only neoCLR runtime fails closed; use the matching metadata/runtime
+checkout. Emit continues returning JSON, and the independent library's Write continues
+producing schema-1 PEs when compatibility output is needed. No Runtime Contract
+configuration, ordinary .NET behavior, Console mapping or signature scope changes.
+The compiler's native semantic provider and production target registration remain open.
