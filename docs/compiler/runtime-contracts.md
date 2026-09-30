@@ -2219,3 +2219,21 @@ report count failure. These details are not requirements on native metadata.
 PE-specific fast conversion scoring remains in the semantic model for a later
 slice; this is a parameter-fact boundary, not complete signature independence.
 No public cache API, syntax or emitted metadata changes.
+
+### Available-state conversion shortcut ownership (2026-09-30)
+
+`IParameterConversionClassifier` separates encoded-parameter conversion shortcuts
+from shared candidate ranking. A provider returns a conversion category or
+reports the shortcut unavailable. Shared `ParameterConversionQueries` retains
+identity/numeric/object ranking and distinguishes a classified rejection from an
+unavailable answer, which permits normal symbol-based conversion fallback.
+`Compilation.ClassifyConversion` remains the general conversion authority.
+
+PE owns the existing CLI special-type-name mapping, rank-one array name matching
+and implicit numeric shortcut table. Semantic-model invocation scoring now uses
+`IMethodParameterInfo` for lazy providers and the classifier when available;
+extension receiver scoring uses the same classifier. It no longer selects these
+paths by testing for `PEMethodSymbol`. Source/full-signature behavior and scoring
+weights are unchanged. This is an internal available-state optimization contract,
+not a new language conversion rule or a requirement that native providers use
+CLI names. Other runtime-specific semantic paths remain future work.

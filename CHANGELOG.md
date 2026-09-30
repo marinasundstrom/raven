@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Separate available-state parameter conversion classification
+  from shared candidate ranking. Keep CLI type-name shortcuts in the PE provider
+  and remove PE method checks from semantic-model invocation scoring.
+
 - **2026-09-30:** Make lazy parameter count, type and usage queries provider-owned.
   Preserve PE decoding and semantic-model lookup behavior; keep unavailable
   provider facts from forcing full signature loading.

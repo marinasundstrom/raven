@@ -240,3 +240,20 @@ scoring still has PE-specific paths and is not covered by this abstraction.
 Semantic-model caching and optional/params regressions validate current CLI
 behavior; non-PE fixtures cover lazy dispatch and failure propagation. No native
 neoCLR execution is claimed.
+
+### Available-state conversion classification (2026-09-30)
+
+The bridge's quick argument/receiver conversion classification now resides in
+`PEMethodSymbol.ParameterConversions`, behind `IParameterConversionClassifier`.
+It preserves CLI name equality (including supported rank-one array shapes), the
+existing numeric widening table and the System.Object fallback. Unrecognized
+argument shapes or unreadable parameter names decline the shortcut; classified
+nonmatches retain the existing rejection behavior. This bounded table is not
+complete conversion analysis and is not a native neoCLR conversion specification.
+
+Core lookup owns candidate ranking and general symbol-conversion fallback. A
+native provider can decline this optional shortcut or supply classifications from
+its own semantic representation; full native metadata and backend support are
+still required. Non-PE tests verify ranking, context forwarding and rejection vs
+unavailable results without signature loading. PE fixtures and semantic-model
+caching tests validate the CLI behavior; native execution is not claimed.
