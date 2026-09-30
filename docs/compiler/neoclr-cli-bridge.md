@@ -29,7 +29,7 @@ on neoCLR. Preserve snapshot-owned symbols and incremental correctness throughou
 General Raven target plumbing and the existing nominal delegate ABI are on shared
 main. Native structural Function work is reserved for Raven
 `codex/neoclr-structural-types` and is not enabled on main. Native structural
-Function support is on neoCLR's `feature/function-types` branch. The old native
+Function support is on neoCLR's `codex/structural-types` branch. The old native
 Self branch inherited that experiment; integration extracts Self onto nominal main
 instead of merging its structural ancestry. These are different
 repositories and different integration states. Native Function types remain deliberately deferred: the author requires neoCLR's

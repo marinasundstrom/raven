@@ -2,7 +2,7 @@
 
 Current status (2026-09-30): native Function/structural-type work is deferred on
 feature branches in both repositories. Raven `codex/neoclr-structural-types` carries
-the experimental integration notes and future compiler work; neoCLR uses `feature/function-types`.
+the experimental integration notes and future compiler work; neoCLR uses `codex/structural-types`.
 The notes below describe that experimental history, not supported main behavior.
 Ordinary Raven function syntax and .NET delegates remain on main.
 
