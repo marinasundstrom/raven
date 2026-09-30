@@ -1,9 +1,10 @@
 using System;
+using System.Linq;
 
 namespace Raven.CodeAnalysis.Targets;
 
 // Names and representations belong to the platform contract, not its loader.
-internal sealed class DotNetRuntimeContract(CompilationOptions options)
+internal sealed partial class DotNetRuntimeContract(CompilationOptions options)
 {
     internal string PreferredSpecialTypeAssemblyName => "System.Runtime";
 
@@ -36,6 +37,28 @@ internal sealed class DotNetRuntimeContract(CompilationOptions options)
         {
             return "the typeof contract requires assembly, type-info interface and context type names";
         }
+
+        return null;
+    }
+
+    internal string? GetResolvedConfigurationError(Compilation compilation, string? metadataCoreName)
+    {
+        if (GetConfigurationError() is { } error)
+            return error;
+
+        if (options.RuntimeTypeOfContract is not null && ResolveTypeOf(compilation) is null)
+            return "the typeof contract requires a public interface and context in the configured assembly, with public static Current and instance GetTypeInfoFromHandle(RuntimeTypeHandle) returning that interface";
+
+        if (options.RuntimeUnitContract is { } unit)
+        {
+            var type = compilation.GetTypeByMetadataName(unit.TypeName, unit.AssemblyName);
+            if (type is null || !type.IsValueType || type.Arity != 0 || type.ContainingType is not null || type.ContainingAssembly?.Name != unit.AssemblyName
+                || type.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic))
+                return "the unit contract must name an empty value type in the target core";
+        }
+
+        if (options.TargetCoreAssemblyName is { } name && options.UsesDiscoveredTargetCore && metadataCoreName != name)
+            return "emission requires the same explicitly supplied metadata core assembly";
 
         return null;
     }

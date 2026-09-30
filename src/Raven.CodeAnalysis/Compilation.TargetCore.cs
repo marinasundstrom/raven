@@ -1,5 +1,3 @@
-using System.Linq;
-
 namespace Raven.CodeAnalysis;
 
 public partial class Compilation
@@ -15,47 +13,12 @@ public partial class Compilation
         => _target.RuntimeContract.GetConfigurationError() is { } error ? TargetCoreError(error) : null;
 
     private Diagnostic? GetTargetCoreConfigurationDiagnostic()
-    {
-        if (GetTargetOptionsDiagnostic() is { } optionsDiagnostic)
-            return optionsDiagnostic;
-
-        if (Options.RuntimeTypeOfContract is not null && ResolveRuntimeTypeOfContract() is null)
-            return TargetCoreError("the typeof contract requires a public interface and context in the configured assembly, with public static Current and instance GetTypeInfoFromHandle(RuntimeTypeHandle) returning that interface");
-        if (Options.RuntimeUnitContract is { } unit)
-        {
-            var type = GetTypeByMetadataName(unit.TypeName, unit.AssemblyName);
-            if (type is null || !type.IsValueType || type.Arity != 0 || type.ContainingType is not null || type.ContainingAssembly?.Name != unit.AssemblyName
-                || type.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic))
-                return TargetCoreError("the unit contract must name an empty value type in the target core");
-        }
-        if (Options.TargetCoreAssemblyName is not { } name)
-            return null;
-        var metadataCoreName = Options.UsesDiscoveredTargetCore
-            ? CoreAssembly.GetName().Name
-            : Options.MetadataImportOptions?.CoreAssemblyName;
-        if (string.IsNullOrWhiteSpace(name) || metadataCoreName != name)
-            return TargetCoreError("emission requires the same explicitly supplied metadata core assembly");
-        return null;
-    }
+        => _target.GetResolvedConfigurationError(this) is { } error ? TargetCoreError(error) : null;
 
     private bool TryResolveTargetEmitOptions(EmitOptions? requested, out EmitOptions? effective, out Diagnostic? diagnostic)
     {
-        effective = requested;
-        diagnostic = GetTargetCoreConfigurationDiagnostic();
-        if (diagnostic is not null)
-            return false;
-        if (Options.TargetCoreAssemblyName is null && !Options.UsesDiscoveredTargetCore)
-            return true;
-
-        // Metadata setup has already resolved this assembly exclusively from the
-        // supplied references. No host reflection load or runner-side selection.
-        var identity = CoreAssembly.GetName();
-        if (requested?.TargetCoreLibraryIdentity is { } explicitIdentity && explicitIdentity.FullName != identity.FullName)
-        {
-            diagnostic = TargetCoreError("explicit emission options conflict with the project's target core identity");
-            return false;
-        }
-        effective = new EmitOptions(identity);
-        return true;
+        var error = _target.ResolveEmitOptions(this, requested, out effective);
+        diagnostic = error is null ? null : TargetCoreError(error);
+        return diagnostic is null;
     }
 }

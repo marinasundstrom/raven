@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Move resolved unit/typeof contract validation into the .NET
+  runtime contract and emitted core selection into the .NET target. Shared
+  compilation retains semantic lookup and diagnostic reporting. Preserve provider
+  rules and core-selection behavior; extend inaccessible typeof-provider coverage
+  to verify emission is rejected before output is written.
+
 - **2026-09-30:** Validate target-core selection, unit-contract configuration and
   required typeof contract names before loading metadata during diagnostic
   collection or emission. Configuration contradictions report RAVT003 before

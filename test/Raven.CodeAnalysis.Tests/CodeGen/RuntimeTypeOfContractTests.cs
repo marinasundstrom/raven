@@ -137,6 +137,8 @@ public class Client {
     [InlineData("func GetTypeInfoFromHandle", "static func GetTypeInfoFromHandle")]
     [InlineData("handle: RuntimeTypeHandle", "handle: int")]
     [InlineData("public interface Info", "internal interface Info")]
+    [InlineData("public class Context", "internal class Context")]
+    [InlineData("static val Current", "private static val Current")]
     public void MalformedProvider_ReportsConfigurationDiagnostic(string before, string after)
     {
         var original = Create("int", Contract);
@@ -144,5 +146,8 @@ public class Client {
         var compilation = Compilation.Create("test", original.Options)
             .AddSyntaxTrees(tree).AddReferences(TestMetadataReferences.Default);
         Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAVT003");
+        using var output = new MemoryStream();
+        Assert.False(compilation.Emit(output).Success);
+        Assert.Equal(0, output.Length);
     }
 }

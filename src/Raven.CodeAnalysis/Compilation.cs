@@ -3431,7 +3431,7 @@ public partial class Compilation
         EnsureSourceDeclarationsDeclared();
     }
 
-    private INamedTypeSymbol? GetTypeByMetadataName(string metadataName, string preferredAssembly)
+    internal INamedTypeSymbol? GetTypeByMetadataName(string metadataName, string preferredAssembly)
     {
         EnsureSetup();
 

@@ -64,10 +64,13 @@ compilations use their own target when emitting. Diagnostics and target-core
 compatibility checks still run before emission writes output.
 
 The contract currently owns special-type metadata names, the preferred
-`System.Runtime` assembly for those types, and the runtime tuple family.
-Compilation retains semantic lookup and per-snapshot symbol caches. Raven's Unit
-remains compiler-owned. Other protocol mappings and feature policies have not
-yet moved into this contract. Existing experimental tuple and task mappings are
+`System.Runtime` assembly for those types, the runtime tuple family, configuration
+validation, and post-load unit/typeof contract validation. It resolves typeof's
+result type, context getter and resolver method as semantic symbols. The .NET
+target selects and validates the emitted core identity from its metadata session.
+Compilation retains semantic lookup, per-snapshot symbol caches, diagnostic
+reporting and the compiler-owned Unit symbol. Other protocol mappings and feature
+policies have not yet moved into this contract. Existing experimental tuple and task mappings are
 preserved on this branch; this is not a separate neoCLR target implementation.
 
 This is deliberately a concrete .NET composition, not a public provider registry.
@@ -1227,3 +1230,23 @@ broader redesign.
 Validation: emitted metadata and separate-compilation import/display tests run
 on .NET 11; editor signature-help tests run on .NET 10. This does not establish
 execution on .NET Framework, NanoFramework, or neoCLR.
+
+## Resolved contract ownership
+
+`DotNetRuntimeContract.ResolveTypeOf` validates provider visibility, type kinds,
+arity, assembly ownership, Current getter shape, and resolver signature. Binding
+and emission consume the resulting semantic symbols through the existing internal
+compilation entry point. The provider may be source-defined or imported; no host
+reflection is needed to validate it. Resolved symbols are not cached in a shared
+target singleton or reused across compilation snapshots.
+
+Post-load unit validation uses the compilation's assembly-qualified metadata
+lookup, retaining its existing precedence and cache. That helper remains internal;
+no lookup/cache API is added to public consumers. Discovered-core identity is
+passed to the runtime contract as a name. Reflection AssemblyName access and
+EmitOptions construction now reside in `DotNetCompilationTarget`; compilation
+translates the target's validation errors into RAVT003.
+
+This extraction preserves validation rules, emitted core identity, and failure
+behavior. Reflection core handles and other .NET dependencies still exist in
+shared compilation services, so it does not establish a replaceable target yet.

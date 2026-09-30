@@ -561,3 +561,38 @@ the existing driver subprocess fixture used its previously built driver.
 Whitespace formatting completed with test workspace-load warnings, and
 `git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution,
 or full bootstrap qualification is claimed.
+
+## Slice 16: target-owned resolved contract validation
+
+`DotNetRuntimeContract` now resolves typeof providers and validates resolved unit
+and core contracts using semantic symbols. The typeof binding result lives beside
+the contract, while compilation retains its internal forwarding method for binders
+and codegen. No cross-snapshot resolved-symbol cache is introduced.
+
+`DotNetCompilationTarget` owns reflection core-identity access for validation and
+emission-option selection. Compilation translates target errors into RAVT003 and
+retains semantic lookup/caches. Assembly-qualified metadata lookup is made internal
+for the contract adapter, preserving its existing behavior without adding public
+or language-service APIs. Pre-load checks, post-load symbol checks and explicit
+emit-identity conflict checks retain their ordering and policies.
+
+Existing source/imported typeof runtime cases and unit/core tests exercise the
+extraction. Added inaccessible context-class and Current-getter cases and verify
+all malformed-provider cases reject emission without writing output.
+
+Next: continue reducing reflection core/type-projection dependencies in shared
+compilation before exposing a replaceable target. Independent main-based validation
+remains required for integration; experimental neoCLR mappings stay on this branch.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 57 tests across
+TargetCoreSelectionTests, DotNetCompilationPresetTests,
+TargetInitializationDiagnosticTests, TargetConfigurationDiagnosticTests,
+RuntimeUnitContractTests and RuntimeTypeOfContractTests. The same filter with the
+two additional provider cases passed 59 tests, with no failures/skips on net11.0.
+The first build exited with status 1 without an error diagnostic; a rerun succeeded
+for net10.0 and net11.0 with no warnings/errors. Tests used the rebuilt compiler
+with `--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`;
+the existing driver subprocess fixture used its previously built driver.
+Whitespace formatting completed with test workspace-load warnings and
+`git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
+full bootstrap qualification is claimed.
