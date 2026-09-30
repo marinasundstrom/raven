@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Reflection.Emit;
 
-using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -35,8 +34,7 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
         };
         if (syntax is null) return false;
         var model = method.Compilation.GetSemanticModel(syntax.SyntaxTree);
-        if (model.GetOperation(syntax) is not IBlockOperation body ||
-            !LinearMethodBody.TryLower(symbol, body, IsConsoleLiteral, out var lowered, out _))
+        if (!LinearMethodBody.TryLower(symbol, model, syntax, IsConsoleLiteral, out var lowered, out _))
             return false;
         // Resolution can create metadata proxies just as in general codegen. Builders
         // are only opened after the complete body has passed shared lowering.
@@ -44,14 +42,14 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
         return true;
     }
 
-    private static bool IsConsoleLiteral(IInvocationOperation call)
-        => call.Instance is null && call.TargetMethod.IsStatic && !call.TargetMethod.IsGenericMethod &&
-            call.TargetMethod.Name == "WriteLine" &&
-            call.TargetMethod.ContainingType?.ToFullyQualifiedMetadataName() == "System.Console" &&
-            call.TargetMethod.Parameters.Length == 1 &&
-            call.TargetMethod.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_String &&
-            call.TargetMethod.Parameters[0].RefKind == RefKind.None &&
-            call.TargetMethod.ReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void;
+    private static bool IsConsoleLiteral(BoundInvocationExpression call)
+        => call.Receiver is null or BoundTypeExpression && call.Method.IsStatic && !call.Method.IsGenericMethod &&
+            call.Method.Name == "WriteLine" &&
+            call.Method.ContainingType?.ToFullyQualifiedMetadataName() == "System.Console" &&
+            call.Method.Parameters.Length == 1 &&
+            call.Method.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_String &&
+            call.Method.Parameters[0].RefKind == RefKind.None &&
+            call.Method.ReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void;
 
     public void Emit(LinearInstruction instruction)
     {

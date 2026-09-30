@@ -2292,3 +2292,7 @@ Backend adapters own method-handle and Console mapping; unsupported .NET bodies 
 the existing general generator, while unsupported native source produces diagnostics.
 Debug/PDB emission stays on the established .NET path. See the
 [scope and validation](neoclr-cli-bridge.md#shared-linear-body-lowering-and-backend-method-builders--2026-09-30).
+
+The native codegen migration now shares compiler-lowered linear bodies rather than
+source-operation rewriting. Runtime Contract and binding selection are unchanged;
+see [the staged migration](architecture/native-target-codegen-migration.md).

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Share compiler-lowered bodies between the bounded .NET and neoCLR
+  emitters instead of walking source operations. Reuse implicit Int32 return lowering
+  and admit simple named calls that fit the lowered subset; preserve .NET fallback/PDB,
+  source diagnostics and native Console/reference checks. Record the staged target
+  abstraction plan; metadata loading and broader builder refactoring remain deferred.
+
 - **2026-09-30:** Add `EmitMetadataAssembly` to the opt-in neoCLR adapter: emit a
   PE/#Neo native execution container through the separate metadata API. Use the same
   library PE files for Raven reference binding and neoCLR runtime metadata loading;

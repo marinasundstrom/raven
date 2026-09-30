@@ -1,7 +1,6 @@
 using NeoCLR.Metadata.Experimental.Model;
 
 using Raven.CodeAnalysis.CodeGen.Portable;
-using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -9,8 +8,8 @@ using MetadataMethod = NeoCLR.Metadata.Experimental.Model.MethodBuilder;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-// Body/declaration lowering behind the explicitly selected native backend. It consumes public
-// semantic operations; no bound nodes, reflection emit or source-token operator guessing.
+// Native declaration collection and reference resolution. Body emission consumes the same
+// lowered bound trees as the .NET backend through the shared portable instruction plan.
 internal static class Int32Emitter
 {
     internal static byte[] Emit(Compilation compilation, NeoClrEmitOptions options,
@@ -80,8 +79,7 @@ internal static class Int32Emitter
         foreach (var current in methods)
         {
             diagnosticSyntax = current.Syntax;
-            var body = current.Model.GetOperation(current.Body) as IBlockOperation ?? throw Unsupported("function operation body unavailable");
-            if (!LinearMethodBody.TryLower(current.Symbol, body, IsConsoleCall, out var lowered, out var failure))
+            if (!LinearMethodBody.TryLower(current.Symbol, current.Model, current.Body, IsConsoleCall, out var lowered, out var failure))
                 throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
             lowered!.Emit(new NeoClrLinearMethodBuilder(current.Method, (instruction, output) =>
             {
@@ -109,16 +107,16 @@ internal static class Int32Emitter
             }
         }
 
-        bool IsConsoleCall(IInvocationOperation call)
+        bool IsConsoleCall(BoundInvocationExpression call)
         {
             if (options.ConsoleReference is null) return false;
-            var method = call.TargetMethod;
-            if (call.Instance is not null || !method.IsStatic || method.IsGenericMethod || method.Name != "WriteLine" ||
+            var method = call.Method;
+            if (call.Receiver is not (null or BoundTypeExpression) || !method.IsStatic || method.IsGenericMethod || method.Name != "WriteLine" ||
                 method.ContainingType?.ToFullyQualifiedMetadataName() != "System.Console" ||
                 !SymbolEqualityComparer.Default.Equals(method.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(options.ConsoleReference)) ||
                 method.Parameters.Length != 1 || method.Parameters[0].Type.GetNonNullableType().SpecialType != SpecialType.System_String ||
                 method.Parameters[0].RefKind != RefKind.None || method.ReturnType.SpecialType is not (SpecialType.System_Void or SpecialType.System_Unit) ||
-                call.Arguments.Length != 1 || call.Arguments[0] is not IArgumentOperation { IsNamed: false, Value: ILiteralOperation { Value: string text } })
+                call.Arguments.ToArray() is not [BoundLiteralExpression { Value: string }])
                 return false;
             return true;
         }

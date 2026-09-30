@@ -1,7 +1,6 @@
 using System.Reflection;
 
 using Raven.CodeAnalysis.CodeGen.Portable;
-using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests.CodeGen;
@@ -27,7 +26,7 @@ public class SharedLinearBodyTests
         var method = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
         var model = compilation.GetSemanticModel(method.SyntaxTree);
         Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
-            (IBlockOperation)model.GetOperation(method.Body!)!, _ => false, out var lowered, out var failure));
+            model, method.Body!, _ => false, out var lowered, out var failure));
         Assert.NotNull(lowered);
         Assert.Null(failure);
         var assembly = Emit(compilation);
@@ -49,7 +48,7 @@ public class SharedLinearBodyTests
         var method = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var model = compilation.GetSemanticModel(method.SyntaxTree);
         Assert.False(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
-            (IBlockOperation)model.GetOperation(method.Body!)!, _ => false, out var lowered, out var failure));
+            model, method.Body!, _ => false, out var lowered, out var failure));
         Assert.Null(lowered);
         Assert.NotNull(failure);
         Assert.Equal("(value + 2) / 2", failure.Syntax.ToString());
@@ -66,7 +65,7 @@ public class SharedLinearBodyTests
                 Greet()
             }
             func Greet() {
-                Helpers.Finish(42)
+                Helpers.Finish(value: 42)
                 return
             }
             public static class Helpers {
@@ -80,7 +79,7 @@ public class SharedLinearBodyTests
         foreach (var declaration in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>())
         {
             var symbol = (IMethodSymbol)model.GetDeclaredSymbol(declaration)!;
-            Assert.True(LinearMethodBody.TryLower(symbol, (IBlockOperation)model.GetOperation(declaration.Body!)!,
+            Assert.True(LinearMethodBody.TryLower(symbol, model, declaration.Body!,
                 _ => false, out _, out var failure), failure?.Detail);
         }
         var assembly = Emit(compilation);
@@ -103,6 +102,26 @@ public class SharedLinearBodyTests
         var compilation = Compilation.Create("SharedFunctions", [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(OptimizationLevel.Release));
         Assert.Equal(42, Emit(compilation).EntryPoint!.Invoke(null, null));
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void ImplicitValueReturnUsesCompilerLowering(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Arithmetic {
+                public static func Value(value: int) -> int {
+                    (value + 1) * 2
+                }
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var method = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var model = compilation.GetSemanticModel(method.SyntaxTree);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+            model, method.Body!, _ => false, out _, out var failure), failure?.Detail);
+        Assert.Equal(42, Emit(compilation).GetType("Arithmetic")!.GetMethod("Value")!.Invoke(null, [20]));
     }
 
     private static Compilation Create(string source, OptimizationLevel optimization)

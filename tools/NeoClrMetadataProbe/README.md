@@ -198,3 +198,8 @@ runtimes print the same output and native Unit programs exit zero.
 The same cases now also exercise the shared Int32/Unit callable signature and declaration
 builder contract. The .NET adapter declares existing CLI type methods; the native adapter
 retains native type-method or assembly-function ownership. No import changes are involved.
+
+The 2026-10-01 lowered-body probe additionally runs implicit Int32 returns and a named
+Unit helper call on both runtimes. The adapter now uses the compiler's lowered bound
+body, not an independent source-operation traversal. Full native control flow remains
+pending. See the compiler's native target codegen migration plan.

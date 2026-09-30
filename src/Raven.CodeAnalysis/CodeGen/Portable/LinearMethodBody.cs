@@ -1,10 +1,9 @@
 using System.Collections.Immutable;
 
-using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
-using OperatorKind = Raven.CodeAnalysis.Operations.BinaryOperatorKind;
+using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
@@ -21,8 +20,9 @@ internal interface ILinearMethodBuilder
 
 internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
-// Lower completely before touching a backend builder. Unsupported .NET bodies can safely
-// stay on the general generator; native emission reports the same source-located boundary.
+// Build an instruction plan from the compiler-lowered body before touching a backend.
+// Unsupported .NET bodies stay on the general generator; native emission reports the
+// source-located boundary. Language rewrites remain owned by the existing Lowerer.
 internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions)
 {
     internal void Emit(ILinearMethodBuilder builder)
@@ -35,12 +35,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
 
     internal static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType == SpecialType.System_Int32;
 
-    internal static bool TryLower(IMethodSymbol source, IBlockOperation body,
-        Func<IInvocationOperation, bool> permitsConsoleLiteral, out LinearMethodBody? lowered, out LinearBodyFailure? failure)
+    internal static bool TryLower(IMethodSymbol source, SemanticModel model, SyntaxNode bodySyntax,
+        Func<BoundInvocationExpression, bool> permitsConsoleLiteral, out LinearMethodBody? lowered, out LinearBodyFailure? failure)
     {
         var instructions = ImmutableArray.CreateBuilder<LinearInstruction>();
         LinearBodyFailure? rejected = null;
-        var success = LowerBody();
+        var body = model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement;
+        var success = body is not null ? LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
         lowered = success ? new(instructions.ToImmutable()) : null;
         failure = rejected;
         return success;
@@ -53,74 +54,77 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         void Add(LinearInstructionKind kind, SyntaxNode syntax, int integer = 0, IMethodSymbol? method = null, string? text = null)
             => instructions.Add(new(kind, syntax, integer, method, text));
 
-        bool LowerBody()
+        SyntaxNode Syntax(BoundNode node) => model.GetSyntax(node) ?? bodySyntax;
+
+        bool LowerBody(BoundBlockStatement body)
         {
-            if (!HasSupportedSignature(source)) return Reject("only nongeneric Int32 parameters and Int32/Unit results", body.Syntax);
-            foreach (var statement in body.Operations)
+            if (!HasSupportedSignature(source)) return Reject("only nongeneric Int32 parameters and Int32/Unit results", bodySyntax);
+            if (!body.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(body));
+            foreach (var statement in body.Statements)
             {
-                if (statement is IExpressionStatementOperation { Operation: IInvocationOperation call })
+                if (statement is BoundExpressionStatement { Expression: BoundInvocationExpression call })
                 {
-                    if (permitsConsoleLiteral(call) && call.Arguments.Length == 1 &&
-                        call.Arguments[0] is IArgumentOperation { IsNamed: false, Value: ILiteralOperation { Value: string text } })
+                    if (permitsConsoleLiteral(call) && call.Arguments.ToArray() is [BoundLiteralExpression { Value: string text }])
                     {
-                        Add(LinearInstructionKind.ConsoleLiteral, call.Syntax, method: call.TargetMethod, text: text);
+                        Add(LinearInstructionKind.ConsoleLiteral, Syntax(call), method: call.Method, text: text);
                         continue;
                     }
-                    if (ReturnsValue(call.TargetMethod)) return Reject("discarded value calls", statement.Syntax);
+                    if (ReturnsValue(call.Method)) return Reject("discarded value calls", Syntax(statement));
                     if (!LowerValue(call)) return false;
                     continue;
                 }
-                if (statement is IReturnOperation { ReturnedValue: null } && !ReturnsValue(source))
+                if (statement is BoundReturnStatement { Expression: null or BoundUnitExpression } && !ReturnsValue(source))
                 {
-                    Add(LinearInstructionKind.Return, statement.Syntax);
+                    Add(LinearInstructionKind.Return, Syntax(statement));
                     continue;
                 }
-                if (statement is not IReturnOperation { ReturnedValue: { } value })
-                    return Reject("only value-return statements", statement.Syntax);
+                if (statement is not BoundReturnStatement { Expression: { } value })
+                    return Reject("only value-return statements", Syntax(statement));
                 if (!LowerValue(value)) return false;
-                Add(LinearInstructionKind.Return, statement.Syntax);
+                Add(LinearInstructionKind.Return, Syntax(statement));
             }
-            if (!ReturnsValue(source) && body.Operations.LastOrDefault() is not IReturnOperation)
-                Add(LinearInstructionKind.Return, body.Syntax);
+            if (!ReturnsValue(source) && body.Statements.LastOrDefault() is not BoundReturnStatement)
+                Add(LinearInstructionKind.Return, Syntax(body));
             return true;
         }
 
-        bool LowerValue(IOperation operation)
+        bool LowerValue(BoundExpression expression)
         {
-            switch (operation)
+            switch (expression)
             {
-                case ILiteralOperation { Value: int value }:
-                    Add(LinearInstructionKind.Constant, operation.Syntax, value); return true;
-                case IParameterReferenceOperation parameter:
+                case BoundLiteralExpression { Value: int value }:
+                    Add(LinearInstructionKind.Constant, Syntax(expression), value); return true;
+                case BoundParameterAccess parameter:
                     var index = source.Parameters.IndexOf(parameter.Parameter, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
-                    if (index < 0) return Reject("captured parameter", operation.Syntax);
-                    Add(LinearInstructionKind.Argument, operation.Syntax, index); return true;
-                case IParenthesizedOperation { Operand: { } operand }:
-                    return LowerValue(operand);
-                case IBinaryOperation binary when !binary.IsChecked && !binary.IsLifted && binary.OperatorMethod is null &&
-                    binary.Type?.SpecialType == SpecialType.System_Int32 && binary.Left is not null && binary.Right is not null:
-                    if (binary.OperatorKind is not (OperatorKind.Add or OperatorKind.Subtract or OperatorKind.Multiply))
-                        return Reject("binary operator " + binary.OperatorKind, operation.Syntax);
+                    if (index < 0) return Reject("captured parameter", Syntax(expression));
+                    Add(LinearInstructionKind.Argument, Syntax(expression), index); return true;
+                case BoundParenthesizedExpression parenthesized:
+                    return LowerValue(parenthesized.Expression);
+                case BoundConversionExpression { IsIdentity: true } conversion:
+                    return LowerValue(conversion.Expression);
+                case BoundBinaryExpression binary when binary.Operator.MethodSymbol is null &&
+                    binary.Type.SpecialType == SpecialType.System_Int32:
+                    if (binary.Operator.OperatorKind is not (OperatorKind.Addition or OperatorKind.Subtraction or OperatorKind.Multiplication))
+                        return Reject("binary operator " + binary.Operator.OperatorKind, Syntax(expression));
                     if (!LowerValue(binary.Left) || !LowerValue(binary.Right)) return false;
-                    Add(binary.OperatorKind switch
+                    Add(binary.Operator.OperatorKind switch
                     {
-                        OperatorKind.Add => LinearInstructionKind.Add,
-                        OperatorKind.Subtract => LinearInstructionKind.Subtract,
+                        OperatorKind.Addition => LinearInstructionKind.Add,
+                        OperatorKind.Subtraction => LinearInstructionKind.Subtract,
                         _ => LinearInstructionKind.Multiply
-                    }, operation.Syntax);
+                    }, Syntax(expression));
                     return true;
-                case IInvocationOperation call when call.Instance is null:
-                    if (!HasSupportedSignature(call.TargetMethod)) return Reject("only nongeneric Int32 parameters and Int32/Unit results: " + call.TargetMethod.Name, operation.Syntax);
-                    if (call.Arguments.Length != call.TargetMethod.Parameters.Length) return Reject("optional/expanded arguments", operation.Syntax);
-                    foreach (var argument in call.Arguments)
+                case BoundInvocationExpression call when call.Method.IsStatic && call.Receiver is null or BoundTypeExpression && call.ExtensionReceiver is null:
+                    if (!HasSupportedSignature(call.Method)) return Reject("only nongeneric Int32 parameters and Int32/Unit results: " + call.Method.Name, Syntax(expression));
+                    var arguments = call.Arguments.ToArray();
+                    if (arguments.Length != call.Method.Parameters.Length) return Reject("optional/expanded arguments", Syntax(expression));
+                    foreach (var argument in arguments)
                     {
-                        if (argument is not IArgumentOperation { IsNamed: false, Value: { } argumentValue })
-                            return Reject("named or unavailable argument", operation.Syntax);
-                        if (!LowerValue(argumentValue)) return false;
+                        if (!LowerValue(argument)) return false;
                     }
-                    Add(LinearInstructionKind.Call, operation.Syntax, method: call.TargetMethod);
+                    Add(LinearInstructionKind.Call, Syntax(expression), method: call.Method);
                     return true;
-                default: return Reject("operation " + operation.Kind, operation.Syntax);
+                default: return Reject("lowered expression " + expression.GetType().Name, Syntax(expression));
             }
         }
     }

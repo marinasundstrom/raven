@@ -334,7 +334,7 @@ separately with its exact supported subset.
 ### Native metadata consumer probe (2026-09-30)
 
 The opt-in NeoClrMetadataProbe consumes the separate metadata API to write native
-format-5 application bytes from Raven's public operations. Top-level source functions
+format-5 application bytes (originally from public operations; now from compiler-lowered bodies). Top-level source functions
 remain type-independent in native output. The dependency has two API-produced forms:
 a PE read by the existing .NET semantic provider, and native bytes loaded by neoCLR.
 This is a temporary bootstrap representation, not a requirement that the native target
@@ -923,3 +923,30 @@ without host CoreLib leakage, and PDB preservation. Existing same-compilation .N
 Hello/helper cases and rvnc runtime checks validate the two concrete declaration adapters.
 This compiler refactor remains a general shared-line candidate pending consumer-branch
 reconciliation; native policy stays in the optional adapter.
+
+## Compiler-lowered native bodies — 2026-10-01
+
+The shared linear instruction planner now consumes `BoundTreeView.Lowered`, replacing
+its source `IOperation` traversal. Both eligible release .NET methods and the optional
+native backend use the existing compiler Lowerer before backend instruction encoding.
+Implicit Int32 returns now work without a second return-rewriting implementation;
+simple named calls whose lowered arguments fit the subset also work. Static qualified
+calls treat a bound type receiver as a qualifier, not a runtime value.
+
+Runtime Contract selection, semantic binding and the temporary CLI reference projection
+are unchanged. .NET retains its carrier types and Reflection.Emit adapter; neoCLR emits
+assembly-owned functions through the separate metadata API and loads PE/#Neo directly.
+The format and runtime need no changes for this slice. Native debug output, general
+signatures, locals/control flow and synthesized bodies remain unsupported; .NET debug,
+PDB and unsupported bodies keep general codegen. Console permission/identity checks
+remain target-owned. Metadata importer work and the known System driver collision stay
+deferred. This internal refactor is pending shared-line reconciliation.
+
+Validation: 19 focused C# compiler tests cover execution, implicit returns, named Unit
+calls, fallback, PDB preservation and selected core identity. The metadata probe covers
+same-compilation .NET/native Hello/helper/Unit execution and implicit Int32 returns,
+plus native verification/loading, dependency failures, diagnostics and rvnc behavior.
+
+See [the staged codegen migration](architecture/native-target-codegen-migration.md).
+
+[Recorded binary/runtime probe evidence](../../tools/NeoClrMetadataProbe/validation.json).

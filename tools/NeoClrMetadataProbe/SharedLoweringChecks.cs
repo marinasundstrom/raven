@@ -34,7 +34,7 @@ internal static class SharedLoweringChecks
         await RunCase("SharedUnitMethods", """
             public static class Hello {
                 public static func Main() {
-                    Greet(42)
+                    Greet(value: 42)
                     return
                 }
                 public static func Greet(value: int) {
@@ -43,8 +43,18 @@ internal static class SharedLoweringChecks
                 }
             }
             """, "Shared Hello", null);
+        await RunCase("SharedImplicitValueReturn", """
+            func Main() -> int {
+                Arithmetic.Value(20)
+            }
+            public static class Arithmetic {
+                public static func Value(value: int) -> int {
+                    (value + 1) * 2
+                }
+            }
+            """, "", 42);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
-        Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns and empty entry");
+        Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 
         async Task RunCase(string name, string source, string expectedOutput, int? expectedResult)
         {

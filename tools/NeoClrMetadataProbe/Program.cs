@@ -155,9 +155,12 @@ await SharedLoweringChecks.Run(core, output, Command);
 if (args.Length == 4) await DriverChecks.Run(Path.GetFullPath(args[3]), output, Command);
 File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
 {
-    date = "2026-09-30",
+    date = "2026-10-01",
     result = 42,
     sharedDotNetAndNativeBodyLowering = true,
+    compilerLoweredBodyInput = true,
+    implicitInt32Returns = true,
+    namedUnitCall = true,
     sharedUnitFunctionsMethodsAndEntry = true,
     sharedCallableSignatureDeclarations = true,
     helloWorldDirectAndFunctionCall = true,
@@ -170,7 +173,7 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     importedUnitAndInt32Overloads = true,
     unsupportedUnitCallsPreserveOutput = true,
     helloWorldPeSha256 = helloPaths.Select(Hash).ToArray(),
-    source = "Raven public semantic operations",
+    source = "Raven compiler-lowered bound bodies",
     metadataLibraryIndependent = true,
     importedReadOnlyDependency = true,
     emitterRequiresDependencyBuilder = false,
@@ -214,7 +217,7 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     applicationSha256 = Hash(application),
     dependencySha256 = Hash(libraryPath)
 }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
-Console.WriteLine("PASS Raven semantic operations -> separate metadata library -> neoCLR: 42");
+Console.WriteLine("PASS Raven compiler-lowered bodies -> separate metadata library -> neoCLR: 42");
 
 static string Hash(string path) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
 async Task<string> Command(int expected, params string[] arguments)

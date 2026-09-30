@@ -96,7 +96,6 @@ internal static class HelloWorldChecks
             Reject(compilation, new(options.Identity, core, [], MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)), "NEOMETA002");
             Reject(Compile(sources[i].Replace("WriteLine(\"Hello World\")", "WriteLine(42)")), options);
             Reject(Compile(sources[i].Replace("WriteLine(\"Hello World\")", "Write(\"Hello World\")")), options);
-            if (i == 3) Reject(Compile(sources[i].Replace("Greet(42)", "Greet(value: 42)")), options);
         }
         const string librarySource = """
             public static class Greetings {
