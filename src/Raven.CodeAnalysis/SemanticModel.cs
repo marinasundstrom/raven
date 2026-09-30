@@ -4715,43 +4715,7 @@ public partial class SemanticModel
         int parameterOffset,
         out int requiredCount,
         out bool hasParams)
-    {
-        requiredCount = 0;
-        hasParams = false;
-
-        if (!TryGetFastParameterCount(method, out var parameterCount) ||
-            parameterOffset < 0 ||
-            parameterOffset > parameterCount)
-        {
-            return false;
-        }
-
-        if (method is PEMethodSymbol peMethod)
-        {
-            for (var i = parameterOffset; i < parameterCount; i++)
-            {
-                if (!peMethod.TryGetParameterUsage(i, out var hasExplicitDefaultValue, out var isParams))
-                    return false;
-
-                hasParams |= isParams;
-                if (!hasExplicitDefaultValue && !isParams)
-                    requiredCount++;
-            }
-
-            return true;
-        }
-
-        var parameters = method.Parameters;
-        for (var i = parameterOffset; i < parameters.Length; i++)
-        {
-            var parameter = parameters[i];
-            hasParams |= parameter.IsVarParams;
-            if (!parameter.HasExplicitDefaultValue && !parameter.IsVarParams)
-                requiredCount++;
-        }
-
-        return true;
-    }
+        => MethodParameterQueries.TryGetRequiredCount(method, parameterOffset, out requiredCount, out hasParams);
 
     private IMethodSymbol? TryChooseAvailableInvocationMethodCandidate(
         IEnumerable<IMethodSymbol> methods,
@@ -5108,34 +5072,13 @@ public partial class SemanticModel
     }
 
     private static bool TryGetFastParameterCount(IMethodSymbol method, out int count)
-    {
-        if (method is PEMethodSymbol peMethod)
-        {
-            count = peMethod.ParameterCount;
-            return true;
-        }
-
-        count = method.Parameters.Length;
-        return true;
-    }
+        => MethodParameterQueries.TryGetCount(method, out count);
 
     private static bool TryGetFastParameterType(
         IMethodSymbol method,
         int index,
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
-    {
-        if (method is PEMethodSymbol peMethod)
-            return peMethod.TryGetParameterType(index, out type);
-
-        if (index < 0 || index >= method.Parameters.Length)
-        {
-            type = null;
-            return false;
-        }
-
-        type = method.Parameters[index].Type;
-        return type is not null;
-    }
+        => MethodParameterQueries.TryGetType(method, index, out type);
 
     private static InvocationExpressionSyntax? TryGetInvocationForSymbolInfoNode(SyntaxNode node)
         => node switch

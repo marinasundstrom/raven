@@ -1650,3 +1650,27 @@ compiler queries. External runtime artifacts are unchanged; no native neoCLR or
 .NET Framework/NanoFramework execution is claimed.
 
 Next: audit remaining PE-dependent shared signature and identity consumers.
+
+## Slice 49: provider-owned lazy parameter facts
+
+Replace PE checks in semantic-model parameter count, required-count and individual
+type helpers with `MethodParameterQueries` and the internal `IMethodParameterInfo`
+capability. PE owns reflection decoding; shared queries consume semantic facts.
+Missing provider facts remain unavailable instead of forcing a full signature.
+Symbols without the capability retain the existing public-symbol fallback.
+
+Eight regressions cover required/optional/variadic offsets, invalid offsets,
+provider failures without full signature access, individual types, and source/PE
+agreement with public parameter symbols. Existing semantic-model caching tests
+protect lazy lookup behavior. PE-specific conversion scoring remains future work;
+this slice does not claim that the entire semantic model is provider-independent.
+
+Validation: 84 baseline semantic-model caching and optional/params tests passed.
+All 92 final tests pass on .NET 11. Compiler builds pass for .NET 10/11 with
+zero warnings/errors. Whitespace formatting and diff checks pass (formatter
+workspace-load warnings). No syntax, generated inputs, public API or emission
+changes. Language-service consumers retain existing compiler APIs. External
+runtime artifacts are unchanged; native neoCLR and .NET Framework/NanoFramework
+execution are not claimed.
+
+Next: separate fast conversion classification from PE parameter metadata names.

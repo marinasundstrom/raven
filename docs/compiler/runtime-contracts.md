@@ -2202,3 +2202,20 @@ when reflection cannot supply a token, with the same pre-existing risk of mergin
 same-count overload candidates in that fallback case. This slice preserves that
 behavior rather than imposing it on future providers. Fast signature queries and
 other PE-dependent identity consumers remain separate work.
+
+### Lazy parameter fact ownership (2026-09-30)
+
+`IMethodParameterInfo` supplies parameter count, individual semantic parameter
+types and optional/variadic usage facts. `MethodParameterQueries` uses this
+internal capability for semantic-model count, required-count and type queries,
+with the existing full-symbol path for symbols without the capability. A failed
+provider query remains unavailable; it does not trigger full `Parameters` access.
+Source and constructed symbols retain their existing signature/substitution path.
+
+The PE adapter retains reflection-backed lazy loading, by-reference element-type
+normalization and optional/default/ParamArray decoding. It also preserves the
+existing unreadable-count fallback; the interface itself allows providers to
+report count failure. These details are not requirements on native metadata.
+PE-specific fast conversion scoring remains in the semantic model for a later
+slice; this is a parameter-fact boundary, not complete signature independence.
+No public cache API, syntax or emitted metadata changes.
