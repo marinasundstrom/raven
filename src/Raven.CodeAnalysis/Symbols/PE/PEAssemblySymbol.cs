@@ -1,9 +1,11 @@
 using System.Collections.Immutable;
 using System.Reflection;
 
+using Raven.CodeAnalysis.Metadata;
+
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PEAssemblySymbol : PESymbol, IAssemblySymbol
+internal partial class PEAssemblySymbol : PESymbol, IImportedAssemblySymbol
 {
     private readonly Assembly _assembly;
     private PEModuleSymbol[] _modules = [];
@@ -65,7 +67,7 @@ internal partial class PEAssemblySymbol : PESymbol, IAssemblySymbol
             .FirstOrDefault();
     }
 
-    internal INamedTypeSymbol? GetTypeBySimpleName(string name, int arity)
+    public INamedTypeSymbol? GetTypeBySimpleName(string name, int arity)
     {
         foreach (var type in MetadataState.GetTypesBySimpleName(name, arity))
         {
@@ -76,7 +78,7 @@ internal partial class PEAssemblySymbol : PESymbol, IAssemblySymbol
         return null;
     }
 
-    internal ImmutableArray<INamedTypeSymbol> GetExtensionConversionContainers()
+    public ImmutableArray<INamedTypeSymbol> GetExtensionConversionContainers()
     {
         var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
         foreach (var type in MetadataState.GetExtensionConversionContainers())

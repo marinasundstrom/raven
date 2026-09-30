@@ -210,3 +210,42 @@ Validation with SDK `11.0.100-rc.1.26425.128`:
 This is .NET validation, not evidence of neoCLR, browser/WASI, .NET Framework,
 or NanoFramework execution. No performance improvement or bootstrap qualification
 is claimed.
+
+## Slice 7: imported assembly discovery contract
+
+The shared lookup audit found two concrete PE assembly dependencies: simple-name
+type discovery and extension-conversion container discovery. Both now consume
+`IImportedAssemblySymbol`, an internal extension of the existing assembly symbol
+contract. `PEAssemblySymbol` implements it using the unchanged metadata index.
+The boundary carries Raven symbols only; no reflection or cache helper APIs are
+added to public compiler or language-service surfaces.
+
+Source-first lookup, provider ordering, arity matching, lazy metadata indexing,
+and conversion applicability remain unchanged. Strengthened nested-type coverage
+checks the imported contract, and a new source/metadata collision test checks
+arity discrimination, repeated queries, and absent arities.
+
+Remaining shared lookup dependencies include `PENamespaceSymbol` in namespace
+selection and extension-method discovery. The next slice should address that
+namespace contract, including merged namespaces. This is not yet a complete
+provider-independent symbol implementation; metadata construction and emitter
+reflection use remain .NET-specific. Main-based extraction is still pending.
+
+Validation with SDK `11.0.100-rc.1.26425.128`:
+
+- Baseline `scripts/test-feature-suite.sh extensions`: 140 passed. Separately,
+  `CompilationSymbolLookupTests|ConversionOperatorBindingTests` passed 13 tests
+  using `dotnet test` with `--no-build --no-restore /property:WarningLevel=0`.
+- Compiler build passed for net10.0 and net11.0 with no warnings/errors. The
+  targeted build ran the bound/symbol generator after the symbol file changed;
+  generated source has no tracked diff and no model definition changed.
+- Post-change `dotnet test test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj
+  --no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`
+  selected the eight extension-suite classes plus `CompilationSymbolLookupTests`
+  and `ConversionOperatorBindingTests`: 154 passed, no failures/skips on net11.0.
+  The referenced compiler was rebuilt; Core/Macros came from the baseline build.
+- Whitespace formatting completed with test workspace-load warnings, and
+  `git diff --check` passed.
+
+No neoCLR runtime, .NET Framework, NanoFramework, or bootstrap qualification is
+claimed. This is a semantic lookup change; emission implementation was untouched.

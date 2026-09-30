@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 
+using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
@@ -140,7 +141,7 @@ internal sealed class CompilationSymbolLookup
             }
         }
 
-        foreach (var assembly in _compilation.ReferencedAssemblySymbols.OfType<PEAssemblySymbol>())
+        foreach (var assembly in _compilation.ReferencedAssemblySymbols.OfType<IImportedAssemblySymbol>())
         {
             foreach (var type in assembly.GetExtensionConversionContainers())
             {
@@ -275,7 +276,7 @@ internal sealed class CompilationSymbolLookup
                 string.Equals(candidate.Name, name, StringComparison.Ordinal) &&
                 (candidate.Arity == arity || candidate.TypeParameters.Length == arity));
         resolved ??= _compilation.ReferencedAssemblySymbols
-            .OfType<PEAssemblySymbol>()
+            .OfType<IImportedAssemblySymbol>()
             .Select(assembly => assembly.GetTypeBySimpleName(name, arity))
             .FirstOrDefault(static candidate => candidate is not null);
 

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 
+using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
@@ -124,6 +125,28 @@ namespace Shared {
         Assert.Same(first, second);
         Assert.Equal("Container", first.ContainingType?.Name);
         Assert.Equal("Shared.Metadata", first.ContainingAssembly?.Name);
+        var importedAssembly = Assert.IsAssignableFrom<IImportedAssemblySymbol>(first.ContainingAssembly);
+        Assert.Same(first, importedAssembly.GetTypeBySimpleName("Nested", 0));
+        Assert.Null(importedAssembly.GetTypeBySimpleName("Nested", 1));
+    }
+
+    [Fact]
+    public void SimpleNameLookup_RespectsArityAcrossSourceAndImportedTypes()
+    {
+        var compilation = CreateCompilation(SyntaxTree.ParseText("class List { }"));
+        compilation.EnsureSetup();
+        compilation.EnsureSourceDeclarationsDeclared();
+
+        var source = compilation.SymbolLookup.GetTypeBySimpleName("List", 0);
+        var imported = compilation.SymbolLookup.GetTypeBySimpleName("List", 1);
+
+        Assert.NotNull(source);
+        Assert.Equal(compilation.Assembly, source.ContainingAssembly);
+        Assert.NotNull(imported);
+        Assert.Equal(compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"),
+            imported, SymbolEqualityComparer.Default);
+        Assert.Same(imported, compilation.SymbolLookup.GetTypeBySimpleName("List", 1));
+        Assert.Null(compilation.SymbolLookup.GetTypeBySimpleName("List", 3));
     }
 
     [Fact]

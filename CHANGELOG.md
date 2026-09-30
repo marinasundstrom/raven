@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Route shared imported-assembly discovery through an internal
+  symbol contract implemented by the existing .NET PE symbols. Preserve simple
+  name/arity lookup, source precedence, and extension conversion discovery while
+  keeping reflection indexes private. Public compiler APIs are unchanged.
+
 - **2026-09-30:** Separate immutable .NET metadata reference-set construction
   from host assembly-path registration. Metadata sessions and resolvers no longer
   accept registration callbacks; compilation setup preserves the existing host

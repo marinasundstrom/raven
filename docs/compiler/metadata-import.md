@@ -29,6 +29,21 @@ not dispose its context because other snapshots can still use it; the existing
 collection-based lifetime is retained. Deterministic shared-session disposal is
 not introduced by this extraction.
 
+### Imported assembly discovery
+
+Shared assembly discovery in `CompilationSymbolLookup` uses the internal
+`IImportedAssemblySymbol` contract for simple-name/arity lookup and extension
+conversion container discovery. The .NET implementation remains `PEAssemblySymbol`;
+its reflection metadata index is private to that implementation. The contract
+returns Raven symbols and exposes no reflection objects or cache-control APIs.
+
+Simple-name lookup still prefers matching source declarations, then the first
+matching imported assembly/type. Nested types participate by their own name and
+arity. Extension conversion discovery returns candidate containers; binding
+continues to decide applicability. Public `IAssemblySymbol` and semantic-model
+APIs are unchanged. PE namespace-specific extension discovery, symbol creation,
+and emitter reflection access remain separate boundaries to extract.
+
 ### Existing resolver compatibility rules
 
 The .NET resolver keeps the first supplied path for each full assembly identity,
