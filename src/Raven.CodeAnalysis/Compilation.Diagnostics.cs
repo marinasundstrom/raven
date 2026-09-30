@@ -15,7 +15,9 @@ public partial class Compilation
     {
         var diagnostics = new List<Diagnostic>();
 
-        EnsureSetup();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!TryEnsureSetup(out var setupDiagnostic))
+            return [setupDiagnostic!];
 
         if (GetTargetCoreConfigurationDiagnostic() is { } targetDiagnostic)
             Add(targetDiagnostic);
@@ -155,7 +157,9 @@ public partial class Compilation
 
         var diagnostics = new List<Diagnostic>();
 
-        EnsureSetup();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!TryEnsureSetup(out var setupDiagnostic))
+            return [setupDiagnostic!];
 
         if (isMacroTree)
         {
@@ -291,7 +295,9 @@ public partial class Compilation
 
         var diagnostics = new List<Diagnostic>();
 
-        EnsureSetup();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!TryEnsureSetup(out var setupDiagnostic))
+            return [setupDiagnostic!];
 
         var semanticTrees = GetDocumentSemanticTrees(syntaxTree);
         if (semanticTrees.IsDefaultOrEmpty)
@@ -402,7 +408,7 @@ public partial class Compilation
 
         var diagnostics = new List<Diagnostic>();
 
-        EnsureSetup();
+        cancellationToken.ThrowIfCancellationRequested();
 
         foreach (var diagnostic in syntaxTree.GetDiagnostics(cancellationToken))
         {

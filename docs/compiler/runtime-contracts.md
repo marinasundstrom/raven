@@ -22,6 +22,13 @@ provide the core identity for both binding and emission. See
 [metadata import](metadata-import.md#net-compilation-preset) for examples,
 compatibility with existing constructors, and validation limitations.
 
+Known metadata-core initialization failures now report RAVT004 through compilation
+diagnostic collection and Emit, without writing output or manufacturing a partial
+semantic environment. This fatal error cannot be suppressed or downgraded.
+Syntax-only diagnostics remain available without target references. Direct semantic
+queries still require successful setup; later metadata import failures are outside
+this initial diagnostic boundary.
+
 ## Current target composition
 
 `Targets.DotNetCompilationTarget` is the internal composition point for the

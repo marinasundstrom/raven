@@ -143,7 +143,9 @@ public class MetadataImportOptionsTests
         var compilation = Compilation.Create("NoCore", [SyntaxTree.ParseText("func Main() {}")], [],
             new CompilationOptions(metadataImportOptions: new MetadataImportOptions("System.Private.CoreLib"),
                 outputKind: OutputKind.ConsoleApplication));
-        Assert.Throws<FileNotFoundException>(() => compilation.GetDiagnostics());
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal("RAVT004", diagnostic.Id);
+        Assert.Contains("System.Private.CoreLib", diagnostic.GetMessage());
     }
 
     [Fact]

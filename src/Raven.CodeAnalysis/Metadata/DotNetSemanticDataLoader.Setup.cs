@@ -5,6 +5,8 @@ using System.Linq;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 
+using Raven.CodeAnalysis.Targets;
+
 namespace Raven.CodeAnalysis.Metadata;
 
 internal sealed partial class DotNetSemanticDataLoader
@@ -23,7 +25,11 @@ internal sealed partial class DotNetSemanticDataLoader
         var importOptions = compilation.Options.MetadataImportOptions;
         // Establish the target type universe before adding optional host fallbacks.
         var coreAssemblyName = importOptions?.CoreAssemblyName ??
-            FindReferenceCoreAssemblyIdentity(paths) ?? typeof(object).Assembly.GetName().FullName;
+            FindReferenceCoreAssemblyIdentity(paths);
+        if (importOptions is not null && coreAssemblyName is null)
+            throw new TargetInitializationException("The supplied references do not contain a core library defining System.Object.");
+
+        coreAssemblyName ??= typeof(object).Assembly.GetName().FullName;
         if (importOptions is null)
         {
             var runtimeCorePath = typeof(object).Assembly.Location;
@@ -49,7 +55,15 @@ internal sealed partial class DotNetSemanticDataLoader
                 Compilation.RegisterSharedMetadataAssemblyPath(reference.SimpleName, reference.Path);
         }
 
-        return DotNetMetadataSession.Create(references, coreAssemblyName);
+        try
+        {
+            return DotNetMetadataSession.Create(references, coreAssemblyName);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or BadImageFormatException or TypeLoadException)
+        {
+            throw new TargetInitializationException(
+                $"The metadata core '{coreAssemblyName}' could not be loaded: {exception.Message}", exception);
+        }
     }
 
     private static string? FindReferenceCoreAssemblyIdentity(IEnumerable<string> paths)

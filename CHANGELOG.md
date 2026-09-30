@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Report missing or unloadable metadata cores as RAVT004 from
+  compilation diagnostic collection and emission. Stop before output writes,
+  preserve failed-snapshot isolation, and keep syntax-only diagnostics available
+  without target setup. Direct semantic queries still require a valid target;
+  unrelated compiler failures are not converted into configuration diagnostics.
+
 - **2026-09-30:** Add `CompilationOptions.DotNet` for explicitly supplied .NET
   references. Discover the reference core for binding and emission without adding
   host framework definitions. Diagnose conflicting explicit emission identities;

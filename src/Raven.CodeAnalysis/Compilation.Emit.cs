@@ -26,7 +26,13 @@ public partial class Compilation
         ImmutableArray<Diagnostic>? diagnostics,
         EmitOptions? emitOptions)
     {
-        EnsureSetup();
+        if (!TryEnsureSetup(out var setupDiagnostic))
+        {
+            var failedDiagnostics = diagnostics ?? ImmutableArray<Diagnostic>.Empty;
+            if (!failedDiagnostics.Contains(setupDiagnostic!))
+                failedDiagnostics = failedDiagnostics.Add(setupDiagnostic!);
+            return new EmitResult(false, failedDiagnostics);
+        }
         EnsureSourceDeclarationsComplete();
 
         var effectiveDiagnostics = diagnostics ?? GetDiagnostics();

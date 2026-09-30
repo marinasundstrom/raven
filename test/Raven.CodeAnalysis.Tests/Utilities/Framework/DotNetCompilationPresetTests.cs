@@ -68,8 +68,9 @@ public class DotNetCompilationPresetTests
     {
         var compilation = Create(CompilationOptions.DotNet, []);
         Assert.Empty(compilation.References);
-        // Setup exceptions are an existing limitation; never substitute host definitions.
-        Assert.Throws<FileNotFoundException>(() => compilation.GetDiagnostics());
+        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.Equal("RAVT004", diagnostic.Id);
+        Assert.Contains("System.Object", diagnostic.GetMessage());
     }
 
     [Fact]

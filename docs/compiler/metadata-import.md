@@ -29,10 +29,38 @@ options, pending the agreed TargetPlatform/Contract API.
 
 For discovered-core mode, an explicit `TargetCoreAssemblyName`, when supplied,
 must match the discovered core's simple name. Conflicting explicit `EmitOptions`
-core identities report RAVT003 before output is written. Missing-core setup still
-throws `FileNotFoundException`; translating loader setup failures into diagnostics
-is follow-up work. An empty reference list never gains implicit host references
-through this preset.
+core identities report RAVT003 before output is written. Missing-core setup is
+reported as RAVT004 by compilation diagnostic collection and emission; see the
+failure behavior below. An empty reference list never gains implicit host
+references through this preset.
+
+## Target initialization failures
+
+Compilation-wide, tree-scoped, and document-scoped diagnostic collection report
+RAVT004 when the .NET loader cannot establish its metadata core. This includes
+explicit-only discovery with no supplied core defining System.Object, and known
+I/O, access, invalid-image or type-load failures while opening the metadata core
+session. The diagnostic retains the configured core identity and underlying
+failure detail when available. It does not substitute host definitions.
+
+Emission returns an unsuccessful EmitResult before declaration binding or writing
+to either PE or PDB output, even if the caller supplied precomputed diagnostics.
+RAVT004 remains a fatal error regardless of diagnostic suppression/severity
+settings: there is no initialized target against which compilation can continue.
+Diagnostic collection stops at this failure; it does not claim a complete set of
+semantic diagnostics. Syntax-only diagnostics require no target initialization.
+
+Failed setup is not marked complete or reused by another snapshot. A new
+compilation with corrected references can initialize normally; repeated or
+concurrent diagnostic requests on the invalid compilation remain failures.
+Failures are not cached as successful sessions. Cancellation and unrelated
+compiler exceptions are not translated into RAVT004.
+
+This boundary covers core-session establishment, not every possible later import
+failure. Direct semantic queries still require a valid target and can throw on
+initialization failure. No partial semantic environment or error-symbol core is
+introduced. Further loader failures and earlier option validation remain follow-up
+work.
 
 ## Implementation boundary
 
@@ -233,8 +261,8 @@ from an evaluated project (or an imported target-pack `.props` file):
 With this opt-in, ordinary `Compilation.Emit` and `rvnc project.rvnproj` use that
 core identity without an external runner constructing EmitOptions. RAVT003 rejects
 inconsistent import/emission selection and conflicting explicit EmitOptions before
-writing the assembly. Missing or unusable core references still follow the existing
-metadata-loader configuration failure path. Named-core import-only callers retain the old
+writing the assembly. Missing or unusable core references report RAVT004 when core-session
+establishment fails during diagnostic collection or emission. Named-core import-only callers retain the old
 behavior when the emission setting is absent. Discovered-core mode, including
 `CompilationOptions.DotNet`, selects emission automatically. Legacy default .NET
 emission and explicit

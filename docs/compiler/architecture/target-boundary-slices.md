@@ -479,3 +479,47 @@ Next: validate configuration before opening the symbol environment, translating
 known setup failures into compiler diagnostics, while continuing to separate
 reflection-dependent compilation services. Language version work must include
 parsing and syntax-tree compatibility rather than merely adding an options field.
+
+## Slice 14: core-session initialization diagnostics
+
+The .NET loader distinguishes expected core-session initialization failures from
+unrelated exceptions. Explicit-only discovery without a core defining System.Object
+fails before attempting host-core fallback. Known I/O, access, invalid-image and
+type-load failures from opening a fresh metadata session carry target-initialization
+failure information to the compilation boundary.
+
+Compilation-wide, tree-scoped and document-scoped diagnostic collection return
+RAVT004 for these failures. Emit rejects them before source declaration binding or
+writing either output stream, including calls with supplied diagnostics. A supplied
+copy of the same diagnostic is retained without duplication. This fatal diagnostic
+cannot be suppressed or downgraded into permission to use incomplete state.
+Syntax-only diagnostic collection no longer initializes the target.
+
+Existing setup locking/finally cleanup remains authoritative: failed setup is not
+marked complete or eligible for session reuse. Tests cover named/discovered missing
+cores, repeated/concurrent diagnostic calls, both output streams, precomputed
+diagnostics, severity configuration, syntax diagnostics, cancellation, and successful
+initialization of a new snapshot after adding references. The original invalid
+snapshot remains invalid.
+
+The boundary intentionally does not catch arbitrary binding/emission exceptions or
+all later dependency-loading failures. Direct semantic queries still require a valid
+target and may throw on failed setup; no partial semantic environment is promised.
+Next: validate target configuration before core loading where possible, and continue
+removing reflection dependencies from shared compilation services. General changes
+still require independent main-based integration; no experimental branch merge is
+implied.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: the pre-change import/reuse/resolver/
+core/preset filter passed 122 tests. Final validation added
+TargetInitializationDiagnosticTests, DocumentScopedDiagnosticsTests, and
+DiagnosticOptionsTests and passed 146 tests with no failures/skips on net11.0.
+One initial regression fixture assumed an incomplete class produced a parser
+error; it was replaced with the existing missing-method-return-type parser case.
+Compiler builds passed for net10.0 and net11.0. Tests used freshly built compiler
+outputs with `--no-restore /property:WarningLevel=0
+/property:BuildProjectReferences=false`; the existing driver subprocess fixture
+used its previously built driver. Whitespace formatting completed with test
+workspace-load warnings, and `git diff --check` passed. Execution was on .NET 11;
+.NET 10/11 reference inputs were covered. No .NET Framework, NanoFramework,
+neoCLR execution, or bootstrap qualification is claimed.
