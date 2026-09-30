@@ -928,3 +928,44 @@ warnings/errors. Tests ran on .NET 11 with freshly built compiler outputs using
 Whitespace formatting completed with test workspace-load warnings;
 `git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
 full bootstrap qualification is claimed.
+
+## Slice 26: explicit type-resolution policy
+
+RuntimeSymbolResolver now forwards usage and Unit-erasure policy to one recursive
+type-resolution implementation. Signature convenience helpers call that same
+implementation. Specialized method-body and custom-attribute entry points are
+removed, with callers routed through the per-emission resolver and their existing
+policy choices made explicit.
+
+This fixes two facade bugs: CustomAttribute usage previously fell through to
+signature resolution, including target metadata types, and MethodBody usage forced
+Unit to void even when treatUnitAsVoid was false. Existing method-body callers
+continue requesting void explicitly. Attribute emission requests host-compatible
+attribute types. Nested Unit values remain value types even when top-level Unit
+is erased to void.
+
+New regressions reproduced both bugs before the implementation change. They check
+method-body Unit with either flag, Unit array element preservation, and host versus
+target-metadata identity for a constructed imported generic type. The array check
+compares its element type rather than equality of reflection array wrappers, which
+can be distinct objects for the same emitted Unit type.
+
+Next: reduce remaining shared-compilation reflection adapters and identify the
+minimal semantic core information required for a selectable target. This is still
+.NET backend composition. Main-based validation remains required before integration,
+and experimental neoCLR policy stays separate.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 49 tests across
+RuntimeSymbolResolverTests, CustomAttributeEmissionTests, UnitReturnTests,
+RuntimeUnitContractTests, AsyncGenericContainingTypeTests and
+GenericReferenceEmissionTests. Final validation added RuntimeTypeResolutionTests,
+TargetCoreGenericSignatureTests and ImportedGenericMethodContextTests: 64 passed,
+no failures/skips, with Development tests excluded. The initial new fixture needed
+an explicit empty syntax-tree input; its first executable run then reproduced the
+two policy bugs and exposed the overly strict array-wrapper identity assertion.
+Final compiler builds passed for net10.0 and net11.0 with no warnings/errors.
+Tests ran on .NET 11 with freshly built compiler outputs using
+`--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`.
+Whitespace formatting completed with test workspace-load warnings;
+`git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
+full bootstrap qualification is claimed.

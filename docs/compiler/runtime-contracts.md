@@ -1321,6 +1321,23 @@ metadata proxy checks and source/imported/substituted field dispatch.
 
 The resolver is a .NET backend service returning reflection objects, not a
 platform-neutral target interface. PE metadata accessors remain available for
-metadata normalization and documentation. Type resolution still has additional
-specialized entry points to consolidate separately. Repeated-emission coverage
+metadata normalization and documentation. Type resolution uses a shared policy-aware implementation, with signature
+convenience helpers retained for internal backend callers. Repeated-emission coverage
 includes named generic tuple field access alongside imported and source fields.
+
+## Type-resolution usage and Unit policy
+
+RuntimeSymbolResolver passes both RuntimeTypeUsage and treatUnitAsVoid to the same
+recursive type resolver. Signature and method-body requests retain their distinct
+generic-parameter mapping rules. CustomAttribute requests use host reflection types
+needed by custom-attribute construction instead of the target-only metadata fast
+path. Attribute emission and specialized method-body callers use this entry point;
+the separate attribute/method-body helper methods have been removed.
+
+Usage does not implicitly choose Unit erasure. With treatUnitAsVoid enabled, only
+top-level Unit resolves to void; Unit nested inside arrays or generic types remains
+a value type. With it disabled, method-body Unit resolution preserves the emitted
+or runtime Unit type. Previously the backend facade ignored CustomAttribute usage
+and forced void for every method-body Unit request. Focused tests cover both fixes
+and nested Unit preservation. This remains an internal .NET backend policy, not a
+new source-language feature or a cross-platform type conversion API.

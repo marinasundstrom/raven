@@ -102,7 +102,7 @@ internal static class MethodSymbolCodeGenResolver
             return builder;
         }
 
-        var constructedDeclaringType = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(containingType, codeGen);
+        var constructedDeclaringType = codeGen.RuntimeSymbolResolver.GetType(containingType, treatUnitAsVoid: true, usage: RuntimeTypeUsage.MethodBody);
         return TryMapToConstructedDeclaringType(constructedDeclaringType, builder)
             ?? TryMapByGenericDefinitionSearch(constructedDeclaringType, builder)
             ?? builder;
@@ -133,7 +133,7 @@ internal static class MethodSymbolCodeGenResolver
         if (containingType is null)
             return resolvedUnderlying;
 
-        var containingClrType = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(containingType, codeGen);
+        var containingClrType = codeGen.RuntimeSymbolResolver.GetType(containingType, treatUnitAsVoid: true, usage: RuntimeTypeUsage.MethodBody);
         var directFromWrapper = TryResolveMethodBySymbolSignature(wrapper, containingClrType, codeGen);
         if (directFromWrapper is not null)
             return directFromWrapper;
@@ -187,7 +187,7 @@ internal static class MethodSymbolCodeGenResolver
                                 return Type.MakeGenericMethodParameter(typeParameter.Ordinal);
                             }
 
-                            return TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(argument, codeGen);
+                            return codeGen.RuntimeSymbolResolver.GetType(argument, treatUnitAsVoid: true, usage: RuntimeTypeUsage.MethodBody);
                         })
                         .ToArray();
 
@@ -231,7 +231,7 @@ internal static class MethodSymbolCodeGenResolver
                         return resolvedType;
                     }
 
-                    return TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(arg, codeGen);
+                    return codeGen.RuntimeSymbolResolver.GetType(arg, treatUnitAsVoid: true, usage: RuntimeTypeUsage.MethodBody);
                 })
                 .ToArray();
 
@@ -712,9 +712,7 @@ internal static class MethodSymbolCodeGenResolver
     {
         if (wrapper.ContainingType is not null)
         {
-            var containingClrType = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(
-                wrapper.ContainingType,
-                codeGen);
+            var containingClrType = codeGen.RuntimeSymbolResolver.GetType(wrapper.ContainingType, treatUnitAsVoid: true, usage: RuntimeTypeUsage.MethodBody);
 
             if (wrapper.OriginalDefinition is SourceMethodSymbol sourceConstructor &&
                 codeGen.GetMemberBuilder(sourceConstructor) is ConstructorInfo definitionConstructor)
@@ -862,9 +860,7 @@ internal static class MethodSymbolCodeGenResolver
         Type targetDeclaringType;
         try
         {
-            targetDeclaringType = TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(
-                constructorSymbol.ContainingType,
-                codeGen);
+            targetDeclaringType = codeGen.RuntimeSymbolResolver.GetType(constructorSymbol.ContainingType, treatUnitAsVoid: true, usage: RuntimeTypeUsage.MethodBody);
         }
         catch
         {

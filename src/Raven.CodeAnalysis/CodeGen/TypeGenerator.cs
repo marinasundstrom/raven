@@ -2321,7 +2321,7 @@ internal class TypeGenerator
             if (RuntimeTypeSymbol is ConstructedNamedTypeSymbol constructedRuntimeType)
                 return ConstructedTypeCodeGenResolver.GetTypeInfo(constructedRuntimeType, codeGen).AsType();
 
-            return TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(RuntimeTypeSymbol, codeGen);
+            return codeGen.RuntimeSymbolResolver.GetType(RuntimeTypeSymbol, treatUnitAsVoid: true, usage: RuntimeTypeUsage.MethodBody);
         }
 
         public void EnsureFields(ImmutableArray<ISymbol> capturedVariables)

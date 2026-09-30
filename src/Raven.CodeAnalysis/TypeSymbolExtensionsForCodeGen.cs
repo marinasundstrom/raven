@@ -13,38 +13,21 @@ namespace Raven.CodeAnalysis;
 public static class TypeSymbolExtensionsForCodeGen
 {
     internal static Type GetClrType(ITypeSymbol typeSymbol, CodeGenerator codeGen)
-        => GetClrTypeInternal(
-            typeSymbol,
-            codeGen,
-            treatUnitAsVoid: false,
-            usage: RuntimeTypeUsage.Signature,
-            isTopLevel: true,
-            visiting: new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance));
+        => ResolveType(typeSymbol, codeGen, treatUnitAsVoid: false, RuntimeTypeUsage.Signature);
 
     internal static Type GetClrTypeTreatingUnitAsVoid(ITypeSymbol typeSymbol, CodeGenerator codeGen)
-        => GetClrTypeInternal(
-            typeSymbol,
-            codeGen,
-            treatUnitAsVoid: true,
-            usage: RuntimeTypeUsage.Signature,
-            isTopLevel: true,
-            visiting: new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance));
+        => ResolveType(typeSymbol, codeGen, treatUnitAsVoid: true, RuntimeTypeUsage.Signature);
 
-    internal static Type GetClrTypeTreatingUnitAsVoidForMethodBody(ITypeSymbol typeSymbol, CodeGenerator codeGen)
+    internal static Type ResolveType(
+        ITypeSymbol typeSymbol,
+        CodeGenerator codeGen,
+        bool treatUnitAsVoid,
+        RuntimeTypeUsage usage)
         => GetClrTypeInternal(
             typeSymbol,
             codeGen,
-            treatUnitAsVoid: true,
-            usage: RuntimeTypeUsage.MethodBody,
-            isTopLevel: true,
-            visiting: new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance));
-
-    internal static Type GetClrTypeForAttribute(ITypeSymbol typeSymbol, CodeGenerator codeGen)
-        => GetClrTypeInternal(
-            typeSymbol,
-            codeGen,
-            treatUnitAsVoid: false,
-            usage: RuntimeTypeUsage.CustomAttribute,
+            treatUnitAsVoid,
+            usage,
             isTopLevel: true,
             visiting: new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance));
 

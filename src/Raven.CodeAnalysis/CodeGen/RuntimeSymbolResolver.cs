@@ -23,15 +23,7 @@ internal sealed class RuntimeSymbolResolver : IRuntimeSymbolResolver
     }
 
     public Type GetType(ITypeSymbol typeSymbol, bool treatUnitAsVoid = false, RuntimeTypeUsage usage = RuntimeTypeUsage.Signature)
-    {
-        if (usage == RuntimeTypeUsage.MethodBody)
-            return TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoidForMethodBody(typeSymbol, _codeGenerator);
-
-        if (treatUnitAsVoid)
-            return TypeSymbolExtensionsForCodeGen.GetClrTypeTreatingUnitAsVoid(typeSymbol, _codeGenerator);
-
-        return TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, _codeGenerator);
-    }
+        => TypeSymbolExtensionsForCodeGen.ResolveType(typeSymbol, _codeGenerator, treatUnitAsVoid, usage);
 
     public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)
         => MethodSymbolCodeGenResolver.GetClrMethodInfo(methodSymbol, _codeGenerator);

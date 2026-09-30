@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Unify backend type resolution around explicit usage and Unit
+  policy. Honor CustomAttribute requests and preserve method-body Unit when void
+  conversion is disabled; keep nested Unit as a value type. Route specialized
+  attribute/method-body callers through the resolver and add regression coverage.
+
 - **2026-09-30:** Route field emission through the per-emission runtime symbol
   resolver alongside methods and constructors. Remove the field codegen extension
   from semantic symbols, preserve tuple/metadata-proxy dispatch, and extend runtime
