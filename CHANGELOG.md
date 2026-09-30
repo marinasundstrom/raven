@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Load and save `RavenTargetPlatform` in Raven projects, initially
+  accepting `DotNet`. Invalid platform names produce a clear project-loading error;
+  the compiler driver exits cleanly. Existing reference/core selection is preserved.
+
 - **2026-09-30:** Add immutable `CompilationOptions.TargetPlatform` selection,
   initially supporting `TargetPlatform.DotNet`. Unknown values report RAVT005
   before reference loading or output writes; platform changes block incremental

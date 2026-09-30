@@ -1133,7 +1133,16 @@ Project project;
 
 if (projectFileInput is not null)
 {
-    projectId = workspace.OpenProject(projectFileInput);
+    try
+    {
+        projectId = workspace.OpenProject(projectFileInput);
+    }
+    catch (InvalidDataException exception)
+    {
+        Console.Error.WriteLine($"Cannot load project '{projectFileInput}': {exception.Message}");
+        Environment.ExitCode = 1;
+        return;
+    }
     project = workspace.CurrentSolution.GetProject(projectId)!;
     project = project.WithParseOptions(
         (project.ParseOptions ?? workspace.Services.SyntaxTreeProvider.ParseOptions)

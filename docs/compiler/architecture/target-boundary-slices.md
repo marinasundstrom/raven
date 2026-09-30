@@ -1315,3 +1315,30 @@ This intentionally completes only the .NET API foundation: there is no NeoCLR
 preset, project-file selector or strict .NET feature matrix yet. Existing implicit
 neoCLR CLI rules remain compatible. Next, define the supported neoCLR CLI profile,
 wire project configuration and migrate callers before removing those triggers.
+
+## Slice 37: project platform selection and driver errors
+
+MSBuild evaluation now reads RavenTargetPlatform into CompilationOptions.
+Absent/blank values retain the existing .NET default; DotNet is accepted
+case-insensitively with surrounding whitespace ignored. Project saving writes
+the canonical name, and reload preserves platform and existing core/reference
+settings. Unsupported names (including NeoCLR until its profile is implemented),
+numeric values and combined names produce an InvalidDataException identifying
+the property and value. The compiler driver catches project InvalidDataException
+and reports a concise error with exit code 1 instead of an unhandled exception.
+Compiler API validation continues to use RAVT005 for unsupported enum values.
+
+The external NeoCLR.Raven.props was inspected, not modified. It also selects the
+separate Self feature, so importing its entire configuration as a main preset
+would overstate current support. This slice finishes project selection first;
+next is defining the supported neoCLR CLI profile independently of Self and
+migrating consumers with explicit limits. Existing integration props without
+the new selector preserve prior behavior.
+
+The pre-change project/platform baseline passed 60 tests. The final suite passed
+70 tests on .NET 11, including four evaluated/imported-property round trips, five
+invalid-name cases and a driver regression proving the error text, exit code and
+preservation of existing output. Compiler/driver builds passed for .NET 10/11 with
+zero warnings/errors. Whitespace formatting completed with workspace-load warnings
+and git diff --check passed. No syntax/model generation, SDK target changes or
+native neoCLR/.NET Framework/NanoFramework execution is claimed.

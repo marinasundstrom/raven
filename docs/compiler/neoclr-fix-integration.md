@@ -1730,3 +1730,18 @@ No runtime artifacts or caller migration are required for this additive slice.
 A NeoCLR preset and project selector remain pending a supported CLI profile.
 The focused configuration/incremental/compatibility checks passed 120 tests on
 .NET 11; compiler builds passed for .NET 10/11. This is not neoCLR execution evidence.
+
+
+## Project platform selection foundation — 2026-09-30
+
+Raven projects now load/save RavenTargetPlatform, currently accepting only DotNet.
+The existing NeoCLR.Raven.props has no such selector and keeps its current CLI
+configuration. Its Self settings belong to the separate Self feature branch, so
+main does not advertise that complete props configuration as a supported preset.
+No external runtime files or configuration are changed by this slice. A supported
+neoCLR CLI profile and caller migration remain pending; no neoCLR execution is
+claimed by the project-system validation.
+
+Validation: 70 project/platform tests passed on .NET 11; compiler/driver builds
+passed for .NET 10/11. Invalid project selection is covered through the driver,
+including unsuccessful exit and preservation of existing output.

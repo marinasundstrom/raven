@@ -147,6 +147,7 @@ internal static class MsBuildProjectEvaluator
             .Where(static item => !string.IsNullOrWhiteSpace(item.Include))
             .ToImmutableArray();
 
+        var targetPlatform = ParseTargetPlatform(GetOptionalProperty(project, "RavenTargetPlatform"));
         var outputType = project.GetPropertyValue("OutputType");
         var allowUnsafe = GetBooleanProperty(project, "AllowUnsafe") ?? GetBooleanProperty(project, "AllowUnsafeBlocks") ?? false;
         var allowGlobalStatements = GetBooleanProperty(project, "AllowGlobalStatements")
@@ -214,7 +215,7 @@ internal static class MsBuildProjectEvaluator
             .WithPreprocessorSymbols(
                 ParsePreprocessorSymbols(project.GetPropertyValue("DefineConstants")));
 
-        var compilationOptions = new CompilationOptions(ParseOutputKind(outputType))
+        var compilationOptions = new CompilationOptions(ParseOutputKind(outputType), targetPlatform: targetPlatform)
             .WithOptimizationLevel(ParseOptimizationLevel(project, configuration))
             .WithAllowUnsafe(allowUnsafe)
             .WithAllowGlobalStatements(allowGlobalStatements)
@@ -583,6 +584,16 @@ internal static class MsBuildProjectEvaluator
     {
         var value = project.GetPropertyValue(propertyName);
         return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    private static TargetPlatform ParseTargetPlatform(string? value)
+    {
+        if (value is null || string.Equals(value.Trim(), nameof(TargetPlatform.DotNet), StringComparison.OrdinalIgnoreCase))
+            return TargetPlatform.DotNet;
+
+        throw new InvalidDataException(
+            $"Unsupported RavenTargetPlatform '{value}'. Supported value: DotNet. " +
+            "Reference frameworks and core assemblies must be configured separately.");
     }
 
     private static FrameworkProjectionMode ParseFrameworkProjectionMode(string? value) =>

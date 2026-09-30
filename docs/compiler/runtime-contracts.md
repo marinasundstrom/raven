@@ -1567,3 +1567,28 @@ in this slice. The existing neoCLR CLI compatibility rules still apply within th
 current pipeline; this option does not enforce a strict .NET capability matrix.
 A supported neoCLR CLI profile, project configuration and caller migration must be
 defined together before replacing those rules with explicit target enforcement.
+
+
+### Project platform selection (2026-09-30)
+
+Projects may select the supported pipeline with
+`<RavenTargetPlatform>DotNet</RavenTargetPlatform>`. An absent or blank value keeps
+the existing .NET default. Names are case-insensitive and surrounding whitespace
+is ignored. The property is evaluated by MSBuild, including imports and property
+expansion. Saving a project writes the canonical platform name and loading it
+again preserves the selection. `TargetFramework`, metadata-core selection and
+explicit references remain independent; this property does not install or discover
+reference assemblies or replace existing core/contract settings.
+
+At present `DotNet` is the sole accepted name. Numeric enum values, combined names,
+unknown names and `NeoCLR` are rejected during project evaluation with an
+`InvalidDataException` naming `RavenTargetPlatform` and its value. The compiler
+driver reports this as a project-loading error and exits unsuccessfully before
+emission. This project-format validation is distinct from RAVT005 for unsupported
+platform values supplied through the compiler API.
+
+The external neoCLR props file currently also selects the separate Self experiment.
+It must not be copied wholesale into a preset on main. Defining a supported CLI
+profile independent of that feature, followed by an explicit NeoCLR preset and
+caller migration, remains the next architecture step. Existing integration props
+without RavenTargetPlatform retain their prior behavior.

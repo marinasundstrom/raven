@@ -10,6 +10,53 @@ public sealed class TargetPlatformTests
     private const TargetPlatform Unsupported = (TargetPlatform)123;
 
     [Fact]
+    public async Task CompilerDriverReportsInvalidProjectPlatformWithoutWritingOutput()
+    {
+        var repository = new DirectoryInfo(AppContext.BaseDirectory);
+        while (repository is not null && !File.Exists(Path.Combine(repository.FullName, "Raven.sln")))
+            repository = repository.Parent;
+        Assert.NotNull(repository);
+        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+        var compiler = Path.Combine(repository!.FullName, "src/Raven.Compiler/bin", configuration, "net11.0/rvnc.dll");
+        Assert.True(File.Exists(compiler), "Build the repository compiler before running driver tests.");
+        var directory = Path.Combine(Path.GetTempPath(), "raven-platform-driver-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var project = Path.Combine(directory, "App.rvnproj");
+            File.WriteAllText(project,
+                "<Project><PropertyGroup><RavenTargetPlatform>NeoCLR</RavenTargetPlatform></PropertyGroup></Project>");
+            var outputDirectory = Path.Combine(directory, "output");
+            Directory.CreateDirectory(outputDirectory);
+            var output = Path.Combine(outputDirectory, "App.dll");
+            File.WriteAllBytes(output, [1, 2, 3]);
+            var info = new System.Diagnostics.ProcessStartInfo("dotnet")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = directory
+            };
+            foreach (var argument in new[] { compiler, project, "--framework", "net11.0", "--no-project-restore", "-o", outputDirectory })
+                info.ArgumentList.Add(argument);
+            using var process = System.Diagnostics.Process.Start(info)!;
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            try { await process.WaitForExitAsync(timeout.Token); }
+            catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw; }
+            var message = await stdout + await stderr;
+            Assert.Equal(1, process.ExitCode);
+            Assert.Contains("Cannot load project", message);
+            Assert.Contains("RavenTargetPlatform 'NeoCLR'", message);
+            Assert.DoesNotContain("Unhandled exception", message);
+            Assert.Equal(new byte[] { 1, 2, 3 }, File.ReadAllBytes(output));
+            Assert.Single(Directory.GetFiles(outputDirectory));
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
     public void DefaultsPreserveDotNetAndReferencePolicy()
     {
         Assert.Equal(TargetPlatform.DotNet, new CompilationOptions().TargetPlatform);

@@ -116,8 +116,9 @@ enable the features generally or finalize these policies.
    inference remains transitional, not explicit target enforcement.
 2. In progress: CompilationOptions.TargetPlatform now explicitly identifies the
    supported .NET pipeline. All option copies and incremental compatibility checks
-   carry it; unknown values diagnose before setup/emission. Next, define the neoCLR
-   CLI profile and project selection together, then migrate callers and remove
+   carry it; unknown values diagnose before setup/emission. Project loading and saving
+   now support RavenTargetPlatform=DotNet with strict name validation. Next, define
+   the neoCLR CLI profile and its project selection together, then migrate callers and remove
    assembly-name and unrelated-option inference. Contract selection remains the
    existing immutable per-protocol options.
 3. Add CompilationOptions.NeoCLR backed by the actual supported CLI transport

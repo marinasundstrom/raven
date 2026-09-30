@@ -11,6 +11,71 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class MsBuildProjectSystemServiceTests
 {
     [Theory]
+    [InlineData("")]
+    [InlineData("DotNet")]
+    [InlineData("dotnet")]
+    [InlineData(" DotNet ")]
+    public void OpenAndSaveProject_TargetPlatformComesFromEvaluatedProperties(string platform)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "Target.props"),
+                $"<Project><PropertyGroup><SelectedPlatform>{platform}</SelectedPlatform></PropertyGroup></Project>");
+            var path = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(path, """
+                <Project>
+                  <Import Project="Target.props" />
+                  <PropertyGroup>
+                    <RavenTargetPlatform>$(SelectedPlatform)</RavenTargetPlatform>
+                    <RavenMetadataCoreAssemblyName>Custom.Core</RavenMetadataCoreAssemblyName>
+                    <RavenTargetCoreAssemblyName>Custom.Core</RavenTargetCoreAssemblyName>
+                    <RavenUseHostFrameworkReferences>false</RavenUseHostFrameworkReferences>
+                  </PropertyGroup>
+                </Project>
+                """);
+            var service = new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: false);
+            var workspace = RavenWorkspace.Create(targetFramework: TestMetadataReferences.TargetFramework, projectSystemService: service);
+            var id = workspace.OpenProject(path);
+            var options = workspace.CurrentSolution.GetProject(id)!.CompilationOptions!;
+            Assert.Equal(TargetPlatform.DotNet, options.TargetPlatform);
+            Assert.Equal("Custom.Core", options.TargetCoreAssemblyName);
+            Assert.Equal("Custom.Core", options.MetadataImportOptions!.CoreAssemblyName);
+            workspace.SaveProject(id, path);
+
+            var saved = System.Xml.Linq.XDocument.Load(path);
+            Assert.Equal("DotNet", saved.Descendants("RavenTargetPlatform").Single().Value);
+            var reloaded = MsBuildProjectEvaluator.Evaluate(path, RavenProjectConventions.Default).CompilationOptions;
+            Assert.Equal(options.TargetPlatform, reloaded.TargetPlatform);
+            Assert.Equal(options.TargetCoreAssemblyName, reloaded.TargetCoreAssemblyName);
+            Assert.Equal(options.MetadataImportOptions, reloaded.MetadataImportOptions);
+        }
+        finally { DeleteDirectoryIfExists(root); }
+    }
+
+    [Theory]
+    [InlineData("NeoCLR")]
+    [InlineData("Typo")]
+    [InlineData("0")]
+    [InlineData("123")]
+    [InlineData("DotNet, DotNet")]
+    public void Evaluate_UnsupportedPlatformReportsPropertyAndValue(string platform)
+    {
+        MsBuildLocatorRegistration.EnsureRegistered();
+        var root = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(root, "App.rvnproj");
+            File.WriteAllText(path, $"<Project><PropertyGroup><RavenTargetPlatform>{platform}</RavenTargetPlatform></PropertyGroup></Project>");
+            var exception = Assert.Throws<InvalidDataException>(
+                () => MsBuildProjectEvaluator.Evaluate(path, RavenProjectConventions.Default));
+            Assert.Contains($"RavenTargetPlatform '{platform}'", exception.Message);
+            Assert.Contains("Supported value: DotNet", exception.Message);
+        }
+        finally { DeleteDirectoryIfExists(root); }
+    }
+
+    [Theory]
     [InlineData("", false, true, false)]
     [InlineData("<RavenHeapAsyncStateMachines>true</RavenHeapAsyncStateMachines><RavenCaptureAsyncExceptions>false</RavenCaptureAsyncExceptions><RavenPropagateAsyncCancellation>true</RavenPropagateAsyncCancellation>", true, false, true)]
     public void OpenProject_ProvisionalAsyncPolicy(string properties, bool heap, bool capture, bool cancellation)
