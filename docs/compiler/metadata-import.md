@@ -75,9 +75,30 @@ gets its own host service and symbol caches.
 Host fallback paths remain available only under existing host-assisted import
 policy. Explicit-reference target definitions are not replaced by runtime
 implementations, even when those implementations are already in shared host caches.
-The compiler still exposes existing reflection core handles and uses
-ReflectionTypeLoader for semantic projection; replacing the target remains
-incomplete.
+The compiler still exposes existing reflection core handles; replacing the target
+remains incomplete. ReflectionTypeLoader is now owned by the per-compilation .NET
+target as described below.
+
+## Reflection-to-symbol projection ownership
+
+Each `DotNetCompilationTarget` owns one lazy `ReflectionTypeLoader`, including its
+reflection type, metadata identity and method/type-parameter projection caches.
+The target passes that projector explicitly to `DotNetSemanticDataLoader`, which
+uses it for imported PE modules. Compilation's reflection entry points forward to
+the same projector; they no longer create or own an independent instance.
+
+Projector allocation does not initialize the compilation or load references.
+This permits reflection queries before setup and allows metadata import to reuse
+the projector during same-thread setup reentrancy. Lazy initialization publishes
+one projector even when multiple callers request it concurrently. This does not
+introduce a broader concurrency guarantee for every projection operation.
+
+The projector remains compilation-bound and is never stored in shared metadata
+sessions or host caches. Compatible snapshots may share a metadata session but
+retain distinct projectors and projected symbols. This is an ownership extraction;
+projection algorithms, nullability, generic substitution and the existing public
+`Compilation.GetType(Type)` surface remain unchanged. The .NET-specific projector
+is not added to the neutral semantic-data-loader interface.
 
 ## Target initialization failures
 

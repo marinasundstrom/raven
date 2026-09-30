@@ -666,3 +666,42 @@ outputs using `--no-restore /property:WarningLevel=0
 /property:BuildProjectReferences=false`. Whitespace formatting completed with
 test workspace-load warnings; `git diff --check` passed. No .NET Framework,
 NanoFramework, neoCLR execution or full bootstrap qualification is claimed.
+
+## Slice 19: target-owned reflection-to-symbol projector
+
+DotNetCompilationTarget owns one lazy ReflectionTypeLoader per compilation and
+passes it explicitly to DotNetSemanticDataLoader for imported modules. Compilation's
+existing reflection entry points forward to that same projector. No projection
+method is added to the platform-neutral semantic loader interface, and no projection
+algorithm or public API is redesigned in this slice.
+
+The projector can be allocated before setup without binding or loading references;
+this preserves cold reflection queries and setup reentrancy. Lazy publication avoids
+multiple projector instances under concurrent requests. This is not a claim that
+all projection operations have acquired new concurrency guarantees. Metadata sessions
+remain shareable independently; projection caches and symbols are snapshot-owned.
+
+New tests cover concurrent pre-setup projector requests without references, cold
+public reflection queries sharing symbol identity with imported generic members,
+and distinct projected generic types/arguments across snapshots sharing a metadata
+session. Existing nullability, metadata-reference and snapshot-lifetime cases cover
+the surrounding behavior.
+
+Next: reduce reflection core/session handles exposed by shared compilation setup
+before selecting a second target implementation. Main integration remains pending
+independent validation; no neoCLR-specific integration is promoted.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 134 tests across
+MetadataImportOptionsTests, IncrementalCompilationReuseTests,
+CliMetadataCompatibilityTests, MetadataCoreIdentityTests,
+DotNetCompilationPresetTests, NullableMetadataBindingTests and
+MetadataReferenceResolutionTests. Final validation added
+ReflectionProjectionOwnershipTests and ReflectionTypeLoaderNestedTypeTests and
+passed 140 tests with no failures/skips. The initial cold-query fixture selected
+all imported Item properties; it was narrowed to the public indexer to exclude
+explicit-interface indexers. Compiler builds passed for net10.0 and net11.0 with
+no warnings/errors. Tests ran on .NET 11 with freshly built compiler outputs using
+`--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`.
+Whitespace formatting completed with test workspace-load warnings;
+`git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
+full bootstrap qualification is claimed.

@@ -28,6 +28,14 @@ public sealed class IncrementalCompilationReuseTests
         Assert.Same(currentType, current.GetTypeByMetadataName("System.String"));
         Assert.NotEmpty(previousType.GetMembers("Substring"));
         Assert.NotEmpty(currentType.GetMembers("Substring"));
+
+        var previousList = Assert.IsAssignableFrom<INamedTypeSymbol>(previous.GetType(typeof(List<int>)));
+        var currentList = Assert.IsAssignableFrom<INamedTypeSymbol>(current.GetType(typeof(List<int>)));
+        Assert.NotSame(previous.ReflectionTypeLoader, current.ReflectionTypeLoader);
+        Assert.NotSame(previousList, currentList);
+        Assert.Same(currentList, current.GetType(typeof(List<int>)));
+        Assert.Same(previous.GetSpecialType(SpecialType.System_Int32), previousList.TypeArguments.Single());
+        Assert.Same(current.GetSpecialType(SpecialType.System_Int32), currentList.TypeArguments.Single());
     }
 
     [Fact]

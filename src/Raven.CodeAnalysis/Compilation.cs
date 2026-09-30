@@ -45,7 +45,6 @@ public partial class Compilation
     private ErrorTypeSymbol _errorTypeSymbol;
     private NullTypeSymbol _nullTypeSymbol;
     private UnitTypeSymbol _unitTypeSymbol;
-    private ReflectionTypeLoader _reflectionTypeLoader;
     private readonly object _semanticModelSetupGate = new();
     private bool _sourceTypesInitialized;
     private bool _isPopulatingSourceTypes;
@@ -123,7 +122,7 @@ public partial class Compilation
         _references = references;
         _macroReferences = macroReferences;
         Options = options ?? new CompilationOptions();
-        _target = new DotNetCompilationTarget(Options);
+        _target = new DotNetCompilationTarget(this, Options);
         ScriptCompilationInfo = scriptCompilationInfo;
         _generatorDiagnostics = generatorDiagnostics.IsDefault
             ? ImmutableArray<Diagnostic>.Empty
@@ -1247,7 +1246,7 @@ public partial class Compilation
             && normalized.Contains("/ref/", StringComparison.OrdinalIgnoreCase);
     }
 
-    internal ReflectionTypeLoader ReflectionTypeLoader => _reflectionTypeLoader ??= new ReflectionTypeLoader(this);
+    internal ReflectionTypeLoader ReflectionTypeLoader => _target.ReflectionTypeLoader;
 
     private void InitializeTopLevelPrograms()
     {

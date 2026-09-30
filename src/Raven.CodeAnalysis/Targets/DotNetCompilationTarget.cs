@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 
 using Raven.CodeAnalysis.CodeGen;
@@ -7,8 +8,13 @@ namespace Raven.CodeAnalysis.Targets;
 
 // Composition for the existing CLI implementation. Session/core reflection is
 // still .NET-specific; this is not yet a replaceable target-provider interface.
-internal sealed class DotNetCompilationTarget(CompilationOptions options)
+internal sealed class DotNetCompilationTarget(Compilation compilation, CompilationOptions options)
 {
+    // Allocate before setup if needed, without binding or loading references.
+    // The projector and its symbol caches belong to this compilation only.
+    private readonly Lazy<ReflectionTypeLoader> _reflectionTypeLoader = new(() => new ReflectionTypeLoader(compilation));
+
+    internal ReflectionTypeLoader ReflectionTypeLoader => _reflectionTypeLoader.Value;
     internal DotNetRuntimeContract RuntimeContract { get; } = new(options);
     internal DotNetHostRuntime HostRuntime { get; } = new();
 
@@ -20,7 +26,7 @@ internal sealed class DotNetCompilationTarget(CompilationOptions options)
     internal ISemanticDataLoader CreateSemanticDataLoader(
         Compilation compilation,
         DotNetMetadataSession session)
-        => new DotNetSemanticDataLoader(compilation, session);
+        => new DotNetSemanticDataLoader(compilation, session, ReflectionTypeLoader);
 
     internal string? GetResolvedConfigurationError(Compilation compilation)
         => RuntimeContract.GetResolvedConfigurationError(compilation, compilation.CoreAssembly.GetName().Name);

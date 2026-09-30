@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Give each .NET target one lazy reflection-to-symbol projector
+  and inject it into metadata import. Preserve pre-setup reflection queries and
+  snapshot-owned symbol caches; concurrent projector requests share one instance.
+  Add cold-query, imported-member identity and shared-session snapshot coverage.
+
 - **2026-09-30:** Move .NET host assembly loading, runtime type lookup, emit-core
   discovery and assembly/path caches into a per-compilation host service owned
   by the .NET target. Preserve process-wide cache sharing and lookup policies;

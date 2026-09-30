@@ -1261,3 +1261,13 @@ semantic-data loader and runtime contract: a host implementation is not evidence
 that a type is available in the selected target's reference universe. See
 [metadata import ownership](metadata-import.md#host-assembly-service-ownership)
 for cache lifetime and remaining reflection dependencies.
+
+## Per-compilation semantic projection
+
+The .NET target owns a single lazy ReflectionTypeLoader and injects it into its
+semantic-data loader. Imported members and Compilation's reflection APIs use the
+same compilation-bound projector. Allocation is independent of setup, and shared
+metadata sessions never own projection caches. This keeps symbol identity local
+to each snapshot without adding reflection methods to ISemanticDataLoader.
+Reflection APIs and core handles still exist on Compilation; full target replacement
+requires further separation.
