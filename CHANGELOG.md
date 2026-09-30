@@ -4,9 +4,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Move metadata-session reuse validation into the .NET semantic-data
+  loader, shared by .NET and the neoCLR CLI bridge. Preserve reference order when
+  checking reuse so reordered duplicate assembly identities expose the new first
+  reference's surface without changing earlier compilation symbols. Keep import
+  mode/core checks and file revision tracking inside the loader boundary.
+
 - **2026-09-30:** Keep the structural Function experiment notes on this feature
   branch, synchronized with shared main's Self integration. Nominal callback
   transport remains shared; structural metadata and compiler semantics are deferred.
+
 - **2026-09-30:** Track deferred structural Function work on Raven
   `codex/neoclr-structural-types` and neoCLR `codex/structural-types`, both based
   on their Self-integrated main branches; retire the previous integration names.

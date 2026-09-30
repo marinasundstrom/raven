@@ -11,15 +11,24 @@ internal sealed class DotNetMetadataSession
 {
     private readonly MetadataLoadContext _context;
 
-    private DotNetMetadataSession(MetadataLoadContext context)
+    private readonly DotNetMetadataInputSnapshot? _inputs;
+    private readonly string? _coreAssemblyName;
+
+    private DotNetMetadataSession(MetadataLoadContext context, string? coreAssemblyName, DotNetMetadataInputSnapshot? inputs)
     {
         _context = context;
+        _coreAssemblyName = coreAssemblyName;
+        _inputs = inputs;
     }
 
     internal static DotNetMetadataSession Create(
         DotNetMetadataReferenceSet references,
-        string? coreAssemblyName)
-        => new(DotNetMetadataContextFactory.Create(references, coreAssemblyName));
+        string? coreAssemblyName,
+        DotNetMetadataInputSnapshot? inputs = null)
+        => new(DotNetMetadataContextFactory.Create(references, coreAssemblyName), coreAssemblyName, inputs);
+
+    internal bool CanReuse(DotNetMetadataInputSnapshot inputs, string coreAssemblyName)
+        => _coreAssemblyName == coreAssemblyName && _inputs?.Matches(inputs) == true;
 
     internal Assembly CoreAssembly => _context.CoreAssembly!;
 

@@ -54,11 +54,11 @@ internal sealed class DotNetCompilationTarget
         EmitCoreAssembly = RuntimeCoreAssembly;
     }
 
-    internal ISemanticDataLoader InitializeSemanticData(bool reuseMetadataSession)
+    internal ISemanticDataLoader InitializeSemanticData()
     {
         _metadataSession = DotNetSemanticDataLoader.OpenSession(
             _compilation.References, _compilation.Options.MetadataImportOptions, HostRuntime,
-            reuseMetadataSession ? _previousMetadataSessionForReuse : null);
+            _previousMetadataSessionForReuse);
         _previousMetadataSessionForReuse = null;
         CoreAssembly = _metadataSession.CoreAssembly;
         EmitCoreAssembly = HostRuntime.ResolveEmitCoreAssembly() ?? RuntimeCoreAssembly;
