@@ -30,6 +30,9 @@ Use the [runtime/platform contract design](runtime-platform-contract-design.md)
 for target selection, symbol-source and code-generator compatibility, feature
 restrictions, and snapshot invalidation rules.
 
+Use [neoCLR main readiness](neoclr-main-readiness.md) for the integrated branch
+checkpoint, target-policy inventory and the path to explicit .NET/neoCLR presets.
+
 Use [Raven-native Compiler API result shapes and pre-bootstrap
 adoption](../api/result-shapes.md) for the plan by which selected APIs adopt
 Raven.Core contracts inside the existing C# implementation after the

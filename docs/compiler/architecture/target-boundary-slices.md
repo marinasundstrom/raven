@@ -1139,3 +1139,34 @@ No failures or skips. Compiler builds passed for net10.0/net11.0 without warning
 or errors. Whitespace formatting completed with test workspace-load warnings;
 `git diff --check` passed. Full baseline, .NET Framework, NanoFramework, neoCLR
 execution and bootstrap qualification were not run for this slice.
+
+## Integration checkpoint: target boundaries into neoclr
+
+On 2026-09-30 the author requested integration of the current feature branch into
+neoclr, with eventual main integration as the new objective. The clean local
+neoclr branch fast-forwarded from b54d2999c to 1991973f8, preserving all 36 slice
+and planning commits. No conflicts, remote push or main modification occurred.
+The target-boundaries feature branch remains available at the integrated commit.
+
+See [neoCLR main readiness](neoclr-main-readiness.md) for the inventory of implicit
+behavior switches, explicit target/contract selection, the planned
+CompilationOptions.NeoCLR preset and validation gates. The later main integration
+requires reconciliation: the branches had 96 main-only and 259 neoclr-only commits
+at this checkpoint. The earlier separate-experiment direction is historical;
+preparing a reviewed main integration is now authorized, but not completed.
+
+Validation ran against unchanged compiler sources at 1991973f8. The full baseline
+rebuilt its dependencies, including Raven.Core and Raven.Macros, then stopped after
+11 test batches: 1,029 passed, one failed, no skips on .NET 11. The failure is
+ConstrainedSealedHierarchyTests.NestedGenericSealedCases_ImplementInterfaceMethodsAndBindGenericMath:
+two RAV0320 diagnostics for T satisfying INumber<T>. A focused rerun of that class
+confirmed one pass and one failure. This was not compared against the pre-merge
+compiler and is not classified as pre-existing or introduced by these slices.
+The broad baseline is incomplete and not green.
+
+Before the fast-forward, focused neoCLR function/fault tests passed nine cases
+and ordinary tuple semantic tests passed eight on the same compiler revision.
+No actual neoCLR runtime execution, .NET Framework/NanoFramework validation or
+full bootstrap qualification was performed. Next: isolate the generic-constraint
+failure before claiming merge readiness, then consolidate the documented target
+policies and implement explicit preset selection.

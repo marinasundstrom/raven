@@ -1,5 +1,15 @@
 # General compiler fixes extracted from the neoCLR experiment
 
+## Updated integration direction — 2026-09-30
+
+The author now intends to prepare neoCLR for eventual integration into main and
+has integrated codex/target-boundaries into the local neoclr branch. Earlier
+instructions below describe historical extraction policy. The current staged
+plan is [neoCLR main readiness](architecture/neoclr-main-readiness.md): reconcile
+main, separate implicit target policy, provide a coherent NeoCLR preset and
+validate feature contracts before main integration. Main has not been merged or
+modified by this checkpoint.
+
 ## Storage constraints and experiment pause (2026-09-30)
 
 Main commit `046dc8532` independently extracts ordinary generic storage

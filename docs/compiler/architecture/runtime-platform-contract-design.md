@@ -5,6 +5,10 @@ Status: implementation design, 2026-09-30. Implements the direction of
 pipeline below is not implemented yet. The existing compiler still uses .NET
 symbol loading and CLI emission, with experimental target options.
 
+See [neoCLR integration readiness](neoclr-main-readiness.md) for the current
+merge objective, behavior-switch inventory and staged `CompilationOptions.NeoCLR`
+work. The preset and target-selection pipeline remain planned.
+
 ## Current implementation scope
 
 The immediate target is a coherent trio: a semantic-data loader, a
