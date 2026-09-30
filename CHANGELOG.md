@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Document the independent neoCLR main backport of callback function
+  syntax and OfType, preserving its existing nominal delegate metadata, runtime
+  representation and introspection contracts. This target-library backport does
+  not change general Raven CLI emission or Runtime Contract configuration.
+
 - **2026-09-29:** Record isolated neoCLR instance Function target preservation and
   absent adapter declaration metadata, plus structural-family reference browsing
   through RavenDoc's existing authored-page navigation. No general CLI emission

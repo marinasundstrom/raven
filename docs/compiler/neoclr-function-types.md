@@ -154,3 +154,19 @@ not Raven's general CLI emission. The source consumer checks original member ide
 receiver-sensitive equality, unit target inspection and capture retention through
 Object views. RavenDoc's existing authored-page navigation now exposes the target's
 structural families; no general publisher or compiler change is required.
+
+
+### Independent neoCLR main backport (2026-09-30)
+
+The author selected callback function type syntax and lazy OfType for backport to
+neoCLR main. This source/library subset retains main's nominal Func/delegate ABI,
+artifact formats, comparer names and TypeInfo/MemberInfo contracts. Raven source
+uses arrow-shaped callback annotations; matching compilation still emits the
+existing Func metadata consumed by main's bridge. OfType adds a two-generic-argument
+query binding and a Raven iterator using existing Object type tests and casts.
+Runtime Contract configuration and general CLI compiler behavior are unchanged.
+
+The structural Function runtime and nominal/structural descriptor split remain on
+the neoCLR feature branch. Validation uses regenerated main library/reference
+artifacts, query/delegate/Task native checks, compiled callback/async consumers and
+the OfType query suite, as recorded in neoCLR's query API documentation.
