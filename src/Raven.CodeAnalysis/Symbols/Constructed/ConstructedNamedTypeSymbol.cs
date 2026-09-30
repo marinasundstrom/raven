@@ -2066,7 +2066,7 @@ internal sealed class SubstitutedEventSymbol : IEventSymbol
     public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
 }
 
-internal sealed class SubstitutedParameterSymbol : IParameterSymbol
+internal sealed class SubstitutedParameterSymbol : IParameterSymbol, IParameterDefaultValueInfo
 {
     private readonly IParameterSymbol _original;
     private readonly ConstructedNamedTypeSymbol _constructed;
@@ -2115,6 +2115,8 @@ internal sealed class SubstitutedParameterSymbol : IParameterSymbol
     public bool IsMutable => _original.IsMutable;
     public bool HasExplicitDefaultValue => _original.HasExplicitDefaultValue;
     public object? ExplicitDefaultValue => _original.ExplicitDefaultValue;
+    bool IParameterDefaultValueInfo.ExplicitDefaultValueIsTypeDefault
+        => _original is IParameterDefaultValueInfo { ExplicitDefaultValueIsTypeDefault: true };
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitParameter(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitParameter(this);

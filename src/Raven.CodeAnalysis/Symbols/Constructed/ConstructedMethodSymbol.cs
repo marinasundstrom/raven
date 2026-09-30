@@ -6,6 +6,7 @@ using System.Linq;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Documentation;
+using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
@@ -480,7 +481,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     }
 
     [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-    private sealed class ConstructedParameterSymbol : IParameterSymbol
+    private sealed class ConstructedParameterSymbol : IParameterSymbol, IParameterDefaultValueInfo
     {
         private readonly IParameterSymbol _original;
         private readonly ConstructedMethodSymbol _owner;
@@ -517,6 +518,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         public bool IsMutable => _original.IsMutable;
         public bool HasExplicitDefaultValue => _original.HasExplicitDefaultValue;
         public object? ExplicitDefaultValue => _original.ExplicitDefaultValue;
+        bool IParameterDefaultValueInfo.ExplicitDefaultValueIsTypeDefault
+            => _original is IParameterDefaultValueInfo { ExplicitDefaultValueIsTypeDefault: true };
 
         public void Accept(SymbolVisitor visitor) => visitor.VisitParameter(this);
         public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitParameter(this);

@@ -2290,3 +2290,19 @@ provides only its declared members/interfaces; shared code no longer synthesizes
 .NET collection interfaces merely because an assembly can resolve their names.
 Native targets can define different rank-dependent shapes through the capability.
 This does not provide native storage or emission support.
+
+### Constructed parameter default-kind forwarding (2026-09-30)
+
+Constructed method parameters and substituted containing-type parameters now
+forward `IParameterDefaultValueInfo` from their underlying parameter, including
+through nested wrappers. They continue substituting the parameter type normally;
+the provider's default-kind fact is preserved rather than re-decoded or inferred
+from the boxed value. Wrapping an ordinary literal default does not turn it into
+a type default, and providers without the capability retain the previous behavior.
+
+Previously, these wrappers copied HasExplicitDefaultValue/ExplicitDefaultValue
+but dropped the type-default distinction. Binding a wrapped nonliteral struct
+default could therefore report an invalid optional literal, and display could
+lose `default`. The correction is shared across providers and does not change CLI
+encoding or native target availability. Other provider capabilities and synthesized
+parameter adapters require their own forwarding audit.

@@ -1773,3 +1773,27 @@ queries; external runtime artifacts are unchanged. Native neoCLR and .NET Framew
 NanoFramework execution are not claimed.
 
 Next: audit provider fact forwarding through constructed symbol wrappers.
+
+## Slice 54: preserve default-kind facts through constructed parameters
+
+Forward IParameterDefaultValueInfo through ConstructedParameterSymbol and
+SubstitutedParameterSymbol. Both already forwarded the default value but lost its
+semantic kind, causing wrapped nonliteral struct type defaults to bind as invalid
+literals. Preserve the flag through nested wrappers while retaining existing type
+substitution and literal handling. No concrete provider dependency is introduced.
+
+Six new cases cover constructed generic methods, constructed containing types and
+nested wrappers, checking substituted argument type, binding and display with
+positive/negative default-kind controls. The three positive cases failed before
+the fix while all negative controls passed. Other capabilities and synthesized
+parameter adapters remain future audit work.
+
+Validation: 115 baseline tests and all 121 final optional/display/semantic-cache
+tests pass on .NET 11. Compiler builds pass for .NET 10/11 with zero warnings/errors.
+Whitespace formatting and diff checks pass (formatter workspace-load warnings).
+No syntax, generated inputs, public API or emitted encoding
+changes. Language-service clients retain their compiler APIs. External runtime
+artifacts are unchanged; native neoCLR and .NET Framework/NanoFramework execution
+are not claimed.
+
+Next: continue auditing fact preservation at constructed symbol boundaries.
