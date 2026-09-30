@@ -223,3 +223,20 @@ loading signatures or requiring CLI tokens. This is candidate deduplication, not
 complete native identity/equality support. Non-PE fixtures verify lazy dispatch
 and generic argument distinction; CLI overload, lookup and entry-point tests
 validate existing behavior. Native neoCLR execution is not claimed.
+
+### Lazy parameter facts (2026-09-30)
+
+The CLI bridge exposes lazy parameter facts through `IMethodParameterInfo`.
+Reflection remains responsible for count/type reads, by-ref element normalization,
+optional/default flags and ParamArray recognition. The PE adapter preserves its
+existing count-of-one fallback when count inspection fails; this is a bridge
+limitation, not a native metadata requirement. Other providers can explicitly
+report unavailable facts, and shared queries do not force full signature loading
+on failure.
+
+Native replacement needs equivalent semantic count/type/usage facts in each
+method's context, without reflection or CLI attribute requirements. Conversion
+scoring still has PE-specific paths and is not covered by this abstraction.
+Semantic-model caching and optional/params regressions validate current CLI
+behavior; non-PE fixtures cover lazy dispatch and failure propagation. No native
+neoCLR execution is claimed.
