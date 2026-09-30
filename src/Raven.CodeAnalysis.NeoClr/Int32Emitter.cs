@@ -13,25 +13,29 @@ namespace Raven.CodeAnalysis.NeoClr;
 // semantic operations; no bound nodes, reflection emit or source-token operator guessing.
 internal static class Int32Emitter
 {
-    internal static byte[] Emit(Compilation compilation, SyntaxTree tree, NeoClrEmitOptions options,
+    internal static byte[] Emit(Compilation compilation, NeoClrEmitOptions options,
         IReadOnlyList<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)> dependencies)
     {
-        var model = compilation.GetSemanticModel(tree);
         var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);
-        var root = (CompilationUnitSyntax)tree.GetRoot();
-        SyntaxNode diagnosticSyntax = root;
-        if (root.AttributeLists.Count != 0 || root.Members.Any(member => member is not GlobalStatementSyntax { Statement: FunctionStatementSyntax }))
-            throw Unsupported("only top-level function declarations");
-        var declarations = root.DescendantNodes().OfType<FunctionStatementSyntax>().ToArray();
-        var methods = new List<(IMethodSymbol Symbol, FunctionStatementSyntax Syntax, MetadataMethod Method)>();
-        foreach (var declaration in declarations)
+        SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
+        var methods = new List<(SemanticModel Model, IMethodSymbol Symbol, FunctionStatementSyntax Syntax, MetadataMethod Method)>();
+        // Collect all declarations before emitting any body, so calls do not depend on file order.
+        foreach (var tree in compilation.SyntaxTrees)
         {
-            diagnosticSyntax = declaration;
-            if (declaration.Ancestors().OfType<FunctionStatementSyntax>().Any() || declaration.Body is null || declaration.AttributeLists.Count != 0 || declaration.Modifiers.Count != 0)
-                throw Unsupported("only top-level block-bodied functions");
-            var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
-            CheckSignature(symbol);
-            methods.Add((symbol, declaration, assembly.AddFunction(symbol.Name, symbol.Parameters.Length)));
+            var model = compilation.GetSemanticModel(tree);
+            var root = (CompilationUnitSyntax)tree.GetRoot();
+            diagnosticSyntax = root;
+            if (root.AttributeLists.Count != 0 || root.Members.Any(member => member is not GlobalStatementSyntax { Statement: FunctionStatementSyntax }))
+                throw Unsupported("only top-level function declarations");
+            foreach (var declaration in root.DescendantNodes().OfType<FunctionStatementSyntax>())
+            {
+                diagnosticSyntax = declaration;
+                if (declaration.Ancestors().OfType<FunctionStatementSyntax>().Any() || declaration.Body is null || declaration.AttributeLists.Count != 0 || declaration.Modifiers.Count != 0)
+                    throw Unsupported("only top-level block-bodied functions");
+                var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
+                CheckSignature(symbol);
+                methods.Add((model, symbol, declaration, assembly.AddFunction(symbol.Name, symbol.Parameters.Length)));
+            }
         }
         var entry = compilation.GetEntryPoint() ?? throw Unsupported("entry point unavailable");
         assembly.EntryPoint = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Symbol, entry)).Method
@@ -39,7 +43,7 @@ internal static class Int32Emitter
         foreach (var current in methods)
         {
             diagnosticSyntax = current.Syntax;
-            var body = model.GetOperation(current.Syntax.Body!) as IBlockOperation ?? throw Unsupported("function operation body unavailable");
+            var body = current.Model.GetOperation(current.Syntax.Body!) as IBlockOperation ?? throw Unsupported("function operation body unavailable");
             foreach (var statement in body.Operations)
             {
                 diagnosticSyntax = statement.Syntax;

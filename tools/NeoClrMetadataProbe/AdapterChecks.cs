@@ -31,7 +31,6 @@ internal static class AdapterChecks
         Rejected(good, new(options.Identity, options.CoreLibrary,
             [new NeoClrMetadataDependency(MetadataReference.CreateFromFile(((PortableExecutableReference)dependency.Reference).FilePath), dependency.Definition, dependency.CoreLibrary)]), "NEOMETA002");
         Rejected(good, new(options.Identity, options.CoreLibrary, []), "NEOMETA001");
-        Rejected(good.AddSyntaxTrees(SyntaxTree.ParseText("")), options, "NEOMETA002");
         using var first = new MemoryStream();
         using var second = new MemoryStream();
         Check(NeoClrCompilationEmitter.Emit(good, first, options).Success && first.CanWrite, "successful output remains caller-owned");

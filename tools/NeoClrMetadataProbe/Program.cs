@@ -55,9 +55,20 @@ var image = nativeOutput.ToArray();
 var application = Path.Combine(output, "MetadataProbeApp.neo.json");
 File.WriteAllBytes(application, image);
 AdapterChecks.Run(CreateCompilation, source, emitOptions);
+var multiFileImages = MultiFileChecks.Run(CreateCompilation(source), source, emitOptions, output);
 await Command(0, "verify", application, "--module", nativeLibrary);
 var result = await Command(42, "run", application, "--module", nativeLibrary, "--show-result");
 if (!result.Contains("=> Int32(42)")) throw new Exception("wrong runtime result");
+var multiFilePaths = new List<string>();
+for (int i = 0; i < multiFileImages.Length; i++)
+{
+    var path = Path.Combine(output, $"MultiFile{i}.neo.json");
+    File.WriteAllBytes(path, multiFileImages[i]);
+    multiFilePaths.Add(path);
+    await Command(0, "verify", path, "--module", nativeLibrary);
+    var multiResult = await Command(42, "run", path, "--module", nativeLibrary, "--show-result");
+    if (!multiResult.Contains("=> Int32(42)")) throw new Exception("wrong multi-file runtime result");
+}
 File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
 {
     date = "2026-09-30",
@@ -69,6 +80,10 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     semanticLoader = "existing .NET provider over API-produced PE",
     emitter = "compiler-owned opt-in adapter to native format 5",
     diagnosticAndStreamContractsChecked = true,
+    multiFileCrossFunctionCalls = true,
+    bothFileOrdersExecuted = true,
+    laterFileDiagnosticChecked = true,
+    multiFileApplicationSha256 = multiFilePaths.Select(Hash).ToArray(),
     adapterSha256 = Hash(typeof(NeoClrCompilationEmitter).Assembly.Location),
     productionTargetIntegrated = false,
     nativeMetadataLoader = false,

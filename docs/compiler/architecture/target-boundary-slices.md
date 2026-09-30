@@ -1905,3 +1905,20 @@ rejection, repeated output and stream ownership/failure. The emitted application
 verifies/runs in neoCLR with result 42. Hash evidence includes the new adapter binary.
 Native symbol loading and production target registration remain pending. Structural
 support remains later; this does not change the runtime bridge's platform capabilities.
+
+### Multi-file native adapter checkpoint — 2026-09-30
+
+The optional compiler-owned emitter now accepts multiple source trees. It collects
+all supported top-level declarations before emitting bodies and retains each body's
+own semantic model. Like the ordinary .NET compiler, valid cross-file calls bind
+independently of file order; native metadata token/declaration order still follows
+input order. No shared binding or .NET emitter change was required. Macro trees and
+unsupported constructs remain excluded under the existing explicit bootstrap contract.
+
+The new two-file regression first failed with the adapter's NEOMETA002 single-tree
+restriction. After the refactor, Helper.rvn/Main.rvn and the reversed input order
+both verify/run to 42 in neoCLR. A division expression in the later helper file
+produces NEOMETA001 with that file's source location and leaves output unchanged.
+The original one-file and adapter contract checks still pass. Validation evidence
+includes hashes for all three applications. Native symbol loading and production
+registration remain separate next steps; the metadata library stays independent.

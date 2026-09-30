@@ -58,7 +58,7 @@ The host is responsible for keeping the snapshot and reference file consistent
 artifacts. Raven's public assembly symbol currently has no complete identity/MVID
 contract: these checks do not authenticate snapshots or replace a native loader.
 
-At most 256 dependencies are accepted. Only a single source tree with console output,
+At most 256 dependencies are accepted. One or more source trees with console output,
 no macro trees, and `TargetPlatform.DotNet` as the primitive binding bootstrap is
 supported. This does not enable the separate neoCLR CLI bridge Runtime Contract.
 
@@ -84,6 +84,11 @@ are not hidden as source diagnostics. No cancellation API is offered in this sli
 
 ## Supported source and executable example
 
+Declarations from every source tree are collected before any body is emitted. Each
+body uses its own semantic model, so cross-file calls do not depend on source-tree
+order. Declaration/token order follows the compilation tree order; byte-for-byte
+equality across reordered files is not promised.
+
 The existing primitive subset remains: top-level block-bodied functions with required
 Int32 value parameters/results, returns, Int32 constants, parameter loads, local/static
 calls, and intrinsic unchecked/unlifted addition, subtraction and multiplication.
@@ -107,7 +112,9 @@ var nativeBytes = output.ToArray();
 Run the [probe](../../../tools/NeoClrMetadataProbe/README.md) for the complete example.
 It validates source spans, unchanged failed output, binding diagnostic identities,
 configuration rejection, writer limits, repeatability and host stream failures, then
-asks neoCLR to verify and run the emitted application with result 42. Its validation
+asks neoCLR to verify and run the emitted application with result 42. A two-file
+version runs in both source-tree orders, and a rejected expression in a later file
+retains its actual tree/path/span without writing output. Its validation
 report records compiler, adapter, metadata library, runtime and artifact hashes.
 
 ## Architecture and next boundary

@@ -11,7 +11,7 @@ public static class NeoClrCompilationEmitter
     private static readonly DiagnosticDescriptor Encoding = Descriptor("NEOMETA003", "Invalid native graph", "Native metadata encoding failed: {0}.");
 
     /// <summary>Validates the compilation and configuration, then writes native bytes to a caller-owned stream.</summary>
-    /// <param name="compilation">One source tree using the .NET primitive binding bootstrap.</param>
+    /// <param name="compilation">Source trees using the .NET primitive binding bootstrap.</param>
     /// <param name="output">Writable stream; validation failure leaves its bytes and position unchanged.</param>
     /// <param name="options">Explicit output/core identities and compiler-reference bindings.</param>
     /// <returns>Success and preserved compiler diagnostics, or a source/backend diagnostic without output.</returns>
@@ -28,8 +28,8 @@ public static class NeoClrCompilationEmitter
             => new(false, diagnostics.Add(Diagnostic.Create(descriptor, location ?? Location.None, detail)));
         if (compilation.Options.TargetPlatform != TargetPlatform.DotNet || compilation.Options.OutputKind != OutputKind.ConsoleApplication)
             return Fail(Configuration, "requires the .NET primitive bootstrap and console output");
-        if (compilation.SyntaxTrees.Length != 1 || compilation.MacroSyntaxTrees.Length != 0)
-            return Fail(Configuration, "exactly one source tree and no macro trees are supported");
+        if (compilation.SyntaxTrees.Length == 0 || compilation.MacroSyntaxTrees.Length != 0)
+            return Fail(Configuration, "requires source trees; macro trees are unsupported");
         if (options.Identity.Name != compilation.AssemblyName || options.Identity.PublicKeyToken.Length != 0 || options.Identity.Flags != 0)
             return Fail(Configuration, "requires matching unsigned output identity");
         if (options.Dependencies.Length > 256) return Fail(Configuration, "too many dependencies");
@@ -46,7 +46,7 @@ public static class NeoClrCompilationEmitter
             bindings.Add((symbol, dependency));
         }
         byte[] image;
-        try { image = Int32Emitter.Emit(compilation, compilation.SyntaxTrees[0], options, bindings); }
+        try { image = Int32Emitter.Emit(compilation, options, bindings); }
         catch (UnsupportedInputException error) { return Fail(Unsupported, error.Message, error.Location); }
         catch (InvalidDataException error) { return Fail(Encoding, error.Message); }
         catch (ArgumentException error) { return Fail(Encoding, error.Message); }

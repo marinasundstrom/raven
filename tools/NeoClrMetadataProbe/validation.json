@@ -8,13 +8,20 @@
   "semanticLoader": "existing .NET provider over API-produced PE",
   "emitter": "compiler-owned opt-in adapter to native format 5",
   "diagnosticAndStreamContractsChecked": true,
-  "adapterSha256": "930174cba7551c9878eabb2ac13e9de17b1c573933784ef16888f570c24ba440",
+  "multiFileCrossFunctionCalls": true,
+  "bothFileOrdersExecuted": true,
+  "laterFileDiagnosticChecked": true,
+  "multiFileApplicationSha256": [
+    "61702027d72e174d21b2b0c60557c83d3bd1eb9d677300249a3b4a5111d27326",
+    "b1355cdc82808725d3f91994e9561db7d8fc9785fe134b348df199dc199cdc25"
+  ],
+  "adapterSha256": "fd54ac55fdd1df2e7b17c5c03ee276545cbec7f256441bdc32049bfd0c05e19c",
   "productionTargetIntegrated": false,
   "nativeMetadataLoader": false,
   "unsupportedOperationRejected": true,
   "bindingErrorRejected": true,
-  "compilerSha256": "b8b478993074fd18dc8a787e884ed398a47aed2293a196a8aef9a685066e3e86",
-  "metadataApiSha256": "b4d00c77049b1687c8712686ab1bcb847b86e86a360c4ee2ca102d55179c4c53",
+  "compilerSha256": "dc0eb6a4a25ee2778c2cb38fb698d0b7e695e04e11a83605f8f09216231632ae",
+  "metadataApiSha256": "9142ca8efc62e0dcfd2959b31bbba5f45e287fe55b8433d6daa4d52c3639e3cf",
   "runtimeSha256": "3f0f65f00fdeb6020eb9fc43ff14e7b41788ea04b306848a11961b2ff6504bf8",
   "applicationSha256": "61702027d72e174d21b2b0c60557c83d3bd1eb9d677300249a3b4a5111d27326",
   "dependencySha256": "a9f940985618d2eeab5c68adead611491f83419fde765884185843a03e6e7b62"

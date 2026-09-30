@@ -35,6 +35,9 @@ output and must report/exit with 42. No PE emission or CLI importer is used for 
 application. Unsupported division must produce NEOMETA001; an unresolved imported
 method must retain a compiler binding error. The runner retains source, outputs and
 hash evidence in `validation.json` and refuses to overwrite an existing directory.
+It also splits Offset and Main into Helper.rvn/Main.rvn and verifies/runs both
+source-tree orders to 42. Rejection in the later helper file preserves its diagnostic
+location and leaves the output stream untouched.
 
 ## Deliberate limits and next steps
 

@@ -16,7 +16,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   registered assembly-symbol bindings, source-located backend diagnostics and
   validation before stream writes. Preserve compiler diagnostics and propagate host
   I/O failures. C# consumer checks and the native runtime case pass; default target
-  composition is unchanged.
+  composition is unchanged. Support multiple source files by collecting declarations
+  before emitting bodies with their own semantic models. Both orders of a cross-file
+  call execute to 42; later-file diagnostics preserve location and failed output.
 
 - **2026-09-30:** Keep imported signature-only parameters required when their optional
   CLI Param row is absent. Check row presence and default availability before
