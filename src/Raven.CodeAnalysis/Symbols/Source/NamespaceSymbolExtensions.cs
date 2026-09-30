@@ -1,3 +1,5 @@
+using Raven.CodeAnalysis.Metadata;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal static class NamespaceSymbolExtensions
@@ -75,15 +77,9 @@ internal static class NamespaceSymbolExtensions
     }
 
     private static IEnumerable<INamedTypeSymbol> GetTypeMembers(INamedTypeSymbol type)
-    {
-        if (type is PENamedTypeSymbol peType)
-            return peType.GetNestedTypeMembers();
-
-        if (type is ConstructedNamedTypeSymbol { OriginalDefinition: PENamedTypeSymbol originalPeType })
-            return originalPeType.GetNestedTypeMembers();
-
-        return type.GetMembers().OfType<INamedTypeSymbol>();
-    }
+        => type is INestedTypeDiscovery discovery
+            ? discovery.GetNestedTypesForDiscovery()
+            : type.GetMembers().OfType<INamedTypeSymbol>();
 
     internal static SourceNamespaceSymbol? AsSourceNamespace(this INamespaceSymbol ns)
     {

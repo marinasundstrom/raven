@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Make recursive nested-type discovery provider-owned, preserving
+  lazy PE discovery and constructed-type declaration identity. Keep source member
+  substitution as the fallback, with non-PE provider and generic-owner coverage.
+
 - **2026-09-30:** Make namespace-member container discovery provider-owned instead
   of requiring PE symbols in shared lookup. Preserve CLI/source marker behavior,
   import filtering and strict neoCLR Fault recognition; cover non-PE containers
