@@ -226,3 +226,6 @@ runtimes through the shared lowered-body path.
 
 The primitive-signature cases cover Boolean parameters/results, mixed arguments and
 same-arity overloads on both backends, plus separately compiled native library imports.
+
+Typed Boolean local coverage stores a predicate result, reassigns it and compares it
+through the shared path, executing the resulting binary assembly in neoCLR.

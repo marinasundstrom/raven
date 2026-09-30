@@ -14,7 +14,7 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
     internal static PrimitiveMethodSignature ToMetadata(PrimitiveCallableSignature signature)
         => new(Map(signature.ReturnType), signature.ParameterTypes.Select(Map));
 
-    private static PrimitiveType Map(SpecialType type) => type switch
+    internal static PrimitiveType Map(SpecialType type) => type switch
     {
         SpecialType.System_Int32 => PrimitiveType.Int32,
         SpecialType.System_Boolean => PrimitiveType.Boolean,

@@ -14,8 +14,8 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
 
     public void DefineLabel() => labels.Add(output.DefineLabel());
 
-    public void DeclareInt32Local() => locals.Add(output.DeclareLocal(method.ResolveClrType(
-        method.Compilation.GetSpecialType(SpecialType.System_Int32))));
+    public void DeclareLocal(SpecialType type) => locals.Add(output.DeclareLocal(method.ResolveClrType(
+        method.Compilation.GetSpecialType(type))));
 
     internal static bool TryEmit(MethodGenerator method)
     {

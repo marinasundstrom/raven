@@ -63,13 +63,45 @@ public class SharedLinearBodyTests
         foreach (var declaration in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
             Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
-                model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail);
+                model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail + ": " + failure?.Syntax);
         }
         var type = Emit(compilation).GetType("Predicates")!;
         Assert.Equal(true, type.GetMethod("Positive")!.Invoke(null, [1]));
         Assert.Equal(false, type.GetMethod("Identity", [typeof(bool)])!.Invoke(null, [false]));
         Assert.Equal(42, type.GetMethod("Choose")!.Invoke(null, [42, true]));
         Assert.Equal(0, type.GetMethod("Choose")!.Invoke(null, [42, false]));
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void BooleanLocalsRetainTypeAcrossAssignmentAndConditions(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Selection {
+                public static func Main() -> int {
+                    var selected = Positive(1)
+                    var result = 0
+                    if selected != false {
+                        result = 40
+                    }
+                    selected = !selected
+                    if selected == false {
+                        result = result + 2
+                    }
+                    return result
+                }
+                public static func Positive(value: int) -> bool {
+                    value > 0
+                }
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
+        var model = compilation.GetSemanticModel(declaration.SyntaxTree);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+            model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail + ": " + failure?.Syntax);
+        Assert.Equal(42, Emit(compilation).GetType("Selection")!.GetMethod("Main")!.Invoke(null, null));
     }
 
     [Fact]

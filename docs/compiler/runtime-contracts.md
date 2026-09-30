@@ -2341,3 +2341,23 @@ and the native probe cover same-source execution on both runtimes plus separatel
 compiled Boolean library imports and same-name/same-arity Boolean/Int32 overloads.
 The binary assemblies are verified and run by neoCLR. General changes remain shared-line
 candidates on the consumer branch until independently integrated.
+
+
+## Typed primitive locals — 2026-10-01
+
+The shared lowered-body plan now carries each local's primitive type. .NET resolves
+its selected core Int32/Boolean type; neoCLR declares the matching typed metadata
+slot. Boolean predicate results can be stored, reassigned, loaded and compared for
+equality/inequality. Both backends share source lowering and instruction planning.
+
+The existing Runtime Contract and CLI symbol projection remain unchanged. Compared
+with CLI's integer evaluation-stack representation, the native writer enforces a
+separate Boolean stack type; stores must match their declared local type. The cost is
+explicit type validation. No implicit conversion, uninitialized local, disposal,
+nonprimitive local or new System inventory contract is introduced. The .NET general
+fallback remains in place. Native metadata/backend replacement of the temporary
+symbol projection is still pending.
+
+Validation adds a predicate-local program on both runtimes, C# Release/Debug coverage,
+and metadata contracts for reflected CLI local types, native projection and invalid
+cross-type stores. All 35 metadata groups and 33 focused compiler tests pass.

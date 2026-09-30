@@ -154,6 +154,25 @@ internal static class SharedLoweringChecks
                 }
             }
             """, "", 42);
+        await RunCase("SharedBooleanLocals", """
+            public static class Selection {
+                public static func Main() -> int {
+                    var selected = Positive(1)
+                    var result = 0
+                    if selected != false {
+                        result = 40
+                    }
+                    selected = !selected
+                    if selected == false {
+                        result = result + 2
+                    }
+                    return result
+                }
+                public static func Positive(value: int) -> bool {
+                    value > 0
+                }
+            }
+            """, "", 42);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
         Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 

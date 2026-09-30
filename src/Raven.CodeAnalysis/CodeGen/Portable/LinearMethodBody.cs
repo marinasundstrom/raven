@@ -15,7 +15,7 @@ internal readonly record struct LinearInstruction(
 
 internal interface ILinearMethodBuilder
 {
-    void DeclareInt32Local();
+    void DeclareLocal(SpecialType type);
     void DefineLabel();
     void Emit(LinearInstruction instruction);
 }
@@ -25,11 +25,11 @@ internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
 // source-located boundary. Language rewrites remain owned by the existing Lowerer.
-internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, int localCount, int labelCount)
+internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, ImmutableArray<SpecialType> localTypes, int labelCount)
 {
     internal void Emit(ILinearMethodBuilder builder)
     {
-        for (var i = 0; i < localCount; i++) builder.DeclareInt32Local();
+        foreach (var type in localTypes) builder.DeclareLocal(type);
         for (var i = 0; i < labelCount; i++) builder.DefineLabel();
         foreach (var instruction in instructions) builder.Emit(instruction);
     }
@@ -43,13 +43,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         Func<BoundInvocationExpression, bool> permitsConsoleLiteral, out LinearMethodBody? lowered, out LinearBodyFailure? failure)
     {
         var instructions = ImmutableArray.CreateBuilder<LinearInstruction>();
+        var localTypes = ImmutableArray.CreateBuilder<SpecialType>();
         var nextLabel = 0;
         var labels = new Dictionary<ILabelSymbol, int>(SymbolEqualityComparer.Default);
         var locals = new Dictionary<ILocalSymbol, int>(SymbolEqualityComparer.Default);
         LinearBodyFailure? rejected = null;
         var body = model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement;
         var success = body is not null ? LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
-        lowered = success ? new(instructions.ToImmutable(), locals.Count, nextLabel) : null;
+        lowered = success ? new(instructions.ToImmutable(), localTypes.ToImmutable(), nextLabel) : null;
         failure = rejected;
         return success;
 
@@ -133,12 +134,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (declaration.IsUsing) return Reject("using local", Syntax(statement));
                     foreach (var variable in declaration.Declarators)
                     {
-                        if (variable.Local.Type.SpecialType != SpecialType.System_Int32 || variable.Initializer is null ||
+                        if (variable.Local.Type.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Boolean) || variable.Initializer is null ||
                             variable.FixedAddressInitializer is not null || variable.FixedPinnedLocal is not null)
-                            return Reject("only initialized Int32 locals", Syntax(variable));
+                            return Reject("only initialized Int32/Boolean locals", Syntax(variable));
                         if (!LowerValue(variable.Initializer)) return false;
                         var slot = locals.Count;
                         locals.Add(variable.Local, slot);
+                        localTypes.Add(variable.Local.Type.SpecialType);
                         Add(LinearInstructionKind.StoreLocal, Syntax(variable), slot);
                     }
                     continue;
@@ -173,7 +175,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     continue;
                 }
                 if (statement is not BoundReturnStatement { Expression: { } value })
-                    return Reject("only value-return statements", Syntax(statement));
+                    return Reject("unsupported lowered statement " + statement.GetType().Name, Syntax(statement));
                 if (!LowerValue(value)) return false;
                 Add(LinearInstructionKind.Return, Syntax(statement));
             }
@@ -203,8 +205,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundConversionExpression { IsIdentity: true } conversion:
                     return LowerValue(conversion.Expression);
                 case BoundBinaryExpression binary when binary.Operator.MethodSymbol is null &&
-                    binary.Operator.LeftType.SpecialType == SpecialType.System_Int32 &&
-                    binary.Operator.RightType.SpecialType == SpecialType.System_Int32:
+                    ((binary.Operator.LeftType.SpecialType == SpecialType.System_Int32 &&
+                      binary.Operator.RightType.SpecialType == SpecialType.System_Int32) ||
+                     (binary.Operator.LeftType.SpecialType == SpecialType.System_Boolean &&
+                      binary.Operator.RightType.SpecialType == SpecialType.System_Boolean &&
+                      binary.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality)):
                     if (binary.Operator.OperatorKind is not (OperatorKind.Addition or OperatorKind.Subtraction or OperatorKind.Multiplication or
                         OperatorKind.Equality or OperatorKind.LessThan or OperatorKind.GreaterThan or
                         OperatorKind.Inequality or OperatorKind.LessThanOrEqual or OperatorKind.GreaterThanOrEqual))

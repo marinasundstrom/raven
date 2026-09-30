@@ -12,7 +12,7 @@ internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
     private readonly List<BranchLabel> labels = [];
     public void DefineLabel() => labels.Add(method.DefineLabel());
 
-    public void DeclareInt32Local() => method.DeclareInt32Local();
+    public void DeclareLocal(SpecialType type) => method.DeclareLocal(NeoClrCallableDefinitionBuilder.Map(type));
 
     public void Emit(LinearInstruction instruction)
     {

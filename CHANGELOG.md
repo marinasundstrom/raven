@@ -12,7 +12,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 - **2026-10-01:** Share ordered Int32/Boolean callable signatures across .NET and
   neoCLR declaration builders, body emission and imported-call matching. Preserve
   same-arity overload identity and execute Boolean helpers from separately compiled
-  native libraries. Int32-only System imports and Int32/Unit entrypoints remain bounded.
+  native libraries. Carry primitive types into local declarations, enabling Boolean
+  initialization, assignment and equality through both body builders. Int32-only System imports and Int32/Unit entrypoints remain bounded.
 
 - **2026-10-01:** Emit initialized Int32 locals and standalone assignments through the
   shared lowered-body path for .NET and native neoCLR. Native output uses typed locals
