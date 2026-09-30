@@ -1,17 +1,12 @@
 {
   "date": "2026-09-30",
-  "systemModule": "System",
-  "typeCount": 417,
-  "functionCount": 4090,
-  "selectedFunction": "System.Math.Min",
-  "selectedTableIndex": 347,
-  "result": 42,
-  "nativeSymbolBinding": true,
+  "status": "partial-failure",
+  "nativeSystemInventoryTypes": 417,
+  "nativeSystemInventoryFunctions": 4090,
+  "directApiBindingAndExecution": "passed: explicit projection symbol, native verify and return 42",
+  "compilerDriver": "failed: NEOMETA001 unregistered dependency System.Private.CoreLib",
   "fullCoreImport": false,
-  "existingDotNetImporterReused": true,
-  "systemSha256": "a19756e92fdc1357a71840db67b83361330887e93dada37a779230d4a62a86ec",
-  "driverSha256": "405297400e573a4996f6ca534a844be7c940c5ec542dd352e214528f7109c909",
-  "applicationSha256": "8f1426b712f9d823e7c247d0d9100d8d2511fcf90037acc2498188ccd72f0dc5",
-  "cliApplicationSha256": "81ac69b060c8be0fb49fc772f91b9e468249eff2a404c16da4c34a01280776b5",
-  "runtimeSha256": "929b169bab427e67d18c052cabe130cab14b651d72e64c0d25da49ae90586150"
+  "metadataLoadingDeferredByAuthor": true,
+  "outputDirectory": "/tmp/raven-shared-lowering-system",
+  "notes": "Earlier driver runs passed; host/projection type selection is not established as reliable. No metadata importer changes are included in this codegen slice."
 }

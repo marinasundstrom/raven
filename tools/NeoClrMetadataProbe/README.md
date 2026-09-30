@@ -179,3 +179,14 @@ an actual Unit Main source file and verify native stdout and exit zero.
 Native API and driver calls now share `Compilation.Emit` via explicit
 `NeoClrEmissionBackend` selection. Adapter checks compare wrapper/shared-pipeline
 artifacts and reject debug/core-rewrite options without modifying either stream.
+
+The full probe also emits one release-mode compilation through normal .NET emission
+and the native backend. Both execute the shared linear body plan, print `Shared Hello`
+and return 42 through static helper calls. This is body-lowering reuse, not complete
+type-builder abstraction or wider native language support.
+
+Known follow-up: the optional System-symbol driver case has also been observed binding
+`System.Math` from host CoreLib instead of the selected projection. It rejects with
+NEOMETA001, leaving output absent. The direct API case passes. Do not treat historical
+driver success as a deterministic import contract; metadata loading is the next separate
+slice. See `system-symbol-validation.json` for the latest partial result.

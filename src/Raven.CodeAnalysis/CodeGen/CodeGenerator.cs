@@ -1473,8 +1473,11 @@ internal class CodeGenerator
         return e.Type ?? e?.TypeBuilder;
     }
 
+    internal bool HasDebugOutput { get; private set; }
+
     public void Emit(Stream peStream, Stream? pdbStream)
     {
+        HasDebugOutput = pdbStream is not null;
         _stopwatch.Reset();
         _stopwatch.Start();
 

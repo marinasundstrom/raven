@@ -1,11 +1,11 @@
 using NeoCLR.Metadata.Experimental.Model;
 
+using Raven.CodeAnalysis.CodeGen.Portable;
 using Raven.CodeAnalysis.Operations;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 using MetadataMethod = NeoCLR.Metadata.Experimental.Model.MethodBuilder;
-using OperatorKind = Raven.CodeAnalysis.Operations.BinaryOperatorKind;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
@@ -80,27 +80,19 @@ internal static class Int32Emitter
         {
             diagnosticSyntax = current.Syntax;
             var body = current.Model.GetOperation(current.Body) as IBlockOperation ?? throw Unsupported("function operation body unavailable");
-            foreach (var statement in body.Operations)
+            if (!LinearMethodBody.TryLower(current.Symbol, body, IsConsoleCall, out var lowered, out var failure))
+                throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
+            lowered!.Emit(new NeoClrLinearMethodBuilder(current.Method, (instruction, output) =>
             {
-                diagnosticSyntax = statement.Syntax;
-                if (statement is IExpressionStatementOperation { Operation: IInvocationOperation call })
-                {
-                    if (EmitConsole(call, current.Method)) continue;
-                    if (ReturnsValue(call.TargetMethod)) throw Unsupported("discarded value calls");
-                    EmitValue(call, current.Symbol, current.Method);
-                    continue;
-                }
-                if (statement is IReturnOperation { ReturnedValue: null } && !ReturnsValue(current.Symbol))
-                {
-                    current.Method.Emit(OpCode.Ret);
-                    continue;
-                }
-                if (statement is not IReturnOperation { ReturnedValue: { } value }) throw Unsupported("only value-return statements");
-                EmitValue(value, current.Symbol, current.Method);
-                current.Method.Emit(OpCode.Ret);
-            }
-            if (!ReturnsValue(current.Symbol) && body.Operations.LastOrDefault() is not IReturnOperation)
-                current.Method.Emit(OpCode.Ret);
+                diagnosticSyntax = instruction.Syntax;
+                var target = instruction.Method!;
+                var local = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Symbol, target)).Method;
+                var systemFunction = local is null ? ImportSystem(target) : null;
+                var imported = local is null && systemFunction is null ? Import(target) : null;
+                if (local is not null) output.Emit(OpCode.Call, local);
+                else if (systemFunction is not null) output.Emit(OpCode.Call, systemFunction);
+                else output.Emit(OpCode.Call, imported!);
+            }));
         }
         return assembly.WriteNativeAssembly();
 
@@ -116,7 +108,7 @@ internal static class Int32Emitter
             }
         }
 
-        bool EmitConsole(IInvocationOperation call, MetadataMethod output)
+        bool IsConsoleCall(IInvocationOperation call)
         {
             if (options.ConsoleReference is null) return false;
             var method = call.TargetMethod;
@@ -127,49 +119,9 @@ internal static class Int32Emitter
                 method.Parameters[0].RefKind != RefKind.None || method.ReturnType.SpecialType is not (SpecialType.System_Void or SpecialType.System_Unit) ||
                 call.Arguments.Length != 1 || call.Arguments[0] is not IArgumentOperation { IsNamed: false, Value: ILiteralOperation { Value: string text } })
                 return false;
-            output.WriteConsoleLine(text);
             return true;
         }
 
-        void EmitValue(IOperation operation, IMethodSymbol source, MetadataMethod output)
-        {
-            diagnosticSyntax = operation.Syntax;
-            switch (operation)
-            {
-                case ILiteralOperation { Value: int value }:
-                    output.Emit(OpCode.Ldc_I4, value); return;
-                case IParameterReferenceOperation parameter:
-                    var index = source.Parameters.IndexOf(parameter.Parameter, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
-                    if (index < 0) throw Unsupported("captured parameter");
-                    output.Emit(OpCode.Ldarg, index); return;
-                case IParenthesizedOperation parenthesized when parenthesized.Operand is { } operand:
-                    EmitValue(operand, source, output); return;
-                case IBinaryOperation binary when !binary.IsChecked && !binary.IsLifted && binary.OperatorMethod is null &&
-                    binary.Type?.SpecialType == SpecialType.System_Int32 && binary.Left is not null && binary.Right is not null:
-                    if (binary.OperatorKind is not (OperatorKind.Add or OperatorKind.Subtract or OperatorKind.Multiply)) throw Unsupported("binary operator " + binary.OperatorKind);
-                    EmitValue(binary.Left, source, output); EmitValue(binary.Right, source, output);
-                    if (binary.OperatorKind == OperatorKind.Add) output.Emit(OpCode.Add);
-                    else if (binary.OperatorKind == OperatorKind.Subtract) output.Emit(OpCode.Sub);
-                    else output.Emit(OpCode.Mul);
-                    return;
-                case IInvocationOperation call when call.Instance is null:
-                    CheckSignature(call.TargetMethod);
-                    if (call.Arguments.Length != call.TargetMethod.Parameters.Length) throw Unsupported("optional/expanded arguments");
-                    var local = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Symbol, call.TargetMethod)).Method;
-                    var systemFunction = local is null ? ImportSystem(call.TargetMethod) : null;
-                    var imported = local is null && systemFunction is null ? Import(call.TargetMethod) : null;
-                    foreach (var argument in call.Arguments)
-                    {
-                        if (argument is IArgumentOperation { IsNamed: false, Value: { } argumentValue }) EmitValue(argumentValue, source, output);
-                        else throw Unsupported("named or unavailable argument");
-                    }
-                    if (local is not null) output.Emit(OpCode.Call, local);
-                    else if (systemFunction is not null) output.Emit(OpCode.Call, systemFunction);
-                    else output.Emit(OpCode.Call, imported!);
-                    return;
-                default: throw Unsupported("operation " + operation.Kind);
-            }
-        }
         NativeFunctionDefinition? ImportSystem(IMethodSymbol symbol)
         {
             if (options.SystemSymbols is not { } system ||
@@ -199,8 +151,7 @@ internal static class Int32Emitter
 
         void CheckSignature(IMethodSymbol method)
         {
-            if (method.IsGenericMethod || method.IsExtensionMethod || method.IsAsync || method.ReturnType.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Unit or SpecialType.System_Void) ||
-                method.Parameters.Any(p => p.Type.SpecialType != SpecialType.System_Int32 || p.RefKind != RefKind.None || p.HasExplicitDefaultValue || p.IsVarParams))
+            if (!LinearMethodBody.HasSupportedSignature(method))
                 throw Unsupported("only nongeneric Int32 parameters and Int32/Unit results: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
         }
     }

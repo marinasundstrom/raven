@@ -15,6 +15,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Native wrappers and rvnc now reuse Compilation.Emit setup, diagnostics and resolved
   contract checks. Default .NET emission remains unchanged; native debug output and CLI
   core rewriting reject before writing. Backend builders remain private per emission.
+  Share immutable linear-body lowering between eligible release .NET static Int32
+  methods and native Int32/Unit emission. Backend method builders own native/CLI handles,
+  opcodes and Console mapping. Unsupported .NET bodies and debug/PDB emission retain the
+  general generator. One compilation prints and returns 42 through both backends.
+  Record an optional translated-System driver failure: a host type collision causes
+  explicit rejection. Direct API binding succeeds; shared metadata loading is deferred.
   Route the native operation emitter through the metadata library's typed opcode Emit
   overloads, including local/imported/native call operands. Existing helpers share that
   path; artifact semantics, target contracts and runtime behavior remain unchanged.

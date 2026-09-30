@@ -2283,3 +2283,12 @@ state, must leave caller streams open and must not recursively invoke Compilatio
 
 The optional native implementation and its restrictions are documented in the
 [neoCLR bridge](neoclr-cli-bridge.md#shared-emission-pipeline--2026-09-30).
+
+### Shared method bodies
+
+The internal linear-body model now serves eligible release .NET static Int32 methods
+and the native adapter. Backend selection and Runtime Contracts remain distinct.
+Backend adapters own method-handle and Console mapping; unsupported .NET bodies retain
+the existing general generator, while unsupported native source produces diagnostics.
+Debug/PDB emission stays on the established .NET path. See the
+[scope and validation](neoclr-cli-bridge.md#shared-linear-body-lowering-and-backend-method-builders--2026-09-30).

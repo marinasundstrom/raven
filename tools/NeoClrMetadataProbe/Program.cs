@@ -151,11 +151,13 @@ var reverseOrder = await Command(42, "run", application, "--module", arithmeticR
 if (!reverseOrder.Contains("=> Int32(42)")) throw new Exception("reversed module order returned wrong result");
 var helloPaths = await HelloWorldChecks.Run(core, output, Command);
 var namespacePaths = await NamespaceChecks.Run(core, output, Command);
+await SharedLoweringChecks.Run(core, output, Command);
 if (args.Length == 4) await DriverChecks.Run(Path.GetFullPath(args[3]), output, Command);
 File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
 {
     date = "2026-09-30",
     result = 42,
+    sharedDotNetAndNativeBodyLowering = true,
     helloWorldDirectAndFunctionCall = true,
     unitEntryPointsAndZeroExit = true,
     compilerDriverNativeCommand = args.Length == 4,

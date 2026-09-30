@@ -826,3 +826,50 @@ covers shared-pipeline/wrapper equivalence, unchanged output on unsupported arti
 options, Hello World, helper calls, dependencies and translated System.Math.Min.
 The general backend API is a shared-line integration candidate; it remains on the
 consumer branch with the native adapter pending reconciliation with Raven main.
+
+### Shared linear-body lowering and backend method builders — 2026-09-30
+
+The native emitter's existing operation lowering now lives in the core compiler as
+`LinearMethodBody`. It produces an immutable plan containing compiler symbols and
+logical constant/argument/arithmetic/call/return instructions. It carries source syntax
+for diagnostics but no Reflection.Emit or neoCLR metadata handles. `ILinearMethodBuilder`
+is an internal compiler implementation contract; the optional native assembly receives
+friend access, without a dependency from the core compiler to the metadata library.
+
+Two adapters consume that same plan. The .NET adapter uses the existing method builder,
+IL-builder factory and runtime-symbol resolver. The native adapter uses the independent
+metadata library's typed Emit overloads and explicit local/dependency/System mappings.
+Console literal calls retain distinct backend policy: .NET calls the bound CLI method;
+neoCLR requires the explicit registered Console reference and emits its native mapping.
+Imported CLI Unit results are discarded only when the actual CLI signature returns a
+value; native no-result encoding is unchanged.
+
+Normal .NET emission uses the shared body path for nongeneric static Int32 source
+methods in release mode without requested PDB output. Complete lowering happens before
+opening a builder, so unsupported bodies use the existing general generator without
+partial IL. Debug/PDB, generic, synthesized and other methods retain their prior path.
+This is incremental codegen reuse, not a new independent .NET compiler. The current
+native Int32/Unit source subset is unchanged and still reports unsupported constructs.
+
+Compared with Reflection.Emit's direct Type/MethodInfo/OpCode use, the common plan lets
+both producers reuse language-level body decisions while keeping handle resolution and
+encoding in adapters. Its cost is a small per-body plan allocation; no performance gain
+is claimed. Type declarations, fields, method signatures, generic constraints, locals,
+branches, exception regions and debug positions still need equivalent abstractions.
+The established .NET declaration generator remains responsible for type/method creation,
+attributes, type completion and PE writing. Broader metadata builder unification remains
+open; this slice abstracts executable method bodies, not the complete TypeBuilder API.
+
+Validation includes C# .NET release/debug execution, unchecked Int32 arithmetic, calls,
+source-located rejection with general-generator fallback, and release PDB sequence points.
+The executable probe emits one compilation through both backends: both print Shared Hello
+and return 42 after a helper call. Existing native Hello/Unit/library/reference failures,
+namespace cases and compiler-command execution pass. In the additional translated-System
+run, the direct API case binds the selected projection and executes to 42, but the driver
+binds the colliding host System.Math and rejects emission with NEOMETA001 (unregistered
+System.Private.CoreLib dependency). Earlier driver runs passed; selection is not a reliable
+contract. The author explicitly defers metadata loading to a future slice. No assembly-name
+trick, reordered-reference workaround or silent native call substitution is added here.
+The bounded Hello/helper case is the acceptance target for this codegen slice.
+The shared implementation is a general shared-line candidate; reconcile it separately
+from the native adapter when integrating the consumer branch into main.
