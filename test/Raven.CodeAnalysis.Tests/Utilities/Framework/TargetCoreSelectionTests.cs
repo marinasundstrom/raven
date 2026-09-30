@@ -23,6 +23,31 @@ public class TargetCoreSelectionTests
         .WithTargetCoreAssemblyName("System.Runtime");
 
     [Fact]
+    public void SharedPrimitiveCallableSignaturesUseSelectedCore()
+    {
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var compilation = Compilation.Create("PrimitiveCore", [SyntaxTree.ParseText("""
+            public static class Example {
+                public static func Echo(value: int) -> int { return value }
+                public static func Notify(value: int) { }
+            }
+            """)], references.Select(MetadataReference.CreateFromFile).ToArray(), Options);
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        output.Position = 0;
+        using var assembly = AssemblyDefinition.ReadAssembly(output);
+        var methods = assembly.MainModule.GetType("Example").Methods.Where(m => m.Name is "Echo" or "Notify").ToArray();
+        Assert.Equal(2, methods.Length);
+        foreach (var method in methods)
+        {
+            Assert.Equal("System.Runtime", method.ReturnType.Scope.Name);
+            Assert.Equal("System.Runtime", Assert.Single(method.Parameters).ParameterType.Scope.Name);
+        }
+        Assert.DoesNotContain(assembly.MainModule.AssemblyReferences, reference => reference.Name == "System.Private.CoreLib");
+    }
+
+    [Fact]
     public async Task CompilerDriverKeepsProjectTargetReferencesIsolated()
     {
         var repository = new DirectoryInfo(AppContext.BaseDirectory);

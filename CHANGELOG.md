@@ -22,6 +22,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Extend the shared .NET path to assembly functions and Unit-returning static methods
   whose CLI signatures are void. The same Unit Main/helper, explicit-return and empty-entry
   compilations run on both runtimes; value-bearing Unit and debug/PDB paths remain unchanged.
+  Share Int32/Unit callable signature descriptions and typed declaration-builder contracts.
+  Reflection.Emit and native adapters retain their owner/handle models; .NET parameter names,
+  visibility, generic fallback and selected-core identities are preserved. Native functions
+  remain assembly-owned, with unchanged format and capability bounds.
   Record an optional translated-System driver failure: a host type collision causes
   explicit rejection. Direct API binding succeeds; shared metadata loading is deferred.
   Route the native operation emitter through the metadata library's typed opcode Emit

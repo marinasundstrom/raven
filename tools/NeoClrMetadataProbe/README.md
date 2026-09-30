@@ -194,3 +194,7 @@ slice. See `system-symbol-validation.json` for the latest partial result.
 The same-compilation checks also cover Unit functions/static methods, explicit and
 implicit returns, and an empty entry point. CLI return signatures must be void; both
 runtimes print the same output and native Unit programs exit zero.
+
+The same cases now also exercise the shared Int32/Unit callable signature and declaration
+builder contract. The .NET adapter declares existing CLI type methods; the native adapter
+retains native type-method or assembly-function ownership. No import changes are involved.

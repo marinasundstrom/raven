@@ -31,10 +31,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
     }
 
     internal static bool HasSupportedSignature(IMethodSymbol method)
-        => !method.IsGenericMethod && !method.IsExtensionMethod && !method.IsAsync &&
-            method.ReturnType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Unit or SpecialType.System_Void &&
-            method.Parameters.All(p => p.Type.SpecialType == SpecialType.System_Int32 && p.RefKind == RefKind.None &&
-                !p.HasExplicitDefaultValue && !p.IsVarParams);
+        => Int32CallableSignature.TryCreate(method, out _);
 
     internal static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType == SpecialType.System_Int32;
 

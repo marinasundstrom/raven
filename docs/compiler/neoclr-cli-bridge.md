@@ -892,3 +892,34 @@ sequence points. Native format/API and Runtime Contract configuration are unchan
 Compared with CLI void, native no-result remains a backend representation choice; the
 common lowering does not manufacture a Unit value or erase a value-bearing CLI result.
 Metadata loading and the recorded optional System-driver collision remain deferred.
+
+### Shared callable declarations — 2026-09-30
+
+The supported Int32/Unit signature is now represented once in the compiler by
+`Int32CallableSignature`. Declaration and body validation use that same description.
+`ICallableDefinitionBuilder<TMethod>` returns a backend-owned method handle without
+requiring native builders to inherit from Reflection.Emit's MethodInfo/MethodBuilder.
+Both contracts are internal implementation details, not public metadata APIs.
+
+The .NET adapter defines eligible static ordinary methods and functions on the existing
+Reflection.Emit TypeBuilder. It retains the existing emitted name and method attributes,
+resolves Int32/void through the compiler's target-aware resolver, and leaves parameter
+names, custom attributes and other declaration bookkeeping with MethodGenerator.
+Generic, captured, extension, extern and richer signatures keep the established path.
+The native adapter defines either a method on a metadata TypeBuilder or an assembly-owned
+function. Existing visibility/capability checks and metadata-library bounds remain in
+force; unsupported metadata is not silently discarded. No native format change occurs.
+
+Compared with the direct .NET builder calls, this extracts the common callable signature
+while preserving differing ownership and handle models. CLI functions still use their
+existing carrier types; native functions remain assembly-owned. The native subset still
+lacks parameter-name/custom-attribute support, while the .NET path preserves it. Full type
+construction, generics and richer signatures are subsequent work, not hidden behind this
+small contract. No loader redesign or reference-selection workaround is included.
+
+Validation covers public/private method flags, parameter names and types, Int32 and void
+results, executable calls, generic fallback, selected System.Runtime core references
+without host CoreLib leakage, and PDB preservation. Existing same-compilation .NET/native
+Hello/helper cases and rvnc runtime checks validate the two concrete declaration adapters.
+This compiler refactor remains a general shared-line candidate pending consumer-branch
+reconciliation; native policy stays in the optional adapter.

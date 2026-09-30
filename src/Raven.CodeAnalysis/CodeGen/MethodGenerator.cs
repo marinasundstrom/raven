@@ -139,6 +139,7 @@ internal class MethodGenerator
                 var emittedMethodName = GetEmittedMethodName(MethodSymbol);
 
                 MethodBuilder methodBuilder;
+                var sharedSignatureDefined = false;
                 if (hasPInvokeSignature)
                 {
                     var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
@@ -159,6 +160,17 @@ internal class MethodGenerator
                         dllImportData.CharSet);
 
                     MethodBase = methodBuilder;
+                }
+                else if (_lambdaClosure is null && !MethodSymbol.IsExtern && MethodSymbol.IsStatic &&
+                    MethodSymbol.MethodKind is (MethodKind.Ordinary or MethodKind.Function) &&
+                    TypeGenerator.GetExtensionTypeParameters().IsDefaultOrEmpty &&
+                    Portable.Int32CallableSignature.TryCreate(MethodSymbol, out var signature))
+                {
+                    var builder = new Portable.ReflectionEmitCallableDefinitionBuilder(targetTypeBuilder, attributes,
+                        specialType => ResolveClrType(Compilation.GetSpecialType(specialType)));
+                    methodBuilder = builder.DefineMethod(emittedMethodName, signature);
+                    MethodBase = methodBuilder;
+                    sharedSignatureDefined = true;
                 }
                 else
                 {
@@ -213,7 +225,7 @@ internal class MethodGenerator
 
                 try
                 {
-                    if (!hasPInvokeSignature)
+                    if (!hasPInvokeSignature && !sharedSignatureDefined)
                     {
                         var returnType = MethodSymbol.ReturnType.SpecialType == SpecialType.System_Unit
                             ? TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Void), TypeGenerator.CodeGen)

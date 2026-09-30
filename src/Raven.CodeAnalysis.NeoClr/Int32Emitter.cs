@@ -17,6 +17,7 @@ internal static class Int32Emitter
         IReadOnlyList<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)> dependencies)
     {
         var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);
+        var functions = new NeoClrCallableDefinitionBuilder(assembly);
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var methods = new List<(SemanticModel Model, IMethodSymbol Symbol, SyntaxNode Syntax, BlockStatementSyntax Body, MetadataMethod Method)>();
         // Collect all declarations before emitting any body, so calls do not depend on file order.
@@ -39,8 +40,8 @@ internal static class Int32Emitter
                     var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
                     if (compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary && symbol.DeclaredAccessibility != Accessibility.Public)
                         throw Unsupported("nonpublic library functions require visibility metadata");
-                    CheckSignature(symbol);
-                    methods.Add((model, symbol, declaration, declaration.Body, assembly.AddFunction(symbol.Name, symbol.Parameters.Length, ReturnsValue(symbol))));
+                    var signature = GetSignature(symbol);
+                    methods.Add((model, symbol, declaration, declaration.Body, functions.DefineMethod(symbol.Name, signature)));
                 }
                 else if (member is ClassDeclarationSyntax type)
                 {
@@ -53,7 +54,7 @@ internal static class Int32Emitter
                         throw Unsupported("only public nongeneric static classes");
                     var fullName = typeSymbol.ToFullyQualifiedMetadataName();
                     var typeNamespace = typeSymbol.ContainingNamespace.IsGlobalNamespace ? "" : fullName[..^(typeSymbol.MetadataName.Length + 1)];
-                    var owner = assembly.AddType(typeNamespace, typeSymbol.MetadataName);
+                    var owner = new NeoClrCallableDefinitionBuilder(assembly, assembly.AddType(typeNamespace, typeSymbol.MetadataName));
                     foreach (var typeMember in type.Members)
                     {
                         diagnosticSyntax = typeMember;
@@ -63,8 +64,8 @@ internal static class Int32Emitter
                             throw Unsupported("only public static block-bodied methods");
                         var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
                         if (!symbol.IsStatic || symbol.DeclaredAccessibility != Accessibility.Public) throw Unsupported("only public static methods");
-                        CheckSignature(symbol);
-                        methods.Add((model, symbol, method, method.Body, owner.AddMethod(symbol.MetadataName, symbol.Parameters.Length, ReturnsValue(symbol))));
+                        var signature = GetSignature(symbol);
+                        methods.Add((model, symbol, method, method.Body, owner.DefineMethod(symbol.MetadataName, signature)));
                     }
                 }
                 else throw Unsupported("only top-level functions and public static classes");
@@ -149,10 +150,11 @@ internal static class Int32Emitter
 
         static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType == SpecialType.System_Int32;
 
-        void CheckSignature(IMethodSymbol method)
+        Int32CallableSignature GetSignature(IMethodSymbol method)
         {
-            if (!LinearMethodBody.HasSupportedSignature(method))
+            if (!Int32CallableSignature.TryCreate(method, out var signature))
                 throw Unsupported("only nongeneric Int32 parameters and Int32/Unit results: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
+            return signature;
         }
     }
 }
