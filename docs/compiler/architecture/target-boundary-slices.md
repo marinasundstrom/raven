@@ -1749,3 +1749,27 @@ Language-service consumers retain existing compiler APIs. External runtime artif
 are unchanged; native neoCLR and .NET Framework/NanoFramework execution are not claimed.
 
 Next: audit provider-dependent array type queries and symbol wrapper fact forwarding.
+
+## Slice 53: provider-owned array semantic shape
+
+Make ArrayTypeSymbol a shared Symbol instead of a PESymbol. Replace PE checks and
+CLI collection/contract mapping with IArrayTypeProvider on its base type. Move
+that policy into PENamedTypeSymbol.ArrayTypes. Shared arrays preserve interface
+closure/deduplication and declaration owner identity. PE retains vector-only
+contracts, shape validation and ordinary CLI behavior. Non-provider bases keep
+their declared shape without synthesized .NET interfaces.
+
+Three regressions cover non-PE rank-one/rank-two provider dispatch, element and
+member owner identity, duplicate interface elimination/caching, and no-provider
+fallback/namespace ownership. Existing tests cover CLI arrays, variance, imported
+interfaces and configured iteration contracts. This does not change storage,
+syntax or emission, and does not qualify a native array backend.
+
+Validation: 35 baseline tests and all 38 final tests pass on .NET 11. Compiler
+builds pass for .NET 10/11 with zero warnings/errors. Whitespace formatting and
+diff checks pass (formatter workspace-load warnings). No generated model
+inputs or public semantic API changes. Language-service callers retain compiler
+queries; external runtime artifacts are unchanged. Native neoCLR and .NET Framework/
+NanoFramework execution are not claimed.
+
+Next: audit provider fact forwarding through constructed symbol wrappers.

@@ -1,9 +1,11 @@
 using System.Collections.Immutable;
 using System.Linq;
 
+using Raven.CodeAnalysis.Metadata;
+
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
+internal partial class ArrayTypeSymbol : Symbol, IArrayTypeSymbol
 {
     private ImmutableArray<INamedTypeSymbol> _interfaces;
     private ImmutableArray<INamedTypeSymbol> _allInterfaces;
@@ -18,7 +20,7 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
         Location[] locations,
         int rank = 1,
         int? fixedLength = null)
-        : base(containingSymbol, containingType, containingNamespace, locations, addAsMember: false)
+        : base(containingSymbol, containingType, containingNamespace, locations, [], addAsMember: false)
     {
         BaseType = baseType;
         ElementType = elementType;
@@ -39,6 +41,10 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
             return $"{ElementType}{suffix}";
         }
     }
+
+    public override IAssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
+
+    public override IModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
 
     public override SymbolKind Kind => SymbolKind.Type;
 
@@ -69,30 +75,9 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
         !_allInterfaces.IsDefault ? _allInterfaces : _allInterfaces = ComputeAllInterfaces();
 
     public ImmutableArray<ISymbol> GetMembers()
-    {
-        var members = BaseType!.GetMembers();
-        if (Rank != 1 || BaseType is not PENamedTypeSymbol metadataBase ||
-            metadataBase.Compilation.Options.RuntimeIterationContract?.ArrayShapeTypeName is null)
-            return members;
-        // Interface members keep their interface owner so calls use normal dispatch.
-        var projected = GetArraySpecificInterfaces().SelectMany(i => i.GetMembers())
-            .Where(m => !m.IsStatic).ToImmutableArray();
-        var contract = metadataBase.Compilation.Options.RuntimeIterationContract!;
-        var shape = metadataBase.Compilation.GetTypeByMetadataName(contract.ArrayShapeTypeName!);
-        if (shape is { TypeKind: TypeKind.Class, Arity: 1 } &&
-            shape.ContainingAssembly?.Name == contract.AssemblyName &&
-            shape.Construct(ElementType) is INamedTypeSymbol constructedShape)
-        {
-            // Retain the metadata owner for real target members. A vector's storage and
-            // signatures stay arrays; member references name the configured generic shape.
-            projected = projected.AddRange(constructedShape.GetMembers()
-                .Where(m => m is IMethodSymbol or IPropertySymbol &&
-                    m.DeclaredAccessibility == Accessibility.Public &&
-                    m is not IMethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor } &&
-                    !projected.Any(existing => existing.Name == m.Name)));
-        }
-        return projected.AddRange(members.Where(m => !projected.Any(p => p.Name == m.Name)));
-    }
+        => BaseType is IArrayTypeProvider provider
+            ? provider.GetMembers(this)
+            : BaseType?.GetMembers() ?? ImmutableArray<ISymbol>.Empty;
 
     public ImmutableArray<ISymbol> GetMembers(string name) => GetMembers().Where(m => m.Name == name).ToImmutableArray();
 
@@ -138,78 +123,11 @@ internal partial class ArrayTypeSymbol : PESymbol, IArrayTypeSymbol
     }
 
     private ImmutableArray<INamedTypeSymbol> GetArraySpecificInterfaces()
-    {
-        if (!_arraySpecificInterfaces.IsDefault)
-            return _arraySpecificInterfaces;
-
-        if (Rank != 1)
-        {
-            _arraySpecificInterfaces = ImmutableArray<INamedTypeSymbol>.Empty;
-            return _arraySpecificInterfaces;
-        }
-
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-
-        // A target can describe its vector interfaces on a regular generic class.
-        // Explicit but invalid metadata must not invent host-runtime interfaces.
-        if (BaseType is PENamedTypeSymbol shapeBase &&
-            shapeBase.Compilation.Options.RuntimeIterationContract is { ArrayShapeTypeName: not null } shapeContract)
-        {
-            var shape = shapeBase.Compilation.GetTypeByMetadataName(shapeContract.ArrayShapeTypeName);
-            if (shape is { TypeKind: TypeKind.Class, Arity: 1 } &&
-                shape.ContainingAssembly?.Name == shapeContract.AssemblyName &&
-                shape.Construct(ElementType) is INamedTypeSymbol constructedShape)
-            {
-                foreach (var implemented in constructedShape.AllInterfaces)
-                    AddUnique(builder, implemented);
-            }
-            _arraySpecificInterfaces = builder.ToImmutable();
-            return _arraySpecificInterfaces;
-        }
-
-        if (BaseType is PENamedTypeSymbol metadataBase &&
-            metadataBase.Compilation.Options.RuntimeIterationContract is { ArraysImplementIterable: true } contract)
-        {
-            var definition = metadataBase.Compilation.GetTypeByMetadataName(contract.IterableTypeName);
-            if (definition is { TypeKind: TypeKind.Interface, Arity: 1 } &&
-                definition.ContainingAssembly?.Name == contract.AssemblyName &&
-                definition.Construct(ElementType) is INamedTypeSymbol constructed)
-                AddUnique(builder, constructed);
-            _arraySpecificInterfaces = builder.ToImmutable();
-            return _arraySpecificInterfaces;
-        }
-
-        AddConstructedInterface(builder, "System.Collections.Generic.IEnumerable`1");
-        AddConstructedInterface(builder, "System.Collections.Generic.ICollection`1");
-        AddConstructedInterface(builder, "System.Collections.Generic.IList`1");
-        AddConstructedInterface(builder, "System.Collections.Generic.IReadOnlyCollection`1");
-        AddConstructedInterface(builder, "System.Collections.Generic.IReadOnlyList`1");
-
-        _arraySpecificInterfaces = builder.ToImmutable();
-        return _arraySpecificInterfaces;
-    }
-
-    private void AddConstructedInterface(ImmutableArray<INamedTypeSymbol>.Builder builder, string metadataName)
-    {
-        if (TryResolveInterface(metadataName) is not INamedTypeSymbol definition)
-            return;
-
-        if (!definition.IsGenericType || definition.Arity != 1)
-            return;
-
-        if (definition.Construct(ElementType) is not INamedTypeSymbol constructed)
-            return;
-
-        AddUnique(builder, constructed);
-    }
-
-    private INamedTypeSymbol? TryResolveInterface(string metadataName)
-    {
-        if (BaseType?.ContainingAssembly?.GetTypeByMetadataName(metadataName) is INamedTypeSymbol resolved)
-            return resolved;
-
-        return ContainingAssembly?.GetTypeByMetadataName(metadataName);
-    }
+        => !_arraySpecificInterfaces.IsDefault
+            ? _arraySpecificInterfaces
+            : _arraySpecificInterfaces = BaseType is IArrayTypeProvider provider
+                ? provider.GetAdditionalInterfaces(this)
+                : ImmutableArray<INamedTypeSymbol>.Empty;
 
     private static void AddUnique(ImmutableArray<INamedTypeSymbol>.Builder builder, INamedTypeSymbol symbol)
     {
