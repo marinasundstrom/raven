@@ -10,6 +10,20 @@ main, separate implicit target policy, provide a coherent NeoCLR preset and
 validate feature contracts before main integration. Main has not been merged or
 modified by this checkpoint.
 
+## Open-generic pattern follow-up — 2026-09-30
+
+The baseline rerun passed the constrained hierarchy checkpoint and stopped on
+IsPatternSemanticTests.IsPattern_WithOpenGenericDeclarationType_InfersTypeArgumentsFromInput.
+A focused run also reproduced the related PatternSymbolInfoTests failure noted
+in the earlier storage-constraint backport record. Both reported RAV0305 for Box.
+
+Declaration-pattern binding performed ordinary type-name binding before its
+existing input-driven inference. That lookup reported missing arguments before
+inference selected the valid constructed type. Inference now precedes that lookup;
+fallback lookup and accessibility validation remain. Negative tests retain RAV0305
+for object inputs and a different generic input definition. This is ordinary
+Raven pattern behavior, with no neoCLR policy change or main modification.
+
 ## Constraint parameter identity follow-up — 2026-09-30
 
 The integrated branch baseline exposed false RAV0320 diagnostics for constrained

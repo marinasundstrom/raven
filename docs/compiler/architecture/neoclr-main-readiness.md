@@ -70,11 +70,14 @@ helpers to review before declaring the contracts complete.
 - Complete the repository bootstrap/release gates before claiming self-hosting or
   release readiness. Feature-scoped passes are not substitutes for those gates.
 
-The integration baseline stopped after 1,029 passing tests and one failure in
-ConstrainedSealedHierarchyTests.NestedGenericSealedCases_ImplementInterfaceMethodsAndBindGenericMath
-(two RAV0320 diagnostics for INumber<T>); a focused rerun confirmed the failure.
-The failure was traced to caller type-parameter identity contaminating a cached
-source constraint and fixed in slice 32; 97 focused tests pass. Its pre-integration
-provenance is still unclassified, and the full baseline still needs to complete.
-Full evidence is recorded in the slice ledger. Until the remaining gates and
-contract migrations are complete, main integration remains pending.
+The first integration baseline stopped after 1,029 passes on a constrained
+hierarchy failure. Slice 32 fixed caller type-parameter identity contamination;
+97 focused tests passed. The next baseline passed that checkpoint and reached
+2,472 passes before an open-generic declaration-pattern failure. Slice 33 fixes
+inference ordering for that case and the related symbol-info regression.
+
+Expanded pattern coverage found two qualified nested-union exhaustiveness failures
+(RAV2100 for Problem). Both also reproduce with slice 33's production change
+reverted, so they remain a separate blocker. Full evidence is recorded in the
+slice ledger. The full baseline remains incomplete; main integration awaits these
+validation gates and the planned contract migrations.

@@ -1198,3 +1198,37 @@ been rerun to completion. Its provenance before the integrated revision remains
 unclassified. No main change, neoCLR execution, .NET Framework/NanoFramework or
 bootstrap qualification is claimed. Next: rerun integration validation, then
 consolidate the target-specific behavior switches documented in the readiness plan.
+
+## Slice 33: infer declaration patterns before generic-arity diagnostics
+
+The broad baseline rerun at 8f25bc973 passed the prior constrained-hierarchy
+checkpoint, including its new regressions. It stopped after 29 batches with
+2,472 passes, one failure and no skips. The failure was the existing open-generic
+IsPatternSemanticTests regression: a matching Box<int> input still produced
+RAV0305 for the bare Box declaration pattern. A focused baseline reproduced that
+failure and the related PatternSymbolInfoTests failure (16 passed, two failed).
+
+BindDeclarationPatternType called ordinary type-name binding before attempting
+its existing input-driven inference, leaving the missing-arguments diagnostic
+behind even when inference succeeded. It now infers first and binds normally
+only when inference cannot supply the type. Accessibility validation remains.
+Two negative tests verify that object and a different generic definition do not
+supply the omitted arguments. Existing semantic and symbol-info tests cover the
+positive behavior. No target-specific rule, syntax or generated model changed.
+
+Expanded pattern coverage ran 342 tests: 340 passed and two qualified nested-union
+exhaustiveness cases failed with RAV2100 for Problem. An A/B run restored the
+original production file at 8f25bc973 and ran the overlapping 28 cases: 24 passed,
+four failed (both open-generic failures and both exhaustiveness failures). This
+confirms the exhaustiveness failures precede this fix. The fixed source was then
+restored and rebuilt; the next slice should isolate those failures.
+
+The first new test compile required qualifying SyntaxTree and importing the test
+reference helper; this was corrected before the reported test runs. Full baseline
+is still incomplete. No main modification, neoCLR runtime execution or full
+bootstrap qualification is claimed.
+
+Final focused verification passed all 20 IsPatternSemanticTests and
+PatternSymbolInfoTests on .NET 11 with no failures/skips. Compiler builds passed
+for net10.0 and net11.0 with no warnings/errors. Whitespace formatting completed
+(test workspace-load warnings only), and `git diff --check` passed.

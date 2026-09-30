@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Infer open-generic declaration patterns from their input before
+  ordinary type-name validation. Valid `value is Box box` patterns no longer
+  retain a spurious RAV0305 diagnostic; unmatched inputs still require explicit
+  type arguments.
+
 - **2026-09-30:** Resolve source constraint type-parameter references against
   their declaring owner and enclosing owners. A same-named type parameter in the
   first caller no longer contaminates cached constraints or causes false RAV0320

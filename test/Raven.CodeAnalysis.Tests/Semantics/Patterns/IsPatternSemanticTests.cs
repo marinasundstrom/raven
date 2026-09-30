@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
+using Raven.CodeAnalysis.Tests;
 
 using Xunit;
 
@@ -60,6 +61,25 @@ let result = member is System.Reflection.MethodInfo method
         var localAssembly = designator.Local.Type.ContainingAssembly;
         Assert.NotNull(localAssembly);
         Assert.Equal(declaredAssembly, localAssembly);
+    }
+
+    [Theory]
+    [InlineData("object")]
+    [InlineData("Other<int>")]
+    public void OpenGenericDeclarationPatternWithoutMatchingInputStillRequiresArguments(string inputType)
+    {
+        var tree = Raven.CodeAnalysis.Syntax.SyntaxTree.ParseText($$"""
+            class Box<T> { }
+            class Other<T> { }
+            func Test(value: {{inputType}}) -> bool {
+                return value is Box box
+            }
+            """);
+        var compilation = Compilation.Create("MissingPatternArguments", [tree], TestMetadataReferences.Default,
+            CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.TypeRequiresTypeArguments);
     }
 
     [Fact]

@@ -994,10 +994,12 @@ internal partial class BlockBinder
 
     private ITypeSymbol BindDeclarationPatternType(TypeSyntax syntax, ITypeSymbol inputType)
     {
-        var typeExpression = BindTypeSyntaxAsExpression(syntax);
+        // Pattern inference must precede ordinary type binding: binding a bare
+        // generic name first would report missing arguments even when the input
+        // supplies the exact constructed type required by the pattern.
         var declaredType = TryInferDeclarationPatternTypeFromIdentifierSyntax(syntax, inputType, out var inferredType)
             ? inferredType
-            : InferDeclarationPatternTypeFromInput(typeExpression.Type, inputType);
+            : InferDeclarationPatternTypeFromInput(BindTypeSyntaxAsExpression(syntax).Type, inputType);
         return EnsureTypeAccessible(declaredType, syntax.GetLocation());
     }
 

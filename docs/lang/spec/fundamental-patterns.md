@@ -14,7 +14,11 @@ also give the matched value a name for use in that branch.
 
   When `Type` is an open generic type name written without explicit type arguments
   (for example `Box` where `Box<T>` exists), Raven infers type arguments from the
-  scrutinee when possible.
+  scrutinee when possible. Inference runs before missing-type-argument validation;
+  a successfully inferred type does not produce a missing-arguments diagnostic.
+  If the scrutinee does not supply a matching constructed type (for example, its
+  static type is `object` or another generic definition), explicit arguments are
+  still required.
 
   This inference applies uniformly in:
 
