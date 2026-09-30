@@ -1377,3 +1377,20 @@ PE named-type union classification uses the loader's validated PEUnionSymbol sha
 not attribute projection. A marker alone does not establish a supported union;
 classification must also avoid eagerly decoding attributes or initializing source
 declarations. Incremental demand-driven binding tests cover this distinction.
+
+## Removal of the shared CLR conversion adapter
+
+The public `TypeSymbolExtensions.GetClrType(ITypeSymbol, Compilation)` extension
+has been removed. It had no production callers after attribute usage validation
+moved to semantic data. Its separate conversion algorithm mixed host lookup with
+core metadata lookup, assumed core-only named types, and imposed an implicit
+Unit-to-void policy. Keeping it would create a second type-resolution policy
+outside the selected backend.
+
+This is an intentional API break. Semantic consumers should use ITypeSymbol and
+the semantic model directly. Internal .NET emission uses RuntimeSymbolResolver
+with explicit RuntimeTypeUsage and Unit policy; it is not a public replacement
+API. Its coverage includes constructed generic types and arrays, verifying that
+signature types and their generic arguments remain in the target metadata
+context while custom-attribute requests use host reflection types. Existing
+Compilation reflection adapters remain and need further boundary work.

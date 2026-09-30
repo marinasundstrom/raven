@@ -5,6 +5,47 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class RuntimeTypeResolutionTests
 {
+    [Fact]
+    public void ResolvesConstructedGenericFromMetadata()
+    {
+        var compilation = Compilation.Create("GenericResolution", syntaxTrees: [],
+            references: TestMetadataReferences.Default,
+            options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var definition = compilation.GetTypeByMetadataName("System.Action`1")!;
+        var constructed = definition.Construct(compilation.GetSpecialType(SpecialType.System_String));
+        var generator = new CodeGenerator(compilation);
+
+        Assert.Equal(typeof(Action<string>), generator.RuntimeSymbolResolver.GetType(constructed));
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    public void GenericArraysKeepTheirSelectedReflectionContext(int rank, bool forAttribute)
+    {
+        var compilation = Compilation.Create("GenericArrayResolution", syntaxTrees: [],
+            references: TestMetadataReferences.Default,
+            options: CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        var definition = compilation.GetTypeByMetadataName("System.Action`1")!;
+        var constructed = definition.Construct(compilation.GetSpecialType(SpecialType.System_String));
+        var array = compilation.CreateArrayTypeSymbol(constructed, rank);
+        var generator = new CodeGenerator(compilation, new EmitOptions(compilation.CoreAssembly.GetName()));
+
+        var resolved = generator.RuntimeSymbolResolver.GetType(array,
+            usage: forAttribute ? RuntimeTypeUsage.CustomAttribute : RuntimeTypeUsage.Signature);
+
+        Assert.Equal(rank, resolved.GetArrayRank());
+        var element = resolved.GetElementType()!;
+        Assert.Equal("System.Action`1", element.GetGenericTypeDefinition().FullName);
+        var argument = Assert.Single(element.GetGenericArguments());
+        Assert.Equal("System.String", argument.FullName);
+        var expectedAssembly = forAttribute ? typeof(object).Assembly : compilation.CoreAssembly;
+        Assert.Equal(expectedAssembly, element.Assembly);
+        Assert.Equal(expectedAssembly, argument.Assembly);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

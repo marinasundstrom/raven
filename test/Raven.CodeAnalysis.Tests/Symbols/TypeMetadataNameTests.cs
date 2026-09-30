@@ -69,21 +69,6 @@ namespace Lib {
     }
 
     [Fact]
-    public void GetClrType_ResolvesConstructedGenericFromMetadata()
-    {
-        var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
-            .AddReferences(TestMetadataReferences.Default);
-
-        var actionDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Action`1")!;
-        var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var constructed = compilation.ConstructGenericType(actionDefinition, new ITypeSymbol[] { stringType });
-
-        var clrType = constructed.GetClrType(compilation);
-
-        Assert.Equal(typeof(Action<string>), clrType);
-    }
-
-    [Fact]
     public void ResolveRuntimeType_MapsNuGetSharedFrameworkReferenceAssembly()
     {
         var aspNetCoreReference = TryFindAspNetCoreReferenceAssembly();

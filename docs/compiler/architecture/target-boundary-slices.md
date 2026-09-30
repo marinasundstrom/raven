@@ -1027,3 +1027,29 @@ failures: two new inheritance fixtures and two stale union-documentation
 assertions. Those cases pass in the final focused run; the full baseline was not
 rerun to completion. No .NET Framework, NanoFramework, neoCLR execution or full
 bootstrap qualification is claimed.
+
+## Slice 28: remove the unused public CLR type adapter
+
+Removed TypeSymbolExtensions.GetClrType after confirming that its only remaining
+caller was a test. There is no new adapter or service: .NET emission already owns
+the supported conversion path through RuntimeSymbolResolver. This intentionally
+breaks the unused public API and removes its independent host/core lookup and
+implicit Unit-to-void policies from the shared semantic surface.
+
+Moved constructed-generic conversion coverage into RuntimeTypeResolutionTests
+and added vector/multidimensional generic-array coverage for signature and
+custom-attribute usage. The assertions verify type shape and the reflection
+assembly context of both the generic definition and its argument.
+
+Next: separate common-type inference from backend type-resolution helpers; shared
+TypeSymbolNormalization still calls FindCommonDenominator in the codegen helper.
+General changes still require independent main-based validation before integration.
+
+Validation: pre-change focused coverage passed 19 tests; post-change coverage
+passed 23 tests on .NET 11, with no failures or skips. The filter included
+TypeMetadataNameTests, RuntimeTypeResolutionTests, TypeResolutionPrecedenceTests,
+and TargetCoreGenericSignatureTests, excluding Development tests. Compiler builds
+passed for net10.0 and net11.0 with no warnings/errors. Whitespace formatting
+completed with test workspace-load warnings, and `git diff --check` passed.
+No full baseline, .NET Framework, NanoFramework, neoCLR execution or bootstrap
+qualification was performed in this slice.

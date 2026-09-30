@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Remove the unused public `TypeSymbolExtensions.GetClrType`
+  adapter. Semantic symbols no longer offer this duplicate host/metadata conversion
+  path; .NET emission uses the backend resolver with explicit usage and Unit policy.
+  This is an intentional compiler API break.
+
 - **2026-09-30:** Expose imported named-type attributes through GetAttributes and
   validate inherited attribute usage from semantic symbols instead of host CLR reflection. Source and reference-only derived attributes now inherit
   target restrictions and AllowMultiple correctly; a direct usage declaration
