@@ -1,5 +1,22 @@
 # Semantic intersection types
 
+## Experiment on hold
+
+As of 2026-09-30, development is paused on `codex/intersection-constraints`.
+The implementation checkpoint is `f32fd576e`; this branch is not a candidate
+for wholesale integration into main. Independently useful compiler fixes are
+being extracted and validated against ordinary CLI contracts on main.
+
+Source intersection value/storage annotations remain rejected with RAV0363.
+Internal lowering tests do not constitute source-language support. Before
+resuming source-value work, complete return and generic-inference boundary
+checks, audit unsupported operations (including events), and evaluate language
+service support. Native neoCLR structural types and a public compound ABI
+remain future work. Existing validation is modern .NET evidence only, not
+execution evidence for neoCLR, .NET Framework, or NanoFramework.
+
+## Implementation checkpoint
+
 Status: compiler API foundation, source constraint queries, initial reference
 membership conversions, binder member-candidate lookup, and non-method receiver
 ambiguity diagnostics, and internal reference-local lowering. Source value binding

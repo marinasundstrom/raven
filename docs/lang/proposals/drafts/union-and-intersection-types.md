@@ -1,6 +1,10 @@
 # Proposal: Union and intersection types
 
-Status: Draft design. The initial syntax and nominal generic-constraint subset
+Status: Experiment on hold as of 2026-09-30 on `codex/intersection-constraints`.
+See the [checkpoint and resume boundaries](../../../compiler/intersection-types.md#experiment-on-hold).
+The following describes the experimental branch, not main.
+
+Draft design. The initial syntax and nominal generic-constraint subset
 are implemented. A [semantic intersection symbol API](../../../compiler/intersection-types.md)
 now provides normalization, identity, display, and substitution. Binding those
 symbols from source values and their runtime representations remain proposed.
