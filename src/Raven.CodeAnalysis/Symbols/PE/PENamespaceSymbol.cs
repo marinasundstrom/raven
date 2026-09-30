@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 
+using Raven.CodeAnalysis.Metadata;
+
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
+internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol, INamespaceExtensionLookup
 {
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly PEModuleSymbol _module = default!;
@@ -107,7 +109,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol
         return symbol is not null;
     }
 
-    internal ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string methodName)
+    public ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string methodName)
     {
         if (string.IsNullOrWhiteSpace(methodName))
             return ImmutableArray<INamedTypeSymbol>.Empty;

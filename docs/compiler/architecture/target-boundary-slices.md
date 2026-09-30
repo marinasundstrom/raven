@@ -249,3 +249,51 @@ Validation with SDK `11.0.100-rc.1.26425.128`:
 
 No neoCLR runtime, .NET Framework, NanoFramework, or bootstrap qualification is
 claimed. This is a semantic lookup change; emission implementation was untouched.
+
+## Slice 8: target direction and namespace discovery capability
+
+Commit `bbad32bba` records ADR-0003: metadata and symbol import belong to the
+selected target alongside runtime representation and emission. Raven owns its
+semantic model and may redesign controlled APIs without matching Roslyn's API
+shapes. Target changes can require reimport/rebinding. Existing discovery
+interfaces are extraction steps, not promises of a universal assembly model.
+
+`INamespaceExtensionLookup` describes a discovery capability rather than imported
+origin. PE namespaces provide it and merged namespaces compose it. Shared lookup
+and merged extension discovery no longer dispatch on concrete PE namespace types.
+General namespace/type traversal still accepts namespaces without this capability;
+only the extension candidate query requires it. Source traversal remains separate.
+
+Three new cases use a non-PE namespace implementation: direct discovery, discovery
+through a nested merge with a source namespace, and ordered aggregation with
+duplicate containers. Missing/blank names and duplicate results are checked.
+Existing .NET extension tests cover applicability and imported metadata behavior.
+
+Next: design target service ownership and inventory symbol construction/runtime
+representation dependencies against ADR-0003. Avoid treating the temporary
+assembly/namespace interfaces as a fixed public API. Main extraction and proper
+neoCLR implementation remain pending.
+
+Follow-up clarification `201ad7c13` names the runtime/platform contract as the
+central abstraction. One or more supported symbol sources supply its type
+environment; one or more compatible code generators implement its semantics,
+representations, and feature restrictions. Sources need not be metadata files.
+Known-platform rules and unsupported-feature diagnostics belong in this design.
+
+Validation with SDK `11.0.100-rc.1.26425.128`:
+
+- Pre-change baseline: 154 lookup/conversion/extension tests plus four
+  `MergedNamespaceSymbolTests` passed on net11.0.
+- Compiler builds passed for net10.0 and net11.0. The targeted build refreshed
+  generated symbol files; no tracked generated-source diff remains.
+- After fixing the shared helper's return type and the test provider's visitor
+  implementations, the combined suite passed all 161 tests with no failures or
+  skips. The filter adds `MergedNamespaceSymbolTests` to slice 7's classes, using
+  `dotnet test test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj
+  --no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`.
+- Whitespace formatting completed with test workspace-load warnings;
+  `git diff --check` passed. No concrete PE dependencies remain in
+  `CompilationSymbolLookup` or merged namespace extension discovery.
+
+Execution evidence is .NET 11 only. This slice does not implement selectable
+runtime/platform contracts or validate neoCLR execution.

@@ -1,9 +1,11 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
 
+using Raven.CodeAnalysis.Metadata;
+
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
+internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, INamespaceExtensionLookup
 {
     private readonly ImmutableArray<INamespaceSymbol> _namespaces;
 
@@ -155,7 +157,7 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
         return TypeLookupUtilities.SelectBestTypeByName(candidates.ToImmutable());
     }
 
-    internal ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string methodName)
+    public ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string methodName)
     {
         if (string.IsNullOrWhiteSpace(methodName))
             return ImmutableArray<INamedTypeSymbol>.Empty;
@@ -165,14 +167,10 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol
 
         foreach (var ns in _namespaces)
         {
-            ImmutableArray<INamedTypeSymbol> containers = ns switch
-            {
-                PENamespaceSymbol peNamespace => peNamespace.GetExtensionMethodContainers(methodName),
-                MergedNamespaceSymbol mergedNamespace => mergedNamespace.GetExtensionMethodContainers(methodName),
-                _ => ImmutableArray<INamedTypeSymbol>.Empty
-            };
+            if (ns is not INamespaceExtensionLookup lookup)
+                continue;
 
-            foreach (var container in containers)
+            foreach (var container in lookup.GetExtensionMethodContainers(methodName))
             {
                 if (seen.Add(container))
                     builder.Add(container);

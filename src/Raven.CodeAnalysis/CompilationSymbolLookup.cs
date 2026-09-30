@@ -312,9 +312,9 @@ internal sealed class CompilationSymbolLookup
         if (!string.IsNullOrWhiteSpace(memberName) &&
             kinds.HasFlag(ExtensionMemberKinds.InstanceMethods))
         {
-            foreach (var metadataNamespace in GetMetadataNamespacesFor(namespaceSymbol))
+            foreach (var metadataNamespace in GetMetadataNamespacesFor(namespaceSymbol).OfType<INamespaceExtensionLookup>())
             {
-                foreach (var container in GetMetadataExtensionMethodContainers(metadataNamespace, memberName!))
+                foreach (var container in metadataNamespace.GetExtensionMethodContainers(memberName!))
                 {
                     if (seen.Add(container.GetShallowLookupIdentityKey()))
                         builder.Add(container);
@@ -327,12 +327,10 @@ internal sealed class CompilationSymbolLookup
 
     private IEnumerable<INamespaceSymbol> GetMetadataNamespacesFor(INamespaceSymbol namespaceSymbol)
     {
-        switch (namespaceSymbol)
+        if (namespaceSymbol is INamespaceExtensionLookup)
         {
-            case PENamespaceSymbol:
-            case MergedNamespaceSymbol:
-                yield return namespaceSymbol;
-                yield break;
+            yield return namespaceSymbol;
+            yield break;
         }
 
         var metadataName = namespaceSymbol.MetadataName;
@@ -509,18 +507,6 @@ internal sealed class CompilationSymbolLookup
         }
 
         return false;
-    }
-
-    private static ImmutableArray<INamedTypeSymbol> GetMetadataExtensionMethodContainers(
-        INamespaceSymbol namespaceSymbol,
-        string methodName)
-    {
-        return namespaceSymbol switch
-        {
-            PENamespaceSymbol peNamespace => peNamespace.GetExtensionMethodContainers(methodName),
-            MergedNamespaceSymbol mergedNamespace => mergedNamespace.GetExtensionMethodContainers(methodName),
-            _ => ImmutableArray<INamedTypeSymbol>.Empty
-        };
     }
 
     private readonly record struct SourceExtensionContainerLookupKey(

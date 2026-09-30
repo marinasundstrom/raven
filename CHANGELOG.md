@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Compose namespace extension discovery through a lookup
+  capability instead of concrete PE namespace checks, including merged source
+  and imported namespaces. Test non-PE providers, deduplication, and provider
+  order. Record target ownership of metadata and emission and Raven-specific
+  semantic/API design in ADR-0003.
+
 - **2026-09-30:** Route shared imported-assembly discovery through an internal
   symbol contract implemented by the existing .NET PE symbols. Preserve simple
   name/arity lookup, source precedence, and extension conversion discovery while

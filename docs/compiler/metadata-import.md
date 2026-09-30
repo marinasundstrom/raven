@@ -41,8 +41,26 @@ Simple-name lookup still prefers matching source declarations, then the first
 matching imported assembly/type. Nested types participate by their own name and
 arity. Extension conversion discovery returns candidate containers; binding
 continues to decide applicability. Public `IAssemblySymbol` and semantic-model
-APIs are unchanged. PE namespace-specific extension discovery, symbol creation,
-and emitter reflection access remain separate boundaries to extract.
+APIs are unchanged in this slice, but they can be redesigned under
+[ADR-0003](architecture/decisions/0003-target-owned-metadata-and-emission.md).
+Symbol creation and emitter reflection access remain boundaries to extract.
+
+Namespace extension discovery uses `INamespaceExtensionLookup`, a capability
+implemented by PE namespaces and composed by merged namespaces. It does not
+classify a namespace as purely imported: merged namespaces can include source
+declarations and multiple providers. Shared lookup and merged discovery no longer
+dispatch on concrete PE namespace types. General namespace/type traversal remains
+available for namespaces without the capability; source extension traversal and
+receiver applicability are still separate compiler responsibilities.
+
+These contracts are intermediate steps toward target-owned metadata and symbols,
+not a fixed plugin ABI. The runtime/platform contract governs semantic rules,
+the type environment, representations, and supported features. One or more symbol
+sources supply that environment; one or more compatible code generators implement
+it. Sources need not use metadata files or CLI assemblies. Changing contract can
+require rebuilding imported symbols and rebinding; unsupported features or
+incompatible source/backend combinations require diagnostics. These selection
+and validation APIs remain future work.
 
 ### Existing resolver compatibility rules
 
