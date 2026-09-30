@@ -1575,3 +1575,21 @@ reach the checked neoCLR importer, which rejects it as an unsupported bound.
 Earlier generic-arity diagnostics are a deferred general compiler candidate;
 validate independently before integrating outside this experiment. Missing
 cloning bounds, wrong Self results and erased calls are compiler diagnostics.
+
+Self inheritance remains an isolated neoCLR experiment, separate from the compiler
+boundary/multi-target refactor. Self is anchored to the class declaring conformance:
+Derived inheriting Base : Clonable retains Base-returning Clone, but does not
+satisfy a native Self bound as Derived. Redeclaring Clonable requires a matching
+Derived result. An explicit `func Clonable.Clone() -> Self` implementation can
+coexist with the inherited Base method; virtual overrides keep the Base signature.
+Explicit and inferred generic calls validate this rule under the configured Self
+Runtime Contract, with no additional target option. Metadata retains the declared
+return types and explicit interface mapping. These are bounded feature changes;
+broader neoCLR target integration follows the separate multi-target refactor.
+
+Validation for the inheritance follow-up: 12 NativeSelfContractTests and 17 nearby
+constraint/declaration regressions pass. The neoCLR repository separately records
+native runtime tests and a System.Clonable consumer covering inherited base results,
+virtual overrides, explicit derived mappings and invalid derived bounds/results.
+No new keyword, TextMate rule or language-service-specific state is introduced;
+existing semantic diagnostics carry the rule. LSP execution was not rerun.

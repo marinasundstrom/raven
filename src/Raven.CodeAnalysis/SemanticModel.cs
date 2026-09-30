@@ -4411,6 +4411,7 @@ public partial class SemanticModel
                     !OverloadResolver.SatisfiesMethodConstraints(
                         method,
                         method.TypeArguments,
+                        Compilation,
                         constraintBinder,
                         out _))
                 {

@@ -43,6 +43,90 @@ public class NativeSelfContractTests
         return TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(image.ToArray())).ToArray();
     }
 
+    const string InheritanceSource = """
+        public interface Cloneable { func Clone() -> Self }
+        public open class Base : Cloneable {
+            public virtual func Clone() -> Self => self
+        }
+        public class Derived : Base {}
+        public class Consumer {
+            public static func Copy<T>(value: T) -> T where T: Cloneable => value.Clone()
+            public static func Check(value: Derived) -> Base => Copy<Base>(value)
+        }
+        """;
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void SelfInheritancePreservesDeclarationResult(int variant)
+    {
+        var source = variant switch
+        {
+            1 => InheritanceSource.Replace("class Derived : Base {}", "class Derived : Base { public override func Clone() -> Base => self }"),
+            2 => InheritanceSource.Replace("class Derived : Base {}", "class Derived : Base, Cloneable { func Cloneable.Clone() -> Self => self }")
+                .Replace("Check(value: Derived) -> Base => Copy<Base>(value)", "Check(value: Derived) -> Derived => Copy<Derived>(value)"),
+            _ => InheritanceSource
+        };
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker"));
+        var compilation = Compilation.Create("SelfInheritance", [SyntaxTree.ParseText(source)], References(), options);
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("\n", diagnostics));
+        using var stream = new MemoryStream();
+        var emitted = compilation.Emit(stream);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        stream.Position = 0;
+        using var module = ModuleDefinition.ReadModule(stream);
+        Assert.Equal("Base", module.GetType("Base").Methods.Single(m => m.Name == "Clone").ReturnType.FullName);
+        if (variant == 2)
+            Assert.Equal("Derived", module.GetType("Derived").Methods.Single(m => m.HasOverrides).ReturnType.FullName);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InheritedSelfDoesNotPromiseDerivedResult(bool inferred)
+    {
+        var source = InheritanceSource.Replace("Copy<Base>(value)", inferred ? "Copy(value)" : "Copy<Derived>(value)");
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker"));
+        var compilation = Compilation.Create("SelfInheritance", [SyntaxTree.ParseText(source)], References(), options);
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RedeclaredSelfRejectsInheritedBaseResult(bool wrongExplicitResult)
+    {
+        var source = InheritanceSource.Replace("class Derived : Base {}", wrongExplicitResult
+            ? "class Derived : Base, Cloneable { func Cloneable.Clone() -> Base => self }"
+            : "class Derived : Base, Cloneable {}");
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker"));
+        var compilation = Compilation.Create("SelfInheritance", [SyntaxTree.ParseText(source)], References(), options);
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SelfPropertyRedeclarationRequiresDerivedResult(bool redeclared)
+    {
+        var source = """
+            interface CurrentValue { val Current: Self { get; } }
+            open class Base : CurrentValue { val Current: Self => self }
+            class Derived : Base {}
+            """;
+        if (redeclared)
+            source = source.Replace("Derived : Base", "Derived : Base, CurrentValue");
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract("NativeSelfReference", "NativeSelfMarker"));
+        var compilation = Compilation.Create("SelfPropertyInheritance", [SyntaxTree.ParseText(source)], References(), options);
+        Assert.Equal(redeclared, compilation.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
     [Fact]
     public void NativeSelfKeepsInterfaceArityAndEmitsMarkerAndConstrainedCall()
     {

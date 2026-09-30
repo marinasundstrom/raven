@@ -663,7 +663,7 @@ internal sealed class OverloadResolver
             }
 
             var immutableExplicitArgs = ImmutableArray.CreateRange(finalExplicitArgs);
-            if (!SatisfiesMethodConstraints(method, immutableExplicitArgs, binder, out constraintFailure))
+            if (!SatisfiesMethodConstraints(method, immutableExplicitArgs, compilation, binder, out constraintFailure))
                 return retainConstraintFailureCandidate ? method.Construct(finalExplicitArgs) : null;
 
             return method.Construct(finalExplicitArgs);
@@ -777,7 +777,7 @@ internal sealed class OverloadResolver
         }
 
         var immutableArguments = ImmutableArray.CreateRange(finalArgs);
-        if (!SatisfiesMethodConstraints(method, immutableArguments, binder, out constraintFailure))
+        if (!SatisfiesMethodConstraints(method, immutableArguments, compilation, binder, out constraintFailure))
             return retainConstraintFailureCandidate ? method.Construct(finalArgs) : null;
 
         return method.Construct(finalArgs);
@@ -876,7 +876,7 @@ internal sealed class OverloadResolver
 
         var immutableArguments = ImmutableArray.CreateRange(inferredArguments);
 
-        if (!SatisfiesMethodConstraints(method, immutableArguments, binder, out constraintFailure))
+        if (!SatisfiesMethodConstraints(method, immutableArguments, compilation, binder, out constraintFailure))
             return retainConstraintFailureCandidate ? method.Construct(inferredArguments) : null;
 
         return method.Construct(inferredArguments);
@@ -1490,6 +1490,7 @@ internal sealed class OverloadResolver
     internal static bool SatisfiesMethodConstraints(
         IMethodSymbol method,
         ImmutableArray<ITypeSymbol> typeArguments,
+        Compilation compilation,
         Binder? binder,
         out TypeArgumentConstraintFailure? constraintFailure)
     {
@@ -1557,7 +1558,7 @@ internal sealed class OverloadResolver
 
                 if (substitutedConstraint is INamedTypeSymbol namedConstraint)
                 {
-                    if (!SemanticFacts.SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
+                    if (!RuntimeSelfTypes.SatisfiesConstraint(compilation, typeArgument, namedConstraint))
                     {
                         constraintFailure = CreateConstraintFailure(
                             method,
@@ -1570,7 +1571,7 @@ internal sealed class OverloadResolver
                     continue;
                 }
 
-                if (!SemanticFacts.SatisfiesTypeConstraint(typeArgument, substitutedConstraint))
+                if (!RuntimeSelfTypes.SatisfiesConstraint(compilation, typeArgument, substitutedConstraint))
                 {
                     constraintFailure = CreateConstraintFailure(
                         method,

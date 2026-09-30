@@ -7504,7 +7504,9 @@ public partial class SemanticModel
         {
             if (typeSymbol.BaseType is INamedTypeSymbol baseType &&
                 baseType.AllInterfaces.Any(inheritedInterface =>
-                    SymbolEqualityComparer.Default.Equals(inheritedInterface, interfaceType)))
+                    SymbolEqualityComparer.Default.Equals(inheritedInterface, interfaceType))
+                && (!RuntimeSelfTypes.HasSelfContract(Compilation, interfaceType)
+                    || !RuntimeSelfTypes.ConformanceOwner(typeSymbol, interfaceType).MetadataIdentityEquals(typeSymbol)))
             {
                 continue;
             }
@@ -7660,7 +7662,9 @@ public partial class SemanticModel
                 continue;
 
             if (candidate.ExplicitInterfaceImplementations.Any(implementation =>
-                    SymbolEqualityComparer.Default.Equals(implementation, interfaceMethod)))
+                    SymbolEqualityComparer.Default.Equals(implementation, interfaceMethod))
+                && (!RuntimeSelfTypes.Contains(Compilation, interfaceMethod)
+                    || MethodSignaturesMatch(candidate, interfaceMethod, RuntimeSelfTypes.ConformanceOwner(typeSymbol, interfaceMethod.ContainingType!))))
             {
                 return true;
             }
@@ -7671,7 +7675,7 @@ public partial class SemanticModel
             if (candidate is SourceMethodSymbol { IsSignatureSkeleton: true })
                 return true;
 
-            if (MethodSignaturesMatch(candidate, interfaceMethod))
+            if (MethodSignaturesMatch(candidate, interfaceMethod, RuntimeSelfTypes.ConformanceOwner(typeSymbol, interfaceMethod.ContainingType!)))
             {
                 return true;
             }
@@ -7699,7 +7703,7 @@ public partial class SemanticModel
                 continue;
             }
 
-            if (PropertySignaturesMatch(candidate, interfaceProperty))
+            if (PropertySignaturesMatch(candidate, interfaceProperty, RuntimeSelfTypes.ConformanceOwner(typeSymbol, interfaceProperty.ContainingType!)))
             {
                 return true;
             }
@@ -7708,14 +7712,14 @@ public partial class SemanticModel
         return false;
     }
 
-    private bool PropertySignaturesMatch(IPropertySymbol candidate, IPropertySymbol interfaceProperty)
+    private bool PropertySignaturesMatch(IPropertySymbol candidate, IPropertySymbol interfaceProperty, INamedTypeSymbol implementingType)
     {
         if (candidate.IsIndexer != interfaceProperty.IsIndexer)
             return false;
 
         if (!SymbolEqualityComparer.Default.Equals(
                 StripNullableReference(candidate.Type),
-                StripNullableReference(RuntimeSelfTypes.Substitute(Compilation, interfaceProperty.Type, candidate.ContainingType!))))
+                StripNullableReference(RuntimeSelfTypes.Substitute(Compilation, interfaceProperty.Type, implementingType))))
         {
             return false;
         }
@@ -7739,7 +7743,7 @@ public partial class SemanticModel
 
             if (!SymbolEqualityComparer.Default.Equals(
                     StripNullableReference(candidateParameter.Type),
-                    StripNullableReference(RuntimeSelfTypes.Substitute(Compilation, interfaceParameter.Type, candidate.ContainingType!))))
+                    StripNullableReference(RuntimeSelfTypes.Substitute(Compilation, interfaceParameter.Type, implementingType))))
             {
                 return false;
             }
@@ -7826,12 +7830,12 @@ public partial class SemanticModel
         return false;
     }
 
-    private bool MethodSignaturesMatch(IMethodSymbol candidate, IMethodSymbol abstractMember)
+    private bool MethodSignaturesMatch(IMethodSymbol candidate, IMethodSymbol abstractMember, INamedTypeSymbol? implementingType = null)
     {
         if (candidate.TypeParameters.Length != abstractMember.TypeParameters.Length)
             return false;
 
-        if (!SignatureTypesMatch(candidate.ReturnType, RuntimeSelfTypes.Substitute(Compilation, abstractMember.ReturnType, candidate.ContainingType!)))
+        if (!SignatureTypesMatch(candidate.ReturnType, RuntimeSelfTypes.Substitute(Compilation, abstractMember.ReturnType, implementingType ?? candidate.ContainingType!)))
         {
             return false;
         }
@@ -7847,7 +7851,7 @@ public partial class SemanticModel
             if (candidateParameter.RefKind != abstractParameter.RefKind)
                 return false;
 
-            if (!SignatureTypesMatch(candidateParameter.Type, RuntimeSelfTypes.Substitute(Compilation, abstractParameter.Type, candidate.ContainingType!)))
+            if (!SignatureTypesMatch(candidateParameter.Type, RuntimeSelfTypes.Substitute(Compilation, abstractParameter.Type, implementingType ?? candidate.ContainingType!)))
             {
                 return false;
             }

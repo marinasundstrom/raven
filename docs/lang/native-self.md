@@ -19,3 +19,14 @@ targets; CLR generic math continues to require explicit generic contracts.
 
 See [Runtime Contracts](../compiler/runtime-contracts.md#native-implementing-type-self-neoclr-experiment)
 for configuration, metadata behavior and current integration limitations.
+
+Self inheritance remains an isolated neoCLR experiment, separate from the compiler
+boundary/multi-target refactor. Self is anchored to the class declaring conformance:
+Derived inheriting Base : Clonable retains Base-returning Clone, but does not
+satisfy a native Self bound as Derived. Redeclaring Clonable requires a matching
+Derived result. An explicit `func Clonable.Clone() -> Self` implementation can
+coexist with the inherited Base method; virtual overrides keep the Base signature.
+Explicit and inferred generic calls validate this rule under the configured Self
+Runtime Contract, with no additional target option. Metadata retains the declared
+return types and explicit interface mapping. These are bounded feature changes;
+broader neoCLR target integration follows the separate multi-target refactor.
