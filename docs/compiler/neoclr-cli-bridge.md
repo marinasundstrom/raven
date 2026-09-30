@@ -289,3 +289,19 @@ full native default-value representation and emission remain future work. The
 flag only applies to parameters already reporting an explicit default. Non-PE
 binding/display tests and existing optional-argument/display suites validate the
 boundary; native neoCLR execution is not claimed.
+
+### Array provider boundary (2026-09-30)
+
+CLI array shape is now provided by `PENamedTypeSymbol.ArrayTypes` through
+`IArrayTypeProvider`, not hard-coded in the shared array symbol. PE retains
+rank-one vector restrictions, configured Iterable/ArrayShape projection, exact
+assembly/arity checks, member owner preservation and ordinary .NET collection
+interface fallback. Invalid explicit shapes still do not invent host interfaces.
+Array storage/signatures and bridge emission are unchanged.
+
+A native base-type provider can supply interfaces and members for its own ranks
+and element types. Shared arrays no longer inherit PE behavior or assume .NET
+interfaces for a non-PE base. Native storage, metadata and codegen are still needed.
+Non-PE provider tests cover shape dispatch, duplicate interfaces and member owner
+identity; existing array, variance, iteration-contract and imported-array tests
+validate the CLI bridge. Native neoCLR execution is not claimed.
