@@ -15,6 +15,21 @@ service support. Native neoCLR structural types and a public compound ABI
 remain future work. Existing validation is modern .NET evidence only, not
 execution evidence for neoCLR, .NET Framework, or NanoFramework.
 
+## Shared-main rebase — 2026-09-30
+
+Rebased onto the merged main foundation b40fe495d. The original proposal is
+already present on main; the remaining 15 feature commits were replayed.
+Constraint binding retains main's declaration-owned type-parameter substitutions
+while accepting the intersection branch's individual constraint references.
+General storage regressions and the feature's recursive-constraint test remain.
+
+The generator/build script passed for the rebased branch, and all 188 focused
+intersection, storage-constraint, constrained-hierarchy and symbol-display tests
+passed on .NET 11, including the internal lowering/runtime fixtures. Whitespace
+formatting and diff checks passed. Source-storage gates and the experiment's
+paused scope are unchanged. .NET versus neoCLR representation/semantics remain
+feature design work; no native neoCLR execution is claimed.
+
 ## Implementation checkpoint
 
 Status: compiler API foundation, source constraint queries, initial reference
