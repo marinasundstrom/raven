@@ -1,4 +1,4 @@
-# ADR-0003: Target-owned metadata and emission
+# ADR-0003: Runtime/platform contracts, symbol sources, and code generation
 
 - Status: Accepted
 - Date: 2026-09-30
@@ -14,10 +14,22 @@ deliberate API redesign during this phase.
 
 ## Decision
 
-A selected target owns metadata interpretation and symbol import, runtime/type
-representation contracts, target-dependent lowering, and emission. These are
-coherent target services, not unrelated importer and emitter switches. The
-compiler execution host remains independent of the selected target.
+A target is defined by its **runtime/platform contract**: its semantic rules,
+available type environment, runtime representations, and feature restrictions.
+An existing target framework may provide much of this contract. The compiler may
+also encode rules for known platforms and diagnose unsupported features.
+
+One or more supported symbol sources supply definitions under that contract.
+Assembly metadata is one source; native declarations, generated/in-memory
+definitions, or other supported formats may supply a different type universe.
+The shared loading interface must describe semantic definitions, not require
+reflection or an assembly format.
+
+One or more code generators may implement the runtime/platform contract. Symbol
+loading and code generation are separate interfaces whose compatibility must be
+validated against that contract, including representation, ABI, and supported
+features. They are not arbitrary interchangeable choices and need not have a
+one-to-one relationship. The compiler execution host remains independent.
 
 Raven owns its semantic model. Shared language semantics and compiler queries
 consume semantic symbols supplied by the selected target. Roslyn is a useful
@@ -33,7 +45,7 @@ already-bound compilation can be sent to an arbitrary emitter. Future target
 identity/configuration must participate in snapshot reuse and invalidation.
 Cross-target reuse or translation requires an explicit compatibility contract.
 
-Metadata need not be CLI assemblies. Shared abstractions must represent the
+Symbol sources need not be metadata files or CLI assemblies. Shared abstractions must represent the
 language facts required by binding and emission without requiring reflection
 objects, CLR opcodes, or .NET assembly identity everywhere. .NET is the first
 complete implementation; neoCLR follows the staged bootstrap plan. Introducing
@@ -65,5 +77,9 @@ Existing frozen-bootstrap provenance and dependency gates remain unchanged.
 
 Define target selection, target-owned import sessions and symbol factories,
 semantic capabilities, emission inputs, and reuse keys through verified slices.
+Define diagnostics for incompatible symbol-source/backend combinations and
+unsupported language features before attempting emission. A native backend may
+have a different type environment; it is not inherently .NET with a new output
+format. Existing .NET Native AOT remains a .NET deployment path.
 See the [target boundary plan](../target-boundaries-and-bootstrap-plan.md).
 This ADR records direction; selectable non-.NET backends are not implemented yet.

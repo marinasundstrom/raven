@@ -57,4 +57,4 @@ without changing the decision.
 
 - [ADR-0001: Preserve preview.14 as the pre-bootstrap foundation](decisions/0001-pre-bootstrap-foundation.md) — superseded
 - [ADR-0002: Qualify the bootstrap foundation after stabilization](decisions/0002-qualify-bootstrap-foundation-after-stabilization.md)
-- [ADR-0003: Target-owned metadata and emission](decisions/0003-target-owned-metadata-and-emission.md)
+- [ADR-0003: Runtime/platform contracts, symbol sources, and code generation](decisions/0003-target-owned-metadata-and-emission.md)

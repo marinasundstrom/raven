@@ -52,8 +52,11 @@ alone cannot qualify neoCLR execution.
 
 ## Boundaries to establish
 
-[ADR-0003](decisions/0003-target-owned-metadata-and-emission.md) defines the target
-as owner of metadata import, runtime contracts, and emission. Raven's semantic
+[ADR-0003](decisions/0003-target-owned-metadata-and-emission.md) defines a target
+through its runtime/platform contract, supplied by compatible symbol sources and
+implemented by one or more compatible code generators. Metadata is one possible
+symbol source; other sources and type environments are allowed. The contract
+includes feature restrictions and compiler rules for known targets. Raven's semantic
 model is its own design; Roslyn informs structure without prescribing these APIs.
 Breaking interface changes are acceptable during this phase when controlled
 consumers migrate together. Changing target may require rebuilding imported
