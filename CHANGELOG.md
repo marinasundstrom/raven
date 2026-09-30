@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-09-30:** neoCLR experiment: add explicitly configured native implementing-type `Self`, keeping interfaces nongeneric, substituting constrained member/property/operator signatures and concrete implementations, and preserving the transport marker for native import. Reject erased Self-member calls; ordinary CLR targets remain opt-out. See `docs/lang/native-self.md` and the Runtime Contract documentation.
+- **2026-09-30:** neoCLR experiment: add explicitly configured native implementing-type `Self`, keeping interfaces nongeneric, substituting constrained member/property/operator signatures and concrete implementations, and preserving the transport marker for native import. Reject erased Self-member calls; ordinary CLR targets remain opt-out. Extend focused coverage to generic instance cloning and record the neoCLR borrowed-receiver integration. See `docs/lang/native-self.md` and the Runtime Contract documentation.
 - **2026-09-30:** Honor `SymbolDisplayMiscellaneousOptions.ExpandedValueTuple`
   for nominal tuple names, including nested generic arguments. Tuple declaration
   hovers request that format explicitly; ordinary source-oriented tuple display

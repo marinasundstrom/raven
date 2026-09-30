@@ -29,6 +29,7 @@ public class NativeSelfContractTests
             }
         }
         public class Consumer {
+            public static func Copy<T>(value: T) -> T where T: Cloneable => value.Clone()
             public static func Sum<T>(left: T, right: T) -> T where T: Number => T.Add(left, right) + T.Zero
         }
         """;
@@ -64,6 +65,10 @@ public class NativeSelfContractTests
         Assert.Equal("NativeSelfMarker", number.Methods.Single(m => m.Name == "Add").ReturnType.FullName);
         Assert.Equal("Count", module.GetType("Count").Methods.Single(m => m.Name == "Add").ReturnType.FullName);
         Assert.Single(module.GetType("Consumer").Methods.Single(m => m.Name == "Sum").GenericParameters);
+        var copy = module.GetType("Consumer").Methods.Single(m => m.Name == "Copy");
+        Assert.Single(copy.GenericParameters);
+        Assert.IsType<GenericParameter>(copy.ReturnType);
+        Assert.Equal("Cloneable", copy.GenericParameters[0].Constraints.Single().ConstraintType.FullName);
     }
 
     [Fact]

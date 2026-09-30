@@ -1547,12 +1547,15 @@ on implementations. This metadata is transport, not directly executable CLR IL.
 Calls to Self-dependent members through erased interface receivers are rejected.
 Self-bearing interface methods with independent method type parameters are not
 yet supported by this projection. The neoCLR application importer currently admits bounded numeric static generic
-consumers; general instance Self consumers and arbitrary constrained application
+consumers and a bounded direct application Clone contract for class/struct
+implementations. `Copy<T>(value: T) -> T where T: Cloneable => value.Clone()` binds
+and emits a constrained call; the neoCLR importer preserves borrowed native Self
+dispatch. General instance Self consumers and arbitrary constrained application
 generics are not established by this compiler support. Native runtime validation
 is authoritative for storage, conformance and dispatch restrictions.
 
 `NativeSelfContractTests` covers nongeneric interface metadata, concrete Self,
-constrained properties/operators, invalid implementations, erased calls and the
+constrained properties/operators and generic instance cloning, invalid implementations, erased calls and the
 ordinary CLR opt-out. The neoCLR repository exercises the actual Number library
 and records runtime/importer validation separately. No keyword token or TextMate
 rule is added: Self remains a type identifier. Language services use normal binder
