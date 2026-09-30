@@ -1865,3 +1865,19 @@ parameter-default and optional-parameter tests pass. Compiler builds pass for .N
 10/11. No Runtime Contract option or CLI encoding changed; the provider now interprets
 existing valid signature-only parameters correctly. This fix should reach the shared
 line independently of the optional probe.
+
+## Independent metadata compiler consumer, stage 1 (2026-09-30)
+
+`tools/NeoClrMetadataProbe` references the independent metadata library through the
+explicit NeoClrMetadataProject build property. Raven's public semantic operations
+feed the native assembly builder, with top-level functions, Int32 arithmetic, a local
+call and a call to the API-produced dependency. The fixture executes as 42 in neoCLR;
+unsupported division and a missing method are rejected. The application never passes
+through the existing CLI importer. Hash evidence is retained with the probe.
+
+The input loader and primitive frontend contract remain .NET-based. This is an opt-in
+consumer executable, not production target composition. Native metadata symbol loading,
+compiler-owned diagnostic integration and wider constructs are incremental next steps.
+The library does not acquire a Raven dependency. Shared fixes 1ea0ca263 and d7040e21d
+were independently tested and fast-forwarded onto local main; the probe remains on
+codex/metadata-consumer. No push or target release is implied.

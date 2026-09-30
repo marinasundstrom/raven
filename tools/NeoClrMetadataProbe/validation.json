@@ -1,0 +1,17 @@
+{
+  "date": "2026-09-30",
+  "result": 42,
+  "source": "Raven public semantic operations",
+  "metadataLibraryIndependent": true,
+  "semanticLoader": "existing .NET provider over API-produced PE",
+  "emitter": "experimental operations adapter to native format 5",
+  "productionTargetIntegrated": false,
+  "nativeMetadataLoader": false,
+  "unsupportedOperationRejected": true,
+  "bindingErrorRejected": true,
+  "compilerSha256": "1c0a052b7744838e6beb896d11d3d81a592c2743ad18bfada8277f21ecef9183",
+  "metadataApiSha256": "aebf955f341bcd774141e4f4ac13cd30793c5447def3a874f9355363b36b3a97",
+  "runtimeSha256": "3f0f65f00fdeb6020eb9fc43ff14e7b41788ea04b306848a11961b2ff6504bf8",
+  "applicationSha256": "61702027d72e174d21b2b0c60557c83d3bd1eb9d677300249a3b4a5111d27326",
+  "dependencySha256": "a9f940985618d2eeab5c68adead611491f83419fde765884185843a03e6e7b62"
+}

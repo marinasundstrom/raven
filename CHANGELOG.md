@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Add an opt-in compiler operations consumer for the independent
+  neoCLR metadata library. Raven binds an API-produced PE dependency; the adapter
+  emits a native application and neoCLR verifies/runs it with result 42. Unsupported
+  operators and binding failures are checked. The .NET loader is still the bootstrap;
+  this does not install a native metadata loader or production target emitter.
+
 - **2026-09-30:** Keep imported signature-only parameters required when their optional
   CLI Param row is absent. Check row presence and default availability before
   interpreting null as a constant, preserving ordinary explicit and attribute-based defaults.

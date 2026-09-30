@@ -330,3 +330,18 @@ neoCLR-specific branch. The current CLI bridge still owns its existing mapping; 
 API improvement only makes a later native emitter possible without syntax guessing.
 Focused .NET operations tests cover this surface; native consumer evidence is recorded
 separately with its exact supported subset.
+
+### Native metadata consumer probe (2026-09-30)
+
+The opt-in NeoClrMetadataProbe consumes the separate metadata API to write native
+format-5 application bytes from Raven's public operations. Top-level source functions
+remain type-independent in native output. The dependency has two API-produced forms:
+a PE read by the existing .NET semantic provider, and native bytes loaded by neoCLR.
+This is a temporary bootstrap representation, not a requirement that the native target
+continue to import PE or depend on .NET reflection.
+
+No existing CLI bridge encoding changed. The application bypasses the CLI importer;
+frontend metadata loading remains .NET-owned. Exact restrictions and the reproduction
+command live in tools/NeoClrMetadataProbe/README.md. The native loader/emitter target
+adapters will replace that bootstrap. Owners: Raven for symbols/operations/adapters,
+the separate library for format/model/emission, neoCLR for native loading/verification.

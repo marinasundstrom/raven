@@ -2035,3 +2035,17 @@ neoCLR-only semantic policy. Existing .NET and CLI-bridge emission remain unchan
 Alternate emitters must reject unsupported flags/operators rather than infer behavior
 from syntax. The independent neoCLR metadata library remains outside compiler symbols
 and bound nodes; a consumer adapter owns the conversion into its builder objects.
+
+### Independent metadata consumer probe (2026-09-30)
+
+`tools/NeoClrMetadataProbe` is an explicit development executable referencing the
+independent neoCLR metadata project. The frontend currently uses the normal .NET
+runtime contract and existing .NET loader to bind an API-produced PE dependency. A
+bounded operation adapter emits the application directly into native format 5 through
+the metadata library, and the native runtime executes it. This is bootstrap evidence
+for Int32 functions/calls; it is not a new TargetPlatform value or installed backend.
+
+The supported source, command, diagnostics and exclusions are documented in the
+[probe](../../../tools/NeoClrMetadataProbe/README.md). This staged integration keeps
+compiler projections and lowering in Raven, format/model code in the library, and
+modern .NET as the default. A native semantic loader and target composition remain next.
