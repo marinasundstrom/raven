@@ -79,6 +79,21 @@ The compiler still exposes existing reflection core handles; replacing the targe
 remains incomplete. ReflectionTypeLoader is now owned by the per-compilation .NET
 target as described below.
 
+## Metadata session and core ownership
+
+`DotNetCompilationTarget` holds the selected metadata core, executable host core,
+and host emit core alongside its metadata session. Shared setup requests a semantic
+loader from the target after checking reference fingerprints; it no longer handles
+a .NET session directly. Existing `Compilation` core-assembly properties forward
+to the target without triggering setup. Target operations use their owning
+compilation for contract validation and emission.
+
+Host handles are seeded before setup can reenter reflection services. Metadata
+initialization then selects the metadata core and registers its host mapping before
+importing symbols. This preserves setup ordering, initialization diagnostics and
+collection-based session lifetime. These remaining reflection-facing adapters
+still need attention before a second target can be selected.
+
 ## Reflection-to-symbol projection ownership
 
 Each `DotNetCompilationTarget` owns one lazy `ReflectionTypeLoader`, including its
@@ -143,7 +158,10 @@ construction, and portable assembly identity reads.
 `DotNetMetadataSession` owns the resulting context and path/identity loading,
 including the existing path-to-identity fallback. `DotNetSemanticDataLoader`
 selects the reference paths and metadata core and creates fresh sessions;
-`Compilation` gates incremental session reuse. Reference import passes
+`DotNetCompilationTarget` owns the session and any reuse candidate. `Compilation`
+gates incremental session reuse using import options and portable-reference
+fingerprints. The target adopts only the previous session, never the previous
+compilation, target, projector or host service. Reference import passes
 through `ISemanticDataLoader`; `DotNetSemanticDataLoader` owns loaded-assembly and
 assembly-symbol caches, dependency traversal, and construction of PE assembly/module
 symbols for each compilation. Compilation-to-compilation references remain in
@@ -224,7 +242,8 @@ Session path loading first reads the requested file. If it fails and a fallback
 identity was supplied, the session attempts identity resolution. Without that
 identity, missing-file and invalid-image failures propagate. The resolver itself
 does not discover host assemblies outside its supplied paths; host-assisted
-discovery is performed by `Compilation` before constructing the session.
+discovery is performed by the .NET loader through the target host service before
+constructing the session.
 
 `DotNetMetadataResolutionTests` characterizes these compatibility rules using
 isolated CLI fixtures. Future strict target admission needs a separate contract

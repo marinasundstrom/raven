@@ -13,11 +13,11 @@ public partial class Compilation
         => _target.RuntimeContract.GetConfigurationError() is { } error ? TargetCoreError(error) : null;
 
     private Diagnostic? GetTargetCoreConfigurationDiagnostic()
-        => _target.GetResolvedConfigurationError(this) is { } error ? TargetCoreError(error) : null;
+        => _target.GetResolvedConfigurationError() is { } error ? TargetCoreError(error) : null;
 
     private bool TryResolveTargetEmitOptions(EmitOptions? requested, out EmitOptions? effective, out Diagnostic? diagnostic)
     {
-        var error = _target.ResolveEmitOptions(this, requested, out effective);
+        var error = _target.ResolveEmitOptions(requested, out effective);
         diagnostic = error is null ? null : TargetCoreError(error);
         return diagnostic is null;
     }

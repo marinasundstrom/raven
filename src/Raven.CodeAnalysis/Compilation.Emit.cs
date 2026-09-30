@@ -57,11 +57,11 @@ public partial class Compilation
                 return new EmitResult(false, effectiveDiagnostics);
             }
 
-            pluginCompilation._target.Emit(pluginCompilation, emitOptions, peStream, pdbStream);
+            pluginCompilation._target.Emit(emitOptions, peStream, pdbStream);
             return new EmitResult(true, effectiveDiagnostics);
         }
 
-        _target.Emit(this, emitOptions, peStream, pdbStream);
+        _target.Emit(emitOptions, peStream, pdbStream);
 
         return new EmitResult(true, effectiveDiagnostics);
     }

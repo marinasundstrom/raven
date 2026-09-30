@@ -705,3 +705,40 @@ no warnings/errors. Tests ran on .NET 11 with freshly built compiler outputs usi
 Whitespace formatting completed with test workspace-load warnings;
 `git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
 full bootstrap qualification is claimed.
+
+## Slice 20: target-owned metadata session and core handles
+
+DotNetCompilationTarget owns the metadata session, its prior-snapshot reuse
+candidate, and metadata/runtime/emit core handles. Compilation keeps import-option
+and portable-reference fingerprint compatibility checks, then asks its target to
+initialize a semantic loader. Existing reflection core properties forward without
+triggering setup. Target validation and emission use the owning compilation rather
+than accepting another compilation as an argument.
+
+Host handles are seeded before fingerprint capture and same-thread setup
+reentrancy, preserving initialization order. Reuse adoption retains only the
+compilation-independent session, never the earlier target, projector or host
+service. Snapshot regression coverage now also verifies metadata core identity
+sharing and executable host-core identity, alongside separate symbols/projectors,
+reference replacement, option changes and collection lifetime.
+
+Next: narrow remaining shared-layer reflection adapters and identify the minimum
+semantic core information needed by a replaceable target. Loading and codegen
+still use .NET reflection; no second target or public provider registry is added.
+Main integration still needs independent main-based validation, with experimental
+neoCLR policies kept separate.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 139 tests across
+MetadataImportOptionsTests, IncrementalCompilationReuseTests,
+CliMetadataCompatibilityTests, MetadataCoreIdentityTests,
+DotNetCompilationPresetTests, TargetCoreSelectionTests,
+TargetInitializationDiagnosticTests, TargetConfigurationDiagnosticTests,
+ReflectionProjectionOwnershipTests and DotNetHostRuntimeTests. Final validation
+added RuntimeTypeOfContractTests and
+MacroLibrary_EmitsReusableCompilerPluginFromSingleSourceTree and passed 154 tests
+with no failures/skips. Compiler builds passed for net10.0 and net11.0 with no
+warnings/errors. Tests ran on .NET 11 using freshly built compiler outputs with
+`--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`.
+Whitespace formatting completed with test workspace-load warnings;
+`git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
+full bootstrap qualification is claimed.

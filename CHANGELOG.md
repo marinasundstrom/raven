@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Move metadata-session and core-assembly state into the .NET
+  target. Compilation retains snapshot compatibility checks and forwards existing
+  core APIs. Bind target validation and emission to their owning compilation;
+  preserve shared-session reuse with separate symbol caches and host services.
+
 - **2026-09-30:** Give each .NET target one lazy reflection-to-symbol projector
   and inject it into metadata import. Preserve pre-setup reflection queries and
   snapshot-owned symbol caches; concurrent projector requests share one instance.

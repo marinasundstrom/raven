@@ -74,8 +74,9 @@ policies have not yet moved into this contract. Existing experimental tuple and 
 preserved on this branch; this is not a separate neoCLR target implementation.
 
 This is deliberately a concrete .NET composition, not a public provider registry.
-Compilation still holds reflection core/session handles, and loading and codegen
-still depend on .NET reflection. A future replaceable target must remove those
+The .NET target owns metadata-session and reflection-core state; Compilation
+retains forwarding reflection APIs, and loading and codegen still depend on .NET
+reflection. A future replaceable target must remove those
 shared-layer dependencies and select a coherent loader/contract/codegen trio.
 Independent component selection and cross-compilation are outside current scope.
 General extraction work requires independent main-based validation before

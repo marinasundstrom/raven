@@ -38,7 +38,6 @@ public partial class Compilation
     private readonly DescriptorState _descriptorState = new();
     private static readonly object s_missingMetadataType = new();
     private readonly DotNetCompilationTarget _target;
-    private DotNetMetadataSession _metadataSession;
     private ISemanticDataLoader _semanticDataLoader;
     private GlobalBinder _globalBinder;
     private bool setup;
@@ -62,7 +61,6 @@ public partial class Compilation
     private BoundNodeFactory? _boundNodeFactory;
     private DeclarationTable? _declarationTable;
     private DeclarationTable? _previousDeclarationTableForReuse;
-    private DotNetMetadataSession? _previousMetadataSessionForReuse;
     private IReadOnlyDictionary<string, PortableReferenceFingerprint>? _previousPortableReferenceFingerprints;
     private ErrorSymbol _errorSymbol;
     private bool isSettingUp;
@@ -122,7 +120,7 @@ public partial class Compilation
         _references = references;
         _macroReferences = macroReferences;
         Options = options ?? new CompilationOptions();
-        _target = new DotNetCompilationTarget(this, Options);
+        _target = new DotNetCompilationTarget(this);
         ScriptCompilationInfo = scriptCompilationInfo;
         _generatorDiagnostics = generatorDiagnostics.IsDefault
             ? ImmutableArray<Diagnostic>.Empty
@@ -252,9 +250,9 @@ public partial class Compilation
         return SourceGlobalNamespace.AsSourceNamespace();
     }
 
-    public Assembly CoreAssembly { get; private set; }
-    public Assembly RuntimeCoreAssembly { get; private set; }
-    internal Assembly EmitCoreAssembly { get; private set; }
+    public Assembly CoreAssembly => _target.CoreAssembly;
+    public Assembly RuntimeCoreAssembly => _target.RuntimeCoreAssembly;
+    internal Assembly EmitCoreAssembly => _target.EmitCoreAssembly;
 
     internal BinderFactory BinderFactory { get; private set; }
 
@@ -901,7 +899,7 @@ public partial class Compilation
     {
         if (previousCompilation.setup && Options.MetadataImportOptions == previousCompilation.Options.MetadataImportOptions)
         {
-            _previousMetadataSessionForReuse = previousCompilation._metadataSession;
+            _target.AdoptMetadataReuseFrom(previousCompilation._target);
             _previousPortableReferenceFingerprints = previousCompilation._portableReferenceFingerprints;
         }
     }
@@ -942,21 +940,11 @@ public partial class Compilation
 
     private void Setup()
     {
-        // Same-thread reentrancy during setup can observe partially initialized compilation state.
-        // Seed the runtime core assemblies up front so early emit/type-resolution paths never see null.
-        RuntimeCoreAssembly = _target.HostRuntime.RuntimeCoreAssembly;
-        EmitCoreAssembly = RuntimeCoreAssembly;
-
+        _target.BeginSetup();
         _portableReferenceFingerprints = CapturePortableReferenceFingerprints(_references);
-        TryReuseMetadataSession(_portableReferenceFingerprints, out var reusableMetadataSession);
-        _metadataSession = _target.OpenMetadataSession(this, reusableMetadataSession);
-        _previousMetadataSessionForReuse = null;
+        _semanticDataLoader = _target.InitializeSemanticData(
+            reuseMetadataSession: HaveEquivalentPortableReferences(_portableReferenceFingerprints));
         _previousPortableReferenceFingerprints = null;
-
-        CoreAssembly = _metadataSession.CoreAssembly!;
-        EmitCoreAssembly = _target.HostRuntime.ResolveEmitCoreAssembly() ?? RuntimeCoreAssembly;
-        RegisterRuntimeAssembly(CoreAssembly, RuntimeCoreAssembly.Location);
-        _semanticDataLoader = _target.CreateSemanticDataLoader(this, _metadataSession);
 
         foreach (var metadataReference in References)
         {
@@ -1026,21 +1014,6 @@ public partial class Compilation
 
     internal static void RegisterSharedMetadataAssemblyPath(string name, string path)
         => DotNetHostRuntime.RegisterSharedMetadataAssemblyPath(name, path);
-
-    private bool TryReuseMetadataSession(
-        IReadOnlyDictionary<string, PortableReferenceFingerprint> currentFingerprints,
-        out DotNetMetadataSession metadataSession)
-    {
-        metadataSession = null!;
-        if (_previousMetadataSessionForReuse is null ||
-            !HaveEquivalentPortableReferences(currentFingerprints))
-        {
-            return false;
-        }
-
-        metadataSession = _previousMetadataSessionForReuse;
-        return true;
-    }
 
     private bool HaveEquivalentPortableReferences(
         IReadOnlyDictionary<string, PortableReferenceFingerprint> currentFingerprints)

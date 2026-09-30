@@ -21,6 +21,8 @@ public sealed class IncrementalCompilationReuseTests
         var currentType = current.GetTypeByMetadataName("System.String")!;
 
         Assert.Same(GetMetadataLoadContext(previous), GetMetadataLoadContext(current));
+        Assert.Same(previous.CoreAssembly, current.CoreAssembly);
+        Assert.Same(typeof(object).Assembly, current.RuntimeCoreAssembly);
         Assert.NotNull(currentType);
         Assert.NotSame(previousType, currentType);
         Assert.NotSame(previousType.ContainingAssembly, currentType.ContainingAssembly);
@@ -166,9 +168,13 @@ public sealed class IncrementalCompilationReuseTests
 
     private static object GetMetadataLoadContext(Compilation compilation)
     {
-        var field = typeof(Compilation).GetField("_metadataSession", BindingFlags.Instance | BindingFlags.NonPublic);
+        var targetField = typeof(Compilation).GetField("_target", BindingFlags.Instance | BindingFlags.NonPublic);
+        targetField.ShouldNotBeNull();
+        var target = targetField!.GetValue(compilation);
+        target.ShouldNotBeNull();
+        var field = target!.GetType().GetField("_metadataSession", BindingFlags.Instance | BindingFlags.NonPublic);
         field.ShouldNotBeNull();
-        var session = field!.GetValue(compilation);
+        var session = field!.GetValue(target);
         session.ShouldNotBeNull();
         var contextField = session!.GetType().GetField("_context", BindingFlags.Instance | BindingFlags.NonPublic);
         contextField.ShouldNotBeNull();
