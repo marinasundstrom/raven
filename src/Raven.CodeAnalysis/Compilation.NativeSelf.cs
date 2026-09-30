@@ -2,8 +2,7 @@ namespace Raven.CodeAnalysis;
 
 public partial class Compilation
 {
-    internal bool HasNativeSelfContract => Options.TargetPlatform == TargetPlatform.NeoCLR
-        && Options.RuntimeSelfTypeContract is not null;
+    internal bool HasNativeSelfContract => _target.RuntimeContract.HasNativeSelfContract;
 
     internal ITypeSymbol SelfImplementingType(ITypeSymbol type)
     {

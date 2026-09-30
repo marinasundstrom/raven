@@ -4,11 +4,11 @@ namespace Raven.CodeAnalysis.Targets;
 
 internal sealed record RuntimeTypeOfBinding(ITypeSymbol Type, IMethodSymbol CurrentGetter, IMethodSymbol Resolver);
 
-internal sealed partial class DotNetRuntimeContract
+internal abstract partial class CliRuntimeContract
 {
     internal RuntimeTypeOfBinding? ResolveTypeOf(Compilation compilation)
     {
-        if (options.RuntimeTypeOfContract is not { } contract
+        if (Options.RuntimeTypeOfContract is not { } contract
             || string.IsNullOrWhiteSpace(contract.AssemblyName)
             || string.IsNullOrWhiteSpace(contract.TypeInfoTypeName)
             || string.IsNullOrWhiteSpace(contract.ContextTypeName))

@@ -1456,3 +1456,34 @@ configuration. Compiler builds pass for .NET 10 and .NET 11 with zero warnings o
 errors. Whitespace formatting and diff checks pass (formatter workspace-load
 warnings). No syntax/model changes, native neoCLR execution, Framework or
 NanoFramework execution, or full bootstrap qualification is claimed.
+
+## Slice 42: selected .NET and neoCLR CLI runtime contracts
+
+Separate DotNetRuntimeContract and NeoClrCliRuntimeContract behind the shared
+internal CliRuntimeContract implementation. Target composition selects the
+contract once from immutable compilation options. The explicit neoCLR contract
+owns profile validation, inhabited nominal callback results, tuple representation
+and marker-gated native Self. The .NET contract preserves defaults and legacy
+probe-core transport rules, without opting into Self. Compilation asks the
+selected contract for Self availability instead of switching on TargetPlatform.
+
+The common base is explicitly CLI-specific: special-type names, typeof handle
+shape and core/unit/marker validation remain transport assumptions. Both contracts
+still use the existing .NET loader/emitter; this is not a universal native
+contract interface or a capability registry. Bridge encoding, public options,
+diagnostic precedence, emitter ABI and external runtime artifacts are unchanged.
+Update the bridge inventory and architecture/API docs with the owning layers and
+native replacement limits. No external runtime code or consumer migration is needed.
+
+Validation: 74-test baseline; 147 final tests on .NET 11 including incremental
+reuse, configuration and core selection, typeof, tuple/callback compatibility,
+and Self. New cold/diagnostics-first checks verify user-defined Self remains an
+ordinary type on neoCLR without an explicit Self mapping. The initial fixture
+omitted a required declaration newline; corrected it and the adjacent fixture.
+Compiler builds pass on .NET 10/11 with zero warnings/errors. Whitespace formatting
+and diff checks pass (formatter workspace-load warnings). No native neoCLR,
+.NET Framework/NanoFramework execution or bootstrap qualification is claimed.
+
+Next: narrow shared semantic consumers' dependence on CLI-specific mappings,
+keeping loader/backend replacement coherent with the platform contract. Avoid
+turning temporary transport restrictions into native feature capability rules.

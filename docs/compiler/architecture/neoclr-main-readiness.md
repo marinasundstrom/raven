@@ -56,8 +56,8 @@ as a coherent target; arbitrary cross-target combinations are out of scope.
 
 | Area | Current trigger and owner | Required boundary |
 | --- | --- | --- |
-| Unit-returning functions | DotNetRuntimeContract delegates the NeoCLR.CoreProbe check to NeoClrCliCompatibility and chooses Func with inhabited unit instead of Action. | Function representation selected by runtime contract; preserve .NET delegate behavior. |
-| Tuple construction | DotNetRuntimeContract delegates the NeoCLR.CoreProbe check to NeoClrCliCompatibility and selects System.Tuple instead of System.ValueTuple. | Contract-owned tuple family. |
+| Unit-returning functions | NeoClrCliRuntimeContract chooses Func with inhabited unit; DotNetRuntimeContract preserves the legacy probe-core trigger. | Function representation selected by runtime contract; preserve .NET delegate behavior. |
+| Tuple construction | NeoClrCliRuntimeContract selects System.Tuple; DotNetRuntimeContract preserves the legacy probe-core trigger. | Contract-owned tuple family. |
 | Imported tuple recognition | PENamedTypeSymbol delegates to NeoClrCliCompatibility to recognize value-type System.Tuple from NeoCLR.CoreProbe as tuple special types. | Loader uses selected contract and validates shape; an assembly name alone must not select a platform. |
 | Terminal Fault calls | BoundNodeFacts delegates to NeoClrCliCompatibility to recognize a particular System.Fault signature and namespace-member marker in NeoCLR.CoreProbe. | Target-owned terminal-operation semantics shared by binding, flow, lowering and emission. |
 | Async representation | UseHeapAsyncStateMachines, CaptureAsyncExceptions, PropagateAsyncCancellation and explicit core selection affect task names, builders and lowering. | Validated async capability/representation contract; do not treat any non-default core as neoCLR. |

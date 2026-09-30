@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Separate the selected .NET and neoCLR CLI runtime contracts while
+  sharing CLI symbol mappings and validation. Route Self availability through the
+  selected contract; preserve explicit marker opt-in, .NET defaults and legacy
+  probe-core callback/tuple transport. Native metadata and codegen remain deferred.
+
 - **2026-09-30:** Move metadata-session reuse validation into the .NET semantic-data
   loader, shared by .NET and the neoCLR CLI bridge. Preserve reference order when
   checking reuse so reordered duplicate assembly identities expose the new first

@@ -62,7 +62,8 @@ replacement direction, not a claim of an implemented native loader or backend.
 | Intersections and records | Intersection work remains on its feature branch. The preset does not configure record-equatability/hash mappings. | Design native semantics and per-target support explicitly; bridge restrictions are not native semantic restrictions. |
 
 Compiler owners: `Targets/NeoClrCliProfile`, `NeoClrCliCompatibility`,
-`DotNetRuntimeContract`, `Compilation.CreateFunctionTypeSymbol`,
+`NeoClrCliRuntimeContract`, shared `CliRuntimeContract`, the legacy compatibility
+path in `DotNetRuntimeContract`, `Compilation.CreateFunctionTypeSymbol`,
 `Symbols/PE/PENamedTypeSymbol` and `BoundNodeFacts` under `src/Raven.CodeAnalysis`.
 Runtime-side sources live in the neoCLR repository under
 `docs/experiments/raven-target`, notably `RuntimeSignatures.cs`,
@@ -71,6 +72,17 @@ API binding catalogs. Runtime documents `void-semantics.md`, `function-types.md`
 `raven-signature-projection.md` and `raven-import-identities.md` explain their
 respective contracts; older documents describe dated checkpoints, not a current
 complete support matrix.
+
+The explicit neoCLR contract now owns profile validation, nominal inhabited
+callback results, tuple-family selection and marker-gated Self availability.
+The .NET contract retains legacy probe-core ABI triggers without enabling Self.
+Shared CLI symbol validation remains in `CliRuntimeContract`; this split does not
+make its marker, handle or type-name conventions native semantic requirements.
+Native metadata/codegen must replace those transport assumptions as described in
+the table. Loader, emitted ABI and runtime importer inputs are unchanged. The contract split
+passes 147 compiler tests on .NET 11, including Self, profile validation, typeof,
+callback/tuple compatibility and incremental reuse; compiler builds cover .NET
+10/11. No new native runtime execution is claimed for this extraction.
 
 ## Compatibility and replacement work
 
