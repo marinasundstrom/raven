@@ -1872,3 +1872,18 @@ The same traversal now accepts in-memory/non-PE providers. No CLI bridge encodin
 source syntax, target feature rule or emitter behavior changes. Both current
 targets continue using the PE implementation; native metadata can later implement
 this capability without exposing reflection handles or eagerly loading methods.
+
+### Type-level extension discovery ownership (2026-09-30)
+
+Shared type queries consume the internal `IExtensionTypeInfo` capability for a
+provider's receiver type and member-level extension presence. The PE provider
+continues interpreting CLI extension attributes and markers; constructed symbols
+substitute the receiver and forward member-level presence. Source declarations
+retain their compiler-owned receiver facts. A receiver is a discovery hint, not
+proof that every member is applicable to that receiver; binding still checks
+individual members and generic constraints.
+
+This is a type-level boundary only. Member-level extension decoding still has
+PE-specific paths. It neither enables native neoCLR extension metadata nor makes
+CLI marker encodings a requirement for future providers. Public semantic APIs,
+CLI encodings and target feature availability are unchanged.
