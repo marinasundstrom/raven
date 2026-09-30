@@ -176,3 +176,8 @@ The structural Function runtime and nominal/structural descriptor split remain o
 the neoCLR feature branch. Validation uses regenerated main library/reference
 artifacts, query/delegate/Task native checks, compiled callback/async consumers and
 the OfType query suite, as recorded in neoCLR's query API documentation.
+
+This branch restores the native Function transport removed from shared main. Its
+production implementation and focused tests match `c0a6344d0`, whose focused
+function/tuple baseline passed 32 tests. This does not establish native semantic
+completeness or authorize promotion to main.

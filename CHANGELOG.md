@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- Structural-types feature branch: retain experimental neoCLR inhabited unit-function transport, paired with neoCLR `feature/function-types`; native metadata and full compiler semantics remain required before integration.
+
 - **2026-09-30:** Isolate native Function/structural-type compiler work on
   `codex/neoclr-structural-types`, paired with neoCLR's `feature/function-types`.
   Main retains nominal Action transport for unit functions and ordinary Raven
