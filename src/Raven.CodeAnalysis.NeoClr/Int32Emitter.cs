@@ -92,15 +92,15 @@ internal static class Int32Emitter
                 }
                 if (statement is IReturnOperation { ReturnedValue: null } && !ReturnsValue(current.Symbol))
                 {
-                    current.Method.Return();
+                    current.Method.Emit(OpCode.Ret);
                     continue;
                 }
                 if (statement is not IReturnOperation { ReturnedValue: { } value }) throw Unsupported("only value-return statements");
                 EmitValue(value, current.Symbol, current.Method);
-                current.Method.Return();
+                current.Method.Emit(OpCode.Ret);
             }
             if (!ReturnsValue(current.Symbol) && body.Operations.LastOrDefault() is not IReturnOperation)
-                current.Method.Return();
+                current.Method.Emit(OpCode.Ret);
         }
         return assembly.WriteNativeAssembly();
 
@@ -137,20 +137,20 @@ internal static class Int32Emitter
             switch (operation)
             {
                 case ILiteralOperation { Value: int value }:
-                    output.LoadConstant(value); return;
+                    output.Emit(OpCode.Ldc_I4, value); return;
                 case IParameterReferenceOperation parameter:
                     var index = source.Parameters.IndexOf(parameter.Parameter, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
                     if (index < 0) throw Unsupported("captured parameter");
-                    output.LoadArgument(index); return;
+                    output.Emit(OpCode.Ldarg, index); return;
                 case IParenthesizedOperation parenthesized when parenthesized.Operand is { } operand:
                     EmitValue(operand, source, output); return;
                 case IBinaryOperation binary when !binary.IsChecked && !binary.IsLifted && binary.OperatorMethod is null &&
                     binary.Type?.SpecialType == SpecialType.System_Int32 && binary.Left is not null && binary.Right is not null:
                     if (binary.OperatorKind is not (OperatorKind.Add or OperatorKind.Subtract or OperatorKind.Multiply)) throw Unsupported("binary operator " + binary.OperatorKind);
                     EmitValue(binary.Left, source, output); EmitValue(binary.Right, source, output);
-                    if (binary.OperatorKind == OperatorKind.Add) output.Add();
-                    else if (binary.OperatorKind == OperatorKind.Subtract) output.Subtract();
-                    else output.Multiply();
+                    if (binary.OperatorKind == OperatorKind.Add) output.Emit(OpCode.Add);
+                    else if (binary.OperatorKind == OperatorKind.Subtract) output.Emit(OpCode.Sub);
+                    else output.Emit(OpCode.Mul);
                     return;
                 case IInvocationOperation call when call.Instance is null:
                     CheckSignature(call.TargetMethod);
@@ -163,9 +163,9 @@ internal static class Int32Emitter
                         if (argument is IArgumentOperation { IsNamed: false, Value: { } argumentValue }) EmitValue(argumentValue, source, output);
                         else throw Unsupported("named or unavailable argument");
                     }
-                    if (local is not null) output.Call(local);
-                    else if (systemFunction is not null) output.Call(systemFunction);
-                    else output.Call(imported!);
+                    if (local is not null) output.Emit(OpCode.Call, local);
+                    else if (systemFunction is not null) output.Emit(OpCode.Call, systemFunction);
+                    else output.Emit(OpCode.Call, imported!);
                     return;
                 default: throw Unsupported("operation " + operation.Kind);
             }

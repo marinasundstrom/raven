@@ -763,3 +763,29 @@ empty bodies, global/static entry ownership, and rejection of extra return-stack
 parameterized entries and foreign entry methods. The .NET metadata model owns the
 entry contract, Raven maps Unit to no result, and neoCLR's existing loader/VM executes it.
 Full System symbol import and richer metadata/backend coverage remain the main follow-up.
+
+### Opcode-based metadata emission — 2026-09-30
+
+Raven's bounded native operation emitter now writes its linear bodies through the
+independent metadata library's `MethodBuilder.Emit` overloads. Supported logical
+opcodes are Ldc_I4, Ldarg, Add, Sub, Mul, Call and Ret. Integer operands and typed
+builder/imported/native call operands use separate overloads; unsupported opcode/operand
+pairs fail before mutation. Native System calls retain their selected native identity.
+Existing LoadConstant/LoadArgument/arithmetic/Call/Return helpers delegate to the same
+path, with unchanged stack, ownership, backend and resource validation.
+
+This provides low-level construction for the currently implemented subset, not arbitrary
+CLI bytes or all neoIL opcodes. Console literal emission remains its explicit native
+convenience operation; there is no general string operand yet. Branches, locals,
+exception regions, public instruction objects and ILProcessor-like body insertion remain
+future work. The underlying body representation is still internal. Enum numeric values
+are not serialized opcode values and do not define an on-disk ABI.
+
+The .NET comparison is typed Emit overload ergonomics without taking a dependency on
+Reflection.Emit. The independent metadata writer still chooses native/CLI encoding and
+validates the complete body. This creates a compiler-facing emission surface that can
+grow toward backend reuse; it does not yet replace Raven's general .NET code generator.
+Target/runtime configuration and existing temporary reference projections are unchanged.
+C# checks compare helper/Emit artifacts, execute ordinary CLI output to 42, reject bad
+operands without body mutation, and cover imported/native calls. Raven's existing native
+compiler/runtime cases and selected translated-System calls validate its actual use.

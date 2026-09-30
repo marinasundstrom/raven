@@ -10,8 +10,8 @@
   "fullCoreImport": false,
   "existingDotNetImporterReused": true,
   "systemSha256": "a19756e92fdc1357a71840db67b83361330887e93dada37a779230d4a62a86ec",
-  "driverSha256": "0b60417a6191bb7fc3661f5690817fe8fdc06e6a22d9652d3d80b9e5363db60a",
-  "applicationSha256": "67d4f606d30c73b7f601e7df5e0708424d209c61823a687dd3abbd940dbe3f26",
-  "cliApplicationSha256": "0ab0419ec98debd364ef3e4e8296d2d24fe0ccb7365f113892f4fcca3d7dcd56",
+  "driverSha256": "405297400e573a4996f6ca534a844be7c940c5ec542dd352e214528f7109c909",
+  "applicationSha256": "8f1426b712f9d823e7c247d0d9100d8d2511fcf90037acc2498188ccd72f0dc5",
+  "cliApplicationSha256": "81ac69b060c8be0fb49fc772f91b9e468249eff2a404c16da4c34a01280776b5",
   "runtimeSha256": "929b169bab427e67d18c052cabe130cab14b651d72e64c0d25da49ae90586150"
 }
