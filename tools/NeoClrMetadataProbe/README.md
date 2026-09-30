@@ -209,3 +209,7 @@ same-named assembly functions, type methods and overloads on both runtimes.
 
 The source-plan case inspects native metadata for two assembly-owned functions and three
 type-owned methods, retains an empty static type, and runs the same source on both runtimes.
+
+Static-type plans are shared by the .NET and native builders. Existing namespaced/empty
+class and callable-owner probes exercise this boundary; generic/nested/instance fallback
+is covered by the focused compiler C# tests.

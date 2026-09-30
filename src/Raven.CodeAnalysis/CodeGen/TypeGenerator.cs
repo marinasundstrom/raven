@@ -246,7 +246,12 @@ internal class TypeGenerator
             }
             else
             {
-                if (TypeSymbol is INamedTypeSymbol namedForDefinition &&
+                if (!hoistNestedSealedHierarchyCase && TypeSymbol is INamedTypeSymbol staticType &&
+                    Portable.SourceStaticTypePlan.TryCreate(staticType, out var typePlan))
+                {
+                    TypeBuilder = typePlan!.Define(new Portable.ReflectionEmitTypeDefinitionBuilder(CodeGen.ModuleBuilder, typeAttributes));
+                }
+                else if (TypeSymbol is INamedTypeSymbol namedForDefinition &&
                     namedForDefinition.TypeKind == TypeKind.Struct &&
                     TypeSymbol.BaseType is not null)
                 {

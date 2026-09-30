@@ -1009,3 +1009,34 @@ the mixed assembly-function/type-method program. Existing overload, forward-call
 core-reference, diagnostic, PDB and rvnc cases remain part of focused validation.
 
 Validation: 21 focused C# tests passed; [native metadata/runtime and driver evidence](../../tools/NeoClrMetadataProbe/validation.json).
+
+## Shared static type plans — 2026-10-01
+
+Both backends now consume `SourceStaticTypePlan` through a typed type-definition
+builder contract for top-level public nongeneric static classes. The plan retains the
+compiler symbol for owner lookup and a shared namespace/metadata-name mapping. The
+native adapter stores these plans during declaration collection and creates native type
+handles afterward. Empty static types still get definitions. Callable owner lookup uses
+symbol equality, not a display name.
+
+The .NET adapter creates its TypeBuilder with the existing TypeGenerator flags; base
+resolution, custom attributes, members and completion remain in the existing generator.
+Generic, nested, nonpublic and instance types keep the general .NET construction path.
+Native syntax/capability validation still rejects unsupported contracts; the plan does
+not silently approximate bases, interfaces or attributes. Runtime Contract selection,
+reference binding, metadata format and runtime loading are unchanged.
+
+Compared with direct Reflection.Emit and native AddType calls, this shares declaration
+identity while keeping backend handles and type completion distinct. It costs a small
+source plan/adapter allocation and remains a bounded type-definition contract, not a
+general type-system or type-reference abstraction. The earlier paused prototype has been
+adapted to retain symbol identity and preserve the .NET generator's computed attributes.
+General field/type references and declaration traversal remain pending; metadata loading
+is still deferred.
+
+Focused C# tests check two same-named classes in distinct namespaces, public/abstract/
+sealed flags, base types and executable calls, plus generic/nested/instance fallback.
+The native probe retains empty types, namespaced library cases in both file orders,
+assembly/type ownership, and actual runtime/driver loading and execution.
+
+Validation: 23 focused C# tests passed; [native runtime and driver evidence](../../tools/NeoClrMetadataProbe/validation.json).

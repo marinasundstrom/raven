@@ -18,8 +18,9 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
    type/field references and full declaration traversal remain pending.
    Replace shared-path System.Type/MemberInfo dependencies; declare identities,
    signatures/members, bodies, then finalize. Preserve assembly-owned native functions
-   and the existing CLI carrier representation. Static type wrappers alone are not
-   this boundary; their earlier prototype is deferred.
+   and the existing CLI carrier representation. The earlier static-type prototype is
+   now a shared source-type plan retaining symbol identity and backend builder contracts.
+   It covers public top-level nongeneric static classes, not the general type boundary.
 3. Extend shared body operations through locals/assignments, comparisons/branches,
    loops, broader signatures/conversions, then instances/fields. Pair each capability
    with metadata writer/reader and runtime validation support as required.

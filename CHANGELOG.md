@@ -15,6 +15,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Share source callable plans across declaration and bounded body emission. Separate
   native source validation from definition creation, preserving assembly-function
   ownership and empty static types; general .NET declaration traversal remains intact.
+  Share static source-type identity/naming plans through typed .NET/native builders,
+  preserving .NET flags/base resolution and generic/nested/instance fallback.
 
 - **2026-09-30:** Add `EmitMetadataAssembly` to the opt-in neoCLR adapter: emit a
   PE/#Neo native execution container through the separate metadata API. Use the same

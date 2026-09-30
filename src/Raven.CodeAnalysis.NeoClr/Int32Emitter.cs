@@ -17,7 +17,7 @@ internal static class Int32Emitter
     {
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
-        var declaredTypes = new List<INamedTypeSymbol>();
+        var declaredTypes = new List<SourceStaticTypePlan>();
         // Collect all declarations before emitting any body, so calls do not depend on file order.
         foreach (var tree in compilation.SyntaxTrees)
         {
@@ -48,9 +48,9 @@ internal static class Int32Emitter
                         type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword)))
                         throw Unsupported("only public nongeneric static classes without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
-                    if (!typeSymbol.IsStatic || typeSymbol.DeclaredAccessibility != Accessibility.Public || typeSymbol.Arity != 0)
+                    if (!SourceStaticTypePlan.TryCreate(typeSymbol, out var typePlan))
                         throw Unsupported("only public nongeneric static classes");
-                    declaredTypes.Add(typeSymbol);
+                    declaredTypes.Add(typePlan!);
                     foreach (var typeMember in type.Members)
                     {
                         diagnosticSyntax = typeMember;
@@ -72,12 +72,9 @@ internal static class Int32Emitter
         var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);
         var functions = new NeoClrCallableDefinitionBuilder(assembly);
         var owners = new Dictionary<INamedTypeSymbol, NeoClrCallableDefinitionBuilder>(SymbolEqualityComparer.Default);
+        var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly);
         foreach (var type in declaredTypes)
-        {
-            var fullName = type.ToFullyQualifiedMetadataName();
-            var typeNamespace = type.ContainingNamespace.IsGlobalNamespace ? "" : fullName[..^(type.MetadataName.Length + 1)];
-            owners.Add(type, new(assembly, assembly.AddType(typeNamespace, type.MetadataName)));
-        }
+            owners.Add(type.Symbol, new(assembly, type.Define(typeDefinitions)));
         var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method)>();
         foreach (var plan in plans)
         {

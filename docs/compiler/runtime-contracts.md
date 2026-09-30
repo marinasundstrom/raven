@@ -2304,3 +2304,7 @@ selection nor semantic reference binding; native imports retain explicit depende
 Shared source callable plans distinguish logical assembly ownership from CLI carrier
 ownership. The existing .NET builder still chooses emitted names, attributes and core
 types; native capability policy remains in its adapter. Target selection is unchanged.
+
+Shared static type plans retain symbol ownership and metadata naming. .NET construction
+still receives the existing flags and target-aware base resolution; native capability
+validation remains adapter-owned. No Runtime Contract or semantic import change is implied.
