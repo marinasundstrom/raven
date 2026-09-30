@@ -1560,3 +1560,12 @@ ordinary CLR opt-out. The neoCLR repository exercises the actual Number library
 and records runtime/importer validation separately. No keyword token or TextMate
 rule is added: Self remains a type identifier. Language services use normal binder
 and semantic APIs; special completion suggestions for Self are not yet provided.
+
+
+The subsequent neoCLR library migration replaces System.Clonable<T> with
+nongeneric System.Clonable and Clone() -> Self, using these same settings and
+emission rules. The target's class/struct cloning consumer now imports the actual
+library contract. Update conformances and generic bounds to Clonable and rebuild
+matching references. This is a neoCLR library/API change, with no additional
+compiler option or ordinary CLR behavior change. Copy depth remains an explicit
+implementation contract; Self guarantees only the result type relationship.
