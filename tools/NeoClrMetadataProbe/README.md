@@ -149,7 +149,7 @@ these execution results.
 Unit/no-result helpers and library methods are included in `--hello-only`. The C#
 checks exercise explicit/implicit returns, compiler reimport of a library's CLI void
 projection, native Unit and Int32 overload calls, and unchanged output on rejected
-calls. Entry points still require Int32. See the [Unit contract](../../docs/compiler/neoclr-cli-bridge.md#unit-returning-native-helpers-and-library-methods--2026-09-30).
+calls. Parameterless entry points now accept Int32 or Unit, including empty Unit bodies. See the [Unit contract](../../docs/compiler/neoclr-cli-bridge.md#unit-returning-native-helpers-and-library-methods--2026-09-30).
 
 
 The full probe also checks namespaced libraries: nested block and file-scoped
@@ -170,3 +170,8 @@ Translated System integration: invoke the probe with
 Math.Min binds to a metadata-derived native callable view, then runs API and compiler
 command output against the same binary System to 42. Full core import is not claimed.
 See [scope and reproduction](../../docs/compiler/neoclr-cli-bridge.md#translated-system-callable-import--2026-09-30).
+
+
+The full and `--hello-only` checks also execute Unit Main directly, through a helper,
+and as a public static class method, plus an empty entry. The `--driver` checks compile
+an actual Unit Main source file and verify native stdout and exit zero.

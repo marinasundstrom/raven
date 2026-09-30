@@ -33,6 +33,12 @@ internal static class DriverChecks
         await runtime(0, ["verify", application, "--module", library]);
         var result = await runtime(42, ["run", application, "--module", library]);
         Check(result.Replace("\r\n", "\n") == "Hello World\n", "driver execution output");
+        var unitSource = Path.Combine(directory, "DriverUnitMain.rvn");
+        var unitApplication = Path.Combine(directory, "DriverUnitApplication.dll");
+        File.WriteAllText(unitSource, "func Main() { Greet() }");
+        await Compile(0, "-o", unitApplication, unitSource, helperSource);
+        await runtime(0, ["verify", unitApplication]);
+        Check((await runtime(0, ["run", unitApplication])).Replace("\r\n", "\n") == "Hello World\n", "Unit entry process exit and stdout");
         var original = File.ReadAllBytes(application);
         await Compile(1, "--reference", library, "-o", application, mainSource, helperSource);
         Check(File.ReadAllBytes(application).SequenceEqual(original), "existing output was modified");

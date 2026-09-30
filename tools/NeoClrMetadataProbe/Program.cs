@@ -157,6 +157,7 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     date = "2026-09-30",
     result = 42,
     helloWorldDirectAndFunctionCall = true,
+    unitEntryPointsAndZeroExit = true,
     compilerDriverNativeCommand = args.Length == 4,
     compilerDriverSha256 = args.Length == 4 ? Hash(args[3]) : null,
     namespacedLibrariesAndBothFileOrders = true,

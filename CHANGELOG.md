@@ -11,6 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Preserve diagnostics, failed output and caller stream/I/O contracts. The native
   section now has a binary format-5 encoding; a native symbol provider and production
   target registration remain pending.
+  Accept parameterless Unit entry points in native output, including assembly functions,
+  public static methods, explicit/implicit returns and empty bodies. API and rvnc cases
+  print Hello World and exit zero without an artificial Int32 return. Metadata encoding
+  uses the existing no-result contract; previous Int32-only entry limits are removed.
   Add explicit partial callable import from translated System (`--system-symbols`,
   repeated `--system-method Name/arity`). Reuse the existing semantic importer through
   metadata-derived reference declarations; emit original System call identities and

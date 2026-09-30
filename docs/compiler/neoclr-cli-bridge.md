@@ -737,3 +737,29 @@ as coverage grows; the projection is not a permanent native representation. The 
 operation emitter already avoids Reflection.Emit. The general .NET code generator still
 uses ILGenerator and builders throughout, so removing that dependency requires a common
 body/instruction abstraction and backend writers, not just replacing one emitter class.
+
+### Unit entry points — 2026-09-30
+
+Native Raven output now accepts parameterless Unit entry points as well as Int32
+entry points, whether assembly-owned functions or public static class methods.
+For example, `func Main() { System.Console.WriteLine("Hello World") }` emits through
+the independent metadata API, loads/verifies in neoCLR, prints one line and exits zero.
+A Unit entry point may call a Unit helper, return explicitly, or have an empty body.
+This supersedes the earlier Int32-only entry restriction; generic/instance/argumented
+entry points and broader source constructs remain outside the bounded native adapter.
+
+Native format 5 already represents no-result functions with `returns: Void` and
+`no_result: true`. The writer and declaration reader now admit that existing contract
+for an entry point; no new transport schema or runtime opcode is needed. Ordinary CLI
+output uses void and a managed entry token, matching the familiar CLR no-result entry
+contract. PE/#Neo keeps its CLI view reference-only and the native entry authoritative.
+No inhabited Void value or artificial integer return is inserted into the source body.
+
+Configuration remains explicit native emission with the current primitive binding
+bootstrap and optional Console/System-symbol contracts. Runtime Contract settings and
+default .NET compiler emission are unchanged. Tests cover metadata roundtrips, actual
+.NET invocation of ordinary CLI output, native API and compiler-command execution,
+empty bodies, global/static entry ownership, and rejection of extra return-stack values,
+parameterized entries and foreign entry methods. The .NET metadata model owns the
+entry contract, Raven maps Unit to no result, and neoCLR's existing loader/VM executes it.
+Full System symbol import and richer metadata/backend coverage remain the main follow-up.

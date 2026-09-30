@@ -73,9 +73,8 @@ internal static class Int32Emitter
         if (compilation.Options.OutputKind == OutputKind.ConsoleApplication)
         {
             var entry = compilation.GetEntryPoint() ?? throw Unsupported("entry point unavailable");
-            if (!ReturnsValue(entry)) throw Unsupported("entry must return Int32");
             assembly.EntryPoint = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Symbol, entry)).Method
-                ?? throw Unsupported("entry must be a declared Int32 function or static method");
+                ?? throw Unsupported("entry must be a declared Int32/Unit function or static method");
         }
         foreach (var current in methods)
         {

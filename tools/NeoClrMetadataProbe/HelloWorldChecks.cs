@@ -51,6 +51,27 @@ internal static class HelloWorldChecks
                 Greetings.Greet(42)
                 return 0
             }
+            """,
+            """
+            func Main() {
+                System.Console.WriteLine("Hello World")
+            }
+            """,
+            """
+            func Greet() {
+                System.Console.WriteLine("Hello World")
+            }
+            func Main() {
+                Greet()
+            }
+            """,
+            """
+            public static class Program {
+                public static func Main() {
+                    System.Console.WriteLine("Hello World")
+                    return
+                }
+            }
             """
         ];
         var paths = new List<string>();
@@ -125,7 +146,14 @@ internal static class HelloWorldChecks
             throw new Exception("unexpected imported no-result call output");
         Reject(Consumer(consumerSource.Replace("Greetings.Greet(42)", "Greetings.Greet()")), consumerOptions);
         Reject(Consumer(consumerSource.Replace("Greetings.Greet(42)", "System.Console.WriteLine(42)")), consumerOptions);
-        Reject(Consumer("func Main() { }"), consumerOptions);
+        using var emptyEntry = new MemoryStream();
+        var emptyResult = NeoClrCompilationEmitter.EmitMetadataAssembly(Consumer("func Main() { }"), emptyEntry, consumerOptions);
+        if (!emptyResult.Success) throw new Exception(string.Join("; ", emptyResult.Diagnostics));
+        var emptyPath = Path.Combine(output, "EmptyUnitEntry.dll");
+        File.WriteAllBytes(emptyPath, emptyEntry.ToArray());
+        await command(0, ["verify", emptyPath]);
+        if ((await command(0, ["run", emptyPath])).Length != 0) throw new Exception("empty Unit entry produced output");
+        paths.Add(emptyPath);
         paths.Add(libraryPath);
         paths.Add(consumerPath);
         Console.WriteLine("PASS Hello World, Unit helpers, explicit/implicit returns, imported Unit and Int32 overloads, rejected discarded values");
