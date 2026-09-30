@@ -22,6 +22,10 @@ Use the [staged bootstrap procedure](bootstrap-procedure.md) for foundation
 qualification, Raven.Core and Raven.Macros gates, Raven-native compiler API
 adoption, incremental source porting, dogfooding, and defect backports.
 
+Use the [target boundaries and bootstrap plan](target-boundaries-and-bootstrap-plan.md)
+for metadata and emission separation, .NET-first validation, neoCLR branch
+integration, and the sequence from C# contract adoption to a Raven compiler.
+
 Use [Raven-native Compiler API result shapes and pre-bootstrap
 adoption](../api/result-shapes.md) for the plan by which selected APIs adopt
 Raven.Core contracts inside the existing C# implementation after the
