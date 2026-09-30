@@ -34,6 +34,27 @@ reported as RAVT004 by compilation diagnostic collection and emission; see the
 failure behavior below. An empty reference list never gains implicit host
 references through this preset.
 
+## Host runtime implementation paths
+
+`Targets.DotNetRuntimeAssemblyPathResolver` owns the existing reference-to-runtime
+path heuristics used by host assembly registration, called through the .NET target.
+It handles NuGet ref/lib layouts, SDK packs/shared layouts, and recognized framework
+reference packages. This is host implementation lookup, not semantic reference
+resolution: its results are not added to an explicit-only target reference set.
+
+Preserved policies include preferring a matching NuGet lib path, then descending
+path order among available package lib candidates; SDK-pack fallback uses the matching
+shared-framework version. Recognized framework reference packages first look for
+an installed exact version, then prefer stable numeric versions within the requested
+major, before falling back to package lib lookup. These are existing host lookup
+heuristics, not a new framework compatibility guarantee or cross-compilation policy.
+
+The resolver accepts an internal shared-framework root override so path selection
+can be tested against temporary layouts without depending on the machine's installed
+frameworks. Production derives that root from the compiler host's runtime as before.
+Assembly loading, caches, and reflection-to-symbol projection remain separate and
+still have dependencies in Compilation.
+
 ## Target initialization failures
 
 Known option contradictions are checked first and reported as RAVT003, before

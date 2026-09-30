@@ -596,3 +596,37 @@ the existing driver subprocess fixture used its previously built driver.
 Whitespace formatting completed with test workspace-load warnings and
 `git diff --check` passed. No .NET Framework, NanoFramework, neoCLR execution or
 full bootstrap qualification is claimed.
+
+## Slice 17: .NET host runtime path policy
+
+`DotNetRuntimeAssemblyPathResolver` owns NuGet ref/lib mapping, SDK-pack mapping,
+recognized shared-framework package mapping, and version/path candidate ordering.
+Compilation host registration requests a candidate through DotNetCompilationTarget,
+then retains its existing runtime assembly loading and cache behavior. Semantic
+reference-set selection is unchanged and never augmented by these runtime paths.
+
+An internal shared-framework-root parameter makes filesystem policy testable without
+relying on installed host frameworks. Production still derives its root lazily from
+the host runtime. New tests cover exact NuGet lib preference, existing descending
+lib-path fallback, SDK exact-version mapping, both recognized framework packages,
+stable/numeric/same-major shared-framework preference, missing candidate files,
+package-lib fallback, and absent/non-reference paths. Fixtures test path selection
+only and do not pretend to be loadable runtime assemblies.
+
+No fallback policy is redesigned in this extraction. In particular, NuGet lib
+fallback remains path-ordered and is not claimed to perform framework compatibility
+resolution. Next: separate host assembly loading/caches and reflection projection
+from shared compilation services. Main integration remains pending independent
+validation; no neoCLR-specific policy is promoted.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 49 tests across
+MetadataImportOptionsTests, MetadataCoreIdentityTests, DotNetCompilationPresetTests,
+RuntimeTypeOfContractTests and CliMetadataCompatibilityTests. The same filter plus
+DotNetRuntimeAssemblyPathResolverTests passed 57 tests with no failures/skips.
+Compiler builds passed for net10.0 and net11.0 with no warnings/errors. Tests ran
+on .NET 11 using freshly built compiler outputs with
+`--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`.
+Whitespace formatting completed with test workspace-load warnings;
+`git diff --check` passed. Temporary-layout tests establish path-selection behavior,
+not execution on those synthetic frameworks. No .NET Framework, NanoFramework,
+neoCLR execution or full bootstrap qualification is claimed.

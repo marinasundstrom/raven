@@ -42,6 +42,9 @@ internal sealed class DotNetCompilationTarget(CompilationOptions options)
         return null;
     }
 
+    internal string? FindRuntimeAssemblyPath(string? referencePath)
+        => DotNetRuntimeAssemblyPathResolver.FindImplementation(referencePath);
+
     internal void Emit(Compilation compilation, EmitOptions? options, Stream peStream, Stream? pdbStream)
         => new CodeGenerator(compilation, options).Emit(peStream, pdbStream);
 }

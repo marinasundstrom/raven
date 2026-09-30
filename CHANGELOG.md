@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Extract .NET host reference-to-runtime path lookup from shared
+  compilation into the .NET target's path resolver. Preserve NuGet, SDK-pack and
+  shared-framework fallback policies, and add deterministic filesystem coverage.
+  Explicit semantic reference sets and public APIs are unchanged.
+
 - **2026-09-30:** Move resolved unit/typeof contract validation into the .NET
   runtime contract and emitted core selection into the .NET target. Shared
   compilation retains semantic lookup and diagnostic reporting. Preserve provider
