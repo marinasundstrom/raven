@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 
 using Raven.CodeAnalysis.Macros;
+using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -1462,7 +1463,7 @@ public static partial class SymbolExtensions
         if (parameter.ExplicitDefaultValue is OptionNoneParameterDefaultValue)
             return ".None";
 
-        if (parameter is PEParameterSymbol { ExplicitDefaultValueIsTypeDefault: true } ||
+        if (parameter is IParameterDefaultValueInfo { ExplicitDefaultValueIsTypeDefault: true } ||
             HasDefaultExpressionSyntax(parameter))
             return "default";
 

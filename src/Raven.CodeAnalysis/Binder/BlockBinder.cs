@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 
 using Raven.CodeAnalysis.Macros;
+using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Text;
@@ -13462,7 +13463,7 @@ partial class BlockBinder : Binder
             return BoundFactory.NullLiteral(parameterType);
         }
 
-        if (parameter is PEParameterSymbol { ExplicitDefaultValueIsTypeDefault: true }
+        if (parameter is IParameterDefaultValueInfo { ExplicitDefaultValueIsTypeDefault: true }
             && parameterType.IsValueType
             && parameterType.SpecialType == SpecialType.None
             && parameterType.TypeKind != TypeKind.Enum)
@@ -13472,7 +13473,7 @@ partial class BlockBinder : Binder
 
         if (!TryCreateOptionalLiteral(parameterType, value, out var literal))
         {
-            if (parameter is PEParameterSymbol { ExplicitDefaultValueIsTypeDefault: true })
+            if (parameter is IParameterDefaultValueInfo { ExplicitDefaultValueIsTypeDefault: true })
                 return new BoundDefaultValueExpression(parameterType);
 
             ReportOptionalParameterDefaultValueCannotConvert(parameter, parameterType);

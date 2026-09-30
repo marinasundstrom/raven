@@ -1728,3 +1728,24 @@ service consumers retain existing compiler APIs. External runtime artifacts are
 unchanged; native neoCLR and .NET Framework/NanoFramework execution are not claimed.
 
 Next: audit runtime-specific type predicates outside the provider implementations.
+
+## Slice 52: provider-owned parameter default-kind facts
+
+Replace PE parameter checks in optional-argument binding and symbol display with
+`IParameterDefaultValueInfo`. PE owns lazy optional/default decoding; shared
+consumers distinguish type defaults from literals through a semantic fact.
+Source syntax, Option.None, constants and null handling keep their existing paths.
+This does not redesign default representations or constructed parameter wrappers.
+
+Five non-PE regressions cover default-vs-literal display, struct default binding
+versus invalid literal binding, and rejecting attempts to make a required parameter
+optional through the flag alone. Existing optional and display tests cover CLI and
+source behavior. No public API, syntax, generated inputs or emitted encoding change.
+
+Validation: 54 optional/display baseline tests and all 59 final tests pass on
+.NET 11. Compiler builds pass for .NET 10/11 with zero warnings/errors. Whitespace
+formatting and diff checks pass (formatter workspace-load warnings).
+Language-service consumers retain existing compiler APIs. External runtime artifacts
+are unchanged; native neoCLR and .NET Framework/NanoFramework execution are not claimed.
+
+Next: audit provider-dependent array type queries and symbol wrapper fact forwarding.

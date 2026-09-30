@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Make parameter type-default facts provider-owned. Optional argument
+  binding and symbol display no longer depend on PE parameters; preserve existing
+  CLI decoding, source defaults and required-parameter behavior.
+
 - **2026-09-30:** Move overload-priority reflection fallback into the PE provider.
   Shared overload selection consumes provider facts and preserves source/attribute
   precedence, priority grouping and constructed-method behavior. Fix metadata-only
