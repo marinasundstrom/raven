@@ -63,6 +63,27 @@ public class MetadataImportOptionsTests
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
     }
 
+    [Theory]
+    [InlineData("net10.0")]
+    [InlineData("net11.0")]
+    public void DefaultImportSelectsSuppliedCoreBeforeHostFallback(string framework)
+    {
+        // Seed host-assisted discovery first, including another framework's paths.
+        Assert.NotNull(Create(false, false).GetTypeByMetadataName("System.Console"));
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion(framework));
+        var corePath = paths.Single(path => Path.GetFileName(path) == "System.Runtime.dll");
+        var expectedIdentity = System.Reflection.AssemblyName.GetAssemblyName(corePath).FullName;
+        var compilation = Compilation.Create("CoreSelection", [],
+            paths.Select(MetadataReference.CreateFromFile).ToArray(),
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+
+        Assert.Equal(expectedIdentity, compilation.CoreAssembly.GetName().FullName);
+        Assert.Equal("System.Runtime", objectType.ContainingAssembly?.Name);
+        Assert.Equal(SpecialType.System_Object, objectType.SpecialType);
+    }
+
     [Fact]
     public void MissingConsoleDoesNotFallBackAfterHostCompilation()
     {

@@ -9,13 +9,14 @@ and paths, not mutable reflection identities or a snapshot of assembly bytes.
 `DotNetMetadataContextFactory` owns the stream-backed resolver, context
 construction, and portable assembly identity reads.
 `DotNetMetadataSession` owns the resulting context and path/identity loading,
-including the existing path-to-identity fallback. `Compilation` selects the
-reference set/core and gates incremental session reuse. Reference import passes
+including the existing path-to-identity fallback. `DotNetSemanticDataLoader`
+selects the reference paths and metadata core and creates fresh sessions;
+`Compilation` gates incremental session reuse. Reference import passes
 through `ISemanticDataLoader`; `DotNetSemanticDataLoader` owns loaded-assembly and
 assembly-symbol caches, dependency traversal, and construction of PE assembly/module
 symbols for each compilation. Compilation-to-compilation references remain in
-the shared compilation layer. Compilation explicitly registers the selected paths
-with the existing host assembly-path map before creating a new session. Metadata
+the shared compilation layer. The .NET loader explicitly registers selected paths
+through compilation host services before creating a new session. Metadata
 construction no longer accepts a host-registration callback. The resolver keeps
 the first sorted simple-name candidate; host registration still visits all
 selected entries in order and retains the last path for that name. These remain
@@ -35,8 +36,10 @@ not introduced by this extraction.
 The loader interface returns semantic symbols rather than reflection assemblies.
 It currently uses the existing `MetadataReference`/`IAssemblySymbol` reference
 surface; these shapes can be redesigned for neoCLR as needed. Selection is still
-fixed to .NET, and setup/core selection, reflection type projection, and host
-runtime registration still have .NET dependencies. This is an import boundary,
+fixed to .NET. Core-library discovery is loader-owned, but compilation still
+holds reflection core handles for its existing runtime/emission services.
+Reflection type projection and host runtime registration also retain .NET
+dependencies. This is an import boundary,
 not a claim that another target can already replace all semantic data loading.
 The goal is to select loader, platform/runtime contract, and codegen together for
 .NET and later neoCLR; independently mixed targets and cross-compilation are out

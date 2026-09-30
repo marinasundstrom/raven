@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Move .NET reference-path selection and metadata core discovery
+  into the semantic-data loader. Compilation retains session-reuse decisions;
+  explicit-only imports and host-assisted lookup retain their policies. Add .NET
+  10/11 reference-core precedence tests after host fallback paths are populated.
+
 - **2026-09-30:** Route reference import through a semantic-data loader interface.
   The .NET implementation owns PE assembly/module symbol construction, dependency
   loading, and per-compilation import caches. Preserve shared metadata-session

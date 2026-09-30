@@ -5,8 +5,6 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.Metadata;
-using System.Reflection.PortableExecutable;
 using System.Runtime.Loader;
 using System.Threading;
 
@@ -955,34 +953,9 @@ public partial class Compilation
         RuntimeCoreAssembly = typeof(object).Assembly;
         EmitCoreAssembly = RuntimeCoreAssembly;
 
-        List<string> paths = _references
-            .OfType<PortableExecutableReference>()
-            .Select(portableExecutableReference => portableExecutableReference.FilePath)
-            .ToList();
-
-        var importOptions = Options.MetadataImportOptions;
-        // Establish the target type universe before adding optional host fallbacks.
-        var coreAssemblyName = importOptions?.CoreAssemblyName ??
-            FindReferenceCoreAssemblyIdentity(paths) ?? typeof(object).Assembly.GetName().FullName;
-        if (importOptions is null)
-        {
-            var runtimeCorePath = typeof(object).Assembly.Location;
-            if (!string.IsNullOrEmpty(runtimeCorePath) && !paths.Contains(runtimeCorePath, StringComparer.OrdinalIgnoreCase))
-                paths.Add(runtimeCorePath);
-
-            // Default .NET targeting retains host-assisted transitive dependency lookup.
-            EnsureTrustedPlatformAssembliesCached();
-            foreach (var knownPath in _assemblyPathMap.Values)
-            {
-                if (!string.IsNullOrEmpty(knownPath) && File.Exists(knownPath) && !paths.Contains(knownPath, StringComparer.OrdinalIgnoreCase))
-                    paths.Add(knownPath);
-            }
-        }
-
         _portableReferenceFingerprints = CapturePortableReferenceFingerprints(_references);
-        _metadataSession = TryReuseMetadataSession(_portableReferenceFingerprints, out var reusedMetadataSession)
-            ? reusedMetadataSession
-            : CreateMetadataSession(paths, coreAssemblyName);
+        TryReuseMetadataSession(_portableReferenceFingerprints, out var reusableMetadataSession);
+        _metadataSession = DotNetSemanticDataLoader.OpenSession(this, reusableMetadataSession);
         _previousMetadataSessionForReuse = null;
         _previousPortableReferenceFingerprints = null;
 
@@ -1054,19 +1027,14 @@ public partial class Compilation
         return references.ToImmutable();
     }
 
-    private static DotNetMetadataSession CreateMetadataSession(IEnumerable<string> paths, string? coreAssemblyName)
+    internal IEnumerable<string> GetHostMetadataAssemblyPaths()
     {
-        var references = DotNetMetadataReferenceSet.Create(paths);
-        foreach (var reference in references.References)
-        {
-            // Preserve host lookup registration order independently of the
-            // metadata resolver's first-match simple-name policy.
-            if (!string.IsNullOrWhiteSpace(reference.SimpleName))
-                s_globalAssemblyPathMap[reference.SimpleName] = reference.Path;
-        }
-
-        return DotNetMetadataSession.Create(references, coreAssemblyName);
+        EnsureTrustedPlatformAssembliesCached();
+        return _assemblyPathMap.Values;
     }
+
+    internal static void RegisterSharedMetadataAssemblyPath(string name, string path)
+        => s_globalAssemblyPathMap[name] = path;
 
     private bool TryReuseMetadataSession(
         IReadOnlyDictionary<string, PortableReferenceFingerprint> currentFingerprints,
@@ -1272,43 +1240,6 @@ public partial class Compilation
         descriptor = default;
         return _descriptorState.BinderParentAnchorDescriptorsByOwner.TryGetValue(syntaxTree, out var descriptors) &&
                descriptors.TryGetValue(key, out descriptor);
-    }
-
-    private static string? FindReferenceCoreAssemblyIdentity(IEnumerable<string> paths)
-    {
-        foreach (var path in paths)
-        {
-            try
-            {
-                using var stream = File.OpenRead(path);
-                using var peReader = new PEReader(stream);
-                if (!peReader.HasMetadata)
-                    continue;
-
-                var reader = peReader.GetMetadataReader();
-                if (!reader.IsAssembly)
-                    continue;
-
-                foreach (var handle in reader.TypeDefinitions)
-                {
-                    var definition = reader.GetTypeDefinition(handle);
-                    if (definition.BaseType.IsNil &&
-                        reader.StringComparer.Equals(definition.Namespace, "System") &&
-                        reader.StringComparer.Equals(definition.Name, "Object"))
-                    {
-                        // Include the version: other framework versions may be present
-                        // among fallback paths from earlier compilations.
-                        return ReadAssemblyName(path).FullName;
-                    }
-                }
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or BadImageFormatException)
-            {
-                // Reference loading reports invalid/unavailable inputs separately.
-            }
-        }
-
-        return null;
     }
 
     internal static System.Reflection.AssemblyName ReadAssemblyName(string path)

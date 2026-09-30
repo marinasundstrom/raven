@@ -358,3 +358,33 @@ The referenced compiler was freshly built for net10.0 and net11.0, with no
 warnings/errors. Whitespace formatting completed with test workspace-load warnings;
 `git diff --check` passed. No neoCLR execution or full bootstrap qualification is
 claimed.
+
+## Slice 11: loader-owned .NET session setup
+
+`DotNetSemanticDataLoader.OpenSession` owns reference-path selection, discovery of
+the metadata core defining System.Object, optional host fallback inputs, and fresh
+session construction. The .NET loader registers selected shared paths through
+compilation host services. `Compilation` retains reference-fingerprint checks and
+decides whether a prior session can be reused; imported symbols remain per-snapshot.
+
+Two new tests verify that supplied net10.0/net11.0 reference-core identities win
+over previously populated host fallback paths, and that semantic Object lookup
+uses the reference surface. Existing explicit-only import, missing-core, metadata
+identity, runtime, and snapshot tests remain the behavior boundary.
+
+Special-type names and protocol mappings are deliberately not moved into the
+loader: those belong to the platform/runtime contract. Compilation still holds
+reflection core handles and selects the .NET loader directly. Full target
+replacement is not implemented. Next: define the minimal coherent target composition
+and move semantic type/protocol mappings to its contract, alongside the loader
+and existing .NET code generator. No arbitrary component mixing is planned.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: baseline passed 108 import/reuse/CLI
+metadata/lookup/resolver cases plus 14 core identity/selection cases. The combined
+filter passed all 124 tests after extraction, with no failures/skips on net11.0,
+using `dotnet test test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj
+--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`.
+Compiler builds passed for net10.0 and net11.0. Whitespace formatting completed
+with test workspace-load warnings, and `git diff --check` passed. Test execution
+was on .NET 11 with .NET 10/11 reference inputs; no neoCLR execution or full
+bootstrap qualification is claimed.

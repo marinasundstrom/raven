@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis.Metadata;
 
 // Per-compilation symbol ownership; only the underlying metadata session may
 // be reused by another snapshot. Reflection and PE symbol construction stay here.
-internal sealed class DotNetSemanticDataLoader(Compilation compilation, DotNetMetadataSession session) : ISemanticDataLoader
+internal sealed partial class DotNetSemanticDataLoader(Compilation compilation, DotNetMetadataSession session) : ISemanticDataLoader
 {
     private readonly Compilation _compilation = compilation;
     private readonly DotNetMetadataSession _session = session;
