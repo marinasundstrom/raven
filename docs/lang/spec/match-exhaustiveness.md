@@ -67,6 +67,11 @@ let message = response match {
 }
 ```
 
+Qualified case names such as `Failure.Offline` contribute the same coverage as
+inferred names such as `.Offline`, including when the enclosing generic union
+comes from a referenced assembly. Covering every payload alternative completes
+the enclosing case; arm guards still follow the rules below.
+
 With several finite payload positions, coverage uses their Cartesian product:
 every combination must be handled. Merely mentioning each possible value in
 each position is not sufficient. If a payload domain is too broad to enumerate

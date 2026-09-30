@@ -1232,3 +1232,27 @@ Final focused verification passed all 20 IsPatternSemanticTests and
 PatternSymbolInfoTests on .NET 11 with no failures/skips. Compiler builds passed
 for net10.0 and net11.0 with no warnings/errors. Whitespace formatting completed
 (test workspace-load warnings only), and `git diff --check` passed.
+
+## Slice 34: complete qualified nested-union payload coverage
+
+The targeted baseline reproduced both qualified complete-match failures in the
+existing eight-case imported generic-union theory (six passed, two failed).
+TryGetMissingCasePayloads computed an empty missing-case set but returned false,
+so its caller treated the domain as unanalyzed and reported the whole Problem
+case as missing. It now returns success with the empty set. Partial coverage
+continues to identify the missing nested case.
+
+Three new cases verify constant-true, constant-false and dynamic arm guards.
+All 11 focused cases passed, including existing qualified/inferred names,
+complete/incomplete matches and semantic-model/diagnostics query ordering.
+Expanded pattern coverage passed all 345 tests on .NET 11 with no skips.
+Compiler builds passed for net10.0 and net11.0 with zero warnings/errors.
+Whitespace formatting and git diff --check completed. No syntax/model generation
+or target policy changed. Full baseline remains incomplete; neoCLR execution,
+.NET Framework/NanoFramework and bootstrap validation are not claimed.
+
+The local codex/target-boundaries branch was safely deleted after confirming its
+tip (1991973f8) is an ancestor of neoclr. Its commits remain on neoclr; no remote
+branch was deleted and main was not modified. The author reaffirmed eventual
+integration of neoclr into main. Next: resume broad integration validation and
+then the target-policy consolidation in the readiness plan.

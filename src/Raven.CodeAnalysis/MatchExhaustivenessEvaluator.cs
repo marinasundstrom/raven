@@ -479,12 +479,9 @@ internal sealed class MatchExhaustivenessEvaluator
                 PatternCoversPayloadType(payload, pattern)))
             .ToImmutableArray();
 
-        if (remainingPayloads.Length == 0)
-        {
-            missingPayloads = default;
-            return false;
-        }
-
+        // An empty result is successful analysis: every payload is covered.
+        // Returning false here would make the caller report the entire case as
+        // missing, conflating complete coverage with an unsupported domain.
         missingPayloads = remainingPayloads;
         return true;
     }

@@ -10,6 +10,17 @@ main, separate implicit target policy, provide a coherent NeoCLR preset and
 validate feature contracts before main integration. Main has not been merged or
 modified by this checkpoint.
 
+## Qualified nested-union coverage follow-up — 2026-09-30
+
+Payload exhaustiveness analysis returned failure when its missing-case set was
+empty, causing the caller to report the entire enclosing case as missing. It now
+returns successful analysis with an empty result. Existing imported generic-union
+fixtures cover qualified/inferred names, complete/incomplete matches and semantic
+query ordering; new tests retain guard-sensitive coverage. This is general Raven
+behavior validated against CLI references on .NET, with no neoCLR runtime execution
+or target-policy change. The local codex/target-boundaries branch is retired; its
+commits are preserved on neoclr for eventual main integration.
+
 ## Open-generic pattern follow-up — 2026-09-30
 
 The baseline rerun passed the constrained hierarchy checkpoint and stopped on

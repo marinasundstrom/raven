@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Recognize complete coverage of qualified nested union cases
+  in imported generic union payloads. An empty set of missing payloads no longer
+  produces a spurious RAV2100 for the enclosing case; guards still constrain coverage.
+
 - **2026-09-30:** Infer open-generic declaration patterns from their input before
   ordinary type-name validation. Valid `value is Box box` patterns no longer
   retain a spurious RAV0305 diagnostic; unmatched inputs still require explicit

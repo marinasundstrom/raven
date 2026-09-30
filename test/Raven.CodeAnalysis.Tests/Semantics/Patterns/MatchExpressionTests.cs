@@ -3231,6 +3231,52 @@ func describe(result: Container<int, Issue>) -> string {
         }
     }
 
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("flag", false)]
+    public void QualifiedNestedPayloadCoverageRespectsArmGuards(string guard, bool exhaustive)
+    {
+        var reference = TestMetadataFactory.CreateFromSource("""
+            public union Container<T> {
+                case Problem(error: T)
+            }
+            """, "GuardedPayloadContainer");
+        var tree = SyntaxTree.ParseText($$"""
+            union Issue {
+                case First
+                case Second
+            }
+            func Describe(result: Container<Issue>, flag: bool) -> int {
+                return match result {
+                    .Problem(Issue.First) => 1
+                    .Problem(Issue.Second) when {{guard}} => 2
+                }
+            }
+            """);
+        var compilation = Compilation.Create("GuardedPayloadCoverage", [tree],
+            [.. TestMetadataReferences.Default, reference],
+            CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = compilation.GetDiagnostics();
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var info = compilation.GetSemanticModel(tree).GetMatchExhaustiveness(match);
+        var missing = diagnostics.Where(diagnostic =>
+            diagnostic.Descriptor == CompilerDiagnostics.MatchExpressionNotExhaustive).ToArray();
+
+        Assert.DoesNotContain(diagnostics.Except(missing), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.Equal(exhaustive, info.IsExhaustive);
+        if (exhaustive)
+        {
+            Assert.Empty(missing);
+            Assert.Empty(info.MissingCases);
+        }
+        else
+        {
+            Assert.Contains("Problem(.Second)", Assert.Single(missing).GetMessage(), StringComparison.Ordinal);
+            Assert.Collection(info.MissingCases, name => Assert.Equal("Problem(.Second)", name));
+        }
+    }
+
     [Fact]
     public void MatchExpression_WithNestedUnionCasePatternMissingPayloadCase_IsNotExhaustive()
     {

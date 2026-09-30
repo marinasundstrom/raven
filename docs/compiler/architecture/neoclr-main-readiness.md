@@ -10,7 +10,9 @@ unreviewed merge into main.
 
 The local neoclr branch was fast-forwarded from b54d2999c to 1991973f8, incorporating
 all 36 commits from codex/target-boundaries without conflicts or a synthetic merge
-commit. The feature branch is retained. Main was not changed. At that checkpoint,
+commit. The local feature branch was subsequently retired after verifying that
+its tip is an ancestor of neoclr; all commits remain available on neoclr. No
+remote branch was deleted. Main was not changed. At that checkpoint,
 main and neoclr had 96 and 259 unique commits respectively; their integration
 requires reconciliation, not a fast-forward. No remote push is implied.
 
@@ -78,6 +80,7 @@ inference ordering for that case and the related symbol-info regression.
 
 Expanded pattern coverage found two qualified nested-union exhaustiveness failures
 (RAV2100 for Problem). Both also reproduce with slice 33's production change
-reverted, so they remain a separate blocker. Full evidence is recorded in the
-slice ledger. The full baseline remains incomplete; main integration awaits these
+reverted. Slice 34 fixes the distinction between complete payload coverage and
+unsupported analysis, with guard regressions. Full evidence is recorded in the
+slice ledger. The full baseline remains incomplete; main integration awaits the
 validation gates and the planned contract migrations.
