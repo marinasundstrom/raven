@@ -1625,3 +1625,28 @@ artifacts are unchanged; native neoCLR and .NET Framework/NanoFramework executio
 are not claimed.
 
 Next: audit the remaining shared PE identity and signature query dependencies.
+
+## Slice 48: provider-owned shallow method declaration identity
+
+Replace shared lookup's PE token and parameter-count checks with the internal
+`IMethodLookupIdentity` capability. Providers supply qualified opaque declaration
+keys; shared code retains declaration unwrapping and generic method argument
+composition. PE owns module/token extraction and its existing shallow fallback.
+Source symbols retain signature-based keys. These are candidate deduplication
+keys, not symbol equality or public/persistent metadata identities.
+
+Four regressions cover non-PE duplicate/distinct declarations whose parameter
+access throws, constructed generic argument distinction, PE overload stability
+before/after signature loading, and source same-arity overload distinction.
+The reflection fallback's existing same-count overload limitation remains
+explicitly documented, not generalized into the provider contract.
+
+Validation: 87 extension/entry-point baseline tests and eight compilation lookup
+baseline tests passed; all 99 final tests pass on .NET 11. Compiler builds pass
+for .NET 10/11 with zero warnings/errors. Whitespace formatting and diff checks
+pass (formatter workspace-load warnings). No syntax, generated inputs,
+public API or emitted encoding changes. Language-service clients retain existing
+compiler queries. External runtime artifacts are unchanged; no native neoCLR or
+.NET Framework/NanoFramework execution is claimed.
+
+Next: audit remaining PE-dependent shared signature and identity consumers.

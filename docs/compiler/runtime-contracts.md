@@ -2186,3 +2186,19 @@ parameters, operator receivers, source extension rules and property accessor
 precedence remain compiler-owned. This removes PE dependencies from these receiver
 queries, not from all shared symbol queries; identity and fast signature lookup
 still require further boundary work. No public API or extension encoding changes.
+
+### Shallow method lookup identity ownership (2026-09-30)
+
+`IMethodLookupIdentity` lets a symbol provider supply an opaque, provider-qualified
+method declaration key without resolving parameter types. Shared lookup unwraps
+declarations and adds method arity/type arguments; it does not know CLI module
+version IDs, tokens or reflection's parameter-count fallback. The PE implementation
+owns those details. Symbols without the capability retain signature-based lookup.
+
+These internal keys serve shallow candidate deduplication, not symbol equality,
+persistent metadata identity or a public cache API. Their string format is not a
+contract. The PE fallback still uses containing type, name and parameter count
+when reflection cannot supply a token, with the same pre-existing risk of merging
+same-count overload candidates in that fallback case. This slice preserves that
+behavior rather than imposing it on future providers. Fast signature queries and
+other PE-dependent identity consumers remain separate work.

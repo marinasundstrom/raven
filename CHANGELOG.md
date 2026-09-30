@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Make shallow method declaration keys provider-owned. Keep PE
+  token/reflection details out of shared lookup while preserving lazy candidate
+  deduplication and generic method argument distinction.
+
 - **2026-09-30:** Move member extension receiver decoding behind a provider
   boundary. Shared lookup no longer depends on PE symbols or applies CLI marker
   parameter remapping; preserve source/CLI receiver and accessor behavior.
