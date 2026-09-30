@@ -8,6 +8,50 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class ConstrainedSealedHierarchyTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void FirstUseDoesNotCaptureCallersTypeParameterInDeclarationConstraint(bool functionFirst)
+    {
+        const string declarations = """
+            interface IConstraint<T> { }
+            class Box<T> where T: IConstraint<T> { }
+            class Container<T> where T: IConstraint<T> {
+                var Value: Box<T>? = null
+            }
+            """;
+        const string function = """
+            func Accept<T>(value: Box<T>) where T: IConstraint<T> { }
+            """;
+        var tree = SyntaxTree.ParseText(functionFirst ? function + declarations : declarations + function);
+        var compilation = Compilation.Create("ConstraintScope", [tree], TestMetadataReferences.Default,
+            CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var box = compilation.GetTypeByMetadataName("Box`1")!;
+        var parameter = Assert.Single(box.TypeParameters);
+        var constraint = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(parameter.ConstraintTypes));
+        Assert.Same(parameter, Assert.Single(constraint.TypeArguments));
+    }
+
+    [Fact]
+    public void UnconstrainedCallerStillFailsDeclarationConstraint()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Accept<T>(value: Box<T>) { }
+            interface IConstraint<T> { }
+            class Box<T> where T: IConstraint<T> { }
+            """);
+        var compilation = Compilation.Create("InvalidConstraintScope", [tree], TestMetadataReferences.Default,
+            CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0320");
+        var box = compilation.GetTypeByMetadataName("Box`1")!;
+        var parameter = Assert.Single(box.TypeParameters);
+        var constraint = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(parameter.ConstraintTypes));
+        Assert.Same(parameter, Assert.Single(constraint.TypeArguments));
+    }
+
     [Fact]
     public void NestedGenericSealedCases_UseOwnTypeParameterInBaseInterface()
     {

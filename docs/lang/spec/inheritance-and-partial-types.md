@@ -181,6 +181,12 @@ func Evaluate<T>(expr: Expr<T>) -> T
 The sealed hierarchy contributes closed-family reasoning and nested-case lookup. Operator validity still comes from the
 ordinary generic constraint system rather than a sealed-hierarchy-specific rule.
 
+Type-parameter references inside a constraint belong to that declaration's generic
+scope. A nested declaration's parameter takes precedence over an enclosing
+parameter with the same name. Resolving a use of the declaration must not replace
+those identities with same-named parameters from the calling function or type.
+Constraint meaning must not depend on which use triggers lazy resolution first.
+
 When nested cases are used, the containing sealed root acts as a logical qualifier for construction:
 
 ```raven

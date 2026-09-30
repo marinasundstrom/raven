@@ -10,6 +10,23 @@ main, separate implicit target policy, provide a coherent NeoCLR preset and
 validate feature contracts before main integration. Main has not been merged or
 modified by this checkpoint.
 
+## Constraint parameter identity follow-up — 2026-09-30
+
+The integrated branch baseline exposed false RAV0320 diagnostics for constrained
+sealed hierarchies. The first storage-signature use of a generic source type could
+resolve and cache its constraints through a calling function's binder, substituting
+the caller's same-named T into the declaration's INumber<T> constraint. Later
+hierarchy checks then compared distinct type parameters.
+
+Constraint resolution now supplies an explicit declaration-owned parameter map,
+walking inner-to-outer owners. It preserves existing type lookup and diagnostics
+while preventing caller parameter identity from replacing declaration parameters.
+It does not obtain a fresh declaration binder during binding: an attempted version
+of that approach reentered declaration binding and was discarded. Focused tests
+cover declaration order, cached symbol identity and rejection of an unconstrained
+caller, alongside the original hierarchy regression. This is a general compiler
+fix using ordinary .NET contracts, not neoCLR policy. Main has not been changed.
+
 ## Storage constraints and experiment pause (2026-09-30)
 
 Main commit `046dc8532` independently extracts ordinary generic storage

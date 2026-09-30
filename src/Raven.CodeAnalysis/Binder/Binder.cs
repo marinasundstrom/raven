@@ -2226,12 +2226,27 @@ internal abstract partial class Binder
             return;
         }
 
+        // Constraint type parameters belong to the declaration being checked,
+        // not to a same-named parameter in the binder that first uses that type.
+        var declaredParameters = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+        for (ISymbol? owner = source.ContainingSymbol; owner is not null; owner = owner.ContainingSymbol)
+        {
+            var parameters = owner switch
+            {
+                IMethodSymbol method => method.TypeParameters,
+                INamedTypeSymbol type => type.TypeParameters,
+                _ => ImmutableArray<ITypeParameterSymbol>.Empty
+            };
+            foreach (var parameter in parameters)
+                declaredParameters.TryAdd(parameter.Name, parameter);
+        }
+        var options = new TypeResolutionOptions { TypeParameterSubstitutions = declaredParameters };
         var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(source.ConstraintTypeReferences.Length);
         foreach (var reference in source.ConstraintTypeReferences)
         {
             if (reference.GetSyntax() is TypeConstraintSyntax typeConstraint)
             {
-                var resolved = BindTypeSyntaxAndReport(typeConstraint.Type);
+                var resolved = BindTypeSyntaxAndReport(typeConstraint.Type, options);
                 builder.Add(resolved);
             }
         }

@@ -1170,3 +1170,31 @@ No actual neoCLR runtime execution, .NET Framework/NanoFramework validation or
 full bootstrap qualification was performed. Next: isolate the generic-constraint
 failure before claiming merge readiness, then consolidate the documented target
 policies and implement explicit preset selection.
+
+## Slice 32: declaration-owned constraint parameter identities
+
+Isolated the integration baseline's sealed-hierarchy failure to lazy constraint
+resolution: a storage annotation in an earlier generic function resolved the
+source definition's INumber<T> through the caller's binder. The definition cached
+the caller's T, causing false RAV0320 errors when its nested cases were checked.
+Constraint binding now supplies a map of parameters from the declaration owner
+and enclosing owners, with the closest owner winning. Existing name lookup and
+constraint diagnostics remain in place; no target-specific exception is added.
+
+The initial focused hierarchy run reproduced one pass and one failure. Temporary
+instrumentation confirmed the validation path. An attempted declaration-binder
+lookup caused recursive binding and was removed; the final fix uses the existing
+type-resolution substitution mechanism without reentering declaration binding.
+
+Three new tests check declaration order, cached constraint-argument identity and
+unconstrained-caller rejection. The original nested hierarchy tests also pass.
+Post-fix coverage passed 97 tests on .NET 11, covering hierarchy, generic types,
+constraint diagnostics, ref-struct constraints and incremental reuse. Compiler
+builds passed for net10.0 and net11.0 with no warnings/errors. Whitespace formatting
+completed (test workspace-load warnings only), and `git diff --check` passed.
+
+The integration failure is fixed in focused coverage; the full baseline has not
+been rerun to completion. Its provenance before the integrated revision remains
+unclassified. No main change, neoCLR execution, .NET Framework/NanoFramework or
+bootstrap qualification is claimed. Next: rerun integration validation, then
+consolidate the target-specific behavior switches documented in the readiness plan.

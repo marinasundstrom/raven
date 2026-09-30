@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Resolve source constraint type-parameter references against
+  their declaring owner and enclosing owners. A same-named type parameter in the
+  first caller no longer contaminates cached constraints or causes false RAV0320
+  errors in constrained generic hierarchies.
+
 - **2026-09-30:** Route .NET reflection loading and codegen host-type lookup
   directly through the target-owned host service. Remove the three internal
   Compilation.ResolveRuntimeType forwarding overloads while preserving setup

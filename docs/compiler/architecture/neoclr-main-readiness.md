@@ -73,6 +73,8 @@ helpers to review before declaring the contracts complete.
 The integration baseline stopped after 1,029 passing tests and one failure in
 ConstrainedSealedHierarchyTests.NestedGenericSealedCases_ImplementInterfaceMethodsAndBindGenericMath
 (two RAV0320 diagnostics for INumber<T>); a focused rerun confirmed the failure.
-Its origin is not yet classified. Full evidence is recorded in the slice ledger.
-Until this failure, the remaining gates and contract migrations are resolved,
-main integration remains pending.
+The failure was traced to caller type-parameter identity contaminating a cached
+source constraint and fixed in slice 32; 97 focused tests pass. Its pre-integration
+provenance is still unclassified, and the full baseline still needs to complete.
+Full evidence is recorded in the slice ledger. Until the remaining gates and
+contract migrations are complete, main integration remains pending.
