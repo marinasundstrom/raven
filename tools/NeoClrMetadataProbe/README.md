@@ -12,8 +12,9 @@ dotnet run --project tools/NeoClrMetadataProbe \
 
 The project reference is explicit; the project is non-packable and not in the default
 solution build. It uses the independently built metadata library, never copied source.
-The runner produces a dependency PE and native assembly through that API, gives the PE
-to Raven's **existing .NET semantic loader**, and asks Raven to bind this program:
+The runner produces a native dependency through that API, reads its declarations with
+`NativeAssemblyDefinition`, and creates a reference-only PE projection. It gives that
+projection to Raven's **existing .NET semantic loader**, and asks Raven to bind this program:
 
 ```raven
 func Offset(value: int) -> int {
@@ -27,7 +28,7 @@ func Main() -> int {
 The compiler-owned adapter in `src/Raven.CodeAnalysis.NeoClr` consumes public semantic
 symbols and operation trees through `NeoClrCompilationEmitter.Emit`. It
 maps source top-level functions to native functions and the imported call to the
-matching read-only dependency definition through `AssemblyBuilder.ImportReference`.
+matching projected read-only dependency definition through `AssemblyBuilder.ImportReference`.
 The adapter receives no producer builder graph; it explicitly asserts the fixture
 core contract. It emits native format-5 bytes through
 `AssemblyBuilder.WriteNativeAssembly`, then neoCLR verifies and executes the actual
@@ -55,7 +56,7 @@ unlifted intrinsic addition/subtraction/multiplication are supported. Named/defa
 expanded arguments, references, generics, async, captures, fields, classes, statements
 other than returns, source attributes/modifiers, checked/lifted operators and structural
 types are rejected. Dependency binding is deliberately limited to the single fixture
-whose matching PE/native outputs the runner creates; this is not an arbitrary PE importer.
+whose native artifact and derived reference projection the runner creates; this is not an arbitrary PE importer.
 
 The public operation consumer already drove shared compiler fixes for binary operator
 facts, invocation receivers and required signature-only parameters. The adapter now has explicit immutable configuration, registered assembly-symbol

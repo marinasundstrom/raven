@@ -24,10 +24,11 @@ var core = new AssemblyIdentity(hostCore.Name!, hostCore.Version!, hostCore.Cult
 var library = new AssemblyBuilder(new("MetadataProbeLibrary", new Version(1, 0, 0, 0)), core);
 var twice = library.AddType("Example", "Math").AddMethod("Twice", 1);
 twice.LoadArgument(0); twice.LoadConstant(2); twice.Multiply(); twice.Return();
-var libraryPath = Path.Combine(output, "MetadataProbeLibrary.dll");
+var libraryPath = Path.Combine(output, "MetadataProbeLibrary.reference.dll");
 var nativeLibrary = Path.Combine(output, "MetadataProbeLibrary.neo.json");
-File.WriteAllBytes(libraryPath, library.Write());
 File.WriteAllBytes(nativeLibrary, library.WriteNativeAssembly());
+var nativeMetadata = NativeAssemblyDefinition.ReadAssembly(File.ReadAllBytes(nativeLibrary));
+File.WriteAllBytes(libraryPath, nativeMetadata.CreateReferenceAssembly(core));
 var metadata = AssemblyDefinition.ReadAssembly(File.ReadAllBytes(libraryPath), false);
 const string source = """
 func Offset(value: int) -> int {
@@ -77,7 +78,10 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     metadataLibraryIndependent = true,
     importedReadOnlyDependency = true,
     emitterRequiresDependencyBuilder = false,
-    semanticLoader = "existing .NET provider over API-produced PE",
+    semanticLoader = "existing .NET provider over projected native declarations",
+    nativeDependencyInput = true,
+    referenceOnlyProjection = true,
+    referenceProjectionSha256 = Hash(libraryPath),
     emitter = "compiler-owned opt-in adapter to native format 5",
     diagnosticAndStreamContractsChecked = true,
     multiFileCrossFunctionCalls = true,

@@ -2100,3 +2100,39 @@ produces NEOMETA001 with that file's source location and leaves output unchanged
 The original one-file and adapter contract checks still pass. Validation evidence
 includes hashes for all three applications. Native symbol loading and production
 registration remain separate next steps; the metadata library stays independent.
+
+### Native dependency input through a reference projection — 2026-09-30
+
+The independent metadata project now reads its bounded native format-5 declaration
+contract with `NativeAssemblyDefinition.ReadAssembly`. It checks manifest/name/origin
+consistency, duplicate and unsupported declaration fields, owner/signature contracts
+and resource bounds. Bodies remain opaque: successful metadata reading does not imply
+successful native verification or execution. General native schemas, arbitrary types,
+structural metadata and executable rewriting remain unsupported.
+
+The snapshot can create a reference-only PE using an explicit core identity. The
+projection preserves supported callable/type declarations and marks the assembly with
+ReferenceAssemblyAttribute; placeholder bodies throw. It omits the native entry point
+and implementation dependency references. These signatures need only primitive types.
+This is the temporary native-input bridge, following the .NET separation of compilation
+contracts and executable implementations, not a new executable CLI representation of
+native code. The cost is an extra PE and the existing .NET symbol provider. Native
+ISemanticDataLoader/symbol construction should ultimately consume native declarations
+directly; the projection must then be retired, not made a permanent platform rule.
+Primary comparison: [Microsoft reference assemblies](https://learn.microsoft.com/en-us/dotnet/standard/assembly/reference-assemblies).
+
+The Raven probe now emits only the original native dependency from its producer,
+reads that native artifact, and creates MetadataProbeLibrary.reference.dll from the
+reader. It binds that reference with the existing .NET primitive Runtime Contract,
+imports the read-only callable contract, and emits native applications. The original
+native dependency (never the reference PE) is supplied to neoCLR. The one-file and
+both two-file orders verify/run to 42; diagnostic/stream checks still pass. The report
+records the reference projection hash alongside the native dependency/application hashes.
+
+Ownership: the metadata project owns reading/projection; Raven owns compiler binding
+and emission; the host supplies matching explicit core identities and native runtime
+dependencies. Ordinary .NET defaults and existing CLI targets are unchanged. The
+metadata project stays separate, and all work remains on the existing feature branches.
+C# contracts pass (23 groups), including malformed inputs, projection ownership,
+reference marking and rejection of execution loading by .NET. No production native
+semantic loader or target registration is claimed.

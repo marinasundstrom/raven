@@ -19,6 +19,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   composition is unchanged. Support multiple source files by collecting declarations
   before emitting bodies with their own semantic models. Both orders of a cross-file
   call execute to 42; later-file diagnostics preserve location and failed output.
+  Start dependency binding from native metadata through the independent library's
+  reference-only PE projection. The producer no longer supplies a dependency PE;
+  execution uses the original native artifact. All three native cases still return
+  42. The .NET semantic provider remains the temporary input bridge.
 
 - **2026-09-30:** Keep imported signature-only parameters required when their optional
   CLI Param row is absent. Check row presence and default availability before

@@ -127,3 +127,15 @@ handles. Costs are a bounded source subset, explicit host reference contracts an
 .NET input-provider bootstrap. Neither a native semantic loader nor production target
 registration is implemented. The next slice should drive those seams with an actual
 metadata input case, retaining shared compiler fixes on the shared line.
+
+## Native input bridge
+
+The probe now builds its `NeoClrMetadataDependency` from a native metadata snapshot:
+call `NativeAssemblyDefinition.ReadAssembly(nativeBytes)`, then
+`CreateReferenceAssembly(explicitCoreIdentity)`, register those PE bytes with the
+existing semantic provider, and read that same projection with `AssemblyDefinition`
+for emission imports. The host still owns matching the reference/snapshot pair.
+The projection is marked reference-only and contains throwing placeholders, so use
+the original native artifact at runtime. Native bodies and transitive implementation
+dependencies are not projected. See the bridge document for limits and the intended
+replacement by a native semantic provider; the adapter public API is unchanged.
