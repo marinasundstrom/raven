@@ -180,6 +180,18 @@ internal abstract partial class Binder
         bool allowBinderLookup)
     {
         var name = id.Identifier.ValueText;
+        if (name == "Self" && Compilation.Options.RuntimeSelfTypeContract is not null)
+        {
+            INamedTypeSymbol? owner = null;
+            for (Binder? scope = this; scope is not null && owner is null; scope = scope.ParentBinder)
+                owner = scope.ContainingSymbol as INamedTypeSymbol ?? scope.ContainingSymbol?.ContainingType;
+            if (owner is null)
+                return Fail(id, TypeResolutionFailureKind.TypeNotFound);
+            ITypeSymbol? selfType = owner.TypeKind == TypeKind.Interface
+                ? Compilation.ResolveRuntimeSelfType()
+                : owner.IsGenericType ? owner.Construct(owner.TypeParameters.Cast<ITypeSymbol>().ToArray()) : owner;
+            return selfType is null ? Fail(id, TypeResolutionFailureKind.TypeNotFound) : new ResolveTypeResult { ResolvedType = selfType };
+        }
 
         if (typeParams.TryGetValue(name, out var substituted))
         {

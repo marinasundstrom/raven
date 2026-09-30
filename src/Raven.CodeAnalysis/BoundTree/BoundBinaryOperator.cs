@@ -101,6 +101,9 @@ internal partial class BoundBinaryOperator
         if (TryLookupPredefinedOperator(compilation, kind, left, right, boolType, out op))
             return true;
 
+        if (left is ITypeParameterSymbol && RuntimeSelfTypesEnabled(compilation, kind, left, right, out op))
+            return true;
+
         if (TryLookupConstrainedInterfaceOperator(kind, left, right, out op))
             return true;
 
@@ -442,6 +445,25 @@ internal partial class BoundBinaryOperator
         }
 
         op = default!;
+        return false;
+    }
+
+    private static bool RuntimeSelfTypesEnabled(Compilation compilation, SyntaxKind kind, ITypeSymbol left, ITypeSymbol right, out BoundBinaryOperator op)
+    {
+        op = default!;
+        if (compilation.Options.RuntimeSelfTypeContract is null || !OperatorFacts.TryGetUserDefinedOperatorInfo(kind, 2, out var info))
+            return false;
+        foreach (var contract in EnumerateOperatorInterfaceCandidates(left))
+            foreach (var method in contract.GetMembers(info.MetadataName).OfType<IMethodSymbol>())
+            {
+                if (!method.IsStatic || !method.IsAbstract || method.Parameters.Length != 2 || !RuntimeSelfTypes.Contains(compilation, method))
+                    continue;
+                var projected = new NativeSelfMethodSymbol(compilation, left, method);
+                if (!SymbolEqualityComparer.Default.Equals(projected.Parameters[0].Type, left) || !SymbolEqualityComparer.Default.Equals(projected.Parameters[1].Type, right))
+                    continue;
+                op = new BoundBinaryOperator(GetBinaryOperatorKind(kind), left, right, projected.ReturnType, projected);
+                return true;
+            }
         return false;
     }
 

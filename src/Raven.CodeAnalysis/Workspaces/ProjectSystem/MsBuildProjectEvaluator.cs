@@ -247,6 +247,10 @@ internal static class MsBuildProjectEvaluator
                 typeOfAssembly ?? "", typeOfInfo ?? "", typeOfContext ?? ""));
 
         var unitAssembly = GetOptionalProperty(project, "RavenUnitAssemblyName");
+        var selfAssembly = GetOptionalProperty(project, "RavenSelfAssemblyName");
+        var selfType = GetOptionalProperty(project, "RavenSelfType");
+        if (selfAssembly is not null || selfType is not null)
+            compilationOptions = compilationOptions.WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract(selfAssembly ?? "", selfType ?? ""));
         var unitType = GetOptionalProperty(project, "RavenUnitType");
         if (unitAssembly is not null || unitType is not null)
             compilationOptions = compilationOptions.WithRuntimeUnitContract(new RuntimeUnitContract(unitAssembly ?? "", unitType ?? ""));

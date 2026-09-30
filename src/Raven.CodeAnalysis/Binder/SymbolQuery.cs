@@ -56,6 +56,13 @@ internal readonly record struct SymbolQuery(
             symbol is not IPropertySymbol { IsIndexer: true } &&
             (symbol is not IMethodSymbol method || !IsNeverInvocableRuntimeMethod(method)));
 
+        if (containingType?.TypeKind == TypeKind.Interface && binder.Compilation.Options.RuntimeSelfTypeContract is not null)
+            symbols = symbols.Where(symbol => symbol switch
+            {
+                IMethodSymbol method => !RuntimeSelfTypes.Contains(binder.Compilation, method),
+                IPropertySymbol property => !RuntimeSelfTypes.Contains(binder.Compilation, property.Type),
+                _ => true
+            });
         return symbols;
     }
 
@@ -163,7 +170,10 @@ internal readonly record struct SymbolQuery(
             {
                 var signature = GetSignatureKey(member);
                 if (seenSignatures.Add(signature))
-                    results.Add(member);
+                    results.Add(member is IMethodSymbol method && RuntimeSelfTypes.Contains(binder.Compilation, method)
+                        ? new NativeSelfMethodSymbol(binder.Compilation, typeParameter, method)
+                        : member is IPropertySymbol property && RuntimeSelfTypes.Contains(binder.Compilation, property.Type)
+                            ? new NativeSelfPropertySymbol(binder.Compilation, typeParameter, property) : member);
             }
         }
 

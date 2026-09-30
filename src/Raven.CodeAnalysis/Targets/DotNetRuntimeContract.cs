@@ -46,6 +46,11 @@ internal sealed partial class DotNetRuntimeContract(CompilationOptions options)
         if (GetConfigurationError() is { } error)
             return error;
 
+        if (options.RuntimeSelfTypeContract is not null &&
+            (compilation.ResolveRuntimeSelfType() is not { Arity: 0, DeclaredAccessibility: Accessibility.Public } selfType ||
+             selfType.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic)))
+            return "native Self requires a public, nongeneric, fieldless marker in the configured assembly; this contract targets a native runtime, not CLR execution";
+
         if (options.RuntimeTypeOfContract is not null && ResolveTypeOf(compilation) is null)
             return "the typeof contract requires a public interface and context in the configured assembly, with public static Current and instance GetTypeInfoFromHandle(RuntimeTypeHandle) returning that interface";
 

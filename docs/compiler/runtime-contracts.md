@@ -1524,3 +1524,36 @@ No Runtime Contract option changes. Tests cover emitted and reimported metadata,
 null/equal/different operands, explicit declarations and custom-operator isolation
 on .NET 11. The integration baseline compares .NET 10. No .NET Framework or
 NanoFramework execution is claimed. Nullable value support is unchanged.
+
+## Native implementing-type Self (neoCLR experiment)
+
+`CompilationOptions.RuntimeSelfTypeContract` selects a fieldless public marker by
+assembly and metadata name. MSBuild projects set `RavenSelfAssemblyName` and
+`RavenSelfType`; neoCLR uses `NeoCLR.CoreProbe` and
+`System.Runtime.CompilerServices.Self`. Both settings are required. This option is
+exclusive to the neoCLR experiment and is disabled for ordinary CLR compilation.
+
+Capital `Self` is resolved in interface member signatures to this transport marker;
+in a concrete type it denotes that declaring type. Lowercase `self` retains its
+instance-value meaning. Interfaces gain no hidden generic parameter. Constrained
+member lookup substitutes Self with the constrained type parameter, including
+static properties and operators; implementation checking substitutes the concrete
+implementer. Arrays and constructed generic signatures substitute recursively.
+Semantic member results expose the substituted signature. Emission retains the
+original interface member and marker so the neoCLR importer can preserve native
+Self dispatch. Inherited interfaces such as `ComparableTo<Self>` are concretized
+on implementations. This metadata is transport, not directly executable CLR IL.
+
+Calls to Self-dependent members through erased interface receivers are rejected.
+Self-bearing interface methods with independent method type parameters are not
+yet supported by this projection. The neoCLR application importer currently admits bounded numeric static generic
+consumers; general instance Self consumers and arbitrary constrained application
+generics are not established by this compiler support. Native runtime validation
+is authoritative for storage, conformance and dispatch restrictions.
+
+`NativeSelfContractTests` covers nongeneric interface metadata, concrete Self,
+constrained properties/operators, invalid implementations, erased calls and the
+ordinary CLR opt-out. The neoCLR repository exercises the actual Number library
+and records runtime/importer validation separately. No keyword token or TextMate
+rule is added: Self remains a type identifier. Language services use normal binder
+and semantic APIs; special completion suggestions for Self are not yet provided.

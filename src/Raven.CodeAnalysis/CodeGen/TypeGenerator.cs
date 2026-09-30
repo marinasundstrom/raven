@@ -365,7 +365,7 @@ internal class TypeGenerator
 
         if (TypeSymbol is INamedTypeSymbol nt2 && !nt2.Interfaces.IsDefaultOrEmpty)
         {
-            foreach (var iface in GetAllInterfaces(nt2))
+            foreach (var iface in GetAllInterfaces(nt2).Select(iface => RuntimeSelfTypes.Substitute(Compilation, iface, nt2)).Distinct<ITypeSymbol>(SymbolEqualityComparer.Default))
                 TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
         }
 
@@ -2382,7 +2382,9 @@ internal class TypeGenerator
             return true;
         }
 
-        var interfaces = GetAllInterfaces(named);
+        var interfaces = GetAllInterfaces(named)
+            .Select(iface => (INamedTypeSymbol)RuntimeSelfTypes.Substitute(Compilation, iface, named))
+            .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default).ToImmutableArray();
         if (interfaces.IsDefaultOrEmpty)
             return false;
 
@@ -2452,7 +2454,9 @@ internal class TypeGenerator
         if (TypeBuilder is null)
             return;
 
-        var interfaces = GetAllInterfaces(named);
+        var interfaces = GetAllInterfaces(named)
+            .Select(iface => (INamedTypeSymbol)RuntimeSelfTypes.Substitute(Compilation, iface, named))
+            .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default).ToImmutableArray();
         if (interfaces.IsDefaultOrEmpty)
             return;
 
