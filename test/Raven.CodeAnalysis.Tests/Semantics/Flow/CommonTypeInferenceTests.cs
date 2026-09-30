@@ -8,6 +8,41 @@ namespace Raven.CodeAnalysis.Tests;
 
 public sealed class CommonTypeInferenceTests : DiagnosticTestBase
 {
+    [Theory]
+    [InlineData("Left", "Right", "Base")]
+    [InlineData("Right", "Left", "Base")]
+    [InlineData("Left", "Other", "Shared")]
+    [InlineData("Other", "Left", "Shared")]
+    [InlineData("Left", "Unrelated", "System.Object")]
+    [InlineData("Unrelated", "Left", "System.Object")]
+    [InlineData("System.ArgumentException", "System.InvalidOperationException", "System.SystemException")]
+    [InlineData("System.InvalidOperationException", "System.ArgumentException", "System.SystemException")]
+    public void NominalInferenceUsesSemanticBaseAndInterfaceContracts(string leftName, string rightName, string expectedName)
+    {
+        var tree = SyntaxTree.ParseText("""
+            interface Shared { }
+            open class Base { }
+            class Left : Base, Shared { }
+            class Right : Base, Shared { }
+            class Other : Shared { }
+            class Unrelated { }
+            """);
+        var compilation = Compilation.Create("NominalInference", [tree], TestMetadataReferences.Default,
+            CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var left = compilation.GetTypeByMetadataName(leftName)!;
+        var right = compilation.GetTypeByMetadataName(rightName)!;
+        var expected = compilation.GetTypeByMetadataName(expectedName)!;
+        Assert.NotNull(left);
+        Assert.NotNull(right);
+        Assert.NotNull(expected);
+
+        var inferred = TypeSymbolNormalization.GetBestCommonType([left, right]);
+
+        Assert.True(SymbolEqualityComparer.Default.Equals(expected, inferred),
+            $"Expected {expectedName}, got {inferred.ToDisplayString()}.");
+    }
+
     [Fact]
     public void MatchExpression_WithAbruptArms_InfersNonAbruptValueType()
     {

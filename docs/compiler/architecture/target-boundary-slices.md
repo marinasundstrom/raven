@@ -1053,3 +1053,27 @@ passed for net10.0 and net11.0 with no warnings/errors. Whitespace formatting
 completed with test workspace-load warnings, and `git diff --check` passed.
 No full baseline, .NET Framework, NanoFramework, neoCLR execution or bootstrap
 qualification was performed in this slice.
+
+## Slice 29: common nominal inference belongs to semantics
+
+Moved FindCommonDenominator and its alias/literal unwrapping into
+TypeSymbolNormalization as private FindCommonNominalType. The only caller was
+GetBestCommonType; no forwarding API or new service is needed. Removed the unused
+GetDepth helper from the backend class. Base/interface preference, interface
+enumeration order, and object fallback remain unchanged.
+
+New semantic tests cover source types sharing both a base and an interface,
+source types sharing only an interface, unrelated source types, and imported
+exception types sharing a base. Each pair is tested in both orders under explicit
+CompilationOptions.DotNet. No reflection resolver or emission is required.
+
+Next: review remaining reflection-facing Compilation APIs and identify the next
+small boundary that can move into the .NET target. Main integration still needs
+independent main-based validation; neoCLR-specific policies remain separate.
+
+Validation: focused baseline passed 72 tests; post-change coverage passed 80 tests
+on .NET 11 with no failures or skips. Coverage included common-type inference,
+early returns, function-expression inference and missing-return-type diagnostics.
+Compiler builds passed for net10.0/net11.0 with no warnings/errors. Whitespace
+formatting completed (test workspace-load warnings only); `git diff --check` passed.
+No full baseline, neoCLR execution or bootstrap qualification is claimed.

@@ -55,7 +55,7 @@ internal static class TypeSymbolNormalization
 
         if (!nonNullMembers.IsDefaultOrEmpty)
         {
-            var common = TypeSymbolExtensionsForCodeGen.FindCommonDenominator(nonNullMembers);
+            var common = FindCommonNominalType(nonNullMembers);
             if (common is not null)
                 return NormalizeForInference(common);
         }
@@ -65,6 +65,66 @@ internal static class TypeSymbolNormalization
             return objectType;
 
         return errorTypeSymbol ?? NormalizeForInference(filtered[0]);
+    }
+
+    private static INamedTypeSymbol? FindCommonNominalType(IEnumerable<ITypeSymbol> types)
+    {
+        var namedTypes = types.Select(Unalias).OfType<INamedTypeSymbol>().ToArray();
+        if (namedTypes.Length == 0)
+            return null;
+
+        INamedTypeSymbol? candidate = namedTypes[0];
+        INamedTypeSymbol? objectType = null;
+        while (candidate is not null)
+        {
+            if (namedTypes.All(t => SharesAncestor(t, candidate)))
+            {
+                if (candidate.SpecialType == SpecialType.System_Object)
+                    objectType = candidate;
+                else
+                    return candidate;
+            }
+            candidate = candidate.BaseType;
+        }
+
+        foreach (var iface in namedTypes[0].AllInterfaces)
+        {
+            if (namedTypes.All(t => t.AllInterfaces.Contains(iface, SymbolEqualityComparer.Default)))
+                return iface;
+        }
+
+        return objectType;
+
+        static bool SharesAncestor(INamedTypeSymbol type, INamedTypeSymbol ancestor)
+        {
+            for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+                if (SymbolEqualityComparer.Default.Equals(current, ancestor))
+                    return true;
+            foreach (var iface in type.AllInterfaces)
+                if (SymbolEqualityComparer.Default.Equals(iface, ancestor))
+                    return true;
+            return false;
+        }
+    }
+
+    private static ITypeSymbol Unalias(ITypeSymbol type)
+    {
+        while (true)
+        {
+            if (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol t)
+            {
+                type = t;
+                continue;
+            }
+
+            if (type is LiteralTypeSymbol lit)
+            {
+                type = lit.UnderlyingType;
+                continue;
+            }
+
+            return type;
+        }
     }
 
     private static void AddNormalizedCandidate(ImmutableArray<ITypeSymbol>.Builder builder, ITypeSymbol member)

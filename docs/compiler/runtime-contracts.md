@@ -1394,3 +1394,18 @@ API. Its coverage includes constructed generic types and arrays, verifying that
 signature types and their generic arguments remain in the target metadata
 context while custom-attribute requests use host reflection types. Existing
 Compilation reflection adapters remain and need further boundary work.
+
+## Semantic common-type inference
+
+TypeSymbolNormalization owns the common nominal type selection used by its
+GetBestCommonType path. It no longer calls the .NET codegen type helper. The
+algorithm reads base types, interfaces, aliases and literal underlying types from
+semantic symbols without reflection handles or a code generator. A shared
+non-object base is preferred; otherwise a shared interface is considered before
+object fallback. Existing interface enumeration order is preserved, including
+the existing first-match policy when several interfaces are shared.
+
+This is an ownership change, not a new conversion or target policy. Nullable and
+union normalization and binder-specific inference paths are unchanged. The
+selected loader still supplies the semantic type hierarchy; a future loader
+can supply that hierarchy without implementing .NET reflection conversion.
