@@ -114,9 +114,12 @@ enable the features generally or finalize these policies.
 1. Completed: consolidate existing implicit neoCLR policy in NeoClrCliCompatibility,
    preserving behavior and adding ordinary .NET negative cases. Assembly-name
    inference remains transitional, not explicit target enforcement.
-2. Introduce explicit target identity and immutable contract selection. Ensure all
-   option copies, project loading and incremental compatibility checks carry it.
-   Remove assembly-name and unrelated-option inference of target identity.
+2. In progress: CompilationOptions.TargetPlatform now explicitly identifies the
+   supported .NET pipeline. All option copies and incremental compatibility checks
+   carry it; unknown values diagnose before setup/emission. Next, define the neoCLR
+   CLI profile and project selection together, then migrate callers and remove
+   assembly-name and unrelated-option inference. Contract selection remains the
+   existing immutable per-protocol options.
 3. Add CompilationOptions.NeoCLR backed by the actual supported CLI transport
    profile. Specify required references and current limitations; do not claim a
    native neoCLR backend. Keep CompilationOptions.DotNet explicit-reference-only.

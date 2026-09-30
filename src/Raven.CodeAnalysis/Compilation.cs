@@ -883,7 +883,9 @@ public partial class Compilation
     {
         ArgumentNullException.ThrowIfNull(previousCompilation);
 
-        if (ReferenceEquals(this, previousCompilation) || Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
+        if (ReferenceEquals(this, previousCompilation)
+            || Options.TargetPlatform != previousCompilation.Options.TargetPlatform
+            || Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
             || Options.RuntimeIterationContract != previousCompilation.Options.RuntimeIterationContract
             || Options.RuntimePropagationContract != previousCompilation.Options.RuntimePropagationContract
             || Options.TargetCoreAssemblyName != previousCompilation.Options.TargetCoreAssemblyName)

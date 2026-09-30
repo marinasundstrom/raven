@@ -1287,3 +1287,31 @@ Next: explicit target identity and immutable contract selection, carried through
 option copies, project configuration and incremental compatibility. Preserve a
 coherent loader/contract/emitter composition and migrate controlled callers before
 removing compatibility inference.
+
+## Slice 36: explicit .NET platform selection foundation
+
+CompilationOptions.TargetPlatform, WithTargetPlatform and the constructor argument
+now identify the coherent platform composition. DotNet is the only supported enum
+value; it preserves existing constructor and preset defaults. All 38 existing
+option copies forward the selection. Reference-framework resolution and core
+identity remain separate inputs; choosing a platform does not rewrite contracts.
+
+Unknown enum values return unsuppressible RAVT005 before reference initialization
+and cannot write PE/PDB output even when callers provide diagnostics. Platform
+changes reject both metadata/declaration reuse and semantic-state transfer. Tests
+cover defaults, copies, invalid-platform diagnostics and workspace recovery back
+to .NET with earlier snapshots retaining their own diagnostics.
+
+Pre-change validation passed seven framework tests and 99 configuration, metadata
+and incremental tests. Post-change validation passed 120 focused tests, including
+six new platform cases and the existing neoCLR CLI compatibility checks. The seven
+framework checks also passed again on the final build. Compiler
+builds passed for .NET 10/11 with zero warnings/errors. Tests ran on .NET 11.
+Whitespace formatting completed with test workspace-load warnings; diff checks
+passed. No generated model, syntax or language-service presentation changes were
+needed. Native neoCLR/.NET Framework/NanoFramework execution is not claimed.
+
+This intentionally completes only the .NET API foundation: there is no NeoCLR
+preset, project-file selector or strict .NET feature matrix yet. Existing implicit
+neoCLR CLI rules remain compatible. Next, define the supported neoCLR CLI profile,
+wire project configuration and migrate callers before removing those triggers.

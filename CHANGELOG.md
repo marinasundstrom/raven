@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Add immutable `CompilationOptions.TargetPlatform` selection,
+  initially supporting `TargetPlatform.DotNet`. Unknown values report RAVT005
+  before reference loading or output writes; platform changes block incremental
+  state reuse. Reference and experimental neoCLR CLI policies remain unchanged.
+
 - **2026-09-30:** Centralize the existing neoCLR CLI compatibility rules for
   function results, tuples and terminal Fault calls in one target component.
   Existing assembly-name triggers and ordinary .NET behavior are preserved;

@@ -1719,3 +1719,14 @@ modern .NET; they do not qualify execution in neoCLR, .NET Framework or NanoFram
 Validation: 25 focused target/function/flow/import checks and 26 existing tuple
 semantic/display checks passed on .NET 11. Compiler builds passed for .NET 10/11.
 The runtime integration configuration and artifacts are unchanged.
+
+## Explicit platform API foundation — 2026-09-30
+
+CompilationOptions now carries TargetPlatform through immutable copies and
+incremental compatibility checks. DotNet is the sole supported value; unsupported
+values diagnose as RAVT005 before setup or output writes. Existing neoCLR CLI
+callers retain the default pipeline and their existing compatibility settings.
+No runtime artifacts or caller migration are required for this additive slice.
+A NeoCLR preset and project selector remain pending a supported CLI profile.
+The focused configuration/incremental/compatibility checks passed 120 tests on
+.NET 11; compiler builds passed for .NET 10/11. This is not neoCLR execution evidence.

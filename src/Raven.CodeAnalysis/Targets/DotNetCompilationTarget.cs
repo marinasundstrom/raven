@@ -9,6 +9,10 @@ namespace Raven.CodeAnalysis.Targets;
 // handles stay here; shared semantic services still have .NET-facing adapters.
 internal sealed class DotNetCompilationTarget
 {
+    private static readonly DiagnosticDescriptor s_unsupportedTargetPlatform = DiagnosticDescriptor.Create(
+        "RAVT005", "Unsupported target platform", "", "",
+        "Target platform '{0}' is not supported by this compiler.", "compiler", DiagnosticSeverity.Error, true);
+
     private static readonly DiagnosticDescriptor s_invalidTargetCore = DiagnosticDescriptor.Create(
         "RAVT003", "Invalid target core configuration", "", "",
         "Target core configuration cannot be used: {0}.", "compiler", DiagnosticSeverity.Error, true);
@@ -66,7 +70,9 @@ internal sealed class DotNetCompilationTarget
         => error is null ? null : Diagnostic.Create(s_invalidTargetCore, Location.None, error);
 
     internal Diagnostic? GetConfigurationDiagnostic()
-        => ConfigurationDiagnostic(RuntimeContract.GetConfigurationError());
+        => _compilation.Options.TargetPlatform != TargetPlatform.DotNet
+            ? Diagnostic.Create(s_unsupportedTargetPlatform, Location.None, _compilation.Options.TargetPlatform)
+            : ConfigurationDiagnostic(RuntimeContract.GetConfigurationError());
 
     internal Diagnostic? GetResolvedConfigurationDiagnostic()
         => ConfigurationDiagnostic(RuntimeContract.GetResolvedConfigurationError(_compilation, CoreAssembly.GetName().Name));

@@ -1544,3 +1544,26 @@ compatibility rules constitute explicit target selection or capability validatio
 
 Explicit target identity and a coherent loader/contract/emitter preset are the
 next boundary step. No native neoCLR backend or cross-compilation is introduced.
+
+
+### Explicit platform option: .NET foundation (2026-09-30)
+
+`CompilationOptions.TargetPlatform` and `WithTargetPlatform(...)` identify the
+coherent loader/runtime-contract/emitter selection. `TargetPlatform.DotNet` is
+currently the only supported value and is the default for constructors and the
+`CompilationOptions.DotNet` preset. The latter still uses only supplied references;
+selecting a platform does not locate a reference framework, set a core assembly,
+or overwrite separately configured runtime contracts.
+
+All immutable option copies preserve this value. Unsupported enum values produce
+unsuppressible `RAVT005` before reference initialization; emission returns that
+error without changing PE/PDB streams, including when callers supply diagnostics.
+Incremental metadata/declaration reuse and semantic-state transfer reject platform
+changes. Workspace option changes can recover after an invalid platform selection.
+
+This is the .NET API foundation, not a completed multiple-platform implementation.
+There is no NeoCLR enum value or preset yet, and no project-file platform property
+in this slice. The existing neoCLR CLI compatibility rules still apply within the
+current pipeline; this option does not enforce a strict .NET capability matrix.
+A supported neoCLR CLI profile, project configuration and caller migration must be
+defined together before replacing those rules with explicit target enforcement.
