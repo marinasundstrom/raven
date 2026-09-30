@@ -19,6 +19,53 @@ current delivery checklist. Introduce only the seams needed to replace these
 three components together. Contract examples include IEnumerable<T>/Iterable<T>
 mapping and target-specific unsupported-feature rules.
 
+## Agreed CompilationOptions API direction
+
+Keep the public name `CompilationOptions`. Its intended target-facing settings are:
+
+| Setting | Responsibility |
+| --- | --- |
+| `TargetPlatform` | Select a coherent semantic-data loader and code generator, platform capabilities, and a default runtime contract. Keep the implementations separate internally, selected together publicly. |
+| `LangVersion` | Select the Raven source-language version, independently of the target framework/runtime version. |
+| `Contract` | Map Raven types and operations to platform symbols and protocols. Default from the platform; validate any explicit override for compatibility. |
+| `Features` | Enable optional or experimental language features. Enabling a feature cannot override unsupported platform, contract, or backend capabilities. |
+
+Provide immutable presets such as `CompilationOptions.DotNet`, with fluent copies
+such as `WithLangVersion(...)`. This describes the desired API, not a claim that
+all these members are implemented. Do not expose independent loader/codegen
+selectors now. Add a backend choice within a platform only when a second backend
+needs it. Do not add a placeholder neoCLR preset before it has an implementation.
+
+Framework and package references remain explicit compilation inputs, supplied as
+they are today. Project tooling resolves framework versions and dependencies; the
+compiler consumes the resolved inputs. A .NET preset must not resolve packages,
+select an installed framework, or silently add host framework definitions to the
+target's semantic universe. Its core identity can be discovered from supplied
+references rather than hard-coded to a particular framework version. Existing
+host-assisted constructors can remain available while consumers migrate.
+
+Language version and syntax-affecting features must also reach `ParseOptions`.
+Use one immutable language-settings value for parsing and compilation, and
+validate compatibility with supplied syntax trees. Changing compilation options
+cannot retroactively change how an existing syntax tree was parsed. Existing
+`ParseOptions.Features` must converge on this model rather than become a second,
+independent set of language switches.
+
+Validate as early as the necessary evidence is available, using diagnostics:
+
+1. Configuration: unknown features, conflicting language settings, incompatible
+   platform/contract selections.
+2. Loading: supported reference formats, core identity consistency, required
+   contract symbols and their shapes.
+3. Binding: whether a used feature is enabled and supported by the language,
+   contract and backend; missing optional capabilities should usually fail on use.
+4. Emission: remaining backend constraints before writing output.
+
+This is a staged migration. Preserve existing diagnostics and explicitly document
+remaining setup exceptions until those paths can produce diagnostics. No
+cross-compilation, public provider registry, or arbitrary component mixing is
+part of this API work.
+
 ## Ownership
 
 A runtime/platform contract defines the environment in which a Raven program

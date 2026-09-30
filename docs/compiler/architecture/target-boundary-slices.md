@@ -429,3 +429,14 @@ compiler API and emission tests used the freshly built compiler. Whitespace
 formatting completed with test workspace-load warnings; `git diff --check` passed.
 Execution was on .NET 11 with .NET 10/11 reference inputs. No neoCLR execution or
 full bootstrap qualification is claimed.
+
+## API direction clarification: CompilationOptions
+
+The agreed public options name remains `CompilationOptions`. Documented the roles
+of TargetPlatform, Raven LangVersion, Contract and requested Features, immutable
+.NET presets, explicit framework references, shared parsing/compilation language
+settings, and staged validation. These are planned API members until implemented;
+loader and codegen remain separately implemented but publicly selected together.
+Next implementation slice: a .NET preset with explicit-only reference inputs and
+core discovery from those references, retaining existing host-assisted constructors.
+Documentation-only; no compiler behavior changed in this clarification.
