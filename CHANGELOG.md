@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Make type-level extension discovery provider-owned, preserving
+  CLI marker interpretation and constructed receiver substitution. Cover non-PE
+  providers without binding attributes or loading ordinary members.
+
 - **2026-09-30:** Make recursive nested-type discovery provider-owned, preserving
   lazy PE discovery and constructed-type declaration identity. Keep source member
   substitution as the fallback, with non-PE provider and generic-owner coverage.

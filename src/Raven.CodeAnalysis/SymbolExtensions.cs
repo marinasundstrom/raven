@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.IO.Pipelines;
 
+using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
@@ -312,12 +313,8 @@ public static partial class SymbolExtensions
     {
         return type switch
         {
+            IExtensionTypeInfo info => info.ExtensionReceiverType,
             SourceNamedTypeSymbol sourceType when sourceType.IsExtensionDeclaration => sourceType.ExtensionReceiverType,
-            ConstructedNamedTypeSymbol constructed when constructed.OriginalDefinition is SourceNamedTypeSymbol sourceType
-                => sourceType.ExtensionReceiverType is { } receiverType ? constructed.Substitute(receiverType) : null,
-            PENamedTypeSymbol peType => peType.GetExtensionReceiverType(),
-            ConstructedNamedTypeSymbol constructed when constructed.OriginalDefinition is PENamedTypeSymbol peType
-                => peType.GetExtensionReceiverType() is { } receiverType ? constructed.Substitute(receiverType) : null,
             _ => null
         };
     }
@@ -532,13 +529,7 @@ public static partial class SymbolExtensions
                 if (type.GetExtensionReceiverType() is not null)
                     return true;
 
-                return type switch
-                {
-                    PENamedTypeSymbol peType => peType.HasExtensionMarkerMembers(),
-                    ConstructedNamedTypeSymbol constructed when constructed.OriginalDefinition is PENamedTypeSymbol peType
-                        => peType.HasExtensionMarkerMembers(),
-                    _ => false
-                };
+                return type is IExtensionTypeInfo { HasMemberLevelExtensions: true };
             }
         }
     }
