@@ -2342,10 +2342,9 @@ public partial class Compilation
 
         var allTypes = parameterTypes.ToList();
         bool isAction = returnType.SpecialType == SpecialType.System_Void || returnType.SpecialType == SpecialType.System_Unit;
-        // neoCLR imports a structural Function shape with an inhabited unit result.
-        // Keep source unit functions and generic functions instantiated with unit
-        // on the same CLI transport type; ordinary CLR targets still use Action.
-        if (isAction && _target.RuntimeContract.UsesInhabitedFunctionResults)
+        // The neoCLR nominal delegate ABI uses an inhabited unit result too.
+        // This transport rule does not introduce structural function semantics.
+        if (isAction && _target.RuntimeContract.UsesInhabitedDelegateResults)
         {
             returnType = GetSpecialType(SpecialType.System_Unit);
             isAction = false;

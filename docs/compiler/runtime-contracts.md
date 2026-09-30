@@ -1534,6 +1534,74 @@ null/equal/different operands, explicit declarations and custom-operator isolati
 on .NET 11. The integration baseline compares .NET 10. No .NET Framework or
 NanoFramework execution is claimed. Nullable value support is unchanged.
 
+## Native implementing-type Self (neoCLR experiment)
+
+`CompilationOptions.RuntimeSelfTypeContract` selects a fieldless public marker by
+assembly and metadata name. MSBuild projects set `RavenSelfAssemblyName` and
+`RavenSelfType`, with `RavenTargetPlatform=NeoCLR`; neoCLR uses `NeoCLR.CoreProbe` and
+`System.Runtime.CompilerServices.Self`. Both settings are required. This option is
+exclusive to the neoCLR experiment and is disabled for ordinary CLR compilation.
+
+Capital `Self` is resolved in interface member signatures to this transport marker;
+in a concrete type it denotes that declaring type. Lowercase `self` retains its
+instance-value meaning. Interfaces gain no hidden generic parameter. Constrained
+member lookup substitutes Self with the constrained type parameter, including
+static properties and operators; implementation checking substitutes the concrete
+implementer. Arrays and constructed generic signatures substitute recursively.
+Semantic member results expose the substituted signature. Emission retains the
+original interface member and marker so the neoCLR importer can preserve native
+Self dispatch. Inherited interfaces such as `ComparableTo<Self>` are concretized
+on implementations. This metadata is transport, not directly executable CLR IL.
+
+Calls to Self-dependent members through erased interface receivers are rejected.
+Self-bearing interface methods with independent method type parameters are not
+yet supported by this projection. The neoCLR application importer currently admits bounded numeric static generic
+consumers and a bounded direct application Clone contract for class/struct
+implementations. `Copy<T>(value: T) -> T where T: Cloneable => value.Clone()` binds
+and emits a constrained call; the neoCLR importer preserves borrowed native Self
+dispatch. General instance Self consumers and arbitrary constrained application
+generics are not established by this compiler support. Native runtime validation
+is authoritative for storage, conformance and dispatch restrictions.
+
+`NativeSelfContractTests` covers nongeneric interface metadata, concrete Self,
+constrained properties/operators and generic instance cloning, invalid implementations, erased calls and the
+ordinary CLR opt-out. The neoCLR repository exercises the actual Number library
+and records runtime/importer validation separately. No keyword token or TextMate
+rule is added: Self remains a type identifier. Language services use normal binder
+and semantic APIs; special completion suggestions for Self are not yet provided.
+
+
+The subsequent neoCLR library migration replaces System.Clonable<T> with
+nongeneric System.Clonable and Clone() -> Self, using these same settings and
+emission rules. The target's class/struct cloning consumer now imports the actual
+library contract. Update conformances and generic bounds to Clonable and rebuild
+matching references. This is a neoCLR library/API change, with no additional
+compiler option or ordinary CLR behavior change. Copy depth remains an explicit
+implementation contract; Self guarantees only the result type relationship.
+
+Known migration diagnostic boundary: an obsolete `Clonable<T>` generic bound can
+reach the checked neoCLR importer, which rejects it as an unsupported bound.
+Earlier generic-arity diagnostics are a deferred general compiler candidate;
+validate independently before integrating outside this experiment. Missing
+cloning bounds, wrong Self results and erased calls are compiler diagnostics.
+
+Self inheritance remains an isolated neoCLR experiment, separate from the compiler
+boundary/multi-target refactor. Self is anchored to the class declaring conformance:
+Derived inheriting Base : Clonable retains Base-returning Clone, but does not
+satisfy a native Self bound as Derived. Redeclaring Clonable requires a matching
+Derived result. An explicit `func Clonable.Clone() -> Self` implementation can
+coexist with the inherited Base method; virtual overrides keep the Base signature.
+Explicit and inferred generic calls validate this rule under the configured Self
+Runtime Contract, with no additional target option. Metadata retains the declared
+return types and explicit interface mapping. These are bounded feature changes;
+broader neoCLR target integration follows the separate multi-target refactor.
+
+Validation for the inheritance follow-up: 12 NativeSelfContractTests and 17 nearby
+constraint/declaration regressions pass. The neoCLR repository separately records
+native runtime tests and a System.Clonable consumer covering inherited base results,
+virtual overrides, explicit derived mappings and invalid derived bounds/results.
+No new keyword, TextMate rule or language-service-specific state is introduced;
+existing semantic diagnostics carry the rule. LSP execution was not rerun.
 
 ### Transitional neoCLR CLI compatibility (2026-09-30)
 
@@ -1668,3 +1736,37 @@ remain shared; native metadata/full compiler support are prerequisites for promo
 Validation: 40 focused function, tuple and NeoCLR profile tests passed on the .NET
 11 host; after simplifying the nominal-transport assertions, all five transport
 cases passed again. This is compiler/CLI validation, not native runtime execution.
+
+### Self target gate and nominal callback correction (2026-09-30)
+
+Native Self requires both `TargetPlatform.NeoCLR` and an explicit
+`RuntimeSelfTypeContract`. The .NET target reports RAVT003 before reference loading
+or output writes when supplied that contract. Direct semantic queries also keep
+ordinary user-defined `Self` types intact on .NET. The NeoCLR preset leaves the
+marker opt-in; it does not promise complete native metadata/backend support.
+
+Rebuilding neoCLR **main-based** runtime sources disproved the earlier assumption
+that inhabited unit-function transport was structural-only: its nominal Func ABI
+requires the same representation. Removing it makes callback types inaccessible
+because that core exposes Func with an inhabited result, not Action. Retain this
+bounded delegate transport policy on the shared line; structural Function identity,
+assignability and introspection remain feature-branch work in both repositories.
+This corrects the preceding branch-isolation note. No structural runtime code is
+needed by Self integration.
+
+Validation of the gate: 40 focused Self, target configuration, preset, delegate
+transport and option-copy tests pass on the .NET 11 host. The Self tests use an
+isolated synthetic CLI core; external runtime acceptance is recorded in neoCLR.
+
+Projects can disable a preset typeof mapping by explicitly setting all three
+`RavenTypeOfAssemblyName`, `RavenTypeOfInfoType`, and `RavenTypeOfContextType`
+properties to empty values. Omitted properties retain preset defaults; partial
+nonempty overrides still inherit the other fields. Runtime declaration builds use
+this distinction when they define the contract types themselves.
+
+The final focused gate passes 107 tests, including all 67 project-system cases
+(the pre-change project baseline passed 66). The main-based native integration
+rebuild exposed and motivated the explicit-empty typeof regression test.
+
+Integration gate: `scripts/test-ci.sh` passes 315 compiler tests (.NET 11), 73
+core and 256 language-server tests (.NET 10), with three existing LSP skips.

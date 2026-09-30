@@ -2,7 +2,7 @@
 
 Current status (2026-09-30): native Function/structural-type work is deferred on
 feature branches in both repositories. Raven `codex/neoclr-structural-types` carries
-the experimental unit-function transport; neoCLR uses `feature/function-types`.
+the experimental integration notes and future compiler work; neoCLR uses `feature/function-types`.
 The notes below describe that experimental history, not supported main behavior.
 Ordinary Raven function syntax and .NET delegates remain on main.
 
@@ -177,7 +177,10 @@ the neoCLR feature branch. Validation uses regenerated main library/reference
 artifacts, query/delegate/Task native checks, compiled callback/async consumers and
 the OfType query suite, as recorded in neoCLR's query API documentation.
 
-This branch restores the native Function transport removed from shared main. Its
-production implementation and focused tests match `c0a6344d0`, whose focused
-function/tuple baseline passed 32 tests. This does not establish native semantic
-completeness or authorize promotion to main.
+## Main synchronization after Self integration
+
+This feature branch includes shared main's target-gated Self. Production compiler
+code currently matches main: the earlier inhabited unit-result transport also
+serves neoCLR's nominal delegate ABI and is therefore shared. Structural Function
+identity, assignability and native metadata work remain deferred here. The detailed
+migration history above is experimental evidence, not a claim of main support.

@@ -4,8 +4,22 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- Structural-types feature branch: retain experimental neoCLR inhabited unit-function transport, paired with neoCLR `feature/function-types`; native metadata and full compiler semantics remain required before integration.
+- **2026-09-30:** Keep the structural Function experiment notes on this feature
+  branch, synchronized with shared main's Self integration. Nominal callback
+  transport remains shared; structural metadata and compiler semantics are deferred.
 
+- **2026-09-30:** Gate native Self on the explicit neoCLR target and marker contract;
+  reject .NET configuration before loading references or writing output. Preserve
+  ordinary .NET semantic lookup. Retain inhabited unit-result transport for neoCLR's
+  existing nominal delegate ABI, independently of deferred structural Function semantics.
+  Allow projects to disable preset typeof mapping by explicitly clearing all three properties.
+  Validate the shared integration with 107 focused tests and the compiler/core/LSP CI gate.
+
+- **2026-09-30:** Synchronize the isolated Self feature with shared target-selection
+  APIs, preserving both platform and Self contracts through immutable copies and
+  incremental state checks. Target gating and Function-branch separation remain pending.
+
+- **2026-09-30:** neoCLR experiment: add explicitly configured native implementing-type `Self`, keeping interfaces nongeneric, substituting constrained member/property/operator signatures and concrete implementations, and preserving the transport marker for native import. Reject erased Self-member calls; ordinary CLR targets remain opt-out. Extend focused coverage to generic instance cloning and record the neoCLR borrowed-receiver integration. Document the subsequent actual System.Clonable<T> migration to Clonable with a native Self result; existing Runtime Contract settings suffice. Anchor inherited Self at its conformance declaration, reject derived generic bounds without redeclaration, and validate derived Self results including explicit implementations. Keep this feature isolated from the separate compiler-boundary/multi-target refactor. Record the importer rejection boundary for obsolete generic bounds and the deferred general compiler diagnostic candidate. See `docs/lang/native-self.md` and the Runtime Contract documentation.
 - **2026-09-30:** Isolate native Function/structural-type compiler work on
   `codex/neoclr-structural-types`, paired with neoCLR's `feature/function-types`.
   Main retains nominal Action transport for unit functions and ordinary Raven

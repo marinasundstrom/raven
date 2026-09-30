@@ -244,11 +244,22 @@ internal static class MsBuildProjectEvaluator
         var typeOfAssembly = GetOptionalProperty(project, "RavenTypeOfAssemblyName");
         var typeOfInfo = GetOptionalProperty(project, "RavenTypeOfInfoType");
         var typeOfContext = GetOptionalProperty(project, "RavenTypeOfContextType");
-        if (typeOfAssembly is not null || typeOfInfo is not null || typeOfContext is not null)
+        // Explicitly clearing the complete mapping disables a preset contract,
+        // as when compiling the runtime's own descriptor declarations.
+        if (typeOfAssembly is null && typeOfInfo is null && typeOfContext is null
+            && project.GetProperty("RavenTypeOfAssemblyName") is not null
+            && project.GetProperty("RavenTypeOfInfoType") is not null
+            && project.GetProperty("RavenTypeOfContextType") is not null)
+            compilationOptions = compilationOptions.WithRuntimeTypeOfContract(null);
+        else if (typeOfAssembly is not null || typeOfInfo is not null || typeOfContext is not null)
             compilationOptions = compilationOptions.WithRuntimeTypeOfContract(new RuntimeTypeOfContract(
                 typeOfAssembly ?? defaults.RuntimeTypeOfContract?.AssemblyName ?? "", typeOfInfo ?? defaults.RuntimeTypeOfContract?.TypeInfoTypeName ?? "", typeOfContext ?? defaults.RuntimeTypeOfContract?.ContextTypeName ?? ""));
 
         var unitAssembly = GetOptionalProperty(project, "RavenUnitAssemblyName");
+        var selfAssembly = GetOptionalProperty(project, "RavenSelfAssemblyName");
+        var selfType = GetOptionalProperty(project, "RavenSelfType");
+        if (selfAssembly is not null || selfType is not null)
+            compilationOptions = compilationOptions.WithRuntimeSelfTypeContract(new RuntimeSelfTypeContract(selfAssembly ?? "", selfType ?? ""));
         var unitType = GetOptionalProperty(project, "RavenUnitType");
         if (unitAssembly is not null || unitType is not null)
             compilationOptions = compilationOptions.WithRuntimeUnitContract(new RuntimeUnitContract(unitAssembly ?? defaults.RuntimeUnitContract?.AssemblyName ?? "", unitType ?? defaults.RuntimeUnitContract?.TypeName ?? ""));

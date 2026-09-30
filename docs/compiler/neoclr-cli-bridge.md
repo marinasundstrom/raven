@@ -26,10 +26,12 @@ on neoCLR. Preserve snapshot-owned symbols and incremental correctness throughou
 
 ## Branch and artifact scope
 
-General Raven target plumbing is on shared main. Native Function-specific bridge
-work is on Raven `codex/neoclr-structural-types`, not enabled on main. Native structural
-Function support is on neoCLR's `feature/function-types` branch, also inherited by
-`codex/native-self`; it is not on neoCLR main at `e4f6fe41`. These are different
+General Raven target plumbing and the existing nominal delegate ABI are on shared
+main. Native structural Function work is reserved for Raven
+`codex/neoclr-structural-types` and is not enabled on main. Native structural
+Function support is on neoCLR's `feature/function-types` branch. The old native
+Self branch inherited that experiment; integration extracts Self onto nominal main
+instead of merging its structural ancestry. These are different
 repositories and different integration states. Native Function types remain deliberately deferred: the author requires neoCLR's
 metadata layer and the remaining compiler support before including the feature.
 An exploratory run against that feature bundle neither merges nor enables it and
@@ -45,7 +47,7 @@ replacement direction, not a claim of an implemented native loader or backend.
 | --- | --- | --- |
 | Core and references | Explicit `NeoCLR.CoreProbe` metadata/emission core. The profile validates the exact core and unit mapping. No host reference injection. | Load the selected neoCLR platform's own semantic data and identities. The probe DLL/name is temporary transport; explicit reference ownership remains required. |
 | Unit and no-result calls | Named value-type `System.Void` represents inhabited unit in value/generic positions; CLI VOID denotes no stack result. The importer distinguishes these contexts. | Preserve neoCLR's unit value and separate call-result convention directly. This semantic distinction survives removal of the encoding. |
-| Function types | Raven transports function signatures through `Func`/`Action`-shaped CLI types. On Raven's structural-types feature branch, unit functions use an inhabited result shape; main retains ordinary Action-shaped nominal transport. The importer maps supported delegate shapes to native structural functions. | Load structural function signatures, identity and assignability directly; do not make CLR delegate families or their arities the native semantic model. |
+| Function types | Raven transports function signatures through `Func`/`Action`-shaped CLI types. neoCLR unit functions use an inhabited result shape even for the existing nominal Func ABI; ordinary .NET targets use Action. This encoding does not establish structural identity or assignability. The importer maps supported delegate shapes to native structural functions. | Load structural function signatures, identity and assignability directly; do not make CLR delegate families or their arities the native semantic model. |
 | Tuples | The profile selects value-type `System.Tuple` names. Import normalizes those probe types to Raven's existing tuple special-type identifiers, historically named System_ValueTuple. | Expose tuple structure and members from native metadata. CLI family names and the special-type alias are compatibility machinery, not native reference-type semantics. |
 | Namespace functions / terminal Fault | CLI containers and a TopLevel marker stand in for namespace functions. Fault classification checks assembly, namespace, static nongeneric signature, one by-value string parameter and void/unit result. It currently also applies through legacy imported-assembly recognition. | Represent callable ownership and terminal behavior in the native contract. Avoid permanent dependence on CLR container spelling, probe identity or attribute encoding. |
 | Iteration and arrays | Contract maps Iterable/Iterator and member names; a generic array-shape type describes APIs over CLI array transport. Array covariance defaults off. | Load actual neoCLR array/protocol relationships and capabilities. Retain target semantics; replace CLI projection assumptions. |
@@ -56,14 +58,15 @@ replacement direction, not a claim of an implemented native loader or backend.
 | Nullable value syntax | Source nullable values default off in the profile. This is not proof that all nullable metadata is absent or that runtime nullability equals .NET annotations. | Establish native nullability semantics and then expose them through types, conversions, flow and diagnostics; do not infer them from CLI annotation capacity. |
 | API admission / signatures | Import catalogs map selected APIs and receiver conventions. Signature projection/substitution has explicit shape/depth/admission checks; optional pointer/open-method support depends on the path. | Inventory rejected forms and distinguish importer gaps from actual runtime restrictions. Never silently erase unsupported semantics to satisfy a CLI catalog. |
 | Identity and source maps | Imported application identities encode assembly/name/signature components; CLI tokens are local references. Generated adapters and sidecar maps assist translation. | Use structured stable native identities and native source locations. Do not turn the temporary text encoding or CLI token into the new metadata ABI. |
-| Self, intersections and records | Self/intersection compiler work remains on separate feature branches. The preset does not configure Self or record-equatability/hash mappings, even though runtime props contain related settings. | Design native semantics and per-target support explicitly. An older bridge's inability to carry a feature does not prohibit native support. Do not claim these features from this smoke test. |
+| Self | Explicit NeoCLR target plus `RuntimeSelfTypeContract` enables a fieldless marker, conformance-owned substitution and checked Self signatures. The importer admits bounded Number/Clonable dispatch; .NET rejects the configuration. The preset leaves the marker opt-in. | Replace the CLI marker and bounded importer recognition with native identities/signatures while preserving conformance ownership and unsupported-use diagnostics. See the dedicated Self tests and neoCLR consumer evidence; the historical Function smoke below is not Self evidence. |
+| Intersections and records | Intersection work remains on its feature branch. The preset does not configure record-equatability/hash mappings. | Design native semantics and per-target support explicitly; bridge restrictions are not native semantic restrictions. |
 
 Compiler owners: `Targets/NeoClrCliProfile`, `NeoClrCliCompatibility`,
 `DotNetRuntimeContract`, `Compilation.CreateFunctionTypeSymbol`,
 `Symbols/PE/PENamedTypeSymbol` and `BoundNodeFacts` under `src/Raven.CodeAnalysis`.
 Runtime-side sources live in the neoCLR repository under
 `docs/experiments/raven-target`, notably `RuntimeSignatures.cs`,
-`FunctionBindings.cs`, `VoidStorageValidation.cs`, the reference declarations and
+`DelegateBindings.cs` (nominal main), `FunctionBindings.cs` (structural branch), `VoidStorageValidation.cs`, the reference declarations and
 API binding catalogs. Runtime documents `void-semantics.md`, `function-types.md`,
 `raven-signature-projection.md` and `raven-import-identities.md` explain their
 respective contracts; older documents describe dated checkpoints, not a current
@@ -117,8 +120,9 @@ clarification, native Function/structural-type-specific work stays on feature br
 in both Raven and neoCLR. Raven function syntax and
 .NET delegate support are not the same feature as neoCLR native structural Function
 semantics; neither should be blanket-disabled merely because the latter is deferred.
-The native Function-specific bridge support remains on its feature branch while
-native metadata catches up.
+Structural Function semantics remain feature-branch work while native metadata
+catches up. The inhabited unit-result encoding remains shared because neoCLR main
+also requires it for nominal callbacks.
 
 Promotion requires explicit target capabilities and meaningful tests for native
 type identity, conversion/assignability, introspection and emission. Gate unsupported

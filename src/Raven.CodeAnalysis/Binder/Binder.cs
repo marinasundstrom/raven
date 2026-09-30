@@ -1578,13 +1578,13 @@ internal abstract partial class Binder
 
                 if (substitutedConstraint is INamedTypeSymbol namedConstraint)
                 {
-                    if (!SemanticFacts.SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
+                    if (!RuntimeSelfTypes.SatisfiesConstraint(Compilation, typeArgument, namedConstraint))
                         return false;
 
                     continue;
                 }
 
-                if (!SemanticFacts.SatisfiesTypeConstraint(typeArgument, substitutedConstraint))
+                if (!RuntimeSelfTypes.SatisfiesConstraint(Compilation, typeArgument, substitutedConstraint))
                     return false;
             }
         }
@@ -2190,7 +2190,7 @@ internal abstract partial class Binder
 
                     if (substitutedConstraint is INamedTypeSymbol namedConstraint)
                     {
-                        if (SemanticFacts.SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
+                        if (RuntimeSelfTypes.SatisfiesConstraint(Compilation, typeArgument, namedConstraint))
                             continue;
 
                         var constraintDisplay = namedConstraint.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
@@ -2199,7 +2199,7 @@ internal abstract partial class Binder
                         continue;
                     }
 
-                    if (SemanticFacts.SatisfiesTypeConstraint(typeArgument, substitutedConstraint))
+                    if (RuntimeSelfTypes.SatisfiesConstraint(Compilation, typeArgument, substitutedConstraint))
                         continue;
 
                     var display = substitutedConstraint.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
@@ -2358,7 +2358,7 @@ internal abstract partial class Binder
 
                     if (substitutedConstraint is INamedTypeSymbol namedConstraint)
                     {
-                        if (SemanticFacts.SatisfiesNamedTypeConstraint(typeArgument, namedConstraint))
+                        if (RuntimeSelfTypes.SatisfiesConstraint(Compilation, typeArgument, namedConstraint))
                             continue;
 
                         var constraintDisplay = namedConstraint.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
@@ -2367,7 +2367,7 @@ internal abstract partial class Binder
                         continue;
                     }
 
-                    if (SemanticFacts.SatisfiesTypeConstraint(typeArgument, substitutedConstraint))
+                    if (RuntimeSelfTypes.SatisfiesConstraint(Compilation, typeArgument, substitutedConstraint))
                         continue;
 
                     var display = substitutedConstraint.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);

@@ -8,11 +8,12 @@ internal static class NeoClrCliCompatibility
 {
     private const string CoreAssemblyName = NeoClrCliProfile.CoreAssemblyName;
 
-    internal static bool UsesInhabitedFunctionResults(CompilationOptions options) =>
+    internal static bool UsesInhabitedDelegateResults(CompilationOptions options) =>
         options.TargetPlatform == TargetPlatform.NeoCLR || options.TargetCoreAssemblyName == CoreAssemblyName;
 
     internal static string GetTupleTypeName(CompilationOptions options) =>
-        UsesInhabitedFunctionResults(options) ? "System.Tuple" : "System.ValueTuple";
+        options.TargetPlatform == TargetPlatform.NeoCLR || options.TargetCoreAssemblyName == CoreAssemblyName
+            ? "System.Tuple" : "System.ValueTuple";
 
     internal static string? GetSpecialTypeMetadataName(string? assemblyName, bool isValueType, string? fullName)
     {
