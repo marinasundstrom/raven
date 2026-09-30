@@ -2,9 +2,11 @@ using System;
 using System.Collections.Immutable;
 using System.Reflection;
 
+using Raven.CodeAnalysis.Metadata;
+
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
+internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParameterDefaultValueInfo
 {
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly ParameterInfo _parameterInfo;
@@ -146,7 +148,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol
         }
     }
 
-    internal bool ExplicitDefaultValueIsTypeDefault
+    bool IParameterDefaultValueInfo.ExplicitDefaultValueIsTypeDefault
     {
         get
         {
