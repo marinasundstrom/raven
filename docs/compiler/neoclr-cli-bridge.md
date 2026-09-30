@@ -29,8 +29,9 @@ on neoCLR. Preserve snapshot-owned symbols and incremental correctness throughou
 General Raven target plumbing and the existing nominal delegate ABI are on shared
 main. Native structural Function work is reserved for Raven
 `codex/neoclr-structural-types` and is not enabled on main. Native structural
-Function support is on neoCLR's `feature/function-types` branch, also inherited by
-`codex/native-self`; it is not on neoCLR main at `e4f6fe41`. These are different
+Function support is on neoCLR's `feature/function-types` branch. The old native
+Self branch inherited that experiment; integration extracts Self onto nominal main
+instead of merging its structural ancestry. These are different
 repositories and different integration states. Native Function types remain deliberately deferred: the author requires neoCLR's
 metadata layer and the remaining compiler support before including the feature.
 An exploratory run against that feature bundle neither merges nor enables it and
@@ -57,14 +58,15 @@ replacement direction, not a claim of an implemented native loader or backend.
 | Nullable value syntax | Source nullable values default off in the profile. This is not proof that all nullable metadata is absent or that runtime nullability equals .NET annotations. | Establish native nullability semantics and then expose them through types, conversions, flow and diagnostics; do not infer them from CLI annotation capacity. |
 | API admission / signatures | Import catalogs map selected APIs and receiver conventions. Signature projection/substitution has explicit shape/depth/admission checks; optional pointer/open-method support depends on the path. | Inventory rejected forms and distinguish importer gaps from actual runtime restrictions. Never silently erase unsupported semantics to satisfy a CLI catalog. |
 | Identity and source maps | Imported application identities encode assembly/name/signature components; CLI tokens are local references. Generated adapters and sidecar maps assist translation. | Use structured stable native identities and native source locations. Do not turn the temporary text encoding or CLI token into the new metadata ABI. |
-| Self, intersections and records | Self/intersection compiler work remains on separate feature branches. The preset does not configure Self or record-equatability/hash mappings, even though runtime props contain related settings. | Design native semantics and per-target support explicitly. An older bridge's inability to carry a feature does not prohibit native support. Do not claim these features from this smoke test. |
+| Self | Explicit NeoCLR target plus `RuntimeSelfTypeContract` enables a fieldless marker, conformance-owned substitution and checked Self signatures. The importer admits bounded Number/Clonable dispatch; .NET rejects the configuration. The preset leaves the marker opt-in. | Replace the CLI marker and bounded importer recognition with native identities/signatures while preserving conformance ownership and unsupported-use diagnostics. See the dedicated Self tests and neoCLR consumer evidence; the historical Function smoke below is not Self evidence. |
+| Intersections and records | Intersection work remains on its feature branch. The preset does not configure record-equatability/hash mappings. | Design native semantics and per-target support explicitly; bridge restrictions are not native semantic restrictions. |
 
 Compiler owners: `Targets/NeoClrCliProfile`, `NeoClrCliCompatibility`,
 `DotNetRuntimeContract`, `Compilation.CreateFunctionTypeSymbol`,
 `Symbols/PE/PENamedTypeSymbol` and `BoundNodeFacts` under `src/Raven.CodeAnalysis`.
 Runtime-side sources live in the neoCLR repository under
 `docs/experiments/raven-target`, notably `RuntimeSignatures.cs`,
-`FunctionBindings.cs`, `VoidStorageValidation.cs`, the reference declarations and
+`DelegateBindings.cs` (nominal main), `FunctionBindings.cs` (structural branch), `VoidStorageValidation.cs`, the reference declarations and
 API binding catalogs. Runtime documents `void-semantics.md`, `function-types.md`,
 `raven-signature-projection.md` and `raven-import-identities.md` explain their
 respective contracts; older documents describe dated checkpoints, not a current

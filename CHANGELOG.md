@@ -9,6 +9,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   ordinary .NET semantic lookup. Retain inhabited unit-result transport for neoCLR's
   existing nominal delegate ABI, independently of deferred structural Function semantics.
   Allow projects to disable preset typeof mapping by explicitly clearing all three properties.
+  Validate the shared integration with 107 focused tests and the compiler/core/LSP CI gate.
 
 - **2026-09-30:** Synchronize the isolated Self feature with shared target-selection
   APIs, preserving both platform and Self contracts through immutable copies and

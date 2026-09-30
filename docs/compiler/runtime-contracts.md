@@ -1767,3 +1767,6 @@ this distinction when they define the contract types themselves.
 The final focused gate passes 107 tests, including all 67 project-system cases
 (the pre-change project baseline passed 66). The main-based native integration
 rebuild exposed and motivated the explicit-empty typeof regression test.
+
+Integration gate: `scripts/test-ci.sh` passes 315 compiler tests (.NET 11), 73
+core and 256 language-server tests (.NET 10), with three existing LSP skips.

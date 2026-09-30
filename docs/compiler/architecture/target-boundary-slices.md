@@ -1400,3 +1400,27 @@ changed in this slice; native execution observations are not an acceptance gate.
 Docs-only final changes; links, source ownership and branch ancestry were checked,
 and git diff --check passed. Existing compiler tests/build evidence from slice 38
 is unaffected. The external integration docs record the same scope and recommendation.
+
+## Slice 40 — Target-gated Self, structural experiment isolation
+
+Integrate Self on the shared compiler line with explicit NeoCLR selection plus a
+marker contract. DotNet rejects configuration before reference loading/output;
+semantic queries preserve user-defined Self on DotNet. Extract native Self onto
+neoCLR nominal main instead of merging structural Function ancestry. The native
+metadata/backend remains future work; marker and importer limitations are recorded
+in the bridge inventory and native Self documentation.
+
+Rebuilding the nominal runtime established that inhabited unit-result transport is
+also required by its existing Func ABI. An attempted removal was reverted as a
+nominal compatibility rule. Structural Function identity/assignability remains on
+feature branches; detailed experimental notes are retained there. The rebuild also
+exposed explicit-empty typeof overrides being ignored by the new preset; clearing
+all three mapping properties now disables that optional contract.
+
+Validation: 107 focused compiler/project tests pass. `scripts/test-ci.sh` passes
+315 compiler tests on .NET 11, 73 core tests on .NET 10, and 256 LSP tests on .NET 10
+with three existing skips. Toolchain builds cover .NET 10/11. The external nominal
+runtime passes 98 focused tests, regenerated library/API fingerprint checks, native
+Self cloning with six rejections, and a nominal unit callback printing 42.
+This is not .NET Framework/NanoFramework execution evidence or a native metadata
+loader/backend implementation.
