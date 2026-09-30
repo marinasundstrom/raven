@@ -1797,3 +1797,35 @@ artifacts are unchanged; native neoCLR and .NET Framework/NanoFramework executio
 are not claimed.
 
 Next: continue auditing fact preservation at constructed symbol boundaries.
+
+## Slice 55: broad baseline checkpoint
+
+Paused boundary refactoring to run `scripts/test-baseline.sh` against clean main
+at `164205485` on 2026-09-30 using SDK `11.0.100-rc.1.26425.128`.
+The script completed with exit code 0. No source fixes were required.
+
+| Suite | Runtime | Passing executions |
+| --- | --- | ---: |
+| Raven.CodeAnalysis.Tests (71 batches) | .NET 11 | 6,030 |
+| Raven.CodeAnalysis.Testing | .NET 10 | 9 |
+| Raven.CodeAnalysis.Testing | .NET 11 | 9 |
+| AsyncEntryDiffRunner.Tests | .NET 10 | 1 |
+| Raven.Core.Tests | .NET 10 | 73 |
+| Raven.Editor.Tests | .NET 10 | 4 |
+| Total | | 6,126 |
+
+All reported runs have zero failures and zero skips. Counts represent test
+executions, not guaranteed unique tests: the baseline uses substring class
+filters. Its exclusions are not counted as skipped tests.
+
+This is the repository baseline, not full release or bootstrap qualification.
+The script excludes runtime/emission-heavy CodeGen tests, sample tests, selected
+project-heavy cases and language-server test projects. The ignored
+Raven.CodeAnalysis.Samples.Tests project was not run. Runtime/emission coverage
+remains a separate `scripts/test-runtime-isolated.sh` gate; sample, framework
+matrix and other release gates remain outstanding. This checkpoint does not
+claim .NET Framework, NanoFramework or native neoCLR execution.
+
+No compiler behavior, target policy or bridge encoding changed in this slice.
+Next: run the isolated runtime gate at the next broader validation checkpoint,
+and continue auditing fact preservation at constructed symbol boundaries.
