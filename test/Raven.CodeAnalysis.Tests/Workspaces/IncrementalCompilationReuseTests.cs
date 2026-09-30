@@ -11,6 +11,26 @@ namespace Raven.CodeAnalysis.Tests.Workspaces;
 public sealed class IncrementalCompilationReuseTests
 {
     [Fact]
+    public void ImportedSymbols_RemainSnapshotOwnedWhenMetadataSessionIsShared()
+    {
+        var previous = Compilation.Create("before", [], TestMetadataReferences.Default);
+        var previousType = previous.GetTypeByMetadataName("System.String")!;
+        Assert.NotNull(previousType);
+        var current = Compilation.Create("after", [], TestMetadataReferences.Default);
+        current.AdoptIncrementalReuseFrom(previous);
+        var currentType = current.GetTypeByMetadataName("System.String")!;
+
+        Assert.Same(GetMetadataLoadContext(previous), GetMetadataLoadContext(current));
+        Assert.NotNull(currentType);
+        Assert.NotSame(previousType, currentType);
+        Assert.NotSame(previousType.ContainingAssembly, currentType.ContainingAssembly);
+        Assert.Same(previousType, previous.GetTypeByMetadataName("System.String"));
+        Assert.Same(currentType, current.GetTypeByMetadataName("System.String"));
+        Assert.NotEmpty(previousType.GetMembers("Substring"));
+        Assert.NotEmpty(currentType.GetMembers("Substring"));
+    }
+
+    [Fact]
     public void MetadataParameterQueries_DoNotRetainDiscardedMetadataContext()
     {
         var metadataContext = QueryMetadataParameters();

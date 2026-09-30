@@ -321,3 +321,40 @@ resolved .NET contract selection.
 Validation: `git diff --check` and local Markdown-link checks passed. No builds or
 tests were run for this documentation-only slice. Contract selection and additional
 backends remain unimplemented; earlier execution evidence is unchanged.
+
+## Slice 10: semantic reference loader boundary
+
+Scope correction `3165d9d01` limits current delivery to coherent loader,
+platform/runtime contract, and codegen trios: .NET first, neoCLR later. No
+cross-compilation, arbitrary backend mixing, or native backend work is scheduled.
+
+Reference import now calls `ISemanticDataLoader.LoadReference`.
+`DotNetSemanticDataLoader` owns reflection assembly caches, PE assembly/module
+symbol construction, recursive dependency loading, and omission of non-managed
+inputs. Compilation-reference handling remains shared. Host assembly-path and
+runtime registration remain compilation services used by the .NET adapter;
+the interface itself exposes only existing reference inputs and semantic symbols.
+
+The loader is created per compilation, while compatible metadata sessions remain
+shared. Added a regression checking distinct imported type/assembly objects across
+snapshots sharing a context, stable symbol identity within each snapshot, and
+continued member lookup from both snapshots.
+
+Selection still constructs the .NET implementation directly during setup. The
+loader boundary is consumed, but full replacement is not yet wired: setup/core
+selection, reflection type projection, and emission still have .NET dependencies.
+Next: move setup and core semantic resolution under the loader/target composition
+without exposing reflection objects in the shared contract. Do not add an arbitrary
+public loader switch independent of the platform contract and codegen.
+
+Validation with SDK `11.0.100-rc.1.26425.128`: the pre-change filter covering
+`MetadataImportOptionsTests`, `IncrementalCompilationReuseTests`,
+`CliMetadataCompatibilityTests`, `CompilationSymbolLookupTests`, and
+`DotNetMetadataResolutionTests` passed 107 tests. After extraction, the same filter
+passed all 108 tests with no failures/skips on net11.0, using
+`dotnet test test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj
+--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`.
+The referenced compiler was freshly built for net10.0 and net11.0, with no
+warnings/errors. Whitespace formatting completed with test workspace-load warnings;
+`git diff --check` passed. No neoCLR execution or full bootstrap qualification is
+claimed.

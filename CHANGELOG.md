@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-12**.
 
 ## Unreleased
 
+- **2026-09-30:** Route reference import through a semantic-data loader interface.
+  The .NET implementation owns PE assembly/module symbol construction, dependency
+  loading, and per-compilation import caches. Preserve shared metadata-session
+  lifetime while testing that imported symbols remain snapshot-owned. Target
+  selection remains .NET-only; neoCLR loading/codegen is future work.
+
 - **2026-09-30:** Compose namespace extension discovery through a lookup
   capability instead of concrete PE namespace checks, including merged source
   and imported namespaces. Test non-PE providers, deduplication, and provider

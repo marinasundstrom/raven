@@ -28,8 +28,6 @@ public partial class Compilation
     private readonly MacroReference[] _macroReferences;
     internal SyntaxTree? SyntaxTreeWithFileScopedCode;
     private readonly ConcurrentDictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new();
-    private readonly ConcurrentDictionary<Assembly, IAssemblySymbol> _assemblySymbols = new();
-    private readonly ConcurrentDictionary<string, Assembly> _lazyMetadataAssemblies = new();
     private readonly ConcurrentDictionary<string, string> _assemblyPathMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<Assembly, Assembly> _metadataToRuntimeAssemblyMap = new();
     private readonly ConcurrentDictionary<string, Assembly> _runtimeAssemblyCache = new(StringComparer.OrdinalIgnoreCase);
@@ -49,6 +47,7 @@ public partial class Compilation
     private static int s_trustedPlatformAssembliesInitialized;
     private bool _trustedPlatformAssembliesCached;
     private DotNetMetadataSession _metadataSession;
+    private ISemanticDataLoader _semanticDataLoader;
     private GlobalBinder _globalBinder;
     private bool setup;
     private ErrorTypeSymbol _errorTypeSymbol;
@@ -990,6 +989,7 @@ public partial class Compilation
         CoreAssembly = _metadataSession.CoreAssembly!;
         EmitCoreAssembly = ResolveEmitCoreAssembly() ?? RuntimeCoreAssembly;
         RegisterRuntimeAssembly(CoreAssembly, RuntimeCoreAssembly.Location);
+        _semanticDataLoader = new DotNetSemanticDataLoader(this, _metadataSession);
 
         foreach (var metadataReference in References)
         {
@@ -2675,38 +2675,18 @@ public partial class Compilation
     {
         if (!_metadataReferenceSymbols.TryGetValue(metadataReference, out var symbol))
         {
-            switch (metadataReference)
+            if (metadataReference is CompilationReference compilationReference)
             {
-                case PortableExecutableReference per:
-                    {
-                        Assembly assembly;
-                        try
-                        {
-                            assembly = LoadMetadataAssembly(per.FilePath);
-                        }
-                        catch (BadImageFormatException)
-                        {
-                            // MSBuild reference sets can contain native PE files alongside
-                            // managed reference assemblies (for example ASP.NET Core's
-                            // Windows hosting module). They are not metadata references and
-                            // must not prevent the remaining managed references from loading.
-                            return null;
-                        }
-
-                        RegisterRuntimeAssembly(assembly, per.FilePath);
-                        symbol = GetAssembly(assembly, per.FilePath);
-                        break;
-                    }
-                case CompilationReference cr:
-                    {
-                        var compilation = cr.Compilation;
-                        compilation.EnsureSetup();
-                        compilation.EnsureSourceTypesInitialized();
-                        symbol = compilation.Assembly;
-                        break;
-                    }
-                default:
-                    throw new InvalidOperationException();
+                var compilation = compilationReference.Compilation;
+                compilation.EnsureSetup();
+                compilation.EnsureSourceTypesInitialized();
+                symbol = compilation.Assembly;
+            }
+            else
+            {
+                symbol = _semanticDataLoader.LoadReference(metadataReference);
+                if (symbol is null)
+                    return null;
             }
 
             _metadataReferenceSymbols[metadataReference] = (IAssemblySymbol)symbol!;
@@ -2714,82 +2694,16 @@ public partial class Compilation
         return symbol;
     }
 
-    private Assembly LoadMetadataAssembly(string assemblyPath)
+    internal void RegisterMetadataAssemblyPath(string name, string path)
     {
-        var fullPath = Path.GetFullPath(assemblyPath);
-        if (_lazyMetadataAssemblies.TryGetValue(fullPath, out var cachedByPath))
-            return cachedByPath;
-
-        System.Reflection.AssemblyName? identity = null;
-        try
-        {
-            identity = ReadAssemblyName(fullPath);
-            if (identity.Name is not null)
-            {
-                _assemblyPathMap[identity.Name] = fullPath;
-                s_globalAssemblyPathMap[identity.Name] = fullPath;
-            }
-        }
-        catch
-        {
-            // Fall through and attempt to load by path directly.
-        }
-
-        var assembly = _metadataSession.LoadFromPath(fullPath, identity);
-
-        _lazyMetadataAssemblies[fullPath] = assembly;
-
-        return assembly;
+        _assemblyPathMap[name] = path;
+        s_globalAssemblyPathMap[name] = path;
     }
 
-    private IAssemblySymbol GetAssembly(Assembly assembly, string? assemblyPathOverride = null)
-    {
-        RegisterRuntimeAssembly(assembly);
+    internal string? GetRegisteredMetadataAssemblyPath(string name)
+        => _assemblyPathMap.TryGetValue(name, out var path) ? path : null;
 
-        if (_assemblySymbols.TryGetValue(assembly, out var asss))
-        {
-            if (asss is PEAssemblySymbol peAssembly)
-                peAssembly.SetAssemblyPath(assemblyPathOverride);
-
-            return asss;
-        }
-
-        string? assemblyPath = assemblyPathOverride;
-        var identity = assembly.GetName();
-        if (assemblyPath is null && identity.Name is not null)
-            _assemblyPathMap.TryGetValue(identity.Name, out assemblyPath);
-        PEAssemblySymbol assemblySymbol = new PEAssemblySymbol(assembly, [], assemblyPath);
-        _assemblySymbols[assembly] = assemblySymbol;
-
-        var refs = assembly.GetReferencedAssemblies();
-
-        assemblySymbol.AddModules(
-            new PEModuleSymbol(
-                ReflectionTypeLoader,
-                assemblySymbol,
-                assembly.ManifestModule,
-                [],
-                refs.Select(x =>
-                {
-                    try
-                    {
-                        var loadedAssembly = _metadataSession.LoadFromAssemblyName(x);
-                        if (loadedAssembly is null)
-                            return null;
-
-                        RegisterRuntimeAssembly(loadedAssembly);
-                        return GetAssembly(loadedAssembly);
-                    }
-                    catch
-                    {
-                        return null;
-                    }
-                }).OfType<IAssemblySymbol>()));
-
-        return assemblySymbol;
-    }
-
-    private Assembly? RegisterRuntimeAssembly(Assembly metadataAssembly, string? explicitPath = null)
+    internal Assembly? RegisterRuntimeAssembly(Assembly metadataAssembly, string? explicitPath = null)
     {
         if (metadataAssembly is null)
             return null;
