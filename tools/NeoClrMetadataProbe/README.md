@@ -150,3 +150,9 @@ Unit/no-result helpers and library methods are included in `--hello-only`. The C
 checks exercise explicit/implicit returns, compiler reimport of a library's CLI void
 projection, native Unit and Int32 overload calls, and unchanged output on rejected
 calls. Entry points still require Int32. See the [Unit contract](../../docs/compiler/neoclr-cli-bridge.md#unit-returning-native-helpers-and-library-methods--2026-09-30).
+
+
+The full probe also checks namespaced libraries: nested block and file-scoped
+namespaces, distinct same-name types, calls between source files, compiler reimport
+and native execution in both file orders. Namespace-owned free functions and nested
+types are rejected until the native declaration contract supports them.

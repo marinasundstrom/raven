@@ -11,6 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Preserve diagnostics, failed output and caller stream/I/O contracts. The native
   section now has a binary format-5 encoding; a native symbol provider and production
   target registration remain pending.
+  Preserve namespaces for public static native library types, including nested and
+  file-scoped namespace declarations. C# consumers verify distinct same-name types,
+  reimport and execute imported/qualified calls in both source-file orders. Namespace
+  functions and nested types remain explicit unsupported-source diagnostics.
   Support Unit-returning native helpers and imported public static library methods,
   explicit/implicit returns and no-result statement calls. C# consumers reimport a
   Raven library projection and execute both no-result and Int32 overloads in neoCLR;

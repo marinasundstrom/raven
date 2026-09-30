@@ -26,12 +26,14 @@ internal static class Int32Emitter
             var root = (CompilationUnitSyntax)tree.GetRoot();
             diagnosticSyntax = root;
             if (root.AttributeLists.Count != 0) throw Unsupported("assembly attributes");
-            foreach (var member in root.Members)
+            foreach (var member in Flatten(root.Members))
             {
                 diagnosticSyntax = member;
                 if (member is GlobalStatementSyntax { Statement: FunctionStatementSyntax declaration })
                 {
                     diagnosticSyntax = declaration;
+                    if (member.Parent is not CompilationUnitSyntax)
+                        throw Unsupported("namespace-scoped functions require native function namespace metadata");
                     if (declaration.Body is null || declaration.AttributeLists.Count != 0 || declaration.Modifiers.Count != 0)
                         throw Unsupported("only top-level block-bodied functions");
                     var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
@@ -49,7 +51,9 @@ internal static class Int32Emitter
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (!typeSymbol.IsStatic || typeSymbol.DeclaredAccessibility != Accessibility.Public || typeSymbol.Arity != 0)
                         throw Unsupported("only public nongeneric static classes");
-                    var owner = assembly.AddType("", typeSymbol.MetadataName);
+                    var fullName = typeSymbol.ToFullyQualifiedMetadataName();
+                    var typeNamespace = typeSymbol.ContainingNamespace.IsGlobalNamespace ? "" : fullName[..^(typeSymbol.MetadataName.Length + 1)];
+                    var owner = assembly.AddType(typeNamespace, typeSymbol.MetadataName);
                     foreach (var typeMember in type.Members)
                     {
                         diagnosticSyntax = typeMember;
@@ -100,6 +104,18 @@ internal static class Int32Emitter
                 current.Method.Return();
         }
         return assembly.WriteNativeAssembly();
+
+        static IEnumerable<MemberDeclarationSyntax> Flatten(IEnumerable<MemberDeclarationSyntax> members)
+        {
+            foreach (var member in members)
+            {
+                if (member is BaseNamespaceDeclarationSyntax ns)
+                {
+                    foreach (var child in Flatten(ns.Members)) yield return child;
+                }
+                else yield return member;
+            }
+        }
 
         bool EmitConsole(IInvocationOperation call, MetadataMethod output)
         {

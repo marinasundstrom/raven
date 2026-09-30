@@ -603,3 +603,28 @@ Rejected discarded Int32 calls, named arguments, Unit entry points and unsupport
 Console mappings leave the output stream unchanged. This is bounded linear-body support:
 entry points still return Int32, and generic/instance methods, general result types,
 control flow and complete runtime class-library compilation remain pending.
+
+### Namespaced native library types — 2026-09-30
+
+The opt-in adapter now traverses block-scoped, nested and file-scoped namespace
+members. Public nongeneric static classes retain their bound namespace and metadata
+name in the independent metadata API. As with .NET type identity, two types with the
+same short name in different namespaces remain distinct; imports affect Raven lookup,
+not native ownership. No format change or new namespace table is needed for this slice.
+
+The C# consumer emits `Example.First.Math` and `Example.Second.Math`, with a call
+between them, in both source-file orders. It reads the resulting CLI projection,
+checks both namespaces, binds an independent Raven application using imported and
+qualified names, and verifies/runs each application against its binary library in
+neoCLR to 42. Namespace-scoped free functions and nested types are still rejected with
+source diagnostics and unchanged output: the current native function model lacks a
+namespace contract, so flattening those functions would lose ownership.
+
+Configuration remains `TargetPlatform.DotNet` for the primitive semantic bootstrap,
+with explicit core/output identities and dependency bindings. Runtime Contract options
+and default .NET emission are unchanged. The compiler adapter owns symbol-to-metadata
+mapping, the independent library owns PE/#Neo encoding, and neoCLR loads the native
+schema-2 section. CLI declarations remain a temporary reference-only representation;
+a native symbol provider will replace that projection. Generic/instance members,
+namespace-owned native functions and complete runtime class-library compilation remain
+pending. This extends the earlier global-namespace-only compiler checkpoint.

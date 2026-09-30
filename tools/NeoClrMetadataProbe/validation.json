@@ -2,16 +2,23 @@
   "date": "2026-09-30",
   "result": 42,
   "helloWorldDirectAndFunctionCall": true,
+  "namespacedLibrariesAndBothFileOrders": true,
+  "namespacePeSha256": [
+    "979b09075f18c9c8a75472b7b6e7973f4ec8bfef2813afa6d9f0c45f99cbbb74",
+    "ad0283ea0c53692c6d07c018c7c23dc91b5c73bfae50eff9c681a4794747be23",
+    "99f7b4728f85faea20ff2e601ad5e20c290e24d5391b9bf3b0e412a744ca81a5",
+    "7349ad21c5c4efa54169835a41d3493f62ca6f87d2960465ef0e136ab01cc26d"
+  ],
   "unitHelpersExplicitAndImplicitReturns": true,
   "importedUnitAndInt32Overloads": true,
   "unsupportedUnitCallsPreserveOutput": true,
   "helloWorldPeSha256": [
-    "cc41d1d3e3d5cac37c9a254d1076fb8f79ae2ca1d695e0cc94c1f01ec7b723ba",
-    "d60aebda3864d5ba31db7dd88b25d2eaf78212b99ad947d50b8a8b90c476ffca",
-    "91ed45cfaf9c39c0a74fc55e6561c6fc8d8b91ceb6e05d12f539279bc04d384b",
-    "8bb28a0b2ec49d782c67599cce778c00f57c755e63057cdef56a5990ec22072d",
-    "98847c4f67e4966894a9febeab6a9448a8a5248812d4d01d490dae7ca6f76b89",
-    "62bf34d6676808693f6a56e3dbc7d0f67aa0ea437804234b2666280760cd4332"
+    "57bbced545120a0d8ad85be096f8d6e9cb880819c94cc412945ab3018c326e5d",
+    "e4f9b5d45afadbd1d60950bff7211f9b3c01f79dc15ba201bb64d8c888030d43",
+    "75728db41eacca526ce348b82d3b40196ddc24c8779627a860e92cab8b4d4739",
+    "348171189e48da59657a7ef93ad7b12478de7a736ead2766ebec46184e7b2a11",
+    "f8333532b5d07b154e4ea286476ebcf5460bfe89c0748966c70cf92082c94fc8",
+    "dac67992b82cbf817dfcc3031199f5f05f86e1dde1a1a04d3debcb8cc740b67d"
   ],
   "source": "Raven public semantic operations",
   "metadataLibraryIndependent": true,
@@ -28,21 +35,21 @@
   "wrongTransitiveRevisionRejected": true,
   "bothRuntimeModuleOrdersExecuted": true,
   "transitiveDependencySha256": "6c81c6f593171c1a949d12ababc38c78a9bcd76dfb07be9be9a0ab0a909e03a2",
-  "transitiveReferenceProjectionSha256": "8b28c1d5ea770452b11766520d1003cd42d200bce3c25675c6443a08b0cfea7d",
+  "transitiveReferenceProjectionSha256": "9476559b0daead942f79906096613544fc67294e2c8612d11482e64172a0fe28",
   "missingDependencyRejected": true,
   "wrongRevisionRejected": true,
   "referenceOnlyProjection": true,
-  "referenceProjectionSha256": "2451457753d8802e172d3c5ead86dfaa15593cb486ac5284917b811ac058b6b2",
+  "referenceProjectionSha256": "6df11aac4be4d261e977ee31547c49eb56e0b3f0d66b545d053b4f1afd547f36",
   "emitter": "compiler-owned opt-in adapter to PE/#Neo native format 5",
   "diagnosticAndStreamContractsChecked": true,
   "multiFileCrossFunctionCalls": true,
   "bothFileOrdersExecuted": true,
   "laterFileDiagnosticChecked": true,
   "multiFileApplicationSha256": [
-    "a035471990bc211fa22cc3c512a4f361af8c0b4c376150163bfb8c3768c304c6",
-    "cf2159a03683539d7d0d1799c4ee062bd7bc4e83fb0aca6dd33f62d975a097fd"
+    "6acf5fbb58ef3990c876c8513d3157e5741e2412de481e4d8b45c31fa21629f9",
+    "0d583fcb5663020fb035e4a3cd92ebb5768b8924506de6dddce7a827aabfd7e7"
   ],
-  "adapterSha256": "62034293479fb475bec717e21735d2060c8656acc505c17a9ba5e6927bfe95e9",
+  "adapterSha256": "564585779c7ab5a74bfe7c31cdd668a09e6663110ae20724202075613f5f215e",
   "productionTargetIntegrated": false,
   "nativeMetadataLoader": true,
   "nativeCompilerSymbolProvider": false,
@@ -54,9 +61,9 @@
   "arbitraryCilExecution": false,
   "unsupportedOperationRejected": true,
   "bindingErrorRejected": true,
-  "compilerSha256": "1531738cabde0ad15a6c622aacca5c66d9ccdcb9faa4b3a0bc2d9f83f69d0b62",
-  "metadataApiSha256": "c64365104efa002a7d665f54674247153e053913a38a902aa9ee243ba751b9fe",
+  "compilerSha256": "d8fea934a50a91ac95c8b14862f529c9c15a594685c393d60912789e7bacc5a5",
+  "metadataApiSha256": "38d8655e57d87d03e9b194e19b0df8b2c53feb2b0953814b339dbb011ea52a94",
   "runtimeSha256": "929b169bab427e67d18c052cabe130cab14b651d72e64c0d25da49ae90586150",
-  "applicationSha256": "3f41ea98bc3b05e16a776463bbb7452e5b0bae6b235a959660ecc8da41c6a029",
-  "dependencySha256": "2451457753d8802e172d3c5ead86dfaa15593cb486ac5284917b811ac058b6b2"
+  "applicationSha256": "7c8a4996a91cd01d95c9d4c7c38a1eefe9fe448a8b043a1a35637adb5ccfde6f",
+  "dependencySha256": "6df11aac4be4d261e977ee31547c49eb56e0b3f0d66b545d053b4f1afd547f36"
 }
