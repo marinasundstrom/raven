@@ -2111,3 +2111,25 @@ supplied warnings and stream positions. Existing emission-option conflicts remai
 backend errors. These internal ownership changes preserve public options, error
 precedence and output ABI for .NET and the neoCLR CLI bridge. The guarantee covers
 validation failures, not rollback after arbitrary I/O or code-generation failures.
+
+### Provider-owned namespace-member discovery (2026-09-30)
+
+Shared namespace-member lookup uses the internal `INamespaceMemberContainer`
+capability instead of recognizing `PENamedTypeSymbol`. It identifies candidate
+containers; the compiler still controls static-member promotion, duplicate removal,
+merged namespaces, lookup precedence and namespace-member import options.
+Providers can report this fact without supplying CLI attributes or binding
+`GetAttributes`. No new public symbol API or loader registry is introduced.
+
+The PE implementation preserves the existing exact/suffix name recognition for
+`TopLevel` and `TopLevelAttribute`. Raw custom-attribute inspection stays within
+that provider. Synthesized Raven namespace containers and source attribute-syntax
+recognition keep their existing paths, avoiding recursive source-attribute binding.
+An unused semantic attribute classifier was removed during extraction.
+
+This capability does not grant terminal-call semantics. neoCLR Fault recognition
+still requires its exact runtime marker, owner, assembly and signature checks in
+the CLI compatibility policy. A custom namespace's TopLevel marker can permit
+ordinary namespace lookup without making Fault terminate control flow. A future
+native provider/backend must represent namespace ownership and terminal behavior
+explicitly; the current container-based projection is not a universal native API.

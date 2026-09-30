@@ -49,7 +49,7 @@ replacement direction, not a claim of an implemented native loader or backend.
 | Unit and no-result calls | Named value-type `System.Void` represents inhabited unit in value/generic positions; CLI VOID denotes no stack result. The importer distinguishes these contexts. | Preserve neoCLR's unit value and separate call-result convention directly. This semantic distinction survives removal of the encoding. |
 | Function types | Raven transports function signatures through `Func`/`Action`-shaped CLI types. neoCLR unit functions use an inhabited result shape even for the existing nominal Func ABI; ordinary .NET targets use Action. This encoding does not establish structural identity or assignability. The importer maps supported delegate shapes to native structural functions. | Load structural function signatures, identity and assignability directly; do not make CLR delegate families or their arities the native semantic model. |
 | Tuples | The profile selects value-type `System.Tuple` names. Import normalizes those probe types to Raven's existing tuple special-type identifiers, historically named System_ValueTuple. | Expose tuple structure and members from native metadata. CLI family names and the special-type alias are compatibility machinery, not native reference-type semantics. |
-| Namespace functions / terminal Fault | CLI containers and a TopLevel marker stand in for namespace functions. Fault classification checks assembly, namespace, static nongeneric signature, one by-value string parameter and void/unit result. It currently also applies through legacy imported-assembly recognition. | Represent callable ownership and terminal behavior in the native contract. Avoid permanent dependence on CLR container spelling, probe identity or attribute encoding. |
+| Namespace functions / terminal Fault | CLI containers and a TopLevel marker stand in for namespace functions. Shared lookup consumes INamespaceMemberContainer; the PE provider interprets the attribute. Fault classification checks assembly, namespace, static nongeneric signature, one by-value string parameter and void/unit result. It currently also applies through legacy imported-assembly recognition. | Represent callable ownership and terminal behavior in the native contract. Avoid permanent dependence on CLR container spelling, probe identity or attribute encoding. |
 | Iteration and arrays | Contract maps Iterable/Iterator and member names; a generic array-shape type describes APIs over CLI array transport. Array covariance defaults off. | Load actual neoCLR array/protocol relationships and capabilities. Retain target semantics; replace CLI projection assumptions. |
 | Propagation | Explicit three-parameter `System.Propagatable` protocol is projected through nominal CLI references and Raven binding. | Preserve output/residual relationships and protocol semantics using native types. The protocol is platform behavior; CLI representation is replaceable. |
 | typeof | Runtime context and TypeInfo names are configured; the current compiler checks a RuntimeTypeHandle-taking provider and emits the CLI path. | Define native type identity/token and introspection operations without requiring CLR reflection handles. Keep language typeof semantics and target introspection APIs distinct. |
@@ -93,6 +93,17 @@ ownership change preserves current bridge encodings and importer inputs. Validat
 passed 96 compiler tests on .NET 11, including resolved-contract rejection with
 supplied diagnostics and macro-plugin emission; builds cover .NET 10/11. This is
 compiler/CLI evidence, not native runtime execution.
+
+Namespace-member discovery now accepts a provider-owned container fact without
+requiring a PE symbol or resolving attributes in shared lookup. Source namespace
+projection and the broad legacy TopLevel-name import rules are preserved. Fault
+classification deliberately remains stricter: the ordinary namespace-container
+capability is not proof of the exact runtime marker or terminal behavior. Native
+metadata must replace that bridge-specific recognition with callable ownership
+and terminal semantics; no native capability is enabled by this extraction.
+Validation passed 56 namespace/flow tests on .NET 11, including a custom-marker
+Fault negative case and non-PE discovery, with compiler builds on .NET 10/11.
+No native runtime execution or importer/encoding change is claimed.
 
 ## Compatibility and replacement work
 

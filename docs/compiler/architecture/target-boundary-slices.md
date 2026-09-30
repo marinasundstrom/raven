@@ -1517,3 +1517,33 @@ neoCLR, .NET Framework/NanoFramework execution or bootstrap qualification is cla
 Next: continue reducing reflection-backed semantic dependencies while keeping
 metadata loading, platform policy and emission paired by the target. Backend
 replacement must preserve the shared validation gate rather than duplicate it.
+
+## Slice 44: provider-owned namespace-member container discovery
+
+Shared Compilation namespace-member lookup consumes INamespaceMemberContainer
+rather than checking PENamedTypeSymbol. The PE provider owns the unchanged legacy
+TopLevel/TopLevelAttribute name interpretation. Synthesized namespace containers
+and source syntax recognition retain their paths, including avoidance of recursive
+attribute binding. Remove the unused semantic attribute classifier while extracting
+this boundary. The capability identifies candidates only; filtering, deduplication,
+merged lookup and import policy stay in the compiler.
+
+Four in-memory, non-PE provider cases cover direct/merged discovery, positive and
+negative container facts, duplicate containers, named/all-member queries, static
+filtering and disabled imports. Attribute access throws in that fixture to prove
+shared discovery does not resolve provider attributes. A separate CLI regression
+shows a custom TopLevel marker can promote a Fault namespace function without
+making it terminal; the bridge's exact runtime marker rule remains independent.
+The interface is internal and container-shaped, not a native declaration API or a
+requirement that native metadata synthesize CLI attributes.
+
+Validation: 51-test baseline; 56 final namespace-member, merged-namespace and
+neoCLR Fault tests pass on .NET 11. Compiler builds pass for .NET 10/11 with zero
+warnings/errors. Whitespace formatting and diff checks pass (formatter workspace
+load warnings). Source/CLI semantics and emitted metadata are unchanged; language
+service lookup continues through the same compiler entry points, with no LSP or
+grammar changes required. No native neoCLR, Framework/NanoFramework execution or
+bootstrap qualification is claimed. External runtime artifacts are unchanged.
+
+Next: continue auditing provider-specific nested-type and namespace traversal,
+preserving lazy discovery without exposing reflection or cache APIs to consumers.

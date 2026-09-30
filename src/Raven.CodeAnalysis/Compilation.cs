@@ -1417,13 +1417,7 @@ public partial class Compilation
         if (HasTopLevelAttributeSyntax(type))
             return true;
 
-        if (type is PENamedTypeSymbol peType &&
-            peType.HasCustomAttribute(IsTopLevelAttributeMetadataName))
-        {
-            return true;
-        }
-
-        return false;
+        return type is INamespaceMemberContainer { IsNamespaceMemberContainer: true };
     }
 
     private IEnumerable<INamedTypeSymbol> GetNamespaceMemberContainers(INamespaceSymbol namespaceSymbol)
@@ -1480,31 +1474,9 @@ public partial class Compilation
             _ => name.ToString()
         };
 
-    private static bool IsTopLevelAttribute(INamedTypeSymbol? attributeType)
-    {
-        if (attributeType is null)
-            return false;
-
-        if (IsTopLevelAttributeName(attributeType.Name) ||
-            IsTopLevelAttributeName(attributeType.MetadataName))
-        {
-            return true;
-        }
-
-        var metadataName = attributeType.ToFullyQualifiedMetadataName();
-        return metadataName.EndsWith(".TopLevelAttribute", StringComparison.Ordinal) ||
-               metadataName.EndsWith(".TopLevel", StringComparison.Ordinal);
-    }
-
     private static bool IsTopLevelAttributeName(string? name)
         => string.Equals(name, "TopLevel", StringComparison.Ordinal) ||
            string.Equals(name, "TopLevelAttribute", StringComparison.Ordinal);
-
-    private static bool IsTopLevelAttributeMetadataName(string metadataName)
-        => string.Equals(metadataName, "TopLevel", StringComparison.Ordinal) ||
-           string.Equals(metadataName, "TopLevelAttribute", StringComparison.Ordinal) ||
-           metadataName.EndsWith(".TopLevel", StringComparison.Ordinal) ||
-           metadataName.EndsWith(".TopLevelAttribute", StringComparison.Ordinal);
 
     internal IReadOnlyList<GlobalStatementSyntax> GetBindableGlobalStatements(CompilationUnitSyntax compilationUnit)
     {

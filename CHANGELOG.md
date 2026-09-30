@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-09-30:** Make namespace-member container discovery provider-owned instead
+  of requiring PE symbols in shared lookup. Preserve CLI/source marker behavior,
+  import filtering and strict neoCLR Fault recognition; cover non-PE containers
+  in direct and merged namespaces without attribute binding.
+
 - **2026-09-30:** Separate resolved runtime-contract validation from backend artifact
   validation. Normal and macro-plugin emission share the compiler's contract gate;
   the .NET emitter owns output-core option resolution without depending on target
