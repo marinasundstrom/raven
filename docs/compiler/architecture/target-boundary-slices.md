@@ -52,3 +52,24 @@ the existing context lifetime and explicit registry callback. This factory is
 an internal .NET component, not a target-neutral metadata provider. The final
 provider must expose semantic contracts rather than `Assembly`/`Type` objects.
 Record focused test results before and after extraction in this ledger.
+
+## Slice 2: import transition coverage
+
+Added three cases in `MetadataImportOptionsTests`: isolated-to-host mode changes
+and adding/removing Console between explicit-reference snapshots. Assertions
+check public symbol lookup, diagnostics against a cold compilation, and that the
+prior snapshot keeps its original results. These are characterization tests;
+no compiler bug or behavior change is claimed.
+
+Validation on .NET 11 with SDK `11.0.100-rc.1.26425.128`:
+
+- Baseline: `dotnet test test/Raven.CodeAnalysis.Tests/Raven.CodeAnalysis.Tests.csproj
+  --filter 'FullyQualifiedName~MetadataImportOptionsTests|FullyQualifiedName~IncrementalCompilationReuseTests'
+  /property:WarningLevel=0` — 80 passed, no failures/skips.
+- After additions: the same test project filtered to `MetadataImportOptionsTests`,
+  with `--no-restore /property:WarningLevel=0 /property:BuildProjectReferences=false`
+  — 13 passed, no failures/skips. Referenced projects were built by the baseline.
+- Whitespace formatter and `git diff --check` completed. Formatter reported
+  workspace-load warnings; no formatting failure occurred.
+
+No neoCLR runtime, .NET Framework, NanoFramework, or browser execution was tested.

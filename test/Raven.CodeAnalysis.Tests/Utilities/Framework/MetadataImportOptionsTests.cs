@@ -85,6 +85,38 @@ public class MetadataImportOptionsTests
     }
 
     [Fact]
+    public void HostImportsRecoverAfterIsolatedCompilation()
+    {
+        var isolated = Create(true, false);
+        Assert.Null(isolated.GetTypeByMetadataName("System.Console"));
+
+        var host = Create(false, false);
+        host.AdoptIncrementalReuseFrom(isolated);
+
+        Assert.NotNull(host.GetTypeByMetadataName("System.Console"));
+        Assert.Empty(host.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Null(isolated.GetTypeByMetadataName("System.Console"));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ExplicitReferenceChangesMatchColdCompilation(bool includeConsole)
+    {
+        var previous = Create(true, !includeConsole);
+        Assert.Equal(!includeConsole, previous.GetTypeByMetadataName("System.Console") is not null);
+
+        var current = Create(true, includeConsole);
+        current.AdoptIncrementalReuseFrom(previous);
+        var cold = Create(true, includeConsole);
+
+        Assert.Equal(includeConsole, current.GetTypeByMetadataName("System.Console") is not null);
+        Assert.Equal(cold.GetDiagnostics().Select(d => d.ToString()),
+            current.GetDiagnostics().Select(d => d.ToString()));
+        Assert.Equal(!includeConsole, previous.GetTypeByMetadataName("System.Console") is not null);
+    }
+
+    [Fact]
     public void MissingCoreDoesNotUseHostCore()
     {
         var compilation = Compilation.Create("NoCore", [SyntaxTree.ParseText("func Main() {}")], [],
