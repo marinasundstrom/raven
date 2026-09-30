@@ -52,7 +52,7 @@ member, the host snapshot-consistency requirement, source-located diagnostics,
 validation-before-write behavior and stream I/O limitations.
 
 Top-level block-bodied functions and public static methods in public nongeneric
-static classes support required Int32 value parameters and Int32 results, value returns, constants, parameter loads, local/static calls and unchecked
+static classes support required Int32 value parameters and Int32 or Unit results, value returns, constants, parameter loads, local/static calls and unchecked
 unlifted intrinsic addition/subtraction/multiplication are supported. Named/default/
 expanded arguments, references, generics, async, captures, fields, instance classes, statements
 other than returns, source attributes/modifiers, checked/lifted operators and structural
@@ -144,3 +144,9 @@ encoding, not a finalized indexed metadata layout. Older schema-1-only runtimes 
 new output; the matching runtime retains schema-1 compatibility. Loading performance
 is measured separately in neoCLR's `examples/metadata_loading.rs`, not inferred from
 these execution results.
+
+
+Unit/no-result helpers and library methods are included in `--hello-only`. The C#
+checks exercise explicit/implicit returns, compiler reimport of a library's CLI void
+projection, native Unit and Int32 overload calls, and unchanged output on rejected
+calls. Entry points still require Int32. See the [Unit contract](../../docs/compiler/neoclr-cli-bridge.md#unit-returning-native-helpers-and-library-methods--2026-09-30).

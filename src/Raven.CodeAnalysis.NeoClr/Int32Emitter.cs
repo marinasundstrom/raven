@@ -38,7 +38,7 @@ internal static class Int32Emitter
                     if (compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary && symbol.DeclaredAccessibility != Accessibility.Public)
                         throw Unsupported("nonpublic library functions require visibility metadata");
                     CheckSignature(symbol);
-                    methods.Add((model, symbol, declaration, declaration.Body, assembly.AddFunction(symbol.Name, symbol.Parameters.Length)));
+                    methods.Add((model, symbol, declaration, declaration.Body, assembly.AddFunction(symbol.Name, symbol.Parameters.Length, ReturnsValue(symbol))));
                 }
                 else if (member is ClassDeclarationSyntax type)
                 {
@@ -60,7 +60,7 @@ internal static class Int32Emitter
                         var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
                         if (!symbol.IsStatic || symbol.DeclaredAccessibility != Accessibility.Public) throw Unsupported("only public static methods");
                         CheckSignature(symbol);
-                        methods.Add((model, symbol, method, method.Body, owner.AddMethod(symbol.MetadataName, symbol.Parameters.Length)));
+                        methods.Add((model, symbol, method, method.Body, owner.AddMethod(symbol.MetadataName, symbol.Parameters.Length, ReturnsValue(symbol))));
                     }
                 }
                 else throw Unsupported("only top-level functions and public static classes");
@@ -69,6 +69,7 @@ internal static class Int32Emitter
         if (compilation.Options.OutputKind == OutputKind.ConsoleApplication)
         {
             var entry = compilation.GetEntryPoint() ?? throw Unsupported("entry point unavailable");
+            if (!ReturnsValue(entry)) throw Unsupported("entry must return Int32");
             assembly.EntryPoint = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Symbol, entry)).Method
                 ?? throw Unsupported("entry must be a declared Int32 function or static method");
         }
@@ -79,12 +80,24 @@ internal static class Int32Emitter
             foreach (var statement in body.Operations)
             {
                 diagnosticSyntax = statement.Syntax;
-                if (statement is IExpressionStatementOperation { Operation: IInvocationOperation consoleCall } && EmitConsole(consoleCall, current.Method))
+                if (statement is IExpressionStatementOperation { Operation: IInvocationOperation call })
+                {
+                    if (EmitConsole(call, current.Method)) continue;
+                    if (ReturnsValue(call.TargetMethod)) throw Unsupported("discarded value calls");
+                    EmitValue(call, current.Symbol, current.Method);
                     continue;
+                }
+                if (statement is IReturnOperation { ReturnedValue: null } && !ReturnsValue(current.Symbol))
+                {
+                    current.Method.Return();
+                    continue;
+                }
                 if (statement is not IReturnOperation { ReturnedValue: { } value }) throw Unsupported("only value-return statements");
                 EmitValue(value, current.Symbol, current.Method);
                 current.Method.Return();
             }
+            if (!ReturnsValue(current.Symbol) && body.Operations.LastOrDefault() is not IReturnOperation)
+                current.Method.Return();
         }
         return assembly.WriteNativeAssembly();
 
@@ -149,17 +162,19 @@ internal static class Int32Emitter
             var types = dependencyMetadata.MainModule.Types.Where(t => t.DeclaringType is null && t.GenericArity == 0 &&
                 (t.Namespace.Length == 0 ? t.Name : t.Namespace + "." + t.Name) == symbol.ContainingType?.ToFullyQualifiedMetadataName()).Take(2).ToArray();
             if (types.Length != 1) throw Unsupported("dependency type unavailable or ambiguous");
-            var definitions = types[0].Methods.Where(m => m.Name == symbol.MetadataName && m.TryGetStaticInt32Signature(out var count, out var result) && count == symbol.Parameters.Length && result).Take(2).ToArray();
+            var definitions = types[0].Methods.Where(m => m.Name == symbol.MetadataName && m.TryGetStaticInt32Signature(out var count, out var result) && count == symbol.Parameters.Length && result == ReturnsValue(symbol)).Take(2).ToArray();
             if (definitions.Length != 1) throw Unsupported("dependency method contract unavailable or ambiguous");
             return assembly.ImportReference(definitions[0], binding.CoreLibrary);
         }
         UnsupportedInputException Unsupported(string detail) => new(detail, diagnosticSyntax.GetLocation());
 
+        static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType == SpecialType.System_Int32;
+
         void CheckSignature(IMethodSymbol method)
         {
-            if (method.IsGenericMethod || method.IsExtensionMethod || method.IsAsync || method.ReturnType.SpecialType != SpecialType.System_Int32 ||
+            if (method.IsGenericMethod || method.IsExtensionMethod || method.IsAsync || method.ReturnType.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Unit or SpecialType.System_Void) ||
                 method.Parameters.Any(p => p.Type.SpecialType != SpecialType.System_Int32 || p.RefKind != RefKind.None || p.HasExplicitDefaultValue || p.IsVarParams))
-                throw Unsupported("only nongeneric Int32 value signatures: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
+                throw Unsupported("only nongeneric Int32 parameters and Int32/Unit results: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
         }
     }
 }

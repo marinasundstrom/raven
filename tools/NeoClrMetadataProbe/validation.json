@@ -2,9 +2,16 @@
   "date": "2026-09-30",
   "result": 42,
   "helloWorldDirectAndFunctionCall": true,
+  "unitHelpersExplicitAndImplicitReturns": true,
+  "importedUnitAndInt32Overloads": true,
+  "unsupportedUnitCallsPreserveOutput": true,
   "helloWorldPeSha256": [
-    "93ff54c469f687cfe0aa655f75e53924903711225820dfa8123e46d8d49ef31e",
-    "bc02bdf97a590b7d23fb919e5c00627c2a3f4e816551bf10edfcd190c6173fbf"
+    "cc41d1d3e3d5cac37c9a254d1076fb8f79ae2ca1d695e0cc94c1f01ec7b723ba",
+    "d60aebda3864d5ba31db7dd88b25d2eaf78212b99ad947d50b8a8b90c476ffca",
+    "91ed45cfaf9c39c0a74fc55e6561c6fc8d8b91ceb6e05d12f539279bc04d384b",
+    "8bb28a0b2ec49d782c67599cce778c00f57c755e63057cdef56a5990ec22072d",
+    "98847c4f67e4966894a9febeab6a9448a8a5248812d4d01d490dae7ca6f76b89",
+    "62bf34d6676808693f6a56e3dbc7d0f67aa0ea437804234b2666280760cd4332"
   ],
   "source": "Raven public semantic operations",
   "metadataLibraryIndependent": true,
@@ -21,21 +28,21 @@
   "wrongTransitiveRevisionRejected": true,
   "bothRuntimeModuleOrdersExecuted": true,
   "transitiveDependencySha256": "6c81c6f593171c1a949d12ababc38c78a9bcd76dfb07be9be9a0ab0a909e03a2",
-  "transitiveReferenceProjectionSha256": "79b8e3d5bda8472ae1c296fc008c21d0334c7ff61a4a27c980ebf316ceeb356e",
+  "transitiveReferenceProjectionSha256": "8b28c1d5ea770452b11766520d1003cd42d200bce3c25675c6443a08b0cfea7d",
   "missingDependencyRejected": true,
   "wrongRevisionRejected": true,
   "referenceOnlyProjection": true,
-  "referenceProjectionSha256": "887315e5d4f930a10489b26b28fb6b5ab8bc853bf754b8841d313049eea120e8",
+  "referenceProjectionSha256": "2451457753d8802e172d3c5ead86dfaa15593cb486ac5284917b811ac058b6b2",
   "emitter": "compiler-owned opt-in adapter to PE/#Neo native format 5",
   "diagnosticAndStreamContractsChecked": true,
   "multiFileCrossFunctionCalls": true,
   "bothFileOrdersExecuted": true,
   "laterFileDiagnosticChecked": true,
   "multiFileApplicationSha256": [
-    "f3db5ebd0552738405fb9a0e3e062a9c68ac474da96dda6c0e95e513f1ce4808",
-    "8663831979ee8f96fd6353e2ce1be906418bc6b927a4d6cd126b7ffbd55945d9"
+    "a035471990bc211fa22cc3c512a4f361af8c0b4c376150163bfb8c3768c304c6",
+    "cf2159a03683539d7d0d1799c4ee062bd7bc4e83fb0aca6dd33f62d975a097fd"
   ],
-  "adapterSha256": "bc4be9b484c97e8cde74ef3c08299e23b4cdb5155a20e6ab511456a282c4962d",
+  "adapterSha256": "62034293479fb475bec717e21735d2060c8656acc505c17a9ba5e6927bfe95e9",
   "productionTargetIntegrated": false,
   "nativeMetadataLoader": true,
   "nativeCompilerSymbolProvider": false,
@@ -47,9 +54,9 @@
   "arbitraryCilExecution": false,
   "unsupportedOperationRejected": true,
   "bindingErrorRejected": true,
-  "compilerSha256": "ff9968071b8aae109b7c4e9eb7edadf82e2ca2c846e2df9a8bccf669d21b2bdc",
-  "metadataApiSha256": "313822ff7827501de650d21458ad54bd3a355961430275624eb3c2cb739c2da7",
-  "runtimeSha256": "6bd87333fe62463c427aaa5bec6edf00e278ffe2469b7732622ff533ed11ad9d",
-  "applicationSha256": "31dd5e20379c07395bff4debd2e06ba2a4ad57fac30b8937c0b896ec8e1fd1b0",
-  "dependencySha256": "887315e5d4f930a10489b26b28fb6b5ab8bc853bf754b8841d313049eea120e8"
+  "compilerSha256": "1531738cabde0ad15a6c622aacca5c66d9ccdcb9faa4b3a0bc2d9f83f69d0b62",
+  "metadataApiSha256": "c64365104efa002a7d665f54674247153e053913a38a902aa9ee243ba751b9fe",
+  "runtimeSha256": "929b169bab427e67d18c052cabe130cab14b651d72e64c0d25da49ae90586150",
+  "applicationSha256": "3f41ea98bc3b05e16a776463bbb7452e5b0bae6b235a959660ecc8da41c6a029",
+  "dependencySha256": "2451457753d8802e172d3c5ead86dfaa15593cb486ac5284917b811ac058b6b2"
 }

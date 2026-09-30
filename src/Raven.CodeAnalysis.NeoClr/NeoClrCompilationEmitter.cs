@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-/// <summary>Opt-in native format-5 emitter for the documented static Int32 source subset.</summary>
+/// <summary>Opt-in native format-5 emitter for the documented static Int32/Unit source subset.</summary>
 /// <remarks>Uses public semantic operations and the existing .NET binding bootstrap. It is not installed in Compilation.Emit.</remarks>
 public static class NeoClrCompilationEmitter
 {

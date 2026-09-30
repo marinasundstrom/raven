@@ -576,3 +576,30 @@ authoritative as semantics diverge; keep projection mappings behind the compiler
 loader contract so a native ISemanticDataLoader can replace them. The independent
 metadata project stays separate from Raven. This is a bootstrap plan, not a claim
 that System.Runtime already compiles through this experimental emitter.
+
+### Unit-returning native helpers and library methods — 2026-09-30
+
+The opt-in `NeoClrCompilationEmitter` now accepts Unit/no-result functions and public
+static methods with required Int32 parameters. Statement calls, explicit bare returns
+and implicit fall-through returns emit through the independent Cecil-style metadata
+API. An Int32 entry point can call a Unit helper without a synthetic source return value.
+Imported method matching includes the result contract as well as parameter count.
+
+Configuration remains the explicit .NET primitive binding bootstrap (`TargetPlatform.DotNet`),
+unsigned output/core identities and registered `NeoClrMetadataDependency` bindings;
+Console literal output additionally requires `ConsoleReference`. No Runtime Contract
+setting, ordinary .NET emission or production target registration changes. Native intent
+is a no-result function; the temporary CLI reference projection represents it as `void`,
+which Raven binds as Unit. The native PE/#Neo schema-2 section owns execution, and the
+projection contains reference-only bodies. The compiler adapter owns mapping and
+validation; the separate metadata library owns encoding. A native symbol provider and
+broader native backend will replace the projection/bootstrap.
+
+C# consumer checks compile and execute four Hello variants (Int32 and Unit helpers,
+explicit and implicit returns), then emit a Raven library and reload its projection into
+Raven. A second compilation calls its Unit overload and returns its Int32 overload;
+neoCLR verifies both assemblies and prints exactly one Hello World line with exit zero.
+Rejected discarded Int32 calls, named arguments, Unit entry points and unsupported
+Console mappings leave the output stream unchanged. This is bounded linear-body support:
+entry points still return Int32, and generic/instance methods, general result types,
+control flow and complete runtime class-library compilation remain pending.
