@@ -257,3 +257,21 @@ its own semantic representation; full native metadata and backend support are
 still required. Non-PE tests verify ranking, context forwarding and rejection vs
 unavailable results without signature loading. PE fixtures and semantic-model
 caching tests validate the CLI behavior; native execution is not claimed.
+
+### Overload-priority reflection fallback (2026-09-30)
+
+The CLI bridge still falls back to reflection for overload priority after source
+and semantic-attribute lookup. PE now owns that decoding behind
+`IMethodOverloadPriority`: it examines the base definition when available, reads
+the exact System.Runtime.CompilerServices.OverloadResolutionPriorityAttribute and
+returns no fallback fact on unreadable metadata. Nonvirtual/new-slot declarations
+are read directly, fixing an unconditional GetBaseDefinition call that failed in
+MetadataLoadContext before their attributes could be read. Slot-reusing override
+fallback remains unavailable when base-definition reflection is unsupported.
+Existing lookup precedence is
+unchanged; this does not introduce a new native inheritance rule.
+
+Native metadata can supply priority as a semantic fact through the capability,
+without CLI attributes or MethodInfo. Shared applicability/grouping/ranking remain
+compiler-owned. Non-PE overload selection and existing source/metadata priority
+regressions validate the boundary; no native neoCLR execution is claimed.
