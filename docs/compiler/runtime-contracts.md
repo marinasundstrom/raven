@@ -2451,3 +2451,32 @@ Validation: 43 focused C# compiler tests and 37 independent metadata contract gr
 plus the native binary-assembly probe. Release/Debug cases cover both widths, extrema,
 identity and complement. The same source executes on .NET and neoCLR, checks wrapping
 at both signed minima and returns 42. Writer tests reject Boolean operands and underflow.
+
+
+## Shared primitive type contract — 2026-10-01
+
+Callable signatures and local declarations now carry EmissionPrimitiveType rather
+than passing semantic SpecialType values to backend builders. Shared classification
+admits Int32, Int64 and Boolean values and explicitly distinguishes NoResult. Unit/void
+are normalized only in return position; Unit parameters/locals, nullable and other
+unsupported types are not silently converted into no-result or primitive values.
+
+Both declaration and body builders use IEmissionTypeMapper<TType>. The .NET mapper
+resolves every type through the caller's selected-core resolver; it never substitutes
+host typeof handles. The native mapper lives independently of the callable builder
+and maps to the separate metadata library's PrimitiveType contract. Native local
+emission no longer depends on the callable declaration builder for type mapping.
+
+This is a bounded type boundary, not general nominal/array/generic type support.
+Compared with passing SpecialType through each builder, the benefit is one shared
+value/no-result admission rule and explicit target-owned representation mapping. The
+cost is a small internal type vocabulary and mapper implementation per backend. CLR
+Reflection.Emit handles remain in its adapters; native metadata handles remain in
+its adapters. Ordinary .NET behavior and Runtime Contract configuration are unchanged.
+The temporary CLI declaration projection and deferred semantic import are unchanged.
+
+Validation: 44 focused C# compiler tests include rejection of unsupported signature
+shapes and selected-core inspection of Int32/Int64/Boolean locals and callable
+signatures. The existing native probe exercises both mappers by executing all supported
+primitive cases on .NET and binary assemblies loaded by neoCLR. The metadata format
+and API did not change; the prior 37 metadata contract groups remain applicable.

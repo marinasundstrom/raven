@@ -8,6 +8,34 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class CallableDeclarationTests
 {
     [Fact]
+    public void SharedTypeContractSeparatesNoResultFromValueTypes()
+    {
+        var compilation = Compilation.Create("PrimitiveContracts", [SyntaxTree.ParseText("""
+            public static class Contracts {
+                public static func Mix(number: int, wide: long, flag: bool) -> long { return wide }
+                public static func Finish() { }
+                public static func Text(value: string) -> string { return value }
+                public static func Maybe(value: int?) -> int? { return value }
+                public static func UnitValue(value: unit) -> unit { return value }
+            }
+            """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        var methods = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Select(d => (IMethodSymbol)model.GetDeclaredSymbol(d)!).ToDictionary(m => m.Name);
+        Assert.True(PrimitiveCallableSignature.TryCreate(methods["Mix"], out var mixed));
+        Assert.Equal(EmissionPrimitiveType.Int64, mixed.ReturnType);
+        Assert.Equal(new[] { EmissionPrimitiveType.Int32, EmissionPrimitiveType.Int64, EmissionPrimitiveType.Boolean }, mixed.ParameterTypes);
+        Assert.True(mixed.ReturnsValue);
+        Assert.True(PrimitiveCallableSignature.TryCreate(methods["Finish"], out var finish));
+        Assert.Equal(EmissionPrimitiveType.NoResult, finish.ReturnType);
+        Assert.False(finish.ReturnsValue);
+        Assert.Empty(finish.ParameterTypes);
+        foreach (var name in new[] { "Text", "Maybe", "UnitValue" })
+            Assert.False(PrimitiveCallableSignature.TryCreate(methods[name], out _));
+        Assert.False(EmissionPrimitiveTypes.TryGetValueType(methods["Finish"].ReturnType, out _));
+    }
+
+    [Fact]
     public void SharedDeclarationsPreserveVisibilityParametersAndGeneralGenericPath()
     {
         const string source = """

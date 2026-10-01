@@ -12,14 +12,5 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
             ? assembly.AddFunction(metadataName, ToMetadata(signature))
             : owner.AddMethod(metadataName, ToMetadata(signature));
     internal static PrimitiveMethodSignature ToMetadata(PrimitiveCallableSignature signature)
-        => new(Map(signature.ReturnType), signature.ParameterTypes.Select(Map));
-
-    internal static PrimitiveType Map(SpecialType type) => type switch
-    {
-        SpecialType.System_Int64 => PrimitiveType.Int64,
-        SpecialType.System_Int32 => PrimitiveType.Int32,
-        SpecialType.System_Boolean => PrimitiveType.Boolean,
-        SpecialType.System_Void => PrimitiveType.Void,
-        _ => throw new InvalidOperationException("Unsupported primitive signature")
-    };
+        => new(NeoClrTypeMapper.Instance.Map(signature.ReturnType), signature.ParameterTypes.Select(NeoClrTypeMapper.Instance.Map));
 }

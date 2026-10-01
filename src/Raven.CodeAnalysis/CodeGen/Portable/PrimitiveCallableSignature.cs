@@ -2,22 +2,26 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Common signature shape for the current native subset. Ownership, visibility,
 // target type handles and on-disk signature encoding remain backend responsibilities.
-internal sealed record PrimitiveCallableSignature(SpecialType ReturnType, System.Collections.Immutable.ImmutableArray<SpecialType> ParameterTypes)
+internal sealed record PrimitiveCallableSignature(EmissionPrimitiveType ReturnType, System.Collections.Immutable.ImmutableArray<EmissionPrimitiveType> ParameterTypes)
 {
     internal int ParameterCount => ParameterTypes.Length;
-    internal bool ReturnsValue => ReturnType != SpecialType.System_Void;
+    internal bool ReturnsValue => ReturnType != EmissionPrimitiveType.NoResult;
 
     internal static bool TryCreate(IMethodSymbol method, out PrimitiveCallableSignature signature)
     {
         signature = null!;
         if (method.IsGenericMethod || method.IsExtensionMethod || method.IsAsync ||
-            method.ReturnType.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean or SpecialType.System_Unit or SpecialType.System_Void) ||
-            method.Parameters.Any(p => p.Type.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean) || p.RefKind != RefKind.None ||
-                p.HasExplicitDefaultValue || p.IsVarParams))
+            !EmissionPrimitiveTypes.TryGetReturnType(method.ReturnType, out var result))
             return false;
-        signature = new(method.ReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void
-            ? SpecialType.System_Void : method.ReturnType.SpecialType,
-            [.. method.Parameters.Select(p => p.Type.SpecialType)]);
+        var parameters = System.Collections.Immutable.ImmutableArray.CreateBuilder<EmissionPrimitiveType>(method.Parameters.Length);
+        foreach (var parameter in method.Parameters)
+        {
+            if (!EmissionPrimitiveTypes.TryGetValueType(parameter.Type, out var type) || parameter.RefKind != RefKind.None ||
+                parameter.HasExplicitDefaultValue || parameter.IsVarParams)
+                return false;
+            parameters.Add(type);
+        }
+        signature = new(result, parameters.MoveToImmutable());
         return true;
     }
 }

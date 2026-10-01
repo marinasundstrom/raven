@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Introduce a shared primitive emission type contract with explicit
+  no-result semantics and backend-owned type mappers. Reuse it for callable signatures,
+  locals and result-use classification; remove native local emission's dependency on
+  the callable builder's mapping helper. Preserve selected-core .NET metadata and
+  native output behavior; broader type support remains pending.
+
 - **2026-10-01:** Emit built-in signed unary +, - and ~ through the shared .NET/native
   body path for Int32/Int64. Preserve integer width and wrapping negation at signed
   minima; keep Boolean logical negation separate. Validate both runtimes and metadata

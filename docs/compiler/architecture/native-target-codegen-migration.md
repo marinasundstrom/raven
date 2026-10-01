@@ -15,7 +15,9 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
    backend handles, native predeclared functions/methods and adapter-owned call encoding.
    Shared source callable plans now supply identity, logical owner, signature and body
    to both backends. Native collection/validation precedes builder creation. General
-   type/field references and full declaration traversal remain pending.
+   type/field references and full declaration traversal remain pending. The primitive
+   boundary now has shared value/no-result classification and typed backend mappers
+   reused by signatures and local declarations.
    Replace shared-path System.Type/MemberInfo dependencies; declare identities,
    signatures/members, bodies, then finalize. Preserve assembly-owned native functions
    and the existing CLI carrier representation. The earlier static-type prototype is

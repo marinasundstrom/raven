@@ -15,7 +15,7 @@ internal readonly record struct LinearInstruction(
 
 internal interface ILinearMethodBuilder
 {
-    void DeclareLocal(SpecialType type);
+    void DeclareLocal(EmissionPrimitiveType type);
     void DefineLabel();
     void Emit(LinearInstruction instruction);
 }
@@ -25,7 +25,7 @@ internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
 // source-located boundary. Language rewrites remain owned by the existing Lowerer.
-internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, ImmutableArray<SpecialType> localTypes, int labelCount)
+internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, ImmutableArray<EmissionPrimitiveType> localTypes, int labelCount)
 {
     internal void Emit(ILinearMethodBuilder builder)
     {
@@ -37,13 +37,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
     internal static bool HasSupportedSignature(IMethodSymbol method)
         => PrimitiveCallableSignature.TryCreate(method, out _);
 
-    internal static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean;
+    internal static bool ReturnsValue(IMethodSymbol method)
+        => EmissionPrimitiveTypes.TryGetValueType(method.ReturnType, out _);
 
     internal static bool TryLower(IMethodSymbol source, SemanticModel model, SyntaxNode bodySyntax,
         Func<BoundInvocationExpression, bool> permitsConsoleLiteral, out LinearMethodBody? lowered, out LinearBodyFailure? failure)
     {
         var instructions = ImmutableArray.CreateBuilder<LinearInstruction>();
-        var localTypes = ImmutableArray.CreateBuilder<SpecialType>();
+        var localTypes = ImmutableArray.CreateBuilder<EmissionPrimitiveType>();
         var nextLabel = 0;
         var labels = new Dictionary<ILabelSymbol, int>(SymbolEqualityComparer.Default);
         var locals = new Dictionary<ILocalSymbol, int>(SymbolEqualityComparer.Default);
@@ -134,13 +135,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (declaration.IsUsing) return Reject("using local", Syntax(statement));
                     foreach (var variable in declaration.Declarators)
                     {
-                        if (variable.Local.Type.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean) || variable.Initializer is null ||
+                        if (!EmissionPrimitiveTypes.TryGetValueType(variable.Local.Type, out var localType) || variable.Initializer is null ||
                             variable.FixedAddressInitializer is not null || variable.FixedPinnedLocal is not null)
                             return Reject("only initialized Int32/Int64/Boolean locals", Syntax(variable));
                         if (!LowerValue(variable.Initializer)) return false;
                         var slot = locals.Count;
                         locals.Add(variable.Local, slot);
-                        localTypes.Add(variable.Local.Type.SpecialType);
+                        localTypes.Add(localType);
                         Add(LinearInstructionKind.StoreLocal, Syntax(variable), slot);
                     }
                     continue;

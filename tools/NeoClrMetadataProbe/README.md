@@ -241,3 +241,6 @@ and a separately compiled Int64 callable imported through the CLI projection.
 
 Signed unary cases execute +, - and ~ on Int32/Int64 and check wrapping at both
 signed minima in the binary assembly loaded by neoCLR.
+
+The primitive cases also validate the shared emission type contract and independent
+.NET/native type mappers used by callable declarations and local slots.
