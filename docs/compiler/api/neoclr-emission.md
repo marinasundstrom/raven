@@ -303,3 +303,8 @@ Direct root-class constructor and instance-method authoring also passes the rebu
 external-signature probe (42). The metadata contract test executes manual object creation,
 readonly initialization and an instance call on CLR/neoCLR. This expands authoring only;
 Runtime Contract, binding and target import admission remain unchanged.
+
+Direct nongeneric interface types and abstract contract methods now work in the metadata
+API and execute through existing interface implementation/CallVirtual helpers (42).
+The rebuilt Raven external-signature probe also passes. Relationship definitions and
+canonical bodies remain pending; target admission and Runtime Contract are unchanged.

@@ -2805,3 +2805,7 @@ compatibility validation, not new target admission or a collections-gate resolut
 Root-class constructors and instance methods can now be declared directly in the
 metadata library. They reuse the existing constructor/receiver encodings; no new bridge
 loss or representation is introduced. Raven facade compatibility still verifies/runs (42).
+
+Direct interface authoring preserves the existing InterfaceImpl, abstract-method and
+callvirt projection/native contracts. Raven facade compatibility still verifies/runs
+(42); no compiler semantic change or new bridge encoding is introduced.
