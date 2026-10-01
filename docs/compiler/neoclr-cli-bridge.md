@@ -2809,3 +2809,7 @@ loss or representation is introduced. Raven facade compatibility still verifies/
 Direct interface authoring preserves the existing InterfaceImpl, abstract-method and
 callvirt projection/native contracts. Raven facade compatibility still verifies/runs
 (42); no compiler semantic change or new bridge encoding is introduced.
+
+The metadata dependency now owns interface relationships and body storage in definitions.
+Existing helpers/writers retain the same CLI/native encodings. Rebuilt Raven execution
+returns 42; this migration introduces no bridge representation or semantic changes.

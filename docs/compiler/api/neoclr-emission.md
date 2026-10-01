@@ -308,3 +308,9 @@ Direct nongeneric interface types and abstract contract methods now work in the 
 API and execute through existing interface implementation/CallVirtual helpers (42).
 The rebuilt Raven external-signature probe also passes. Relationship definitions and
 canonical bodies remain pending; target admission and Runtime Contract are unchanged.
+
+Interface relationships and method-body instruction/local/label storage now belong to
+metadata definitions. Existing builders retain compatible handles and use that storage;
+Raven required no source changes. The rebuilt external-signature native probe still
+returns 42. Arbitrary instruction editing, remaining property/generic migration and loaded
+body decoding remain pending; Runtime Contract and compiler admission are unchanged.
