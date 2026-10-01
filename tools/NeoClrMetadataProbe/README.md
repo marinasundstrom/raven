@@ -449,3 +449,18 @@ and ArrayList without replacing their native dependencies.
 unchanged Comparer, EqualityComparer, Disposable and Iterator files, checks interface metadata on CLI/native
 projection and verifies/loads both file orders. Its independent entry returns 42;
 this command deliberately makes no interface-dispatch claim.
+
+### Native-profile vector library boundary
+
+```sh
+dotnet run --project tools/NeoClrMetadataProbe -p:WarningLevel=0 \
+  -p:NeoClrMetadataProject=/absolute/neoclr/tools/metadata/NeoCLR.Metadata.Experimental/NeoCLR.Metadata.Experimental.csproj \
+  -- --vector-library-runtime /absolute/neoclr /tmp/fresh-vector-output /absolute/neoclr/target/release/neoclr
+```
+
+Emits independent Raven library/application binaries with the neoCLR declaration
+core, verifies and executes the pair (42), and records core/runtime/image hashes.
+Checks static Int32/Int64/Boolean/String vector overloads, returned array aliasing,
+mutation, void calls, iteration and transactional rejection of missing dependency
+bindings or incompatible vector overloads. No host core or CLI body importer is used.
+Symbols still use projected CLI declarations; nominal/generic imports remain deferred.

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Match imported static primitive-vector signatures through the shared callable contract for direct neoCLR emission. A separately emitted native-profile library/application pair verifies and returns 42, exercising four array overloads, alias mutation and void calls. Missing bindings or mismatched vector signatures reject without writing output; nominal/generic dependencies remain unsupported. Default .NET codegen is unchanged.
+
 - **2026-10-01:** Add a single-sample readiness probe so compiler fixes can be checked against unchanged applications without rerunning the whole library inventory. The collections sample now passes CLI emission and legacy import after the union-case binding correction; direct native emission identifies imported Register signatures as the next gap.
 
 - **2026-10-01:** Consume independent main fix 46491585e: contextual argument typing now distinguishes concrete union cases, so None carrier construction retains the correct constructor. Sixteen Debug/Release/order/syntax cases and 323 surrounding tests pass on the shared line; no backend workaround or Runtime Contract change.

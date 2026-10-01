@@ -2649,3 +2649,28 @@ dotnet tools/NeoClrMetadataProbe/bin/Debug/net10.0/NeoClrMetadataProbe.dll \
 The report identifies its selection and records independent direct-emission and CLI
 control results. The historical full inventory is preserved. A successful report
 process does not imply successful direct emission; inspect its recorded diagnostics.
+
+## Primitive-vector library/application boundary (2026-10-01)
+
+The direct metadata adapter matches static nongeneric primitive and primitive-vector
+signatures through the shared CallableSignature representation. It admits Int32,
+Int64, Boolean and String vectors in parameters/results and retains exact overload
+matching. Target checks reject nominal/generic dependency contracts explicitly;
+no Reflection.Emit or ordinary .NET codegen behavior changes.
+
+Configuration remains CompilationOptions.NeoCLR with the matching NeoCLR.CoreProbe
+CLI declaration reference, explicit core identity and NeoClrMetadataDependency
+bindings. The independent metadata API owns the standard SZARRAY encoding and
+external references; Raven owns symbol matching and target capability checks.
+Symbols still come through the temporary CLI declaration projection. Native semantic
+data loading must replace that projection later; it cannot represent every future
+neoCLR category and is not the executable image. Both emitted implementation binaries
+are loaded directly by neoCLR, without a CLI-to-JSON body translation.
+
+The C# VectorLibraryChecks probe emits the library and app separately, verifies and
+runs them with the real neoCLR profile (result 42), checks array alias mutation across
+calls and all four element overloads, and rejects absent dependency registration or
+an incompatible overload snapshot without touching output. See
+[recorded validation](../../tools/NeoClrMetadataProbe/vector-library-validation.json).
+This is feature-branch evidence on codex/metadata-consumer and neoCLR
+codex/extended-cli-metadata; imported generic collections remain pending.

@@ -342,11 +342,18 @@ internal static class Int32Emitter
 
         static bool MatchesSignature(MethodDefinition method, IMethodSymbol symbol)
         {
-            if (!method.TryGetStaticPrimitiveSignature(out var metadata) ||
-                !PrimitiveCallableSignature.TryCreate(symbol, out var signature)) return false;
-            var expected = NeoClrCallableDefinitionBuilder.ToMetadata(signature);
+            if (!symbol.IsStatic || symbol.IsGenericMethod ||
+                !method.TryGetStaticValueSignature(out var metadata) ||
+                !CallableSignature.TryCreate(symbol, out var signature) ||
+                !IsImportedValue(signature.ReturnType) || !signature.ParameterTypes.All(IsImportedValue)) return false;
+            var expected = new MethodSignature(Map(signature.ReturnType), signature.ParameterTypes.Select(Map));
             return metadata!.ReturnType == expected.ReturnType &&
                 metadata.ParameterTypes.SequenceEqual(expected.ParameterTypes);
+
+            static bool IsImportedValue(EmissionType type) => type.Primitive is not null ||
+                type.Array is { } array && CallableSignature.TryType(array.ElementType, false, out var element) && element.Primitive is not null;
+            static SignatureType Map(EmissionType type) => NeoClrTypeMapper.Map(type,
+                _ => throw new InvalidOperationException("imported nominal signatures require a separate contract"));
         }
 
         static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType == SpecialType.System_Int32;

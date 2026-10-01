@@ -1,0 +1,34 @@
+{
+  "bindingProfile": "CompilationOptions.NeoCLR; projected CLI declarations; no host core",
+  "coreSha256": "48480EAB560AD928F0B92F7914CC403904B89F045357D2A8AE6AC2C53EF02063",
+  "runtimeSha256": "193B7F995EE4FC92A086439FB1FDBDAFC3A0C58139F0CAF30CB4A2D8640A432D",
+  "librarySha256": "E33EB025D04C27253D2663B935EEB9673CAB97A55B76F7D8D852D0F5D5B4FC93",
+  "applicationSha256": "CAADF443870610F31D873FE7A1AC0FDB39FA392195D7363B6D2CBB242D592B3D",
+  "verified": true,
+  "result": 42,
+  "coverage": [
+    "separate Raven library and application",
+    "Int32/Int64/Boolean/String vector overloads",
+    "returned array alias mutation",
+    "void external call",
+    "array iteration",
+    "unregistered dependency rejection",
+    "mismatched vector overload rejection"
+  ],
+  "scope": "static nongeneric primitive/vector imports; nominal/generic dependencies remain unsupported",
+  "testedBranches": {
+    "raven": "codex/metadata-consumer",
+    "neoclr": "codex/extended-cli-metadata"
+  },
+  "sourceBaseRevisions": {
+    "raven": "398ebe2c1",
+    "neoclr": "b80b297c"
+  },
+  "sourceState": "plus primitive-vector import changes committed with this evidence",
+  "metadataTests": "70/70 C# groups, including separate CLR images for all four vector element types",
+  "apiSnapshotCheck": "passed",
+  "sourceSha256": {
+    "src/Raven.CodeAnalysis.NeoClr/Int32Emitter.cs": "ba51898a62c42aa652ac1823271d4490907352753f7d03f9ae0f3da2f21bbc9e",
+    "tools/NeoClrMetadataProbe/VectorLibraryChecks.cs": "8c5ac934cdb7a0a6c51233e2d293b58aa8a4fc80a2902373768f6a5eb7888b79"
+  }
+}

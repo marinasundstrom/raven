@@ -16,6 +16,12 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args.Length == 4 && args[0] == "--vector-library-runtime")
+{
+    await VectorLibraryChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
 if (args.Length == 5 && args[0] == "--readiness-sample")
 {
     await ReadinessInventory.Run(args[1], args[2], args[3], args[4]);
