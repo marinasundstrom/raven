@@ -1874,3 +1874,23 @@ compiler tests pass, including independent Release/Debug alias execution and a p
 that admits root declarations but denies nominal locals. Existing native emission
 regression probes pass. The full consumer's dependency frontier is unchanged.
 [Updated evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).
+
+
+## Ordinary instance calls — 2026-10-01
+
+Shared lowering now admits ordinary nonvirtual source instance calls, using the same
+symbol reference table and InstanceCall adapter contract as accessors. It evaluates
+the receiver once before arguments and preserves left-to-right argument evaluation.
+Implicit self calls, private methods, nested calls, primitive results and no-result
+methods use existing instance signatures. .NET retains callvirt receiver checking;
+the admitted native receiver set is still constructed objects, self and owned locals.
+Virtual dispatch, nullable receivers, imported instance methods and nominal signatures
+remain outside this bounded path. There are no Runtime Contract or metadata schema
+changes, and .NET fallback for other calls remains intact.
+
+The Order executable probe now adds an independent Counter helper to test private
+nested calls, Unit mutation and argument side effects on the same receiver. The Order
+source remains unchanged, and no native library dependency is stubbed. Both file orders
+return 42 on .NET and binary neoCLR. 56 focused C# tests pass (54 baseline), including
+Release/Debug instance-call behavior; existing native emission probes pass. The next
+larger contract is nominal parameters/results before generic consumer coverage.

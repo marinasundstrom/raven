@@ -426,17 +426,20 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (binary.Operator.OperatorKind is OperatorKind.Inequality or OperatorKind.LessThanOrEqual or OperatorKind.GreaterThanOrEqual)
                         Add(LinearInstructionKind.Not, Syntax(expression));
                     return true;
-                case BoundInvocationExpression call when call.Method.IsStatic && call.Receiver is null or BoundTypeExpression && call.ExtensionReceiver is null:
+                case BoundInvocationExpression call when call.ExtensionReceiver is null &&
+                    (call.Method.IsStatic && call.Receiver is null or BoundTypeExpression ||
+                     call.Method.MethodKind == MethodKind.Ordinary && SupportedInstanceCall(call.Method)):
                     if (!PrimitiveCallableSignature.TryCreate(call.Method, out var callSignature)) return Reject("only nongeneric Int32/Int64/Boolean/String parameters and Int32/Int64/Boolean/String/Unit results: " + call.Method.Name, Syntax(expression));
                     if (capabilities is not null && !capabilities.Allows(callSignature))
                         return Reject("target does not support call signature types", Syntax(expression));
                     var arguments = call.Arguments.ToArray();
                     if (arguments.Length != call.Method.Parameters.Length) return Reject("optional/expanded arguments", Syntax(expression));
+                    if (!call.Method.IsStatic && !Receiver(call.Receiver, call.Method.ContainingType!, Syntax(expression))) return false;
                     foreach (var argument in arguments)
                     {
                         if (!LowerValue(argument)) return false;
                     }
-                    Add(LinearInstructionKind.Call, Syntax(expression), method: call.Method);
+                    Add(call.Method.IsStatic ? LinearInstructionKind.Call : LinearInstructionKind.InstanceCall, Syntax(expression), method: call.Method);
                     return true;
                 default: return Reject("lowered expression " + expression.GetType().Name, Syntax(expression));
             }

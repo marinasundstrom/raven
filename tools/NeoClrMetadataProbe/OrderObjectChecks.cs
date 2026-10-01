@@ -23,6 +23,22 @@ internal static class OrderObjectChecks
         if (declaration.Parent is not CompilationUnitSyntax) throw new InvalidDataException("Order namespace selection needs updating");
         var order = declaration.ToFullString();
         const string consumer = """
+            class Counter {
+                var Number: int
+                init(number: int) { Number = number }
+                public func Next() -> int {
+                    let previous = Number
+                    Number = Add(Number, 1)
+                    return previous
+                }
+                private func Add(left: int, right: int) -> int => left + right
+                public func Combine(left: int, right: int) -> int => left * 10 + right
+                public func Reset(number: int) { Number = number }
+                public func Increment(amount: int) -> int {
+                    Number = Add(Number, amount)
+                    return Number
+                }
+            }
             func Main() -> int {
                 if !Order(1, true).Pending { return 1 }
                 if Order(2, false).Pending { return 2 }
@@ -33,6 +49,11 @@ internal static class OrderObjectChecks
                 alias.Number = 42
                 alias.Pending = false
                 if original.Pending { return 5 }
+                let counter = Counter(1)
+                if counter.Combine(counter.Next(), counter.Next()) != 12 { return 6 }
+                if counter.Number != 3 { return 7 }
+                counter.Reset(40)
+                if counter.Increment(2) != original.Number { return 8 }
                 return original.Number
             }
             """;
@@ -88,6 +109,8 @@ internal static class OrderObjectChecks
         {
             source = Path.GetFileName(sourcePath),
             sourceSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(original))),
+            consumerSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(consumer))),
+            runtimeSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(runtime))),
             selectedSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(order))),
             sourceOrders = 2,
             cliResult = 42,
@@ -95,6 +118,7 @@ internal static class OrderObjectChecks
             nativeVerify = true,
             fullConsumer = false,
             nominalLocalsAndAliasing = true,
+            ordinaryInstanceCalls = true,
             rejectedIncompleteContracts = 3
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");
