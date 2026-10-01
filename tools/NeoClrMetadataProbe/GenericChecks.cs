@@ -27,6 +27,22 @@ internal static class GenericChecks
                 return copy
             }
             func Forward<U>(value: U) -> U => Identity<U>(value)
+            func Single<T>(value: T) -> T[] {
+                let values: T[] = [value]
+                return values
+            }
+            func Repeat<T>(value: T, count: int) -> T {
+                if count == 0 { return value }
+                return Repeat<T>(value, count - 1)
+            }
+            func Last<T>(values: T[]) -> T {
+                var last = values[0]
+                for value in values { last = value }
+                return last
+            }
+            func Choose<T>(flag: bool, first: T, second: T) -> T => if flag { first } else { second }
+            func Select<T>(value: T) -> T => value
+            func Select<T, U>(value: T, ignored: U) -> T => value
             class Helpers {
                 static func First<T>(values: T[]) -> T => values[0]
             }
@@ -34,8 +50,17 @@ internal static class GenericChecks
                 if Forward<long>(5000000000L) != 5000000000L { return 1 }
                 if !Forward<bool>(true) { return 2 }
                 let values: Order[] = [Order(41, true)]
-                let alias = Forward<Order>(Helpers.First<Order>(values))
-                alias.Number = 42
+                let alias = Repeat(Forward(Helpers.First<Order>(values)), 3)
+                let copies = Single(alias)
+                copies[0].Number = 40
+                if values[0].Number != 40 { return 3 }
+                let wide: long[] = [1L, 5000000000L]
+                if Last(wide) != 5000000000L { return 4 }
+                let selected = Select<Order, long>(Select(alias), 1L)
+                selected.Number = 41
+                if values[0].Number != 41 { return 5 }
+                let picked = Choose(false, Order(1, false), alias)
+                picked.Number = 42
                 return Identity<int>(values[0].Number)
             }
             """;
@@ -69,6 +94,25 @@ internal static class GenericChecks
             if (!emitted.Success) throw new Exception(string.Join("\n", emitted.Diagnostics));
             if (!Equals(Assembly.Load(cli.ToArray()).EntryPoint!.Invoke(null, null), 42)) throw new Exception("CLI generic result mismatch");
         }
+        var rejectedContracts = 0;
+        foreach (var unsupported in new[] {
+            "class Box<T> { }",
+            "class Instance { func Identity<T>(value: T) -> T => value }",
+            "func Restricted<T>(value: T) -> T where T: class => value",
+            "func Marker<T>() -> int => 42\nfunc Use() -> int => Marker<System.DateTime>()",
+            "func Identity<T>(value: T) -> T => value\nfunc Use(values: int[][]) -> int[][] => Identity(values)"
+        })
+        {
+            var compilation = Compilation.Create("UnsupportedGeneric", [SyntaxTree.ParseText(unsupported, path: "Unsupported.rvn")], references,
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            if (errors.Length != 0) throw new Exception("rejection fixture must bind: " + string.Join("; ", errors.Select(d => d.ToString())));
+            using var image = new MemoryStream();
+            var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image, new(new("UnsupportedGeneric", new Version(1, 0, 0, 0)), core, []));
+            if (result.Success || image.Length != 0 || !result.Diagnostics.Any(d => d.Id == "NEOMETA001" && d.Location.IsInSource))
+                throw new Exception("unsupported generic requires source diagnostic and no output: " + string.Join("; ", result.Diagnostics));
+            rejectedContracts++;
+        }
         File.WriteAllText(Path.Combine(output, "Order.rvn"), order);
         File.WriteAllText(Path.Combine(output, "Main.rvn"), consumer);
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
@@ -88,7 +132,14 @@ internal static class GenericChecks
             forwardedParameters = true,
             genericLocals = true,
             genericArrayAccess = true,
-            objectAliasing = true
+            objectAliasing = true,
+            inferredCalls = true,
+            recursiveGenericCalls = true,
+            genericArrayCreation = true,
+            genericArrayIteration = true,
+            multipleParametersAndOverloads = true,
+            genericConditionalValues = true,
+            rejectedContracts
 
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS generic Order consumer on CLI/native in both source orders: 42");

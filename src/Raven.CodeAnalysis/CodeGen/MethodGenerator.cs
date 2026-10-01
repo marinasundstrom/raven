@@ -161,6 +161,8 @@ internal class MethodGenerator
 
                     MethodBase = methodBuilder;
                 }
+                // Generic declarations use the registration below before resolving their signatures;
+                // their bodies can still use the shared target-neutral plan.
                 else if (_lambdaClosure is null && !MethodSymbol.IsExtern && !MethodSymbol.IsGenericMethod &&
                     MethodSymbol.MethodKind is (MethodKind.Ordinary or MethodKind.Function) &&
                     TypeGenerator.GetExtensionTypeParameters().IsDefaultOrEmpty &&

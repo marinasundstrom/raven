@@ -355,8 +355,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!block.LocalsToDispose.IsEmpty) return Reject("value block scope disposal", Syntax(block));
                     var statements = block.Statements.ToImmutableArray();
                     if (statements.IsEmpty || statements[^1] is not BoundExpressionStatement { Expression: var result } ||
-                        !EmissionPrimitiveTypes.TryGetValueType(result.Type, out _))
-                        return Reject("value block requires a trailing primitive expression", Syntax(block));
+                        !CallableSignature.TryType(result.Type, false, out var blockType) ||
+                        capabilities is not null && !capabilities.Allows(blockType))
+                        return Reject("value block requires a supported trailing value expression", Syntax(block));
                     // A value block may be evaluated with earlier operands still on the
                     // stack. Exits must not bypass that enclosing expression's completion.
                     var controlFlow = statements.Take(statements.Length - 1).SelectMany(WalkStatements).ToArray();
@@ -374,9 +375,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return LowerValue(result);
                 case BoundIfExpression conditional when conditional.ElseBranch is not null &&
                     conditional.Condition.Type.SpecialType == SpecialType.System_Boolean &&
-                    EmissionPrimitiveTypes.TryGetValueType(conditional.Type, out var conditionalType) &&
-                    EmissionPrimitiveTypes.TryGetValueType(conditional.ThenBranch.Type, out var thenType) && thenType == conditionalType &&
-                    EmissionPrimitiveTypes.TryGetValueType(conditional.ElseBranch.Type, out var elseType) && elseType == conditionalType:
+                    CallableSignature.TryType(conditional.Type, false, out var conditionalType) &&
+                    (capabilities is null || capabilities.Allows(conditionalType)) &&
+                    SymbolEqualityComparer.Default.Equals(conditional.ThenBranch.Type, conditional.Type) &&
+                    SymbolEqualityComparer.Default.Equals(conditional.ElseBranch.Type, conditional.Type):
                     if (!LowerValue(conditional.Condition)) return false;
                     var alternative = nextLabel++;
                     var joined = nextLabel++;
@@ -499,7 +501,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     (call.Method.IsStatic && call.Receiver is null or BoundTypeExpression ||
                      call.Method.MethodKind == MethodKind.Ordinary && SupportedInstanceCall(call.Method)):
                     if (!CallableSignature.TryCreate(call.Method, out var callSignature)) return Reject("only supported value signatures and unconstrained static generics (Unit only as result): " + call.Method.Name, Syntax(expression));
-                    if (capabilities is not null && !capabilities.Allows(callSignature))
+                    if (capabilities is not null && (!capabilities.Allows(callSignature) ||
+                        call.Method.TypeArguments.Any(t => !CallableSignature.TryType(t, false, out var argumentType) || !capabilities.Allows(argumentType))))
                         return Reject("target does not support call signature types", Syntax(expression));
                     var arguments = call.Arguments.ToArray();
                     if (arguments.Length != call.Method.Parameters.Length) return Reject("optional/expanded arguments", Syntax(expression));

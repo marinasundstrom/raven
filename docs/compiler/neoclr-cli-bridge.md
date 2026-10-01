@@ -2268,3 +2268,14 @@ both targets in both source orders (42). Use the matching metadata API/runtime b
 `codex/extended-cli-metadata`, including generic static class-method admission; Raven
 support here is on `codex/metadata-consumer`. C# shared-plan tests exercise Release/Debug
 execution and capability denial; reference emission regressions remain covered.
+
+The expanded generic probe also checks inference, recursive calls, two generic parameters,
+overloads, typed vector construction and iteration, conditional values and retained
+object aliases. Shared value blocks and conditional joins admit exact supported value
+types; explicit generic arguments require their own target type capabilities even when
+absent from parameters/results. Binding-valid generic types, instance generics,
+constraints, unsupported argument types and nested vectors reject with NEOMETA001
+source diagnostics and no output. [Generic execution evidence](../../tools/NeoClrMetadataProbe/generic-runtime-validation.json)
+records runtime/source hashes and both source orders; the full original collection
+consumer is not yet supported. Validation: 46 focused shared-generic, shared-linear and
+reference-emission C# cases; metadata/native validation is recorded in neoCLR.

@@ -18,13 +18,14 @@ public class SharedGenericBodyTests
                 return copy
             }
             func Forward<U>(value: U) -> U => Identity<U>(value)
+            func Choose<T>(flag: bool, first: T, second: T) -> T => if flag { first } else { second }
             class Helpers {
                 static func First<T>(values: T[]) -> T => values[0]
             }
             func Main() -> int {
                 let values: int[] = [42]
                 if Forward<long>(5000000000L) != 5000000000L { return 1 }
-                return Forward<int>(Helpers.First<int>(values))
+                return Choose(false, 1, Forward<int>(Helpers.First<int>(values)))
             }
             """);
         var compilation = Compilation.Create("SharedGenerics", [tree], TestMetadataReferences.Default,
@@ -49,5 +50,24 @@ public class SharedGenericBodyTests
         var result = compilation.Emit(image);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         Assert.Equal(42, Assembly.Load(image.ToArray()).EntryPoint!.Invoke(null, null));
+    }
+    [Fact]
+    public void GenericArgumentsRequireCapabilitiesEvenWhenAbsentFromSignature()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Marker<T>() -> int => 42
+            func Main() -> int => Marker<int[]>()
+            """);
+        var compilation = Compilation.Create("GenericCapabilities", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Last();
+        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var noArrays = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), [Accessibility.Internal, Accessibility.Public],
+            [Accessibility.Public], [Accessibility.Internal], allowsGenericMethods: true);
+        Assert.True(SourceCallablePlan.TryCreate(method, out var plan, noArrays));
+        Assert.False(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, noArrays));
+        Assert.Contains("call signature", failure!.Detail);
     }
 }
