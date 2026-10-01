@@ -42,6 +42,9 @@ internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
             case LinearInstructionKind.Multiply: method.Emit(OpCode.Mul); break;
             case LinearInstructionKind.Divide: method.Emit(OpCode.Div); break;
             case LinearInstructionKind.Remainder: method.Emit(OpCode.Rem); break;
+            case LinearInstructionKind.BitwiseAnd: method.Emit(OpCode.And); break;
+            case LinearInstructionKind.BitwiseOr: method.Emit(OpCode.Or); break;
+            case LinearInstructionKind.BitwiseXor: method.Emit(OpCode.Xor); break;
             case LinearInstructionKind.Call: emitCall(instruction, method); break;
             case LinearInstructionKind.String: method.Emit(OpCode.Ldstr, instruction.Text!); break;
             case LinearInstructionKind.ConsoleWrite: method.WriteConsoleLine(); break;

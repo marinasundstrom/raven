@@ -1478,3 +1478,18 @@ emission and Debug fallback. All 42 independent metadata C# contract groups pass
 The binary runtime/rvnc probe passes both result programs and eight Int32/Int64
 zero/overflow fault programs across division and remainder. Every faulting native
 assembly first passes verification, then faults during execution as intended.
+
+
+### Integer bitwise emission — 2026-10-01
+
+The shared lowered-body planner and both backend profiles now admit matching Int32/
+Int64 AND, OR and XOR. Each adapter selects its existing instruction encoding; no
+Runtime Contract configuration, binder rule or signature format changes. The separate
+metadata library adds And/Or/Xor opcodes and BitwiseAnd/BitwiseOr/BitwiseXor helpers,
+with typed stack validation. Negative values retain their fixed-width bit patterns.
+Boolean/enum bitwise operations remain outside the bounded native producer; .NET's
+general path retains its existing support. The CLI projection/#Neo bridge is unchanged.
+
+Validation: 41 focused shared-body/capability tests, 43 independent C# metadata
+contract groups and the full binary native/rvnc probe pass. The paired bitwise case
+covers all three operators at both widths, sign bits and wide values.

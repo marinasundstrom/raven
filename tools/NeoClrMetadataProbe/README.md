@@ -271,3 +271,5 @@ Native division is now supported; unsupported shift diagnostics preserve the out
 
 Signed remainder also executes on both backends with dividend-sign cases, wide values,
 zero divisors and minimum/-1 faults (the CLR edge result is host-specific).
+
+Int32/Int64 bitwise AND/OR/XOR execute through shared lowering on both targets, including sign bits and values wider than Int32.

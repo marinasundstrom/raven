@@ -2625,3 +2625,14 @@ zero divisors fault. Native minimum/-1 faults match the tested CLR; that CLR edg
 platform-sensitive and universal host equivalence is not asserted. The .NET Debug
 fallback remains tested. Unsigned/floating arithmetic, exceptions and broader metadata
 loading remain future work. CLI reference projection/#Neo limitations are unchanged.
+
+
+### Integer bitwise emission — 2026-10-01
+
+The shared lowered-body planner and both backend profiles now admit matching Int32/
+Int64 AND, OR and XOR. Each adapter selects its existing instruction encoding; no
+Runtime Contract configuration, binder rule or signature format changes. The separate
+metadata library adds And/Or/Xor opcodes and BitwiseAnd/BitwiseOr/BitwiseXor helpers,
+with typed stack validation. Negative values retain their fixed-width bit patterns.
+Boolean/enum bitwise operations remain outside the bounded native producer; .NET's
+general path retains its existing support. The CLI projection/#Neo bridge is unchanged.

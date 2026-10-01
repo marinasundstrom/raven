@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0);
@@ -261,6 +261,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                       binary.Operator.RightType.SpecialType == SpecialType.System_Boolean &&
                       binary.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality)):
                     if (binary.Operator.OperatorKind is not (OperatorKind.Addition or OperatorKind.Subtraction or OperatorKind.Multiplication or OperatorKind.Division or OperatorKind.Modulo or
+                        OperatorKind.BitwiseAnd or OperatorKind.BitwiseOr or OperatorKind.BitwiseXor or
                         OperatorKind.Equality or OperatorKind.LessThan or OperatorKind.GreaterThan or
                         OperatorKind.Inequality or OperatorKind.LessThanOrEqual or OperatorKind.GreaterThanOrEqual))
                         return Reject("binary operator " + binary.Operator.OperatorKind, Syntax(expression));
@@ -272,6 +273,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         OperatorKind.Multiplication => LinearInstructionKind.Multiply,
                         OperatorKind.Division => LinearInstructionKind.Divide,
                         OperatorKind.Modulo => LinearInstructionKind.Remainder,
+                        OperatorKind.BitwiseAnd => LinearInstructionKind.BitwiseAnd,
+                        OperatorKind.BitwiseOr => LinearInstructionKind.BitwiseOr,
+                        OperatorKind.BitwiseXor => LinearInstructionKind.BitwiseXor,
                         OperatorKind.Equality or OperatorKind.Inequality => LinearInstructionKind.Equal,
                         OperatorKind.LessThan or OperatorKind.GreaterThanOrEqual => LinearInstructionKind.Less,
                         _ => LinearInstructionKind.Greater

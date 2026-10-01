@@ -32,6 +32,28 @@ public class EmissionCapabilityTests
         Assert.IsType<OverflowException>(Assert.Throws<TargetInvocationException>(() => type.GetMethod("Wide")!.Invoke(null, [long.MinValue, -1L])).InnerException);
     }
 
+    [Theory]
+    [InlineData("&", 40)]
+    [InlineData("|", 63)]
+    [InlineData("^", 23)]
+    public void IntegerBitwiseBodiesUseSharedPlan(string operation, int expected)
+    {
+        var compilation = Create($$"""
+            public static class Bits {
+                public static func Narrow(a: int, b: int) -> int { a {{operation}} b }
+                public static func Wide(a: long, b: long) -> long { a {{operation}} b }
+            }
+            """);
+        foreach (var method in Methods(compilation))
+            Assert.True(Lower(compilation, method, ReflectionEmitCapabilities.Shared, out _, out var failure), failure?.Detail);
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var type = Assembly.Load(output.ToArray()).GetType("Bits")!;
+        Assert.Equal(expected, type.GetMethod("Narrow")!.Invoke(null, [63, 40]));
+        Assert.Equal((long)expected, type.GetMethod("Wide")!.Invoke(null, [63L, 40L]));
+    }
+
     [Fact]
     public void RestrictedInstructionProfileRejectsBeforeReturningAPlan()
     {

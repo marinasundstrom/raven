@@ -273,6 +273,23 @@ internal static class SharedLoweringChecks
                 public static func Positive(value: int) -> int { return +value }
             }
             """, "", 42);
+        await RunCase("SharedBitwise", """
+            func Main() -> int {
+                if And32(-1, 42) != 42 { return 1 }
+                if Or32(-2147483647 - 1, 42) != (-2147483647 - 1 + 42) { return 2 }
+                if Xor32(-1, 0) != -1 { return 3 }
+                if And64(-1L, 4294967296L) != 4294967296L { return 4 }
+                if Or64(4294967296L, 42L) != 4294967338L { return 5 }
+                if Xor64(-1L, -1L) != 0L { return 6 }
+                return Xor32(And32(63, 40), Or32(0, 2))
+            }
+            func And32(a: int, b: int) -> int { a & b }
+            func Or32(a: int, b: int) -> int { a | b }
+            func Xor32(a: int, b: int) -> int { a ^ b }
+            func And64(a: long, b: long) -> long { a & b }
+            func Or64(a: long, b: long) -> long { a | b }
+            func Xor64(a: long, b: long) -> long { a ^ b }
+            """, "", 42);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
         Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 

@@ -80,6 +80,9 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
             case LinearInstructionKind.Subtract: output.Emit(OpCodes.Sub); break;
             case LinearInstructionKind.Divide: output.Emit(OpCodes.Div); break;
             case LinearInstructionKind.Remainder: output.Emit(OpCodes.Rem); break;
+            case LinearInstructionKind.BitwiseAnd: output.Emit(OpCodes.And); break;
+            case LinearInstructionKind.BitwiseOr: output.Emit(OpCodes.Or); break;
+            case LinearInstructionKind.BitwiseXor: output.Emit(OpCodes.Xor); break;
             case LinearInstructionKind.Multiply: output.Emit(OpCodes.Mul); break;
             case LinearInstructionKind.String: output.Emit(OpCodes.Ldstr, instruction.Text!); break;
             case LinearInstructionKind.ConsoleWrite:
