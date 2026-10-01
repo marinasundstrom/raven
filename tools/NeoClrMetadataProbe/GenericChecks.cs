@@ -103,6 +103,11 @@ internal static class GenericChecks
                 val Trace: int => trace
                 val Total: int => destination[0].Number + destination[1].Number
             }
+            class Restricted<Element> where Element: Order {
+                private var stored: Element
+                init(value: Element) { stored = value }
+                val Value: Element => stored
+            }
             class GenericSlot<Key, Element> {
                 private var stored: Element
                 init(value: Element) { stored = value }
@@ -184,6 +189,8 @@ internal static class GenericChecks
                 if box.Echo<long>(5000000000L) != 5000000000L { return 18 }
                 box[0].Number = 42
                 if box.Value.Number != 42 { return 20 }
+                let restricted = Restricted<Order>(box.Value)
+                if restricted.Value.Number != 42 { return 22 }
                 let slot = GenericSlot<long, Order>(box.Value)
                 slot[5000000000L] = box.Value
                 if slot[5000000000L].Number != 42 { return 21 }
@@ -307,6 +314,7 @@ internal static class GenericChecks
             genericInstanceOwners = true,
             genericInstanceFields = true,
             constructedFieldReferences = true,
+            nominalTypeConstraints = true,
             genericPropertiesAndIndexers = true,
             independentGenericIndexAndValue = true,
             reorderedOwnerArguments = true,

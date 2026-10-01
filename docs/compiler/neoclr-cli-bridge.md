@@ -2409,3 +2409,14 @@ indices operate on the exact constructed receiver. No Runtime Contract or schema
 C# tests and the binary consumer exercise public generic storage from outside its type
 on .NET/native. Cross-assembly field imports remain unsupported. Matching field producer
 on neoCLR codex/extended-cli-metadata and Raven codex/metadata-consumer required.
+
+Nominal type bounds (development): a source owner parameter may have one owned
+nongeneric root-class bound. Shared SourceTypePlan/signature capabilities retain the
+contract; the native adapter declares all types before mapping bounds, preserving source
+order independence. CLI GenericParamConstraint and native TypeBound agree on this
+subset. No Runtime Contract or schema change. C# Release/Debug tests check emitted
+bounds and invalid binding; the Order binary consumer verifies/runs 42 on both runtimes
+and in both source orders. Open constrained member dispatch, interface/dependent bounds,
+method bounds and class/struct/new/nullability flags remain separate work. Ordinary .NET
+constraint behavior remains available through its general paths. Matching constrained
+metadata producer/reader on neoCLR codex/extended-cli-metadata is required.

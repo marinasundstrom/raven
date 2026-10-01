@@ -14,7 +14,7 @@ internal sealed class EmissionCapabilities(
     IEnumerable<Accessibility>? typeVisibilities = null,
     IEnumerable<Accessibility>? methodVisibilities = null,
     IEnumerable<Accessibility>? functionVisibilities = null,
-    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false, bool allowsGenericStaticOwners = false, bool allowsGenericClassOwners = false, bool allowsConstructedFieldReferences = false)
+    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false, bool allowsGenericStaticOwners = false, bool allowsGenericClassOwners = false, bool allowsConstructedFieldReferences = false, bool allowsNominalTypeBounds = false)
 {
     private readonly ImmutableHashSet<EmissionPrimitiveType> types = types.ToImmutableHashSet();
     private readonly ImmutableHashSet<LinearInstructionKind> instructions = instructions.ToImmutableHashSet();
@@ -27,6 +27,7 @@ internal sealed class EmissionCapabilities(
 
     private readonly ImmutableHashSet<Accessibility> functionVisibilities = (functionVisibilities ?? []).ToImmutableHashSet();
 
+    internal bool AllowsNominalTypeBounds { get; } = allowsNominalTypeBounds;
     internal bool AllowsGenericClassOwners { get; } = allowsGenericClassOwners;
     internal bool AllowsConstructedFieldReferences { get; } = allowsConstructedFieldReferences;
     internal bool AllowsGenericStaticOwners { get; } = allowsGenericStaticOwners;
@@ -56,10 +57,10 @@ internal sealed class EmissionCapabilities(
             return parameter.DeclaringTypeParameterOwner!.IsStatic ? AllowsGenericStaticOwners : AllowsGenericClassOwners;
         if (type.MethodParameter is not null) return AllowsGenericMethods;
         if (type.Class is not { } owner || !AllowsRootClassSignatures) return false;
-        return owner.Arity == 0 || AllowsGenericClassOwners && owner.TypeArguments.All(t =>
+        return owner.Arity == 0 || AllowsGenericClassOwners && SourceTypePlan.TryCreate(owner, out _, this) && owner.TypeArguments.All(t =>
             CallableSignature.TryType(t, false, out var argument) && Allows(argument));
     }
-    internal bool Allows(CallableSignature signature) => (signature.DeclaringTypeArity == 0 || (signature.DeclaringTypeIsStatic ? AllowsGenericStaticOwners : AllowsGenericClassOwners)) && (signature.GenericParameterNames.IsDefaultOrEmpty || AllowsGenericMethods && (!signature.IsInstance || AllowsGenericInstanceMethods)) && Allows(signature.ReturnType) && signature.ParameterTypes.All(Allows);
+    internal bool Allows(CallableSignature signature) => (!signature.HasTypeBounds || AllowsNominalTypeBounds) && (signature.DeclaringTypeArity == 0 || (signature.DeclaringTypeIsStatic ? AllowsGenericStaticOwners : AllowsGenericClassOwners)) && (signature.GenericParameterNames.IsDefaultOrEmpty || AllowsGenericMethods && (!signature.IsInstance || AllowsGenericInstanceMethods)) && Allows(signature.ReturnType) && signature.ParameterTypes.All(Allows);
     internal bool Allows(PrimitiveCallableSignature signature)
         => Allows(signature.ReturnType) && signature.ParameterTypes.All(Allows);
 }
