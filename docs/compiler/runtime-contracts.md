@@ -2531,3 +2531,13 @@ surrogates rather than replacing them. No cross-target interning guarantee is ma
 Validation covers C# metadata contracts, Debug/Release .NET text helpers, selected-core
 String signatures/locals, Unicode console output and an imported String overload
 from a separately compiled binary library. See tools/NeoClrMetadataProbe/validation.json.
+
+### Target-neutral metadata emission direction — 2026-10-01
+
+The compiler-owned abstraction should support both .NET and neoCLR through typed
+references/declarations and target adapters, with optional instruction/metadata
+capabilities exposed explicitly. Neither Reflection.Emit handles nor native metadata
+builders should become the general shared contract. Current native artifact selection
+is still a backend override with hosted binding, not completed target composition.
+The author's renewed CLI compatibility and later codegen-performance requirements
+are recorded in the native-target migration plan; no configuration changes are made.

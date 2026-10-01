@@ -6,9 +6,10 @@ call, while operators let suitable domain types use familiar expression syntax.
 
 Method, constructor, and accessor parameters are immutable by default. They
 behave like `let` bindings: the compiler rejects assignments that attempt to
-rebind the parameter name. Add the `var` modifier when a parameter must be
-reassigned inside the body—for example, to reuse a scratch variable or to
-satisfy an `out` contract.
+rebind an ordinary by-value parameter. Ordinary method/function parameters do not
+accept `val` or `var`; those binding keywords are reserved for primary-constructor
+property promotion. Copy an input into a mutable local when reassignment is needed.
+Use the by-reference modifiers below when mutation of caller storage is intended.
 
 ```raven
 func clamp(min: int, value: int, max: int) -> int {

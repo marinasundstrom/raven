@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Correct stale parameter documentation: ordinary by-value parameters
+  remain immutable and do not accept var/val. Record the shared target-neutral emission
+  direction, CLI compatibility gap and deferred phase/allocation performance measurements;
+  these architecture notes do not add a source feature or change target configuration.
+
 - **2026-10-01:** Carry String literals, parameters, results and initialized locals
   through shared .NET/native emission. Console text may now come from helper calls,
   including separately compiled native libraries. Preserve selected-core .NET types

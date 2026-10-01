@@ -1333,3 +1333,27 @@ surrogates rather than replacing them. No cross-target interning guarantee is ma
 Validation covers C# metadata contracts, Debug/Release .NET text helpers, selected-core
 String signatures/locals, Unicode console output and an imported String overload
 from a separately compiled binary library. See tools/NeoClrMetadataProbe/validation.json.
+
+## Target-neutral emission contract — 2026-10-01
+
+The author reaffirmed a shared abstraction that fits .NET and neoCLR without tying
+the compiler to either metadata implementation. Keep symbol-based type/member
+references, declaration plans and logical body operations in the compiler-owned
+layer; concrete handles, metadata encodings and instruction selection belong to
+target adapters. Additional instruction families and metadata categories should be
+exposed through explicit target capabilities, with unsupported output diagnosed
+before writing, rather than forcing one target's representation onto every backend.
+The existing primitive mapper, callable table and bounded body planner implement
+only part of this boundary; general declarations/types/fields and composable
+capabilities remain work to do. Ordinary .NET behavior remains the default.
+
+Standard CLI metadata and instructions remain the baseline for ordinary constructs,
+with explicit neoCLR extensions. The current native payload plus throwing CLI
+reference projection is a bridge, not interchangeable executable .NET/neoCLR
+artifacts; reconciling that representation remains open. Transport readability
+by .NET metadata tools does not establish executable compatibility.
+
+The follow-up metadata Starg operation is not a new Raven source feature. Ordinary
+parameters are immutable, and var/val modifiers outside primary-constructor promotion
+are rejected by the current binder. A stale parameter-spec paragraph was corrected
+to match those diagnostics. No compiler adapter or language workaround was added.

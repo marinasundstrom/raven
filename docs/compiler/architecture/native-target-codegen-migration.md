@@ -64,3 +64,39 @@ visitor. Full visitor convergence, synthesized methods, general locals/control f
 signatures and native target composition remain open. Debug/PDB and unsupported .NET
 bodies retain the established generator. This refactor is a shared-line candidate;
 validation on the consumer branch is not evidence of integration into main.
+
+## Target-neutral emission contract — 2026-10-01
+
+The author reaffirmed a shared abstraction that fits .NET and neoCLR without tying
+the compiler to either metadata implementation. Keep symbol-based type/member
+references, declaration plans and logical body operations in the compiler-owned
+layer; concrete handles, metadata encodings and instruction selection belong to
+target adapters. Additional instruction families and metadata categories should be
+exposed through explicit target capabilities, with unsupported output diagnosed
+before writing, rather than forcing one target's representation onto every backend.
+The existing primitive mapper, callable table and bounded body planner implement
+only part of this boundary; general declarations/types/fields and composable
+capabilities remain work to do. Ordinary .NET behavior remains the default.
+
+Standard CLI metadata and instructions remain the baseline for ordinary constructs,
+with explicit neoCLR extensions. The current native payload plus throwing CLI
+reference projection is a bridge, not interchangeable executable .NET/neoCLR
+artifacts; reconciling that representation remains open. Transport readability
+by .NET metadata tools does not establish executable compatibility.
+
+## Codegen performance follow-up — 2026-10-01
+
+The author asks that codegen performance remain a consideration, with a possible
+later revisit. Preserve per-emission identity caches and avoid repeated reference
+resolution or encoding in instruction loops. The current shared plan materializes
+instructions before opening backend bodies to preserve fail-before-output behavior;
+its allocation cost and duplicate work on unsupported .NET fallback bodies are not
+yet measured. Do not infer a speedup from introducing abstractions.
+
+A later benchmark should separate declaration collection, bound-body planning,
+reference resolution, encoding/PE serialization and total emit time, recording
+allocations and warm/cold runs for representative small applications and libraries.
+Compare the shared .NET path with its established generator and measure native
+projection/payload writing separately. Optimize observed costs while preserving
+diagnostics, selected-core binding and identical executable results. This is a
+recorded follow-up, not a new benchmark result or a reprioritization of correctness.
