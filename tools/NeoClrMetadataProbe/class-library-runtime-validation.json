@@ -1,0 +1,12 @@
+{
+  "source": "runtime/raven/src/System/Math/Functions.rvn",
+  "sourceSha256": "7C6B80A8C549C2B1C91735BB7A325AB75472D112E81AE913D77B916EA5E22DE0",
+  "selection": "original Int32 Min/Max/Sign declarations and System.Math namespace",
+  "result": 42,
+  "cases": 11,
+  "bothFileOrders": true,
+  "cliExecution": true,
+  "nativeBinaryExecution": true,
+  "runtimeSha256": "D39BDF478F418024FDAE1E5D16CBF11AD1CC89A77282FB03C2763F61F8FD3D6F",
+  "limitations": "host core primitive bootstrap; selected declarations only; no full class-library build or native symbol importer"
+}

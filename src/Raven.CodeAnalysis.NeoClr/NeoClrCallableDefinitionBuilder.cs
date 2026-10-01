@@ -17,7 +17,7 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
             _ => throw new InvalidOperationException("Unsupported native callable visibility")
         };
         return owner is null
-            ? assembly.AddFunction(metadataName, ToMetadata(plan.Signature), visibility)
+            ? assembly.AddFunction(plan.Namespace, metadataName, ToMetadata(plan.Signature), visibility)
             : owner.AddMethod(metadataName, ToMetadata(plan.Signature), visibility);
     }
     internal static PrimitiveMethodSignature ToMetadata(PrimitiveCallableSignature signature)

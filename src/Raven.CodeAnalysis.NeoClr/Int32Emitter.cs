@@ -31,8 +31,6 @@ internal static class Int32Emitter
                 if (member is GlobalStatementSyntax { Statement: FunctionStatementSyntax declaration })
                 {
                     diagnosticSyntax = declaration;
-                    if (member.Parent is not CompilationUnitSyntax)
-                        throw Unsupported("namespace-scoped functions require native function namespace metadata");
                     if ((declaration.Body is null && declaration.ExpressionBody is null) || declaration.AttributeLists.Count != 0 ||
                         declaration.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword)))
                         throw Unsupported("only top-level functions with block or expression bodies");

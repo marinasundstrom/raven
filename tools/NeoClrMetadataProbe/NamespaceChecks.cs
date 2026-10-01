@@ -101,9 +101,8 @@ internal static class NamespaceChecks
             Check((await command(42, ["run", consumerPath, "--module", path, "--show-result"])).Contains("=> Int32(42)"), "namespace call result");
         }
         for (var i = 0; i < sources.Length; i++) File.WriteAllText(Path.Combine(output, $"NamespaceLibrary{i}.rvn"), sources[i]);
-        // Namespace-owned free functions have no native namespace contract yet; never flatten them.
+        // Nested types remain outside the bounded native declaration contract.
         foreach (var source in new[] {
-            "namespace Example\nfunc Main() -> int { return 0 }",
             "namespace Example { public static class Outer { public static class Inner { } } }"
         })
         {

@@ -18,7 +18,7 @@ internal static class ReflectionEmitCapabilities
             LinearInstructionKind.BitwiseAnd, LinearInstructionKind.BitwiseOr, LinearInstructionKind.BitwiseXor,
             LinearInstructionKind.ShiftLeft, LinearInstructionKind.ShiftRight
         ],
-        [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType],
+        [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.NamespacedAssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType],
         [Accessibility.Public, Accessibility.Internal],
         [Accessibility.Public, Accessibility.Internal, Accessibility.Private, Accessibility.ProtectedAndProtected,
             Accessibility.ProtectedOrInternal, Accessibility.ProtectedAndInternal],

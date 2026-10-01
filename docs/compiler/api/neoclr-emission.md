@@ -238,3 +238,26 @@ Primitive value-producing if/else uses matching Int32/Int64/Boolean/String joins
 Value blocks may initialize locals, assign local values and call supported methods
 before a trailing primitive expression. Internal if/loop control flow is supported. Disposal, returns and jumps outside
 value blocks are rejected before writing; statement-form loops remain supported.
+
+## Namespaced functions and real Math source — 2026-10-01
+
+Raven now admits block/file namespace functions through a distinct shared target
+capability, preserving the full semantic namespace and simple name. Both bounded
+backend profiles opt in; ordinary .NET remains the default. Native functions retain
+no type owner. No Runtime Contract setting changes. The native adapter requires the
+independent metadata/runtime namespace slice `e8611966`; its CLI reference projection
+uses reversible encoded global names. Direct source import of these projected globals
+is still deferred, as is the general native metadata importer.
+
+`NeoClrMetadataProbe --class-library-runtime <runtime/raven/src> <fresh-output> <neoclr>`
+selects the original integer Min/Max/Sign declarations and their System.Math namespace.
+It excludes unrelated declarations/imports without rewriting function signatures or
+bodies. The selected library now emits successfully. A separate Main source exercises
+11 boundary cases (Int32 endpoints, equality and all Sign branches), in both file
+orders, through ordinary CLI execution and binary native verification/execution to 42.
+The probe also asserts exact native System.Math namespace and null owners; it writes
+source hashes, selected source and runtime hash. This uses host core primitives and
+is not a full System build. Whole Math/UnicodeScalar/GC files still stop in binding
+on absent native library dependencies. The order-collections consumer is the next
+acceptance expansion; its constructors/properties, generics and delegates exceed the
+current static primitive producer.

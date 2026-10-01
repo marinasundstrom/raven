@@ -8,7 +8,18 @@ internal sealed record SourceCallablePlan(
     IMethodSymbol Symbol, SyntaxNode Syntax, SyntaxNode? Body,
     INamedTypeSymbol? TypeOwner, string MetadataName, PrimitiveCallableSignature Signature)
 {
-    internal EmissionDeclarationKind DeclarationKind => IsAssemblyFunction ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.StaticMethod;
+    internal string Namespace { get; } = GetNamespace(Symbol.ContainingNamespace);
+    private static string GetNamespace(INamespaceSymbol? scope)
+    {
+        if (scope is null || scope.IsGlobalNamespace) return "";
+        var names = new Stack<string>();
+        for (; scope is { IsGlobalNamespace: false }; scope = scope.ContainingNamespace)
+            names.Push(scope.Name);
+        return string.Join(".", names);
+    }
+    internal EmissionDeclarationKind DeclarationKind => IsAssemblyFunction
+        ? Namespace.Length == 0 ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.NamespacedAssemblyFunction
+        : EmissionDeclarationKind.StaticMethod;
     internal Accessibility Visibility => Symbol.DeclaredAccessibility;
     internal bool IsSupportedBy(EmissionCapabilities capabilities) => capabilities.Allows(DeclarationKind) && capabilities.Allows(Signature) &&
         (IsAssemblyFunction ? capabilities.AllowsFunctionVisibility(Visibility) : capabilities.AllowsMethodVisibility(Visibility));
@@ -28,7 +39,7 @@ internal sealed record SourceCallablePlan(
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
                 plan = null;
                 return false;
-            case FunctionStatementSyntax function when function.Parent is GlobalStatementSyntax { Parent: CompilationUnitSyntax }:
+            case FunctionStatementSyntax function when function.Parent is GlobalStatementSyntax { Parent: CompilationUnitSyntax or BaseNamespaceDeclarationSyntax }:
                 plan = new(symbol, syntax, (SyntaxNode?)function.Body ?? function.ExpressionBody, null, symbol.Name, signature);
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
                 plan = null;

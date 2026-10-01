@@ -54,6 +54,28 @@ public class DeclarationCapabilityTests
         Assert.False(plan.TryLowerBody(compilation, _ => false, out _, out _, denied));
     }
 
+    [Theory]
+    [InlineData("namespace Example.Math\npublic func Value() -> int => 42")]
+    [InlineData("namespace Example { namespace Math { public func Value() -> int => 42 } }")]
+    public void NamespaceFunctionsRequireExplicitTargetAdmission(string source)
+    {
+        var compilation = Compilation.Create("NamespaceFunctions", [SyntaxTree.ParseText(source)],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var syntax = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var symbol = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var denied = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(),
+            [EmissionDeclarationKind.AssemblyFunction], functionVisibilities: [Accessibility.Public]);
+        Assert.False(SourceCallablePlan.TryCreate(symbol, out _, denied));
+        Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.Equal("Example.Math", plan!.Namespace);
+        Assert.Equal("Value", plan.MetadataName);
+        Assert.Null(plan.TypeOwner);
+        Assert.True(plan.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+        Assert.False(plan.TryLowerBody(compilation, _ => false, out _, out _, denied));
+    }
+
     [Fact]
     public void TypeCategoryIsIndependentAndProfilesOwnTheirInput()
     {

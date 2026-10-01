@@ -44,12 +44,10 @@
       "selection": "Min-Max-Sign",
       "sourceSha256": "7C6B80A8C549C2B1C91735BB7A325AB75472D112E81AE913D77B916EA5E22DE0",
       "selectedSha256": "473932F399670B92635D8056C7AA42B26A53C1FCAB7F6F0F0159E2E5A30985D9",
-      "phase": "emission",
-      "success": false,
-      "bytes": 0,
-      "diagnostics": [
-        "error NEOMETA001: Native emission does not support namespace-scoped functions require native function namespace metadata."
-      ]
+      "phase": "emitted",
+      "success": true,
+      "bytes": 16384,
+      "diagnostics": []
     },
     {
       "source": "System/Text/UnicodeScalar.rvn",
