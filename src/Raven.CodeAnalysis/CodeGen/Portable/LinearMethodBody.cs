@@ -274,7 +274,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         }
 
         bool SupportedField(IFieldSymbol field) => !field.IsStatic &&
-            EmissionPrimitiveTypes.TryGetValueType(field.Type, out var type) && (capabilities is null || capabilities.Allows(type));
+            CallableSignature.TryType(field.Type, false, out var type) && (capabilities is null || capabilities.Allows(type));
         bool SupportedInstanceCall(IMethodSymbol method) => !method.IsStatic && !method.IsVirtual && !method.IsOverride &&
             method.ContainingType is { } owner && SourceTypePlan.TryCreate(owner, out _) &&
             CallableSignature.TryCreate(method, out var signature) && (capabilities is null || capabilities.Allows(signature));

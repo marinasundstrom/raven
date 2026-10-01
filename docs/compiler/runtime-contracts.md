@@ -2893,3 +2893,10 @@ Contract configuration option. Default constructors and primitive field/property
 initializers share the canonical compiler initialization plan. See
 [the current integration scope](neoclr-cli-bridge.md#owned-nominal-callable-signatures--2026-10-01)
 for signature ownership, reference-projection and initialization limits.
+
+
+Owned nominal instance-field emission (2026-10-01) reuses the existing root-class
+signature capability and source identities. It requires no Runtime Contract option.
+The bounded neoCLR adapter supports mutable explicit fields and private storage with
+owned class types; nominal property metadata, nullable and imported class contracts
+remain separate work. See [the bridge contract](neoclr-cli-bridge.md#owned-nominal-field-storage--2026-10-01).

@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-01:** Share owned root-class parameter/result signatures between .NET and neoCLR through explicit target admission and backend type maps. Factory returns, nominal overloads, constructor parameters, self-return and alias mutation execute on both runtimes. External nominal imports, nullability, generic signatures and nominal field/property declarations remain separate contracts; rebuild against the matching metadata library API.
+- **2026-10-01:** Share owned root-class parameter/result signatures between .NET and neoCLR through explicit target admission and backend type maps. Factory returns, nominal overloads, constructor parameters, self-return and alias mutation execute on both runtimes. Extend shared field load/store planning to explicit mutable nominal fields and private storage, including initializers and replacement. C# Release/Debug tests and the Order binary probe validate stored-object alias mutation on both runtimes in both source orders. External nominal imports, nullability, generic signatures, nominal property metadata and readonly/static storage remain separate contracts; rebuild against the matching metadata library API.
 
 - **2026-10-01:** Honor an accessible explicit setter when assigning or incrementing a `val` property inside its owner. Public mutability remains read-only and outside writes still reject; init-only and constructor storage rules are unchanged.
 

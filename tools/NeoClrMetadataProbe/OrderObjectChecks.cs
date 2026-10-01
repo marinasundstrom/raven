@@ -27,6 +27,15 @@ internal static class OrderObjectChecks
             func Identity(copy: Copied) -> Copied => copy
             func CreateOrder() -> Order => Order(41, true)
             func UpdateOrder(order: Order) { order.Number = 42 }
+            class Holder {
+                public field Value: Order
+                private var stored: Order
+                private var initial: Order = Order(7, false)
+                init(value: Order) { Value = value; stored = value }
+                func Read() -> Order => stored
+                func Initial() -> Order => initial
+                func Replace(value: Order) { stored = value; Value = value }
+            }
             class Storage {
                 public field Number: int = 40
                 internal field Wide: long = 5000000000L
@@ -134,6 +143,15 @@ internal static class OrderObjectChecks
                 if !storage.Active() { return 20 }
                 if storage.Wide != 5000000001L { return 21 }
                 if storage.Number != 42 { return 22 }
+                let holder = Holder(original)
+                holder.Value.Number = 43
+                if holder.Read().Number != 43 { return 23 }
+                if original.Number != 43 { return 24 }
+                if holder.Initial().Number != 7 { return 25 }
+                holder.Replace(CreateOrder())
+                holder.Read().Number = 42
+                if holder.Value.Number != 42 { return 26 }
+                original.Number = 42
                 return original.Number
             }
             """;
@@ -186,7 +204,7 @@ internal static class OrderObjectChecks
         foreach (var unsupported in new[] {
             "class Chained { init(): base() { } }",
             "class StaticStorage { public static field Number: int = 42 }",
-            "class NominalStorage { public field Value: NominalStorage }",
+            "class NominalStorage { public field Value: NominalStorage? }",
             "class AccessorStorage { var Number: int { get; set; }\n init() { Number = 1 } }",
             order + "\nfunc Main() -> int { let order: Order? = null\n return 42 }"
         })
@@ -221,6 +239,7 @@ internal static class OrderObjectChecks
             implicitConstructorsAndInitializers = true,
             nominalParametersAndResults = true,
             explicitPrimitiveFields = true,
+            nominalFieldStorage = true,
             rejectedIncompleteContracts = 5
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");

@@ -59,14 +59,14 @@ internal static class Int32Emitter
                         {
                             if (fieldSyntax.AttributeLists.Count != 0 ||
                                 fieldSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)))
-                                throw Unsupported("only public/internal/private mutable primitive instance fields");
+                                throw Unsupported("only public/internal/private mutable primitive or owned root-class instance fields");
                             foreach (var variable in fieldSyntax.Declaration.Declarators)
                             {
                                 diagnosticSyntax = variable;
                                 if (model.GetDeclaredSymbol(variable) is not IFieldSymbol { IsStatic: false, IsReadOnly: false, IsConst: false, RefKind: RefKind.None } field ||
                                     field.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal or Accessibility.Private) ||
-                                    !EmissionPrimitiveTypes.TryGetValueType(field.Type, out _))
-                                    throw Unsupported("only public/internal/private mutable primitive instance fields");
+                                    !CallableSignature.TryType(field.Type, false, out _))
+                                    throw Unsupported("only public/internal/private mutable primitive or owned root-class instance fields");
                                 storageFields.Add(field);
                             }
                             continue;
@@ -77,8 +77,9 @@ internal static class Int32Emitter
                                 propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
                                 model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol { IsStatic: false } property ||
                                 property.BackingField is { IsReadOnly: true } ||
-                                !EmissionPrimitiveTypes.TryGetValueType(property.Type, out _))
-                                throw Unsupported("only primitive instance properties or mutable private storage");
+                                (!EmissionPrimitiveTypes.TryGetValueType(property.Type, out _) &&
+                                 !(property.EmitAsFieldOnly && CallableSignature.TryType(property.Type, false, out _))))
+                                throw Unsupported("only primitive instance properties or mutable primitive/owned root-class private storage");
                             if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||
                                 a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null) ||
@@ -142,8 +143,10 @@ internal static class Int32Emitter
         var fields = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
         foreach (var field in storageFields)
         {
-            EmissionPrimitiveTypes.TryGetValueType(field.Type, out var fieldType);
-            fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, NeoClrTypeMapper.Instance.Map(fieldType), field.DeclaredAccessibility switch
+            CallableSignature.TryType(field.Type, false, out var fieldType);
+            SignatureType storageType = fieldType.Class is { } fieldClass
+                ? nativeTypes[fieldClass] : NeoClrTypeMapper.Instance.Map(fieldType.Primitive!.Value);
+            fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, storageType, field.DeclaredAccessibility switch
             {
                 Accessibility.Public => FieldVisibility.Public,
                 Accessibility.Internal => FieldVisibility.Internal,

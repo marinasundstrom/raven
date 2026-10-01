@@ -2047,3 +2047,29 @@ and binary neoCLR. Static and nominal field declarations reject without output; 
 by-reference, attributed fields and broader storage contracts remain unsupported by this
 collector. Existing private storage/property backing fields retain their behavior.
 [Updated evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).
+
+
+### Owned nominal field storage — 2026-10-01
+
+The shared field load/store plan now admits owned root-class types through the same
+logical type/capability contract as callable signatures. Native declaration collection
+accepts mutable explicit fields and private `var` storage, including initializers;
+all owned types are declared before mapping fields. Ordinary .NET uses its existing
+field definitions. Public nominal properties, external imports, nullable contracts,
+readonly/static fields and generic fields remain unsupported in the bounded backend.
+There is no new Runtime Contract option or language-binding rule.
+
+The independent neoCLR metadata API now uses SignatureType for FieldBuilder.FieldType
+and AddField. Primitive calls remain source-compatible through conversion; rebuild
+consumers and inspect Primitive/ClassType. CLI signatures retain CLASS/TypeDef encoding;
+native fields retain existing Named records. The binary #Neo payload/reference projection
+is still a temporary bridge; eventual native extended-CLI emission replaces the physical
+encoding, not the shared logical field operations. No fake dependency types are introduced.
+
+Validation: ExplicitFieldEmissionTests passes all four Release/Debug cases. The Order
+probe also exercises a separate Holder with explicit/private nominal fields, an initializer,
+replacement and stored-object alias mutation. .NET and binary neoCLR verify/run with
+result 42 in both source orders. Five rejection fixtures remain, now including nullable
+nominal fields. See tools/NeoClrMetadataProbe/order-runtime-validation.json for hashes;
+tested runtime revision e8611966 is on neoCLR's codex/extended-cli-metadata branch.
+The whole broad consumer and native metadata symbol loading remain incomplete.
