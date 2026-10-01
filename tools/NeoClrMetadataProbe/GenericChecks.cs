@@ -112,6 +112,7 @@ internal static class GenericChecks
                 }
             }
             class GenericBox<Element> {
+                public field Stored: Element = default(Element)
                 private var stored: Element = default(Element)
                 init(value: Element) { stored = value }
                 var Value: Element {
@@ -174,7 +175,8 @@ internal static class GenericChecks
                 if PairHelpers<int, long>.Cross<long>(42, 5000000000L) != 42 { return 16 }
                 let box = GenericBox<Order>(values[0])
                 let numberBox = GenericBox<int>(1)
-                numberBox.Value = 41
+                numberBox.Stored = 41
+                numberBox.Value = numberBox.Stored
                 numberBox[0] = numberBox.Value + 1
                 if numberBox.Read() != 42 { return 17 }
                 let nestedBox = GenericBox<GenericBox<int>>(Identity(numberBox))
@@ -251,7 +253,6 @@ internal static class GenericChecks
         var rejectedContracts = 0;
         foreach (var unsupported in new[] {
             "class Box<T> where T: class { }",
-            "class Box<T> { public field Value: T = default(T) }\nfunc Read(value: Box<int>) -> int => value.Value",
             "open class Instance { virtual func Identity<T>(value: T) -> T => value }",
             "func Restricted<T>(value: T) -> T where T: class => value",
             "func Marker<T>() -> int => 42\nfunc Use() -> int => Marker<System.DateTime>()",
@@ -305,6 +306,7 @@ internal static class GenericChecks
             genericStaticOwners = true,
             genericInstanceOwners = true,
             genericInstanceFields = true,
+            constructedFieldReferences = true,
             genericPropertiesAndIndexers = true,
             independentGenericIndexAndValue = true,
             reorderedOwnerArguments = true,

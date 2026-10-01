@@ -225,7 +225,13 @@ internal static class Int32Emitter
                     output.NewObject(constructor);
                 }
                 else references.Resolve(instruction.Method!).EmitCall(output);
-            }, field => fields.TryGetValue(field, out var definition) ? definition : throw Unsupported("undeclared instance field"),
+            }, field =>
+            {
+                if (fields.TryGetValue(field, out var definition)) return new NeoClrFieldReference(definition);
+                if (field is SubstitutedFieldSymbol substituted && field.ContainingType is { Arity: > 0 } owner && fields.TryGetValue(substituted.OriginalField, out definition))
+                    return new NeoClrFieldReference(definition, definition.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])).ToArray()));
+                throw Unsupported("undeclared instance field");
+            },
                 type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local")));
         }
         return assembly.WriteNativeAssembly();

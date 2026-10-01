@@ -2401,3 +2401,11 @@ codex/extended-cli-metadata with generic-property producer/reader dbe03b1a or la
 the existing receiver runtime (6a7a0dd2 or later) is sufficient. See
 [recorded evidence](../../tools/NeoClrMetadataProbe/generic-runtime-validation.json).
 Native compiler support for static source properties is not added by this slice.
+
+Constructed-field integration (development): the native adapter opts into the shared
+ConstructedFieldReferences capability and resolves substituted fields to their original
+definition plus owner arguments. CLI uses open-signature Field MemberRefs; native field
+indices operate on the exact constructed receiver. No Runtime Contract or schema change.
+C# tests and the binary consumer exercise public generic storage from outside its type
+on .NET/native. Cross-assembly field imports remain unsupported. Matching field producer
+on neoCLR codex/extended-cli-metadata and Raven codex/metadata-consumer required.

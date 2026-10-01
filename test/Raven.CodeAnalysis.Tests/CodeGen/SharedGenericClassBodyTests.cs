@@ -14,6 +14,7 @@ public class SharedGenericClassBodyTests
     {
         var tree = SyntaxTree.ParseText("""
             class Box<Element> {
+                public field Stored: Element = default(Element)
                 private var stored: Element = default(Element)
                 init(value: Element) { stored = value }
                 var Value: Element {
@@ -32,7 +33,8 @@ public class SharedGenericClassBodyTests
             func Main() -> int {
                 let box = Box<int>(1)
                 let alias = Identity(box)
-                alias.Value = 41
+                alias.Stored = 41
+                alias.Value = alias.Stored
                 alias[0] = alias.Value + 1
                 let nested = Box<Box<int>>(box)
                 if box.Echo<long>(5000000000L) != 5000000000L { return 1 }
