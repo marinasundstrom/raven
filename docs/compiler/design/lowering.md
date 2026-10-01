@@ -90,3 +90,19 @@ There are still benefits to consider. A lowering pass could centralize flow cons
 * Cover new lowerings with unit tests that inspect both the lowered tree and emitted IL when relevant.
 * Update the language specification when lowering changes observable behavior (e.g., order of evaluation).
 * Keep diagnostic IDs stable—if a lowering introduces new error conditions, add them to `DiagnosticDescriptors.xml` instead of reusing existing IDs.
+
+## Concrete union-case targets (2026-10-02)
+
+A bound union-case expression normally targets the carrier, but contextual binding
+can explicitly target a concrete case, including arguments to `Choice<T>(None())`.
+Shared lowering constructs that case directly when the bound target is a case;
+otherwise it constructs the case and then its carrier. This matches the existing
+.NET fallback emitter and preserves the CLR constructor contract. It introduces no
+language, Runtime Contract, metadata-format or target-specific binding change.
+
+`ImportedUnionConstructorTests` invokes shared lowering directly before runtime
+emission for Debug/Release, both case declaration orders and four None spellings.
+The original semantic-model lowering path caught exceptions and returned an original
+body, so runtime-only checks could pass while other backends received unlowered nodes.
+The direct lowering check prevents that masking; emitted-instruction assertions are
+not used. The ordinary CLR execution assertions still verify empty and payload paths.

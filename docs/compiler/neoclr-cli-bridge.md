@@ -2876,3 +2876,22 @@ symbol import should eventually preserve these contracts directly. Cross-depende
 TypeRefs, imported constructors/value-instance methods, instance generic methods,
 extensible class virtual slots and generic interface inheritance remain outside this
 slice. They are implementation limits, not neoCLR language rules.
+
+## Concrete case lowering checkpoint (2026-10-02)
+
+The unchanged collections sample's apparent propagation rejection was caused by a
+shared lowering exception in a later `Option<Order>(None())` expression. A concrete
+case target must construct the case directly, matching the existing .NET fallback
+emitter. Shared lowering now honors that target; binding and Runtime Propagation,
+Self and Unit configuration remain unchanged. The fix is independently committed
+as `dcc77ef5f` on the main-based `codex/compiler-fixes-from-neoclr` branch. All 25
+focused imported-case/propagation tests pass on both branches using .NET 11.
+
+The CLI bridge control still emits 7168 bytes. Native emission now reaches the
+synthesized uninitialized `out` local and rejects `only initialized value locals`.
+Managed local addresses, byref signatures, imported value receivers and protocol
+failure paths must be implemented as explicit shared/backend contracts before this
+propagation protocol can execute. Do not replace out parameters with unrelated value
+calls or silently initialize them to bypass the capability check. Existing CLR/CIL
+byref and address semantics remain the baseline. No new metadata encoding or runtime
+support is claimed by this checkpoint, and the complete application has not executed.

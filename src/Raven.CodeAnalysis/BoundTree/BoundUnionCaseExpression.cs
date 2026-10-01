@@ -6,16 +6,15 @@ namespace Raven.CodeAnalysis;
 /// Represents a union case value in expression position.
 ///
 /// The <see cref="BoundExpression.Type"/> is the <em>union root</em> type (e.g. <c>Err</c>),
-/// not the individual case type (e.g. <c>Err_MissingName</c>). This is critical for correct
+/// unless context explicitly expects the concrete case type (e.g. <c>Err_MissingName</c>).
+/// Carrier-valued expressions are critical for correct
 /// generic type inference: when this expression is passed to a generic method such as
 /// <c>Error&lt;T,E&gt;(E error)</c> the inferred type argument for <c>E</c> will be the union
 /// root rather than the case type, so the resulting <c>Result&lt;T,E&gt;</c> matches what the
 /// caller expects.
 ///
-/// The node is lowered by <see cref="Lowerer"/> to a
-/// <see cref="BoundConversionExpression"/> whose operand is a
-/// <see cref="BoundObjectCreationExpression"/> that constructs the case instance; the DU
-/// conversion then sets the union's tag and payload fields.
+/// The node is lowered by <see cref="Lowerer"/> to case construction, wrapped in
+/// carrier construction only when the expression targets the union root.
 /// </summary>
 internal sealed partial class BoundUnionCaseExpression : BoundExpression
 {
@@ -32,7 +31,7 @@ internal sealed partial class BoundUnionCaseExpression : BoundExpression
     /// <summary>Arguments to the case constructor (empty for zero-arg cases).</summary>
     public ImmutableArray<BoundExpression> Arguments { get; }
 
-    /// <summary>The union root type — same as <see cref="BoundExpression.Type"/> but strongly typed.</summary>
+    /// <summary>The target type (normally the carrier, or an explicitly expected case), strongly typed.</summary>
     public INamedTypeSymbol UnionType => (INamedTypeSymbol)Type;
 
     public BoundUnionCaseExpression(
