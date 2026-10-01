@@ -1,0 +1,96 @@
+{
+  "bootstrap": "host core primitives only; no native class-library symbol loader",
+  "runtimeExecution": "not performed by this emission inventory",
+  "cases": [
+    {
+      "source": "System/Math/Functions.rvn",
+      "selection": "whole-file",
+      "sourceSha256": "7C6B80A8C549C2B1C91735BB7A325AB75472D112E81AE913D77B916EA5E22DE0",
+      "selectedSha256": "7C6B80A8C549C2B1C91735BB7A325AB75472D112E81AE913D77B916EA5E22DE0",
+      "phase": "binding",
+      "success": false,
+      "bytes": 0,
+      "diagnostics": [
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV0103: \u0027System.Result\u003Cint, OverflowError\u003E\u0027 is not in scope.",
+        "error RAV0103: \u0027Error\u0027 is not in scope.",
+        "error RAV0103: \u0027Ok\u0027 is not in scope.",
+        "error RAV0103: \u0027Ok\u0027 is not in scope.",
+        "error RAV0103: \u0027System.Result\u003Cint, InvalidRangeError\u003E\u0027 is not in scope.",
+        "error RAV0103: \u0027Error\u0027 is not in scope.",
+        "error RAV0103: \u0027Ok\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope."
+      ]
+    },
+    {
+      "source": "System/Math/Functions.rvn",
+      "selection": "Min-Max-Sign",
+      "sourceSha256": "7C6B80A8C549C2B1C91735BB7A325AB75472D112E81AE913D77B916EA5E22DE0",
+      "selectedSha256": "473932F399670B92635D8056C7AA42B26A53C1FCAB7F6F0F0159E2E5A30985D9",
+      "phase": "emission",
+      "success": false,
+      "bytes": 0,
+      "diagnostics": [
+        "error NEOMETA001: Native emission does not support namespace-scoped functions require native function namespace metadata."
+      ]
+    },
+    {
+      "source": "System/Text/UnicodeScalar.rvn",
+      "selection": "whole-file",
+      "sourceSha256": "ED347A9D60B3D7A13DA14DF968BC0B55F7B2C4A74D94D9524BD639DA7F8C8FA8",
+      "selectedSha256": "ED347A9D60B3D7A13DA14DF968BC0B55F7B2C4A74D94D9524BD639DA7F8C8FA8",
+      "phase": "binding",
+      "success": false,
+      "bytes": 0,
+      "diagnostics": [
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope."
+      ]
+    },
+    {
+      "source": "System/Runtime/GC.rvn",
+      "selection": "whole-file",
+      "sourceSha256": "1C672A79B8EB146F353D73EC5D075235976DBC68397843D2E1B7CE669DD915D0",
+      "selectedSha256": "1C672A79B8EB146F353D73EC5D075235976DBC68397843D2E1B7CE669DD915D0",
+      "phase": "binding",
+      "success": false,
+      "bytes": 0,
+      "diagnostics": [
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
+        "error RAV0103: \u0027RuntimeServices\u0027 is not in scope."
+      ]
+    }
+  ]
+}
