@@ -170,6 +170,7 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     nativeUnsupportedShiftPreservesOutput = true,
     explicitDeclarationCategoryAdmission = true,
     signedDivisionResultsAndFaults = true,
+    signedRemainderResultsAndFaults = true,
     internalStaticTypesAcrossBothTargets = true,
     internalTypeProjectionRejectsExternalAccess = true,
     nativeRuntimeRejectsExternalInternalTypeCall = true,

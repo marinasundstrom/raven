@@ -24,6 +24,18 @@ internal static class IntegerArithmeticChecks
             func Divide(left: int, right: int) -> int { left / right }
             func Wide(left: long, right: long) -> long { left / right }
             """, null, null);
+        await Check("Remainders", """
+            func Main() -> int {
+                if Remainder(-43, 2) != -1 { return 1 }
+                if Remainder(43, -2) != 1 { return 2 }
+                if Remainder(-43, -2) != -1 { return 3 }
+                if Wide(-4294967339L, 2L) != -1L { return 4 }
+                if Wide(1L, 2L) != 1L { return 5 }
+                return Remainder(85, 43)
+            }
+            func Remainder(left: int, right: int) -> int { left % right }
+            func Wide(left: long, right: long) -> long { left % right }
+            """, null, null);
         foreach (var wide in new[] { false, true })
         {
             var type = wide ? "long" : "int";
@@ -31,6 +43,8 @@ internal static class IntegerArithmeticChecks
             var suffix = wide ? "L" : "";
             await Check("DivideZero" + type, Source("1" + suffix, "0" + suffix), typeof(DivideByZeroException), "division by zero");
             await Check("DivideOverflow" + type, Source(minimum, "-1" + suffix), typeof(ArithmeticException), "overflow");
+            await Check("RemainderZero" + type, Source("1" + suffix, "0" + suffix).Replace("left / right", "left % right"), typeof(DivideByZeroException), "division by zero");
+            await Check("RemainderOverflow" + type, Source(minimum, "-1" + suffix).Replace("left / right", "left % right"), typeof(ArithmeticException), "overflow");
             string Source(string left, string right) => $$"""
                 func Main() -> int {
                     Divide({{left}}, {{right}})
@@ -41,7 +55,7 @@ internal static class IntegerArithmeticChecks
                 }
                 """;
         }
-        Console.WriteLine("PASS signed Int32/Int64 division results and execution faults on .NET and binary neoCLR");
+        Console.WriteLine("PASS signed Int32/Int64 division/remainder results and execution faults on .NET and binary neoCLR");
 
         async Task Check(string name, string source, Type? fault, string? nativeMessage)
         {

@@ -2613,3 +2613,15 @@ prior native-division rejection; restricted-profile tests still prove selective
 admission. The adapter rejection probe now uses unsupported shifts. Unsigned and
 floating operations remain outside the bounded writer. CLI reference bodies remain
 placeholders and native bodies remain in #Neo; metadata importer redesign is deferred.
+
+
+### Shared signed remainder — 2026-10-01
+
+Int32/Int64 '%' now passes through the shared lowered-body planner, both capability
+profiles and both instruction adapters. The independent writer supports Rem and the
+Remainder helper using existing CLI/native rem encodings. No Runtime Contract option,
+binder rule or metadata category is added. Ordinary results keep the dividend's sign;
+zero divisors fault. Native minimum/-1 faults match the tested CLR; that CLR edge is
+platform-sensitive and universal host equivalence is not asserted. The .NET Debug
+fallback remains tested. Unsigned/floating arithmetic, exceptions and broader metadata
+loading remain future work. CLI reference projection/#Neo limitations are unchanged.

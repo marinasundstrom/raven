@@ -1460,3 +1460,21 @@ Validation: 36 focused shared-body/capability baseline tests remain applicable (
 shared planner change); the complete native binary/rvnc probe passes, including four
 zero/overflow fault cases and signed quotient execution against .NET. The paired
 independent writer passes 41 C# contract groups and its API snapshot check.
+
+
+### Shared signed remainder — 2026-10-01
+
+Int32/Int64 '%' now passes through the shared lowered-body planner, both capability
+profiles and both instruction adapters. The independent writer supports Rem and the
+Remainder helper using existing CLI/native rem encodings. No Runtime Contract option,
+binder rule or metadata category is added. Ordinary results keep the dividend's sign;
+zero divisors fault. Native minimum/-1 faults match the tested CLR; that CLR edge is
+platform-sensitive and universal host equivalence is not asserted. The .NET Debug
+fallback remains tested. Unsigned/floating arithmetic, exceptions and broader metadata
+loading remain future work. CLI reference projection/#Neo limitations are unchanged.
+
+Validation: 38 focused shared-body/capability tests pass, covering Release shared
+emission and Debug fallback. All 42 independent metadata C# contract groups pass.
+The binary runtime/rvnc probe passes both result programs and eight Int32/Int64
+zero/overflow fault programs across division and remainder. Every faulting native
+assembly first passes verification, then faults during execution as intended.

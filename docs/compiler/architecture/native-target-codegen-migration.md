@@ -39,7 +39,7 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
    before writing; ordinary .NET remains the default.
 5. Backend-owned immutable instruction/built-in-type profiles now admit shared body
    plans before builder use; restricted profiles prove selective admission. Signed
-   Int32/Int64 division now executes on both targets using that same planner. Logical assembly-function/static-method/static-type category admission now shares
+   Int32/Int64 division and remainder now execute on both targets using that same planner. Logical assembly-function/static-method/static-type category admission now shares
    those backend profiles; public/internal static type visibility is also admitted explicitly. Member visibility and broader metadata categories remain pending.
    Compose compatible backend, runtime policies and capabilities through native target
    selection. The current EmitOptions backend override remains experimental. Reserve

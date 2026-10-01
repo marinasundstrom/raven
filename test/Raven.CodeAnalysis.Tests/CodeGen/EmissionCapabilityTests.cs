@@ -8,24 +8,26 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class EmissionCapabilityTests
 {
     [Theory]
-    [InlineData(OptimizationLevel.Release)]
-    [InlineData(OptimizationLevel.Debug)]
-    public void SignedDivisionPreservesDotNetResultsAndFaults(OptimizationLevel optimization)
+    [InlineData(OptimizationLevel.Release, false)]
+    [InlineData(OptimizationLevel.Release, true)]
+    [InlineData(OptimizationLevel.Debug, false)]
+    [InlineData(OptimizationLevel.Debug, true)]
+    public void SignedDivisionAndRemainderPreserveDotNetResultsAndFaults(OptimizationLevel optimization, bool remainder)
     {
         var compilation = Create("""
             public static class Arithmetic {
                 public static func Divide(left: int, right: int) -> int { left / right }
                 public static func Wide(left: long, right: long) -> long { left / right }
             }
-            """, optimization);
+            """.Replace("left / right", remainder ? "left % right" : "left / right"), optimization);
         foreach (var method in Methods(compilation))
             Assert.True(Lower(compilation, method, ReflectionEmitCapabilities.Shared, out _, out var failure), failure?.Detail);
         using var output = new MemoryStream();
         var result = compilation.Emit(output);
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var type = Assembly.Load(output.ToArray()).GetType("Arithmetic")!;
-        Assert.Equal(-21, type.GetMethod("Divide")!.Invoke(null, [-43, 2]));
-        Assert.Equal(-2147483669L, type.GetMethod("Wide")!.Invoke(null, [-4294967338L, 2L]));
+        Assert.Equal(remainder ? -1 : -21, type.GetMethod("Divide")!.Invoke(null, [-43, 2]));
+        Assert.Equal(remainder ? -1L : -2147483669L, type.GetMethod("Wide")!.Invoke(null, [-4294967339L, 2L]));
         Assert.IsType<DivideByZeroException>(Assert.Throws<TargetInvocationException>(() => type.GetMethod("Divide")!.Invoke(null, [1, 0])).InnerException);
         Assert.IsType<OverflowException>(Assert.Throws<TargetInvocationException>(() => type.GetMethod("Wide")!.Invoke(null, [long.MinValue, -1L])).InnerException);
     }

@@ -268,3 +268,6 @@ verification with `type access denied`, proving runtime enforcement independentl
 
 Signed division runs on both targets, including Int32/Int64 zero and overflow faults.
 Native division is now supported; unsupported shift diagnostics preserve the output contract.
+
+Signed remainder also executes on both backends with dividend-sign cases, wide values,
+zero divisors and minimum/-1 faults (the CLR edge result is host-specific).
