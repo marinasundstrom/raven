@@ -2817,3 +2817,7 @@ returns 42; this migration introduces no bridge representation or semantic chang
 The authored property migration shares definitions/accessors without changing CLI/native
 property encoding. Rebuilt Raven execution passes (42); no new bridge restriction or
 compiler semantic change is introduced.
+
+Generic definition authoring now shares parameter names and constraint storage with
+builders; CLI GenericParam/GenericParamConstraint and native encodings remain unchanged.
+The rebuilt Raven probe passes (42), without Runtime Contract or admission changes.

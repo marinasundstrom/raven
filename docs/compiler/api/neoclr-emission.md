@@ -320,3 +320,9 @@ CLR reflection/native execution and the rebuilt Raven probe pass (42). The autho
 the intended division: Cecil-like definitions with Reflection.Emit-style generation
 builders, without a replacement/compatibility promise. Existing builder entry points,
 Runtime Contract and target admission are unchanged.
+
+Direct generic type construction and definition-owned parameter names/constraint storage
+now pass CLR/native execution (42) and the rebuilt Raven external-signature probe. Existing
+constraint helpers and target admission are unchanged. The author clarified the intended
+builders → definitions → metadata → PE pipeline, with reverse reader boundaries; separate
+encoding/packaging APIs and editable reader materialization are not yet implemented.
