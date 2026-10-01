@@ -57,6 +57,11 @@ public class SharedGenericBodyTests
     public void StaticGenericOwnersKeepTypeAndMethodScopesIndependent(OptimizationLevel optimization)
     {
         var tree = SyntaxTree.ParseText("""
+            static class PairHelpers<Left, Right> {
+                static func Second(first: Left, second: Right) -> Right => second
+                static func Flip(first: Left, second: Right) -> Left => PairHelpers<Right, Left>.Second(second, first)
+                static func Cross<Other>(value: Left, other: Other) -> Left => PairHelpers<Other, Left>.Second(other, value)
+            }
             static class Helpers<Element> {
                 static func SelectValue<Result>(ignored: Element, value: Result) -> Result => value
                 static func Forward<Other>(ignored: Element, value: Other) -> Other => SelectValue<Other>(ignored, value)
@@ -64,6 +69,8 @@ public class SharedGenericBodyTests
                 static func First(values: Element[]) -> Element => values[0]
             }
             func Main() -> int {
+                if PairHelpers<int, long>.Flip(42, 5000000000L) != 42 { return 15 }
+                if PairHelpers<int, long>.Cross<long>(42, 5000000000L) != 42 { return 16 }
                 let values: int[] = [42]
                 if Helpers<int>.Forward<long>(1, 5000000000L) != 5000000000L { return 1 }
                 if Helpers<int>.Empty() != 0 { return 2 }
@@ -90,10 +97,17 @@ public class SharedGenericBodyTests
         Assert.Equal(42, Assembly.Load(image.ToArray()).EntryPoint!.Invoke(null, null));
     }
 
-    [Fact]
-    public void GenericArgumentsRequireCapabilitiesEvenWhenAbsentFromSignature()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GenericArgumentsRequireCapabilitiesEvenWhenAbsentFromSignature(bool owner)
     {
-        var tree = SyntaxTree.ParseText("""
+        var tree = SyntaxTree.ParseText(owner ? """
+            static class Marker<T> {
+                static func Value() -> int => 42
+            }
+            func Main() -> int => Marker<int[]>.Value()
+            """ : """
             func Marker<T>() -> int => 42
             func Main() -> int => Marker<int[]>()
             """);
@@ -104,7 +118,7 @@ public class SharedGenericBodyTests
         var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         var noArrays = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), [Accessibility.Internal, Accessibility.Public],
-            [Accessibility.Public], [Accessibility.Internal], allowsGenericMethods: true);
+            [Accessibility.Public], [Accessibility.Internal], allowsGenericMethods: true, allowsGenericStaticOwners: true);
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, noArrays));
         Assert.False(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, noArrays));
         Assert.Contains("call signature", failure!.Detail);

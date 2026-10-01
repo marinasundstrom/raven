@@ -103,6 +103,11 @@ internal static class GenericChecks
                 val Trace: int => trace
                 val Total: int => destination[0].Number + destination[1].Number
             }
+            static class PairHelpers<Left, Right> {
+                static func Second(first: Left, second: Right) -> Right => second
+                static func Flip(first: Left, second: Right) -> Left => PairHelpers<Right, Left>.Second(second, first)
+                static func Cross<Other>(value: Left, other: Other) -> Left => PairHelpers<Other, Left>.Second(other, value)
+            }
             static class GenericHelpers<Element> {
                 static func First(values: Element[]) -> Element => values[0]
                 static func SelectValue<Result>(ignored: Element, value: Result) -> Result => value
@@ -142,6 +147,8 @@ internal static class GenericChecks
                 if receiver.Empty<bool>() { return 11 }
                 if receiver.Empty<long>() != 0L { return 12 }
                 let spare = receiver.Empty<Order>()
+                if PairHelpers<int, long>.Flip(42, 5000000000L) != 42 { return 15 }
+                if PairHelpers<int, long>.Cross<long>(42, 5000000000L) != 42 { return 16 }
                 let selectedOwner = GenericHelpers<Order>.First(values)
                 if GenericHelpers<Order>.Forward<long>(selectedOwner, 5000000000L) != 5000000000L { return 13 }
                 if GenericHelpers<int>.Empty() != 0 { return 14 }
@@ -259,6 +266,8 @@ internal static class GenericChecks
             independentReceivers = true,
             genericDefaultValues = true,
             genericStaticOwners = true,
+            reorderedOwnerArguments = true,
+            crossScopeForwarding = true,
             independentTypeAndMethodParameters = true,
             genericArrayClear = true,
             clearedReferenceFault = true,

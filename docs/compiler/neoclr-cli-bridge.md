@@ -2345,3 +2345,9 @@ or later and receiver runtime 6a7a0dd2 or later. C# Release/Debug checks cover s
 planning and target capability rejection; the binary Order consumer verifies and runs
 42 in both source orders on .NET and neoCLR, including generic owner defaults, arrays,
 method forwarding and object aliases. See the adjacent recorded probe evidence.
+
+The expanded owner acceptance also permutes two owner arguments and forwards a
+method parameter into a callee owner, keeping simultaneous substitution independent
+of parameter ordinal/name. C# capability tests reject unsupported owner arguments even
+when the method signature contains no use of the owner parameter. The recorded
+binary evidence includes both checks for cross-scope and reordered owner forwarding.
