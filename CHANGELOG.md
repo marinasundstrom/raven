@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Audit ordinary .NET behavior across shared-codegen refactoring and add Debug/Release execution checks for evaluation order, short-circuiting, array iteration and null calls. Record passing comparison evidence and unresolved imported-carrier/loop-capture issues without claiming they are fixed.
+
 - **2026-10-01:** Add an exploratory source/sample readiness inventory for direct neoCLR
   emission and ordinary CLI controls. Record the target-profile gate, library bootstrap
   gaps and the broad sample's invalid Option constructor output. The report records
