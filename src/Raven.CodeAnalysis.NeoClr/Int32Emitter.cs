@@ -259,7 +259,9 @@ internal static class Int32Emitter
             if (target.ContainingType is { Arity: > 0 } owner)
             {
                 if (!definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
-                    throw Unsupported("only owned generic type calls");
+                    return NeoClrCallableReference.Create(Import(target.OriginalDefinition ?? target).MakeConstructedReference(
+                        owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)),
+                        target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType))));
                 return NeoClrCallableReference.Create(definition.MakeConstructedReference(
                     owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)),
                     target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType))));
@@ -297,8 +299,8 @@ internal static class Int32Emitter
                     if (!definedMethods.TryGetValue(instruction.Method!, out var constructor)) throw Unsupported("only declared source constructors");
                     output.NewObject(constructor);
                 }
-                else if (instruction.Kind == LinearInstructionKind.InterfaceCall)
-                    output.CallVirtual(interfaceMethods.TryGetValue(instruction.Method!, out var contract) ? contract : throw Unsupported("interface call must target an emitted contract"));
+                else if (instruction.Kind == LinearInstructionKind.InterfaceCall && interfaceMethods.TryGetValue(instruction.Method!, out var contract))
+                    output.CallVirtual(contract);
                 else references.Resolve(instruction.Method!).EmitCall(output);
             }, field =>
             {
@@ -348,11 +350,10 @@ internal static class Int32Emitter
         }
         ImportedMethodReference Import(IMethodSymbol symbol)
         {
-            if (!symbol.IsStatic) throw Unsupported("instance call");
             var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
                 ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name);
             var dependencyMetadata = binding.Definition;
-            var types = dependencyMetadata.MainModule.Types.Where(t => t.DeclaringType is null && t.GenericArity == 0 &&
+            var types = dependencyMetadata.MainModule.Types.Where(t => t.DeclaringType is null && t.GenericArity == symbol.ContainingType?.Arity &&
                 (t.Namespace.Length == 0 ? t.Name : t.Namespace + "." + t.Name) == symbol.ContainingType?.ToFullyQualifiedMetadataName()).Take(2).ToArray();
             if (types.Length != 1) throw Unsupported("dependency type unavailable or ambiguous");
             if (!CallableSignature.TryCreate(symbol, out var signature, NeoClrCapabilities.Shared))
@@ -361,11 +362,13 @@ internal static class Int32Emitter
                 NeoClrTypeMapper.Map(signature.ReturnType, type => nativeTypes[type], ImportExternalType),
                 signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)), signature.GenericParameterNames);
             var matches = new List<ImportedMethodReference>();
-            foreach (var candidate in types[0].Methods.Where(m => m.Name == symbol.MetadataName && m.GenericArity == symbol.Arity && m.IsStatic))
+            foreach (var candidate in types[0].Methods.Where(m => m.Name == symbol.MetadataName && m.GenericArity == symbol.Arity && m.IsStatic == symbol.IsStatic))
             {
                 ImportedMethodReference imported;
                 try { imported = assembly.ImportReference(candidate, binding.CoreLibrary); }
                 catch (InvalidDataException) { continue; }
+                if (imported.IsInterfaceMethod != (symbol.ContainingType?.TypeKind == TypeKind.Interface) ||
+                    imported.RequiresVirtualDispatch != (!symbol.IsStatic && symbol.IsVirtual)) continue;
                 var actual = imported.Signature;
                 if (actual.GenericParameterNames.Count == expected.GenericParameterNames.Count && actual.ReturnType == expected.ReturnType &&
                     actual.ParameterTypes.SequenceEqual(expected.ParameterTypes)) matches.Add(imported);

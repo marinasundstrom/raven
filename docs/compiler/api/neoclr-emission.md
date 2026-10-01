@@ -348,3 +348,36 @@ open. The probe `--imported-value-runtime` verifies/runs a Raven consumer of a
 metadata-authored library with result 42 and checks missing dependency rejection.
 The unchanged collections sample now passes Option<Order> declaration admission and
 stops at invocation lowering; it has not executed.
+
+## Imported constructed dispatch (development, 2026-10-02)
+
+Raven now opts into external instance-call admission through a separate backend
+capability. Public nonvirtual/final class members and nongeneric abstract interface
+members can use unconstrained invariant reference owners with type arguments.
+The compiler resolves the open method against an explicit dependency snapshot and
+checks receiver category, dispatch kind and full parameter/result signature before
+constructing a consumer-scoped reference. Missing dependencies still reject without
+writing output. Runtime Contract and ordinary .NET defaults are unchanged.
+
+Compared with CLR, the metadata API uses the same VAR substitution, constructed
+TypeSpec/MemberRef shape and callvirt null-checking/dispatch semantics. The existing
+native generic interface dispatcher executes the resulting binary assemblies; no
+new instruction or alternate runtime lookup convention is needed. The supported
+producer subset now includes nongeneric root classes implementing closed generic
+interfaces. Definitions own the relationship, builders append it, and native readers
+preserve it in the CLI projection. This expands the host library's supported subset;
+older experimental readers cannot project these relationships.
+
+`--imported-interface-runtime` in Raven proves constructed interface and final class
+calls against a metadata-produced library (42). The C# metadata tests independently
+execute CLR/native dispatch (42), reject incorrect owner/arity/opcode contracts and
+exercise native null-receiver failure. The unchanged collections sample advances
+past MutableMap.TryAdd and ArrayList.Add to BoundPropagateExpression; no complete
+collections execution is claimed. Owners are the shared callable/body admission
+layer, neoCLR adapter, independent metadata library and existing native dispatcher.
+
+The CLI reference projection remains a temporary symbol-loading bridge. Native
+symbol import should eventually preserve these contracts directly. Cross-dependency
+TypeRefs, imported constructors/value-instance methods, instance generic methods,
+extensible class virtual slots and generic interface inheritance remain outside this
+slice. They are implementation limits, not neoCLR language rules.

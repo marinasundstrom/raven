@@ -304,12 +304,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool SupportedTypeArguments(IMethodSymbol method) => capabilities is null ||
             method.TypeArguments.Concat(method.ContainingType?.TypeArguments ?? []).All(t => TryType(t, false, out var type) && capabilities.Allows(type));
         bool SupportedInterfaceCall(IMethodSymbol method) => !method.IsStatic && !method.IsGenericMethod && method.IsAbstract &&
-            method.ContainingType is { TypeKind: TypeKind.Interface, Arity: 0 } owner && SourceInterfacePlan.HasSupportedIdentity(owner) &&
+            method.ContainingType is { TypeKind: TypeKind.Interface } owner &&
+            (owner.Arity == 0 && SourceInterfacePlan.HasSupportedIdentity(owner) ||
+             capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner)) &&
             capabilities?.AllowsInterfaceDispatch == true && TrySignature(method, out var signature) && capabilities.Allows(signature);
         LinearInstructionKind InstanceCallKind(IMethodSymbol method) => method.ContainingType?.TypeKind == TypeKind.Interface
             ? LinearInstructionKind.InterfaceCall : LinearInstructionKind.InstanceCall;
-        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || !method.IsStatic && !method.IsVirtual && !method.IsOverride &&
-            method.ContainingType is { } owner && SourceTypePlan.TryCreate(owner, out _) &&
+        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner)) &&
+            method.ContainingType is { } owner && (SourceTypePlan.TryCreate(owner, out _) ||
+                capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner)) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && (capabilities is null || capabilities.Allows(signature));
         bool SupportedPropertyCall(IMethodSymbol method) =>
             (capabilities is null || capabilities.Allows(EmissionDeclarationKind.PropertyAccessor)) &&
@@ -553,6 +556,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     }
                     Add(call.Method.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(call.Method), Syntax(expression), method: call.Method);
                     return true;
+                case BoundInvocationExpression rejectedCall:
+                    return Reject("invocation " + rejectedCall.Method.ToDisplayString(), Syntax(expression));
                 default: return Reject("lowered expression " + expression.GetType().Name, Syntax(expression));
             }
         }
