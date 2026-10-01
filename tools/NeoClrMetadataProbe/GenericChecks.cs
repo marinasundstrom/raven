@@ -103,9 +103,25 @@ internal static class GenericChecks
                 val Trace: int => trace
                 val Total: int => destination[0].Number + destination[1].Number
             }
+            class GenericSlot<Key, Element> {
+                private var stored: Element
+                init(value: Element) { stored = value }
+                var self[key: Key]: Element {
+                    get => stored
+                    set => stored = value
+                }
+            }
             class GenericBox<Element> {
                 private var stored: Element = default(Element)
                 init(value: Element) { stored = value }
+                var Value: Element {
+                    get => stored
+                    set => stored = value
+                }
+                var self[index: int]: Element {
+                    get => stored
+                    set => stored = value
+                }
                 func Read() -> Element => stored
                 func Write(value: Element) { stored = value }
                 func Echo<Other>(value: Other) -> Other => value
@@ -158,12 +174,17 @@ internal static class GenericChecks
                 if PairHelpers<int, long>.Cross<long>(42, 5000000000L) != 42 { return 16 }
                 let box = GenericBox<Order>(values[0])
                 let numberBox = GenericBox<int>(1)
-                numberBox.Write(42)
+                numberBox.Value = 41
+                numberBox[0] = numberBox.Value + 1
                 if numberBox.Read() != 42 { return 17 }
                 let nestedBox = GenericBox<GenericBox<int>>(Identity(numberBox))
                 if nestedBox.Read().Read() != 42 { return 19 }
                 if box.Echo<long>(5000000000L) != 5000000000L { return 18 }
-                box.Read().Number = 42
+                box[0].Number = 42
+                if box.Value.Number != 42 { return 20 }
+                let slot = GenericSlot<long, Order>(box.Value)
+                slot[5000000000L] = box.Value
+                if slot[5000000000L].Number != 42 { return 21 }
                 let selectedOwner = GenericHelpers<Order>.First(values)
                 if GenericHelpers<Order>.Forward<long>(selectedOwner, 5000000000L) != 5000000000L { return 13 }
                 if GenericHelpers<int>.Empty() != 0 { return 14 }
@@ -229,7 +250,7 @@ internal static class GenericChecks
         }
         var rejectedContracts = 0;
         foreach (var unsupported in new[] {
-            "class Box<T> { val Value: T => default(T) }",
+            "class Box<T> where T: class { }",
             "class Box<T> { public field Value: T = default(T) }\nfunc Read(value: Box<int>) -> int => value.Value",
             "open class Instance { virtual func Identity<T>(value: T) -> T => value }",
             "func Restricted<T>(value: T) -> T where T: class => value",
@@ -284,6 +305,8 @@ internal static class GenericChecks
             genericStaticOwners = true,
             genericInstanceOwners = true,
             genericInstanceFields = true,
+            genericPropertiesAndIndexers = true,
+            independentGenericIndexAndValue = true,
             reorderedOwnerArguments = true,
             crossScopeForwarding = true,
             independentTypeAndMethodParameters = true,

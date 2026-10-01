@@ -83,7 +83,6 @@ internal static class Int32Emitter
                                 a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null) ||
                                 a.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword))))
                                 throw Unsupported("only implemented indexer get/set accessors");
-                            if (typeSymbol.Arity > 0) throw Unsupported("generic owner indexer metadata is not yet supported");
                             properties.Add(indexer);
                             if (indexer.GetMethod is { } indexGet) plans.Add(GetPlan(indexGet));
                             if (indexer.SetMethod is { } indexSet) plans.Add(GetPlan(indexSet));
@@ -103,7 +102,6 @@ internal static class Int32Emitter
                                 throw Unsupported("only implemented get/set accessors without additional contracts");
                             if (property.BackingField is { } backingField) storageFields.Add(backingField);
                             if (property.EmitAsFieldOnly) continue;
-                            if (typeSymbol.Arity > 0) throw Unsupported("generic owner property metadata is not yet supported");
                             properties.Add(property);
                             if (property.GetMethod is { } get) plans.Add(GetPlan(get));
                             if (property.SetMethod is { } set) plans.Add(GetPlan(set));

@@ -2379,3 +2379,25 @@ and nested generic fields. Unsupported generic properties and external field acc
 produce source diagnostics without an output assembly. See
 [recorded evidence](../../tools/NeoClrMetadataProbe/generic-runtime-validation.json).
 Full class-library emission is not yet established.
+
+
+## Generic properties and indexers (2026-10-01 development slice)
+
+Generic instance properties/indexers now reuse shared accessor planning and constructed
+method references. The native adapter emits property associations through the separate
+metadata library, with declaring-type VAR preserved in value/index signatures. Existing
+.NET behavior remains the default. No new lowering, Runtime Contract configuration or
+native schema is required: CLI uses Property/MethodSemantics; the native bridge uses
+canonical open Constructed accessor owners and matching reader validation. External
+constructed field handles, constraints and generic imports remain distinct limitations.
+
+C# Release/Debug tests cover shared accessor bodies and nested constructed values.
+The expanded binary consumer verifies/runs 42 on both runtimes in both source orders,
+including setter/getter calls, indexed mutation, Order aliases and independent generic
+key/value parameters. The producer also
+validates static generic associations and generic index parameter signatures. This is
+feature-branch support on Raven codex/metadata-consumer and neoCLR
+codex/extended-cli-metadata with generic-property producer/reader dbe03b1a or later;
+the existing receiver runtime (6a7a0dd2 or later) is sufficient. See
+[recorded evidence](../../tools/NeoClrMetadataProbe/generic-runtime-validation.json).
+Native compiler support for static source properties is not added by this slice.

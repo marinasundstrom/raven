@@ -16,6 +16,14 @@ public class SharedGenericClassBodyTests
             class Box<Element> {
                 private var stored: Element = default(Element)
                 init(value: Element) { stored = value }
+                var Value: Element {
+                    get => stored
+                    set => stored = value
+                }
+                var self[index: int]: Element {
+                    get => stored
+                    set => stored = value
+                }
                 func Read() -> Element => stored
                 func Write(value: Element) { stored = value }
                 func Echo<Other>(value: Other) -> Other => value
@@ -24,10 +32,11 @@ public class SharedGenericClassBodyTests
             func Main() -> int {
                 let box = Box<int>(1)
                 let alias = Identity(box)
-                alias.Write(42)
+                alias.Value = 41
+                alias[0] = alias.Value + 1
                 let nested = Box<Box<int>>(box)
                 if box.Echo<long>(5000000000L) != 5000000000L { return 1 }
-                return nested.Read().Read()
+                return nested.Value[0]
             }
             """);
         var compilation = Compilation.Create("GenericClassStorage", [tree], TestMetadataReferences.Default,
@@ -35,7 +44,7 @@ public class SharedGenericClassBodyTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(tree);
         // .NET constructors retain their general emitter; methods and creation expressions share planning.
-        var declarations = tree.GetRoot().DescendantNodes().Where(n => n is MethodDeclarationSyntax or FunctionStatementSyntax);
+        var declarations = tree.GetRoot().DescendantNodes().Where(n => n is MethodDeclarationSyntax or FunctionStatementSyntax or AccessorDeclarationSyntax);
         foreach (var syntax in declarations)
         {
             var method = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;

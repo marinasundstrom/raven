@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Admit instance properties and indexers on unconstrained generic classes in the neoCLR adapter. Existing shared accessor/body paths preserve typed values, constructed receivers and alias mutation; property metadata retains declaring-type scope through the separate producer library. Both runtimes execute the expanded binary consumer in both source orders. External constructed fields, constraints and generic imports remain deferred.
+
 - **2026-10-01:** Share unconstrained generic root-class signatures and instance storage emission with neoCLR. Constructed owner constructors, nested class values, mutable private fields and independent generic methods execute on .NET/native. Explicit capabilities gate generic class values and constructor arguments; direct external constructed field access and generic properties/indexers still reject in the native adapter. Ordinary .NET constructor emission remains on its general path.
 
 - **2026-10-01:** Share unconstrained static generic owner emission with independent type and method parameter scopes. The neoCLR adapter emits constructed owner references through the separate metadata API; .NET resolves source generic calls against their constructed declaring type. Release/Debug C# tests and the binary consumer cover owner arrays, defaults, forwarding, mixed VAR/MVAR and object aliases. Extend acceptance to reordered multi-parameter owners and cross-scope forwarding; gate unused owner arguments by their actual target capabilities. Generic instance types, fields, constraints and external owners remain outside native admission.
