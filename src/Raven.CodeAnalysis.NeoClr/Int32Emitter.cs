@@ -33,11 +33,10 @@ internal static class Int32Emitter
                     diagnosticSyntax = declaration;
                     if (member.Parent is not CompilationUnitSyntax)
                         throw Unsupported("namespace-scoped functions require native function namespace metadata");
-                    if ((declaration.Body is null && declaration.ExpressionBody is null) || declaration.AttributeLists.Count != 0 || declaration.Modifiers.Count != 0)
+                    if ((declaration.Body is null && declaration.ExpressionBody is null) || declaration.AttributeLists.Count != 0 ||
+                        declaration.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword)))
                         throw Unsupported("only top-level functions with block or expression bodies");
                     var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
-                    if (compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary && symbol.DeclaredAccessibility != Accessibility.Public)
-                        throw Unsupported("nonpublic library functions require visibility metadata");
                     var plan = GetPlan(symbol);
                     plans.Add(plan);
                 }

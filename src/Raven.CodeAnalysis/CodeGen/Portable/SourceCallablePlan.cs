@@ -11,7 +11,7 @@ internal sealed record SourceCallablePlan(
     internal EmissionDeclarationKind DeclarationKind => IsAssemblyFunction ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.StaticMethod;
     internal Accessibility Visibility => Symbol.DeclaredAccessibility;
     internal bool IsSupportedBy(EmissionCapabilities capabilities) => capabilities.Allows(DeclarationKind) && capabilities.Allows(Signature) &&
-        (IsAssemblyFunction || capabilities.AllowsMethodVisibility(Visibility));
+        (IsAssemblyFunction ? capabilities.AllowsFunctionVisibility(Visibility) : capabilities.AllowsMethodVisibility(Visibility));
 
     internal bool IsAssemblyFunction => TypeOwner is null;
 

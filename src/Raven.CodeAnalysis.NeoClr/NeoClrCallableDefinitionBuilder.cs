@@ -8,15 +8,18 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
     : ICallableDefinitionBuilder<MethodBuilder>
 {
     public MethodBuilder DefineMethod(string metadataName, SourceCallablePlan plan)
-        => owner is null
-            ? assembly.AddFunction(metadataName, ToMetadata(plan.Signature))
-            : owner.AddMethod(metadataName, ToMetadata(plan.Signature), plan.Visibility switch
-            {
-                Accessibility.Public => MethodVisibility.Public,
-                Accessibility.Internal => MethodVisibility.Internal,
-                Accessibility.Private => MethodVisibility.Private,
-                _ => throw new InvalidOperationException("Unsupported native method visibility")
-            });
+    {
+        var visibility = plan.Visibility switch
+        {
+            Accessibility.Public => MethodVisibility.Public,
+            Accessibility.Internal => MethodVisibility.Internal,
+            Accessibility.Private => MethodVisibility.Private,
+            _ => throw new InvalidOperationException("Unsupported native callable visibility")
+        };
+        return owner is null
+            ? assembly.AddFunction(metadataName, ToMetadata(plan.Signature), visibility)
+            : owner.AddMethod(metadataName, ToMetadata(plan.Signature), visibility);
+    }
     internal static PrimitiveMethodSignature ToMetadata(PrimitiveCallableSignature signature)
         => new(NeoClrTypeMapper.Instance.Map(signature.ReturnType), signature.ParameterTypes.Select(NeoClrTypeMapper.Instance.Map));
 }

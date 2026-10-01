@@ -150,6 +150,7 @@ await Command(0, "verify", application, "--module", arithmeticReferencePath, "--
 var reverseOrder = await Command(42, "run", application, "--module", arithmeticReferencePath, "--module", libraryPath, "--show-result");
 if (!reverseOrder.Contains("=> Int32(42)")) throw new Exception("reversed module order returned wrong result");
 var helloPaths = await HelloWorldChecks.Run(core, output, Command);
+await FunctionAccessChecks.Run(core, output, Command);
 var namespacePaths = await NamespaceChecks.Run(core, output, Command);
 await SharedLoweringChecks.Run(core, output, Command);
 await IntegerArithmeticChecks.Run(core, output, Command);
@@ -174,6 +175,7 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     integerBitwiseOperations = true,
     integerShifts = true,
     privateInternalMethodEmission = true,
+    publicInternalAssemblyFunctions = true,
     expressionBodiedCallableEmission = true,
     booleanBitwiseTruthTablesAndEagerEvaluation = true,
     conditionalPrimitiveValues = true,

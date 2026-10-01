@@ -21,5 +21,6 @@ internal static class ReflectionEmitCapabilities
         [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType],
         [Accessibility.Public, Accessibility.Internal],
         [Accessibility.Public, Accessibility.Internal, Accessibility.Private, Accessibility.ProtectedAndProtected,
-            Accessibility.ProtectedOrInternal, Accessibility.ProtectedAndInternal]);
+            Accessibility.ProtectedOrInternal, Accessibility.ProtectedAndInternal],
+        [Accessibility.Public, Accessibility.Internal, Accessibility.Private]);
 }

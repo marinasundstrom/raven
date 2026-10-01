@@ -13,8 +13,7 @@ internal static class LibraryChecks
         using var native = JsonDocument.Parse(image);
         if (native.RootElement.GetProperty("entry").GetString() != "") throw new Exception("library has an entry point");
         foreach (var code in new[] {
-            source.Replace("public static class", "public class"),
-            "func Hidden(value: int) -> int { return value }"
+            source.Replace("public static class", "public class")
         })
         {
             var tree = SyntaxTree.ParseText(code, path: "RejectedLibrary.rvn");

@@ -15,7 +15,7 @@ public class DeclarationCapabilityTests
         var function = (IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single())!;
         var method = (IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single())!;
         var admitted = allowFunction ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.StaticMethod;
-        var capabilities = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(), [admitted], methodVisibilities: [Accessibility.Public]);
+        var capabilities = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(), [admitted], methodVisibilities: [Accessibility.Public], functionVisibilities: [Accessibility.Public, Accessibility.Internal]);
         Assert.Equal(allowFunction, SourceCallablePlan.TryCreate(function, out var functionPlan, capabilities));
         Assert.Equal(!allowFunction, SourceCallablePlan.TryCreate(method, out var methodPlan, capabilities));
         var accepted = allowFunction ? functionPlan : methodPlan;
@@ -28,6 +28,30 @@ public class DeclarationCapabilityTests
         Assert.Null(body);
         Assert.Contains("target does not support declaration", failure!.Detail);
         Assert.Same(unadmitted.Syntax.SyntaxTree, failure.Syntax.SyntaxTree);
+    }
+
+    [Theory]
+    [InlineData("public", Accessibility.Public)]
+    [InlineData("internal", Accessibility.Internal)]
+    public void AssemblyFunctionAccessRequiresIndependentAdmission(string modifier, Accessibility visibility)
+    {
+        var compilation = Compilation.Create("FunctionAccess", [SyntaxTree.ParseText($"{modifier} func Value() -> int => 42")],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var syntax = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
+        var symbol = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var denied = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(),
+            [EmissionDeclarationKind.AssemblyFunction], methodVisibilities: [visibility]);
+        Assert.False(SourceCallablePlan.TryCreate(symbol, out _, denied));
+        var allowed = new[] { visibility };
+        var profile = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(),
+            [EmissionDeclarationKind.AssemblyFunction], functionVisibilities: allowed);
+        allowed[0] = Accessibility.Private;
+        Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, profile));
+        Assert.Equal(visibility, plan!.Visibility);
+        Assert.True(plan.TryLowerBody(compilation, _ => false, out _, out var failure, profile), failure?.Detail);
+        Assert.False(plan.TryLowerBody(compilation, _ => false, out _, out _, denied));
     }
 
     [Fact]

@@ -2792,3 +2792,30 @@ binary runtime/rvnc probe pass. The new case retains an earlier operand through
 loops, internal break/continue and conditional assignments. A conditional return
 inside a value block rejects the shared plan and leaves native output untouched.
 [Recorded evidence](../../tools/NeoClrMetadataProbe/validation.json).
+
+
+### Assembly-function access — 2026-10-01
+
+Shared capabilities now admit function visibility independently from type/method access.
+Native declaration emission preserves public/internal source access through the separate
+metadata API; default internal functions are no longer widened to public. Explicit
+public/internal modifiers are accepted, including library helpers. Private ownerless
+functions remain unsupported because native private access requires a declaring type.
+Ordinary .NET retains its established carrier/visibility policy. No Runtime Contract
+setting or binder rule changes; console entry selection can name an internal function.
+
+This corrects an earlier bridge information loss: callers relying on accidentally
+public default functions may now fail native verification. The native owner remains
+absent, while CLI projection uses global methods with Public/Assembly access flags.
+The updated reader/writer must be paired; older bounded readers reject internal globals.
+The compiler owns access admission, the metadata library owns encoding, and the existing
+runtime checks resolved module identity. Public static facades support library consumers;
+direct Raven source import of projected globals remains deferred to metadata-loader work.
+No synthetic native owner or runtime instruction is added, and no performance gain is claimed.
+
+Validation: 51 focused Raven C# tests, 46 independent metadata groups and the full
+binary runtime/rvnc probe pass with metadata `03472bef`. Libraries in both source
+orders retain public/internal/default-internal function access. A separate consumer
+calls a public static facade to 42; native verification rejects raw references to
+the internal helper. Existing console entries still run with preserved internal access.
+[Recorded evidence](../../tools/NeoClrMetadataProbe/validation.json).

@@ -22,5 +22,6 @@ internal static class NeoClrCapabilities
         ],
         [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType],
         [Accessibility.Public, Accessibility.Internal],
-        [Accessibility.Public, Accessibility.Internal, Accessibility.Private]);
+        [Accessibility.Public, Accessibility.Internal, Accessibility.Private],
+        [Accessibility.Public, Accessibility.Internal]);
 }

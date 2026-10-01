@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Preserve public/internal assembly-function access through independent shared capability admission and native metadata emission, including library helpers. Default internal functions are no longer accidentally public; callers relying on widened access now fail native verification. Direct source import of projected globals remains deferred.
+
 - **2026-10-01:** Share primitive value-producing if/else emission across .NET and neoCLR using existing branch joins, preserving branch selection and nested conditional results. Extend primitive value blocks with initialized locals, assignments and calls before their final expression; admit internal if/loop control flow while rejecting returns, outgoing jumps and disposal in this bounded path.
 
 - **2026-10-01:** Emit eager Boolean &, | and ^ through the shared .NET/neoCLR body path. Preserve left-to-right evaluation and Boolean result types; require the matching native runtime support. Short-circuit operators are unchanged.

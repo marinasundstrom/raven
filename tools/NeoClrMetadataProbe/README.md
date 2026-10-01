@@ -1,8 +1,8 @@
 # Independent neoCLR metadata consumer
 
 This opt-in executable is the first bounded compiler-to-runtime integration case.
-It is not installed as a `Compilation.Emit` backend and does not change ordinary .NET
-or the existing neoCLR CLI target. The metadata API remains a separate project.
+It can be selected explicitly as a `Compilation.Emit` backend; ordinary .NET and
+the existing neoCLR CLI target remain separate defaults/contracts. The metadata API remains a separate project.
 
 ```sh
 dotnet run --project tools/NeoClrMetadataProbe \
@@ -87,9 +87,9 @@ The adapter receives `OutputKind.DynamicallyLinkedLibrary` and emits no entry po
 The application resolves the one-argument overload through projected native metadata;
 the native dependency performs its local helper call. All three application variants
 return 42. The runner also checks missing/wrong-revision dependencies and rejects
-private methods, internal/nonstatic types and nonpublic library globals with source
-locations and unchanged failed output. This public-only library slice does not add
-visibility metadata or a native symbol provider; console globals remain supported.
+unsupported nonstatic types with source locations and unchanged failed output.
+Later visibility slices preserve public/internal static types, public/internal/private
+methods and public/internal assembly functions. A native symbol provider remains pending.
 
 ## Transitive runtime graph
 
@@ -310,3 +310,9 @@ without writing. Existing statement-form loops remain supported.
 The control-flow case retains an earlier arithmetic operand while a value block runs
 a loop with internal break/continue and conditional assignments. Both .NET paths and
 the native verifier/runtime must preserve the enclosing expression result.
+
+
+Function-access coverage compiles a library in both file orders with explicit public/
+internal and default-internal assembly functions. A public static facade runs to 42
+from a separate consumer; raw metadata callers of the internal function are rejected
+by native verification. Direct Raven import of CLI-projected globals remains deferred.

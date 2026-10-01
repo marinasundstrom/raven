@@ -4,7 +4,8 @@ Development API on `codex/metadata-consumer`, in the optional .NET 10 project
 `src/Raven.CodeAnalysis.NeoClr`. The metadata implementation remains the separate
 `NeoCLR.Metadata.Experimental` project; it does not depend on Raven. The adapter
 requires an explicit `NeoClrMetadataProject` build property and is not part of the
-default solution, compiler driver, or `Compilation.Emit` target composition.
+default solution. Hosts select it explicitly through `EmitOptions.WithBackend`; the
+opt-in compiler driver exposes the `neoclr` command. Ordinary .NET remains the default.
 
 ## Public API
 
@@ -92,20 +93,22 @@ body uses its own semantic model, so cross-file calls do not depend on source-tr
 order. Declaration/token order follows the compilation tree order; byte-for-byte
 equality across reordered files is not promised.
 
-The existing primitive subset remains: top-level block-bodied functions with required
-Int32 value parameters/results, returns, Int32 constants, parameter loads, local/static
-calls, and intrinsic unchecked/unlifted addition, subtraction and multiplication.
-Public nongeneric static classes in the global namespace may contain public static
-block-bodied Int32 methods. Raven's default public method accessibility is accepted;
-explicit public is optional. Library output omits the entry point. Nonpublic library
-functions/methods/types are rejected rather than widened to the writer's public-only
-metadata contract. Top-level console functions remain supported; library exports in
-this slice use static classes. Namespace declarations, inheritance, primary
-constructors, nested types and additional class contracts remain unsupported.
+The bounded subset supports Int32/Int64/Boolean/String value parameters and results,
+plus Unit/no-result returns. Global-namespace assembly functions preserve public or
+internal access; unmodified source functions use their bound accessibility. Public/
+internal nongeneric static classes may contain public/internal/private static methods,
+including partial declarations and namespaces. Blocks and arrow bodies share lowering.
+Initialized locals, assignments, primitive arithmetic/bitwise operations, supported
+conversions, calls, conditional values and lowered loops use shared emission contracts.
+Value blocks permit internal control flow but reject returns/outgoing jumps and disposal.
+Library output omits the entry point; internal functions can be explicit console entries.
 
-Fields, instance calls, generics, structural types, arbitrary statements, attributes,
-async, captures, checked/lifted operators and named/default/expanded arguments remain
-unsupported. The metadata writer also bounds methods, parameters, bodies and artifacts.
+Fields, instance calls, generics, structural types, attributes, async, captures,
+checked/lifted operators and optional/expanded arguments remain outside the bounded
+producer. Namespace-scoped native functions require a future namespace contract.
+Private ownerless functions are not admitted. The metadata writer also bounds methods,
+parameters, bodies and artifacts. Public class facades can expose library behavior;
+direct source import of projected global functions remains outside this integration.
 
 The C# integration runner compiles a Raven library to native metadata, derives its
 reference-only projection, and registers the
