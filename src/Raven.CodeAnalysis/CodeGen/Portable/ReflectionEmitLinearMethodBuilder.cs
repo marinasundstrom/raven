@@ -18,7 +18,7 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
         type => method.ResolveClrType(method.Compilation.GetSpecialType(type)));
 
     public void DeclareLocal(EmissionType type) => locals.Add(output.DeclareLocal(type.Primitive is { } p ? types.Map(p)
-        : method.ResolveClrType((ITypeSymbol?)type.Array ?? (ITypeSymbol?)type.MethodParameter ?? type.Class!)));
+        : method.ResolveClrType((ITypeSymbol?)type.Array ?? (ITypeSymbol?)type.MethodParameter ?? (ITypeSymbol?)type.OwnerParameter ?? type.Class!)));
 
     internal static bool TryEmit(MethodGenerator method)
     {
@@ -28,7 +28,7 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
         if (method.Compilation.Options.OptimizationLevel != OptimizationLevel.Release ||
             method.TypeGenerator.CodeGen.HasDebugOutput ||
             !LinearMethodBody.HasSupportedSignature(symbol) ||
-            symbol.ContainingType is not { Arity: 0 } || method.LambdaClosure is not null)
+            symbol.ContainingType is null || method.LambdaClosure is not null)
             return false;
         // A logical no-result return can use ret directly only when the CLI signature
         // is actually void. Keep any value-bearing Unit representation on general codegen.

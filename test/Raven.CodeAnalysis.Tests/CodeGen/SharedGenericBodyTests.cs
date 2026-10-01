@@ -51,6 +51,45 @@ public class SharedGenericBodyTests
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         Assert.Equal(42, Assembly.Load(image.ToArray()).EntryPoint!.Invoke(null, null));
     }
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void StaticGenericOwnersKeepTypeAndMethodScopesIndependent(OptimizationLevel optimization)
+    {
+        var tree = SyntaxTree.ParseText("""
+            static class Helpers<Element> {
+                static func SelectValue<Result>(ignored: Element, value: Result) -> Result => value
+                static func Forward<Other>(ignored: Element, value: Other) -> Other => SelectValue<Other>(ignored, value)
+                static func Empty() -> Element => default(Element)
+                static func First(values: Element[]) -> Element => values[0]
+            }
+            func Main() -> int {
+                let values: int[] = [42]
+                if Helpers<int>.Forward<long>(1, 5000000000L) != 5000000000L { return 1 }
+                if Helpers<int>.Empty() != 0 { return 2 }
+                return Helpers<int>.First(values)
+            }
+            """);
+        var compilation = Compilation.Create("GenericOwners", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+        {
+            var method = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+            Assert.True(SourceCallablePlan.TryCreate(method, out var plan, ReflectionEmitCapabilities.Shared));
+            Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+            var noOwners = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+                Enum.GetValues<EmissionDeclarationKind>(), [Accessibility.Internal, Accessibility.Public],
+                [Accessibility.Public], [Accessibility.Internal], allowsArrays: true, allowsGenericMethods: true);
+            Assert.False(plan.IsSupportedBy(noOwners));
+        }
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Equal(42, Assembly.Load(image.ToArray()).EntryPoint!.Invoke(null, null));
+    }
+
     [Fact]
     public void GenericArgumentsRequireCapabilitiesEvenWhenAbsentFromSignature()
     {

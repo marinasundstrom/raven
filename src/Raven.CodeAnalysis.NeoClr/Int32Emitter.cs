@@ -42,10 +42,10 @@ internal static class Int32Emitter
                 }
                 else if (member is ClassDeclarationSyntax type)
                 {
-                    if (type.AttributeLists.Count != 0 || type.TypeParameterList is not null || type.ParameterList is not null ||
+                    if (type.AttributeLists.Count != 0 || type.ParameterList is not null ||
                         type.BaseList is not null || type.ConstraintClauses.Count != 0 || type.PermitsClause is not null ||
                         type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword)))
-                        throw Unsupported("only public or internal nongeneric static or root classes without additional contracts");
+                        throw Unsupported("only public or internal static or nongeneric root classes without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
                         throw Unsupported("only public or internal nongeneric static or root classes");
@@ -185,6 +185,14 @@ internal static class Int32Emitter
         }
         var references = new CallableReferenceTable<NeoClrCallableReference>(target =>
         {
+            if (target.ContainingType is { Arity: > 0 } owner)
+            {
+                if (!definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
+                    throw Unsupported("only owned static generic type calls");
+                return NeoClrCallableReference.Create(definition.MakeConstructedReference(
+                    owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])),
+                    target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type]))));
+            }
             if (target.IsGenericMethod)
             {
                 if (!definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
@@ -197,7 +205,7 @@ internal static class Int32Emitter
                 : NeoClrCallableReference.Create(Import(target));
         });
         foreach (var declaration in methods)
-            if (!declaration.Plan.Symbol.IsGenericMethod)
+            if (!declaration.Plan.Symbol.IsGenericMethod && declaration.Plan.Symbol.ContainingType?.Arity is not > 0)
                 references.Declare(declaration.Plan.Symbol, NeoClrCallableReference.Create(declaration.Method));
         if (compilation.Options.OutputKind == OutputKind.ConsoleApplication)
         {

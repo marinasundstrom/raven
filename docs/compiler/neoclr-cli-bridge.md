@@ -2322,3 +2322,26 @@ includes runtime/source hashes. Matching producer API: neoCLR `8e7fada6` or late
 receiver runtime: `6a7a0dd2` or later on the metadata feature branch. Validation includes
 13 focused C# generic/default tests and both source orders. No full-library support
 is claimed.
+
+
+## Static generic owners (2026-10-01 development slice)
+
+Unconstrained static generic classes now use the shared SourceTypePlan, callable
+signature and body paths. An explicit GenericStaticOwners capability admits owner
+parameters separately from method parameters, including arguments absent from a call's
+value signature. No Runtime Contract configuration change is needed. The native
+adapter uses the separate metadata producer's AddGenericType/MakeConstructedReference;
+.NET preserves ordinary VAR/MVAR, TypeSpec/MemberRef and optional MethodSpec semantics.
+The source-method resolver now projects the declaring type before constructing a
+method, including open calls inside a generic type.
+
+The temporary binary bridge retains native open/constructed owner records and a CLI
+reference projection. It does not flatten owner parameters into method parameters.
+Generic object layouts, fields/properties on generic owners, constraints and imported
+generic owners remain deferred; the native metadata/backend replacement must preserve
+both scopes and identity. This is feature-branch support, not main/released support:
+Raven codex/metadata-consumer with neoCLR codex/extended-cli-metadata producer 0da5a3b0
+or later and receiver runtime 6a7a0dd2 or later. C# Release/Debug checks cover shared
+planning and target capability rejection; the binary Order consumer verifies and runs
+42 in both source orders on .NET and neoCLR, including generic owner defaults, arrays,
+method forwarding and object aliases. See the adjacent recorded probe evidence.

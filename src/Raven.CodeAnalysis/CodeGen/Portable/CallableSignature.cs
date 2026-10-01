@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical type identity is compiler-owned; physical signature handles belong to each backend.
-internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray<EmissionType> ParameterTypes, ImmutableArray<string> GenericParameterNames = default, bool IsInstance = false)
+internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray<EmissionType> ParameterTypes, ImmutableArray<string> GenericParameterNames = default, bool IsInstance = false, int DeclaringTypeArity = 0)
 {
     internal int ParameterCount => ParameterTypes.Length;
     internal bool ReturnsValue => ReturnType.Primitive != EmissionPrimitiveType.NoResult;
@@ -15,6 +15,8 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(Primitive: primitive); return true; }
         if (type is ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter)
         { value = new(MethodParameter: parameter); return true; }
+        if (type is ITypeParameterSymbol { DeclaringTypeParameterOwner: { IsStatic: true } } ownerParameter)
+        { value = new(OwnerParameter: ownerParameter); return true; }
         if (type is INamedTypeSymbol named && SourceTypePlan.TryCreate(named, out var plan) && !plan!.IsStatic)
         { value = new(Class: named); return true; }
         if (type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } array && TryType(array.ElementType, false, out _))
@@ -25,6 +27,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
     {
         signature = null!;
         if ((method.IsGenericMethod && method.TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty)) || method.IsExtensionMethod || method.IsAsync || !TryType(method.ReturnType, true, out var result)) return false;
+        if (method.ContainingType is { Arity: > 0 } owner && (!SourceTypePlan.TryCreate(owner, out _) || owner.TypeArguments.Any(t => !TryType(t, false, out _)))) return false;
         if (method.IsGenericMethod && method.TypeArguments.Any(t => !TryType(t, false, out _))) return false;
         var parameters = ImmutableArray.CreateBuilder<EmissionType>(method.Parameters.Length);
         foreach (var parameter in method.Parameters)
@@ -32,7 +35,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             if (parameter.RefKind != RefKind.None || parameter.HasExplicitDefaultValue || parameter.IsVarParams || !TryType(parameter.Type, false, out var type)) return false;
             parameters.Add(type);
         }
-        signature = new(result, parameters.MoveToImmutable(), method.TypeParameters.Select(p => p.Name).ToImmutableArray(), !method.IsStatic);
+        signature = new(result, parameters.MoveToImmutable(), method.TypeParameters.Select(p => p.Name).ToImmutableArray(), !method.IsStatic, method.ContainingType?.Arity ?? 0);
         return true;
     }
 }

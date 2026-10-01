@@ -23,7 +23,7 @@ internal interface ILinearMethodBuilder
 internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
 // Logical value types carry compiler identity, never backend handles.
-internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Class = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null);
+internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Class = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null);
 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
@@ -505,7 +505,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                      call.Method.MethodKind == MethodKind.Ordinary && SupportedInstanceCall(call.Method)):
                     if (!CallableSignature.TryCreate(call.Method, out var callSignature)) return Reject("only supported value signatures and unconstrained generics (Unit only as result): " + call.Method.Name, Syntax(expression));
                     if (capabilities is not null && (!capabilities.Allows(callSignature) ||
-                        call.Method.TypeArguments.Any(t => !CallableSignature.TryType(t, false, out var argumentType) || !capabilities.Allows(argumentType))))
+                        call.Method.TypeArguments.Concat(call.Method.ContainingType?.TypeArguments ?? []).Any(t => !CallableSignature.TryType(t, false, out var argumentType) || !capabilities.Allows(argumentType))))
                         return Reject("target does not support call signature types", Syntax(expression));
                     var arguments = call.Arguments.ToArray();
                     if (arguments.Length != call.Method.Parameters.Length) return Reject("optional/expanded arguments", Syntax(expression));

@@ -103,6 +103,13 @@ internal static class GenericChecks
                 val Trace: int => trace
                 val Total: int => destination[0].Number + destination[1].Number
             }
+            static class GenericHelpers<Element> {
+                static func First(values: Element[]) -> Element => values[0]
+                static func SelectValue<Result>(ignored: Element, value: Result) -> Result => value
+                static func Forward<Other>(ignored: Element, value: Other) -> Other => SelectValue<Other>(ignored, value)
+                static func Empty() -> Element => default(Element)
+                static func Echo(value: Element) -> Element => value
+            }
             class Helpers {
                 static func First<T>(values: T[]) -> T => values[0]
             }
@@ -135,6 +142,10 @@ internal static class GenericChecks
                 if receiver.Empty<bool>() { return 11 }
                 if receiver.Empty<long>() != 0L { return 12 }
                 let spare = receiver.Empty<Order>()
+                let selectedOwner = GenericHelpers<Order>.First(values)
+                if GenericHelpers<Order>.Forward<long>(selectedOwner, 5000000000L) != 5000000000L { return 13 }
+                if GenericHelpers<int>.Empty() != 0 { return 14 }
+                GenericHelpers<Order>.Echo(selectedOwner).Number = 42
                 let other = Receiver()
                 if other.Recur(42, 3) != 42 || other.Number != 42 || receiver.Number != 7 { return 9 }
                 return Identity<int>(values[0].Number)
@@ -247,6 +258,8 @@ internal static class GenericChecks
             recursiveGenericInstanceCalls = true,
             independentReceivers = true,
             genericDefaultValues = true,
+            genericStaticOwners = true,
+            independentTypeAndMethodParameters = true,
             genericArrayClear = true,
             clearedReferenceFault = true,
             rejectedContracts

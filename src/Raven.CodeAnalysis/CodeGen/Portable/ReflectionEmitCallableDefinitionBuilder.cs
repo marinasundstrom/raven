@@ -4,7 +4,7 @@ using System.Reflection.Emit;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 internal sealed class ReflectionEmitCallableDefinitionBuilder(TypeBuilder owner,
-    MethodAttributes attributes, Func<SpecialType, Type> resolveType, Func<INamedTypeSymbol, Type> resolveClass) : ICallableDefinitionBuilder<MethodBuilder>
+    MethodAttributes attributes, Func<SpecialType, Type> resolveType, Func<ITypeSymbol, Type> resolveClass) : ICallableDefinitionBuilder<MethodBuilder>
 {
     private readonly IEmissionTypeMapper<Type> types = new ReflectionEmitTypeMapper(resolveType);
 
@@ -18,7 +18,7 @@ internal sealed class ReflectionEmitCallableDefinitionBuilder(TypeBuilder owner,
                 CallableSignature.TryType(array.ElementType, false, out var element);
                 return Map(element).MakeArrayType();
             }
-            return resolveClass(type.Class!);
+            return resolveClass((ITypeSymbol?)type.OwnerParameter ?? type.Class!);
         }
         var result = Map(plan.Signature.ReturnType);
         var parameters = plan.Signature.ParameterTypes.Select(Map).ToArray();
