@@ -164,16 +164,31 @@ internal static class Int32Emitter
             nativeTypes.Add(type.Symbol, definition);
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type]));
         }
+        var nativeInterfaces = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
         foreach (var contract in interfaces)
         {
             var symbol = contract.Symbol;
             var visibility = symbol.DeclaredAccessibility == Accessibility.Public ? TypeVisibility.Public : TypeVisibility.Internal;
-            var definition = symbol.Arity == 0 ? assembly.AddInterface(contract.Namespace, contract.Name, visibility)
-                : assembly.AddGenericInterface(contract.Namespace, symbol.Name, symbol.TypeParameters.Select(p => p.Name), visibility);
+            nativeInterfaces.Add(symbol, symbol.Arity == 0 ? assembly.AddInterface(contract.Namespace, contract.Name, visibility)
+                : assembly.AddGenericInterface(contract.Namespace, symbol.Name, symbol.TypeParameters.Select(p => p.Name), visibility));
+        }
+        foreach (var contract in interfaces)
+        {
+            var definition = nativeInterfaces[contract.Symbol];
+            foreach (var inherited in contract.BaseInterfaces)
+            {
+                if (!nativeInterfaces.TryGetValue(inherited, out var parent)) throw Unsupported("inherited interface must be an emitted declaration");
+                definition.AddBaseInterface(parent);
+            }
+            var contractMethods = new Dictionary<IMethodSymbol, MetadataMethod>(SymbolEqualityComparer.Default);
             foreach (var method in contract.Methods)
-                definition.AddInterfaceMethod(method.Symbol.MetadataName, new MethodSignature(
+                contractMethods.Add(method.Symbol, definition.AddInterfaceMethod(method.Symbol.MetadataName, new MethodSignature(
                     NeoClrTypeMapper.Map(method.Signature.ReturnType, type => nativeTypes[type]),
-                    method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type]))));
+                    method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])))));
+            foreach (var property in contract.Properties)
+                definition.AddProperty(property.Symbol.MetadataName, NeoClrTypeMapper.Map(property.Type, type => nativeTypes[type]),
+                    property.Symbol.GetMethod is { } get ? contractMethods[get] : null,
+                    property.Symbol.SetMethod is { } set ? contractMethods[set] : null);
         }
         foreach (var type in declaredTypes.Values)
             foreach (var parameter in type.Symbol.TypeParameters)

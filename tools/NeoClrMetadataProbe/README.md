@@ -446,6 +446,6 @@ and ArrayList without replacing their native dependencies.
 
 
 `--interface-library-runtime <source-root> <fresh-output> <runtime>` compiles the
-unchanged Comparer and EqualityComparer files, checks interface metadata on CLI/native
+unchanged Comparer, EqualityComparer, Disposable and Iterator files, checks interface metadata on CLI/native
 projection and verifies/loads both file orders. Its independent entry returns 42;
 this command deliberately makes no interface-dispatch claim.

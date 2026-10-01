@@ -7,6 +7,14 @@
     {
       "path": "System/Collections/EqualityComparer.rvn",
       "sha256": "820C9AB4936879F8F60A4882C3EA0BD266C3DE4F562C8F61C49B8AAC9801258B"
+    },
+    {
+      "path": "System/Disposable.rvn",
+      "sha256": "5899F28A3F77A1E2B463689C2E25E19CE39200EA519F49FFBA9A77CF0D35769D"
+    },
+    {
+      "path": "System/Collections/Iterator.rvn",
+      "sha256": "6FC46377ACE7C8F7AF8BE7C9A90B574DFD878D37333982EF04CFC144C7196A14"
     }
   ],
   "wholeFiles": true,
@@ -14,6 +22,8 @@
   "nativeVerify": true,
   "nativeEntryResult": 42,
   "cliEntryResult": 42,
+  "inheritedInterface": true,
+  "abstractProperty": true,
   "interfaceDispatch": false,
   "entryUsesInterfaces": false,
   "fullClassLibrary": false,

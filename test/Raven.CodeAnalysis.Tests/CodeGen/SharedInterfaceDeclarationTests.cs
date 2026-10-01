@@ -40,9 +40,34 @@ public class SharedInterfaceDeclarationTests
         Assert.All(method.GetParameters(), p => Assert.Equal(typeof(int), p.ParameterType));
     }
 
+    [Fact]
+    public void AbstractPropertyAndInheritedInterfaceKeepTheirContracts()
+    {
+        var tree = SyntaxTree.ParseText("""
+            public interface Disposable { func Dispose() }
+            public interface Iterator<T> : Disposable {
+                func MoveNext() -> bool
+                val Current: T { get }
+            }
+            """);
+        var compilation = Compilation.Create("IteratorContract", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Last();
+        var type = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceInterfacePlan.TryCreate(type, ReflectionEmitCapabilities.Shared, out var plan));
+        Assert.Single(plan!.Properties);
+        Assert.Single(plan.BaseInterfaces);
+        using var image = new MemoryStream(); var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var emitted = Assembly.Load(image.ToArray()).GetType("Iterator`1")!.MakeGenericType(typeof(int));
+        Assert.Equal("Disposable", emitted.GetInterfaces().Single().Name);
+        Assert.Equal(typeof(int), emitted.GetProperty("Current")!.PropertyType);
+        Assert.True(emitted.GetProperty("Current")!.GetMethod!.IsAbstract);
+    }
+
     [Theory]
     [InlineData("public interface Contract<out T> { func Get() -> T }")]
-    [InlineData("public interface Base { }\npublic interface Contract : Base { }")]
     [InlineData("public interface Contract { func Get<T>(value: T) -> T }")]
     public void BroaderInterfaceShapesRemainOutsideTheBoundedPlan(string source)
     {

@@ -18,7 +18,7 @@ internal static class InterfaceLibraryChecks
     {
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
-        string[] paths = ["System/Collections/Comparer.rvn", "System/Collections/EqualityComparer.rvn"];
+        string[] paths = ["System/Collections/Comparer.rvn", "System/Collections/EqualityComparer.rvn", "System/Disposable.rvn", "System/Collections/Iterator.rvn"];
         var sources = paths.Select(p => File.ReadAllText(Path.Combine(root, p))).ToArray();
         var host = typeof(object).Assembly.GetName();
         var core = new AssemblyIdentity(host.Name!, host.Version!, host.CultureName ?? "", Convert.ToHexString(host.GetPublicKeyToken() ?? []));
@@ -56,6 +56,13 @@ internal static class InterfaceLibraryChecks
                 if (!type.IsInterface || type.GetMethods().Any(m => !m.IsAbstract || !m.IsVirtual || m.GetMethodBody() is not null))
                     throw new Exception("CLI interface contract");
             }
+            var iterator = loaded.GetType("System.Collections.Iterator`1")!.MakeGenericType(typeof(int));
+            if (iterator.GetInterfaces().Single().FullName != "System.Disposable" ||
+                iterator.GetProperty("Current")!.PropertyType != typeof(int) || !iterator.GetProperty("Current")!.GetMethod!.IsAbstract)
+                throw new Exception("CLI iterator contract");
+            var iteratorRow = snapshot.MainModule.Types.Single(t => t.Name == "Iterator`1");
+            if (iteratorRow.Properties.Single().Name != "Current" || iteratorRow.Properties.Single().GetMethod!.IsStatic)
+                throw new Exception("native iterator property association");
             if (!Equals(loaded.EntryPoint!.Invoke(null, null), 42)) throw new Exception("CLI entry");
         }
         for (int i = 0; i < paths.Length; i++) File.WriteAllText(Path.Combine(output, Path.GetFileName(paths[i])), sources[i]);
@@ -67,12 +74,14 @@ internal static class InterfaceLibraryChecks
             nativeVerify = true,
             nativeEntryResult = 42,
             cliEntryResult = 42,
+            inheritedInterface = true,
+            abstractProperty = true,
             interfaceDispatch = false,
             entryUsesInterfaces = false,
             fullClassLibrary = false,
             runtimeSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(runtime))),
             bootstrap = "host core; declaration loading and projection, not interface dispatch"
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
-        Console.WriteLine("PASS unchanged comparer interfaces: CLI/native load and verify in both file orders; independent entry 42, no dispatch claim");
+        Console.WriteLine("PASS unchanged comparer/disposable/iterator interfaces: CLI/native load and verify in both file orders; independent entry 42, no dispatch claim");
     }
 }

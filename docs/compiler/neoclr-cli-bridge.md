@@ -2506,3 +2506,14 @@ neoCLR and reflect as interfaces on .NET in both file orders. The independent en
 returns 42; [evidence](../../tools/NeoClrMetadataProbe/interface-library-runtime-validation.json)
 explicitly disclaims dispatch. Thirteen focused C# tests pass; full collection/library
 compilation remains open. Native symbol import is still a separate integration task.
+
+
+The iterator declaration extension adds explicit InterfaceProperty and
+InterfaceInheritance capabilities. Bodyless accessors share method signatures and
+producer property associations; all interface definitions are declared before their
+base edges, preserving source-order independence. Only owned nongeneric base interfaces
+are admitted. Unchanged Disposable and Iterator<T> now join the comparer acceptance:
+both runtimes load/verify the declarations, with an independent entry returning 42.
+13 focused compiler tests pass; no dispatch result is claimed. Generic inherited
+interfaces and interface-valued signatures remain subsequent work. No Runtime Contract,
+semantic binding, runtime instruction or ordinary .NET emitter change is required.
