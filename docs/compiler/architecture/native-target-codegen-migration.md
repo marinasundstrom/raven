@@ -40,7 +40,7 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
 5. Backend-owned immutable instruction/built-in-type profiles now admit shared body
    plans before builder use; restricted profiles prove selective admission. Signed
    Int32/Int64 division, remainder, bitwise AND/OR/XOR and signed shifts now execute on both targets using that same planner. Logical assembly-function/static-method/static-type category admission now shares
-   those backend profiles; public/internal static type visibility is also admitted explicitly. Public/internal/private static method visibility now follows the shared callable plan and explicit backend admission. Broader metadata categories remain pending.
+   those backend profiles; public/internal static type visibility is also admitted explicitly. Public/internal/private static method visibility now follows the shared callable plan and explicit backend admission. Block and expression bodies now share compiler lowering across both bounded backends. Broader metadata categories remain pending.
    Compose compatible backend, runtime policies and capabilities through native target
    selection. The current EmitOptions backend override remains experimental. Reserve
    a semantic import boundary, but do not redesign metadata loading in these slices.

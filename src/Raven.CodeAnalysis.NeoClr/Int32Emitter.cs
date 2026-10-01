@@ -33,8 +33,8 @@ internal static class Int32Emitter
                     diagnosticSyntax = declaration;
                     if (member.Parent is not CompilationUnitSyntax)
                         throw Unsupported("namespace-scoped functions require native function namespace metadata");
-                    if (declaration.Body is null || declaration.AttributeLists.Count != 0 || declaration.Modifiers.Count != 0)
-                        throw Unsupported("only top-level block-bodied functions");
+                    if ((declaration.Body is null && declaration.ExpressionBody is null) || declaration.AttributeLists.Count != 0 || declaration.Modifiers.Count != 0)
+                        throw Unsupported("only top-level functions with block or expression bodies");
                     var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
                     if (compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary && symbol.DeclaredAccessibility != Accessibility.Public)
                         throw Unsupported("nonpublic library functions require visibility metadata");
@@ -56,10 +56,10 @@ internal static class Int32Emitter
                     foreach (var typeMember in type.Members)
                     {
                         diagnosticSyntax = typeMember;
-                        if (typeMember is not MethodDeclarationSyntax method || method.Body is null || method.AttributeLists.Count != 0 ||
+                        if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null) || method.AttributeLists.Count != 0 ||
                             method.ExplicitInterfaceSpecifier is not null || method.ConstraintClauses.Count != 0 ||
                             method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)))
-                            throw Unsupported("only public/internal/private static block-bodied methods");
+                            throw Unsupported("only public/internal/private static methods with block or expression bodies");
                         var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
                         if (!symbol.IsStatic) throw Unsupported("only static methods");
                         var plan = GetPlan(symbol);

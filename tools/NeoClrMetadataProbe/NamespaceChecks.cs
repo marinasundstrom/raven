@@ -31,9 +31,9 @@ internal static class NamespaceChecks
             """
             namespace Example.Second
             public static class Math {
-                public static func Value() -> int { InternalValue() }
-                internal static func InternalValue() -> int { HiddenValue() }
-                private static func HiddenValue() -> int { 20 }
+                public static func Value() -> int => InternalValue()
+                internal static func InternalValue() -> int => HiddenValue()
+                private static func HiddenValue() -> int => 20
             }
             """
         ];

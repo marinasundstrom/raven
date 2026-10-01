@@ -2694,3 +2694,21 @@ metadata format changes. Native source admission follows in a separate slice.
 Validation: 48 focused C# declaration/shared-body/expression-body tests pass. New
 Release/Debug cases inspect shared planning and execute Int32/Int64/Boolean/String
 results, implicit widening and Unit calls; existing expression-body regressions pass.
+
+
+### Native expression-body emission — 2026-10-01
+
+Native source admission now accepts block or expression bodies for existing top-level
+functions and static methods. Both forms use the shared callable plan and existing
+compiler lowering. No metadata API/opcode/schema or Runtime Contract configuration
+changes are needed. CLI reference projections keep declarations and throwing bodies;
+native #Neo bodies retain existing instructions. Native semantic loading remains the
+future replacement for the projection. Generic, async, instance and unsupported body
+operations remain outside this producer; unsupported arrow expressions retain their
+source span and leave output untouched.
+
+Validation: 48 focused compiler tests pass. The complete binary runtime/rvnc probe
+passes with metadata `5ccc41e8` on `codex/extended-cli-metadata`, including paired
+.NET/native arrow entry/helper calls, primitive results and widening, Unit console
+output, separate-library methods in both source orders, and precise unsupported
+conversion rejection. [Probe evidence](../../tools/NeoClrMetadataProbe/validation.json).

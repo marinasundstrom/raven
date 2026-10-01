@@ -316,6 +316,36 @@ internal static class SharedLoweringChecks
                 public static func Value() -> int { Helpers.Internal() * 2 }
             }
             """, "", 42);
+        await RunCase("SharedArrowBodies", """
+            func Main() -> int => Helpers.Value(20)
+            public static class Helpers {
+                public static func Value(value: int) -> int => Twice(value + 1)
+                private static func Twice(value: int) -> int => value * 2
+            }
+            """, "", 42);
+        await RunCase("SharedArrowPrimitives", """
+            func Main() -> int {
+                Helpers.Print(Helpers.Text("Arrow 🌍"))
+                Helpers.Finish()
+                if Helpers.Positive(1) && Helpers.Widen(42) == 42L && Helpers.Wide(5000000000L) == 5000000001L {
+                    return 42
+                }
+                return 0
+            }
+            public static class Helpers {
+                public static func Wide(value: long) -> long => value + 1L
+                public static func Widen(value: int) -> long => value
+                public static func Positive(value: int) -> bool => value > 0
+                public static func Text(value: string) -> string => value
+                public static func Print(value: string) => System.Console.WriteLine(value)
+                public static func Finish() => Empty()
+                private static func Empty() { }
+            }
+            """, "Arrow 🌍", 42);
+        await RunCase("SharedArrowUnitEntry", """
+            func Main() => Greet()
+            func Greet() => System.Console.WriteLine("Arrow Hello")
+            """, "Arrow Hello", null);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
         Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 

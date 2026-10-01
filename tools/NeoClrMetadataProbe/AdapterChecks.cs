@@ -17,6 +17,13 @@ internal static class AdapterChecks
         var location = diagnostic.Location;
         Check(location.IsInSource && ReferenceEquals(location.SourceTree, conversion.SyntaxTrees[0]), "unsupported source tree");
         Check(conversion.SyntaxTrees[0].GetRoot().ToFullString().Substring(location.SourceSpan.Start, location.SourceSpan.Length) == "(int)(double)value", "unsupported expression span");
+        var arrowConversion = compile("func Main() -> int => (int)(double)42");
+        var arrowRejected = Rejected(arrowConversion, options, "NEOMETA001");
+        var arrowDiagnostic = arrowRejected.Diagnostics.Single(d => d.Id == "NEOMETA001");
+        var arrowLocation = arrowDiagnostic.Location;
+        Check(ReferenceEquals(arrowLocation.SourceTree, arrowConversion.SyntaxTrees[0]) &&
+            arrowConversion.SyntaxTrees[0].GetText().ToString(arrowLocation.SourceSpan) == "(int)(double)42",
+            "unsupported arrow expression span");
         var broken = compile(source.Replace("MathLibrary.Twice", "MathLibrary.Missing"));
         var binding = Rejected(broken, options);
         Check(binding.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error && !d.Id.StartsWith("NEOMETA")), "binding diagnostics preserved");

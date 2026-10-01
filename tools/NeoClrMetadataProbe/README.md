@@ -51,7 +51,7 @@ See the [adapter API](../../docs/compiler/api/neoclr-emission.md) for every publ
 member, the host snapshot-consistency requirement, source-located diagnostics,
 validation-before-write behavior and stream I/O limitations.
 
-Top-level block-bodied functions and public/internal/private static methods in public/internal nongeneric
+Top-level functions and public/internal/private static methods with block or expression bodies in public/internal nongeneric
 static classes support required Int32 value parameters and Int32 or Unit results, value returns, constants, parameter loads, local/static calls and unchecked
 unlifted intrinsic addition/subtraction/multiplication are supported. Named/default/
 expanded arguments, references, generics, async, captures, fields, instance classes, statements
@@ -286,3 +286,8 @@ helper calls on .NET and neoCLR. The namespace library cases preserve method acc
 through PE/#Neo references in both source orders. Raven rejects external private and
 internal calls; raw API-produced callers independently prove native verifier rejection.
 Assembly-function visibility and the temporary CLI symbol-loading bridge are unchanged.
+
+
+Expression-body coverage executes Int32/Int64/Boolean/String results, implicit widening,
+Unit helper/entry calls and console output on both targets. Separate-library and rvnc
+cases use arrow bodies; unsupported conversions preserve source spans and output.

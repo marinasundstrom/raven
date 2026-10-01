@@ -226,3 +226,7 @@ public/internal nongeneric static types. Method access survives CLI reference
 projection; existing binding diagnostics reject inaccessible calls before emission.
 Native verification independently enforces access. This does not extend assembly
 function visibility or introduce protected/instance method support.
+
+Block and expression bodies are accepted for supported functions and static methods.
+Both consume compiler-lowered statements, preserving result conversions and Unit
+calls. Unsupported expressions retain source-located diagnostics before writing.

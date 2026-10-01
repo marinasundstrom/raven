@@ -12,8 +12,8 @@ internal static class DriverChecks
         File.WriteAllText(librarySource, """
             namespace Example
             public static class Math {
-                public static func Echo(value: string) -> string { value }
-                public static func Twice(value: int) -> int { return value * 2 }
+                public static func Echo(value: string) -> string => value
+                public static func Twice(value: int) -> int => value * 2
             }
             """);
         File.WriteAllText(mainSource, """
@@ -24,7 +24,7 @@ internal static class DriverChecks
             }
             """);
         File.WriteAllText(helperSource, """
-            func Echo(value: string) -> string { value }
+            func Echo(value: string) -> string => value
             func Greet() {
                 let message = Echo("Hello World")
                 System.Console.WriteLine(message)
@@ -39,7 +39,7 @@ internal static class DriverChecks
         Check(result.Replace("\r\n", "\n") == "Hello World\nLibrary 🌍\n", "driver execution output");
         var unitSource = Path.Combine(directory, "DriverUnitMain.rvn");
         var unitApplication = Path.Combine(directory, "DriverUnitApplication.dll");
-        File.WriteAllText(unitSource, "func Main() { Greet() }");
+        File.WriteAllText(unitSource, "func Main() => Greet()");
         await Compile(0, "-o", unitApplication, unitSource, helperSource);
         await runtime(0, ["verify", unitApplication]);
         Check((await runtime(0, ["run", unitApplication])).Replace("\r\n", "\n") == "Hello World\n", "Unit entry process exit and stdout");
