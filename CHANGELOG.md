@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Consume independent main fix 46491585e: contextual argument typing now distinguishes concrete union cases, so None carrier construction retains the correct constructor. Sixteen Debug/Release/order/syntax cases and 323 surrounding tests pass on the shared line; no backend workaround or Runtime Contract change.
+
 - **2026-10-01:** Admit the explicit neoCLR CLI declaration profile in direct native emission after matching primitive/Unit core identity. Verify and run native Hello World, function/Unit entry, vector iteration and owned interface dispatch without a host core reference; reject mismatched core names/versions before output. Host bootstrap remains available; native symbol loading and implementation bootstrap remain future work.
 
 - **2026-10-01:** Audit ordinary .NET behavior across shared-codegen refactoring and add Debug/Release execution checks for evaluation order, short-circuiting, array iteration and null calls. Record passing comparison evidence and unresolved imported-carrier/loop-capture issues without claiming they are fixed.

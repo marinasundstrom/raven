@@ -2618,3 +2618,20 @@ The preceding readiness inventory is historical evidence; its profile-wide NEOME
 gate is now replaced by explicit validation, not proof that every listed app emits.
 [Shared-codegen parity audit](architecture/neoclr-refactor-parity.md) records the
 independent .NET checks and unresolved imported-carrier/loop-capture issues.
+
+## Imported carrier binding correction (2026-10-01)
+
+Independent Raven fix `46491585e` is integrated into local main and consumed here.
+Argument contextual typing previously offered Some<T> as a target for None because
+both belonged to the same union family. Concrete case parameters now require the
+requested case name; carrier parameters retain family lookup. The selected constructor
+is correct before lowering, so .NET and native consumers share the correction.
+No CLI encoding, Runtime Contract or codegen fallback changes are involved.
+
+The C# regression covers four None spellings, both declaration orders and both
+optimization modes, checking semantic selection and ordinary .NET execution.
+All 16 cases and 323 surrounding cases pass on the shared line. The unchanged
+order-collections sample now imports through the legacy bridge; the previous
+None-to-Some constructor stack failure is resolved. Direct metadata emission still
+rejects Register's imported collection signatures; this is a separate backend gap.
+The prior audit's carrier issue is superseded; loop capture remains open.
