@@ -2980,3 +2980,9 @@ CLI uses standard MethodSpec. Use matching neoCLR producer/runtime commit `6a7a0
 on `codex/extended-cli-metadata`. Raven integration remains on `codex/metadata-consumer`.
 Focused C# Release/Debug shared-plan tests and the binary generic Order consumer pass
 on both runtimes in both source orders. General native symbol importing remains deferred.
+
+The expanded receiver probe also verifies generic no-result methods (copy/reverse),
+recursive instance calls, receiver/argument order (123) and independent receiver state.
+Both source orders return 42 on .NET/native. See the refreshed
+[generic evidence](../../tools/NeoClrMetadataProbe/generic-runtime-validation.json).
+Unsupported generic owners, constraints and virtual dispatch remain explicit limits.

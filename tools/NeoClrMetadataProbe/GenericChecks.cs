@@ -50,7 +50,50 @@ internal static class GenericChecks
                     return value
                 }
                 func Forward<U>(value: U, next: int) -> U => Remember<U>(value, next)
+                func Copy<T>(source: T[], destination: T[]) {
+                    var index = 0
+                    for value in source {
+                        destination[index] = value
+                        index = index + 1
+                    }
+                    number = index
+                }
+                func Reverse<T>(values: T[]) {
+                    var left = 0
+                    var right = values.Length - 1
+                    while left < right {
+                        let value = values[left]
+                        values[left] = values[right]
+                        values[right] = value
+                        left = left + 1
+                        right = right - 1
+                    }
+                }
+                func Recur<T>(value: T, depth: int) -> T {
+                    if depth == 0 { return Remember(value, 42) }
+                    return Recur(value, depth - 1)
+                }
                 val Number: int => number
+            }
+            class Evaluation {
+                private val receiver: Receiver = Receiver()
+                private val source: Order[] = [Order(10, true), Order(32, false)]
+                private val destination: Order[] = [Order(0, false), Order(0, false)]
+                private var trace: int = 0
+                func ReceiverValue() -> Receiver {
+                    trace = trace * 10 + 1
+                    return receiver
+                }
+                func Source() -> Order[] {
+                    trace = trace * 10 + 2
+                    return source
+                }
+                func Destination() -> Order[] {
+                    trace = trace * 10 + 3
+                    return destination
+                }
+                val Trace: int => trace
+                val Total: int => destination[0].Number + destination[1].Number
             }
             class Helpers {
                 static func First<T>(values: T[]) -> T => values[0]
@@ -71,7 +114,15 @@ internal static class GenericChecks
                 let receiver = Receiver()
                 let picked = receiver.Forward(Choose(false, Order(1, false), alias), 7)
                 if receiver.Number != 7 { return 6 }
-                picked.Number = 42
+                let evaluation = Evaluation()
+                evaluation.ReceiverValue().Copy(evaluation.Source(), evaluation.Destination())
+                if evaluation.Trace != 123 || evaluation.Total != 42 { return 7 }
+                let batch: Order[] = [Order(10, false), picked]
+                receiver.Reverse(batch)
+                batch[0].Number = 42
+                if picked.Number != 42 || batch[1].Number != 10 { return 8 }
+                let other = Receiver()
+                if other.Recur(42, 3) != 42 || other.Number != 42 || receiver.Number != 7 { return 9 }
                 return Identity<int>(values[0].Number)
             }
             """;
@@ -152,6 +203,11 @@ internal static class GenericChecks
             genericConditionalValues = true,
             genericInstanceMethods = true,
             genericReceiverMutation = true,
+            genericNoResultMethods = true,
+            genericArrayCopyAndReverse = true,
+            receiverArgumentOrder = true,
+            recursiveGenericInstanceCalls = true,
+            independentReceivers = true,
             rejectedContracts
 
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
