@@ -43,3 +43,31 @@ Source: 339587142. Validation: Debug/Release execution with reordered owner and 
 Include the implied default-constructor flag in CLR metadata for struct constraints; preserve class and explicit new() flags.
 
 Source: d09b5e8a1. Validation: three reflection-based metadata cases; struct flag case fails on original main.
+
+## Validation and integration boundary (2026-10-01)
+
+On base `d7040e21d`, the extracted C# fixtures produce 16 failures and seven
+passes. With these six fixes, all 23 cases pass. The surrounding assignment,
+property, generic-method/constraint and accessibility suites pass 174/174.
+The fresh-worktree `scripts/codex-build.sh` and subsequent compiler build pass.
+Execution evidence is modern .NET (net11.0); it does not establish .NET Framework,
+NanoFramework or native neoCLR execution. No full-suite or release claim is made.
+
+Reproduce the extracted regressions with:
+
+```sh
+dotnet test test/Raven.CodeAnalysis.Tests -p:WarningLevel=0 --filter 'FullyQualifiedName~AssignmentRightHandSideParserTests|FullyQualifiedName~PrivateSetterAssignmentTests|FullyQualifiedName~AutoPropertySymbolStabilityTests|FullyQualifiedName~NominalPropertyInitializerTests|FullyQualifiedName~GenericOwnerMethodResolutionTests|FullyQualifiedName~SpecialTypeConstraintMetadataTests|FullyQualifiedName~QualifiedTypeAccessibilityTests'
+```
+
+Surrounding validation uses the same command with this filter:
+
+```text
+FullyQualifiedName~AssignmentExpressionSemanticTests|FullyQualifiedName~AssignmentStatementTests|FullyQualifiedName~PropertyBindingTests|FullyQualifiedName~CodeGen.PropertyTests|FullyQualifiedName~ValuePropertyAssignmentTests|FullyQualifiedName~GenericMethodTests|FullyQualifiedName~TypeParameterConstraintDiagnosticsTests|FullyQualifiedName~AccessibilityDiagnosticsTests|FullyQualifiedName~ImportedGenericMethodContextTests
+```
+
+The author authorized integrating proven fixes into main. This branch is eligible
+for that integration without the neoCLR backend or metadata format experiments.
+Shared vector-loop/transfer lowering (`a9defade8`), field-initialization plans and
+backend abstractions remain candidates for separate isolation and validation.
+The Option constructor mismatch exposed by the order-collections application is
+still unfixed; it needs an independent compiler regression before integration.

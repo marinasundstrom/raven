@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Record independent regression evidence for six compiler fixes extracted from neoCLR work: 23 focused and 174 surrounding cases pass; retain broader lowering work and the unresolved Option constructor mismatch as separate candidates.
+
 - **2026-10-01:** Include the implied default-constructor flag in CLR metadata for struct constraints; preserve class and explicit new() flags.
 
 - **2026-10-01:** Resolve source method builders through their constructed generic owner before applying method arguments, preserving independent owner/method parameter scopes and avoiding invalid CLR programs.
