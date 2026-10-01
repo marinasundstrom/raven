@@ -250,7 +250,7 @@ internal class CodeGenerator
             attributes |= GenericParameterAttributes.ReferenceTypeConstraint;
 
         if ((parameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0)
-            attributes |= GenericParameterAttributes.NotNullableValueTypeConstraint;
+            attributes |= GenericParameterAttributes.NotNullableValueTypeConstraint | GenericParameterAttributes.DefaultConstructorConstraint;
 
         if ((parameter.ConstraintKind & TypeParameterConstraintKind.Constructor) != 0)
             attributes |= GenericParameterAttributes.DefaultConstructorConstraint;

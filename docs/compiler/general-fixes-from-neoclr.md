@@ -37,3 +37,9 @@ Source: ee07a991e. Validation: two cross-assembly binding cases; inaccessible-ty
 Resolve source method builders through their constructed generic owner before applying method arguments, preserving independent owner/method parameter scopes and avoiding invalid CLR programs.
 
 Source: 339587142. Validation: Debug/Release execution with reordered owner and forwarded method parameters; both fail with InvalidProgramException on original main.
+
+## Emit the implied constructor flag for struct constraints
+
+Include the implied default-constructor flag in CLR metadata for struct constraints; preserve class and explicit new() flags.
+
+Source: d09b5e8a1. Validation: three reflection-based metadata cases; struct flag case fails on original main.
