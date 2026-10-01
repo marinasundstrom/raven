@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Coalesce native public nongeneric partial static classes by semantic
+  type identity and collect members from every part before body emission. Unsupported
+  members in any part still reject output with a source diagnostic. C# end-to-end
+  coverage executes both file orders on .NET and from binary assemblies in neoCLR.
+
 - **2026-10-01:** Introduce a shared primitive emission type contract with explicit
   no-result semantics and backend-owned type mappers. Reuse it for callable signatures,
   locals and result-use classification; remove native local emission's dependency on

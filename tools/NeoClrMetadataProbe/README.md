@@ -244,3 +244,7 @@ signed minima in the binary assembly loaded by neoCLR.
 
 The primitive cases also validate the shared emission type contract and independent
 .NET/native type mappers used by callable declarations and local slots.
+
+PartialTypeChecks also checks split static declarations in both file orders, an empty
+part, cross-part overloads, one projected type and unsupported-member rejection.
+Both .NET execution and native binary loading must return 42.

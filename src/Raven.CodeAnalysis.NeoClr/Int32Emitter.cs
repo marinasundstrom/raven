@@ -17,7 +17,7 @@ internal static class Int32Emitter
     {
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
-        var declaredTypes = new List<SourceStaticTypePlan>();
+        var declaredTypes = new Dictionary<INamedTypeSymbol, SourceStaticTypePlan>(SymbolEqualityComparer.Default);
         // Collect all declarations before emitting any body, so calls do not depend on file order.
         foreach (var tree in compilation.SyntaxTrees)
         {
@@ -45,12 +45,14 @@ internal static class Int32Emitter
                 {
                     if (type.AttributeLists.Count != 0 || type.TypeParameterList is not null || type.ParameterList is not null ||
                         type.BaseList is not null || type.ConstraintClauses.Count != 0 || type.PermitsClause is not null ||
-                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword)))
+                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword)))
                         throw Unsupported("only public nongeneric static classes without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (!SourceStaticTypePlan.TryCreate(typeSymbol, out var typePlan))
                         throw Unsupported("only public nongeneric static classes");
-                    declaredTypes.Add(typePlan!);
+                    // Partial declarations share one semantic identity and one metadata definition.
+                    // Still validate every part and collect all of its members.
+                    declaredTypes.TryAdd(typeSymbol, typePlan!);
                     foreach (var typeMember in type.Members)
                     {
                         diagnosticSyntax = typeMember;
@@ -73,7 +75,7 @@ internal static class Int32Emitter
         var functions = new NeoClrCallableDefinitionBuilder(assembly);
         var owners = new Dictionary<INamedTypeSymbol, NeoClrCallableDefinitionBuilder>(SymbolEqualityComparer.Default);
         var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly);
-        foreach (var type in declaredTypes)
+        foreach (var type in declaredTypes.Values)
             owners.Add(type.Symbol, new(assembly, type.Define(typeDefinitions)));
         var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method)>();
         foreach (var plan in plans)

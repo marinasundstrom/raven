@@ -1282,3 +1282,23 @@ shapes and selected-core inspection of Int32/Int64/Boolean locals and callable
 signatures. The existing native probe exercises both mappers by executing all supported
 primitive cases on .NET and binary assemblies loaded by neoCLR. The metadata format
 and API did not change; the prior 37 metadata contract groups remain applicable.
+
+## Partial static declarations — 2026-10-01
+
+The experimental native backend accepts public nongeneric partial static classes.
+Raven's existing binder supplies one type symbol; native declaration collection now
+coalesces that identity before creating a metadata type and collects methods from
+every part. Empty parts do not add definitions. All parts retain capability checks;
+an unsupported property/field/member rejects emission at its source location before
+writing output. Partial methods and general instance/generic types remain unsupported.
+
+No Runtime Contract configuration or semantic binding changes: ordinary .NET emission
+remains the default, while native emission uses the explicit backend override/rvnc
+neoclr command and the existing primitive bootstrap. Both targets erase source-only
+partial boundaries into one type. Native format 5 and its temporary CLI reference
+projection need no new encoding; native symbol-provider replacement remains deferred.
+The independent metadata library and runtime loader are unchanged.
+
+C# PartialTypeChecks exercises cross-part overload calls, an empty part, both file
+orders, one projected type with three methods, and rejection in either file order.
+The same source compilation executes to 42 on .NET and from binary PE/#Neo in neoCLR.

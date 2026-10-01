@@ -22,7 +22,8 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
    signatures/members, bodies, then finalize. Preserve assembly-owned native functions
    and the existing CLI carrier representation. The earlier static-type prototype is
    now a shared source-type plan retaining symbol identity and backend builder contracts.
-   It covers public top-level nongeneric static classes, not the general type boundary.
+   It covers public top-level nongeneric static classes, including partial declarations
+   coalesced by semantic identity with all parts validated, not the general type boundary.
 3. Int32/Boolean initialized locals and standalone assignments are now shared with metadata
    writer support. Boolean equality and short-circuit &&/||, signed comparisons, bound if statements and lowered loop
    labels/branches now execute through both backends. Primitive Int32/Int64/Boolean signatures now preserve parameter/result identity through declarations, imports and native projection. Signed Int32↔Int64 conversions and Int64 locals/constants are now shared, together with signed unary +/−/~. Broader signatures/conversions,
