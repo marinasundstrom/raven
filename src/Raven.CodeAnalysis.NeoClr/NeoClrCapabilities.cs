@@ -19,7 +19,7 @@ internal static class NeoClrCapabilities
             LinearInstructionKind.Negate, LinearInstructionKind.Complement, LinearInstructionKind.Divide, LinearInstructionKind.Remainder,
             LinearInstructionKind.BitwiseAnd, LinearInstructionKind.BitwiseOr, LinearInstructionKind.BitwiseXor,
             LinearInstructionKind.ShiftLeft, LinearInstructionKind.ShiftRight, LinearInstructionKind.Receiver, LinearInstructionKind.LoadField, LinearInstructionKind.StoreField, LinearInstructionKind.InstanceCall, LinearInstructionKind.NewObject,
-            LinearInstructionKind.NewArray, LinearInstructionKind.LoadElement, LinearInstructionKind.StoreElement, LinearInstructionKind.ArrayLength, LinearInstructionKind.Duplicate
+            LinearInstructionKind.NewArray, LinearInstructionKind.LoadElement, LinearInstructionKind.StoreElement, LinearInstructionKind.ArrayLength, LinearInstructionKind.DefaultValue, LinearInstructionKind.Duplicate
         ],
         [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.NamespacedAssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType, EmissionDeclarationKind.RootClass, EmissionDeclarationKind.InstanceMethod, EmissionDeclarationKind.Constructor, EmissionDeclarationKind.PropertyAccessor, EmissionDeclarationKind.IndexerAccessor],
         [Accessibility.Public, Accessibility.Internal],

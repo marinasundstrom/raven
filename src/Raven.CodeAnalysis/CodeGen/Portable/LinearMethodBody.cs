@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -338,6 +338,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return Reject("target does not support value type " + valueType, Syntax(expression));
             switch (expression)
             {
+                case BoundDefaultValueExpression value when CallableSignature.TryType(value.Type, false, out var defaultType) &&
+                    (capabilities is null || capabilities.Allows(defaultType)):
+                    instructions.Add(new(LinearInstructionKind.DefaultValue, Syntax(expression), Type: value.Type)); return true;
                 case BoundIndexerAccessExpression indexer when indexer.Indexer.GetMethod is { } indexGetter:
                     if (!LowerIndexerReceiverAndArguments(indexer, indexGetter, false)) return false;
                     Add(LinearInstructionKind.InstanceCall, Syntax(expression), method: indexGetter); return true;

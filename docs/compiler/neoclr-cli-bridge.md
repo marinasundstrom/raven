@@ -2300,3 +2300,25 @@ recursive instance calls, receiver/argument order (123) and independent receiver
 Both source orders return 42 on .NET/native. See the refreshed
 [generic evidence](../../tools/NeoClrMetadataProbe/generic-runtime-validation.json).
 Unsupported generic owners, constraints and virtual dispatch remain explicit limits.
+
+### Typed default emission (2026-10-01 development)
+
+Shared body planning now admits BoundDefaultValueExpression for supported non-Void
+primitive, owned class, vector and method-parameter types through the explicit
+DefaultValue instruction capability. The .NET adapter initializes and loads a scratch
+local; the native adapter uses the metadata API's LoadDefault. Both use ordinary
+ldloca/initobj/ldloc semantics: numeric zero, Boolean false and typed null reference
+values. No Runtime Contract switch or native schema change is added. General byref
+signatures, nullable-source signatures, generic owners and constrained dispatch remain
+outside this slice. Scratch locals are backend-owned and do not shift shared local
+indices. Release/Debug C# tests cover shared admission, capability denial, generic
+primitive/reference defaults and array clearing. The binary Order consumer also clears
+primitive vectors and loads generic reference defaults on both targets/source orders.
+
+The final default-value probe additionally clears Order references, verifies the binary
+and checks a null-reference fault on both runtimes when reading a cleared element.
+[Recorded evidence](../../tools/NeoClrMetadataProbe/generic-runtime-validation.json)
+includes runtime/source hashes. Matching producer API: neoCLR `8e7fada6` or later;
+receiver runtime: `6a7a0dd2` or later on the metadata feature branch. Validation includes
+13 focused C# generic/default tests and both source orders. No full-library support
+is claimed.

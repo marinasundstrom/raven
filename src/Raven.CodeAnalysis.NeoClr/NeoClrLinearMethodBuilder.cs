@@ -18,6 +18,7 @@ internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.DefaultValue: method.LoadDefault(NeoClrTypeMapper.Map(instruction.Type!, resolveType!)); break;
             case LinearInstructionKind.Duplicate: method.Duplicate(); break;
             case LinearInstructionKind.NewArray: method.NewArray(NeoClrTypeMapper.Map(instruction.Type!, resolveType!)); break;
             case LinearInstructionKind.LoadElement: method.LoadArrayElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!)); break;

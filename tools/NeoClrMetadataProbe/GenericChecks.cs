@@ -58,6 +58,14 @@ internal static class GenericChecks
                     }
                     number = index
                 }
+                func Clear<T>(values: T[]) {
+                    var index = 0
+                    while index < values.Length {
+                        values[index] = default(T)
+                        index = index + 1
+                    }
+                }
+                func Empty<T>() -> T => default(T)
                 func Reverse<T>(values: T[]) {
                     var left = 0
                     var right = values.Length - 1
@@ -121,6 +129,12 @@ internal static class GenericChecks
                 receiver.Reverse(batch)
                 batch[0].Number = 42
                 if picked.Number != 42 || batch[1].Number != 10 { return 8 }
+                let numbers: int[] = [1, 2, 3]
+                receiver.Clear(numbers)
+                if numbers[0] + numbers[1] + numbers[2] != 0 { return 10 }
+                if receiver.Empty<bool>() { return 11 }
+                if receiver.Empty<long>() != 0L { return 12 }
+                let spare = receiver.Empty<Order>()
                 let other = Receiver()
                 if other.Recur(42, 3) != 42 || other.Number != 42 || receiver.Number != 7 { return 9 }
                 return Identity<int>(values[0].Number)
@@ -155,6 +169,30 @@ internal static class GenericChecks
             var emitted = compilation.Emit(cli);
             if (!emitted.Success) throw new Exception(string.Join("\n", emitted.Diagnostics));
             if (!Equals(Assembly.Load(cli.ToArray()).EntryPoint!.Invoke(null, null), 42)) throw new Exception("CLI generic result mismatch");
+        }
+        var faultSource = consumer.Replace("return Identity<int>(values[0].Number)", "receiver.Clear(values)\nreturn values[0].Number");
+        var fault = Compilation.Create("ClearedReference", [SyntaxTree.ParseText(order), SyntaxTree.ParseText(faultSource)], references,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(OptimizationLevel.Release));
+        using (var native = new MemoryStream())
+        {
+            var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(fault, native, new(new("ClearedReference", new Version(1, 0, 0, 0)), core, []));
+            if (!emitted.Success) throw new Exception(string.Join("; ", emitted.Diagnostics));
+            var path = Path.Combine(output, "ClearedReference.dll"); File.WriteAllBytes(path, native.ToArray());
+            foreach (var command in new[] { "verify", "run" })
+            {
+                var start = new ProcessStartInfo(runtime) { RedirectStandardOutput = true, RedirectStandardError = true };
+                start.ArgumentList.Add(command); start.ArgumentList.Add(path);
+                using var process = Process.Start(start)!;
+                var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
+                await process.WaitForExitAsync(); var text = await stdout + await stderr;
+                if (command == "verify" ? process.ExitCode != 0 : process.ExitCode == 0 || !text.Contains("NullReference"))
+                    throw new Exception("cleared reference contract: " + text);
+            }
+            using var cli = new MemoryStream();
+            var result = fault.Emit(cli);
+            if (!result.Success) throw new Exception(string.Join("; ", result.Diagnostics));
+            try { Assembly.Load(cli.ToArray()).EntryPoint!.Invoke(null, null); throw new Exception("missing cleared-reference fault"); }
+            catch (TargetInvocationException e) when (e.InnerException is NullReferenceException) { }
         }
         var rejectedContracts = 0;
         foreach (var unsupported in new[] {
@@ -208,6 +246,9 @@ internal static class GenericChecks
             receiverArgumentOrder = true,
             recursiveGenericInstanceCalls = true,
             independentReceivers = true,
+            genericDefaultValues = true,
+            genericArrayClear = true,
+            clearedReferenceFault = true,
             rejectedContracts
 
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
