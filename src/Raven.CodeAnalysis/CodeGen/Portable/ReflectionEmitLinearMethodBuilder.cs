@@ -18,7 +18,7 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
         type => method.ResolveClrType(method.Compilation.GetSpecialType(type)));
 
     public void DeclareLocal(EmissionType type) => locals.Add(output.DeclareLocal(type.Primitive is { } p ? types.Map(p)
-        : method.ResolveClrType((ITypeSymbol?)type.Array ?? (ITypeSymbol?)type.MethodParameter ?? (ITypeSymbol?)type.OwnerParameter ?? type.Class!)));
+        : method.ResolveClrType((ITypeSymbol?)type.Array ?? (ITypeSymbol?)type.MethodParameter ?? (ITypeSymbol?)type.OwnerParameter ?? type.Nominal!)));
 
     internal static bool TryEmit(MethodGenerator method)
     {

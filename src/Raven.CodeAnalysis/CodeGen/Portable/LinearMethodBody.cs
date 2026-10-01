@@ -23,7 +23,7 @@ internal interface ILinearMethodBuilder
 internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
 // Logical value types carry compiler identity, never backend handles.
-internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Class = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null);
+internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null);
 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
@@ -182,7 +182,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                             localType = new(Primitive: primitive);
                         }
                         else if (variable.Local.Type is INamedTypeSymbol nominal && SourceTypePlan.TryCreate(nominal, out var typePlan) && !typePlan!.IsStatic && capabilities?.AllowsRootClassLocals == true)
-                            localType = new(Class: nominal);
+                            localType = new(Nominal: nominal);
+                        else if (variable.Local.Type.GetNonNullableType() is INamedTypeSymbol { TypeKind: TypeKind.Interface } &&
+                            CallableSignature.TryType(variable.Local.Type, false, out var contractType) && capabilities?.Allows(contractType) == true)
+                            localType = contractType;
                         else if (variable.Local.Type is (IArrayTypeSymbol or ITypeParameterSymbol) && CallableSignature.TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
                             localType = arrayType;
                         else return Reject("target does not support local type " + variable.Local.Type.Name, Syntax(variable));

@@ -14,7 +14,7 @@ internal sealed class EmissionCapabilities(
     IEnumerable<Accessibility>? typeVisibilities = null,
     IEnumerable<Accessibility>? methodVisibilities = null,
     IEnumerable<Accessibility>? functionVisibilities = null,
-    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false, bool allowsGenericStaticOwners = false, bool allowsGenericClassOwners = false, bool allowsConstructedFieldReferences = false, bool allowsNominalTypeBounds = false, bool allowsSpecialTypeConstraints = false, bool allowsGenericInterfaceDeclarations = false)
+    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false, bool allowsGenericStaticOwners = false, bool allowsGenericClassOwners = false, bool allowsConstructedFieldReferences = false, bool allowsNominalTypeBounds = false, bool allowsSpecialTypeConstraints = false, bool allowsGenericInterfaceDeclarations = false, bool allowsInterfaceSignatures = false)
 {
     private readonly ImmutableHashSet<EmissionPrimitiveType> types = types.ToImmutableHashSet();
     private readonly ImmutableHashSet<LinearInstructionKind> instructions = instructions.ToImmutableHashSet();
@@ -27,6 +27,7 @@ internal sealed class EmissionCapabilities(
 
     private readonly ImmutableHashSet<Accessibility> functionVisibilities = (functionVisibilities ?? []).ToImmutableHashSet();
 
+    internal bool AllowsInterfaceSignatures { get; } = allowsInterfaceSignatures;
     internal bool AllowsGenericInterfaceDeclarations { get; } = allowsGenericInterfaceDeclarations;
     internal bool AllowsSpecialTypeConstraints { get; } = allowsSpecialTypeConstraints;
     internal bool AllowsNominalTypeBounds { get; } = allowsNominalTypeBounds;
@@ -56,9 +57,14 @@ internal sealed class EmissionCapabilities(
         if (type.Array is { } array)
             return AllowsArrays && CallableSignature.TryType(array.ElementType, false, out var element) && Allows(element);
         if (type.OwnerParameter is { } parameter)
-            return parameter.DeclaringTypeParameterOwner!.IsStatic ? AllowsGenericStaticOwners : AllowsGenericClassOwners;
+            return parameter.DeclaringTypeParameterOwner!.TypeKind == TypeKind.Interface ? AllowsGenericInterfaceDeclarations
+                : parameter.DeclaringTypeParameterOwner.IsStatic ? AllowsGenericStaticOwners : AllowsGenericClassOwners;
         if (type.MethodParameter is not null) return AllowsGenericMethods;
-        if (type.Class is not { } owner || !AllowsRootClassSignatures) return false;
+        if (type.Nominal is { TypeKind: TypeKind.Interface } contract)
+            return AllowsInterfaceSignatures && SourceInterfacePlan.HasSupportedIdentity(contract) &&
+                (contract.Arity == 0 || AllowsGenericInterfaceDeclarations && contract.TypeArguments.All(t =>
+                    CallableSignature.TryType(t, false, out var argument) && Allows(argument)));
+        if (type.Nominal is not { } owner || !AllowsRootClassSignatures) return false;
         return owner.Arity == 0 || AllowsGenericClassOwners && SourceTypePlan.TryCreate(owner, out _, this) && owner.TypeArguments.All(t =>
             CallableSignature.TryType(t, false, out var argument) && Allows(argument));
     }

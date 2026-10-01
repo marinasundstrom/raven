@@ -18,7 +18,7 @@ internal sealed class ReflectionEmitCallableDefinitionBuilder(TypeBuilder owner,
                 CallableSignature.TryType(array.ElementType, false, out var element);
                 return Map(element).MakeArrayType();
             }
-            return resolveClass((ITypeSymbol?)type.OwnerParameter ?? type.Class!);
+            return resolveClass((ITypeSymbol?)type.OwnerParameter ?? type.Nominal!);
         }
         var result = Map(plan.Signature.ReturnType);
         var parameters = plan.Signature.ParameterTypes.Select(Map).ToArray();

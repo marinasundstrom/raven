@@ -172,6 +172,7 @@ internal static class Int32Emitter
             nativeInterfaces.Add(symbol, symbol.Arity == 0 ? assembly.AddInterface(contract.Namespace, contract.Name, visibility)
                 : assembly.AddGenericInterface(contract.Namespace, symbol.Name, symbol.TypeParameters.Select(p => p.Name), visibility));
         }
+        foreach (var pair in nativeInterfaces) nativeTypes.Add(pair.Key, pair.Value);
         foreach (var contract in interfaces)
         {
             var definition = nativeInterfaces[contract.Symbol];

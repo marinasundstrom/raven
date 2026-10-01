@@ -2517,3 +2517,17 @@ both runtimes load/verify the declarations, with an independent entry returning 
 13 focused compiler tests pass; no dispatch result is claimed. Generic inherited
 interfaces and interface-valued signatures remain subsequent work. No Runtime Contract,
 semantic binding, runtime instruction or ordinary .NET emitter change is required.
+
+
+Interface reference extension (2026-10-01): unchanged Iterable<T> now emits beside
+Comparer, EqualityComparer, Disposable and Iterator. Owned interface identities and
+constructions share CLI CLASS/GenericInst and native Named/Constructed signatures.
+The shared compiler descriptor is nominal rather than class-specific, with an explicit
+interface-signature capability; nullable reference annotations retain binder semantics
+and map to the same reference storage. Parameters, results, locals, defaults and arrays
+execute on .NET and binary neoCLR in both source orders (42). The host-core bootstrap
+and Runtime Contract configuration are unchanged. No runtime or ISA changes are needed.
+Interface invocation/implementation remains the next author-directed acceptance gate;
+generic interface inheritance remains deferred. Seven focused C# interface tests and
+68 metadata API test groups pass. The evidence exercises null/default reference flow,
+not dynamic dispatch.

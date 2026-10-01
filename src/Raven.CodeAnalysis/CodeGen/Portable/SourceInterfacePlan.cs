@@ -12,6 +12,15 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
     ImmutableArray<SourceInterfaceMethod> Methods, ImmutableArray<SourceInterfaceProperty> Properties,
     ImmutableArray<INamedTypeSymbol> BaseInterfaces)
 {
+    // Identity admission must not recursively inspect members: interface signatures
+    // can refer back to their own definition or to another interface.
+    internal static bool HasSupportedIdentity(INamedTypeSymbol type) =>
+        type.TypeKind == TypeKind.Interface && type.ContainingType is null &&
+        type.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal &&
+        type.DeclaringSyntaxReferences.Length == 1 && type.DeclaringSyntaxReferences[0].GetSyntax() is InterfaceDeclarationSyntax &&
+        ((INamedTypeSymbol)type.OriginalDefinition).TypeParameters.All(p => p.Variance == VarianceKind.None &&
+            p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty);
+
     internal static bool TryCreate(INamedTypeSymbol type, EmissionCapabilities capabilities, out SourceInterfacePlan? plan)
     {
         plan = null;

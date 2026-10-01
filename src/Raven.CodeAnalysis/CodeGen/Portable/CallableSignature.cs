@@ -11,14 +11,18 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
     internal static bool TryType(ITypeSymbol type, bool result, out EmissionType value)
     {
         value = default;
+        if (type.IsNullable && type.GetNonNullableType().IsReferenceType)
+            type = type.GetNonNullableType();
         if ((result ? EmissionPrimitiveTypes.TryGetReturnType(type, out var primitive) : EmissionPrimitiveTypes.TryGetValueType(type, out primitive)))
         { value = new(Primitive: primitive); return true; }
         if (type is ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter)
         { value = new(MethodParameter: parameter); return true; }
         if (type is ITypeParameterSymbol { DeclaringTypeParameterOwner: not null } ownerParameter)
         { value = new(OwnerParameter: ownerParameter); return true; }
+        if (type is INamedTypeSymbol { TypeKind: TypeKind.Interface } contract && SourceInterfacePlan.HasSupportedIdentity(contract))
+        { value = new(Nominal: contract); return true; }
         if (type is INamedTypeSymbol named && SourceTypePlan.TryCreate(named, out var plan) && !plan!.IsStatic)
-        { value = new(Class: named); return true; }
+        { value = new(Nominal: named); return true; }
         if (type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } array && TryType(array.ElementType, false, out _))
         { value = new(Array: array); return true; }
         return false;

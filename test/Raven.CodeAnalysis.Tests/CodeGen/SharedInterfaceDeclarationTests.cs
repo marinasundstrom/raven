@@ -67,6 +67,48 @@ public class SharedInterfaceDeclarationTests
     }
 
     [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void InterfaceSignaturesDefaultsAndStorageUseSharedReferenceTypes(OptimizationLevel optimization)
+    {
+        var tree = SyntaxTree.ParseText("""
+            public interface Iterator<T> { val Current: T { get } }
+            public interface Iterable<T> { func GetIterator() -> Iterator<T> }
+            public static class Flow {
+                static func Empty() -> Iterator<int>? => default(Iterator<int>)
+                static func Echo(value: Iterator<int>?) -> Iterator<int>? => value
+                static func Roundtrip() -> Iterator<int>? {
+                    let values: Iterator<int>?[] = [Empty()]
+                    let value = Echo(values[0])
+                    values[0] = value
+                    return values[0]
+                }
+            }
+            """);
+        var compilation = Compilation.Create("InterfaceValues", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Where(m => m.Body is not null || m.ExpressionBody is not null))
+        {
+            var method = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+            Assert.True(SourceCallablePlan.TryCreate(method, out var plan, ReflectionEmitCapabilities.Shared));
+            Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), $"{method.Name}: {failure?.Detail}: {failure?.Syntax}");
+        }
+        var iterator = (INamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().First())!;
+        Assert.True(CallableSignature.TryType(iterator, false, out var valueType));
+        var noInterfaces = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), allowsGenericInterfaceDeclarations: true, allowsRootClassSignatures: true);
+        Assert.False(noInterfaces.Allows(valueType));
+        using var image = new MemoryStream(); var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var loaded = Assembly.Load(image.ToArray());
+        Assert.Null(loaded.GetType("Flow")!.GetMethod("Roundtrip")!.Invoke(null, null));
+        Assert.Equal(loaded.GetType("Iterator`1")!.MakeGenericType(typeof(int)),
+            loaded.GetType("Iterable`1")!.MakeGenericType(typeof(int)).GetMethod("GetIterator")!.ReturnType);
+    }
+
+    [Theory]
     [InlineData("public interface Contract<out T> { func Get() -> T }")]
     [InlineData("public interface Contract { func Get<T>(value: T) -> T }")]
     public void BroaderInterfaceShapesRemainOutsideTheBoundedPlan(string source)

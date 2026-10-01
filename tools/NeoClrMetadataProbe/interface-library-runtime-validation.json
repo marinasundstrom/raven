@@ -15,8 +15,13 @@
     {
       "path": "System/Collections/Iterator.rvn",
       "sha256": "6FC46377ACE7C8F7AF8BE7C9A90B574DFD878D37333982EF04CFC144C7196A14"
+    },
+    {
+      "path": "System/Collections/Iterable.rvn",
+      "sha256": "5C6AE049841D4EA32993A92D283F68DD9A36806958C683AA5866CB377D0F8F06"
     }
   ],
+  "consumerSha256": "A31D266F3C97B0C6F45B73C86587F85F4C997EB5076C49DA8754BEB2EDBF2D66",
   "wholeFiles": true,
   "sourceOrders": 2,
   "nativeVerify": true,
@@ -25,8 +30,9 @@
   "inheritedInterface": true,
   "abstractProperty": true,
   "interfaceDispatch": false,
-  "entryUsesInterfaces": false,
+  "entryUsesInterfaces": true,
+  "interfaceDefaultStorage": true,
   "fullClassLibrary": false,
   "runtimeSha256": "193B7F995EE4FC92A086439FB1FDBDAFC3A0C58139F0CAF30CB4A2D8640A432D",
-  "bootstrap": "host core; declaration loading and projection, not interface dispatch"
+  "bootstrap": "host core; declaration loading, reference/default storage and projection, not interface dispatch"
 }
