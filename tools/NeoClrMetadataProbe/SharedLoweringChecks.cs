@@ -273,6 +273,25 @@ internal static class SharedLoweringChecks
                 public static func Positive(value: int) -> int { return +value }
             }
             """, "", 42);
+        await RunCase("SharedBooleanBits", """
+            func Main() -> int {
+                if And(false, false) || And(false, true) || And(true, false) || !And(true, true) { return 1 }
+                if Or(false, false) || !Or(false, true) || !Or(true, false) || !Or(true, true) { return 2 }
+                if Xor(false, false) || !Xor(false, true) || !Xor(true, false) || Xor(true, true) { return 3 }
+                let both = Trace("and-left", false) & Trace("and-right", true)
+                let either = Trace("or-left", true) | Trace("or-right", false)
+                let different = Trace("xor-left", true) ^ Trace("xor-right", false)
+                if !both && either && different { return 42 }
+                return 4
+            }
+            func And(left: bool, right: bool) -> bool => left & right
+            func Or(left: bool, right: bool) -> bool => left | right
+            func Xor(left: bool, right: bool) -> bool => left ^ right
+            func Trace(label: string, value: bool) -> bool {
+                System.Console.WriteLine(label)
+                return value
+            }
+            """, "and-left\nand-right\nor-left\nor-right\nxor-left\nxor-right", 42);
         await RunCase("SharedBitwise", """
             func Main() -> int {
                 if And32(-1, 42) != 42 { return 1 }

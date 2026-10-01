@@ -272,7 +272,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                       binary.Operator.RightType.SpecialType == binary.Operator.LeftType.SpecialType) ||
                      (binary.Operator.LeftType.SpecialType == SpecialType.System_Boolean &&
                       binary.Operator.RightType.SpecialType == SpecialType.System_Boolean &&
-                      binary.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality)):
+                      binary.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality or
+                          OperatorKind.BitwiseAnd or OperatorKind.BitwiseOr or OperatorKind.BitwiseXor)):
                     if (binary.Operator.OperatorKind is not (OperatorKind.Addition or OperatorKind.Subtraction or OperatorKind.Multiplication or OperatorKind.Division or OperatorKind.Modulo or
                         OperatorKind.BitwiseAnd or OperatorKind.BitwiseOr or OperatorKind.BitwiseXor or
                         OperatorKind.Equality or OperatorKind.LessThan or OperatorKind.GreaterThan or

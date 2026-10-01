@@ -175,6 +175,7 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     integerShifts = true,
     privateInternalMethodEmission = true,
     expressionBodiedCallableEmission = true,
+    booleanBitwiseTruthTablesAndEagerEvaluation = true,
     unsupportedArrowExpressionPreservesOutput = true,
     compilerAndRuntimeEnforceMethodAccess = true,
     internalStaticTypesAcrossBothTargets = true,

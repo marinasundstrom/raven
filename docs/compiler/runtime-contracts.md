@@ -2634,7 +2634,7 @@ Int64 AND, OR and XOR. Each adapter selects its existing instruction encoding; n
 Runtime Contract configuration, binder rule or signature format changes. The separate
 metadata library adds And/Or/Xor opcodes and BitwiseAnd/BitwiseOr/BitwiseXor helpers,
 with typed stack validation. Negative values retain their fixed-width bit patterns.
-Boolean/enum bitwise operations remain outside the bounded native producer; .NET's
+At that integer-only checkpoint, Boolean/enum bitwise operations remained outside the producer; .NET's
 general path retains its existing support. The CLI projection/#Neo bridge is unchanged.
 
 
@@ -2712,3 +2712,24 @@ passes with metadata `5ccc41e8` on `codex/extended-cli-metadata`, including pair
 .NET/native arrow entry/helper calls, primitive results and widening, Unit console
 output, separate-library methods in both source orders, and precise unsupported
 conversion rejection. [Probe evidence](../../tools/NeoClrMetadataProbe/validation.json).
+
+
+### Eager Boolean operators — 2026-10-01
+
+The shared planner now admits built-in Boolean &, | and ^ with matching Boolean
+operands. Existing backend instruction capabilities and adapters select and/or/xor;
+left and right expressions are evaluated in source order. This preserves existing
+Raven/.NET eager semantics; && and || retain their separate short-circuit lowering.
+No Runtime Contract option, binder change, new instruction or metadata category is
+introduced. Enum/nullable Boolean and user-defined operator support remain outside
+the bounded producer. The metadata API preserves exact Boolean stack types, and
+native verification/runtime require Boolean bit-operation support (`fa25609d` on
+`codex/extended-cli-metadata`); older runtimes reject these operands. CLI reference
+projection and native importer replacement remain unchanged. There is no performance
+claim; no synthetic conversions or branch expansion are required.
+
+Validation: 52 focused C# shared-body/capability/declaration tests and all 45 independent
+metadata test groups pass. The full binary runtime/rvnc probe passes against metadata
+`83200ad6` and runtime `fa25609d`, including all Boolean truth tables and left/right
+console markers for each eager operator. Existing short-circuit cases still pass.
+[Recorded probe evidence](../../tools/NeoClrMetadataProbe/validation.json).

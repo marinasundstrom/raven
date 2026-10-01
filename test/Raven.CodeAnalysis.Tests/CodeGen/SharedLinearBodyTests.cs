@@ -10,6 +10,35 @@ public class SharedLinearBodyTests
     [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]
+    public void BooleanBitOperatorsPreserveTruthTables(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Logic {
+                public static func And(left: bool, right: bool) -> bool => left & right
+                public static func Or(left: bool, right: bool) -> bool => left | right
+                public static func Xor(left: bool, right: bool) -> bool => left ^ right
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        foreach (var syntax in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+        {
+            Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+            Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+        }
+        var type = Emit(compilation).GetType("Logic")!;
+        foreach (var left in new[] { false, true })
+            foreach (var right in new[] { false, true })
+            {
+                Assert.Equal(left & right, type.GetMethod("And")!.Invoke(null, [left, right]));
+                Assert.Equal(left | right, type.GetMethod("Or")!.Invoke(null, [left, right]));
+                Assert.Equal(left ^ right, type.GetMethod("Xor")!.Invoke(null, [left, right]));
+            }
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
     public void StaticArithmeticAndCallsExecuteOnBothGeneratorPaths(OptimizationLevel optimization)
     {
         const string source = """

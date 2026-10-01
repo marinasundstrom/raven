@@ -291,3 +291,9 @@ Assembly-function visibility and the temporary CLI symbol-loading bridge are unc
 Expression-body coverage executes Int32/Int64/Boolean/String results, implicit widening,
 Unit helper/entry calls and console output on both targets. Separate-library and rvnc
 cases use arrow bodies; unsupported conversions preserve source spans and output.
+
+
+Boolean &, | and ^ coverage checks all twelve truth-table cases and printed operand
+markers on both runtimes, proving eager left-to-right evaluation. The native runtime
+must include `fa25609d` on `codex/extended-cli-metadata`; old runtimes reject Boolean
+operands for these instructions. Nullable Boolean and enum operators remain deferred.
