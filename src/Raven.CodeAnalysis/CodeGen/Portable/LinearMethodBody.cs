@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -208,7 +208,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     var access = indexerAssignment.Left;
                     if (access.Indexer.SetMethod is not { } setter || !LowerIndexerReceiverAndArguments(access, setter, true) || !LowerValue(indexerAssignment.Right))
                         return Reject("unsupported indexed property assignment", Syntax(statement));
-                    Add(LinearInstructionKind.InstanceCall, Syntax(statement), method: setter);
+                    Add(InstanceCallKind(setter), Syntax(statement), method: setter);
                     continue;
                 }
                 if (memberAssignment is BoundArrayAssignmentExpression arrayAssignment)
@@ -230,7 +230,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (propertyAssignment.Property.SetMethod is not { } setter || !SupportedPropertyCall(setter) ||
                         !PropertyReceiver(propertyAssignment.Receiver, setter, Syntax(statement)) || !LowerValue(propertyAssignment.Right))
                         return Reject("unsupported property assignment", Syntax(statement));
-                    Add(setter.IsStatic ? LinearInstructionKind.Call : LinearInstructionKind.InstanceCall, Syntax(statement), method: setter);
+                    Add(setter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(setter), Syntax(statement), method: setter);
                     continue;
                 }
                 var assignment = statement switch
@@ -294,7 +294,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             CallableSignature.TryType(field.Type, false, out var type) && (capabilities is null || capabilities.Allows(type));
         bool SupportedTypeArguments(IMethodSymbol method) => capabilities is null ||
             method.TypeArguments.Concat(method.ContainingType?.TypeArguments ?? []).All(t => CallableSignature.TryType(t, false, out var type) && capabilities.Allows(type));
-        bool SupportedInstanceCall(IMethodSymbol method) => !method.IsStatic && !method.IsVirtual && !method.IsOverride &&
+        bool SupportedInterfaceCall(IMethodSymbol method) => !method.IsStatic && !method.IsGenericMethod && method.IsAbstract &&
+            method.ContainingType is { TypeKind: TypeKind.Interface, Arity: 0 } owner && SourceInterfacePlan.HasSupportedIdentity(owner) &&
+            capabilities?.AllowsInterfaceDispatch == true && CallableSignature.TryCreate(method, out var signature) && capabilities.Allows(signature);
+        LinearInstructionKind InstanceCallKind(IMethodSymbol method) => method.ContainingType?.TypeKind == TypeKind.Interface
+            ? LinearInstructionKind.InterfaceCall : LinearInstructionKind.InstanceCall;
+        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || !method.IsStatic && !method.IsVirtual && !method.IsOverride &&
             method.ContainingType is { } owner && SourceTypePlan.TryCreate(owner, out _) &&
             CallableSignature.TryCreate(method, out var signature) && SupportedTypeArguments(method) && (capabilities is null || capabilities.Allows(signature));
         bool SupportedPropertyCall(IMethodSymbol method) =>
@@ -362,7 +367,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.DefaultValue, Syntax(expression), Type: value.Type)); return true;
                 case BoundIndexerAccessExpression indexer when indexer.Indexer.GetMethod is { } indexGetter:
                     if (!LowerIndexerReceiverAndArguments(indexer, indexGetter, false)) return false;
-                    Add(LinearInstructionKind.InstanceCall, Syntax(expression), method: indexGetter); return true;
+                    Add(InstanceCallKind(indexGetter), Syntax(expression), method: indexGetter); return true;
                 case BoundCollectionExpression collection when SupportedArray(collection.Type):
                     return ArrayLiteral((IArrayTypeSymbol)collection.Type, collection.Elements, Syntax(expression));
                 case BoundEmptyCollectionExpression empty when SupportedArray(empty.Type):
@@ -429,10 +434,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.LoadField, Syntax(expression), Field: memberField)); return true;
                 case BoundPropertyAccess property when property.Property.GetMethod is { } getter && SupportedPropertyCall(getter):
                     if (!PropertyReceiver(null, getter, Syntax(expression))) return false;
-                    Add(getter.IsStatic ? LinearInstructionKind.Call : LinearInstructionKind.InstanceCall, Syntax(expression), method: getter); return true;
+                    Add(getter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(getter), Syntax(expression), method: getter); return true;
                 case BoundMemberAccessExpression { Member: IPropertySymbol memberProperty } access when memberProperty.GetMethod is { } memberGetter && SupportedPropertyCall(memberGetter):
                     if (!PropertyReceiver(access.Receiver, memberGetter, Syntax(expression))) return false;
-                    Add(memberGetter.IsStatic ? LinearInstructionKind.Call : LinearInstructionKind.InstanceCall, Syntax(expression), method: memberGetter); return true;
+                    Add(memberGetter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(memberGetter), Syntax(expression), method: memberGetter); return true;
                 case BoundLiteralExpression { Value: string text }:
                     Add(LinearInstructionKind.String, Syntax(expression), text: text); return true;
                 case BoundLiteralExpression { Value: bool boolean }:
@@ -459,6 +464,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundParenthesizedExpression parenthesized:
                     return LowerValue(parenthesized.Expression);
+                case BoundConversionExpression conversion when conversion.Conversion.IsReference && conversion.Conversion.IsImplicit &&
+                    capabilities?.AllowsInterfaceDispatch == true && conversion.Type.GetNonNullableType() is INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } target &&
+                    SourceInterfacePlan.HasSupportedIdentity(target) && CallableSignature.TryType(conversion.Expression.Type, false, out var from) && capabilities.Allows(from):
+                    return LowerValue(conversion.Expression);
                 case BoundConversionExpression { IsIdentity: true } conversion:
                     return LowerValue(conversion.Expression);
                 case BoundConversionExpression conversion when conversion.Conversion.IsNumeric && !conversion.IsUserDefined &&
@@ -533,7 +542,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     {
                         if (!LowerValue(argument)) return false;
                     }
-                    Add(call.Method.IsStatic ? LinearInstructionKind.Call : LinearInstructionKind.InstanceCall, Syntax(expression), method: call.Method);
+                    Add(call.Method.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(call.Method), Syntax(expression), method: call.Method);
                     return true;
                 default: return Reject("lowered expression " + expression.GetType().Name, Syntax(expression));
             }

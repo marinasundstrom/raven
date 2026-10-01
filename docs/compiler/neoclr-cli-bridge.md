@@ -2531,3 +2531,27 @@ Interface invocation/implementation remains the next author-directed acceptance 
 generic interface inheritance remains deferred. Seven focused C# interface tests and
 68 metadata API test groups pass. The evidence exercises null/default reference flow,
 not dynamic dispatch.
+
+
+## Owned interface dispatch — 2026-10-01
+
+Raven now admits nongeneric root classes implementing owned nongeneric interfaces,
+including inherited contracts. Shared InterfaceImplementation and InterfaceCall
+capabilities gate admission; implicit reference conversions retain normal binder
+semantics. Interface method/property calls use ordinary CLI callvirt (0x6f), and the
+native payload uses existing callvirt/implements contracts. The separate metadata API
+owns implementation validation, InterfaceImpl rows and public virtual/final/new-slot
+CLI implementation flags. Native concrete methods use existing implicit implementation
+lookup. No runtime code or instruction-set changes are required. Runtime Contract
+configuration and the host-core bootstrap remain unchanged.
+
+The C# producer rejects missing/incompatible implementations, foreign/generic dispatch
+targets and unrelated receivers; direct calls to abstract contracts remain invalid.
+CLI and native execution select two implementations through an inherited contract (42),
+and null receiver calls fault. Raven additionally executes interface method/property
+calls and interface-array alias updates in both source orders on .NET and neoCLR (42).
+[Evidence](../../tools/NeoClrMetadataProbe/interface-dispatch-validation.json). Twelve focused C# compiler tests and 69 metadata API groups
+pass. Owned nongeneric implicit implementations are the bounded target contract;
+generic interface dispatch, explicit/default methods, external imports and class virtual
+overrides remain future adapter work, not alternate platform semantics. Both feature
+branches remain experimental. Native symbol loading remains a separate compiler gate.

@@ -28,6 +28,7 @@ internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
             case LinearInstructionKind.LoadField: resolveField!(instruction.Field!).Emit(method, false); break;
             case LinearInstructionKind.StoreField: resolveField!(instruction.Field!).Emit(method, true); break;
             case LinearInstructionKind.NewObject:
+            case LinearInstructionKind.InterfaceCall:
             case LinearInstructionKind.InstanceCall: emitCall(instruction, method); break;
             case LinearInstructionKind.Constant64: method.Emit(OpCode.Ldc_I8, instruction.Long); break;
             case LinearInstructionKind.Convert64: method.Emit(OpCode.Conv_I8); break;

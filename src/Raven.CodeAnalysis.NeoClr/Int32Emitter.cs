@@ -51,7 +51,7 @@ internal static class Int32Emitter
                 else if (member is ClassDeclarationSyntax type)
                 {
                     if (type.AttributeLists.Count != 0 || type.ParameterList is not null ||
-                        type.BaseList is not null || type.PermitsClause is not null ||
+                        type.PermitsClause is not null ||
                         type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword)))
                         throw Unsupported("only public or internal static or root classes without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
@@ -173,6 +173,7 @@ internal static class Int32Emitter
                 : assembly.AddGenericInterface(contract.Namespace, symbol.Name, symbol.TypeParameters.Select(p => p.Name), visibility));
         }
         foreach (var pair in nativeInterfaces) nativeTypes.Add(pair.Key, pair.Value);
+        var interfaceMethods = new Dictionary<IMethodSymbol, MetadataMethod>(SymbolEqualityComparer.Default);
         foreach (var contract in interfaces)
         {
             var definition = nativeInterfaces[contract.Symbol];
@@ -186,11 +187,15 @@ internal static class Int32Emitter
                 contractMethods.Add(method.Symbol, definition.AddInterfaceMethod(method.Symbol.MetadataName, new MethodSignature(
                     NeoClrTypeMapper.Map(method.Signature.ReturnType, type => nativeTypes[type]),
                     method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])))));
+            foreach (var pair in contractMethods) interfaceMethods.Add(pair.Key, pair.Value);
             foreach (var property in contract.Properties)
                 definition.AddProperty(property.Symbol.MetadataName, NeoClrTypeMapper.Map(property.Type, type => nativeTypes[type]),
                     property.Symbol.GetMethod is { } get ? contractMethods[get] : null,
                     property.Symbol.SetMethod is { } set ? contractMethods[set] : null);
         }
+        foreach (var type in declaredTypes.Values)
+            foreach (var contract in type.Symbol.Interfaces)
+                nativeTypes[type.Symbol].AddInterfaceImplementation(nativeInterfaces.TryGetValue(contract, out var definition) ? definition : throw Unsupported("interface implementation must be emitted"));
         foreach (var type in declaredTypes.Values)
             foreach (var parameter in type.Symbol.TypeParameters)
             {
@@ -271,6 +276,8 @@ internal static class Int32Emitter
                     if (!definedMethods.TryGetValue(instruction.Method!, out var constructor)) throw Unsupported("only declared source constructors");
                     output.NewObject(constructor);
                 }
+                else if (instruction.Kind == LinearInstructionKind.InterfaceCall)
+                    output.CallVirtual(interfaceMethods.TryGetValue(instruction.Method!, out var contract) ? contract : throw Unsupported("interface call must target an emitted contract"));
                 else references.Resolve(instruction.Method!).EmitCall(output);
             }, field =>
             {

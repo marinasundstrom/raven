@@ -26,8 +26,11 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
                     p.ConstraintTypes[0] is not INamedTypeSymbol { Arity: 0, IsStatic: false } bound || !TryCreate(bound, out _))))) return false;
         if (type.TypeKind != TypeKind.Class || type.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal) ||
             type.ContainingType is not null ||
-            !type.IsStatic && (type.IsAbstract || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false, IsSealedHierarchy: false } || !type.Interfaces.IsEmpty || type.BaseType?.SpecialType != SpecialType.System_Object))
+            !type.IsStatic && (type.IsAbstract || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false, IsSealedHierarchy: false } || type.BaseType?.SpecialType != SpecialType.System_Object))
             return false;
+        if (!type.Interfaces.IsEmpty && (type.Arity != 0 || capabilities is not null && !capabilities.Allows(EmissionDeclarationKind.InterfaceImplementation) ||
+            type.Interfaces.Any(i => i.Arity != 0 || !SourceInterfacePlan.HasSupportedIdentity(i) ||
+                !SymbolEqualityComparer.Default.Equals(i.ContainingAssembly, type.ContainingAssembly)))) return false;
         var fullName = type.ToFullyQualifiedMetadataName();
         var typeNamespace = type.ContainingNamespace.IsGlobalNamespace ? "" : fullName[..^(type.MetadataName.Length + 1)];
         plan = new(type, typeNamespace, type.MetadataName);
