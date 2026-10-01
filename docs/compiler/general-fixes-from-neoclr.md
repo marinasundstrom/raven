@@ -87,3 +87,24 @@ and `None()`, `.None()`, `None`, `.None`. All 16 cases pass; the original two-ca
 repro failed before the fix. Existing union semantic tests pass 184/184, and the
 union codegen/overload/target-typing group passes 139/139. This addresses the recorded
 carrier-selection blocker; native importer/runtime acceptance is a separate check.
+
+## Shared lowering of concrete case targets (2026-10-02)
+
+The next native collections checkpoint exposed a related shared-lowering gap:
+contextually concrete case expressions were still wrapped as though their target
+were a carrier. `Lowerer.VisitUnionCaseExpression` now follows the existing .NET
+fallback emitter's concrete-case rule. Binding, overload selection and Runtime
+Contracts remain unchanged; no neoCLR capability is needed for this fix.
+
+The 16 imported constructor cases failed when their bodies were passed directly to
+the shared lowerer, despite their earlier runtime checks passing. The semantic-model
+fallback had hidden that exception from the existing tests. The added direct check
+and existing observable execution assertions cover both empty and payload paths.
+This fix is isolated here on the main-based compiler-fixes line; native out-parameter
+and managed-reference emission remain separate integration work.
+
+Validation: all 25 imported-constructor, propagation-codegen and Runtime Propagation
+Contract tests pass on this isolated branch using its configured .NET 11 target.
+The 16 direct-lowering regressions failed before the fix. An initial .NET 10 override
+could not load the hard-coded .NET 11 contract fixture; the configured-target run
+passes without test or production changes for that harness mismatch.

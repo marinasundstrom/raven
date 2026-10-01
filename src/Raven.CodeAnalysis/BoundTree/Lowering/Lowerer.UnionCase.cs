@@ -42,6 +42,11 @@ internal sealed partial class Lowerer
         // Build: new CaseType(args...)
         var caseCreation = new BoundObjectCreationExpression(ctor, loweredArgs);
 
+        // Explicit carrier constructors can expect a concrete case argument. Match
+        // the established emitter behavior before attempting carrier materialization.
+        if (node.UnionType.TryGetUnionCase() is not null)
+            return caseCreation;
+
         var unionCtor = node.UnionType.TryGetUnionCarrierConstructor(node.CaseType, out var resolvedCtor)
             ? resolvedCtor
             : null;
