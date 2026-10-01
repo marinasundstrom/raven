@@ -71,6 +71,23 @@ internal static class Int32Emitter
                             }
                             continue;
                         }
+                        if (!typeSymbol.IsStatic && typeMember is IndexerDeclarationSyntax indexerSyntax)
+                        {
+                            if (indexerSyntax.AttributeLists.Count != 0 || indexerSyntax.ExplicitInterfaceSpecifier is not null || indexerSyntax.Initializer is not null ||
+                                indexerSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
+                                model.GetDeclaredSymbol(indexerSyntax) is not SourcePropertySymbol { IsStatic: false, IsIndexer: true } indexer ||
+                                !CallableSignature.TryType(indexer.Type, false, out _))
+                                throw Unsupported("only implemented root-class indexers with supported value types");
+                            if (indexerSyntax.AccessorList is { } indexerAccessors && indexerAccessors.Accessors.Any(a =>
+                                a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||
+                                a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null) ||
+                                a.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword))))
+                                throw Unsupported("only implemented indexer get/set accessors");
+                            properties.Add(indexer);
+                            if (indexer.GetMethod is { } indexGet) plans.Add(GetPlan(indexGet));
+                            if (indexer.SetMethod is { } indexSet) plans.Add(GetPlan(indexSet));
+                            continue;
+                        }
                         if (!typeSymbol.IsStatic && typeMember is PropertyDeclarationSyntax propertySyntax)
                         {
                             if (propertySyntax.AttributeLists.Count != 0 || propertySyntax.ExplicitInterfaceSpecifier is not null ||

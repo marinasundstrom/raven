@@ -2206,3 +2206,30 @@ this prevents silently erasing shape metadata. The expanded Order-array probe ve
 output and .NET output in both source orders (42), including side-effecting collection
 calls and labeled continue. `array-runtime-validation.json` records source and runtime
 SHA-256 identities. The full collections application and System build remain incomplete.
+
+## Shared indexed property emission — 2026-10-01
+
+Raven now admits implemented root-class indexers through an explicit IndexerAccessor
+capability. Both .NET and neoCLR share getter/setter body planning, including declaration
+arrow getters, and receiver/index/value evaluation. Calls use ordinary accessor methods;
+the native adapter associates their existing signatures with indexed Property rows in
+the independent metadata API. Overloaded index types, multiple indices and read-only
+indexers preserve signatures/accessor associations in native CLI reference projections.
+
+Ordinary .NET remains the default, with general fallback for unsupported shapes; no
+Runtime Contract option changes. The metadata API on codex/extended-cli-metadata
+(00752f25) uses standard CLI indexed Property signatures and existing native property
+parameter lists. Native execution still uses the temporary #Neo payload plus CLI
+projection; eventual native metadata/backend replacement must retain these associations.
+The tested native runtime is identified by SHA-256 in indexer-runtime-validation.json.
+No runtime opcode or indexed introspection GetValue/SetValue API was added.
+
+The bounded native collector rejects interface/virtual/static indexers, ref/default/
+variadic index parameters and unsupported element types. Imported symbol loading and
+DefaultMemberAttribute synthesis for other CLI compilers remain separate contracts.
+The .NET backend retains its ordinary DefaultMemberAttribute behavior. No parameter
+boxing or intermediate array is introduced by shared indexed calls; performance has
+not been benchmarked. Eleven focused C# tests pass, covering shared planning and
+Release/Debug execution plus existing struct/imported-interface fallback. The native
+probe verifies and runs overloads, two-index properties and read-only getters on both
+runtimes in both source orders (42).

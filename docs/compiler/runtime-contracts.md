@@ -2929,3 +2929,7 @@ no Runtime Contract configuration is needed. See [the bridge contract](neoclr-cl
 Array for loops with an exact element local now use ordinary shared lowering before
 emission. No target-specific iteration rewrite or Runtime Contract switch is introduced;
 retained enumerator loops remain owned by general .NET codegen.
+
+Indexed property accessors have an explicit shared emission capability. Signature and
+body planning use ordinary callable contracts; receiver/index/value order is shared
+across backends. No Runtime Contract option changes. See [indexer emission](neoclr-cli-bridge.md#shared-indexed-property-emission--2026-10-01).

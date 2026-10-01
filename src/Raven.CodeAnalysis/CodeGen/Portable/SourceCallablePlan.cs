@@ -21,7 +21,8 @@ internal sealed record SourceCallablePlan(
     internal EmissionDeclarationKind DeclarationKind => IsAssemblyFunction
         ? Namespace.Length == 0 ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.NamespacedAssemblyFunction
         : Symbol.MethodKind == MethodKind.Constructor ? EmissionDeclarationKind.Constructor
-        : Symbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet ? EmissionDeclarationKind.PropertyAccessor
+        : Symbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
+            ? Symbol.ContainingSymbol is IPropertySymbol { IsIndexer: true } ? EmissionDeclarationKind.IndexerAccessor : EmissionDeclarationKind.PropertyAccessor
         : Symbol.IsStatic ? EmissionDeclarationKind.StaticMethod : EmissionDeclarationKind.InstanceMethod;
     internal Accessibility Visibility => Symbol.DeclaredAccessibility;
     internal bool IsSupportedBy(EmissionCapabilities capabilities) => capabilities.Allows(DeclarationKind) && capabilities.Allows(Signature) &&
@@ -55,6 +56,10 @@ internal sealed record SourceCallablePlan(
         var syntax = symbol.DeclaringSyntaxReferences[0].GetSyntax();
         switch (syntax)
         {
+            case IndexerDeclarationSyntax indexerDeclaration when symbol.MethodKind == MethodKind.PropertyGet && indexerDeclaration.ExpressionBody is { } indexerBody:
+                plan = new(symbol, syntax, indexerBody, symbol.ContainingType, symbol.MetadataName, signature);
+                if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
+                plan = null; return false;
             case PropertyDeclarationSyntax propertyDeclaration when symbol.MethodKind == MethodKind.PropertyGet && propertyDeclaration.ExpressionBody is { } expressionBody:
                 plan = new(symbol, syntax, expressionBody, symbol.ContainingType, symbol.MetadataName, signature);
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;

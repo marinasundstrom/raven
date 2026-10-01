@@ -200,6 +200,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     BoundExpressionStatement { Expression: BoundAssignmentExpression expression } => expression,
                     _ => null
                 };
+                if (memberAssignment is BoundIndexerAssignmentExpression indexerAssignment)
+                {
+                    var access = indexerAssignment.Left;
+                    if (access.Indexer.SetMethod is not { } setter || !LowerIndexerReceiverAndArguments(access, setter, true) || !LowerValue(indexerAssignment.Right))
+                        return Reject("unsupported indexed property assignment", Syntax(statement));
+                    Add(LinearInstructionKind.InstanceCall, Syntax(statement), method: setter);
+                    continue;
+                }
                 if (memberAssignment is BoundArrayAssignmentExpression arrayAssignment)
                 {
                     if (!ArrayReceiverAndIndex(arrayAssignment.Left) || !LowerValue(arrayAssignment.Right)) return false;
@@ -289,6 +297,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             Add(LinearInstructionKind.Receiver, syntax); return true;
         }
 
+        bool LowerIndexerReceiverAndArguments(BoundIndexerAccessExpression access, IMethodSymbol accessor, bool setter)
+        {
+            var arguments = access.Arguments.ToArray();
+            if (!SupportedInstanceCall(accessor) || capabilities is not null && !capabilities.Allows(EmissionDeclarationKind.IndexerAccessor) ||
+                arguments.Length != accessor.Parameters.Length - (setter ? 1 : 0))
+                return Reject("unsupported indexed property accessor or arguments", Syntax(access));
+            if (!LowerValue(access.Receiver)) return false;
+            foreach (var argument in arguments) if (!LowerValue(argument)) return false;
+            return true;
+        }
         bool SupportedArray(ITypeSymbol type) => type is IArrayTypeSymbol && CallableSignature.TryType(type, false, out var array) &&
             (capabilities is null || capabilities.Allows(array));
         bool ArrayReceiverAndIndex(BoundArrayAccessExpression access)
@@ -320,6 +338,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return Reject("target does not support value type " + valueType, Syntax(expression));
             switch (expression)
             {
+                case BoundIndexerAccessExpression indexer when indexer.Indexer.GetMethod is { } indexGetter:
+                    if (!LowerIndexerReceiverAndArguments(indexer, indexGetter, false)) return false;
+                    Add(LinearInstructionKind.InstanceCall, Syntax(expression), method: indexGetter); return true;
                 case BoundCollectionExpression collection when SupportedArray(collection.Type):
                     return ArrayLiteral((IArrayTypeSymbol)collection.Type, collection.Elements, Syntax(expression));
                 case BoundEmptyCollectionExpression empty when SupportedArray(empty.Type):

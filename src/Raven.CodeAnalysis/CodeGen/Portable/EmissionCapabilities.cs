@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical source ownership/categories. Physical CLI carrier types are adapter policy.
-internal enum EmissionDeclarationKind { AssemblyFunction, NamespacedAssemblyFunction, StaticMethod, StaticType, RootClass, InstanceMethod, Constructor, PropertyAccessor }
+internal enum EmissionDeclarationKind { AssemblyFunction, NamespacedAssemblyFunction, StaticMethod, StaticType, RootClass, InstanceMethod, Constructor, PropertyAccessor, IndexerAccessor }
 
 // Admission for the bounded shared plan, not a description of an entire runtime.
 // Each adapter explicitly opts into supported logical operations and built-in types.
