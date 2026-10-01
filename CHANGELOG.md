@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Share primitive value-producing if/else emission across .NET and neoCLR using existing branch joins, preserving branch selection and nested conditional results.
+
 - **2026-10-01:** Emit eager Boolean &, | and ^ through the shared .NET/neoCLR body path. Preserve left-to-right evaluation and Boolean result types; require the matching native runtime support. Short-circuit operators are unchanged.
 
 - **2026-10-01:** Admit expression-bodied callables in shared source plans, reusing existing bound arrow blocks and compiler lowering for .NET Release emission. Preserve Debug/general fallback and return conversions. Enable native arrow-body emission, including Unit entry/helper calls, separate-library references and source-located rejection without output writes.

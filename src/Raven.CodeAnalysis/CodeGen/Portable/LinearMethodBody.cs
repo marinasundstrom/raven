@@ -211,6 +211,24 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return Reject("target does not support value type " + valueType, Syntax(expression));
             switch (expression)
             {
+                case BoundBlockExpression block when block.LocalsToDispose.IsEmpty &&
+                    block.Statements.ToArray() is [BoundExpressionStatement { Expression: var result }]:
+                    return LowerValue(result);
+                case BoundIfExpression conditional when conditional.ElseBranch is not null &&
+                    conditional.Condition.Type.SpecialType == SpecialType.System_Boolean &&
+                    EmissionPrimitiveTypes.TryGetValueType(conditional.Type, out var conditionalType) &&
+                    EmissionPrimitiveTypes.TryGetValueType(conditional.ThenBranch.Type, out var thenType) && thenType == conditionalType &&
+                    EmissionPrimitiveTypes.TryGetValueType(conditional.ElseBranch.Type, out var elseType) && elseType == conditionalType:
+                    if (!LowerValue(conditional.Condition)) return false;
+                    var alternative = nextLabel++;
+                    var joined = nextLabel++;
+                    Add(LinearInstructionKind.BranchFalse, Syntax(expression), alternative);
+                    if (!LowerValue(conditional.ThenBranch)) return false;
+                    Add(LinearInstructionKind.Branch, Syntax(expression), joined);
+                    Add(LinearInstructionKind.Label, Syntax(expression), alternative);
+                    if (!LowerValue(conditional.ElseBranch)) return false;
+                    Add(LinearInstructionKind.Label, Syntax(expression), joined);
+                    return true;
                 case BoundLiteralExpression { Value: string text }:
                     Add(LinearInstructionKind.String, Syntax(expression), text: text); return true;
                 case BoundLiteralExpression { Value: bool boolean }:

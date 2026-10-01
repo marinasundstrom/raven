@@ -273,6 +273,26 @@ internal static class SharedLoweringChecks
                 public static func Positive(value: int) -> int { return +value }
             }
             """, "", 42);
+        await RunCase("SharedConditionalValues", """
+            func Main() -> int {
+                let selected = if Flag(false) { Number(true, 0) } else { Number(false, 0) }
+                if selected != 1 || Number(false, 5) != 20 { return 1 }
+                if Wide(true) != 5000000000L || Wide(false) != -1L { return 2 }
+                if Flag(true) || !Flag(false) { return 3 }
+                System.Console.WriteLine(Text(true))
+                System.Console.WriteLine(Text(false))
+                let choice = if Flag(false) { Trace("selected", 20) } else { Trace("wrong", 0) }
+                return (if choice == 20 { (if selected == 1 { 40 } else { 0 }) } else { 0 }) + 2
+            }
+            func Number(flag: bool, value: int) -> int => if flag { value + 1 } else { 100 / value }
+            func Wide(flag: bool) -> long => if flag { 5000000000L } else { -1L }
+            func Flag(flag: bool) -> bool => if flag { false } else { true }
+            func Text(flag: bool) -> string => if flag { "Hej 🌍" } else { "Other" }
+            func Trace(label: string, value: int) -> int {
+                System.Console.WriteLine(label)
+                return value
+            }
+            """, "Hej 🌍\nOther\nselected", 42);
         await RunCase("SharedBooleanBits", """
             func Main() -> int {
                 if And(false, false) || And(false, true) || And(true, false) || !And(true, true) { return 1 }

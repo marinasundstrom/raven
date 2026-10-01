@@ -10,6 +10,45 @@ public class SharedLinearBodyTests
     [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]
+    public void ConditionalValuesSelectOneBranchAndPreserveTypes(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Choices {
+                public static func Number(flag: bool, value: int) -> int {
+                    let chosen = if flag { value + 1 } else { 100 / value }
+                    return chosen * 2
+                }
+                public static func Wide(flag: bool) -> long => if flag { 5000000000L } else { -1L }
+                public static func Flag(flag: bool) -> bool => if flag { false } else { true }
+                public static func Text(flag: bool) -> string => if flag { "Hej 🌍" } else { "Other" }
+                public static func Nested(flag: bool, inner: bool) -> int => if flag { (if inner { 42 } else { 7 }) } else { 3 }
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        foreach (var syntax in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+        {
+            Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+            Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), plan.MetadataName + ": " + failure?.Detail);
+        }
+        var type = Emit(compilation).GetType("Choices")!;
+        Assert.Equal(42, type.GetMethod("Number")!.Invoke(null, [true, 20]));
+        Assert.Equal(2, type.GetMethod("Number")!.Invoke(null, [true, 0]));
+        Assert.Equal(40, type.GetMethod("Number")!.Invoke(null, [false, 5]));
+        foreach (var flag in new[] { false, true })
+        {
+            Assert.Equal(flag ? 5000000000L : -1L, type.GetMethod("Wide")!.Invoke(null, [flag]));
+            Assert.Equal(!flag, type.GetMethod("Flag")!.Invoke(null, [flag]));
+            Assert.Equal(flag ? "Hej 🌍" : "Other", type.GetMethod("Text")!.Invoke(null, [flag]));
+        }
+        Assert.Equal(42, type.GetMethod("Nested")!.Invoke(null, [true, true]));
+        Assert.Equal(7, type.GetMethod("Nested")!.Invoke(null, [true, false]));
+        Assert.Equal(3, type.GetMethod("Nested")!.Invoke(null, [false, true]));
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
     public void BooleanBitOperatorsPreserveTruthTables(OptimizationLevel optimization)
     {
         const string source = """

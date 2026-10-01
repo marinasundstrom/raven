@@ -297,3 +297,8 @@ Boolean &, | and ^ coverage checks all twelve truth-table cases and printed oper
 markers on both runtimes, proving eager left-to-right evaluation. The native runtime
 must include `fa25609d` on `codex/extended-cli-metadata`; old runtimes reject Boolean
 operands for these instructions. Nullable Boolean and enum operators remain deferred.
+
+
+Primitive conditional-value coverage checks both branches, nested expressions,
+Int32/Int64/Boolean/String joins and an unselected division-by-zero branch. The
+paired output proves that only the selected side-effecting branch executes.

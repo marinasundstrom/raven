@@ -1596,3 +1596,21 @@ metadata test groups pass. The full binary runtime/rvnc probe passes against met
 `83200ad6` and runtime `fa25609d`, including all Boolean truth tables and left/right
 console markers for each eager operator. Existing short-circuit cases still pass.
 [Recorded probe evidence](../../tools/NeoClrMetadataProbe/validation.json).
+
+
+### Primitive conditional values — 2026-10-01
+
+Shared body planning now accepts value-producing if/else with Boolean conditions,
+matching Int32/Int64/Boolean/String branches and single-expression branch blocks.
+It emits existing branch instructions with one value at the join; only the selected
+branch executes. The binder owns expression context and type conversions. This is
+ordinary conditional control flow on both .NET and neoCLR, with no new Runtime
+Contract setting, metadata extension or runtime instruction. Unit/missing-else values,
+nonprimitive joins and multi-statement value blocks remain outside this slice; .NET
+retains its general fallback. CLI reference projections and the native importer
+replacement remain unchanged. No performance improvement is claimed.
+
+Validation: 32 existing shared-body/block-expression tests and both new Release/Debug
+conditional tests pass. The complete binary runtime/rvnc probe passes against neoCLR
+`83200ad6` (runtime code `fa25609d`), including all primitive joins, nested values and
+skipped faulting/side-effecting branches. [Evidence](../../tools/NeoClrMetadataProbe/validation.json).
