@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Add an exploratory source/sample readiness inventory for direct neoCLR
+  emission and ordinary CLI controls. Record the target-profile gate, library bootstrap
+  gaps and the broad sample's invalid Option constructor output. The report records
+  failures without making them required behavior; no production target configuration
+  is changed.
+
 - **2026-10-01:** Add explicit shared interface-implementation and dispatch capabilities.
   The neoCLR target now emits implicit public implementations on nongeneric root classes,
   inherited contract calls, and interface property dispatch through the separate metadata

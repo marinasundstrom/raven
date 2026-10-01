@@ -2555,3 +2555,30 @@ pass. Owned nongeneric implicit implementations are the bounded target contract;
 generic interface dispatch, explicit/default methods, external imports and class virtual
 overrides remain future adapter work, not alternate platform semantics. Both feature
 branches remain experimental. Native symbol loading remains a separate compiler gate.
+
+
+## Source/sample readiness inventory — 2026-10-01
+
+`NeoClrMetadataProbe --readiness-inventory <neoclr-root> <fresh-output> <runtime>`
+reports unchanged source attempts under the existing host bootstrap and the real
+CompilationOptions.NeoCLR profile with Self. It hashes the API declaration snapshot,
+sources and runtime; it never executes failed emission. A separate ordinary CLI output
+is retained as a nonexecuted reference-core control, for the legacy bridge to consume.
+[Inventory](../../tools/NeoClrMetadataProbe/readiness-inventory-2026-10-01.json) and
+[bridge runtime controls](../../tools/NeoClrMetadataProbe/readiness-bridge-controls-2026-10-01.json).
+
+All twelve selected apps bind and emit ordinary CLI, but direct emission rejects the
+neoCLR profile (NEOMETA002). No guard was bypassed. Three unchanged application controls
+run through the current legacy bridge and existing generated System library. The
+order-collections control emits None followed by Option<Order>'s Some constructor in
+PendingOrder, then fails importer stack validation; this is a general compiler candidate
+requiring isolation before a fix, not permission to weaken verification. Full-library
+binding with the consumer snapshot lacks implementation services and has runtime-contract
+identity conflicts. It is not a complete implementation bootstrap.
+
+Recommended larger milestones: real target-profile/seed contracts; generic collection
+interfaces and imported nominal/generic member handles; then union/value/callback and
+propagation lowering driven by unchanged order-collections. Reuse the semantic importer
+behind a metadata-source contract and existing shared lowering. Keep Runtime Contract
+options explicit; ordinary .NET remains default. No production options or semantics
+change in this assessment/tooling slice.
