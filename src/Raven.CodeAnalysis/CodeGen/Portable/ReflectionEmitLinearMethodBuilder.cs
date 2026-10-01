@@ -17,6 +17,8 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
     private readonly IEmissionTypeMapper<Type> types = new ReflectionEmitTypeMapper(
         type => method.ResolveClrType(method.Compilation.GetSpecialType(type)));
 
+    public void DeclareLocal(INamedTypeSymbol type) => locals.Add(output.DeclareLocal(method.ResolveClrType(type)));
+
     public void DeclareLocal(EmissionPrimitiveType type) => locals.Add(output.DeclareLocal(types.Map(type)));
 
     internal static bool TryEmit(MethodGenerator method)

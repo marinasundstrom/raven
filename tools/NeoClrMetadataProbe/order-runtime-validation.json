@@ -7,6 +7,6 @@
   "nativeResult": 42,
   "nativeVerify": true,
   "fullConsumer": false,
-  "nominalLocalsAndAliasing": false,
+  "nominalLocalsAndAliasing": true,
   "rejectedIncompleteContracts": 3
 }

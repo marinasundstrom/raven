@@ -1845,3 +1845,32 @@ Order shape. The executable probe verifies/runs both file orders and rejects imp
 constructors, property initializers and nominal locals without output. Existing native
 emission regression probes also pass. Object locals and aliasing are the next gap.
 [Runtime evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).
+
+
+## Root object locals and aliasing — 2026-10-01
+
+The next slice adds a shared local declaration containing either a primitive kind or
+a nominal compiler type symbol. The logical plan does not carry System.Type or native
+builder handles. Both adapters explicitly enable root-class locals; .NET resolves the
+symbol to its existing CLR type, while neoCLR resolves a declared source type to the
+independent metadata library's class handle. Local loads/stores reuse existing control
+flow and definite-store validation. No boxing, erased Object fallback or Void sentinel
+is used. Declaration capabilities alone do not imply nominal-local admission.
+
+The metadata dependency must include root locals (212b422b or later). Its development
+LocalDefinition.Type property is nullable, and ClassType identifies nominal slots.
+Shared source signatures still use primitive parameters/results. Nullable, inherited,
+external and generic object locals remain unsupported, as do uninitialized locals,
+implicit constructors and property initializers. Ordinary .NET fallback remains for
+unsupported shapes; no Runtime Contract option or semantic-model behavior changed.
+Native PE/#Neo encoding still carries executable bodies and a throwing CLI projection;
+full native symbol import is deferred.
+
+The unchanged Order plus a separate Main now holds an object in two locals, writes
+Number and Pending through the alias, and reads both through the original. Both source
+orders return 42 on .NET and neoCLR e8611966. The probe retains its boundary cases and
+metadata association checks and rejects nullable locals without output. 54 focused
+compiler tests pass, including independent Release/Debug alias execution and a profile
+that admits root declarations but denies nominal locals. Existing native emission
+regression probes pass. The full consumer's dependency frontier is unchanged.
+[Updated evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).

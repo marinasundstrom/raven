@@ -2881,3 +2881,7 @@ bodies exist. See [the bridge record](neoclr-cli-bridge.md#shared-root-and-insta
 The subsequent Order slice admits explicit root constructors and mutable primitive
 auto-properties in the native backend. This is backend capability growth with no new
 Runtime Contract option. See [Order execution](neoclr-cli-bridge.md#unchanged-order-source-executes--2026-10-01).
+
+Root-class local admission is also backend-owned and explicitly enabled by the two
+shared adapters. No Runtime Contract option is added. Nominal parameters/results and
+generic locals remain future emission work.

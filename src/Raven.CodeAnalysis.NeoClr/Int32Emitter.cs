@@ -159,7 +159,8 @@ internal static class Int32Emitter
                     output.NewObject(constructor);
                 }
                 else references.Resolve(instruction.Method!).EmitCall(output);
-            }, field => fields.TryGetValue(field, out var definition) ? definition : throw Unsupported("undeclared instance field")));
+            }, field => fields.TryGetValue(field, out var definition) ? definition : throw Unsupported("undeclared instance field"),
+                type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local")));
         }
         return assembly.WriteNativeAssembly();
 

@@ -7,10 +7,12 @@ namespace Raven.CodeAnalysis.NeoClr;
 // Native handles stay in this adapter. Symbol-to-native call mapping is owned by the
 // enclosing assembly emission, including explicit dependency and System bindings.
 internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
-    Action<LinearInstruction, MethodBuilder> emitCall, Func<IFieldSymbol, FieldBuilder>? resolveField = null) : ILinearMethodBuilder
+    Action<LinearInstruction, MethodBuilder> emitCall, Func<IFieldSymbol, FieldBuilder>? resolveField = null, Func<INamedTypeSymbol, TypeBuilder>? resolveType = null) : ILinearMethodBuilder
 {
     private readonly List<BranchLabel> labels = [];
     public void DefineLabel() => labels.Add(method.DefineLabel());
+
+    public void DeclareLocal(INamedTypeSymbol type) => method.DeclareLocal(resolveType!(type));
 
     public void DeclareLocal(EmissionPrimitiveType type) => method.DeclareLocal(NeoClrTypeMapper.Instance.Map(type));
 

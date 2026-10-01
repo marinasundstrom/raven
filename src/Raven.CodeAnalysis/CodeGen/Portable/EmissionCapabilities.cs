@@ -13,7 +13,8 @@ internal sealed class EmissionCapabilities(
     IEnumerable<EmissionDeclarationKind>? declarations = null,
     IEnumerable<Accessibility>? typeVisibilities = null,
     IEnumerable<Accessibility>? methodVisibilities = null,
-    IEnumerable<Accessibility>? functionVisibilities = null)
+    IEnumerable<Accessibility>? functionVisibilities = null,
+    bool allowsRootClassLocals = false)
 {
     private readonly ImmutableHashSet<EmissionPrimitiveType> types = types.ToImmutableHashSet();
     private readonly ImmutableHashSet<LinearInstructionKind> instructions = instructions.ToImmutableHashSet();
@@ -25,6 +26,8 @@ internal sealed class EmissionCapabilities(
     private readonly ImmutableHashSet<Accessibility> methodVisibilities = (methodVisibilities ?? []).ToImmutableHashSet();
 
     private readonly ImmutableHashSet<Accessibility> functionVisibilities = (functionVisibilities ?? []).ToImmutableHashSet();
+
+    internal bool AllowsRootClassLocals { get; } = allowsRootClassLocals;
 
     internal bool AllowsFunctionVisibility(Accessibility visibility) => functionVisibilities.Contains(visibility);
     internal bool AllowsMethodVisibility(Accessibility visibility) => methodVisibilities.Contains(visibility);

@@ -16,20 +16,28 @@ internal readonly record struct LinearInstruction(
 internal interface ILinearMethodBuilder
 {
     void DeclareLocal(EmissionPrimitiveType type);
+    void DeclareLocal(INamedTypeSymbol type);
     void DefineLabel();
     void Emit(LinearInstruction instruction);
 }
 
 internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
+// Local signatures carry compiler identity, never backend handles.
+internal readonly record struct EmissionLocalType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Class = null);
+
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
 // source-located boundary. Language rewrites remain owned by the existing Lowerer.
-internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, ImmutableArray<EmissionPrimitiveType> localTypes, int labelCount)
+internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, ImmutableArray<EmissionLocalType> localTypes, int labelCount)
 {
     internal void Emit(ILinearMethodBuilder builder)
     {
-        foreach (var type in localTypes) builder.DeclareLocal(type);
+        foreach (var type in localTypes)
+        {
+            if (type.Primitive is { } primitive) builder.DeclareLocal(primitive);
+            else builder.DeclareLocal(type.Class!);
+        }
         for (var i = 0; i < labelCount; i++) builder.DefineLabel();
         foreach (var instruction in instructions) builder.Emit(instruction);
     }
@@ -44,7 +52,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         Func<BoundInvocationExpression, bool> permitsConsoleWrite, out LinearMethodBody? lowered, out LinearBodyFailure? failure, EmissionCapabilities? capabilities = null)
     {
         var instructions = ImmutableArray.CreateBuilder<LinearInstruction>();
-        var localTypes = ImmutableArray.CreateBuilder<EmissionPrimitiveType>();
+        var localTypes = ImmutableArray.CreateBuilder<EmissionLocalType>();
         var nextLabel = 0;
         var labels = new Dictionary<ILabelSymbol, int>(SymbolEqualityComparer.Default);
         var locals = new Dictionary<ILocalSymbol, int>(SymbolEqualityComparer.Default);
@@ -163,11 +171,17 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (declaration.IsUsing) return Reject("using local", Syntax(statement));
                     foreach (var variable in declaration.Declarators)
                     {
-                        if (!EmissionPrimitiveTypes.TryGetValueType(variable.Local.Type, out var localType) || variable.Initializer is null ||
-                            variable.FixedAddressInitializer is not null || variable.FixedPinnedLocal is not null)
-                            return Reject("only initialized Int32/Int64/Boolean/String locals", Syntax(variable));
-                        if (capabilities is not null && !capabilities.Allows(localType))
-                            return Reject("target does not support local type " + localType, Syntax(variable));
+                        if (variable.Initializer is null || variable.FixedAddressInitializer is not null || variable.FixedPinnedLocal is not null)
+                            return Reject("only initialized value locals", Syntax(variable));
+                        EmissionLocalType localType;
+                        if (EmissionPrimitiveTypes.TryGetValueType(variable.Local.Type, out var primitive))
+                        {
+                            if (capabilities is not null && !capabilities.Allows(primitive)) return Reject("target does not support local type " + primitive, Syntax(variable));
+                            localType = new(Primitive: primitive);
+                        }
+                        else if (variable.Local.Type is INamedTypeSymbol nominal && SourceTypePlan.TryCreate(nominal, out var typePlan) && !typePlan!.IsStatic && capabilities?.AllowsRootClassLocals == true)
+                            localType = new(Class: nominal);
+                        else return Reject("target does not support local type " + variable.Local.Type.Name, Syntax(variable));
                         if (!LowerValue(variable.Initializer)) return false;
                         var slot = locals.Count;
                         locals.Add(variable.Local, slot);

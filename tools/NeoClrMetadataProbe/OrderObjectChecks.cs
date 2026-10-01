@@ -28,7 +28,12 @@ internal static class OrderObjectChecks
                 if Order(2, false).Pending { return 2 }
                 if Order(-2147483647 - 1, false).Number != -2147483647 - 1 { return 3 }
                 if Order(2147483647, true).Number != 2147483647 { return 4 }
-                return Order(42, true).Number
+                let original = Order(41, true)
+                let alias = original
+                alias.Number = 42
+                alias.Pending = false
+                if original.Pending { return 5 }
+                return original.Number
             }
             """;
         var host = typeof(object).Assembly.GetName();
@@ -66,7 +71,7 @@ internal static class OrderObjectChecks
         foreach (var unsupported in new[] {
             "class Empty { }",
             "class Initialized { var Number: int = 1\n init() { } }",
-            order + "\nfunc Main() -> int { let order = Order(42, true)\n return order.Number }"
+            order + "\nfunc Main() -> int { let order: Order? = null\n return 42 }"
         })
         {
             var compilation = Compilation.Create("UnsupportedObject", [SyntaxTree.ParseText(unsupported)], references,
@@ -89,7 +94,7 @@ internal static class OrderObjectChecks
             nativeResult = 42,
             nativeVerify = true,
             fullConsumer = false,
-            nominalLocalsAndAliasing = false,
+            nominalLocalsAndAliasing = true,
             rejectedIncompleteContracts = 3
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");
