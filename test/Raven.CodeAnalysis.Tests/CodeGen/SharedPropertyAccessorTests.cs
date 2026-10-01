@@ -2,11 +2,84 @@ using System.Reflection;
 
 using Raven.CodeAnalysis.CodeGen.Portable;
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class SharedPropertyAccessorTests
 {
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void NominalPropertiesShareAccessorsAndPreserveMetadata(OptimizationLevel optimization)
+    {
+        var tree = SyntaxTree.ParseText("""
+            class Holder {
+                var Value: Item = Item(7)
+                var Explicit: Item {
+                    get => field
+                    set => field = value
+                }
+                val Current: Item => Value
+                val Selected: Item {
+                    get { return Value }
+                    private set { Value = value }
+                }
+                init(value: Item) { Explicit = value }
+                func Replace(value: Item) { Selected = value }
+            }
+            class Item {
+                var Number: int
+                init(number: int) { Number = number }
+            }
+            func Main() -> int {
+                let original = Item(41)
+                let holder = Holder(original)
+                if holder.Current.Number != 7 { return 1 }
+                holder.Explicit.Number = 42
+                if original.Number != 42 { return 2 }
+                holder.Replace(original)
+                holder.Current.Number = 40
+                if holder.Selected.Number != 40 { return 3 }
+                holder.Value = Item(42)
+                if original.Number != 40 { return 4 }
+                return holder.Selected.Number
+            }
+            """);
+        var compilation = Compilation.Create("NominalProperties", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>())
+        {
+            var property = (IPropertySymbol)model.GetDeclaredSymbol(syntax)!;
+            foreach (var accessor in new[] { property.GetMethod, property.SetMethod }.OfType<IMethodSymbol>())
+            {
+                Assert.True(SourceCallablePlan.TryCreate(accessor, out var plan, ReflectionEmitCapabilities.Shared));
+                Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+            }
+        }
+        var initialized = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single(p => p.Identifier.ValueText == "Value");
+        Assert.IsType<BoundObjectCreationExpression>(((SourcePropertySymbol)model.GetDeclaredSymbol(initialized)!).BackingField!.Initializer);
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var assembly = Assembly.Load(image.ToArray());
+        var holder = assembly.GetType("Holder")!;
+        var item = Activator.CreateInstance(assembly.GetType("Item")!, [41]);
+        var instance = Activator.CreateInstance(holder, [item]);
+        Assert.NotNull(holder.GetProperty("Value")!.GetValue(instance));
+        Assert.Same(item, holder.GetProperty("Explicit")!.GetValue(instance));
+        Assert.NotNull(holder.GetProperty("Current")!.GetValue(instance));
+        Assert.Equal(42, assembly.EntryPoint!.Invoke(null, null));
+        var properties = holder.GetProperties();
+        Assert.Equal(4, properties.Length);
+        Assert.All(properties, property => Assert.Equal(assembly.GetType("Item"), property.PropertyType));
+        Assert.Equal(2, holder.GetFields(BindingFlags.Instance | BindingFlags.NonPublic).Length);
+        Assert.Null(holder.GetProperty("Current")!.SetMethod);
+        Assert.True(holder.GetProperty("Selected")!.SetMethod!.IsPrivate);
+    }
+
     [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]

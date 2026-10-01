@@ -77,9 +77,8 @@ internal static class Int32Emitter
                                 propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
                                 model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol { IsStatic: false } property ||
                                 property.BackingField is { IsReadOnly: true } ||
-                                (!EmissionPrimitiveTypes.TryGetValueType(property.Type, out _) &&
-                                 !(property.EmitAsFieldOnly && CallableSignature.TryType(property.Type, false, out _))))
-                                throw Unsupported("only primitive instance properties or mutable primitive/owned root-class private storage");
+                                !CallableSignature.TryType(property.Type, false, out _))
+                                throw Unsupported("only primitive or owned root-class instance properties and mutable private storage");
                             if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||
                                 a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null) ||
@@ -164,8 +163,10 @@ internal static class Int32Emitter
         var definedMethods = methods.ToDictionary(m => m.Plan.Symbol, m => m.Method, (IEqualityComparer<IMethodSymbol>)SymbolEqualityComparer.Default);
         foreach (var property in properties)
         {
-            EmissionPrimitiveTypes.TryGetValueType(property.Type, out var propertyType);
-            nativeTypes[property.ContainingType!].AddProperty(property.MetadataName, NeoClrTypeMapper.Instance.Map(propertyType),
+            CallableSignature.TryType(property.Type, false, out var propertyType);
+            SignatureType valueType = propertyType.Class is { } propertyClass
+                ? nativeTypes[propertyClass] : NeoClrTypeMapper.Instance.Map(propertyType.Primitive!.Value);
+            nativeTypes[property.ContainingType!].AddProperty(property.MetadataName, valueType,
                 property.GetMethod is null ? null : definedMethods[property.GetMethod], property.SetMethod is null ? null : definedMethods[property.SetMethod]);
         }
         var references = new CallableReferenceTable<NeoClrCallableReference>(target =>

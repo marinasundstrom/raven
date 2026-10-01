@@ -398,6 +398,9 @@ internal partial class TypeMemberBinder : Binder
                 initializer: initializer,
                 declaredAccessibility: Accessibility.Private);
 
+            // Preserve field identity while completing the initializer after forward members bind.
+            // A provisional error from an earlier declaration pass must not become emitted storage.
+            backingField.SetInitializer(initializer);
             sourcePropertySymbol?.SetBackingField(backingField);
 
             if (isPrivateInitializerOnlyStoredProperty)

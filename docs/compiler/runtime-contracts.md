@@ -2900,3 +2900,10 @@ signature capability and source identities. It requires no Runtime Contract opti
 The bounded neoCLR adapter supports mutable explicit fields and private storage with
 owned class types; nominal property metadata, nullable and imported class contracts
 remain separate work. See [the bridge contract](neoclr-cli-bridge.md#owned-nominal-field-storage--2026-10-01).
+
+
+Owned nominal property emission (2026-10-01) also uses the existing root-class signature
+capability with no new configuration. Auto/computed/explicit accessors preserve the
+same owned identities as fields and methods. Refreshing a provisional auto-property
+initializer is a shared binder correction and applies independently of target selection.
+See [the property bridge contract](neoclr-cli-bridge.md#owned-nominal-property-emission--2026-10-01).

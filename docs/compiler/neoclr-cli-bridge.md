@@ -2073,3 +2073,32 @@ result 42 in both source orders. Five rejection fixtures remain, now including n
 nominal fields. See tools/NeoClrMetadataProbe/order-runtime-validation.json for hashes;
 tested runtime revision e8611966 is on neoCLR's codex/extended-cli-metadata branch.
 The whole broad consumer and native metadata symbol loading remain incomplete.
+
+
+### Owned nominal property emission — 2026-10-01
+
+The native adapter now maps owned root-class property types through the shared logical
+signature contract and independent metadata API. Auto-properties, computed getters,
+block/arrow accessors and private setters reuse the existing body plans and canonical
+backing fields. No Runtime Contract option is added; ordinary .NET remains the default.
+The host API's AddProperty/PropertyType now use SignatureType: rebuild consumers and
+inspect Primitive/ClassType. Standard CLI property/CLASS signatures and existing native
+Named property/setter-parameter records preserve identities and accessor visibility.
+The #Neo executable payload with CLI reference projection remains the temporary bridge;
+native extended-CLI emission will replace its encoding, not these logical source contracts.
+
+A .NET-only C# regression exposed stale auto-property initializers when the referenced
+constructor was declared later. The canonical field could retain a provisional error
+expression after binding succeeded. Rebinding now updates its initializer without
+replacing the field. This general compiler correction is independently tested on .NET;
+it is not a native-target fallback or fabricated initialization.
+
+Validation: 14 focused C# tests cover Release/Debug property, field, constructor and
+symbol-stability behavior. The Order probe returns 42 on .NET and binary neoCLR in both
+file orders with nominal property replacement, alias mutation, private setters and a
+forward-declared constructor initializer. Projected getter/property types and accessor
+flags are checked. Six unsupported shapes reject before writing, including nullable
+nominal properties. See tools/NeoClrMetadataProbe/order-runtime-validation.json for
+hashes; runtime revision e8611966 is on neoCLR's codex/extended-cli-metadata branch.
+Indexed/generic/nullable property contracts, external nominal imports, readonly/static
+storage and constructor chaining remain outside this bounded backend.

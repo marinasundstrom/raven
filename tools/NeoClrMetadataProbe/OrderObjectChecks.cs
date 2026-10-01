@@ -27,6 +27,27 @@ internal static class OrderObjectChecks
             func Identity(copy: Copied) -> Copied => copy
             func CreateOrder() -> Order => Order(41, true)
             func UpdateOrder(order: Order) { order.Number = 42 }
+            class ForwardProperty {
+                var Value: LaterItem = LaterItem(17)
+            }
+            class LaterItem {
+                var Number: int
+                init(number: int) { Number = number }
+            }
+            class PropertyHolder {
+                var Value: Order = Order(7, false)
+                var Explicit: Order {
+                    get => field
+                    set => field = value
+                }
+                val Current: Order => Value
+                val Selected: Order {
+                    get { return Value }
+                    private set { Value = value }
+                }
+                init(value: Order) { Explicit = value }
+                func Replace(value: Order) { Selected = value }
+            }
             class Holder {
                 public field Value: Order
                 private var stored: Order
@@ -152,7 +173,18 @@ internal static class OrderObjectChecks
                 holder.Read().Number = 42
                 if holder.Value.Number != 42 { return 26 }
                 original.Number = 42
-                return original.Number
+                if ForwardProperty().Value.Number != 17 { return 31 }
+                let properties = PropertyHolder(original)
+                if properties.Current.Number != 7 { return 27 }
+                properties.Explicit.Number = 43
+                if original.Number != 43 { return 28 }
+                properties.Replace(original)
+                properties.Current.Number = 40
+                if properties.Selected.Number != 40 { return 29 }
+                properties.Value = CreateOrder()
+                if original.Number != 40 { return 30 }
+                properties.Value.Number = 42
+                return properties.Selected.Number
             }
             """;
         var host = typeof(object).Assembly.GetName();
@@ -185,6 +217,12 @@ internal static class OrderObjectChecks
                 (storageType.Fields.Single(f => f.Name == "Wide").Attributes & (ushort)FieldAttributes.FieldAccessMask) != (ushort)FieldAttributes.Assembly ||
                 (storageType.Fields.Single(f => f.Name == "active").Attributes & (ushort)FieldAttributes.FieldAccessMask) != (ushort)FieldAttributes.Private)
                 throw new Exception("explicit field metadata mismatch");
+            var propertyHolder = snapshot.MainModule.Types.Single(t => t.Name == "PropertyHolder");
+            if (propertyHolder.Properties.Count != 4 || propertyHolder.Fields.Count != 2 ||
+                propertyHolder.Properties.Any(p => p.GetMethod is null || !p.GetSignature().Skip(2).SequenceEqual(p.GetMethod.GetSignature().Skip(2))) ||
+                propertyHolder.Properties.Single(p => p.Name == "Current").SetMethod is not null ||
+                (propertyHolder.Properties.Single(p => p.Name == "Selected").SetMethod!.Attributes & (ushort)MethodAttributes.MemberAccessMask) != (ushort)MethodAttributes.Private)
+                throw new Exception("nominal property projection lost type/accessor identity");
             var path = Path.Combine(output, name + ".dll"); File.WriteAllBytes(path, native.ToArray());
             foreach (var command in new[] { "verify", "run" })
             {
@@ -205,6 +243,7 @@ internal static class OrderObjectChecks
             "class Chained { init(): base() { } }",
             "class StaticStorage { public static field Number: int = 42 }",
             "class NominalStorage { public field Value: NominalStorage? }",
+            "class NullableProperty { var Value: NullableProperty? }",
             "class AccessorStorage { var Number: int { get; set; }\n init() { Number = 1 } }",
             order + "\nfunc Main() -> int { let order: Order? = null\n return 42 }"
         })
@@ -240,7 +279,8 @@ internal static class OrderObjectChecks
             nominalParametersAndResults = true,
             explicitPrimitiveFields = true,
             nominalFieldStorage = true,
-            rejectedIncompleteContracts = 5
+            nominalPropertyMetadata = true,
+            rejectedIncompleteContracts = 6
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");
     }
