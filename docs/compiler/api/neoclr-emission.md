@@ -298,3 +298,8 @@ TypeDefinition.Methods, with existing builder methods entering that same collect
 Raven rebuild and external-signature native execution still pass (42); compiler source,
 Runtime Contract and encodings are unchanged. Direct instance declarations and bodies
 remain pending.
+
+Direct root-class constructor and instance-method authoring also passes the rebuilt
+external-signature probe (42). The metadata contract test executes manual object creation,
+readonly initialization and an instance call on CLR/neoCLR. This expands authoring only;
+Runtime Contract, binding and target import admission remain unchanged.

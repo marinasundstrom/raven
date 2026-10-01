@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-01:** Record compatibility validation against the separate metadata library’s definition-first migration and direct assembly-level function construction. Rebuilt native external-signature library/application execution returns 42; Runtime Contract, binding and .NET emission are unchanged. The subsequent direct static type-method/shared collection slice also passes the rebuilt runtime probe. Body-definition migration and collections Option<Order> gaps remain open.
+- **2026-10-01:** Record compatibility validation against the separate metadata library’s definition-first migration and direct assembly-level function construction. Rebuilt native external-signature library/application execution returns 42; Runtime Contract, binding and .NET emission are unchanged. Subsequent direct static/instance type-method and root-constructor authoring also passes the rebuilt runtime probe. Body-definition migration and collections Option<Order> gaps remain open.
 
 - **2026-10-01:** Match imported static nominal/generic method signatures through the metadata API's consumer-owned references. Native library/consumer tests return 42 with a generic factory, payload alias mutation, nominal overload matching and missing-method rejection. Default .NET and Runtime Contract are unchanged; collections still stops at the value-type Option<Order> signature.
 

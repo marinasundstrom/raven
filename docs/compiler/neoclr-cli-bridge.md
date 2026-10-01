@@ -2801,3 +2801,7 @@ execution. Native body-definition and loaded editing work remains pending. See t
 Direct static type-method metadata construction also preserves the existing bridge;
 Raven’s rebuilt external-signature runtime probe returns 42. This is authoring API
 compatibility validation, not new target admission or a collections-gate resolution.
+
+Root-class constructors and instance methods can now be declared directly in the
+metadata library. They reuse the existing constructor/receiver encodings; no new bridge
+loss or representation is introduced. Raven facade compatibility still verifies/runs (42).
