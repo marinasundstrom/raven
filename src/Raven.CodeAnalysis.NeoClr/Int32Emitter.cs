@@ -157,8 +157,15 @@ internal static class Int32Emitter
         }
         foreach (var type in declaredTypes.Values)
             foreach (var parameter in type.Symbol.TypeParameters)
+            {
                 foreach (var bound in parameter.ConstraintTypes)
                     nativeTypes[type.Symbol].AddBaseTypeConstraint(parameter.Ordinal, nativeTypes[(INamedTypeSymbol)bound]);
+                var flags = TypeParameterConstraints.None;
+                if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ReferenceType)) flags |= TypeParameterConstraints.ReferenceType;
+                if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ValueType)) flags |= TypeParameterConstraints.ValueType | TypeParameterConstraints.DefaultConstructor;
+                if (parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.Constructor)) flags |= TypeParameterConstraints.DefaultConstructor;
+                nativeTypes[type.Symbol].SetSpecialConstraints(parameter.Ordinal, flags);
+            }
         var fields = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
         foreach (var field in storageFields)
         {

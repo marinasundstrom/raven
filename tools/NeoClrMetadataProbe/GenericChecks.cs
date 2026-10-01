@@ -103,6 +103,16 @@ internal static class GenericChecks
                 val Trace: int => trace
                 val Total: int => destination[0].Number + destination[1].Number
             }
+            class Empty { }
+            static class ReferenceOnly<T> where T: class {
+                static func Identity(value: T) -> T => value
+            }
+            static class ValueOnly<T> where T: struct {
+                static func Identity(value: T) -> T => value
+            }
+            static class Constructible<T> where T: new() {
+                static func Marker() -> int => 42
+            }
             class Restricted<Element> where Element: Order {
                 private var stored: Element
                 init(value: Element) { stored = value }
@@ -189,6 +199,10 @@ internal static class GenericChecks
                 if box.Echo<long>(5000000000L) != 5000000000L { return 18 }
                 box[0].Number = 42
                 if box.Value.Number != 42 { return 20 }
+                if ValueOnly<int>.Identity(42) != 42 { return 23 }
+                if Constructible<Empty>.Marker() != 42 { return 24 }
+                if Constructible<int>.Marker() != 42 { return 25 }
+                if ReferenceOnly<Order>.Identity(box.Value).Number != 42 { return 26 }
                 let restricted = Restricted<Order>(box.Value)
                 if restricted.Value.Number != 42 { return 22 }
                 let slot = GenericSlot<long, Order>(box.Value)
@@ -259,7 +273,7 @@ internal static class GenericChecks
         }
         var rejectedContracts = 0;
         foreach (var unsupported in new[] {
-            "class Box<T> where T: class { }",
+            "class Box<T> where T: notnull { }",
             "open class Instance { virtual func Identity<T>(value: T) -> T => value }",
             "func Restricted<T>(value: T) -> T where T: class => value",
             "func Marker<T>() -> int => 42\nfunc Use() -> int => Marker<System.DateTime>()",
@@ -315,6 +329,7 @@ internal static class GenericChecks
             genericInstanceFields = true,
             constructedFieldReferences = true,
             nominalTypeConstraints = true,
+            referenceValueConstructorConstraints = true,
             genericPropertiesAndIndexers = true,
             independentGenericIndexAndValue = true,
             reorderedOwnerArguments = true,

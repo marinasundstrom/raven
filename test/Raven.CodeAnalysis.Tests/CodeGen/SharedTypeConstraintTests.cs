@@ -41,6 +41,26 @@ public class SharedTypeConstraintTests
         Assert.Equal("Payload", parameter.GetGenericParameterConstraints().Single().Name);
     }
 
+    [Theory]
+    [InlineData("class", GenericParameterAttributes.ReferenceTypeConstraint)]
+    [InlineData("struct", GenericParameterAttributes.NotNullableValueTypeConstraint | GenericParameterAttributes.DefaultConstructorConstraint)]
+    [InlineData("new()", GenericParameterAttributes.DefaultConstructorConstraint)]
+    public void SpecialOwnerConstraintsSurvivePlanningAndEmission(string constraint, GenericParameterAttributes expected)
+    {
+        var tree = SyntaxTree.ParseText($"class Box<T> where T: {constraint} {{ }}");
+        var compilation = Compilation.Create("SpecialBounds", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var owner = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceTypePlan.TryCreate(owner, out _, ReflectionEmitCapabilities.Shared));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var parameter = Assembly.Load(image.ToArray()).GetType("Box`1")!.GetGenericArguments().Single();
+        Assert.Equal(expected, parameter.GenericParameterAttributes & GenericParameterAttributes.SpecialConstraintMask);
+    }
+
     [Fact]
     public void InvalidConcreteTypeArgumentIsRejectedByBinding()
     {

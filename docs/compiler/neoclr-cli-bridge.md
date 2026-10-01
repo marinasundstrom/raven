@@ -2420,3 +2420,35 @@ and in both source orders. Open constrained member dispatch, interface/dependent
 method bounds and class/struct/new/nullability flags remain separate work. Ordinary .NET
 constraint behavior remains available through its general paths. Matching constrained
 metadata producer/reader on neoCLR codex/extended-cli-metadata is required.
+
+
+### Special type constraints checkpoint (2026-10-01)
+
+Shared source/signature capabilities now admit class/struct/new type-parameter
+requirements. The neoCLR adapter declares owners before assigning flags/bounds and
+uses the independent metadata producer's SetSpecialConstraints API. Ordinary .NET
+struct emission now includes both value and default-constructor attributes. Runtime
+Contract configuration is unchanged; unsupported source contracts still diagnose
+before output rather than losing requirements.
+
+Standard CLI GenericParam flags project the requirements; native execution uses new
+ReferenceType/ValueType/DefaultConstructor kinds. These preserve .NET's distinct
+categories instead of equating them with native notvoid/notreference. New outputs
+require the matching neoCLR codex/extended-cli-metadata runtime; the runtime hash is in
+[consumer evidence](../../tools/NeoClrMetadataProbe/generic-runtime-validation.json).
+Raven remains on codex/metadata-consumer. The metadata API stays a separate project.
+
+The expanded consumer verifies/runs 42 on both runtimes in both source orders; 17
+focused C# compiler tests pass. Class constructor checks are deferred until the producer
+has all definitions. The requirements do not enable new T(), open constrained dispatch,
+method constraints, interface/dependent bounds or notnull. The latter has nullable
+semantics rather than an equivalent special CLI flag. General runtime-class-library
+compilation and native symbol import remain unproven. Native payload plus CLI reference
+projection is still a temporary bridge; replacing it must preserve these contracts.
+
+After this round the author requested an assessment. The checkpoint is a working
+bounded integration, not a completed emission story. Next select an unmodified library
+source unit and let its concrete gaps drive work; the full order-collections sample
+still requires imported collections, interface dispatch, callbacks and union handling.
+Keep the neoCLR assessment in docs/experiments/extended-cli-metadata/state-assessment-2026-10-01.md
+as the detailed cross-repository record.
