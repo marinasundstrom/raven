@@ -6,13 +6,15 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 // retained for member ownership; names describe metadata, never reference equality.
 internal sealed record SourceStaticTypePlan(INamedTypeSymbol Symbol, string Namespace, string Name)
 {
+    internal Accessibility Visibility => Symbol.DeclaredAccessibility;
+
     internal string FullName => Namespace.Length == 0 ? Name : Namespace + "." + Name;
 
     internal static bool TryCreate(INamedTypeSymbol type, out SourceStaticTypePlan? plan, EmissionCapabilities? capabilities = null)
     {
         plan = null;
-        if (capabilities is not null && !capabilities.Allows(EmissionDeclarationKind.StaticType)) return false;
-        if (type.TypeKind != TypeKind.Class || !type.IsStatic || type.DeclaredAccessibility != Accessibility.Public ||
+        if (capabilities is not null && (!capabilities.Allows(EmissionDeclarationKind.StaticType) || !capabilities.AllowsTypeVisibility(type.DeclaredAccessibility))) return false;
+        if (type.TypeKind != TypeKind.Class || !type.IsStatic || type.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal) ||
             type.Arity != 0 || type.ContainingType is not null)
             return false;
         var fullName = type.ToFullyQualifiedMetadataName();

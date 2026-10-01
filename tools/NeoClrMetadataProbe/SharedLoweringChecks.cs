@@ -15,6 +15,12 @@ internal static class SharedLoweringChecks
 {
     internal static async Task Run(AssemblyIdentity core, string output, Func<int, string[], Task<string>> command)
     {
+        await RunCase("InternalHelper", """
+            func Main() -> int { Hidden.Value() }
+            internal static class Hidden {
+                public static func Value() -> int { 42 }
+            }
+            """, "", 42);
         await RunCase("SharedStrings", """
             func Main() -> int {
                 var message = ""

@@ -1415,3 +1415,30 @@ the current CLI-reference/native-payload bridge are unchanged. The independent m
 library is unchanged. Tests check category isolation, rejected plans, body-boundary
 admission and copied configuration, with ordinary declaration/runtime regression
 coverage and native binary/driver execution. No performance claim is made.
+
+
+### Internal static helper emission — 2026-10-01
+
+Both backend profiles admit Public/Internal top-level static types through the shared
+source type plan. The native adapter maps logical accessibility to the independent
+metadata builder's TypeVisibility; ordinary .NET retains its existing TypeDef flags.
+No new Runtime Contract setting is required. Native writer output uses the runtime's
+existing internal visibility and matching origin flag. The temporary CLI reference
+projection preserves NotPublic so external source callers cannot access the helper.
+The reference projection still has throwing bodies; native execution uses #Neo.
+Public static methods, primitive signatures and existing body limits remain in force;
+nonpublic methods, instance types and general metadata loading are subsequent work.
+Validation covers internal helper execution on both targets, a separately compiled
+native public facade using an internal helper, and rejected external helper access.
+
+The external-access case exposed a general binder gap: qualified type expressions
+could bypass the existing accessibility check. Both type-expression resolution and
+namespace receiver lookup now use that check. This is ordinary .NET semantic behavior,
+not a neoCLR mapping. A separately emitted .NET library/consumer regression covers
+internal rejection and public acceptance. This independently validated fix is a
+candidate for the shared compiler line; its inclusion in this integration branch does
+not make it an experimental language rule.
+
+Validation: 90 focused codegen/accessibility tests and the binary runtime/driver probe.
+A deliberately emitted external call to the internal type is rejected by native
+verification with `type access denied`, independently of Raven's source diagnostic.

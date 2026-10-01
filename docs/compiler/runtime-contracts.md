@@ -2585,3 +2585,18 @@ and static types before shared builder use. Profiles are reused for body admissi
 physical CLI carriers remain .NET policy and native assembly ownership is preserved.
 No Runtime Contract option changes. See the matching declaration-category section
 in neoclr-cli-bridge.md for implemented scope and remaining categories.
+
+
+### Internal static helper emission — 2026-10-01
+
+Both backend profiles admit Public/Internal top-level static types through the shared
+source type plan. The native adapter maps logical accessibility to the independent
+metadata builder's TypeVisibility; ordinary .NET retains its existing TypeDef flags.
+No new Runtime Contract setting is required. Native writer output uses the runtime's
+existing internal visibility and matching origin flag. The temporary CLI reference
+projection preserves NotPublic so external source callers cannot access the helper.
+The reference projection still has throwing bodies; native execution uses #Neo.
+Public static methods, primitive signatures and existing body limits remain in force;
+nonpublic methods, instance types and general metadata loading are subsequent work.
+Validation covers internal helper execution on both targets, a separately compiled
+native public facade using an internal helper, and rejected external helper access.

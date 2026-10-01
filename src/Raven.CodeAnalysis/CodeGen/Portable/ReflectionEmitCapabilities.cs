@@ -16,5 +16,6 @@ internal static class ReflectionEmitCapabilities
             LinearInstructionKind.Constant64, LinearInstructionKind.Convert64, LinearInstructionKind.Convert32,
             LinearInstructionKind.Negate, LinearInstructionKind.Complement, LinearInstructionKind.Divide
         ],
-        [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType]);
+        [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType],
+        [Accessibility.Public, Accessibility.Internal]);
 }

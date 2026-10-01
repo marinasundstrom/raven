@@ -51,7 +51,7 @@ See the [adapter API](../../docs/compiler/api/neoclr-emission.md) for every publ
 member, the host snapshot-consistency requirement, source-located diagnostics,
 validation-before-write behavior and stream I/O limitations.
 
-Top-level block-bodied functions and public static methods in public nongeneric
+Top-level block-bodied functions and public static methods in public/internal nongeneric
 static classes support required Int32 value parameters and Int32 or Unit results, value returns, constants, parameter loads, local/static calls and unchecked
 unlifted intrinsic addition/subtraction/multiplication are supported. Named/default/
 expanded arguments, references, generics, async, captures, fields, instance classes, statements
@@ -259,3 +259,9 @@ before metadata builder allocation and still verify/run from binary assemblies.
 
 Declaration admission uses the backend profile too: assembly-function ownership,
 static methods and static types retain existing native/CLI projection behavior.
+
+Internal static helpers execute on .NET and neoCLR. Namespace library cases also call
+an internal helper through a public facade and reject direct external source access;
+visibility survives the temporary CLI reference projection.
+A raw API-produced binary bypasses Raven's source checker and is rejected by native
+verification with `type access denied`, proving runtime enforcement independently.

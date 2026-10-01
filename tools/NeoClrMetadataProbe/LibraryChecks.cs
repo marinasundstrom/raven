@@ -14,7 +14,6 @@ internal static class LibraryChecks
         if (native.RootElement.GetProperty("entry").GetString() != "") throw new Exception("library has an entry point");
         foreach (var code in new[] {
             source.Replace("static func Multiply", "private static func Multiply"),
-            source.Replace("public static class", "internal static class"),
             source.Replace("public static class", "public class"),
             "func Hidden(value: int) -> int { return value }"
         })

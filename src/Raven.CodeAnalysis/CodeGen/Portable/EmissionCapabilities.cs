@@ -10,13 +10,17 @@ internal enum EmissionDeclarationKind { AssemblyFunction, StaticMethod, StaticTy
 // This contains neither CLI opcodes nor backend metadata handles.
 internal sealed class EmissionCapabilities(
     IEnumerable<EmissionPrimitiveType> types, IEnumerable<LinearInstructionKind> instructions,
-    IEnumerable<EmissionDeclarationKind>? declarations = null)
+    IEnumerable<EmissionDeclarationKind>? declarations = null,
+    IEnumerable<Accessibility>? typeVisibilities = null)
 {
     private readonly ImmutableHashSet<EmissionPrimitiveType> types = types.ToImmutableHashSet();
     private readonly ImmutableHashSet<LinearInstructionKind> instructions = instructions.ToImmutableHashSet();
 
     private readonly ImmutableHashSet<EmissionDeclarationKind> declarations = (declarations ?? []).ToImmutableHashSet();
 
+    private readonly ImmutableHashSet<Accessibility> typeVisibilities = (typeVisibilities ?? []).ToImmutableHashSet();
+
+    internal bool AllowsTypeVisibility(Accessibility visibility) => typeVisibilities.Contains(visibility);
     internal bool Allows(EmissionDeclarationKind declaration) => declarations.Contains(declaration);
     internal bool Allows(EmissionPrimitiveType type) => types.Contains(type);
     internal bool Allows(LinearInstructionKind instruction) => instructions.Contains(instruction);

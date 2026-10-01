@@ -17,9 +17,12 @@ internal static class NamespaceChecks
             """
             namespace Example {
                 namespace First {
+                    internal static class Hidden {
+                        public static func Value() -> int { Example.Second.Math.Value() }
+                    }
                     public static class Math {
                         public static func Value() -> int {
-                            return Example.Second.Math.Value() + 2
+                            return Hidden.Value() + 2
                         }
                     }
                 }
@@ -52,6 +55,18 @@ internal static class NamespaceChecks
             Check(snapshot.MainModule.Types.Where(t => t.Name == "Math").Select(t => t.Namespace).Order().SequenceEqual(
                 new[] { "Example.First", "Example.Second" }), "namespaces were not preserved in the reference projection");
             var reference = MetadataReference.CreateFromFile(path);
+            var forbidden = Compilation.Create(name + "Forbidden", [SyntaxTree.ParseText("func Main() -> int { Example.First.Hidden.Value() }")],
+                [primitive, reference], new CompilationOptions(OutputKind.ConsoleApplication));
+            Check(forbidden.GetDiagnostics().Any(d => d.Id == "RAV0500"), "external internal type access must fail: " + string.Join("; ", forbidden.GetDiagnostics()));
+            // The raw metadata API deliberately permits references without source access checks.
+            // The runtime must reject the same forbidden call after binary loading.
+            var raw = new AssemblyBuilder(new(name + "Denied", new Version(1, 0, 0, 0)), core);
+            var entry = raw.AddFunction("Main");
+            entry.Call(raw.ImportReference(snapshot.MainModule.Types.Single(t => t.Name == "Hidden").Methods.Single(), core));
+            entry.Return(); raw.EntryPoint = entry;
+            var deniedPath = Path.Combine(output, name + "Denied.dll");
+            File.WriteAllBytes(deniedPath, RuntimeAssemblyContainer.WriteBinary(raw.WriteNativeAssembly(), core));
+            Check((await command(1, ["verify", deniedPath, "--module", path])).Contains("type access denied"), "runtime internal type access enforcement");
             const string consumerSource = """
                 import Example.First.*
                 func Main() -> int {

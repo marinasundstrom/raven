@@ -45,11 +45,11 @@ internal static class Int32Emitter
                 {
                     if (type.AttributeLists.Count != 0 || type.TypeParameterList is not null || type.ParameterList is not null ||
                         type.BaseList is not null || type.ConstraintClauses.Count != 0 || type.PermitsClause is not null ||
-                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword)))
-                        throw Unsupported("only public nongeneric static classes without additional contracts");
+                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword)))
+                        throw Unsupported("only public or internal nongeneric static classes without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (!SourceStaticTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
-                        throw Unsupported("only public nongeneric static classes");
+                        throw Unsupported("only public or internal nongeneric static classes");
                     // Partial declarations share one semantic identity and one metadata definition.
                     // Still validate every part and collect all of its members.
                     declaredTypes.TryAdd(typeSymbol, typePlan!);
@@ -66,7 +66,7 @@ internal static class Int32Emitter
                         plans.Add(plan);
                     }
                 }
-                else throw Unsupported("only top-level functions and public static classes");
+                else throw Unsupported("only top-level functions and public or internal static classes");
             }
         }
         var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody Body)>();
