@@ -16,7 +16,7 @@ internal static class NeoClrCapabilities
             LinearInstructionKind.Greater, LinearInstructionKind.Label, LinearInstructionKind.Branch,
             LinearInstructionKind.BranchTrue, LinearInstructionKind.BranchFalse, LinearInstructionKind.Pop,
             LinearInstructionKind.Constant64, LinearInstructionKind.Convert64, LinearInstructionKind.Convert32,
-            LinearInstructionKind.Negate, LinearInstructionKind.Complement
+            LinearInstructionKind.Negate, LinearInstructionKind.Complement, LinearInstructionKind.Divide
         ],
         [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType],
         [Accessibility.Public, Accessibility.Internal]);

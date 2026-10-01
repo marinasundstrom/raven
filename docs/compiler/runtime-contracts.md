@@ -2600,3 +2600,16 @@ Public static methods, primitive signatures and existing body limits remain in f
 nonpublic methods, instance types and general metadata loading are subsequent work.
 Validation covers internal helper execution on both targets, a separately compiled
 native public facade using an internal helper, and rejected external helper access.
+
+
+### Native signed division — 2026-10-01
+
+The native backend now admits the existing shared Divide operation for matching
+Int32/Int64 operands. The independent metadata API validates the typed stack and
+writes CLI div or native div. Results truncate toward zero; zero divisors and the
+minimum signed value divided by -1 fault during execution. No new Runtime Contract
+option, signature encoding or runtime instruction is introduced. This supersedes
+prior native-division rejection; restricted-profile tests still prove selective
+admission. The adapter rejection probe now uses unsupported shifts. Unsigned and
+floating operations remain outside the bounded writer. CLI reference bodies remain
+placeholders and native bodies remain in #Neo; metadata importer redesign is deferred.

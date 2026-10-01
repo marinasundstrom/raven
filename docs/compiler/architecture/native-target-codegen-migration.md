@@ -22,7 +22,7 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
    signatures/members, bodies, then finalize. Preserve assembly-owned native functions
    and the existing CLI carrier representation. The earlier static-type prototype is
    now a shared source-type plan retaining symbol identity and backend builder contracts.
-   It covers public top-level nongeneric static classes, including partial declarations
+   It covers public/internal top-level nongeneric static classes, including partial declarations
    coalesced by semantic identity with all parts validated, not the general type boundary.
 3. Int32/Boolean initialized locals and standalone assignments are now shared with metadata
    writer support. Boolean equality and short-circuit &&/||, signed comparisons, bound if statements and lowered loop
@@ -38,8 +38,8 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
    function ownership, runtime helpers and strings. Reject unsupported native output
    before writing; ordinary .NET remains the default.
 5. Backend-owned immutable instruction/built-in-type profiles now admit shared body
-   plans before builder use; .NET division and native rejection prove asymmetric
-   admission. Logical assembly-function/static-method/static-type category admission now shares
+   plans before builder use; restricted profiles prove selective admission. Signed
+   Int32/Int64 division now executes on both targets using that same planner. Logical assembly-function/static-method/static-type category admission now shares
    those backend profiles; public/internal static type visibility is also admitted explicitly. Member visibility and broader metadata categories remain pending.
    Compose compatible backend, runtime policies and capabilities through native target
    selection. The current EmitOptions backend override remains experimental. Reserve

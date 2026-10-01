@@ -265,3 +265,6 @@ an internal helper through a public facade and reject direct external source acc
 visibility survives the temporary CLI reference projection.
 A raw API-produced binary bypasses Raven's source checker and is rejected by native
 verification with `type access denied`, proving runtime enforcement independently.
+
+Signed division runs on both targets, including Int32/Int64 zero and overflow faults.
+Native division is now supported; unsupported shift diagnostics preserve the output contract.

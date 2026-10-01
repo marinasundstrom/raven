@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Enable shared signed Int32/Int64 division in the neoCLR metadata backend, with binary execution tests for truncation, zero divisors and signed overflow alongside .NET.
+
 - **2026-10-01:** Emit public/internal static helper types on both .NET and neoCLR through explicit shared visibility admission; preserve native reference visibility and reject external access. Fix the shared binder accessibility check for qualified type expressions, also covered with an ordinary .NET reference.
 - **2026-10-01:** Admit logical assembly functions, static methods and static types
   through backend declaration-category profiles. Share those profiles between

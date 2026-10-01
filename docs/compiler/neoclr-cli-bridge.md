@@ -1442,3 +1442,21 @@ not make it an experimental language rule.
 Validation: 90 focused codegen/accessibility tests and the binary runtime/driver probe.
 A deliberately emitted external call to the internal type is rejected by native
 verification with `type access denied`, independently of Raven's source diagnostic.
+
+
+### Native signed division — 2026-10-01
+
+The native backend now admits the existing shared Divide operation for matching
+Int32/Int64 operands. The independent metadata API validates the typed stack and
+writes CLI div or native div. Results truncate toward zero; zero divisors and the
+minimum signed value divided by -1 fault during execution. No new Runtime Contract
+option, signature encoding or runtime instruction is introduced. This supersedes
+prior native-division rejection; restricted-profile tests still prove selective
+admission. The adapter rejection probe now uses unsupported shifts. Unsigned and
+floating operations remain outside the bounded writer. CLI reference bodies remain
+placeholders and native bodies remain in #Neo; metadata importer redesign is deferred.
+
+Validation: 36 focused shared-body/capability baseline tests remain applicable (no
+shared planner change); the complete native binary/rvnc probe passes, including four
+zero/overflow fault cases and signed quotient execution against .NET. The paired
+independent writer passes 41 C# contract groups and its API snapshot check.
