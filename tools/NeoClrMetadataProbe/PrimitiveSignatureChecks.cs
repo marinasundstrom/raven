@@ -14,6 +14,9 @@ internal static class PrimitiveSignatureChecks
     {
         const string librarySource = """
             public static class Predicates {
+                public static func Wide(value: long) -> long {
+                    return value
+                }
                 public static func Identity(value: bool) -> bool {
                     value
                 }
@@ -42,7 +45,7 @@ internal static class PrimitiveSignatureChecks
         var snapshot = RuntimeAssemblyContainer.ReadCliProjection(libraryImage.ToArray());
         const string source = """
             func Main() -> int {
-                Predicates.Choose(42, Predicates.Identity(true)) + Predicates.Choose(7, Predicates.Identity(false))
+                Predicates.Choose((int)Predicates.Wide(4294967338L), Predicates.Identity(true)) + Predicates.Choose(7, Predicates.Identity(false))
             }
             """;
         var consumer = Compilation.Create("PrimitiveConsumer", [SyntaxTree.ParseText(source)], [primitive, reference],

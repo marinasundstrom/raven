@@ -23,7 +23,7 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
    It covers public top-level nongeneric static classes, not the general type boundary.
 3. Int32/Boolean initialized locals and standalone assignments are now shared with metadata
    writer support. Boolean equality and short-circuit &&/||, signed comparisons, bound if statements and lowered loop
-   labels/branches now execute through both backends. Primitive Int32/Boolean signatures now preserve parameter/result identity through declarations, imports and native projection. Broader signatures/conversions,
+   labels/branches now execute through both backends. Primitive Int32/Int64/Boolean signatures now preserve parameter/result identity through declarations, imports and native projection. Signed Int32↔Int64 conversions and Int64 locals/constants are now shared. Broader signatures/conversions,
    then instances/fields remain planned; negated comparisons and loop exits are validated, while exceptions remain unsupported. Pair each capability
    with metadata writer/reader and runtime validation support as required.
 4. Statement-call result use is now shared: primitive results are discarded, while

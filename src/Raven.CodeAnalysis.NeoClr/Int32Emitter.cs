@@ -175,7 +175,7 @@ internal static class Int32Emitter
         SourceCallablePlan GetPlan(IMethodSymbol method)
         {
             if (!SourceCallablePlan.TryCreate(method, out var plan))
-                throw Unsupported("only nongeneric Int32/Boolean parameters and Int32/Boolean/Unit results: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
+                throw Unsupported("only nongeneric Int32/Int64/Boolean parameters and Int32/Int64/Boolean/Unit results: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
             return plan!;
         }
     }

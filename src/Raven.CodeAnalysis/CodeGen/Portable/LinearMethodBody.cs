@@ -8,10 +8,10 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleLiteral, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleLiteral, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32 }
 
 internal readonly record struct LinearInstruction(
-    LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null);
+    LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0);
 
 internal interface ILinearMethodBuilder
 {
@@ -37,7 +37,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
     internal static bool HasSupportedSignature(IMethodSymbol method)
         => PrimitiveCallableSignature.TryCreate(method, out _);
 
-    internal static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Boolean;
+    internal static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean;
 
     internal static bool TryLower(IMethodSymbol source, SemanticModel model, SyntaxNode bodySyntax,
         Func<BoundInvocationExpression, bool> permitsConsoleLiteral, out LinearMethodBody? lowered, out LinearBodyFailure? failure)
@@ -87,7 +87,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
 
         bool LowerBody(BoundBlockStatement body)
         {
-            if (!HasSupportedSignature(source)) return Reject("only nongeneric Int32/Boolean parameters and Int32/Boolean/Unit results", bodySyntax);
+            if (!HasSupportedSignature(source)) return Reject("only nongeneric Int32/Int64/Boolean parameters and Int32/Int64/Boolean/Unit results", bodySyntax);
             if (!body.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(body));
             if (!LowerStatements(body)) return false;
             if (!ReturnsValue(source) && instructions.LastOrDefault().Kind != LinearInstructionKind.Return)
@@ -134,9 +134,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (declaration.IsUsing) return Reject("using local", Syntax(statement));
                     foreach (var variable in declaration.Declarators)
                     {
-                        if (variable.Local.Type.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Boolean) || variable.Initializer is null ||
+                        if (variable.Local.Type.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean) || variable.Initializer is null ||
                             variable.FixedAddressInitializer is not null || variable.FixedPinnedLocal is not null)
-                            return Reject("only initialized Int32/Boolean locals", Syntax(variable));
+                            return Reject("only initialized Int32/Int64/Boolean locals", Syntax(variable));
                         if (!LowerValue(variable.Initializer)) return false;
                         var slot = locals.Count;
                         locals.Add(variable.Local, slot);
@@ -188,6 +188,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             {
                 case BoundLiteralExpression { Value: bool boolean }:
                     Add(LinearInstructionKind.Boolean, Syntax(expression), boolean ? 1 : 0); return true;
+                case BoundLiteralExpression { Value: long value64 }:
+                    instructions.Add(new(LinearInstructionKind.Constant64, Syntax(expression), Long: value64)); return true;
                 case BoundLiteralExpression { Value: int value }:
                     Add(LinearInstructionKind.Constant, Syntax(expression), value); return true;
                 case BoundLocalAccess local:
@@ -204,6 +206,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return LowerValue(parenthesized.Expression);
                 case BoundConversionExpression { IsIdentity: true } conversion:
                     return LowerValue(conversion.Expression);
+                case BoundConversionExpression conversion when conversion.Conversion.IsNumeric && !conversion.IsUserDefined &&
+                    conversion.Expression.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&
+                    conversion.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64:
+                    if (!LowerValue(conversion.Expression)) return false;
+                    Add(conversion.Type.SpecialType == SpecialType.System_Int64 ? LinearInstructionKind.Convert64 : LinearInstructionKind.Convert32, Syntax(expression));
+                    return true;
                 case BoundBinaryExpression logical when logical.Operator.MethodSymbol is null &&
                     logical.Operator.LeftType.SpecialType == SpecialType.System_Boolean &&
                     logical.Operator.RightType.SpecialType == SpecialType.System_Boolean &&
@@ -220,8 +228,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.Label, Syntax(expression), completed);
                     return true;
                 case BoundBinaryExpression binary when binary.Operator.MethodSymbol is null &&
-                    ((binary.Operator.LeftType.SpecialType == SpecialType.System_Int32 &&
-                      binary.Operator.RightType.SpecialType == SpecialType.System_Int32) ||
+                    ((binary.Operator.LeftType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&
+                      binary.Operator.RightType.SpecialType == binary.Operator.LeftType.SpecialType) ||
                      (binary.Operator.LeftType.SpecialType == SpecialType.System_Boolean &&
                       binary.Operator.RightType.SpecialType == SpecialType.System_Boolean &&
                       binary.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality)):
@@ -243,7 +251,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         Add(LinearInstructionKind.Not, Syntax(expression));
                     return true;
                 case BoundInvocationExpression call when call.Method.IsStatic && call.Receiver is null or BoundTypeExpression && call.ExtensionReceiver is null:
-                    if (!HasSupportedSignature(call.Method)) return Reject("only nongeneric Int32/Boolean parameters and Int32/Boolean/Unit results: " + call.Method.Name, Syntax(expression));
+                    if (!HasSupportedSignature(call.Method)) return Reject("only nongeneric Int32/Int64/Boolean parameters and Int32/Int64/Boolean/Unit results: " + call.Method.Name, Syntax(expression));
                     var arguments = call.Arguments.ToArray();
                     if (arguments.Length != call.Method.Parameters.Length) return Reject("optional/expanded arguments", Syntax(expression));
                     foreach (var argument in arguments)

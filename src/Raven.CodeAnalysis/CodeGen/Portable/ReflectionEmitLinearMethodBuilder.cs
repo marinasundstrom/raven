@@ -55,6 +55,9 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.Constant64: output.Emit(OpCodes.Ldc_I8, instruction.Long); break;
+            case LinearInstructionKind.Convert64: output.Emit(OpCodes.Conv_I8); break;
+            case LinearInstructionKind.Convert32: output.Emit(OpCodes.Conv_I4); break;
             case LinearInstructionKind.Pop: output.Emit(OpCodes.Pop); break;
             case LinearInstructionKind.Not: output.Emit(OpCodes.Ldc_I4_0); output.Emit(OpCodes.Ceq); break;
             case LinearInstructionKind.Boolean: output.Emit(OpCodes.Ldc_I4, instruction.Integer); break;

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Share Int64 signatures, constants, locals and signed Int32/Int64
+  conversions across .NET/native codegen. Preserve width through arithmetic and
+  imported callable contracts; widening sign-extends and narrowing retains low bits.
+  Keep Int32/Unit entrypoints and the selected Int32 System inventory bounded.
+
 - **2026-10-01:** Share statement-call result handling across .NET and neoCLR:
   discard Int32/Boolean results, preserve call side effects and keep no-result Unit
   calls stack-neutral. Add local/imported runtime coverage and checked metadata Pop.

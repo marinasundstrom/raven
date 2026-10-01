@@ -235,3 +235,6 @@ produce output, with the other three right operands skipped by Boolean condition
 
 Statement-call coverage discards primitive results from local and imported helpers,
 retains side effects in order, and leaves no-result calls without a spurious pop.
+
+Int64 cases cover native long locals/arithmetic, sign extension, extrema/truncation,
+and a separately compiled Int64 callable imported through the CLI projection.

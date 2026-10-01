@@ -1205,3 +1205,30 @@ Validation: 37 focused compiler tests, 35 C# metadata contract groups, and the b
 native probe cover local Int32/Boolean statement calls, no-result calls, imported
 Int32 calls, preserved side-effect order and rejected pop underflow. Both .NET and
 neoCLR execute the same source and return 42.
+
+
+## Int64 primitives and signed conversions — 2026-10-01
+
+The shared signature/body contract now includes Int64 parameters, results, constants
+and locals. Int32→Int64 widening sign-extends; Int64→Int32 narrowing retains the low
+32 bits. Existing compiler-bound numeric conversions select these operations; unsigned,
+floating-point, checked and user-defined conversion support is not implied. Matching
+Int64 arithmetic/comparisons reuse the shared operators. Mixed source arithmetic relies
+on the binder's explicit operand conversions, not native stack reinterpretation.
+
+.NET uses its selected core types and ordinary CLI integer opcodes. neoCLR uses the
+independent metadata library's typed signatures, locals and existing native integer
+operations. The metadata validator now tracks explicit primitive stack types rather
+than Boolean tags; this costs a wider internal tag but preserves width at calls, local
+stores and control-flow joins. No runtime or native schema change was required.
+
+Runtime Contract configuration and the temporary CLI declaration projection are
+unchanged. The metadata API owns the projection and preserves Int64 declarations;
+Raven still binds them through the .NET semantic provider. Native semantic import is
+pending. Entrypoints remain Int32/Unit and the selected System inventory stays Int32-only.
+Older experimental host readers may reject Int64 declarations.
+
+Validation: 41 focused C# compiler tests including integral-cast regressions, 36 C#
+metadata contract groups, and the dual-runtime probe. Cases cover signed widening,
+low-bit narrowing, long locals/arithmetic, extrema, an imported Int64 helper from a
+separately compiled native library, and rejection of Boolean conversions/mixed widths.

@@ -11,8 +11,8 @@ internal sealed record PrimitiveCallableSignature(SpecialType ReturnType, System
     {
         signature = null!;
         if (method.IsGenericMethod || method.IsExtensionMethod || method.IsAsync ||
-            method.ReturnType.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Boolean or SpecialType.System_Unit or SpecialType.System_Void) ||
-            method.Parameters.Any(p => p.Type.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Boolean) || p.RefKind != RefKind.None ||
+            method.ReturnType.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean or SpecialType.System_Unit or SpecialType.System_Void) ||
+            method.Parameters.Any(p => p.Type.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean) || p.RefKind != RefKind.None ||
                 p.HasExplicitDefaultValue || p.IsVarParams))
             return false;
         signature = new(method.ReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void

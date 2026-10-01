@@ -212,6 +212,25 @@ internal static class SharedLoweringChecks
                 System.Console.WriteLine("Finish")
             }
             """, "Number\nPredicate\nFinish", 42);
+        await RunCase("SharedInt64", """
+            public static class Wide {
+                public static func Main() -> int {
+                    let value: long = Widen(42)
+                    let high = 4294967296L
+                    let total = value + high
+                    let maximum = 9223372036854775807L
+                    let minimum = 0L - maximum - 1L
+                    if Narrow(maximum) != (0 - 1) { return 1 }
+                    if Narrow(minimum) != 0 { return 2 }
+                    if Widen(0 - 1) < 0L {
+                        return Narrow(total)
+                    }
+                    return 0
+                }
+                public static func Widen(value: int) -> long { return value }
+                public static func Narrow(value: long) -> int { return (int)value }
+            }
+            """, "", 42);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
         Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 

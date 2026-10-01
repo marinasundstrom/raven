@@ -158,6 +158,39 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).GetType("Calls")!.GetMethod("Main")!.Invoke(null, null));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void Int64LocalsAndSignedConversionsPreserveBoundaryValues(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Wide {
+                public static func Main() -> int {
+                    let value: long = Widen(42)
+                    let high = 4294967296L
+                    let total = value + high
+                    if Widen(0 - 1) < 0L {
+                        return Narrow(total)
+                    }
+                    return 0
+                }
+                public static func Widen(value: int) -> long { return value }
+                public static func Narrow(value: long) -> int { return (int)value }
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        foreach (var declaration in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+            Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+                model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail);
+        var type = Emit(compilation).GetType("Wide")!;
+        Assert.Equal(42, type.GetMethod("Main")!.Invoke(null, null));
+        foreach (var value in new[] { int.MinValue, -1, 0, int.MaxValue })
+            Assert.Equal((long)value, type.GetMethod("Widen")!.Invoke(null, [value]));
+        foreach (var value in new[] { long.MinValue, -1L, 4294967338L, long.MaxValue })
+            Assert.Equal(unchecked((int)value), type.GetMethod("Narrow")!.Invoke(null, [value]));
+    }
+
     [Fact]
     public void UnsupportedBodyIsRejectedBeforeBuildingAndUsesGeneralDotNetGenerator()
     {
