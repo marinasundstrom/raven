@@ -2127,3 +2127,32 @@ The Order probe verifies/runs to 42 on .NET and binary neoCLR in both source ord
 six rejection fixtures remain, with explicit user-base construction replacing the now
 supported root-base case. Evidence is in tools/NeoClrMetadataProbe/order-runtime-validation.json;
 runtime e8611966 on neoCLR's codex/extended-cli-metadata is unchanged.
+
+
+### Readonly instance storage — 2026-10-01
+
+The neoCLR adapter now admits private `val` storage and stored `val` properties,
+passing the canonical field's IsReadOnly flag to the independent metadata API. Existing
+shared field initialization and constructor-body plans perform the permitted writes;
+property associations preserve getter-only shape. Primitive and owned nominal storage
+are covered, including mutation of an object referenced by a readonly field.
+Ordinary .NET remains the default; no Runtime Contract option is added.
+
+The matching metadata API adds FieldBuilder.IsReadOnly and optional AddField(isReadOnly),
+so host consumers must rebuild. CLI uses ordinary InitOnly; native uses the existing
+field_readonly bridge array. The updated runtime enforces direct writes by declaring
+constructor identity and narrows managed field addresses outside construction to readonly.
+This is shallow storage protection, not deep immutability or an unsafe-memory guarantee.
+Old runtime binaries (including e8611966) do not enforce these flags during execution.
+The tested runtime contains the readonly-field implementation committed as 75403431
+on codex/extended-cli-metadata;
+tools/NeoClrMetadataProbe/order-runtime-validation.json records its exact binary SHA.
+Native semantic field attributes should eventually replace the bridge's origin-array
+encoding without changing the logical storage contract.
+
+Validation: eight constructor C# tests (Release/Debug), and the Order binary probe on
+.NET and neoCLR in both source orders (42). Projected fields retain InitOnly and stored
+val properties have no setter. The independent API's separate binary tests reject direct
+and managed-address writes during both verification and execution. Static/literal fields,
+explicit readonly field syntax, generic/nullable storage and external nominal imports
+remain outside the compiler's bounded native collector.

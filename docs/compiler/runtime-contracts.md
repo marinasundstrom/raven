@@ -2913,3 +2913,11 @@ Explicit parameterless System.Object base initialization (2026-10-01) uses the s
 bounded root-constructor contract as an implicit base call; no configuration changes.
 Admission checks the bound constructor identity and empty source/bound arguments.
 User-defined base initialization still requires a future native constructor contract.
+
+
+Readonly instance storage (2026-10-01) requires the updated neoCLR runtime and metadata
+library but no new Runtime Contract option. Private val storage and stored val properties
+map IsReadOnly to CLI InitOnly and native field flags. Ordinary constructor writes use
+the existing initialization plan. Managed field addresses outside the declaring
+constructor are readonly; objects referenced by those fields can remain mutable.
+See [the runtime compatibility boundary](neoclr-cli-bridge.md#readonly-instance-storage--2026-10-01).

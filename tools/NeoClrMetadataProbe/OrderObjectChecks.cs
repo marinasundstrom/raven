@@ -27,6 +27,12 @@ internal static class OrderObjectChecks
             func Identity(copy: Copied) -> Copied => copy
             func CreateOrder() -> Order => Order(41, true)
             func UpdateOrder(order: Order) { order.Number = 42 }
+            class ReadonlyStorage {
+                private val stored: Order
+                val Number: int = 41
+                init(order: Order) { stored = order; Number = 42 }
+                func Read() -> Order => stored
+            }
             class ExplicitBaseRoot {
                 private var counter: Counter = Counter(40)
                 var Number: int = counter.Next()
@@ -182,6 +188,9 @@ internal static class OrderObjectChecks
                 if ExplicitBaseRoot().Number != 42 { return 32 }
                 if ExplicitBaseRoot(1).Number != 42 { return 33 }
                 if ForwardProperty().Value.Number != 17 { return 31 }
+                let readonlyStorage = ReadonlyStorage(original)
+                readonlyStorage.Read().Number = readonlyStorage.Number
+                if original.Number != 42 { return 34 }
                 let properties = PropertyHolder(original)
                 if properties.Current.Number != 7 { return 27 }
                 properties.Explicit.Number = 43
@@ -231,6 +240,10 @@ internal static class OrderObjectChecks
                 propertyHolder.Properties.Single(p => p.Name == "Current").SetMethod is not null ||
                 (propertyHolder.Properties.Single(p => p.Name == "Selected").SetMethod!.Attributes & (ushort)MethodAttributes.MemberAccessMask) != (ushort)MethodAttributes.Private)
                 throw new Exception("nominal property projection lost type/accessor identity");
+            var readonlyStorage = snapshot.MainModule.Types.Single(t => t.Name == "ReadonlyStorage");
+            if (readonlyStorage.Fields.Count != 2 || readonlyStorage.Fields.Any(f => (f.Attributes & (ushort)FieldAttributes.InitOnly) == 0) ||
+                readonlyStorage.Properties.Single(p => p.Name == "Number").SetMethod is not null)
+                throw new Exception("readonly storage flags/accessors lost");
             var path = Path.Combine(output, name + ".dll"); File.WriteAllBytes(path, native.ToArray());
             foreach (var command in new[] { "verify", "run" })
             {
@@ -289,6 +302,7 @@ internal static class OrderObjectChecks
             nominalFieldStorage = true,
             nominalPropertyMetadata = true,
             explicitRootBaseInitialization = true,
+            readonlyInstanceStorage = true,
             rejectedIncompleteContracts = 6
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");

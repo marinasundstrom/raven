@@ -11,6 +11,44 @@ public class SharedConstructorBodyTests
     [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]
+    public void ReadonlyStorageInitializesAndPreservesContainedObjectIdentity(OptimizationLevel optimization)
+    {
+        var tree = SyntaxTree.ParseText("""
+            class Item {
+                var Number: int
+                init(number: int) { Number = number }
+            }
+            class Holder {
+                private val stored: Item
+                val Number: int = 41
+                init(item: Item) { stored = item; Number = 42 }
+                func Read() -> Item => stored
+            }
+            func Main() -> int {
+                let original = Item(1)
+                let holder = Holder(original)
+                holder.Read().Number = holder.Number
+                return original.Number
+            }
+            """);
+        var compilation = Compilation.Create("ReadonlyStorage", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var assembly = Assembly.Load(image.ToArray());
+        Assert.Equal(42, assembly.EntryPoint!.Invoke(null, null));
+        var holder = assembly.GetType("Holder")!;
+        var fields = holder.GetFields(BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.Equal(2, fields.Length);
+        Assert.All(fields, field => Assert.True(field.IsInitOnly));
+        Assert.Null(holder.GetProperty("Number")!.SetMethod);
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
     public void ExplicitRootBaseCallPreservesInitializersAndBodies(OptimizationLevel optimization)
     {
         var tree = SyntaxTree.ParseText("""

@@ -76,9 +76,8 @@ internal static class Int32Emitter
                             if (propertySyntax.AttributeLists.Count != 0 || propertySyntax.ExplicitInterfaceSpecifier is not null ||
                                 propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
                                 model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol { IsStatic: false } property ||
-                                property.BackingField is { IsReadOnly: true } ||
                                 !CallableSignature.TryType(property.Type, false, out _))
-                                throw Unsupported("only primitive or owned root-class instance properties and mutable private storage");
+                                throw Unsupported("only primitive or owned root-class instance properties and private storage");
                             if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||
                                 a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null) ||
@@ -151,7 +150,7 @@ internal static class Int32Emitter
                 Accessibility.Internal => FieldVisibility.Internal,
                 Accessibility.Private => FieldVisibility.Private,
                 _ => throw Unsupported("unsupported field visibility")
-            }));
+            }, isReadOnly: field.IsReadOnly));
         }
         var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method, LinearMethodBody Body)>();
         foreach (var (plan, body) in prepared)
