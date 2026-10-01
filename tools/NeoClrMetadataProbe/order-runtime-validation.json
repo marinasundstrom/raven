@@ -1,7 +1,7 @@
 {
   "source": "application-order-collections.rvn",
   "sourceSha256": "D775C2C648591482CF53A0A735603CA51AEA48C2F2BB33633C95830E57B6550B",
-  "consumerSha256": "5B2850EF7D770BEF2431C2B5D068F03D71F5875987B8A45A11A430C9D13AB41C",
+  "consumerSha256": "8ABC347224B48516E05F3A4806C405CF195ABF64ADEE9B3A200B63FCF9DC531D",
   "runtimeSha256": "D39BDF478F418024FDAE1E5D16CBF11AD1CC89A77282FB03C2763F61F8FD3D6F",
   "selectedSha256": "D9142C3EEC61A731230AD4348C50536B8AA5B13323F74D2AFC5E7CBEB6599C04",
   "sourceOrders": 2,
@@ -16,5 +16,6 @@
   "expressionConstructors": true,
   "implicitConstructorsAndInitializers": true,
   "nominalParametersAndResults": true,
-  "rejectedIncompleteContracts": 3
+  "explicitPrimitiveFields": true,
+  "rejectedIncompleteContracts": 5
 }

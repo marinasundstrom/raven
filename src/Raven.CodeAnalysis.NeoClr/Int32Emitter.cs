@@ -55,6 +55,22 @@ internal static class Int32Emitter
                     foreach (var typeMember in type.Members)
                     {
                         diagnosticSyntax = typeMember;
+                        if (!typeSymbol.IsStatic && typeMember is FieldDeclarationSyntax fieldSyntax)
+                        {
+                            if (fieldSyntax.AttributeLists.Count != 0 ||
+                                fieldSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)))
+                                throw Unsupported("only public/internal/private mutable primitive instance fields");
+                            foreach (var variable in fieldSyntax.Declaration.Declarators)
+                            {
+                                diagnosticSyntax = variable;
+                                if (model.GetDeclaredSymbol(variable) is not IFieldSymbol { IsStatic: false, IsReadOnly: false, IsConst: false, RefKind: RefKind.None } field ||
+                                    field.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal or Accessibility.Private) ||
+                                    !EmissionPrimitiveTypes.TryGetValueType(field.Type, out _))
+                                    throw Unsupported("only public/internal/private mutable primitive instance fields");
+                                storageFields.Add(field);
+                            }
+                            continue;
+                        }
                         if (!typeSymbol.IsStatic && typeMember is PropertyDeclarationSyntax propertySyntax)
                         {
                             if (propertySyntax.AttributeLists.Count != 0 || propertySyntax.ExplicitInterfaceSpecifier is not null ||
@@ -127,7 +143,13 @@ internal static class Int32Emitter
         foreach (var field in storageFields)
         {
             EmissionPrimitiveTypes.TryGetValueType(field.Type, out var fieldType);
-            fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, NeoClrTypeMapper.Instance.Map(fieldType)));
+            fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, NeoClrTypeMapper.Instance.Map(fieldType), field.DeclaredAccessibility switch
+            {
+                Accessibility.Public => FieldVisibility.Public,
+                Accessibility.Internal => FieldVisibility.Internal,
+                Accessibility.Private => FieldVisibility.Private,
+                _ => throw Unsupported("unsupported field visibility")
+            }));
         }
         var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method, LinearMethodBody Body)>();
         foreach (var (plan, body) in prepared)

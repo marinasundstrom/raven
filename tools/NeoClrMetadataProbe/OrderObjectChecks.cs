@@ -27,6 +27,12 @@ internal static class OrderObjectChecks
             func Identity(copy: Copied) -> Copied => copy
             func CreateOrder() -> Order => Order(41, true)
             func UpdateOrder(order: Order) { order.Number = 42 }
+            class Storage {
+                public field Number: int = 40
+                internal field Wide: long = 5000000000L
+                private field active: bool = true
+                func Active() -> bool => self.active
+            }
             class Copied {
                 private var number: int
                 init(order: Order) { number = order.Number }
@@ -121,6 +127,13 @@ internal static class OrderObjectChecks
                 if Initialized().Sum != 41 { return 17 }
                 if ExplicitInitialized().Number != 42 { return 18 }
                 if Identity(Copied(original)).Number != 42 { return 19 }
+                let storage = Storage()
+                let storageAlias = storage
+                storageAlias.Number = storageAlias.Number + 2
+                storageAlias.Wide = storageAlias.Wide + 1L
+                if !storage.Active() { return 20 }
+                if storage.Wide != 5000000001L { return 21 }
+                if storage.Number != 42 { return 22 }
                 return original.Number
             }
             """;
@@ -148,6 +161,12 @@ internal static class OrderObjectChecks
                 gaugeType.Properties.Single(p => p.Name == "Doubled").SetMethod is not null ||
                 (gaugeType.Properties.Single(p => p.Name == "Adjusted").SetMethod!.Attributes & (ushort)MethodAttributes.MemberAccessMask) != (ushort)MethodAttributes.Private)
                 throw new Exception("computed accessor metadata mismatch");
+            var storageType = snapshot.MainModule.Types.Single(t => t.Name == "Storage");
+            if (storageType.Fields.Count != 3 || storageType.Properties.Count != 0 ||
+                (storageType.Fields.Single(f => f.Name == "Number").Attributes & (ushort)FieldAttributes.FieldAccessMask) != (ushort)FieldAttributes.Public ||
+                (storageType.Fields.Single(f => f.Name == "Wide").Attributes & (ushort)FieldAttributes.FieldAccessMask) != (ushort)FieldAttributes.Assembly ||
+                (storageType.Fields.Single(f => f.Name == "active").Attributes & (ushort)FieldAttributes.FieldAccessMask) != (ushort)FieldAttributes.Private)
+                throw new Exception("explicit field metadata mismatch");
             var path = Path.Combine(output, name + ".dll"); File.WriteAllBytes(path, native.ToArray());
             foreach (var command in new[] { "verify", "run" })
             {
@@ -166,6 +185,8 @@ internal static class OrderObjectChecks
         }
         foreach (var unsupported in new[] {
             "class Chained { init(): base() { } }",
+            "class StaticStorage { public static field Number: int = 42 }",
+            "class NominalStorage { public field Value: NominalStorage }",
             "class AccessorStorage { var Number: int { get; set; }\n init() { Number = 1 } }",
             order + "\nfunc Main() -> int { let order: Order? = null\n return 42 }"
         })
@@ -199,7 +220,8 @@ internal static class OrderObjectChecks
             expressionConstructors = true,
             implicitConstructorsAndInitializers = true,
             nominalParametersAndResults = true,
-            rejectedIncompleteContracts = 3
+            explicitPrimitiveFields = true,
+            rejectedIncompleteContracts = 5
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");
     }

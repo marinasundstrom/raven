@@ -2025,3 +2025,25 @@ initialization slices. External nominal imports, nullable references, generic si
 nominal fields/properties, inheritance, readonly storage and constructor chaining remain
 explicit future contracts. The full order-collections application still needs its native
 collection/LINQ/union dependencies; no substitute dependencies were introduced.
+
+
+## Explicit primitive instance fields — 2026-10-01
+
+The native collector now accepts explicit `field` declarations on supported root classes:
+mutable Int32/Int64/Boolean/String instance fields with public, internal or private access.
+Canonical IFieldSymbol identity feeds the existing shared load/store instructions and
+FieldInitializationPlan. Backend field definitions preserve access rather than treating
+all storage as private. No property or accessor is invented for an explicit field. This
+matches existing .NET field emission and the metadata API's CLI/native field contract;
+no Runtime Contract option, metadata schema or runtime change is needed. Ordinary private
+storage should still use `private var`; explicit `field` is appropriate when field identity
+is intentional, such as a public field surface.
+
+Two focused C# Release/Debug tests pass after a seven-test constructor/reference-field
+baseline. The executable consumer checks default-constructor initialization, Int32/Int64
+mutation through an alias and a private Boolean field read. It verifies public/internal/
+private flags and absence of property rows. Both source orders verify/run to 42 on .NET
+and binary neoCLR. Static and nominal field declarations reject without output; readonly,
+by-reference, attributed fields and broader storage contracts remain unsupported by this
+collector. Existing private storage/property backing fields retain their behavior.
+[Updated evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).
