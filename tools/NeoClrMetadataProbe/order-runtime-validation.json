@@ -1,7 +1,7 @@
 {
   "source": "application-order-collections.rvn",
   "sourceSha256": "D775C2C648591482CF53A0A735603CA51AEA48C2F2BB33633C95830E57B6550B",
-  "consumerSha256": "46B5DE1C8EBB8120F888DE241DA069A02AD3848A9CEC4D9187704BB34304EFCF",
+  "consumerSha256": "1259F4B7D88B3D43A32E241022C949E4B06AC35F669F41DD9B92B1A56DED14C6",
   "runtimeSha256": "D39BDF478F418024FDAE1E5D16CBF11AD1CC89A77282FB03C2763F61F8FD3D6F",
   "selectedSha256": "D9142C3EEC61A731230AD4348C50536B8AA5B13323F74D2AFC5E7CBEB6599C04",
   "sourceOrders": 2,
@@ -11,5 +11,6 @@
   "fullConsumer": false,
   "nominalLocalsAndAliasing": true,
   "ordinaryInstanceCalls": true,
-  "rejectedIncompleteContracts": 3
+  "privatePrimitiveStorage": true,
+  "rejectedIncompleteContracts": 4
 }

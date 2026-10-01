@@ -18,6 +18,7 @@ internal static class Int32Emitter
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
         var properties = new List<SourcePropertySymbol>();
+        var storageFields = new List<IFieldSymbol>();
         var declaredTypes = new Dictionary<INamedTypeSymbol, SourceTypePlan>(SymbolEqualityComparer.Default);
         // Collect all declarations before emitting any body, so calls do not depend on file order.
         foreach (var tree in compilation.SyntaxTrees)
@@ -57,10 +58,13 @@ internal static class Int32Emitter
                         if (!typeSymbol.IsStatic && typeMember is PropertyDeclarationSyntax propertySyntax)
                         {
                             if (propertySyntax.AttributeLists.Count != 0 || propertySyntax.AccessorList is not null || propertySyntax.ExpressionBody is not null || propertySyntax.Initializer is not null || propertySyntax.ExplicitInterfaceSpecifier is not null ||
-                                propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword)) ||
-                                model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol { IsAutoProperty: true, IsStatic: false, BackingField: { IsReadOnly: false } } property ||
+                                propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
+                                model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol { IsStatic: false, BackingField: { IsReadOnly: false } } property ||
+                                (!property.IsAutoProperty && !property.EmitAsFieldOnly) ||
                                 !EmissionPrimitiveTypes.TryGetValueType(property.Type, out _))
-                                throw Unsupported("only primitive mutable instance auto-properties without initializers");
+                                throw Unsupported("only primitive mutable instance auto-properties or private storage without initializers");
+                            storageFields.Add(property.BackingField!);
+                            if (property.EmitAsFieldOnly) continue;
                             properties.Add(property);
                             if (property.GetMethod is { } get) plans.Add(GetPlan(get));
                             if (property.SetMethod is { } set) plans.Add(GetPlan(set));
@@ -112,9 +116,8 @@ internal static class Int32Emitter
             owners.Add(type.Symbol, new(assembly, definition));
         }
         var fields = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
-        foreach (var property in properties)
+        foreach (var field in storageFields)
         {
-            var field = property.BackingField!;
             EmissionPrimitiveTypes.TryGetValueType(field.Type, out var fieldType);
             fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, NeoClrTypeMapper.Instance.Map(fieldType)));
         }

@@ -334,6 +334,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundFieldAccess field when SupportedField(field.Field):
                     if (!Receiver(field.Receiver, field.Field.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.LoadField, Syntax(expression), Field: field.Field)); return true;
+                case BoundMemberAccessExpression { Member: IFieldSymbol memberField } fieldAccess when SupportedField(memberField):
+                    if (!Receiver(fieldAccess.Receiver, memberField.ContainingType!, Syntax(expression))) return false;
+                    instructions.Add(new(LinearInstructionKind.LoadField, Syntax(expression), Field: memberField)); return true;
                 case BoundPropertyAccess property when property.Property.GetMethod is { } getter && SupportedInstanceCall(getter):
                     if (!Receiver(null, getter.ContainingType!, Syntax(expression))) return false;
                     Add(LinearInstructionKind.InstanceCall, Syntax(expression), method: getter); return true;

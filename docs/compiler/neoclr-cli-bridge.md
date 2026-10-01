@@ -1894,3 +1894,24 @@ source remains unchanged, and no native library dependency is stubbed. Both file
 return 42 on .NET and binary neoCLR. 56 focused C# tests pass (54 baseline), including
 Release/Debug instance-call behavior; existing native emission probes pass. The next
 larger contract is nominal parameters/results before generic consumer coverage.
+
+
+## Private primitive storage — 2026-10-01
+
+Native source collection now honors Raven's existing `private var` field-only
+implementation: mutable primitive storage without an initializer becomes one private
+instance field, with no property or accessor rows. The binder's canonical backing-field
+symbol is the shared instruction operand. Qualified `self.field` reads now use the
+same shared field-load contract as unqualified reads; backend adapters retain ownership
+of field handles. Existing .NET semantics and the public semantic property symbol are
+unchanged. No Runtime Contract setting, metadata API or schema change is needed.
+
+The executable Order consumer uses private Counter storage, mutates it through private
+calls, and reads it through `self.Number`. Both source orders verify/run to 42 on
+.NET and binary neoCLR; projection checks require one field, zero properties and seven
+real methods. Independent C# tests cover Release/Debug with both property and private
+storage variants. Private storage initializers reject before output, alongside the
+existing incomplete-contract fixtures. Readonly storage, explicit field declarations,
+initializers, nominal signatures and broader type contracts remain later slices.
+This follows CLI field representation; native field identity remains in the temporary
+binary execution payload until the full native metadata/backend replacement.

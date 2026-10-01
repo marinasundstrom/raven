@@ -8,11 +8,13 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class InstanceInvocationTests
 {
     [Theory]
-    [InlineData(OptimizationLevel.Release)]
-    [InlineData(OptimizationLevel.Debug)]
-    public void InstanceCallsPreserveReceiverArgumentsAndPrivateCalls(OptimizationLevel optimization)
+    [InlineData(OptimizationLevel.Release, false)]
+    [InlineData(OptimizationLevel.Debug, false)]
+    [InlineData(OptimizationLevel.Release, true)]
+    [InlineData(OptimizationLevel.Debug, true)]
+    public void InstanceCallsPreserveReceiverArgumentsAndPrivateCalls(OptimizationLevel optimization, bool privateStorage)
     {
-        var tree = SyntaxTree.ParseText("""
+        var source = """
             class Counter {
                 var Number: int
                 init(number: int) { Number = number }
@@ -36,7 +38,11 @@ public class InstanceInvocationTests
                 counter.Reset(40)
                 return counter.Increment(2)
             }
-            """);
+            """;
+        if (privateStorage)
+            source = source.Replace("var Number: int", "private var Number: int\n public func Read() -> int => self.Number")
+                .Replace("counter.Number", "counter.Read()");
+        var tree = SyntaxTree.ParseText(source);
         var compilation = Compilation.Create("InstanceCalls", [tree], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
@@ -50,6 +56,13 @@ public class InstanceInvocationTests
         using var image = new MemoryStream();
         var result = compilation.Emit(image);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Equal(42, Assembly.Load(image.ToArray()).EntryPoint!.Invoke(null, null));
+        var assembly = Assembly.Load(image.ToArray());
+        Assert.Equal(42, assembly.EntryPoint!.Invoke(null, null));
+        if (privateStorage)
+        {
+            var counter = assembly.GetType("Counter")!;
+            Assert.Empty(counter.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance));
+            Assert.Single(counter.GetFields(BindingFlags.NonPublic | BindingFlags.Instance));
+        }
     }
 }

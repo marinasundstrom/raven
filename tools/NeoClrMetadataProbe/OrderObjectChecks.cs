@@ -24,7 +24,8 @@ internal static class OrderObjectChecks
         var order = declaration.ToFullString();
         const string consumer = """
             class Counter {
-                var Number: int
+                private var Number: int
+                public func Read() -> int => self.Number
                 init(number: int) { Number = number }
                 public func Next() -> int {
                     let previous = Number
@@ -51,7 +52,7 @@ internal static class OrderObjectChecks
                 if original.Pending { return 5 }
                 let counter = Counter(1)
                 if counter.Combine(counter.Next(), counter.Next()) != 12 { return 6 }
-                if counter.Number != 3 { return 7 }
+                if counter.Read() != 3 { return 7 }
                 counter.Reset(40)
                 if counter.Increment(2) != original.Number { return 8 }
                 return original.Number
@@ -73,6 +74,9 @@ internal static class OrderObjectChecks
             var type = snapshot.MainModule.Types.Single(t => t.Name == "Order");
             if (type.Fields.Count != 2 || type.Properties.Count != 2 || type.Methods.Count != 5 || type.Properties.Any(p => p.GetMethod is null || p.SetMethod is null))
                 throw new Exception("Order metadata lost members");
+            var counterType = snapshot.MainModule.Types.Single(t => t.Name == "Counter");
+            if (counterType.Fields.Count != 1 || counterType.Properties.Count != 0 || counterType.Methods.Count != 7)
+                throw new Exception("private storage must emit only a field");
             var path = Path.Combine(output, name + ".dll"); File.WriteAllBytes(path, native.ToArray());
             foreach (var command in new[] { "verify", "run" })
             {
@@ -91,6 +95,7 @@ internal static class OrderObjectChecks
         }
         foreach (var unsupported in new[] {
             "class Empty { }",
+            "class PrivateInitialized { private var number: int = 1\n init() { } }",
             "class Initialized { var Number: int = 1\n init() { } }",
             order + "\nfunc Main() -> int { let order: Order? = null\n return 42 }"
         })
@@ -119,7 +124,8 @@ internal static class OrderObjectChecks
             fullConsumer = false,
             nominalLocalsAndAliasing = true,
             ordinaryInstanceCalls = true,
-            rejectedIncompleteContracts = 3
+            privatePrimitiveStorage = true,
+            rejectedIncompleteContracts = 4
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");
     }
