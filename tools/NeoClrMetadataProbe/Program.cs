@@ -16,6 +16,12 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args.Length == 4 && args[0] == "--interface-library-runtime")
+{
+    await InterfaceLibraryChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
 if (args.Length == 4 && args[0] == "--whole-library-runtime")
 {
     await WholeLibraryChecks.Run(args[1], args[2], args[3]);

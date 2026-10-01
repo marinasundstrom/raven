@@ -17,6 +17,7 @@ internal static class Int32Emitter
     {
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
+        var interfaces = new List<SourceInterfacePlan>();
         var properties = new List<SourcePropertySymbol>();
         var storageFields = new List<IFieldSymbol>();
         var declaredTypes = new Dictionary<INamedTypeSymbol, SourceTypePlan>(SymbolEqualityComparer.Default);
@@ -39,6 +40,13 @@ internal static class Int32Emitter
                     var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
                     var plan = GetPlan(symbol);
                     plans.Add(plan);
+                }
+                else if (member is InterfaceDeclarationSyntax interfaceSyntax)
+                {
+                    if (model.GetDeclaredSymbol(interfaceSyntax) is not INamedTypeSymbol interfaceSymbol ||
+                        !SourceInterfacePlan.TryCreate(interfaceSymbol, NeoClrCapabilities.Shared, out var interfacePlan))
+                        throw Unsupported("only invariant owned interfaces with public abstract instance method contracts");
+                    interfaces.Add(interfacePlan!);
                 }
                 else if (member is ClassDeclarationSyntax type)
                 {
@@ -155,6 +163,17 @@ internal static class Int32Emitter
             var definition = type.Define(typeDefinitions);
             nativeTypes.Add(type.Symbol, definition);
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type]));
+        }
+        foreach (var contract in interfaces)
+        {
+            var symbol = contract.Symbol;
+            var visibility = symbol.DeclaredAccessibility == Accessibility.Public ? TypeVisibility.Public : TypeVisibility.Internal;
+            var definition = symbol.Arity == 0 ? assembly.AddInterface(contract.Namespace, contract.Name, visibility)
+                : assembly.AddGenericInterface(contract.Namespace, symbol.Name, symbol.TypeParameters.Select(p => p.Name), visibility);
+            foreach (var method in contract.Methods)
+                definition.AddInterfaceMethod(method.Symbol.MetadataName, new MethodSignature(
+                    NeoClrTypeMapper.Map(method.Signature.ReturnType, type => nativeTypes[type]),
+                    method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type]))));
         }
         foreach (var type in declaredTypes.Values)
             foreach (var parameter in type.Symbol.TypeParameters)

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Add an explicit bounded interface declaration plan for invariant owned interfaces with public abstract instance methods. The neoCLR adapter emits unchanged Comparer/EqualityComparer source contracts through the separate metadata API. CLI/native loading and reference projection preserve bodyless interface methods; an independent entry returns 42. Interface dispatch, properties and inheritance are not yet admitted by this plan.
+
 - **2026-10-01:** Share static computed property get/set calls between .NET and neoCLR emission. The native adapter admits implemented static properties on owned classes/static types, retaining ordinary accessor metadata; static storage remains unsupported. Compile the complete unchanged neoCLR Language class and execute both source orders on both runtimes. Add a whole-file acceptance probe and refresh the collection interface/dependency inventory. Reaffirm .NET behavior and CLI instruction semantics as the default for the supported subset.
 
 - **2026-10-01:** Admit owned nominal class bounds on generic types through shared target capabilities. The neoCLR adapter materializes bounds after declaring all types; CLI/native reference metadata preserves them. Invalid concrete arguments are rejected by Raven binding and native verification. Extend shared capabilities and native emission with class/struct/new requirements on type parameters. Correct ordinary .NET struct emission to include its implied default-constructor flag. Matching native runtime required; nullability, method/interface/dependent bounds and open constrained dispatch remain separate work.

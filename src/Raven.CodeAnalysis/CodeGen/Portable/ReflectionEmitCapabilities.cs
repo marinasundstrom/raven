@@ -19,9 +19,9 @@ internal static class ReflectionEmitCapabilities
             LinearInstructionKind.ShiftLeft, LinearInstructionKind.ShiftRight, LinearInstructionKind.Receiver, LinearInstructionKind.LoadField, LinearInstructionKind.StoreField, LinearInstructionKind.InstanceCall, LinearInstructionKind.NewObject,
             LinearInstructionKind.NewArray, LinearInstructionKind.LoadElement, LinearInstructionKind.StoreElement, LinearInstructionKind.ArrayLength, LinearInstructionKind.DefaultValue, LinearInstructionKind.Duplicate
         ],
-        [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.NamespacedAssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType, EmissionDeclarationKind.RootClass, EmissionDeclarationKind.InstanceMethod, EmissionDeclarationKind.PropertyAccessor, EmissionDeclarationKind.IndexerAccessor],
+        [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.NamespacedAssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType, EmissionDeclarationKind.RootClass, EmissionDeclarationKind.InstanceMethod, EmissionDeclarationKind.PropertyAccessor, EmissionDeclarationKind.IndexerAccessor, EmissionDeclarationKind.Interface, EmissionDeclarationKind.InterfaceMethod],
         [Accessibility.Public, Accessibility.Internal],
         [Accessibility.Public, Accessibility.Internal, Accessibility.Private, Accessibility.ProtectedAndProtected,
             Accessibility.ProtectedOrInternal, Accessibility.ProtectedAndInternal],
-        [Accessibility.Public, Accessibility.Internal, Accessibility.Private], allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsArrays: true, allowsGenericMethods: true, allowsGenericInstanceMethods: true, allowsGenericStaticOwners: true, allowsGenericClassOwners: true, allowsConstructedFieldReferences: true, allowsNominalTypeBounds: true, allowsSpecialTypeConstraints: true);
+        [Accessibility.Public, Accessibility.Internal, Accessibility.Private], allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsArrays: true, allowsGenericMethods: true, allowsGenericInstanceMethods: true, allowsGenericStaticOwners: true, allowsGenericClassOwners: true, allowsConstructedFieldReferences: true, allowsNominalTypeBounds: true, allowsSpecialTypeConstraints: true, allowsGenericInterfaceDeclarations: true);
 }

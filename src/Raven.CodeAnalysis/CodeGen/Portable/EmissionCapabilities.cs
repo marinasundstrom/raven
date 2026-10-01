@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical source ownership/categories. Physical CLI carrier types are adapter policy.
-internal enum EmissionDeclarationKind { AssemblyFunction, NamespacedAssemblyFunction, StaticMethod, StaticType, RootClass, InstanceMethod, Constructor, PropertyAccessor, IndexerAccessor }
+internal enum EmissionDeclarationKind { AssemblyFunction, NamespacedAssemblyFunction, StaticMethod, StaticType, RootClass, InstanceMethod, Constructor, PropertyAccessor, IndexerAccessor, Interface, InterfaceMethod }
 
 // Admission for the bounded shared plan, not a description of an entire runtime.
 // Each adapter explicitly opts into supported logical operations and built-in types.
@@ -14,7 +14,7 @@ internal sealed class EmissionCapabilities(
     IEnumerable<Accessibility>? typeVisibilities = null,
     IEnumerable<Accessibility>? methodVisibilities = null,
     IEnumerable<Accessibility>? functionVisibilities = null,
-    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false, bool allowsGenericStaticOwners = false, bool allowsGenericClassOwners = false, bool allowsConstructedFieldReferences = false, bool allowsNominalTypeBounds = false, bool allowsSpecialTypeConstraints = false)
+    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false, bool allowsGenericStaticOwners = false, bool allowsGenericClassOwners = false, bool allowsConstructedFieldReferences = false, bool allowsNominalTypeBounds = false, bool allowsSpecialTypeConstraints = false, bool allowsGenericInterfaceDeclarations = false)
 {
     private readonly ImmutableHashSet<EmissionPrimitiveType> types = types.ToImmutableHashSet();
     private readonly ImmutableHashSet<LinearInstructionKind> instructions = instructions.ToImmutableHashSet();
@@ -27,6 +27,7 @@ internal sealed class EmissionCapabilities(
 
     private readonly ImmutableHashSet<Accessibility> functionVisibilities = (functionVisibilities ?? []).ToImmutableHashSet();
 
+    internal bool AllowsGenericInterfaceDeclarations { get; } = allowsGenericInterfaceDeclarations;
     internal bool AllowsSpecialTypeConstraints { get; } = allowsSpecialTypeConstraints;
     internal bool AllowsNominalTypeBounds { get; } = allowsNominalTypeBounds;
     internal bool AllowsGenericClassOwners { get; } = allowsGenericClassOwners;

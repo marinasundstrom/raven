@@ -443,3 +443,9 @@ unsupported static storage must reject without output. Validation records hashes
 explicitly marks the host-core bootstrap and incomplete full-library status. The
 class-library-emission inventory now also includes Language, Comparer, EqualityComparer
 and ArrayList without replacing their native dependencies.
+
+
+`--interface-library-runtime <source-root> <fresh-output> <runtime>` compiles the
+unchanged Comparer and EqualityComparer files, checks interface metadata on CLI/native
+projection and verifies/loads both file orders. Its independent entry returns 42;
+this command deliberately makes no interface-dispatch claim.

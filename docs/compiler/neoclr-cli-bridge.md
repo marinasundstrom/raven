@@ -2483,3 +2483,26 @@ for supported facilities unless another choice is explicitly made. Unsupported
 features such as exception handling are coverage gaps. Physical #Neo payload transport
 is a temporary bridge, not a separate instruction-set design; its future replacement
 must retain ordinary CLI semantics and documented extensions.
+
+
+### Comparer interface declarations (2026-10-01)
+
+SourceInterfacePlan separates bodyless declarations from shared callable body plans.
+Explicit Interface/InterfaceMethod and generic-interface capabilities admit invariant
+owned interfaces containing public abstract instance methods with supported signatures.
+The native adapter uses independent AddInterface/AddGenericInterface/AddInterfaceMethod
+APIs. .NET retains its existing general interface emitter; C# tests compare its metadata
+with the shared declaration plan. No Runtime Contract option or semantic-binding change.
+
+The producer writes ordinary CLI interface/abstract flags and bodyless virtual new-slot
+methods; the native bridge uses existing Interface identity and abstract method flags.
+No opcode/runtime change. It does not substitute classes or throwing method bodies for
+abstract contracts. The matching reader retains this shape in CLI reference metadata.
+Inherited interfaces, properties, variance, default/static/generic methods, interface
+value signatures, implementations and dispatch remain bounded-adapter gaps.
+
+Both complete unchanged Comparer.rvn and EqualityComparer.rvn files load/verify on
+neoCLR and reflect as interfaces on .NET in both file orders. The independent entry
+returns 42; [evidence](../../tools/NeoClrMetadataProbe/interface-library-runtime-validation.json)
+explicitly disclaims dispatch. Thirteen focused C# tests pass; full collection/library
+compilation remains open. Native symbol import is still a separate integration task.

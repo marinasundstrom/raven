@@ -1,0 +1,22 @@
+{
+  "sources": [
+    {
+      "path": "System/Collections/Comparer.rvn",
+      "sha256": "BEA7287FDDAB87AD0716AAB38E82EB9837A03C121D6DD4FDE96AB2F87C793592"
+    },
+    {
+      "path": "System/Collections/EqualityComparer.rvn",
+      "sha256": "820C9AB4936879F8F60A4882C3EA0BD266C3DE4F562C8F61C49B8AAC9801258B"
+    }
+  ],
+  "wholeFiles": true,
+  "sourceOrders": 2,
+  "nativeVerify": true,
+  "nativeEntryResult": 42,
+  "cliEntryResult": 42,
+  "interfaceDispatch": false,
+  "entryUsesInterfaces": false,
+  "fullClassLibrary": false,
+  "runtimeSha256": "193B7F995EE4FC92A086439FB1FDBDAFC3A0C58139F0CAF30CB4A2D8640A432D",
+  "bootstrap": "host core; declaration loading and projection, not interface dispatch"
+}
