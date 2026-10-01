@@ -10,13 +10,13 @@ internal static class AdapterChecks
 {
     internal static void Run(Func<string, Compilation> compile, string source, NeoClrEmitOptions options)
     {
-        var shift = compile(source.Replace("value + 2", "value << 2"));
-        var unsupported = Rejected(shift, options, "NEOMETA001");
+        var conversion = compile(source.Replace("value + 2", "(int)(double)value"));
+        var unsupported = Rejected(conversion, options, "NEOMETA001");
         var diagnostic = unsupported.Diagnostics.Single(d => d.Id == "NEOMETA001");
-        Check(diagnostic.GetMessage().Contains("binary operator ShiftLeft"), "unsupported operation diagnostic");
+        Check(diagnostic.GetMessage().Contains("lowered expression BoundConversionExpression"), "unsupported operation diagnostic");
         var location = diagnostic.Location;
-        Check(location.IsInSource && ReferenceEquals(location.SourceTree, shift.SyntaxTrees[0]), "unsupported source tree");
-        Check(shift.SyntaxTrees[0].GetRoot().ToFullString().Substring(location.SourceSpan.Start, location.SourceSpan.Length) == "value << 2", "unsupported expression span");
+        Check(location.IsInSource && ReferenceEquals(location.SourceTree, conversion.SyntaxTrees[0]), "unsupported source tree");
+        Check(conversion.SyntaxTrees[0].GetRoot().ToFullString().Substring(location.SourceSpan.Start, location.SourceSpan.Length) == "(int)(double)value", "unsupported expression span");
         var broken = compile(source.Replace("MathLibrary.Twice", "MathLibrary.Missing"));
         var binding = Rejected(broken, options);
         Check(binding.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error && !d.Id.StartsWith("NEOMETA")), "binding diagnostics preserved");
@@ -42,7 +42,7 @@ internal static class AdapterChecks
         Throws<IOException>(() => NeoClrCompilationEmitter.Emit(good, failing, options));
         using var peOutput = new MemoryStream();
         peOutput.Write(new byte[] { 1, 2, 3, 4 }); peOutput.Position = 2;
-        var peFailure = NeoClrCompilationEmitter.EmitMetadataAssembly(shift, peOutput, options);
+        var peFailure = NeoClrCompilationEmitter.EmitMetadataAssembly(conversion, peOutput, options);
         Check(!peFailure.Success && peFailure.Diagnostics.Any(d => d.Id == "NEOMETA001") && peOutput.Position == 2 &&
             peOutput.ToArray().SequenceEqual(new byte[] { 1, 2, 3, 4 }), "PE validation preserves output");
         Throws<ArgumentException>(() => NeoClrCompilationEmitter.EmitMetadataAssembly(good, readOnly, options));

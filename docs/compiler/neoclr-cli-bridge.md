@@ -1493,3 +1493,25 @@ general path retains its existing support. The CLI projection/#Neo bridge is unc
 Validation: 41 focused shared-body/capability tests, 43 independent C# metadata
 contract groups and the full binary native/rvnc probe pass. The paired bitwise case
 covers all three operators at both widths, sign bits and wide values.
+
+
+### Shared signed shifts — 2026-10-01
+
+The bounded planner now handles Int32/Int64 << and signed >> with an Int32 right
+operand. Both profiles explicitly admit the logical operations; adapters select
+shl/shr. The independent writer validates the distinct value/count types and exposes
+Shl/Shr plus ShiftLeft/ShiftRight helpers. No Runtime Contract setting or binder
+rule changes. Ordinary .NET retains raw CLI shift behavior, including unspecified
+out-of-range counts; neoCLR retains its existing width-masked count rule. This does
+not promise a new portable language rule for negative/oversized counts. In-range
+counts, discarded bits and sign extension are tested on both targets, including
+Release shared emission and Debug fallback. Unsigned right shifts and native-sized
+integers remain outside the producer. The reference projection/#Neo bridge remains.
+Unsupported floating conversion now supplies adapter/fallback rejection tests because
+integer shifts are supported.
+
+Validation: 45 focused shared-body/capability tests pass, including Release and Debug
+shifts. All 44 independent C# metadata groups and the API snapshot check pass. The
+full binary runtime/rvnc probe executes the paired shift program to 42 with zero,
+31/63-bit boundary counts, sign extension and discarded high bits; unsupported
+floating conversions retain precise diagnostics and unchanged output.

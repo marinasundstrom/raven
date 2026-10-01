@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0);
@@ -253,6 +253,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.Label, Syntax(expression), shortCircuit);
                     Add(LinearInstructionKind.Boolean, Syntax(expression), isOr ? 1 : 0);
                     Add(LinearInstructionKind.Label, Syntax(expression), completed);
+                    return true;
+                case BoundBinaryExpression shift when shift.Operator.MethodSymbol is null &&
+                    shift.Operator.LeftType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&
+                    shift.Operator.RightType.SpecialType == SpecialType.System_Int32 &&
+                    shift.Operator.OperatorKind is OperatorKind.ShiftLeft or OperatorKind.ShiftRight:
+                    if (!LowerValue(shift.Left) || !LowerValue(shift.Right)) return false;
+                    Add(shift.Operator.OperatorKind == OperatorKind.ShiftLeft ? LinearInstructionKind.ShiftLeft : LinearInstructionKind.ShiftRight, Syntax(expression));
                     return true;
                 case BoundBinaryExpression binary when binary.Operator.MethodSymbol is null &&
                     ((binary.Operator.LeftType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&

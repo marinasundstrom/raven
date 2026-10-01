@@ -290,6 +290,22 @@ internal static class SharedLoweringChecks
             func Or64(a: long, b: long) -> long { a | b }
             func Xor64(a: long, b: long) -> long { a ^ b }
             """, "", 42);
+        await RunCase("SharedShifts", """
+            func Main() -> int {
+                if Left32(1, 31) != (-2147483647 - 1) { return 1 }
+                if Right32(-2, 1) != -1 { return 2 }
+                if Left64(1L, 40) != 1099511627776L { return 3 }
+                if Right64(-9223372036854775807L - 1L, 63) != -1L { return 4 }
+                if Left64(9223372036854775807L, 1) != -2L { return 5 }
+                if Right64(1099511627776L, 40) != 1L { return 6 }
+                if Left32(42, 0) != 42 { return 7 }
+                return Left32(21, 1)
+            }
+            func Left32(value: int, count: int) -> int { value << count }
+            func Right32(value: int, count: int) -> int { value >> count }
+            func Left64(value: long, count: int) -> long { value << count }
+            func Right64(value: long, count: int) -> long { value >> count }
+            """, "", 42);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
         Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 

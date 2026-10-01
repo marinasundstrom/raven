@@ -48,7 +48,7 @@ internal static class DriverChecks
         Check(File.ReadAllBytes(application).SequenceEqual(original), "existing output was modified");
         var invalidSource = Path.Combine(directory, "RejectedDriver.rvn");
         var rejectedOutput = Path.Combine(directory, "RejectedDriver.dll");
-        File.WriteAllText(invalidSource, "func Main() -> int { return 42 << 2 }");
+        File.WriteAllText(invalidSource, "func Main() -> int { return Convert(42) }\nfunc Convert(value: int) -> int { return (int)(double)value }");
         Check((await Compile(1, "-o", rejectedOutput, invalidSource)).Contains("NEOMETA001"), "unsupported source diagnostic");
         Check(!File.Exists(rejectedOutput), "source error created output");
         await Compile(1, "--reference", typeof(object).Assembly.Location, "-o", rejectedOutput, invalidSource);

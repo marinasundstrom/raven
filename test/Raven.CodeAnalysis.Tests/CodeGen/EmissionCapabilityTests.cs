@@ -54,6 +54,29 @@ public class EmissionCapabilityTests
         Assert.Equal((long)expected, type.GetMethod("Wide")!.Invoke(null, [63L, 40L]));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release, "<<", -168)]
+    [InlineData(OptimizationLevel.Debug, "<<", -168)]
+    [InlineData(OptimizationLevel.Release, ">>", -42)]
+    [InlineData(OptimizationLevel.Debug, ">>", -42)]
+    public void SignedShiftsPreserveWidthAndInt32Counts(OptimizationLevel optimization, string operation, int expected)
+    {
+        var compilation = Create($$"""
+            public static class Shifts {
+                public static func Narrow(value: int, count: int) -> int { value {{operation}} count }
+                public static func Wide(value: long, count: int) -> long { value {{operation}} count }
+            }
+            """, optimization);
+        foreach (var method in Methods(compilation))
+            Assert.True(Lower(compilation, method, ReflectionEmitCapabilities.Shared, out _, out var failure), failure?.Detail);
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var type = Assembly.Load(output.ToArray()).GetType("Shifts")!;
+        Assert.Equal(expected, type.GetMethod("Narrow")!.Invoke(null, [-84, 1]));
+        Assert.Equal((long)expected, type.GetMethod("Wide")!.Invoke(null, [-84L, 1]));
+    }
+
     [Fact]
     public void RestrictedInstructionProfileRejectsBeforeReturningAPlan()
     {

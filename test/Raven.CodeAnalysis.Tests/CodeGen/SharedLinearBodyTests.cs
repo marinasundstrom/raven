@@ -236,8 +236,8 @@ public class SharedLinearBodyTests
     {
         const string source = """
             public static class Arithmetic {
-                public static func Shift(value: int) -> int {
-                    return (value + 1) << 1
+                public static func Convert(value: int) -> int {
+                    return (int)(double)value
                 }
             }
             """;
@@ -248,8 +248,8 @@ public class SharedLinearBodyTests
             model, method.Body!, _ => false, out var lowered, out var failure));
         Assert.Null(lowered);
         Assert.NotNull(failure);
-        Assert.Equal("(value + 1) << 1", failure.Syntax.ToString());
-        Assert.Equal(42, Emit(compilation).GetType("Arithmetic")!.GetMethod("Shift")!.Invoke(null, [20]));
+        Assert.Equal("(int)(double)value", failure.Syntax.ToString());
+        Assert.Equal(42, Emit(compilation).GetType("Arithmetic")!.GetMethod("Convert")!.Invoke(null, [42]));
     }
 
     [Theory]

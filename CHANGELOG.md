@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-01:** Share Int32/Int64 bitwise AND, OR and XOR across .NET and neoCLR emission, with typed metadata writer support and paired runtime checks.
+- **2026-10-01:** Share Int32/Int64 bitwise AND, OR and XOR across .NET and neoCLR emission, with typed metadata writer support and paired runtime checks. Add left and signed right shifts with Int32 counts for both integer widths.
 
 - **2026-10-01:** Enable shared signed Int32/Int64 division in the neoCLR metadata backend, with binary execution tests for truncation, zero divisors and signed overflow alongside .NET. Extend the shared planner and both adapters with signed remainder, preserving dividend signs and validating exceptional operands.
 
