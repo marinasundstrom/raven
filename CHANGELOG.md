@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Admit logical assembly functions, static methods and static types
+  through backend declaration-category profiles. Share those profiles between
+  declaration builders and body planning while preserving CLI carrier/native ownership.
+
 - **2026-10-01:** Add backend-owned instruction/type capability profiles to shared
   body planning. The .NET profile admits signed division while the native profile
   rejects it with a source diagnostic; native bodies now pass capability checks before

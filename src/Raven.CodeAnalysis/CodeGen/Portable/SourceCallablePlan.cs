@@ -8,9 +8,12 @@ internal sealed record SourceCallablePlan(
     IMethodSymbol Symbol, SyntaxNode Syntax, BlockStatementSyntax? Body,
     INamedTypeSymbol? TypeOwner, string MetadataName, PrimitiveCallableSignature Signature)
 {
+    internal EmissionDeclarationKind DeclarationKind => IsAssemblyFunction ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.StaticMethod;
+    internal bool IsSupportedBy(EmissionCapabilities capabilities) => capabilities.Allows(DeclarationKind) && capabilities.Allows(Signature);
+
     internal bool IsAssemblyFunction => TypeOwner is null;
 
-    internal static bool TryCreate(IMethodSymbol symbol, out SourceCallablePlan? plan)
+    internal static bool TryCreate(IMethodSymbol symbol, out SourceCallablePlan? plan, EmissionCapabilities? capabilities = null)
     {
         plan = null;
         if (!symbol.IsStatic || symbol.IsExtern || symbol.DeclaringSyntaxReferences.Length != 1 ||
@@ -20,10 +23,14 @@ internal sealed record SourceCallablePlan(
         {
             case MethodDeclarationSyntax method when symbol.ContainingType is { } owner:
                 plan = new(symbol, syntax, method.Body, owner, symbol.MetadataName, signature);
-                return true;
+                if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
+                plan = null;
+                return false;
             case FunctionStatementSyntax function when function.Parent is GlobalStatementSyntax { Parent: CompilationUnitSyntax }:
                 plan = new(symbol, syntax, function.Body, null, symbol.Name, signature);
-                return true;
+                if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
+                plan = null;
+                return false;
             default:
                 return false;
         }
@@ -37,6 +44,12 @@ internal sealed record SourceCallablePlan(
     internal bool TryLowerBody(Compilation compilation, Func<BoundInvocationExpression, bool> permitsConsoleWrite,
         out LinearMethodBody? body, out LinearBodyFailure? failure, EmissionCapabilities capabilities)
     {
+        if (!IsSupportedBy(capabilities))
+        {
+            body = null;
+            failure = new("target does not support declaration " + DeclarationKind + " or its signature", Syntax);
+            return false;
+        }
         if (Body is null)
         {
             body = null;

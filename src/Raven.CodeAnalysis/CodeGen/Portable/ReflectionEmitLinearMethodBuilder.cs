@@ -9,20 +9,6 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 // mapping, type completion and PE writing remain owned by the existing code generator.
 internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, IILBuilder output) : ILinearMethodBuilder
 {
-    internal static EmissionCapabilities Capabilities { get; } = new(
-        [EmissionPrimitiveType.NoResult, EmissionPrimitiveType.Int32, EmissionPrimitiveType.Int64, EmissionPrimitiveType.Boolean, EmissionPrimitiveType.String],
-        [
-            LinearInstructionKind.Constant, LinearInstructionKind.Argument, LinearInstructionKind.Add,
-            LinearInstructionKind.Subtract, LinearInstructionKind.Multiply, LinearInstructionKind.Call,
-            LinearInstructionKind.ConsoleWrite, LinearInstructionKind.String, LinearInstructionKind.Return,
-            LinearInstructionKind.LoadLocal, LinearInstructionKind.StoreLocal, LinearInstructionKind.Boolean,
-            LinearInstructionKind.Not, LinearInstructionKind.Equal, LinearInstructionKind.Less,
-            LinearInstructionKind.Greater, LinearInstructionKind.Label, LinearInstructionKind.Branch,
-            LinearInstructionKind.BranchTrue, LinearInstructionKind.BranchFalse, LinearInstructionKind.Pop,
-            LinearInstructionKind.Constant64, LinearInstructionKind.Convert64, LinearInstructionKind.Convert32,
-            LinearInstructionKind.Negate, LinearInstructionKind.Complement, LinearInstructionKind.Divide
-        ]);
-
     private readonly List<IILocal> locals = [];
     private readonly List<ILLabel> labels = [];
 
@@ -49,8 +35,8 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
         if (!LinearMethodBody.ReturnsValue(symbol) &&
             method.MethodBase is not MethodInfo { ReturnType.FullName: "System.Void" })
             return false;
-        if (!SourceCallablePlan.TryCreate(symbol, out var declaration) ||
-            !declaration!.TryLowerBody(method.Compilation, IsConsoleWrite, out var lowered, out _, Capabilities))
+        if (!SourceCallablePlan.TryCreate(symbol, out var declaration, ReflectionEmitCapabilities.Shared) ||
+            !declaration!.TryLowerBody(method.Compilation, IsConsoleWrite, out var lowered, out _, ReflectionEmitCapabilities.Shared))
             return false;
         // Resolution can create metadata proxies just as in general codegen. Builders
         // are only opened after the complete body has passed shared lowering.

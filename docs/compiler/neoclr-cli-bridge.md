@@ -1393,3 +1393,25 @@ Validation: 48 focused C# tests pass, including signed division results/faults,
 restricted profiles, selected-core types and ordinary fallback. The binary native
 probe and rvnc command pass; native division reports its capability rejection at the
 source expression and preserves output. Evidence: tools/NeoClrMetadataProbe/validation.json.
+
+## Declaration-category admission — 2026-10-01
+
+Backend-owned profiles now explicitly admit logical AssemblyFunction, StaticMethod
+and StaticType categories as well as built-in types and instructions. Omitting the
+category set admits no declarations. Source plans can still be collected independently
+for analysis; production .NET/native declaration collection passes the target profile,
+and body lowering rechecks callable admission. The profiles live with each backend
+rather than its body emitter and are immutable snapshots reused across declarations.
+
+These are source/semantic categories: .NET's assembly-function admission still emits
+its existing carrier method, while native metadata retains assembly ownership. No new
+physical CLI metadata category or format extension is introduced. Public nongeneric
+static-type shape remains bounded; generic/nested/instance .NET definitions keep the
+existing generator and are not claimed as shared categories. Visibility and broader
+nominal/member categories still need explicit contracts.
+
+Runtime Contract configuration, native backend override, hosted semantic binding and
+the current CLI-reference/native-payload bridge are unchanged. The independent metadata
+library is unchanged. Tests check category isolation, rejected plans, body-boundary
+admission and copied configuration, with ordinary declaration/runtime regression
+coverage and native binary/driver execution. No performance claim is made.

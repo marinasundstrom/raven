@@ -48,7 +48,7 @@ internal static class Int32Emitter
                         type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword)))
                         throw Unsupported("only public nongeneric static classes without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
-                    if (!SourceStaticTypePlan.TryCreate(typeSymbol, out var typePlan))
+                    if (!SourceStaticTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
                         throw Unsupported("only public nongeneric static classes");
                     // Partial declarations share one semantic identity and one metadata definition.
                     // Still validate every part and collect all of its members.
@@ -72,7 +72,7 @@ internal static class Int32Emitter
         var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody Body)>();
         foreach (var plan in plans)
         {
-            if (!plan.TryLowerBody(compilation, IsConsoleCall, out var body, out var failure, NeoClrLinearMethodBuilder.Capabilities))
+            if (!plan.TryLowerBody(compilation, IsConsoleCall, out var body, out var failure, NeoClrCapabilities.Shared))
                 throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
             prepared.Add((plan, body!));
         }
@@ -180,7 +180,7 @@ internal static class Int32Emitter
 
         SourceCallablePlan GetPlan(IMethodSymbol method)
         {
-            if (!SourceCallablePlan.TryCreate(method, out var plan))
+            if (!SourceCallablePlan.TryCreate(method, out var plan, NeoClrCapabilities.Shared))
                 throw Unsupported("only nongeneric Int32/Int64/Boolean/String parameters and Int32/Int64/Boolean/String/Unit results: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
             return plan!;
         }

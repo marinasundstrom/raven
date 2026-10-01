@@ -2577,3 +2577,11 @@ Validation: 48 focused C# tests pass, including signed division results/faults,
 restricted profiles, selected-core types and ordinary fallback. The binary native
 probe and rvnc command pass; native division reports its capability rejection at the
 source expression and preserves output. Evidence: tools/NeoClrMetadataProbe/validation.json.
+
+### Declaration-category admission — 2026-10-01
+
+The internal backend profiles now govern logical assembly functions, static methods
+and static types before shared builder use. Profiles are reused for body admission;
+physical CLI carriers remain .NET policy and native assembly ownership is preserved.
+No Runtime Contract option changes. See the matching declaration-category section
+in neoclr-cli-bridge.md for implemented scope and remaining categories.

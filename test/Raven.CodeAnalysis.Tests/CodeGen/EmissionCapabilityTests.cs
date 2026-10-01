@@ -19,7 +19,7 @@ public class EmissionCapabilityTests
             }
             """, optimization);
         foreach (var method in Methods(compilation))
-            Assert.True(Lower(compilation, method, ReflectionEmitLinearMethodBuilder.Capabilities, out _, out var failure), failure?.Detail);
+            Assert.True(Lower(compilation, method, ReflectionEmitCapabilities.Shared, out _, out var failure), failure?.Detail);
         using var output = new MemoryStream();
         var result = compilation.Emit(output);
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));

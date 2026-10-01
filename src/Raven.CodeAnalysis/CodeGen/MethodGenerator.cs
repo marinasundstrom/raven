@@ -164,7 +164,7 @@ internal class MethodGenerator
                 else if (_lambdaClosure is null && !MethodSymbol.IsExtern && MethodSymbol.IsStatic &&
                     MethodSymbol.MethodKind is (MethodKind.Ordinary or MethodKind.Function) &&
                     TypeGenerator.GetExtensionTypeParameters().IsDefaultOrEmpty &&
-                    Portable.SourceCallablePlan.TryCreate(MethodSymbol, out var declaration))
+                    Portable.SourceCallablePlan.TryCreate(MethodSymbol, out var declaration, Portable.ReflectionEmitCapabilities.Shared))
                 {
                     var builder = new Portable.ReflectionEmitCallableDefinitionBuilder(targetTypeBuilder, attributes,
                         specialType => ResolveClrType(Compilation.GetSpecialType(specialType)));

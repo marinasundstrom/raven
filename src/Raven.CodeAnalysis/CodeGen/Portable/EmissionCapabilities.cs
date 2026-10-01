@@ -2,15 +2,22 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
+// Logical source ownership/categories. Physical CLI carrier types are adapter policy.
+internal enum EmissionDeclarationKind { AssemblyFunction, StaticMethod, StaticType }
+
 // Admission for the bounded shared plan, not a description of an entire runtime.
 // Each adapter explicitly opts into supported logical operations and built-in types.
 // This contains neither CLI opcodes nor backend metadata handles.
 internal sealed class EmissionCapabilities(
-    IEnumerable<EmissionPrimitiveType> types, IEnumerable<LinearInstructionKind> instructions)
+    IEnumerable<EmissionPrimitiveType> types, IEnumerable<LinearInstructionKind> instructions,
+    IEnumerable<EmissionDeclarationKind>? declarations = null)
 {
     private readonly ImmutableHashSet<EmissionPrimitiveType> types = types.ToImmutableHashSet();
     private readonly ImmutableHashSet<LinearInstructionKind> instructions = instructions.ToImmutableHashSet();
 
+    private readonly ImmutableHashSet<EmissionDeclarationKind> declarations = (declarations ?? []).ToImmutableHashSet();
+
+    internal bool Allows(EmissionDeclarationKind declaration) => declarations.Contains(declaration);
     internal bool Allows(EmissionPrimitiveType type) => types.Contains(type);
     internal bool Allows(LinearInstructionKind instruction) => instructions.Contains(instruction);
     internal bool Allows(PrimitiveCallableSignature signature)

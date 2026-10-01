@@ -8,9 +8,10 @@ internal sealed record SourceStaticTypePlan(INamedTypeSymbol Symbol, string Name
 {
     internal string FullName => Namespace.Length == 0 ? Name : Namespace + "." + Name;
 
-    internal static bool TryCreate(INamedTypeSymbol type, out SourceStaticTypePlan? plan)
+    internal static bool TryCreate(INamedTypeSymbol type, out SourceStaticTypePlan? plan, EmissionCapabilities? capabilities = null)
     {
         plan = null;
+        if (capabilities is not null && !capabilities.Allows(EmissionDeclarationKind.StaticType)) return false;
         if (type.TypeKind != TypeKind.Class || !type.IsStatic || type.DeclaredAccessibility != Accessibility.Public ||
             type.Arity != 0 || type.ContainingType is not null)
             return false;
