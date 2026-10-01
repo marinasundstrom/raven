@@ -17,6 +17,12 @@ internal abstract record NeoClrCallableReference
             else body.Call(Method);
         }
     }
+    internal static NeoClrCallableReference Create(ImportedGenericMethodReference method) => new ImportedGeneric(method);
+    private sealed record ImportedGeneric(ImportedGenericMethodReference Method) : NeoClrCallableReference
+    {
+        internal override void EmitCall(MethodBuilder body) => body.Call(Method);
+    }
+
     internal static NeoClrCallableReference Create(GenericMethodInstance method) => new Generic(method);
     private sealed record Generic(GenericMethodInstance Method) : NeoClrCallableReference
     {

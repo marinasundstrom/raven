@@ -247,9 +247,18 @@ internal static class Int32Emitter
             }
             if (target.IsGenericMethod)
             {
-                if (!definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
-                    throw Unsupported("only owned generic calls");
-                return NeoClrCallableReference.Create(definition.MakeGenericInstance(target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])).ToArray()));
+                if (definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
+                    return NeoClrCallableReference.Create(definition.MakeGenericInstance(target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])).ToArray()));
+                var arguments = new List<SignatureType>();
+                foreach (var argument in target.TypeArguments)
+                {
+                    if (!CallableSignature.TryType(argument, false, out var value) ||
+                        !(value.Primitive is not null || value.Array is { } vector &&
+                            CallableSignature.TryType(vector.ElementType, false, out var element) && element.Primitive is not null))
+                        throw Unsupported("imported generic calls require concrete primitive/vector arguments");
+                    arguments.Add(NeoClrTypeMapper.Map(value, _ => throw Unsupported("imported nominal argument")));
+                }
+                return NeoClrCallableReference.Create(Import(target.OriginalDefinition ?? target).MakeGenericInstance(arguments.ToArray()));
             }
             var systemFunction = ImportSystem(target);
             return systemFunction is not null
@@ -342,16 +351,16 @@ internal static class Int32Emitter
 
         static bool MatchesSignature(MethodDefinition method, IMethodSymbol symbol)
         {
-            if (!symbol.IsStatic || symbol.IsGenericMethod ||
-                !method.TryGetStaticValueSignature(out var metadata) ||
+            if (!symbol.IsStatic ||
+                !(method.TryGetStaticValueSignature(out var metadata) || method.TryGetStaticGenericValueSignature(out metadata)) ||
                 !CallableSignature.TryCreate(symbol, out var signature) ||
                 !IsImportedValue(signature.ReturnType) || !signature.ParameterTypes.All(IsImportedValue)) return false;
-            var expected = new MethodSignature(Map(signature.ReturnType), signature.ParameterTypes.Select(Map));
-            return metadata!.ReturnType == expected.ReturnType &&
+            var expected = new MethodSignature(Map(signature.ReturnType), signature.ParameterTypes.Select(Map), signature.GenericParameterNames);
+            return metadata!.GenericParameterNames.Count == expected.GenericParameterNames.Count && metadata.ReturnType == expected.ReturnType &&
                 metadata.ParameterTypes.SequenceEqual(expected.ParameterTypes);
 
-            static bool IsImportedValue(EmissionType type) => type.Primitive is not null ||
-                type.Array is { } array && CallableSignature.TryType(array.ElementType, false, out var element) && element.Primitive is not null;
+            static bool IsImportedValue(EmissionType type) => type.Primitive is not null || type.MethodParameter is not null ||
+                type.Array is { } array && CallableSignature.TryType(array.ElementType, false, out var element) && (element.Primitive is not null || element.MethodParameter is not null);
             static SignatureType Map(EmissionType type) => NeoClrTypeMapper.Map(type,
                 _ => throw new InvalidOperationException("imported nominal signatures require a separate contract"));
         }

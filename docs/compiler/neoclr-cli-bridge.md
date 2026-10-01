@@ -2674,3 +2674,37 @@ an incompatible overload snapshot without touching output. See
 [recorded validation](../../tools/NeoClrMetadataProbe/vector-library-validation.json).
 This is feature-branch evidence on codex/metadata-consumer and neoCLR
 codex/extended-cli-metadata; imported generic collections remain pending.
+
+## Imported static generic methods (2026-10-01)
+
+The target adapter now imports unconstrained static generic definitions on nongeneric
+owners and instantiates them with concrete primitive/vector arguments. It matches the
+original definition, generic arity and scoped parameter/result types using the shared
+CallableSignature model. Owned generic calls keep their existing path. The independent
+metadata API encodes standard CLI MethodSpec over MemberRef; native execution uses the
+existing generic call format. No binder, shared .NET codegen or runtime opcode changes.
+
+Runtime Contract configuration remains CompilationOptions.NeoCLR with the matching
+CLI declaration core and explicit dependency/core bindings. CLI MVAR/GenericParam is
+a temporary symbol-input representation; a future native semantic loader must retain
+scope and identity. Nominal arguments, generic owners, constraints and forwarding
+caller-scoped generic arguments remain outside this import contract. The metadata API
+owns decoding and substitution; Raven owns symbol mapping and capability checks.
+
+C# GenericLibraryChecks emits separate library/app binaries and verifies/runs them
+on neoCLR (42), checking concrete Int32/Int64/Boolean/String and array arguments,
+void calls, alias mutation and absent registration/declaration rejection. See
+[validation](../../tools/NeoClrMetadataProbe/generic-library-validation.json) for
+feature branches and tested core/runtime hashes. The metadata API's C# CLR test
+also resolves same-signature overloads by generic arity and executes a MethodSpec.
+
+Exploratory follow-up: when Raven declarations Choose<T>(T) and Choose<T,U>(T) differ
+only in generic arity, Choose<int>(7) reported RAV0121 against both candidates on the
+integration branch. The executable Raven probe uses different value-parameter counts;
+no binder workaround was added. Confirm the intended partial-type-inference rule and
+reproduce on main before treating this as a general compiler fix. Any independent fix
+belongs on the main-based fixes branch. This result does not establish a regression.
+
+Author direction remains .NET metadata as the baseline and a Cecil-like inspect,
+edit and create API. Bounded imports are implementation coverage, not a permanent
+alternative metadata model; arbitrary loaded-assembly editing is still open.

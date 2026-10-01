@@ -464,3 +464,14 @@ Checks static Int32/Int64/Boolean/String vector overloads, returned array aliasi
 mutation, void calls, iteration and transactional rejection of missing dependency
 bindings or incompatible vector overloads. No host core or CLI body importer is used.
 Symbols still use projected CLI declarations; nominal/generic imports remain deferred.
+
+### Imported generic library boundary
+
+Use `--generic-library-runtime <neoclr-root> <fresh-output> <neoclr-executable>` with
+the same NeoClrMetadataProject build property as the vector probe. The C# driver
+emits and runs a separate generic library/application using the native target profile.
+It checks primitive/vector substitutions, void calls, aliases and missing bindings or
+generic declarations without output writes. Method arity overloads in this Raven
+consumer also have different value-parameter counts; same-signature generic-arity
+resolution is covered separately by the metadata API tests. See the compiler bridge
+doc for the open Raven binding observation. Nominal/generic owners remain unsupported.
