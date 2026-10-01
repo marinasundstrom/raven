@@ -13,6 +13,7 @@ internal static class AdapterChecks
         var division = compile(source.Replace("value + 2", "value / 2"));
         var unsupported = Rejected(division, options, "NEOMETA001");
         var diagnostic = unsupported.Diagnostics.Single(d => d.Id == "NEOMETA001");
+        Check(diagnostic.GetMessage().Contains("target does not support instruction Divide"), "native instruction capability diagnostic");
         var location = diagnostic.Location;
         Check(location.IsInSource && ReferenceEquals(location.SourceTree, division.SyntaxTrees[0]), "unsupported source tree");
         Check(division.SyntaxTrees[0].GetRoot().ToFullString().Substring(location.SourceSpan.Start, location.SourceSpan.Length) == "value / 2", "unsupported expression span");

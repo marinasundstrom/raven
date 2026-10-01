@@ -166,6 +166,8 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     sharedSourceStaticTypePlans = true,
     partialStaticTypesBothFileOrders = true,
     stringSignaturesLocalsUnicodeAndImports = true,
+    nativeInstructionCapabilitiesRejectDivision = true,
+    nativeBodiesPreflightBeforeBuilders = true,
     sharedInt32LocalsAndAssignments = true,
     sharedComparisonsBranchesAndLoops = true,
     negatedComparisonsAndLoopExits = true,

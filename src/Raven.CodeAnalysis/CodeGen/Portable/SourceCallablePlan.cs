@@ -35,7 +35,7 @@ internal sealed record SourceCallablePlan(
         => builder.DefineMethod(emittedName ?? MetadataName, Signature);
 
     internal bool TryLowerBody(Compilation compilation, Func<BoundInvocationExpression, bool> permitsConsoleWrite,
-        out LinearMethodBody? body, out LinearBodyFailure? failure)
+        out LinearMethodBody? body, out LinearBodyFailure? failure, EmissionCapabilities capabilities)
     {
         if (Body is null)
         {
@@ -44,6 +44,6 @@ internal sealed record SourceCallablePlan(
             return false;
         }
         return LinearMethodBody.TryLower(Symbol, compilation.GetSemanticModel(Body.SyntaxTree), Body,
-            permitsConsoleWrite, out body, out failure);
+            permitsConsoleWrite, out body, out failure, capabilities);
     }
 }

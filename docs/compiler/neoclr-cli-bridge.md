@@ -1357,3 +1357,39 @@ The follow-up metadata Starg operation is not a new Raven source feature. Ordina
 parameters are immutable, and var/val modifiers outside primary-constructor promotion
 are rejected by the current binder. A stale parameter-spec paragraph was corrected
 to match those diagnostics. No compiler adapter or language workaround was added.
+
+## Backend capability admission — 2026-10-01
+
+The bounded planner now accepts an immutable, compiler-owned EmissionCapabilities
+contract. Backend adapters explicitly list their logical instructions and built-in
+types; newly added operations are not automatically enabled. Profiles are copied
+once and reused. Signature, call, local and expression types are checked, and a
+completed instruction plan is admitted before it is returned to a backend. Standalone
+planner tests can omit a profile to inspect target-independent lowering; production
+SourceCallablePlan body lowering requires an explicit profile.
+
+Signed Int32/Int64 division is the first asymmetric case: shared lowering models it,
+the .NET adapter selects standard div, and the native adapter reports NEOMETA001
+with the division expression's source location because its metadata writer does not
+yet expose that instruction. This restriction belongs to the current producer, not
+neoCLR's language/runtime semantics. General .NET fallback remains available for
+operations outside the planner; Debug/PDB keeps the existing generator. Native
+emission preflights every body before allocating assembly/type/method builders.
+Dependency binding and full writer validation still occur afterward, before output.
+
+This adds no Runtime Contract setting or public target API. Ordinary .NET remains
+the default and native emission still uses an explicit backend override with hosted
+primitive/projection binding. Source binding and metadata formats are unchanged.
+Console reference matching remains separate target-specific policy. General nominal
+types, fields, metadata category capabilities and coherent target composition remain
+open; this bounded contract is not a complete runtime feature inventory.
+
+The static profiles avoid rebuilding capability collections per method. Preflight
+retains all admitted native body plans until emission and adds instruction admission
+checks; its memory/time cost is not benchmarked. The recorded phase/allocation
+measurement remains necessary before claiming a performance improvement.
+
+Validation: 48 focused C# tests pass, including signed division results/faults,
+restricted profiles, selected-core types and ordinary fallback. The binary native
+probe and rvnc command pass; native division reports its capability rejection at the
+source expression and preserves output. Evidence: tools/NeoClrMetadataProbe/validation.json.

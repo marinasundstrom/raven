@@ -69,7 +69,14 @@ internal static class Int32Emitter
                 else throw Unsupported("only top-level functions and public static classes");
             }
         }
-        // Materialize definitions only after collecting and validating source declarations.
+        var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody Body)>();
+        foreach (var plan in plans)
+        {
+            if (!plan.TryLowerBody(compilation, IsConsoleCall, out var body, out var failure, NeoClrLinearMethodBuilder.Capabilities))
+                throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
+            prepared.Add((plan, body!));
+        }
+        // Materialize definitions only after all source declarations and body capabilities pass.
         // Every definition exists before reference resolution or method-body emission.
         var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);
         var functions = new NeoClrCallableDefinitionBuilder(assembly);
@@ -77,12 +84,12 @@ internal static class Int32Emitter
         var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly);
         foreach (var type in declaredTypes.Values)
             owners.Add(type.Symbol, new(assembly, type.Define(typeDefinitions)));
-        var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method)>();
-        foreach (var plan in plans)
+        var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method, LinearMethodBody Body)>();
+        foreach (var (plan, body) in prepared)
         {
             diagnosticSyntax = plan.Syntax;
             var owner = plan.IsAssemblyFunction ? functions : owners[plan.TypeOwner!];
-            methods.Add((plan, plan.Define(owner)));
+            methods.Add((plan, plan.Define(owner), body));
         }
         var references = new CallableReferenceTable<NeoClrCallableReference>(target =>
         {
@@ -102,9 +109,7 @@ internal static class Int32Emitter
         foreach (var current in methods)
         {
             diagnosticSyntax = current.Plan.Syntax;
-            if (!current.Plan.TryLowerBody(compilation, IsConsoleCall, out var lowered, out var failure))
-                throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
-            lowered!.Emit(new NeoClrLinearMethodBuilder(current.Method, (instruction, output) =>
+            current.Body.Emit(new NeoClrLinearMethodBuilder(current.Method, (instruction, output) =>
             {
                 diagnosticSyntax = instruction.Syntax;
                 references.Resolve(instruction.Method!).EmitCall(output);

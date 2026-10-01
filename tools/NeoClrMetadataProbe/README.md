@@ -252,3 +252,7 @@ Both .NET execution and native binary loading must return 42.
 String coverage includes computed Unicode console output, String locals/results,
 branch returns and a separately compiled native String overload. The driver also
 compiles text helpers and imports a String method from its native library.
+
+Capability checks now require native division rejection to identify the unsupported
+logical instruction at its source expression. Successful native cases are preflighted
+before metadata builder allocation and still verify/run from binary assemblies.

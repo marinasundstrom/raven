@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Add backend-owned instruction/type capability profiles to shared
+  body planning. The .NET profile admits signed division while the native profile
+  rejects it with a source diagnostic; native bodies now pass capability checks before
+  metadata builder allocation. Keep ordinary .NET fallback and native output contracts.
+
 - **2026-10-01:** Correct stale parameter documentation: ordinary by-value parameters
   remain immutable and do not accept var/val. Record the shared target-neutral emission
   direction, CLI compatibility gap and deferred phase/allocation performance measurements;

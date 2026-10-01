@@ -236,8 +236,8 @@ public class SharedLinearBodyTests
     {
         const string source = """
             public static class Arithmetic {
-                public static func Divide(value: int) -> int {
-                    return (value + 2) / 2
+                public static func Remainder(value: int) -> int {
+                    return (value + 2) % 100
                 }
             }
             """;
@@ -248,8 +248,8 @@ public class SharedLinearBodyTests
             model, method.Body!, _ => false, out var lowered, out var failure));
         Assert.Null(lowered);
         Assert.NotNull(failure);
-        Assert.Equal("(value + 2) / 2", failure.Syntax.ToString());
-        Assert.Equal(42, Emit(compilation).GetType("Arithmetic")!.GetMethod("Divide")!.Invoke(null, [82]));
+        Assert.Equal("(value + 2) % 100", failure.Syntax.ToString());
+        Assert.Equal(42, Emit(compilation).GetType("Arithmetic")!.GetMethod("Remainder")!.Invoke(null, [40]));
     }
 
     [Theory]
