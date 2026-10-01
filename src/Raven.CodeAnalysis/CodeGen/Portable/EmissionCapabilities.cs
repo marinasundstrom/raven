@@ -14,7 +14,7 @@ internal sealed class EmissionCapabilities(
     IEnumerable<Accessibility>? typeVisibilities = null,
     IEnumerable<Accessibility>? methodVisibilities = null,
     IEnumerable<Accessibility>? functionVisibilities = null,
-    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false)
+    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false)
 {
     private readonly ImmutableHashSet<EmissionPrimitiveType> types = types.ToImmutableHashSet();
     private readonly ImmutableHashSet<LinearInstructionKind> instructions = instructions.ToImmutableHashSet();
@@ -26,6 +26,8 @@ internal sealed class EmissionCapabilities(
     private readonly ImmutableHashSet<Accessibility> methodVisibilities = (methodVisibilities ?? []).ToImmutableHashSet();
 
     private readonly ImmutableHashSet<Accessibility> functionVisibilities = (functionVisibilities ?? []).ToImmutableHashSet();
+
+    internal bool AllowsGenericInstanceMethods { get; } = allowsGenericInstanceMethods;
 
     internal bool AllowsGenericMethods { get; } = allowsGenericMethods;
 
@@ -44,7 +46,7 @@ internal sealed class EmissionCapabilities(
     internal bool Allows(EmissionType type) => type.Primitive is { } p ? Allows(p) : type.Array is { } array
         ? AllowsArrays && CallableSignature.TryType(array.ElementType, false, out var element) && Allows(element)
         : type.MethodParameter is not null ? AllowsGenericMethods : type.Class is not null && AllowsRootClassSignatures;
-    internal bool Allows(CallableSignature signature) => (signature.GenericParameterNames.IsDefaultOrEmpty || AllowsGenericMethods) && Allows(signature.ReturnType) && signature.ParameterTypes.All(Allows);
+    internal bool Allows(CallableSignature signature) => (signature.GenericParameterNames.IsDefaultOrEmpty || AllowsGenericMethods && (!signature.IsInstance || AllowsGenericInstanceMethods)) && Allows(signature.ReturnType) && signature.ParameterTypes.All(Allows);
     internal bool Allows(PrimitiveCallableSignature signature)
         => Allows(signature.ReturnType) && signature.ParameterTypes.All(Allows);
 }

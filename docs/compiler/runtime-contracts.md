@@ -2965,3 +2965,18 @@ source diagnostics and no output. [Generic execution evidence](../../tools/NeoCl
 records runtime/source hashes and both source orders; the full original collection
 consumer is not yet supported. Validation: 46 focused shared-generic, shared-linear and
 reference-emission C# cases; metadata/native validation is recorded in neoCLR.
+
+### Generic instance receivers (2026-10-01 development)
+
+The shared callable contract now records instance ownership and separately admits
+instance generics through `AllowsGenericInstanceMethods`. Both adapters opt into
+ordinary unconstrained generic methods on owned root classes; existing receiver-first
+body/call emission handles slot zero independently from method parameter ordinals.
+Generic locals and forwarding preserve receiver mutation and object identity on .NET
+and neoCLR. No Runtime Contract option is added. Native virtual generic dispatch,
+generic owners, constraints and external generic references remain unsupported.
+The PE/#Neo bridge carries ordinary instance calls with explicit generic arguments;
+CLI uses standard MethodSpec. Use matching neoCLR producer/runtime commit `6a7a0dd2`
+on `codex/extended-cli-metadata`. Raven integration remains on `codex/metadata-consumer`.
+Focused C# Release/Debug shared-plan tests and the binary generic Order consumer pass
+on both runtimes in both source orders. General native symbol importing remains deferred.

@@ -70,4 +70,45 @@ public class SharedGenericBodyTests
         Assert.False(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, noArrays));
         Assert.Contains("call signature", failure!.Detail);
     }
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void GenericInstanceBodiesShareReceiverAndParameterPlanning(OptimizationLevel optimization)
+    {
+        var tree = SyntaxTree.ParseText("""
+            class Receiver {
+                private var number: int = 0
+                func Remember<T>(value: T, next: int) -> T {
+                    number = next
+                    let copy = value
+                    return copy
+                }
+                func Forward<U>(value: U, next: int) -> U => Remember<U>(value, next)
+                val Number: int => number
+            }
+            func Main() -> int {
+                let receiver = Receiver()
+                let alias = receiver.Forward(receiver, 42)
+                return alias.Number
+            }
+            """);
+        var compilation = Compilation.Create("GenericReceivers", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+        {
+            var method = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+            Assert.True(SourceCallablePlan.TryCreate(method, out var plan, ReflectionEmitCapabilities.Shared));
+            Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+            var staticGenericsOnly = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+                Enum.GetValues<EmissionDeclarationKind>(), [Accessibility.Internal, Accessibility.Public],
+                [Accessibility.Public], [Accessibility.Internal], allowsGenericMethods: true);
+            Assert.False(plan.IsSupportedBy(staticGenericsOnly));
+        }
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Equal(42, Assembly.Load(image.ToArray()).EntryPoint!.Invoke(null, null));
+    }
 }

@@ -116,7 +116,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
 
         bool LowerBody(BoundBlockStatement body)
         {
-            if (!CallableSignature.TryCreate(source, out var signature)) return Reject("only supported value signatures and unconstrained static generics (Unit only as result)", bodySyntax);
+            if (!CallableSignature.TryCreate(source, out var signature)) return Reject("only supported value signatures and unconstrained generics (Unit only as result)", bodySyntax);
             if (capabilities is not null && !capabilities.Allows(signature))
                 return Reject("target does not support callable signature types", bodySyntax);
             if (!body.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(body));
@@ -500,7 +500,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundInvocationExpression call when call.ExtensionReceiver is null &&
                     (call.Method.IsStatic && call.Receiver is null or BoundTypeExpression ||
                      call.Method.MethodKind == MethodKind.Ordinary && SupportedInstanceCall(call.Method)):
-                    if (!CallableSignature.TryCreate(call.Method, out var callSignature)) return Reject("only supported value signatures and unconstrained static generics (Unit only as result): " + call.Method.Name, Syntax(expression));
+                    if (!CallableSignature.TryCreate(call.Method, out var callSignature)) return Reject("only supported value signatures and unconstrained generics (Unit only as result): " + call.Method.Name, Syntax(expression));
                     if (capabilities is not null && (!capabilities.Allows(callSignature) ||
                         call.Method.TypeArguments.Any(t => !CallableSignature.TryType(t, false, out var argumentType) || !capabilities.Allows(argumentType))))
                         return Reject("target does not support call signature types", Syntax(expression));

@@ -23,5 +23,5 @@ internal static class ReflectionEmitCapabilities
         [Accessibility.Public, Accessibility.Internal],
         [Accessibility.Public, Accessibility.Internal, Accessibility.Private, Accessibility.ProtectedAndProtected,
             Accessibility.ProtectedOrInternal, Accessibility.ProtectedAndInternal],
-        [Accessibility.Public, Accessibility.Internal, Accessibility.Private], allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsArrays: true, allowsGenericMethods: true);
+        [Accessibility.Public, Accessibility.Internal, Accessibility.Private], allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsArrays: true, allowsGenericMethods: true, allowsGenericInstanceMethods: true);
 }

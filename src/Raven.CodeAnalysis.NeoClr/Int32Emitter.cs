@@ -188,7 +188,7 @@ internal static class Int32Emitter
             if (target.IsGenericMethod)
             {
                 if (!definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
-                    throw Unsupported("only owned generic static calls");
+                    throw Unsupported("only owned generic calls");
                 return NeoClrCallableReference.Create(definition.MakeGenericInstance(target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])).ToArray()));
             }
             var systemFunction = ImportSystem(target);
