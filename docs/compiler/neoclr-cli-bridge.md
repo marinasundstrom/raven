@@ -2708,3 +2708,32 @@ belongs on the main-based fixes branch. This result does not establish a regress
 Author direction remains .NET metadata as the baseline and a Cecil-like inspect,
 edit and create API. Bounded imports are implementation coverage, not a permanent
 alternative metadata model; arbitrary loaded-assembly editing is still open.
+
+## Raven external reference signatures (2026-10-01)
+
+Raven's neoCLR adapter now opts into imported public top-level class/interface
+signatures through an explicit shared capability. The default .NET portable admission
+is unchanged. The adapter resolves symbols against registered dependency snapshots,
+checks definition name/arity, and uses the independent metadata API's external type
+references. Repeated definitions are cached for the emission. Standard CLI TypeRef,
+GENERICINST and TypeSpec shape and native dependency scope are preserved.
+
+Configuration remains CompilationOptions.NeoCLR, a matching projected declaration
+core and explicit NeoClrMetadataDependency registrations. This supports signatures,
+nullable reference locals/defaults, interface arrays and owned method-generic forwarding
+with external constructions. The C# --external-signature-runtime probe produces a Raven
+library and consumer; neoCLR verifies both and returns 42. Missing bindings or missing
+snapshot types reject without modifying the output. No Runtime Contract change.
+
+This is tested on codex/metadata-consumer with codex/extended-cli-metadata (7f084f4c),
+not a published runtime capability. The unchanged collections sample now passes
+Register declaration admission and stops at PendingOrder's Option<Order> return
+contract; its ordinary CLI control still emits. Imported value/union types, external
+constructors/member calls and translated-System origin-to-native identity mapping
+remain open. Synthetic CLI core identity is not native implementation identity.
+The temporary CLI symbol source must eventually be replaced by native metadata loading.
+
+See [probe evidence](../../tools/NeoClrMetadataProbe/external-signature-validation.json).
+
+Validation for this slice: 20 focused C# capability/nominal tests pass, including
+Debug/Release ordinary .NET execution; native probe verify/run returns 42.

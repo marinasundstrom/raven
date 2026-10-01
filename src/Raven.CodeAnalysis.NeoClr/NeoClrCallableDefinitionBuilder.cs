@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.CodeGen.Portable;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, TypeBuilder? owner = null, Func<INamedTypeSymbol, TypeBuilder>? resolveClass = null)
+internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, TypeBuilder? owner = null, Func<INamedTypeSymbol, TypeBuilder>? resolveClass = null, Func<INamedTypeSymbol, SignatureType>? resolveExternal = null)
     : ICallableDefinitionBuilder<MethodBuilder>
 {
     public MethodBuilder DefineMethod(string metadataName, SourceCallablePlan plan)
@@ -24,7 +24,7 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
     }
     private MethodSignature ToOwnedMetadata(CallableSignature signature)
     {
-        SignatureType Map(EmissionType type) => NeoClrTypeMapper.Map(type, resolveClass!);
+        SignatureType Map(EmissionType type) => NeoClrTypeMapper.Map(type, resolveClass!, resolveExternal);
         return new(Map(signature.ReturnType), signature.ParameterTypes.Select(Map), signature.GenericParameterNames.IsDefault ? [] : signature.GenericParameterNames);
     }
     internal static PrimitiveMethodSignature ToMetadata(PrimitiveCallableSignature signature)

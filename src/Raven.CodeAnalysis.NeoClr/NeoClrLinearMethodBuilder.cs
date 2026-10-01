@@ -7,22 +7,22 @@ namespace Raven.CodeAnalysis.NeoClr;
 // Native handles stay in this adapter. Symbol-to-native call mapping is owned by the
 // enclosing assembly emission, including explicit dependency and System bindings.
 internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
-    Action<LinearInstruction, MethodBuilder> emitCall, Func<IFieldSymbol, NeoClrFieldReference>? resolveField = null, Func<INamedTypeSymbol, TypeBuilder>? resolveType = null) : ILinearMethodBuilder
+    Action<LinearInstruction, MethodBuilder> emitCall, Func<IFieldSymbol, NeoClrFieldReference>? resolveField = null, Func<INamedTypeSymbol, TypeBuilder>? resolveType = null, Func<INamedTypeSymbol, SignatureType>? resolveExternal = null) : ILinearMethodBuilder
 {
     private readonly List<BranchLabel> labels = [];
     public void DefineLabel() => labels.Add(method.DefineLabel());
 
-    public void DeclareLocal(EmissionType type) => method.DeclareLocal(NeoClrTypeMapper.Map(type, resolveType!));
+    public void DeclareLocal(EmissionType type) => method.DeclareLocal(NeoClrTypeMapper.Map(type, resolveType!, resolveExternal));
 
     public void Emit(LinearInstruction instruction)
     {
         switch (instruction.Kind)
         {
-            case LinearInstructionKind.DefaultValue: method.LoadDefault(NeoClrTypeMapper.Map(instruction.Type!, resolveType!)); break;
+            case LinearInstructionKind.DefaultValue: method.LoadDefault(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
             case LinearInstructionKind.Duplicate: method.Duplicate(); break;
-            case LinearInstructionKind.NewArray: method.NewArray(NeoClrTypeMapper.Map(instruction.Type!, resolveType!)); break;
-            case LinearInstructionKind.LoadElement: method.LoadArrayElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!)); break;
-            case LinearInstructionKind.StoreElement: method.StoreArrayElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!)); break;
+            case LinearInstructionKind.NewArray: method.NewArray(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
+            case LinearInstructionKind.LoadElement: method.LoadArrayElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
+            case LinearInstructionKind.StoreElement: method.StoreArrayElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
             case LinearInstructionKind.ArrayLength: method.LoadArrayLength(); break;
             case LinearInstructionKind.Receiver: method.LoadArgument(0); break;
             case LinearInstructionKind.LoadField: resolveField!(instruction.Field!).Emit(method, false); break;

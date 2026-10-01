@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Opt the neoCLR target into external reference signatures and map registered dependency types through the separate metadata API. Raven-produced library/consumer binaries verify and return 42 with external generic signatures, nullable locals, interface arrays and generic forwarding. Missing dependencies/types reject without output. Default .NET admission remains unchanged. Collections now reaches the unsupported PendingOrder Option<Order> signature; imported members and translated-System mappings remain open.
+
 - **2026-10-01:** Emit imported unconstrained static generic calls with concrete primitive/vector arguments through the independent metadata API. A separate native-profile library/application pair verifies and returns 42, including alias mutation and missing-contract rejection. Standard MethodSpec/MemberRef shape is retained; nominal/generic owners and constrained imports remain unsupported. No shared .NET codegen changes.
 
 - **2026-10-01:** Match imported static primitive-vector signatures through the shared callable contract for direct neoCLR emission. A separately emitted native-profile library/application pair verifies and returns 42, exercising four array overloads, alias mutation and void calls. Missing bindings or mismatched vector signatures reject without writing output; nominal/generic dependencies remain unsupported. Default .NET codegen is unchanged.

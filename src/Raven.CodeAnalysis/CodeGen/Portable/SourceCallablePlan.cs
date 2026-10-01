@@ -34,7 +34,7 @@ internal sealed record SourceCallablePlan(
     {
         plan = null;
         if (symbol.IsExtern ||
-            !CallableSignature.TryCreate(symbol, out var signature)) return false;
+            !CallableSignature.TryCreate(symbol, out var signature, capabilities)) return false;
         if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet) || symbol.IsVirtual || symbol.IsOverride || symbol.IsAbstract ||
             symbol.ContainingType is not { } receiver || !SourceTypePlan.TryCreate(receiver, out _))) return false;
         if (symbol.ContainingSymbol is SourcePropertySymbol { IsAutoProperty: true, IsStatic: false, BackingField: { } } property &&

@@ -157,12 +157,31 @@ internal static class Int32Emitter
         var owners = new Dictionary<INamedTypeSymbol, NeoClrCallableDefinitionBuilder>(SymbolEqualityComparer.Default);
         var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly);
         var nativeTypes = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
-        var functions = new NeoClrCallableDefinitionBuilder(assembly, resolveClass: type => nativeTypes[type]);
+        var importedTypes = new Dictionary<INamedTypeSymbol, ImportedTypeReference>(SymbolEqualityComparer.Default);
+        SignatureType ImportExternalType(INamedTypeSymbol type)
+        {
+            var original = (INamedTypeSymbol)type.OriginalDefinition;
+            if (!importedTypes.TryGetValue(original, out var imported))
+            {
+                var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, original.ContainingAssembly)).Dependency
+                    ?? throw Unsupported("unregistered dependency type: " + original.ToDisplayString());
+                var name = original.ToFullyQualifiedMetadataName();
+                var candidates = binding.Definition.MainModule.Types.Where(t => t.DeclaringType is null &&
+                    (t.Namespace.Length == 0 ? t.Name : t.Namespace + "." + t.Name) == name).Take(2).ToArray();
+                if (candidates.Length != 1 || candidates[0].GenericArity != original.Arity)
+                    throw Unsupported("dependency type unavailable or ambiguous: " + name);
+                imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
+                importedTypes.Add(original, imported);
+            }
+            return imported.GenericArity == 0 ? imported : imported.MakeGenericInstance(type.TypeArguments
+                .Select(t => NeoClrTypeMapper.Map(t, owned => nativeTypes[owned], ImportExternalType)).ToArray());
+        }
+        var functions = new NeoClrCallableDefinitionBuilder(assembly, resolveClass: type => nativeTypes[type], resolveExternal: ImportExternalType);
         foreach (var type in declaredTypes.Values)
         {
             var definition = type.Define(typeDefinitions);
             nativeTypes.Add(type.Symbol, definition);
-            owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type]));
+            owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type], ImportExternalType));
         }
         var nativeInterfaces = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
         foreach (var contract in interfaces)
@@ -185,11 +204,11 @@ internal static class Int32Emitter
             var contractMethods = new Dictionary<IMethodSymbol, MetadataMethod>(SymbolEqualityComparer.Default);
             foreach (var method in contract.Methods)
                 contractMethods.Add(method.Symbol, definition.AddInterfaceMethod(method.Symbol.MetadataName, new MethodSignature(
-                    NeoClrTypeMapper.Map(method.Signature.ReturnType, type => nativeTypes[type]),
-                    method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])))));
+                    NeoClrTypeMapper.Map(method.Signature.ReturnType, type => nativeTypes[type], ImportExternalType),
+                    method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)))));
             foreach (var pair in contractMethods) interfaceMethods.Add(pair.Key, pair.Value);
             foreach (var property in contract.Properties)
-                definition.AddProperty(property.Symbol.MetadataName, NeoClrTypeMapper.Map(property.Type, type => nativeTypes[type]),
+                definition.AddProperty(property.Symbol.MetadataName, NeoClrTypeMapper.Map(property.Type, type => nativeTypes[type], ImportExternalType),
                     property.Symbol.GetMethod is { } get ? contractMethods[get] : null,
                     property.Symbol.SetMethod is { } set ? contractMethods[set] : null);
         }
@@ -211,7 +230,7 @@ internal static class Int32Emitter
         foreach (var field in storageFields)
         {
             CallableSignature.TryType(field.Type, false, out var fieldType);
-            var storageType = NeoClrTypeMapper.Map(fieldType, type => nativeTypes[type]);
+            var storageType = NeoClrTypeMapper.Map(fieldType, type => nativeTypes[type], ImportExternalType);
             fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, storageType, field.DeclaredAccessibility switch
             {
                 Accessibility.Public => FieldVisibility.Public,
@@ -231,7 +250,7 @@ internal static class Int32Emitter
         foreach (var property in properties)
         {
             CallableSignature.TryType(property.Type, false, out var propertyType);
-            var valueType = NeoClrTypeMapper.Map(propertyType, type => nativeTypes[type]);
+            var valueType = NeoClrTypeMapper.Map(propertyType, type => nativeTypes[type], ImportExternalType);
             nativeTypes[property.ContainingType!].AddProperty(property.MetadataName, valueType,
                 property.GetMethod is null ? null : definedMethods[property.GetMethod], property.SetMethod is null ? null : definedMethods[property.SetMethod]);
         }
@@ -242,13 +261,13 @@ internal static class Int32Emitter
                 if (!definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
                     throw Unsupported("only owned generic type calls");
                 return NeoClrCallableReference.Create(definition.MakeConstructedReference(
-                    owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])),
-                    target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type]))));
+                    owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)),
+                    target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType))));
             }
             if (target.IsGenericMethod)
             {
                 if (definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
-                    return NeoClrCallableReference.Create(definition.MakeGenericInstance(target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])).ToArray()));
+                    return NeoClrCallableReference.Create(definition.MakeGenericInstance(target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
                 var arguments = new List<SignatureType>();
                 foreach (var argument in target.TypeArguments)
                 {
@@ -292,10 +311,10 @@ internal static class Int32Emitter
             {
                 if (fields.TryGetValue(field, out var definition)) return new NeoClrFieldReference(definition);
                 if (field is SubstitutedFieldSymbol substituted && field.ContainingType is { Arity: > 0 } owner && fields.TryGetValue(substituted.OriginalField, out definition))
-                    return new NeoClrFieldReference(definition, definition.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])).ToArray()));
+                    return new NeoClrFieldReference(definition, definition.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
                 throw Unsupported("undeclared instance field");
             },
-                type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local")));
+                type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local"), ImportExternalType));
         }
         return assembly.WriteNativeAssembly();
 
@@ -370,7 +389,7 @@ internal static class Int32Emitter
         SourceCallablePlan GetPlan(IMethodSymbol method)
         {
             if (!SourceCallablePlan.TryCreate(method, out var plan, NeoClrCapabilities.Shared))
-                throw Unsupported("only nongeneric primitive or owned root-class parameters/results (Unit only as result): " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
+                throw Unsupported("callable declaration: " + method.ToDisplayString());
             return plan!;
         }
     }
