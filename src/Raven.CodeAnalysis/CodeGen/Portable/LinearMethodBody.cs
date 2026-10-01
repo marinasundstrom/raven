@@ -8,15 +8,14 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, NewObject }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate }
 
 internal readonly record struct LinearInstruction(
-    LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null);
+    LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
 
 internal interface ILinearMethodBuilder
 {
-    void DeclareLocal(EmissionPrimitiveType type);
-    void DeclareLocal(INamedTypeSymbol type);
+    void DeclareLocal(EmissionType type);
     void DefineLabel();
     void Emit(LinearInstruction instruction);
 }
@@ -24,7 +23,7 @@ internal interface ILinearMethodBuilder
 internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
 // Logical value types carry compiler identity, never backend handles.
-internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Class = null);
+internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Class = null, IArrayTypeSymbol? Array = null);
 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
@@ -34,10 +33,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
     internal void Emit(ILinearMethodBuilder builder)
     {
         foreach (var type in localTypes)
-        {
-            if (type.Primitive is { } primitive) builder.DeclareLocal(primitive);
-            else builder.DeclareLocal(type.Class!);
-        }
+            builder.DeclareLocal(type);
         for (var i = 0; i < labelCount; i++) builder.DefineLabel();
         foreach (var instruction in instructions) builder.Emit(instruction);
     }
@@ -187,6 +183,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         }
                         else if (variable.Local.Type is INamedTypeSymbol nominal && SourceTypePlan.TryCreate(nominal, out var typePlan) && !typePlan!.IsStatic && capabilities?.AllowsRootClassLocals == true)
                             localType = new(Class: nominal);
+                        else if (variable.Local.Type is IArrayTypeSymbol && CallableSignature.TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
+                            localType = arrayType;
                         else return Reject("target does not support local type " + variable.Local.Type.Name, Syntax(variable));
                         if (!LowerValue(variable.Initializer)) return false;
                         var slot = locals.Count;
@@ -202,6 +200,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     BoundExpressionStatement { Expression: BoundAssignmentExpression expression } => expression,
                     _ => null
                 };
+                if (memberAssignment is BoundArrayAssignmentExpression arrayAssignment)
+                {
+                    if (!ArrayReceiverAndIndex(arrayAssignment.Left) || !LowerValue(arrayAssignment.Right)) return false;
+                    instructions.Add(new(LinearInstructionKind.StoreElement, Syntax(statement), Type: arrayAssignment.Left.ElementType));
+                    continue;
+                }
                 if (memberAssignment is BoundFieldAssignmentExpression fieldAssignment)
                 {
                     if (fieldAssignment.RequiresReceiverAddress || !SupportedField(fieldAssignment.Field) ||
@@ -285,12 +289,47 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             Add(LinearInstructionKind.Receiver, syntax); return true;
         }
 
+        bool SupportedArray(ITypeSymbol type) => type is IArrayTypeSymbol && CallableSignature.TryType(type, false, out var array) &&
+            (capabilities is null || capabilities.Allows(array));
+        bool ArrayReceiverAndIndex(BoundArrayAccessExpression access)
+        {
+            var indices = access.Indices.ToArray();
+            if (!SupportedArray(access.Receiver.Type) || indices.Length != 1 || indices[0].Type.SpecialType != SpecialType.System_Int32)
+                return Reject("only supported vectors with an Int32 index", Syntax(access));
+            return LowerValue(access.Receiver) && LowerValue(indices[0]);
+        }
+        bool ArrayLiteral(IArrayTypeSymbol type, IEnumerable<BoundExpression> values, SyntaxNode syntax)
+        {
+            var elements = values.ToArray();
+            if (elements.Any(e => e is BoundSpreadElement or BoundCollectionComprehensionExpression))
+                return Reject("array spreads/comprehensions", syntax);
+            Add(LinearInstructionKind.Constant, syntax, elements.Length);
+            instructions.Add(new(LinearInstructionKind.NewArray, syntax, Type: type.ElementType));
+            for (int i = 0; i < elements.Length; i++)
+            {
+                Add(LinearInstructionKind.Duplicate, syntax);
+                Add(LinearInstructionKind.Constant, syntax, i);
+                if (!LowerValue(elements[i])) return false;
+                instructions.Add(new(LinearInstructionKind.StoreElement, syntax, Type: type.ElementType));
+            }
+            return true;
+        }
         bool LowerValue(BoundExpression expression)
         {
             if (capabilities is not null && EmissionPrimitiveTypes.TryGetValueType(expression.Type, out var valueType) && !capabilities.Allows(valueType))
                 return Reject("target does not support value type " + valueType, Syntax(expression));
             switch (expression)
             {
+                case BoundCollectionExpression collection when SupportedArray(collection.Type):
+                    return ArrayLiteral((IArrayTypeSymbol)collection.Type, collection.Elements, Syntax(expression));
+                case BoundEmptyCollectionExpression empty when SupportedArray(empty.Type):
+                    return ArrayLiteral((IArrayTypeSymbol)empty.Type, [], Syntax(expression));
+                case BoundArrayAccessExpression access:
+                    if (!ArrayReceiverAndIndex(access)) return false;
+                    instructions.Add(new(LinearInstructionKind.LoadElement, Syntax(expression), Type: access.ElementType)); return true;
+                case BoundMemberAccessExpression { Member: IPropertySymbol { Name: "Length", ContainingType.SpecialType: SpecialType.System_Array } } length when SupportedArray(length.Receiver.Type):
+                    if (!LowerValue(length.Receiver)) return false;
+                    Add(LinearInstructionKind.ArrayLength, Syntax(expression)); return true;
                 case BoundBlockExpression block:
                     if (!block.LocalsToDispose.IsEmpty) return Reject("value block scope disposal", Syntax(block));
                     var statements = block.Statements.ToImmutableArray();

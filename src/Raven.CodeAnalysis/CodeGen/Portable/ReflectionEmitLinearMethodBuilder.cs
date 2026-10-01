@@ -17,9 +17,8 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
     private readonly IEmissionTypeMapper<Type> types = new ReflectionEmitTypeMapper(
         type => method.ResolveClrType(method.Compilation.GetSpecialType(type)));
 
-    public void DeclareLocal(INamedTypeSymbol type) => locals.Add(output.DeclareLocal(method.ResolveClrType(type)));
-
-    public void DeclareLocal(EmissionPrimitiveType type) => locals.Add(output.DeclareLocal(types.Map(type)));
+    public void DeclareLocal(EmissionType type) => locals.Add(output.DeclareLocal(type.Primitive is { } p ? types.Map(p)
+        : method.ResolveClrType((ITypeSymbol?)type.Array ?? type.Class!)));
 
     internal static bool TryEmit(MethodGenerator method)
     {
@@ -58,6 +57,11 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.Duplicate: output.Emit(OpCodes.Dup); break;
+            case LinearInstructionKind.NewArray: output.Emit(OpCodes.Newarr, method.ResolveClrType(instruction.Type!)); break;
+            case LinearInstructionKind.LoadElement: output.Emit(OpCodes.Ldelem, method.ResolveClrType(instruction.Type!)); break;
+            case LinearInstructionKind.StoreElement: output.Emit(OpCodes.Stelem, method.ResolveClrType(instruction.Type!)); break;
+            case LinearInstructionKind.ArrayLength: output.Emit(OpCodes.Ldlen); output.Emit(OpCodes.Conv_I4); break;
             case LinearInstructionKind.NewObject: output.Emit(OpCodes.Newobj, method.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetConstructorInfo(instruction.Method!)); break;
             case LinearInstructionKind.Receiver: output.Emit(OpCodes.Ldarg_0); break;
             case LinearInstructionKind.LoadField: output.Emit(OpCodes.Ldfld, method.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(instruction.Field!)); break;

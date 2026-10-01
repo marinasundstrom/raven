@@ -12,14 +12,17 @@ internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
     private readonly List<BranchLabel> labels = [];
     public void DefineLabel() => labels.Add(method.DefineLabel());
 
-    public void DeclareLocal(INamedTypeSymbol type) => method.DeclareLocal(resolveType!(type));
-
-    public void DeclareLocal(EmissionPrimitiveType type) => method.DeclareLocal(NeoClrTypeMapper.Instance.Map(type));
+    public void DeclareLocal(EmissionType type) => method.DeclareLocal(NeoClrTypeMapper.Map(type, resolveType!));
 
     public void Emit(LinearInstruction instruction)
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.Duplicate: method.Duplicate(); break;
+            case LinearInstructionKind.NewArray: method.NewArray(NeoClrTypeMapper.Map(instruction.Type!, resolveType!)); break;
+            case LinearInstructionKind.LoadElement: method.LoadArrayElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!)); break;
+            case LinearInstructionKind.StoreElement: method.StoreArrayElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!)); break;
+            case LinearInstructionKind.ArrayLength: method.LoadArrayLength(); break;
             case LinearInstructionKind.Receiver: method.LoadArgument(0); break;
             case LinearInstructionKind.LoadField: method.LoadField(resolveField!(instruction.Field!)); break;
             case LinearInstructionKind.StoreField: method.StoreField(resolveField!(instruction.Field!)); break;

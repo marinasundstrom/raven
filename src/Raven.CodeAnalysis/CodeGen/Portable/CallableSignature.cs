@@ -15,6 +15,8 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(Primitive: primitive); return true; }
         if (type is INamedTypeSymbol named && SourceTypePlan.TryCreate(named, out var plan) && !plan!.IsStatic)
         { value = new(Class: named); return true; }
+        if (type is IArrayTypeSymbol { Rank: 1, ElementType: not IArrayTypeSymbol } array && TryType(array.ElementType, false, out _))
+        { value = new(Array: array); return true; }
         return false;
     }
     internal static bool TryCreate(IMethodSymbol method, out CallableSignature signature)

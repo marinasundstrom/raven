@@ -16,11 +16,12 @@ internal static class ReflectionEmitCapabilities
             LinearInstructionKind.Constant64, LinearInstructionKind.Convert64, LinearInstructionKind.Convert32,
             LinearInstructionKind.Negate, LinearInstructionKind.Complement, LinearInstructionKind.Divide, LinearInstructionKind.Remainder,
             LinearInstructionKind.BitwiseAnd, LinearInstructionKind.BitwiseOr, LinearInstructionKind.BitwiseXor,
-            LinearInstructionKind.ShiftLeft, LinearInstructionKind.ShiftRight, LinearInstructionKind.Receiver, LinearInstructionKind.LoadField, LinearInstructionKind.StoreField, LinearInstructionKind.InstanceCall, LinearInstructionKind.NewObject
+            LinearInstructionKind.ShiftLeft, LinearInstructionKind.ShiftRight, LinearInstructionKind.Receiver, LinearInstructionKind.LoadField, LinearInstructionKind.StoreField, LinearInstructionKind.InstanceCall, LinearInstructionKind.NewObject,
+            LinearInstructionKind.NewArray, LinearInstructionKind.LoadElement, LinearInstructionKind.StoreElement, LinearInstructionKind.ArrayLength, LinearInstructionKind.Duplicate
         ],
         [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.NamespacedAssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType, EmissionDeclarationKind.RootClass, EmissionDeclarationKind.InstanceMethod, EmissionDeclarationKind.PropertyAccessor],
         [Accessibility.Public, Accessibility.Internal],
         [Accessibility.Public, Accessibility.Internal, Accessibility.Private, Accessibility.ProtectedAndProtected,
             Accessibility.ProtectedOrInternal, Accessibility.ProtectedAndInternal],
-        [Accessibility.Public, Accessibility.Internal, Accessibility.Private], allowsRootClassLocals: true, allowsRootClassSignatures: true);
+        [Accessibility.Public, Accessibility.Internal, Accessibility.Private], allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsArrays: true);
 }

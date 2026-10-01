@@ -10,7 +10,16 @@ internal sealed class ReflectionEmitCallableDefinitionBuilder(TypeBuilder owner,
 
     public MethodBuilder DefineMethod(string metadataName, SourceCallablePlan plan)
     {
-        Type Map(EmissionType type) => type.Primitive is { } p ? types.Map(p) : resolveClass(type.Class!);
+        Type Map(EmissionType type)
+        {
+            if (type.Primitive is { } p) return types.Map(p);
+            if (type.Array is { } array)
+            {
+                CallableSignature.TryType(array.ElementType, false, out var element);
+                return Map(element).MakeArrayType();
+            }
+            return resolveClass(type.Class!);
+        }
         var result = Map(plan.Signature.ReturnType);
         var parameters = plan.Signature.ParameterTypes.Select(Map).ToArray();
         // Attributes already include source access and the CLI carrier/lifted-method policy.

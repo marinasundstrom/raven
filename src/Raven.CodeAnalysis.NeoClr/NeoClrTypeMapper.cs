@@ -8,6 +8,23 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
 {
     internal static IEmissionTypeMapper<PrimitiveType> Instance { get; } = new NeoClrTypeMapper();
 
+    internal static SignatureType Map(EmissionType type, Func<INamedTypeSymbol, TypeBuilder> resolveClass)
+    {
+        if (type.Primitive is { } p) return Instance.Map(p);
+        if (type.Array is { } array)
+        {
+            CallableSignature.TryType(array.ElementType, false, out var element);
+            return SignatureType.ArrayOf(Map(element, resolveClass));
+        }
+        return resolveClass(type.Class!);
+    }
+
+    internal static SignatureType Map(ITypeSymbol type, Func<INamedTypeSymbol, TypeBuilder> resolveClass)
+    {
+        if (!CallableSignature.TryType(type, false, out var value)) throw new InvalidOperationException("unsupported native value type");
+        return Map(value, resolveClass);
+    }
+
     public PrimitiveType Map(EmissionPrimitiveType type) => type switch
     {
         EmissionPrimitiveType.String => PrimitiveType.String,

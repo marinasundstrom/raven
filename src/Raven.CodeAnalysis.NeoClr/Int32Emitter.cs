@@ -142,8 +142,7 @@ internal static class Int32Emitter
         foreach (var field in storageFields)
         {
             CallableSignature.TryType(field.Type, false, out var fieldType);
-            SignatureType storageType = fieldType.Class is { } fieldClass
-                ? nativeTypes[fieldClass] : NeoClrTypeMapper.Instance.Map(fieldType.Primitive!.Value);
+            var storageType = NeoClrTypeMapper.Map(fieldType, type => nativeTypes[type]);
             fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, storageType, field.DeclaredAccessibility switch
             {
                 Accessibility.Public => FieldVisibility.Public,
@@ -163,8 +162,7 @@ internal static class Int32Emitter
         foreach (var property in properties)
         {
             CallableSignature.TryType(property.Type, false, out var propertyType);
-            SignatureType valueType = propertyType.Class is { } propertyClass
-                ? nativeTypes[propertyClass] : NeoClrTypeMapper.Instance.Map(propertyType.Primitive!.Value);
+            var valueType = NeoClrTypeMapper.Map(propertyType, type => nativeTypes[type]);
             nativeTypes[property.ContainingType!].AddProperty(property.MetadataName, valueType,
                 property.GetMethod is null ? null : definedMethods[property.GetMethod], property.SetMethod is null ? null : definedMethods[property.SetMethod]);
         }

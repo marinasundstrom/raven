@@ -2921,3 +2921,7 @@ map IsReadOnly to CLI InitOnly and native field flags. Ordinary constructor writ
 the existing initialization plan. Managed field addresses outside the declaring
 constructor are readonly; objects referenced by those fields can remain mutable.
 See [the runtime compatibility boundary](neoclr-cli-bridge.md#readonly-instance-storage--2026-10-01).
+
+Shared emission capabilities now explicitly admit vector types independently of root-class
+signatures. Vector signatures, locals, storage and typed operations use backend maps;
+no Runtime Contract configuration is needed. See [the bridge contract](neoclr-cli-bridge.md#shared-vector-emission--2026-10-01) for current limits.

@@ -2156,3 +2156,31 @@ val properties have no setter. The independent API's separate binary tests rejec
 and managed-address writes during both verification and execution. Static/literal fields,
 explicit readonly field syntax, generic/nullable storage and external nominal imports
 remain outside the compiler's bounded native collector.
+
+## Shared vector emission — 2026-10-01
+
+Raven now emits one-dimensional zero-based arrays of admitted primitives and owned
+root classes through the shared logical type/instruction plan. Both target adapters
+explicitly admit vectors; signature, local, field and property mappings preserve exact
+element identity. Literal allocation (including empty literals), Int32 indexing, element
+assignment and Length are supported. Evaluation is receiver/index/value order; aliases
+retain the same array and contained objects. The unchanged Order declaration and its
+three-element batch expression from the broad consumer execute in a separate array
+consumer on .NET and binary neoCLR, in both source orders, returning 42.
+
+Ordinary .NET remains the default and no Runtime Contract option is added. The native
+adapter consumes the independent metadata API on codex/extended-cli-metadata (8e2a56ed);
+compiler work remains on codex/metadata-consumer. CLI uses SZARRAY and standard typed
+array instructions; the temporary native execution payload uses ArrayRef/newarr/ldelem/
+stelem/ldlen. Length normalizes to Int32 explicitly, matching the source API. A later
+native metadata backend replaces payload serialization, not this shared logical plan.
+The host core is still the binding bootstrap; this does not implement general native
+metadata imports or compile the complete collections application/System library.
+
+Nested/multidimensional arrays, spread/comprehension expansion, covariance, imported
+nominal elements, spans and element addresses remain outside this bounded shared path.
+.NET keeps its general fallback. Array iteration is the next slice. Backend primitive
+type tokens are cached per output, and literals allocate directly without intermediate
+collections; no performance measurement or speedup is claimed. C# shared-plan tests
+cover Release/Debug execution and capability rejection; the executable ArrayChecks
+probe verifies native binaries and storage projections in both source orders.

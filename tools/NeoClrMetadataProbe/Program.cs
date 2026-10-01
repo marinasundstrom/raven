@@ -16,6 +16,12 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args.Length == 4 && args[0] == "--array-runtime")
+{
+    await ArrayChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
 if (args.Length == 4 && args[0] == "--order-runtime")
 {
     await OrderObjectChecks.Run(args[1], args[2], args[3]);
