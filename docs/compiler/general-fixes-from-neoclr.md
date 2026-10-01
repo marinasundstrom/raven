@@ -25,3 +25,9 @@ Source: 935598201. Validation: four binding cases including outside-scope reject
 Reuse completed auto-property accessors and stored backing fields during repeated binding; complete forward-bound initializers without replacing field identity. Validate ordinary .NET property values, aliases and constructor initialization.
 
 Source: f90784db4, 92c509aa4, eaebf1934. Validation: six Debug/Release semantic-identity and execution cases, failing on original main.
+
+## Check accessibility of qualified type expressions
+
+Check accessibility when qualified member expressions resolve to types; external internal types now report RAV0500 while public wrappers remain usable.
+
+Source: ee07a991e. Validation: two cross-assembly binding cases; inaccessible-type case fails on original main.

@@ -3919,6 +3919,9 @@ partial class BlockBinder
         if (TryBindMemberAccessExpressionAsType(memberAccess, out var resolvedType) &&
             resolvedType.TypeKind != TypeKind.Error)
         {
+            if (!EnsureMemberAccessible(resolvedType, memberAccess.Name.GetLocation(), "type"))
+                return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
+
             // If the resolved type is a DU case type (e.g. Err.MissingName), promote it to a
             // BoundUnionCaseExpression whose Type is the union root so that generic type
             // inference infers Err rather than the individual case type MissingName.
@@ -4119,7 +4122,11 @@ partial class BlockBinder
                 return new BoundNamespaceExpression(ns2);
 
             if (member is ITypeSymbol type)
+            {
+                if (!EnsureMemberAccessible(type, nameLocation, "type"))
+                    return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
                 return new BoundTypeExpression(type);
+            }
 
             var namespaceMembers = Compilation.GetNamespaceMembers(nsExpr.Namespace, name, Compilation.Options.AllowNamespaceMemberImports);
             var topLevelMethods = namespaceMembers.OfType<IMethodSymbol>().ToImmutableArray();
