@@ -21,5 +21,6 @@ internal static class NeoClrCapabilities
             LinearInstructionKind.ShiftLeft, LinearInstructionKind.ShiftRight
         ],
         [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType],
-        [Accessibility.Public, Accessibility.Internal]);
+        [Accessibility.Public, Accessibility.Internal],
+        [Accessibility.Public, Accessibility.Internal, Accessibility.Private]);
 }

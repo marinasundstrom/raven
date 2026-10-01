@@ -7,10 +7,16 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, TypeBuilder? owner = null)
     : ICallableDefinitionBuilder<MethodBuilder>
 {
-    public MethodBuilder DefineMethod(string metadataName, PrimitiveCallableSignature signature)
+    public MethodBuilder DefineMethod(string metadataName, SourceCallablePlan plan)
         => owner is null
-            ? assembly.AddFunction(metadataName, ToMetadata(signature))
-            : owner.AddMethod(metadataName, ToMetadata(signature));
+            ? assembly.AddFunction(metadataName, ToMetadata(plan.Signature))
+            : owner.AddMethod(metadataName, ToMetadata(plan.Signature), plan.Visibility switch
+            {
+                Accessibility.Public => MethodVisibility.Public,
+                Accessibility.Internal => MethodVisibility.Internal,
+                Accessibility.Private => MethodVisibility.Private,
+                _ => throw new InvalidOperationException("Unsupported native method visibility")
+            });
     internal static PrimitiveMethodSignature ToMetadata(PrimitiveCallableSignature signature)
         => new(NeoClrTypeMapper.Instance.Map(signature.ReturnType), signature.ParameterTypes.Select(NeoClrTypeMapper.Instance.Map));
 }

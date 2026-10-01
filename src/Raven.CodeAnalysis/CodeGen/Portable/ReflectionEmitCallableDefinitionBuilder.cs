@@ -8,10 +8,11 @@ internal sealed class ReflectionEmitCallableDefinitionBuilder(TypeBuilder owner,
 {
     private readonly IEmissionTypeMapper<Type> types = new ReflectionEmitTypeMapper(resolveType);
 
-    public MethodBuilder DefineMethod(string metadataName, PrimitiveCallableSignature signature)
+    public MethodBuilder DefineMethod(string metadataName, SourceCallablePlan plan)
     {
-        var result = types.Map(signature.ReturnType);
-        var parameters = signature.ParameterTypes.Select(types.Map).ToArray();
+        var result = types.Map(plan.Signature.ReturnType);
+        var parameters = plan.Signature.ParameterTypes.Select(types.Map).ToArray();
+        // Attributes already include source access and the CLI carrier/lifted-method policy.
         return owner.DefineMethod(metadataName, attributes, CallingConventions.Standard, result, parameters);
     }
 }

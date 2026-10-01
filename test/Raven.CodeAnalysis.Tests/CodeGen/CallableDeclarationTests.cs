@@ -46,6 +46,7 @@ public class CallableDeclarationTests
                 public static func Add(value: int, amount: int) -> int { return value + amount }
                 public static func Notify(value: int) { }
                 private static func Hidden() -> int { return 7 }
+                internal static func Internal() -> int { Hidden() }
                 public static func Identity<T>(value: T) -> T { return value }
             }
             """;
@@ -68,6 +69,9 @@ public class CallableDeclarationTests
         var hidden = type.GetMethod("Hidden", BindingFlags.NonPublic | BindingFlags.Static)!;
         Assert.True(hidden.IsPrivate);
         Assert.Equal(7, hidden.Invoke(null, null));
+        var internalMethod = type.GetMethod("Internal", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Assert.True(internalMethod.IsAssembly);
+        Assert.Equal(7, internalMethod.Invoke(null, null));
         var generic = type.GetMethod("Identity")!;
         Assert.True(generic.IsGenericMethodDefinition);
         Assert.Equal(42, generic.MakeGenericMethod(typeof(int)).Invoke(null, [42]));

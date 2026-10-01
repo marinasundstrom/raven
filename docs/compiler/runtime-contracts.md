@@ -2652,3 +2652,30 @@ Release shared emission and Debug fallback. Unsigned right shifts and native-siz
 integers remain outside the producer. The reference projection/#Neo bridge remains.
 Unsupported floating conversion now supplies adapter/fallback rejection tests because
 integer shifts are supported.
+
+
+### Static method visibility — 2026-10-01
+
+Shared callable plans now carry declared access and require explicit method-visibility
+admission from each backend. The native backend supports public/internal/private static
+methods, mapping them through the independent metadata API to CLI Public/Assembly/Private
+and existing native public/internal/private access. The .NET adapter retains its existing
+source and physical carrier attributes; ordinary .NET behavior remains the default.
+No Runtime Contract setting is added. Assembly functions retain their existing bridge
+policy; protected/native instance methods and a native semantic importer remain deferred.
+
+The temporary CLI reference projection preserves method access so the existing Raven
+binder rejects inaccessible dependencies. Native verification independently checks the
+actual target definition, including callers constructed directly with the metadata API.
+This reuses CLR-style access semantics rather than introducing a new access model; native
+ownership and encoding remain backend responsibilities. The shared contract adds no
+per-call reference lookup or performance claim. The compiler adapter owns source admission;
+the metadata library owns serialization and the runtime owns verification. Native symbol
+loading will eventually replace the CLI projection without changing declared access.
+
+Validation: 83 focused compiler tests pass. The complete binary native/rvnc probe
+passes with the independent metadata library at `5ccc41e8` on
+`codex/extended-cli-metadata`. Paired .NET/native execution returns 42; both source
+orders of a separate library preserve private/internal access, with compiler and
+runtime rejection of external callers. See
+[recorded probe evidence](../../tools/NeoClrMetadataProbe/validation.json).

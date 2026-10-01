@@ -219,3 +219,10 @@ checkout. Emit continues returning JSON, and the independent library's Write con
 producing schema-1 PEs when compatibility output is needed. No Runtime Contract
 configuration, ordinary .NET behavior, Console mapping or signature scope changes.
 The compiler's native semantic provider and production target registration remain open.
+
+
+The bounded native producer now admits public/internal/private static methods in
+public/internal nongeneric static types. Method access survives CLI reference
+projection; existing binding diagnostics reject inaccessible calls before emission.
+Native verification independently enforces access. This does not extend assembly
+function visibility or introduce protected/instance method support.

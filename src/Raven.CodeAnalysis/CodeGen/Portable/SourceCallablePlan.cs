@@ -9,7 +9,9 @@ internal sealed record SourceCallablePlan(
     INamedTypeSymbol? TypeOwner, string MetadataName, PrimitiveCallableSignature Signature)
 {
     internal EmissionDeclarationKind DeclarationKind => IsAssemblyFunction ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.StaticMethod;
-    internal bool IsSupportedBy(EmissionCapabilities capabilities) => capabilities.Allows(DeclarationKind) && capabilities.Allows(Signature);
+    internal Accessibility Visibility => Symbol.DeclaredAccessibility;
+    internal bool IsSupportedBy(EmissionCapabilities capabilities) => capabilities.Allows(DeclarationKind) && capabilities.Allows(Signature) &&
+        (IsAssemblyFunction || capabilities.AllowsMethodVisibility(Visibility));
 
     internal bool IsAssemblyFunction => TypeOwner is null;
 
@@ -37,9 +39,9 @@ internal sealed record SourceCallablePlan(
     }
 
     // The CLI adapter can supply a carrier/lifted name; native emission uses the source
-    // metadata name. Concrete owner selection and visibility remain backend policies.
+    // metadata name. Concrete owner selection and physical visibility encoding remain backend policies.
     internal TMethod Define<TMethod>(ICallableDefinitionBuilder<TMethod> builder, string? emittedName = null)
-        => builder.DefineMethod(emittedName ?? MetadataName, Signature);
+        => builder.DefineMethod(emittedName ?? MetadataName, this);
 
     internal bool TryLowerBody(Compilation compilation, Func<BoundInvocationExpression, bool> permitsConsoleWrite,
         out LinearMethodBody? body, out LinearBodyFailure? failure, EmissionCapabilities capabilities)

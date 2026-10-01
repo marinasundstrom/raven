@@ -173,6 +173,8 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     signedRemainderResultsAndFaults = true,
     integerBitwiseOperations = true,
     integerShifts = true,
+    privateInternalMethodEmission = true,
+    compilerAndRuntimeEnforceMethodAccess = true,
     internalStaticTypesAcrossBothTargets = true,
     internalTypeProjectionRejectsExternalAccess = true,
     nativeRuntimeRejectsExternalInternalTypeCall = true,

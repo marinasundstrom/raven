@@ -51,7 +51,7 @@ See the [adapter API](../../docs/compiler/api/neoclr-emission.md) for every publ
 member, the host snapshot-consistency requirement, source-located diagnostics,
 validation-before-write behavior and stream I/O limitations.
 
-Top-level block-bodied functions and public static methods in public/internal nongeneric
+Top-level block-bodied functions and public/internal/private static methods in public/internal nongeneric
 static classes support required Int32 value parameters and Int32 or Unit results, value returns, constants, parameter loads, local/static calls and unchecked
 unlifted intrinsic addition/subtraction/multiplication are supported. Named/default/
 expanded arguments, references, generics, async, captures, fields, instance classes, statements
@@ -277,3 +277,12 @@ Int32/Int64 bitwise AND/OR/XOR execute through shared lowering on both targets, 
 Left/signed-right shifts execute with Int32 counts and Int32/Int64 values. Paired
 checks use in-range counts; CLI oversized counts remain unspecified, while native
 counts retain masking. Unsupported floating conversions now check failure output.
+
+
+### Static method access — 2026-10-01
+
+The paired shared-body case executes private same-owner and internal cross-owner
+helper calls on .NET and neoCLR. The namespace library cases preserve method access
+through PE/#Neo references in both source orders. Raven rejects external private and
+internal calls; raw API-produced callers independently prove native verifier rejection.
+Assembly-function visibility and the temporary CLI symbol-loading bridge are unchanged.

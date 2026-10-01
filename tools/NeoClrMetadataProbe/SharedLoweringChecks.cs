@@ -306,6 +306,16 @@ internal static class SharedLoweringChecks
             func Left64(value: long, count: int) -> long { value << count }
             func Right64(value: long, count: int) -> long { value >> count }
             """, "", 42);
+        await RunCase("SharedMethodVisibility", """
+            func Main() -> int { Facade.Value() }
+            public static class Helpers {
+                private static func Hidden() -> int { 20 }
+                internal static func Internal() -> int { Hidden() + 1 }
+            }
+            public static class Facade {
+                public static func Value() -> int { Helpers.Internal() * 2 }
+            }
+            """, "", 42);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
         Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 

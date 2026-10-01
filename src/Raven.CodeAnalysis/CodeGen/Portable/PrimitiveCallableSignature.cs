@@ -30,5 +30,5 @@ internal sealed record PrimitiveCallableSignature(EmissionPrimitiveType ReturnTy
 // and native metadata builders. A builder can represent a type or assembly owner.
 internal interface ICallableDefinitionBuilder<TMethod>
 {
-    TMethod DefineMethod(string metadataName, PrimitiveCallableSignature signature);
+    TMethod DefineMethod(string metadataName, SourceCallablePlan plan);
 }

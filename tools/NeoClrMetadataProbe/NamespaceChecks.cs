@@ -18,7 +18,7 @@ internal static class NamespaceChecks
             namespace Example {
                 namespace First {
                     internal static class Hidden {
-                        public static func Value() -> int { Example.Second.Math.Value() }
+                        public static func Value() -> int { Example.Second.Math.InternalValue() }
                     }
                     public static class Math {
                         public static func Value() -> int {
@@ -31,9 +31,9 @@ internal static class NamespaceChecks
             """
             namespace Example.Second
             public static class Math {
-                public static func Value() -> int {
-                    return 20
-                }
+                public static func Value() -> int { InternalValue() }
+                internal static func InternalValue() -> int { HiddenValue() }
+                private static func HiddenValue() -> int { 20 }
             }
             """
         ];
@@ -67,6 +67,19 @@ internal static class NamespaceChecks
             var deniedPath = Path.Combine(output, name + "Denied.dll");
             File.WriteAllBytes(deniedPath, RuntimeAssemblyContainer.WriteBinary(raw.WriteNativeAssembly(), core));
             Check((await command(1, ["verify", deniedPath, "--module", path])).Contains("type access denied"), "runtime internal type access enforcement");
+            foreach (var methodName in new[] { "InternalValue", "HiddenValue" })
+            {
+                var inaccessible = Compilation.Create(name + methodName, [SyntaxTree.ParseText($"func Main() -> int {{ Example.Second.Math.{methodName}() }}")],
+                    [primitive, reference], new CompilationOptions(OutputKind.ConsoleApplication));
+                Check(inaccessible.GetDiagnostics().Any(d => d.Id == "RAV0500"), "external method access must fail: " + string.Join("; ", inaccessible.GetDiagnostics()));
+                var foreign = new AssemblyBuilder(new(name + methodName, new Version(1, 0, 0, 0)), core);
+                var foreignEntry = foreign.AddFunction("Main");
+                foreignEntry.Call(foreign.ImportReference(snapshot.MainModule.Types.Single(t => t.Namespace == "Example.Second" && t.Name == "Math").Methods.Single(m => m.Name == methodName), core));
+                foreignEntry.Return(); foreign.EntryPoint = foreignEntry;
+                var deniedMethodPath = Path.Combine(output, name + methodName + ".dll");
+                File.WriteAllBytes(deniedMethodPath, RuntimeAssemblyContainer.WriteBinary(foreign.WriteNativeAssembly(), core));
+                Check((await command(1, ["verify", deniedMethodPath, "--module", path])).Contains("method access denied"), "runtime method access enforcement");
+            }
             const string consumerSource = """
                 import Example.First.*
                 func Main() -> int {

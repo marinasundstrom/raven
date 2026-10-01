@@ -15,7 +15,7 @@ public class DeclarationCapabilityTests
         var function = (IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single())!;
         var method = (IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single())!;
         var admitted = allowFunction ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.StaticMethod;
-        var capabilities = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(), [admitted]);
+        var capabilities = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(), [admitted], methodVisibilities: [Accessibility.Public]);
         Assert.Equal(allowFunction, SourceCallablePlan.TryCreate(function, out var functionPlan, capabilities));
         Assert.Equal(!allowFunction, SourceCallablePlan.TryCreate(method, out var methodPlan, capabilities));
         var accepted = allowFunction ? functionPlan : methodPlan;
@@ -61,6 +61,28 @@ public class DeclarationCapabilityTests
         Assert.False(SourceStaticTypePlan.TryCreate(symbol, out _, new([], [], [EmissionDeclarationKind.StaticType], [Accessibility.Public])));
         Assert.False(SourceStaticTypePlan.TryCreate(symbol, out _, new([], [], [EmissionDeclarationKind.StaticType])));
         Assert.True(SourceStaticTypePlan.TryCreate(symbol, out _, ReflectionEmitCapabilities.Shared));
+    }
+
+    [Theory]
+    [InlineData("internal", Accessibility.Internal)]
+    [InlineData("private", Accessibility.Private)]
+    public void MethodVisibilityNeedsExplicitAdmission(string keyword, Accessibility visibility)
+    {
+        var compilation = Compilation.Create("VisibilityPlans", [SyntaxTree.ParseText($"public static class C {{ {keyword} static func Value() -> int {{ 42 }} }}")],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var tree = compilation.SyntaxTrees[0];
+        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single())!;
+        var allowed = new[] { visibility };
+        var profile = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(),
+            [EmissionDeclarationKind.StaticMethod], methodVisibilities: allowed);
+        allowed[0] = Accessibility.Public;
+        Assert.True(SourceCallablePlan.TryCreate(method, out var plan, profile));
+        Assert.Equal(visibility, plan!.Visibility);
+        var publicOnly = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(),
+            [EmissionDeclarationKind.StaticMethod], methodVisibilities: [Accessibility.Public]);
+        Assert.False(SourceCallablePlan.TryCreate(method, out _, publicOnly));
+        Assert.False(plan.TryLowerBody(compilation, _ => false, out _, out _, publicOnly));
+        Assert.True(plan.TryLowerBody(compilation, _ => false, out _, out var failure, profile), failure?.Detail);
     }
 
     private static Compilation Create() => Compilation.Create("Declarations", [SyntaxTree.ParseText("""

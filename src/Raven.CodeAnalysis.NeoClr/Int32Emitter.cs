@@ -58,10 +58,10 @@ internal static class Int32Emitter
                         diagnosticSyntax = typeMember;
                         if (typeMember is not MethodDeclarationSyntax method || method.Body is null || method.AttributeLists.Count != 0 ||
                             method.ExplicitInterfaceSpecifier is not null || method.ConstraintClauses.Count != 0 ||
-                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword)))
-                            throw Unsupported("only public static block-bodied methods");
+                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)))
+                            throw Unsupported("only public/internal/private static block-bodied methods");
                         var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
-                        if (!symbol.IsStatic || symbol.DeclaredAccessibility != Accessibility.Public) throw Unsupported("only public static methods");
+                        if (!symbol.IsStatic) throw Unsupported("only static methods");
                         var plan = GetPlan(symbol);
                         plans.Add(plan);
                     }
