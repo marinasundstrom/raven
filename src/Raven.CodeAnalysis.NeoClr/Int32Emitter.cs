@@ -113,15 +113,15 @@ internal static class Int32Emitter
         // Materialize definitions only after all source declarations and body capabilities pass.
         // Every definition exists before reference resolution or method-body emission.
         var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);
-        var functions = new NeoClrCallableDefinitionBuilder(assembly);
         var owners = new Dictionary<INamedTypeSymbol, NeoClrCallableDefinitionBuilder>(SymbolEqualityComparer.Default);
         var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly);
         var nativeTypes = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
+        var functions = new NeoClrCallableDefinitionBuilder(assembly, resolveClass: type => nativeTypes[type]);
         foreach (var type in declaredTypes.Values)
         {
             var definition = type.Define(typeDefinitions);
             nativeTypes.Add(type.Symbol, definition);
-            owners.Add(type.Symbol, new(assembly, definition));
+            owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type]));
         }
         var fields = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
         foreach (var field in storageFields)
@@ -239,7 +239,7 @@ internal static class Int32Emitter
         SourceCallablePlan GetPlan(IMethodSymbol method)
         {
             if (!SourceCallablePlan.TryCreate(method, out var plan, NeoClrCapabilities.Shared))
-                throw Unsupported("only nongeneric Int32/Int64/Boolean/String parameters and Int32/Int64/Boolean/String/Unit results: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
+                throw Unsupported("only nongeneric primitive or owned root-class parameters/results (Unit only as result): " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
             return plan!;
         }
     }

@@ -167,7 +167,7 @@ internal class MethodGenerator
                     Portable.SourceCallablePlan.TryCreate(MethodSymbol, out var declaration, Portable.ReflectionEmitCapabilities.Shared))
                 {
                     var builder = new Portable.ReflectionEmitCallableDefinitionBuilder(targetTypeBuilder, attributes,
-                        specialType => ResolveClrType(Compilation.GetSpecialType(specialType)));
+                        specialType => ResolveClrType(Compilation.GetSpecialType(specialType)), type => ResolveClrType(type));
                     methodBuilder = declaration!.Define(builder, emittedMethodName);
                     MethodBase = methodBuilder;
                     sharedSignatureDefined = true;

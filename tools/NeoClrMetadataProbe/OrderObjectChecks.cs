@@ -23,8 +23,18 @@ internal static class OrderObjectChecks
         if (declaration.Parent is not CompilationUnitSyntax) throw new InvalidDataException("Order namespace selection needs updating");
         var order = declaration.ToFullString();
         const string consumer = """
+            func Identity(order: Order) -> Order => order
+            func Identity(copy: Copied) -> Copied => copy
+            func CreateOrder() -> Order => Order(41, true)
+            func UpdateOrder(order: Order) { order.Number = 42 }
+            class Copied {
+                private var number: int
+                init(order: Order) { number = order.Number }
+                val Number: int => number
+            }
             class Counter {
                 private var Number: int
+                func Same() -> Counter => self
                 public func Read() -> int => self.Number
                 init(number: int) { Number = number }
                 public func Next() -> int {
@@ -84,16 +94,17 @@ internal static class OrderObjectChecks
                 if Order(2, false).Pending { return 2 }
                 if Order(-2147483647 - 1, false).Number != -2147483647 - 1 { return 3 }
                 if Order(2147483647, true).Number != 2147483647 { return 4 }
-                let original = Order(41, true)
+                let original = Identity(CreateOrder())
                 let alias = original
-                alias.Number = 42
+                Identity(original)
+                UpdateOrder(alias)
                 alias.Pending = false
                 if original.Pending { return 5 }
                 let counter = Counter(1)
                 if counter.Combine(counter.Next(), counter.Next()) != 12 { return 6 }
                 if counter.Read() != 3 { return 7 }
                 counter.Reset(40)
-                if counter.Increment(2) != original.Number { return 8 }
+                if counter.Same().Increment(2) != original.Number { return 8 }
                 let gauge = Gauge(3)
                 if gauge.Doubled != 6 { return 9 }
                 gauge.Amount = -1
@@ -109,6 +120,7 @@ internal static class OrderObjectChecks
                 if Created(41).Number != original.Number { return 16 }
                 if Initialized().Sum != 41 { return 17 }
                 if ExplicitInitialized().Number != 42 { return 18 }
+                if Identity(Copied(original)).Number != 42 { return 19 }
                 return original.Number
             }
             """;
@@ -129,7 +141,7 @@ internal static class OrderObjectChecks
             if (type.Fields.Count != 2 || type.Properties.Count != 2 || type.Methods.Count != 5 || type.Properties.Any(p => p.GetMethod is null || p.SetMethod is null))
                 throw new Exception("Order metadata lost members");
             var counterType = snapshot.MainModule.Types.Single(t => t.Name == "Counter");
-            if (counterType.Fields.Count != 1 || counterType.Properties.Count != 0 || counterType.Methods.Count != 7)
+            if (counterType.Fields.Count != 1 || counterType.Properties.Count != 0 || counterType.Methods.Count != 8)
                 throw new Exception("private storage must emit only a field");
             var gaugeType = snapshot.MainModule.Types.Single(t => t.Name == "Gauge");
             if (gaugeType.Fields.Count != 2 || gaugeType.Properties.Count != 4 || gaugeType.Methods.Count != 9 ||
@@ -186,6 +198,7 @@ internal static class OrderObjectChecks
             computedAndExplicitAccessors = true,
             expressionConstructors = true,
             implicitConstructorsAndInitializers = true,
+            nominalParametersAndResults = true,
             rejectedIncompleteContracts = 3
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");

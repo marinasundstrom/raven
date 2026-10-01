@@ -23,13 +23,13 @@ internal interface ILinearMethodBuilder
 
 internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
-// Local signatures carry compiler identity, never backend handles.
-internal readonly record struct EmissionLocalType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Class = null);
+// Logical value types carry compiler identity, never backend handles.
+internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Class = null);
 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
 // source-located boundary. Language rewrites remain owned by the existing Lowerer.
-internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, ImmutableArray<EmissionLocalType> localTypes, int labelCount)
+internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, ImmutableArray<EmissionType> localTypes, int labelCount)
 {
     internal void Emit(ILinearMethodBuilder builder)
     {
@@ -43,16 +43,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
     }
 
     internal static bool HasSupportedSignature(IMethodSymbol method)
-        => PrimitiveCallableSignature.TryCreate(method, out _);
+        => CallableSignature.TryCreate(method, out _);
 
     internal static bool ReturnsValue(IMethodSymbol method)
-        => EmissionPrimitiveTypes.TryGetValueType(method.ReturnType, out _);
+        => CallableSignature.TryType(method.ReturnType, false, out _);
 
     internal static bool TryLower(IMethodSymbol source, SemanticModel model, SyntaxNode bodySyntax,
         Func<BoundInvocationExpression, bool> permitsConsoleWrite, out LinearMethodBody? lowered, out LinearBodyFailure? failure, EmissionCapabilities? capabilities = null)
     {
         var instructions = ImmutableArray.CreateBuilder<LinearInstruction>();
-        var localTypes = ImmutableArray.CreateBuilder<EmissionLocalType>();
+        var localTypes = ImmutableArray.CreateBuilder<EmissionType>();
         var nextLabel = 0;
         var labels = new Dictionary<ILabelSymbol, int>(SymbolEqualityComparer.Default);
         var locals = new Dictionary<ILocalSymbol, int>(SymbolEqualityComparer.Default);
@@ -120,7 +120,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
 
         bool LowerBody(BoundBlockStatement body)
         {
-            if (!PrimitiveCallableSignature.TryCreate(source, out var signature)) return Reject("only nongeneric Int32/Int64/Boolean/String parameters and Int32/Int64/Boolean/String/Unit results", bodySyntax);
+            if (!CallableSignature.TryCreate(source, out var signature)) return Reject("only nongeneric primitive or owned root-class parameters/results (Unit only as result)", bodySyntax);
             if (capabilities is not null && !capabilities.Allows(signature))
                 return Reject("target does not support callable signature types", bodySyntax);
             if (!body.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(body));
@@ -179,7 +179,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     {
                         if (variable.Initializer is null || variable.FixedAddressInitializer is not null || variable.FixedPinnedLocal is not null)
                             return Reject("only initialized value locals", Syntax(variable));
-                        EmissionLocalType localType;
+                        EmissionType localType;
                         if (EmissionPrimitiveTypes.TryGetValueType(variable.Local.Type, out var primitive))
                         {
                             if (capabilities is not null && !capabilities.Allows(primitive)) return Reject("target does not support local type " + primitive, Syntax(variable));
@@ -277,7 +277,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             EmissionPrimitiveTypes.TryGetValueType(field.Type, out var type) && (capabilities is null || capabilities.Allows(type));
         bool SupportedInstanceCall(IMethodSymbol method) => !method.IsStatic && !method.IsVirtual && !method.IsOverride &&
             method.ContainingType is { } owner && SourceTypePlan.TryCreate(owner, out _) &&
-            PrimitiveCallableSignature.TryCreate(method, out var signature) && (capabilities is null || capabilities.Allows(signature));
+            CallableSignature.TryCreate(method, out var signature) && (capabilities is null || capabilities.Allows(signature));
         bool Receiver(BoundExpression? receiver, INamedTypeSymbol owner, SyntaxNode syntax)
         {
             if (receiver is not null) return LowerValue(receiver);
@@ -329,7 +329,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundObjectCreationExpression creation when creation.Initializer is null && creation.Receiver is null &&
                     SourceTypePlan.TryCreate(creation.Constructor.ContainingType!, out var createdType) && !createdType!.IsStatic &&
-                    PrimitiveCallableSignature.TryCreate(creation.Constructor, out var constructorSignature) &&
+                    CallableSignature.TryCreate(creation.Constructor, out var constructorSignature) &&
                     (capabilities is null || capabilities.Allows(constructorSignature)):
                     var constructorArguments = creation.Arguments.ToArray();
                     if (constructorArguments.Length != creation.Constructor.Parameters.Length) return Reject("optional/expanded constructor arguments", Syntax(expression));
@@ -438,7 +438,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundInvocationExpression call when call.ExtensionReceiver is null &&
                     (call.Method.IsStatic && call.Receiver is null or BoundTypeExpression ||
                      call.Method.MethodKind == MethodKind.Ordinary && SupportedInstanceCall(call.Method)):
-                    if (!PrimitiveCallableSignature.TryCreate(call.Method, out var callSignature)) return Reject("only nongeneric Int32/Int64/Boolean/String parameters and Int32/Int64/Boolean/String/Unit results: " + call.Method.Name, Syntax(expression));
+                    if (!CallableSignature.TryCreate(call.Method, out var callSignature)) return Reject("only nongeneric primitive or owned root-class parameters/results (Unit only as result): " + call.Method.Name, Syntax(expression));
                     if (capabilities is not null && !capabilities.Allows(callSignature))
                         return Reject("target does not support call signature types", Syntax(expression));
                     var arguments = call.Arguments.ToArray();

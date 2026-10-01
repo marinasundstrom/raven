@@ -14,7 +14,7 @@ internal sealed class EmissionCapabilities(
     IEnumerable<Accessibility>? typeVisibilities = null,
     IEnumerable<Accessibility>? methodVisibilities = null,
     IEnumerable<Accessibility>? functionVisibilities = null,
-    bool allowsRootClassLocals = false)
+    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false)
 {
     private readonly ImmutableHashSet<EmissionPrimitiveType> types = types.ToImmutableHashSet();
     private readonly ImmutableHashSet<LinearInstructionKind> instructions = instructions.ToImmutableHashSet();
@@ -27,6 +27,8 @@ internal sealed class EmissionCapabilities(
 
     private readonly ImmutableHashSet<Accessibility> functionVisibilities = (functionVisibilities ?? []).ToImmutableHashSet();
 
+    internal bool AllowsRootClassSignatures { get; } = allowsRootClassSignatures;
+
     internal bool AllowsRootClassLocals { get; } = allowsRootClassLocals;
 
     internal bool AllowsFunctionVisibility(Accessibility visibility) => functionVisibilities.Contains(visibility);
@@ -35,6 +37,8 @@ internal sealed class EmissionCapabilities(
     internal bool Allows(EmissionDeclarationKind declaration) => declarations.Contains(declaration);
     internal bool Allows(EmissionPrimitiveType type) => types.Contains(type);
     internal bool Allows(LinearInstructionKind instruction) => instructions.Contains(instruction);
+    internal bool Allows(EmissionType type) => type.Primitive is { } p ? Allows(p) : type.Class is not null && AllowsRootClassSignatures;
+    internal bool Allows(CallableSignature signature) => Allows(signature.ReturnType) && signature.ParameterTypes.All(Allows);
     internal bool Allows(PrimitiveCallableSignature signature)
         => Allows(signature.ReturnType) && signature.ParameterTypes.All(Allows);
 }

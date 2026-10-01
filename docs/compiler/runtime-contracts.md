@@ -2885,3 +2885,11 @@ Runtime Contract option. See [Order execution](neoclr-cli-bridge.md#unchanged-or
 Root-class local admission is also backend-owned and explicitly enabled by the two
 shared adapters. No Runtime Contract option is added. Nominal parameters/results and
 generic locals remain future emission work.
+
+
+Development checkpoint (2026-10-01): owned root-class signature admission is an internal
+codegen capability enabled by the .NET and experimental neoCLR adapters, not a new Runtime
+Contract configuration option. Default constructors and primitive field/property
+initializers share the canonical compiler initialization plan. See
+[the current integration scope](neoclr-cli-bridge.md#owned-nominal-callable-signatures--2026-10-01)
+for signature ownership, reference-projection and initialization limits.

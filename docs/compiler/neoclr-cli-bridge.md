@@ -1994,3 +1994,34 @@ initialization tests. The Order executable probe checks implicit initialization 
 initializers preceding explicit constructor mutation; both source orders verify/run to 42
 on .NET and binary neoCLR. Existing unsupported chaining/accessor/nullable fixtures reject
 without output. [Evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).
+
+
+## Owned nominal callable signatures — 2026-10-01
+
+Shared CallableSignature/EmissionType now describe primitive and owned root-class
+parameters/results without Reflection.Emit or metadata-library handles. Both adapter
+profiles explicitly admit root-class signatures; the capability defaults to false for
+other profiles. The .NET adapter resolves CLR types, and the native adapter resolves
+predeclared TypeBuilder handles through the new independent MethodSignature API
+(neoCLR `b2333489`). Constructors can accept those nominal parameters too. Primitive
+import matching remains a separate restricted contract. No Runtime Contract setting or
+semantic import mode changes; ordinary .NET fallback remains available for broader types.
+The native reader preserves CLASS/TypeDef signatures through its temporary reference
+projection, while binary execution uses existing Named records. No new runtime opcode
+or schema is needed; full CLI-body execution remains a later replacement.
+
+63 focused C# codegen/declaration tests pass, including Release/Debug nominal behavior
+and capability denial. The expanded consumer passes factory-returned Order objects
+through identity functions, discards a nominal result, mutates aliases, returns self,
+passes objects to constructors and resolves nominal overloads. Both source orders verify
+and run to 42 on .NET and binary neoCLR. The prior native primitive/import regression
+probe also passes; its obsolete nonstatic-class rejection was updated to reject abstract
+classes, since default root constructors are now supported. Metadata validation retains
+exact class identity and rejects foreign-builder signatures or wrong-class values.
+[Evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).
+
+This completes the current bounded nominal-signature/default-constructor/primitive-
+initialization slices. External nominal imports, nullable references, generic signatures,
+nominal fields/properties, inheritance, readonly storage and constructor chaining remain
+explicit future contracts. The full order-collections application still needs its native
+collection/LINQ/union dependencies; no substitute dependencies were introduced.
