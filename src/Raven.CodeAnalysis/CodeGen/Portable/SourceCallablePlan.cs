@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
@@ -19,6 +20,8 @@ internal sealed record SourceCallablePlan(
     }
     internal EmissionDeclarationKind DeclarationKind => IsAssemblyFunction
         ? Namespace.Length == 0 ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.NamespacedAssemblyFunction
+        : Symbol.MethodKind == MethodKind.Constructor ? EmissionDeclarationKind.Constructor
+        : Symbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet ? EmissionDeclarationKind.PropertyAccessor
         : Symbol.IsStatic ? EmissionDeclarationKind.StaticMethod : EmissionDeclarationKind.InstanceMethod;
     internal Accessibility Visibility => Symbol.DeclaredAccessibility;
     internal bool IsSupportedBy(EmissionCapabilities capabilities) => capabilities.Allows(DeclarationKind) && capabilities.Allows(Signature) &&
@@ -29,13 +32,26 @@ internal sealed record SourceCallablePlan(
     internal static bool TryCreate(IMethodSymbol symbol, out SourceCallablePlan? plan, EmissionCapabilities? capabilities = null)
     {
         plan = null;
-        if (symbol.IsExtern || symbol.DeclaringSyntaxReferences.Length != 1 ||
+        if (symbol.IsExtern ||
             !PrimitiveCallableSignature.TryCreate(symbol, out var signature)) return false;
-        if (!symbol.IsStatic && (symbol.MethodKind != MethodKind.Ordinary || symbol.IsVirtual || symbol.IsOverride || symbol.IsAbstract ||
+        if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet) || symbol.IsVirtual || symbol.IsOverride || symbol.IsAbstract ||
             symbol.ContainingType is not { } receiver || !SourceTypePlan.TryCreate(receiver, out _))) return false;
+        if (symbol.ContainingSymbol is SourcePropertySymbol { IsAutoProperty: true, IsStatic: false, BackingField: { } } property &&
+            symbol.DeclaringSyntaxReferences.IsEmpty && property.DeclaringSyntaxReferences.Length == 1)
+        {
+            var propertySyntax = property.DeclaringSyntaxReferences[0].GetSyntax();
+            plan = new(symbol, propertySyntax, propertySyntax, symbol.ContainingType, symbol.MetadataName, signature);
+            if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
+            plan = null; return false;
+        }
+        if (symbol.DeclaringSyntaxReferences.Length != 1) return false;
         var syntax = symbol.DeclaringSyntaxReferences[0].GetSyntax();
         switch (syntax)
         {
+            case ConstructorDeclarationSyntax constructor when constructor.Initializer is null && symbol.ContainingType is { } constructorOwner:
+                plan = new(symbol, syntax, (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody, constructorOwner, symbol.MetadataName, signature);
+                if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
+                plan = null; return false;
             case MethodDeclarationSyntax method when symbol.ContainingType is { } owner:
                 plan = new(symbol, syntax, (SyntaxNode?)method.Body ?? method.ExpressionBody, owner, symbol.MetadataName, signature);
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;

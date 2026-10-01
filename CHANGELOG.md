@@ -4,7 +4,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-01:** Generalize shared source type plans to distinguish static types from bounded root classes, and callable admission to distinguish static from nonvirtual instance methods. .NET Release emission now shares primitive instance signature/body planning with receiver-aware argument slots; Debug/general fallback is preserved. Native adapters map these definitions to AddClass/AddInstanceMethod, but native source class admission remains gated until constructor/member bodies are complete.
+- **2026-10-01:** Generalize shared source type plans to distinguish static types from bounded root classes, and callable admission to distinguish static from nonvirtual instance methods. .NET Release emission now shares primitive instance signature/body planning with receiver-aware argument slots; Debug/general fallback is preserved. Native adapters map these definitions to AddClass/AddInstanceMethod. Extend the shared body plan with receiver, primitive field access, property accessor calls and root allocation; reuse compiler-synthesized auto-accessor bodies. The unchanged Order source now compiles and executes on .NET and binary neoCLR, with explicit primitive constructors and mutable auto-properties. Object locals, implicit constructors and initializers still reject.
 
 - **2026-10-01:** Keep implicit auto-property accessors, setter parameters and backing fields stable across repeated binding, preventing duplicate setter members. Validate independently through .NET execution. Add an unchanged order-collections consumer inventory that isolates the next native object/type emission gate without replacing native library dependencies.
 

@@ -2877,3 +2877,7 @@ The 2026-10-01 shared root/instance declaration slice adds internal backend capa
 categories, not a new Runtime Contract option. Ordinary .NET emission shares primitive
 nonvirtual instance plans; native source admission stays gated until complete class
 bodies exist. See [the bridge record](neoclr-cli-bridge.md#shared-root-and-instance-declaration-contracts--2026-10-01).
+
+The subsequent Order slice admits explicit root constructors and mutable primitive
+auto-properties in the native backend. This is backend capability growth with no new
+Runtime Contract option. See [Order execution](neoclr-cli-bridge.md#unchanged-order-source-executes--2026-10-01).

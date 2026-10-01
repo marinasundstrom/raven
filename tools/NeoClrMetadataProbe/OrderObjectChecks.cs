@@ -1,0 +1,97 @@
+using System.Diagnostics;
+using System.Reflection;
+using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
+
+using NeoCLR.Metadata.Experimental.Model;
+
+using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.NeoClr;
+using Raven.CodeAnalysis.Syntax;
+
+namespace NeoClrMetadataProbe;
+
+internal static class OrderObjectChecks
+{
+    internal static async Task Run(string sourcePath, string output, string runtime)
+    {
+        if (Directory.Exists(output)) throw new IOException("output must be fresh");
+        Directory.CreateDirectory(output);
+        var original = File.ReadAllText(sourcePath);
+        var declaration = SyntaxTree.ParseText(original).GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "Order");
+        if (declaration.Parent is not CompilationUnitSyntax) throw new InvalidDataException("Order namespace selection needs updating");
+        var order = declaration.ToFullString();
+        const string consumer = """
+            func Main() -> int {
+                if !Order(1, true).Pending { return 1 }
+                if Order(2, false).Pending { return 2 }
+                if Order(-2147483647 - 1, false).Number != -2147483647 - 1 { return 3 }
+                if Order(2147483647, true).Number != 2147483647 { return 4 }
+                return Order(42, true).Number
+            }
+            """;
+        var host = typeof(object).Assembly.GetName();
+        var core = new AssemblyIdentity(host.Name!, host.Version!, host.CultureName ?? "", Convert.ToHexString(host.GetPublicKeyToken() ?? []));
+        var references = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
+        foreach (bool reversed in new[] { false, true })
+        {
+            var trees = new[] { SyntaxTree.ParseText(order, path: "Order.rvn"), SyntaxTree.ParseText(consumer, path: "Main.rvn") };
+            if (reversed) Array.Reverse(trees);
+            var name = "OrderObject" + reversed;
+            var compilation = Compilation.Create(name, trees, references, new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(OptimizationLevel.Release));
+            using var native = new MemoryStream();
+            var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, native, new(new(name, new Version(1, 0, 0, 0)), core, []));
+            if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics));
+            var snapshot = NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.ReadCliProjection(native.ToArray());
+            var type = snapshot.MainModule.Types.Single(t => t.Name == "Order");
+            if (type.Fields.Count != 2 || type.Properties.Count != 2 || type.Methods.Count != 5 || type.Properties.Any(p => p.GetMethod is null || p.SetMethod is null))
+                throw new Exception("Order metadata lost members");
+            var path = Path.Combine(output, name + ".dll"); File.WriteAllBytes(path, native.ToArray());
+            foreach (var command in new[] { "verify", "run" })
+            {
+                var start = new ProcessStartInfo(runtime) { RedirectStandardOutput = true, RedirectStandardError = true };
+                start.ArgumentList.Add(command); start.ArgumentList.Add(path);
+                using var process = Process.Start(start)!;
+                var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
+                await process.WaitForExitAsync();
+                var text = await stdout + await stderr;
+                if (process.ExitCode != (command == "verify" ? 0 : 42)) throw new Exception(text);
+            }
+            using var cli = new MemoryStream();
+            var emitted = compilation.Emit(cli);
+            if (!emitted.Success) throw new Exception(string.Join("\n", emitted.Diagnostics));
+            if (!Equals(Assembly.Load(cli.ToArray()).EntryPoint!.Invoke(null, null), 42)) throw new Exception("CLI result mismatch");
+        }
+        foreach (var unsupported in new[] {
+            "class Empty { }",
+            "class Initialized { var Number: int = 1\n init() { } }",
+            order + "\nfunc Main() -> int { let order = Order(42, true)\n return order.Number }"
+        })
+        {
+            var compilation = Compilation.Create("UnsupportedObject", [SyntaxTree.ParseText(unsupported)], references,
+                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            if (errors.Length != 0) throw new Exception("rejection fixture must bind: " + string.Join("; ", errors.Select(d => d.ToString())));
+            using var image = new MemoryStream();
+            var rejected = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image, new(new("UnsupportedObject", new Version(1, 0, 0, 0)), core, []));
+            if (rejected.Success || image.Length != 0) throw new Exception("unsupported object contract wrote output");
+        }
+        File.WriteAllText(Path.Combine(output, "Order.rvn"), order);
+        File.WriteAllText(Path.Combine(output, "Main.rvn"), consumer);
+        File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
+        {
+            source = Path.GetFileName(sourcePath),
+            sourceSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(original))),
+            selectedSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(order))),
+            sourceOrders = 2,
+            cliResult = 42,
+            nativeResult = 42,
+            nativeVerify = true,
+            fullConsumer = false,
+            nominalLocalsAndAliasing = false,
+            rejectedIncompleteContracts = 3
+        }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
+        Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");
+    }
+}

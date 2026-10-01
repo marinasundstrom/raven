@@ -18,6 +18,7 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
         };
         return owner is null
             ? assembly.AddFunction(plan.Namespace, metadataName, ToMetadata(plan.Signature), visibility)
+            : plan.Symbol.MethodKind == MethodKind.Constructor ? owner.AddConstructor(ToMetadata(plan.Signature).ParameterTypes, visibility)
             : plan.Symbol.IsStatic ? owner.AddMethod(metadataName, ToMetadata(plan.Signature), visibility)
             : owner.AddInstanceMethod(metadataName, ToMetadata(plan.Signature), visibility);
     }

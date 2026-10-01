@@ -1799,3 +1799,49 @@ Release/Debug .NET construction and Int32/Int64/Boolean/String instance results,
 capability denial, canonical Order property symbols and existing shared primitive bodies.
 The native probe rebuilt against the matching metadata library and passed its
 existing supported emission cases; this is not native instance source coverage.
+
+
+## Unchanged Order source executes — 2026-10-01
+
+The source class gate above is now opened for a bounded root object contract:
+public/internal nongeneric top-level roots without base lists, interfaces or additional
+type contracts; explicit primitive constructors with block bodies and no chaining;
+mutable primitive instance auto-properties without initializers; and ordinary primitive
+methods. Every constructor must be represented. Implicit constructors, readonly/custom/
+indexed/static properties, user attributes and field/property initializers still reject
+before output writes. Explicit field declarations and nominal signatures/locals are
+not supported in this producer path yet.
+
+Shared logical bodies now carry receiver, field-load/store, instance accessor-call and
+new-object operations using compiler symbols. Auto-accessors reuse
+Compilation.TryGetSynthesizedMethodBody and its lowered bound body; no native-only
+getter/setter body synthesis was introduced. Root constructor assignments reuse the
+normal lowered body; native roots require no base call. The existing .NET constructor
+path keeps its base initialization. .NET Release auto-accessors consume the shared
+field instructions; Debug keeps the general path. Physical field handles, constructor
+handles and accessor calls stay in backend adapters, with capability admission before
+builder allocation. .NET uses callvirt for accessor receiver checks; this native subset
+only constructs non-null receivers or loads self. General nullable object calls remain
+outside it.
+
+The native adapter preserves canonical property/backing-field/accessor identities,
+private mutable backing storage, property associations, primitive signatures and source
+access. Synthesized .NET debugger/compiler-generated annotations are not projected by
+the bounded metadata library. The separate library owns CLI Field/Property/MethodSemantics
+projection and native references. No Runtime Contract configuration changed. The native
+PE/#Neo execution payload and throwing CLI reference projection remain the temporary
+bridge; this does not claim native symbol import or ordinary CLI-body execution.
+
+`NeoClrMetadataProbe --order-runtime <order-collections.rvn> <fresh-output> <neoclr>`
+extracts the unchanged global Order declaration and adds a separate Main. Both file
+orders execute Boolean cases and Int32 boundaries and return 42 on .NET and neoCLR.
+The reference projection retains two properties, two backing fields and five methods.
+The complete consumer still has 49 binding errors under host-core bootstrap, from
+missing native library dependencies. Native runtime e8611966 needed no source changes.
+
+Validation: 52 focused C# compiler tests (51 baseline), including shared auto-accessor
+planning, restricted field-capability rejection and Release/Debug mutation of the real
+Order shape. The executable probe verifies/runs both file orders and rejects implicit
+constructors, property initializers and nominal locals without output. Existing native
+emission regression probes also pass. Object locals and aliasing are the next gap.
+[Runtime evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).

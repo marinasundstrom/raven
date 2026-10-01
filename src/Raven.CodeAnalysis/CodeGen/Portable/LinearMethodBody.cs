@@ -8,10 +8,10 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, NewObject }
 
 internal readonly record struct LinearInstruction(
-    LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0);
+    LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null);
 
 internal interface ILinearMethodBuilder
 {
@@ -52,7 +52,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         // Arrow clauses expose their bound statement block in the original view, as
         // consumed by the general generator. Reuse compiler lowering for conversions
         // and Unit expression statements instead of synthesizing backend returns.
-        var body = bodySyntax is ArrowExpressionClauseSyntax
+        var body = model.Compilation.TryGetSynthesizedMethodBody(source, BoundTreeView.Lowered, out var synthesized) && synthesized is not null
+            ? synthesized : bodySyntax is ArrowExpressionClauseSyntax
             ? model.GetBoundNode(bodySyntax, BoundTreeView.Original) is BoundBlockStatement arrowBody
                 ? Lowerer.LowerBlock(source, arrowBody) : null
             : model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement;
@@ -175,6 +176,28 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     }
                     continue;
                 }
+                var memberAssignment = statement switch
+                {
+                    BoundAssignmentStatement { Expression: var expression } => expression,
+                    BoundExpressionStatement { Expression: BoundAssignmentExpression expression } => expression,
+                    _ => null
+                };
+                if (memberAssignment is BoundFieldAssignmentExpression fieldAssignment)
+                {
+                    if (fieldAssignment.RequiresReceiverAddress || !SupportedField(fieldAssignment.Field) ||
+                        !Receiver(fieldAssignment.Receiver, fieldAssignment.Field.ContainingType!, Syntax(statement)) || !LowerValue(fieldAssignment.Right))
+                        return Reject("unsupported instance field assignment", Syntax(statement));
+                    instructions.Add(new(LinearInstructionKind.StoreField, Syntax(statement), Field: fieldAssignment.Field));
+                    continue;
+                }
+                if (memberAssignment is BoundPropertyAssignmentExpression propertyAssignment)
+                {
+                    if (propertyAssignment.Property.SetMethod is not { } setter || !SupportedInstanceCall(setter) ||
+                        !Receiver(propertyAssignment.Receiver, setter.ContainingType!, Syntax(statement)) || !LowerValue(propertyAssignment.Right))
+                        return Reject("unsupported instance property assignment", Syntax(statement));
+                    Add(LinearInstructionKind.InstanceCall, Syntax(statement), method: setter);
+                    continue;
+                }
                 var assignment = statement switch
                 {
                     BoundAssignmentStatement { Expression: BoundLocalAssignmentExpression localAssignment } => localAssignment,
@@ -230,6 +253,18 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 foreach (var nested in WalkStatements(child)) yield return nested;
         }
 
+        bool SupportedField(IFieldSymbol field) => !field.IsStatic &&
+            EmissionPrimitiveTypes.TryGetValueType(field.Type, out var type) && (capabilities is null || capabilities.Allows(type));
+        bool SupportedInstanceCall(IMethodSymbol method) => !method.IsStatic && !method.IsVirtual && !method.IsOverride &&
+            method.ContainingType is { } owner && SourceTypePlan.TryCreate(owner, out _) &&
+            PrimitiveCallableSignature.TryCreate(method, out var signature) && (capabilities is null || capabilities.Allows(signature));
+        bool Receiver(BoundExpression? receiver, INamedTypeSymbol owner, SyntaxNode syntax)
+        {
+            if (receiver is not null) return LowerValue(receiver);
+            if (source.IsStatic || !SymbolEqualityComparer.Default.Equals(source.ContainingType, owner)) return Reject("implicit receiver unavailable", syntax);
+            Add(LinearInstructionKind.Receiver, syntax); return true;
+        }
+
         bool LowerValue(BoundExpression expression)
         {
             if (capabilities is not null && EmissionPrimitiveTypes.TryGetValueType(expression.Type, out var valueType) && !capabilities.Allows(valueType))
@@ -272,6 +307,25 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!LowerValue(conditional.ElseBranch)) return false;
                     Add(LinearInstructionKind.Label, Syntax(expression), joined);
                     return true;
+                case BoundObjectCreationExpression creation when creation.Initializer is null && creation.Receiver is null &&
+                    SourceTypePlan.TryCreate(creation.Constructor.ContainingType!, out var createdType) && !createdType!.IsStatic &&
+                    PrimitiveCallableSignature.TryCreate(creation.Constructor, out var constructorSignature) &&
+                    (capabilities is null || capabilities.Allows(constructorSignature)):
+                    var constructorArguments = creation.Arguments.ToArray();
+                    if (constructorArguments.Length != creation.Constructor.Parameters.Length) return Reject("optional/expanded constructor arguments", Syntax(expression));
+                    foreach (var argument in constructorArguments) if (!LowerValue(argument)) return false;
+                    Add(LinearInstructionKind.NewObject, Syntax(expression), method: creation.Constructor); return true;
+                case BoundSelfExpression self when !source.IsStatic && SymbolEqualityComparer.Default.Equals(self.Type, source.ContainingType):
+                    Add(LinearInstructionKind.Receiver, Syntax(expression)); return true;
+                case BoundFieldAccess field when SupportedField(field.Field):
+                    if (!Receiver(field.Receiver, field.Field.ContainingType!, Syntax(expression))) return false;
+                    instructions.Add(new(LinearInstructionKind.LoadField, Syntax(expression), Field: field.Field)); return true;
+                case BoundPropertyAccess property when property.Property.GetMethod is { } getter && SupportedInstanceCall(getter):
+                    if (!Receiver(null, getter.ContainingType!, Syntax(expression))) return false;
+                    Add(LinearInstructionKind.InstanceCall, Syntax(expression), method: getter); return true;
+                case BoundMemberAccessExpression { Member: IPropertySymbol memberProperty } access when memberProperty.GetMethod is { } memberGetter && SupportedInstanceCall(memberGetter):
+                    if (!Receiver(access.Receiver, memberGetter.ContainingType!, Syntax(expression))) return false;
+                    Add(LinearInstructionKind.InstanceCall, Syntax(expression), method: memberGetter); return true;
                 case BoundLiteralExpression { Value: string text }:
                     Add(LinearInstructionKind.String, Syntax(expression), text: text); return true;
                 case BoundLiteralExpression { Value: bool boolean }:

@@ -17,6 +17,7 @@ internal static class Int32Emitter
     {
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
+        var properties = new List<SourcePropertySymbol>();
         var declaredTypes = new Dictionary<INamedTypeSymbol, SourceTypePlan>(SymbolEqualityComparer.Default);
         // Collect all declarations before emitting any body, so calls do not depend on file order.
         foreach (var tree in compilation.SyntaxTrees)
@@ -43,22 +44,42 @@ internal static class Int32Emitter
                     if (type.AttributeLists.Count != 0 || type.TypeParameterList is not null || type.ParameterList is not null ||
                         type.BaseList is not null || type.ConstraintClauses.Count != 0 || type.PermitsClause is not null ||
                         type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword)))
-                        throw Unsupported("only public or internal nongeneric static classes without additional contracts");
+                        throw Unsupported("only public or internal nongeneric static or root classes without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
-                        throw Unsupported("only public or internal nongeneric static classes");
+                        throw Unsupported("only public or internal nongeneric static or root classes");
                     // Partial declarations share one semantic identity and one metadata definition.
                     // Still validate every part and collect all of its members.
                     declaredTypes.TryAdd(typeSymbol, typePlan!);
                     foreach (var typeMember in type.Members)
                     {
                         diagnosticSyntax = typeMember;
+                        if (!typeSymbol.IsStatic && typeMember is PropertyDeclarationSyntax propertySyntax)
+                        {
+                            if (propertySyntax.AttributeLists.Count != 0 || propertySyntax.AccessorList is not null || propertySyntax.ExpressionBody is not null || propertySyntax.Initializer is not null || propertySyntax.ExplicitInterfaceSpecifier is not null ||
+                                propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword)) ||
+                                model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol { IsAutoProperty: true, IsStatic: false, BackingField: { IsReadOnly: false } } property ||
+                                !EmissionPrimitiveTypes.TryGetValueType(property.Type, out _))
+                                throw Unsupported("only primitive mutable instance auto-properties without initializers");
+                            properties.Add(property);
+                            if (property.GetMethod is { } get) plans.Add(GetPlan(get));
+                            if (property.SetMethod is { } set) plans.Add(GetPlan(set));
+                            continue;
+                        }
+                        if (!typeSymbol.IsStatic && typeMember is ConstructorDeclarationSyntax constructor)
+                        {
+                            if (constructor.Body is null || constructor.Initializer is not null || constructor.AttributeLists.Count != 0 ||
+                                constructor.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)))
+                                throw Unsupported("only explicit root constructors with a block body and no chaining");
+                            plans.Add(GetPlan((IMethodSymbol)model.GetDeclaredSymbol(constructor)!));
+                            continue;
+                        }
                         if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null) || method.AttributeLists.Count != 0 ||
                             method.ExplicitInterfaceSpecifier is not null || method.ConstraintClauses.Count != 0 ||
                             method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)))
-                            throw Unsupported("only public/internal/private static methods with block or expression bodies");
+                            throw Unsupported("only ordinary primitive methods, explicit constructors and auto-properties");
                         var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
-                        if (!symbol.IsStatic) throw Unsupported("only static methods");
+
                         var plan = GetPlan(symbol);
                         plans.Add(plan);
                     }
@@ -66,6 +87,10 @@ internal static class Int32Emitter
                 else throw Unsupported("only top-level functions and public or internal static classes");
             }
         }
+        foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic))
+            if (type.Symbol.GetMembers().OfType<IMethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor)
+                .Any(m => !plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol, m))))
+                throw Unsupported("implicit constructors require a shared initialization contract");
         var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody Body)>();
         foreach (var plan in plans)
         {
@@ -79,14 +104,33 @@ internal static class Int32Emitter
         var functions = new NeoClrCallableDefinitionBuilder(assembly);
         var owners = new Dictionary<INamedTypeSymbol, NeoClrCallableDefinitionBuilder>(SymbolEqualityComparer.Default);
         var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly);
+        var nativeTypes = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
         foreach (var type in declaredTypes.Values)
-            owners.Add(type.Symbol, new(assembly, type.Define(typeDefinitions)));
+        {
+            var definition = type.Define(typeDefinitions);
+            nativeTypes.Add(type.Symbol, definition);
+            owners.Add(type.Symbol, new(assembly, definition));
+        }
+        var fields = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
+        foreach (var property in properties)
+        {
+            var field = property.BackingField!;
+            EmissionPrimitiveTypes.TryGetValueType(field.Type, out var fieldType);
+            fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, NeoClrTypeMapper.Instance.Map(fieldType)));
+        }
         var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method, LinearMethodBody Body)>();
         foreach (var (plan, body) in prepared)
         {
             diagnosticSyntax = plan.Syntax;
             var owner = plan.IsAssemblyFunction ? functions : owners[plan.TypeOwner!];
             methods.Add((plan, plan.Define(owner), body));
+        }
+        var definedMethods = methods.ToDictionary(m => m.Plan.Symbol, m => m.Method, (IEqualityComparer<IMethodSymbol>)SymbolEqualityComparer.Default);
+        foreach (var property in properties)
+        {
+            EmissionPrimitiveTypes.TryGetValueType(property.Type, out var propertyType);
+            nativeTypes[property.ContainingType!].AddProperty(property.MetadataName, NeoClrTypeMapper.Instance.Map(propertyType),
+                property.GetMethod is null ? null : definedMethods[property.GetMethod], property.SetMethod is null ? null : definedMethods[property.SetMethod]);
         }
         var references = new CallableReferenceTable<NeoClrCallableReference>(target =>
         {
@@ -109,8 +153,13 @@ internal static class Int32Emitter
             current.Body.Emit(new NeoClrLinearMethodBuilder(current.Method, (instruction, output) =>
             {
                 diagnosticSyntax = instruction.Syntax;
-                references.Resolve(instruction.Method!).EmitCall(output);
-            }));
+                if (instruction.Kind == LinearInstructionKind.NewObject)
+                {
+                    if (!definedMethods.TryGetValue(instruction.Method!, out var constructor)) throw Unsupported("only declared source constructors");
+                    output.NewObject(constructor);
+                }
+                else references.Resolve(instruction.Method!).EmitCall(output);
+            }, field => fields.TryGetValue(field, out var definition) ? definition : throw Unsupported("undeclared instance field")));
         }
         return assembly.WriteNativeAssembly();
 

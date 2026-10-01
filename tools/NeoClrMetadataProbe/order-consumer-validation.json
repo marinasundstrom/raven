@@ -96,10 +96,10 @@
     },
     {
       "selection": "Order-declaration",
-      "phase": "emission",
+      "phase": "emitted",
       "bindingErrors": 0,
-      "success": false,
-      "bytes": 0,
+      "success": true,
+      "bytes": 20480,
       "selectedSha256": "D9142C3EEC61A731230AD4348C50536B8AA5B13323F74D2AFC5E7CBEB6599C04",
       "orderMembers": [
         {
@@ -148,10 +148,8 @@
           "IsStatic": false
         }
       ],
-      "diagnosticCount": 1,
-      "diagnostics": [
-        "error NEOMETA001: Native emission does not support only public or internal nongeneric static classes."
-      ]
+      "diagnosticCount": 0,
+      "diagnostics": []
     }
   ]
 }

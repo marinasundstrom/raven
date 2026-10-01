@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 // Native handles stay in this adapter. Symbol-to-native call mapping is owned by the
 // enclosing assembly emission, including explicit dependency and System bindings.
 internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
-    Action<LinearInstruction, MethodBuilder> emitCall) : ILinearMethodBuilder
+    Action<LinearInstruction, MethodBuilder> emitCall, Func<IFieldSymbol, FieldBuilder>? resolveField = null) : ILinearMethodBuilder
 {
     private readonly List<BranchLabel> labels = [];
     public void DefineLabel() => labels.Add(method.DefineLabel());
@@ -18,6 +18,11 @@ internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.Receiver: method.LoadArgument(0); break;
+            case LinearInstructionKind.LoadField: method.LoadField(resolveField!(instruction.Field!)); break;
+            case LinearInstructionKind.StoreField: method.StoreField(resolveField!(instruction.Field!)); break;
+            case LinearInstructionKind.NewObject:
+            case LinearInstructionKind.InstanceCall: emitCall(instruction, method); break;
             case LinearInstructionKind.Constant64: method.Emit(OpCode.Ldc_I8, instruction.Long); break;
             case LinearInstructionKind.Convert64: method.Emit(OpCode.Conv_I8); break;
             case LinearInstructionKind.Convert32: method.Emit(OpCode.Conv_I4); break;

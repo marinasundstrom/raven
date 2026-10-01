@@ -27,8 +27,7 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
         if (method.Compilation.Options.OptimizationLevel != OptimizationLevel.Release ||
             method.TypeGenerator.CodeGen.HasDebugOutput ||
             !LinearMethodBody.HasSupportedSignature(symbol) ||
-            symbol.ContainingType is not { Arity: 0 } || method.LambdaClosure is not null ||
-            symbol.DeclaringSyntaxReferences.Length != 1)
+            symbol.ContainingType is not { Arity: 0 } || method.LambdaClosure is not null)
             return false;
         // A logical no-result return can use ret directly only when the CLI signature
         // is actually void. Keep any value-bearing Unit representation on general codegen.
@@ -57,6 +56,12 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.NewObject: output.Emit(OpCodes.Newobj, method.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetConstructorInfo(instruction.Method!)); break;
+            case LinearInstructionKind.Receiver: output.Emit(OpCodes.Ldarg_0); break;
+            case LinearInstructionKind.LoadField: output.Emit(OpCodes.Ldfld, method.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(instruction.Field!)); break;
+            case LinearInstructionKind.StoreField: output.Emit(OpCodes.Stfld, method.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(instruction.Field!)); break;
+            case LinearInstructionKind.InstanceCall:
+                output.Emit(OpCodes.Callvirt, method.TypeGenerator.CodeGen.LinearCallReferences.Resolve(instruction.Method!)); break;
             case LinearInstructionKind.Constant64: output.Emit(OpCodes.Ldc_I8, instruction.Long); break;
             case LinearInstructionKind.Convert64: output.Emit(OpCodes.Conv_I8); break;
             case LinearInstructionKind.Convert32: output.Emit(OpCodes.Conv_I4); break;
