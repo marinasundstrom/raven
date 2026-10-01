@@ -1953,3 +1953,25 @@ reject before output; implicit auto-properties retain their earlier support. Ini
 init-only accessors, indexers, virtual members and nominal signatures remain separate
 contracts. Full native metadata/backend replacement and collection dependencies are
 still pending. [Evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).
+
+
+## Expression-bodied root constructors — 2026-10-01
+
+The native collector now admits explicit root constructors with arrow bodies as well
+as blocks. Existing callable plans and compiler lowering already describe these bodies;
+there is no backend-specific expression rewrite. Primitive overload signatures, receiver
+slots and new-object reference resolution are unchanged. Arrow assignment and Unit helper
+calls preserve initialization effects. The .NET constructor generator remains responsible
+for its normal base initialization; this change does not opt constructors into the .NET
+shared-method fast path. No Runtime Contract setting, metadata schema or runtime change
+is required. CLI constructors retain their existing encoding and the native payload uses
+the existing constructor/call contract.
+
+Two focused C# tests pass in Release/Debug, asserting shared planner admission, overload
+metadata and execution. The 10-test expression-body/instance-declaration baseline passed.
+The expanded Order probe executes both constructor overloads, including two argument calls
+that mutate the same receiver; it verifies evaluation order and exactly-once execution.
+Both source orders verify/run to 42 on .NET and binary neoCLR. Explicit base chaining is
+rejected without output, alongside five existing unsupported-contract cases. Implicit
+constructors, chaining, property/field initializers and nominal signatures remain open.
+[Updated evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).

@@ -40,6 +40,12 @@ internal static class OrderObjectChecks
                     return Number
                 }
             }
+            class Created {
+                var Number: int
+                init(value: int) => Set(value)
+                init(left: int, right: int) => Number = left * 10 + right
+                private func Set(value: int) { Number = value + 1 }
+            }
             class Gauge {
                 private var amount: int
                 init(amount: int) {
@@ -87,6 +93,10 @@ internal static class OrderObjectChecks
                 gauge.Reset(22)
                 if gauge.Adjusted != 22 { return 11 }
                 if gauge.Doubled != original.Number { return 12 }
+                counter.Reset(4)
+                if Created(counter.Next(), counter.Next()).Number != 45 { return 14 }
+                if counter.Read() != 6 { return 15 }
+                if Created(41).Number != original.Number { return 16 }
                 return original.Number
             }
             """;
@@ -132,6 +142,7 @@ internal static class OrderObjectChecks
         }
         foreach (var unsupported in new[] {
             "class Empty { }",
+            "class Chained { init(): base() { } }",
             "class AccessorStorage { var Number: int { get; set; }\n init() { Number = 1 } }",
             "class PrivateInitialized { private var number: int = 1\n init() { } }",
             "class Initialized { var Number: int = 1\n init() { } }",
@@ -164,7 +175,8 @@ internal static class OrderObjectChecks
             ordinaryInstanceCalls = true,
             privatePrimitiveStorage = true,
             computedAndExplicitAccessors = true,
-            rejectedIncompleteContracts = 5
+            expressionConstructors = true,
+            rejectedIncompleteContracts = 6
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");
     }
