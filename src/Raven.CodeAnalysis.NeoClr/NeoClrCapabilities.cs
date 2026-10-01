@@ -24,5 +24,5 @@ internal static class NeoClrCapabilities
         [EmissionDeclarationKind.AssemblyFunction, EmissionDeclarationKind.NamespacedAssemblyFunction, EmissionDeclarationKind.StaticMethod, EmissionDeclarationKind.StaticType, EmissionDeclarationKind.RootClass, EmissionDeclarationKind.InstanceMethod, EmissionDeclarationKind.Constructor, EmissionDeclarationKind.PropertyAccessor, EmissionDeclarationKind.IndexerAccessor],
         [Accessibility.Public, Accessibility.Internal],
         [Accessibility.Public, Accessibility.Internal, Accessibility.Private],
-        [Accessibility.Public, Accessibility.Internal], allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsArrays: true);
+        [Accessibility.Public, Accessibility.Internal], allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsArrays: true, allowsGenericMethods: true);
 }

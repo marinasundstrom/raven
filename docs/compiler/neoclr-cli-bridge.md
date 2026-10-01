@@ -2247,3 +2247,24 @@ signatures reject without writing output. C# Release/Debug tests also check two-
 assignment order independently. Evidence fields now name the actual indexer checks,
 replacing copied array-probe labels from the initial snapshot. This is a bounded
 collection consumer, not the generic ArrayList/HashMap implementation or full sample.
+
+### Owned generic call emission (2026-10-01 development)
+
+The shared callable/type plan now admits unconstrained static method/function type
+parameters, locals, vector signatures and instantiated calls through explicit generic
+capabilities. Native mappings use the separate metadata API's GenericMethodInstance;
+.NET uses its existing generic declaration registration and runtime-symbol resolution
+with the shared Release body plan. Debug and general .NET emission remain available.
+No Runtime Contract setting is added: target adapter capability admission selects this
+bounded subset. Native imports, constraints, generic types and generic instance methods
+are deferred. Ordinary .NET generic metadata uses GenericParam, MVAR and MethodSpec;
+native execution uses equivalent method parameters and call arguments in the temporary
+PE/#Neo payload, with a CLI reference projection. General native symbol importing and
+replacement of that execution bridge remain separate work.
+
+`NeoClrMetadataProbe --generic-runtime <application-order-collections.rvn> <fresh-output>
+<runtime>` tests generic forwarding, locals, static array access and Order aliasing on
+both targets in both source orders (42). Use the matching metadata API/runtime branch
+`codex/extended-cli-metadata`, including generic static class-method admission; Raven
+support here is on `codex/metadata-consumer`. C# shared-plan tests exercise Release/Debug
+execution and capability denial; reference emission regressions remain covered.

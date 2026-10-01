@@ -23,7 +23,7 @@ internal interface ILinearMethodBuilder
 internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
 // Logical value types carry compiler identity, never backend handles.
-internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Class = null, IArrayTypeSymbol? Array = null);
+internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Class = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null);
 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
@@ -116,7 +116,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
 
         bool LowerBody(BoundBlockStatement body)
         {
-            if (!CallableSignature.TryCreate(source, out var signature)) return Reject("only nongeneric primitive or owned root-class parameters/results (Unit only as result)", bodySyntax);
+            if (!CallableSignature.TryCreate(source, out var signature)) return Reject("only supported value signatures and unconstrained static generics (Unit only as result)", bodySyntax);
             if (capabilities is not null && !capabilities.Allows(signature))
                 return Reject("target does not support callable signature types", bodySyntax);
             if (!body.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(body));
@@ -183,7 +183,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         }
                         else if (variable.Local.Type is INamedTypeSymbol nominal && SourceTypePlan.TryCreate(nominal, out var typePlan) && !typePlan!.IsStatic && capabilities?.AllowsRootClassLocals == true)
                             localType = new(Class: nominal);
-                        else if (variable.Local.Type is IArrayTypeSymbol && CallableSignature.TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
+                        else if (variable.Local.Type is (IArrayTypeSymbol or ITypeParameterSymbol) && CallableSignature.TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
                             localType = arrayType;
                         else return Reject("target does not support local type " + variable.Local.Type.Name, Syntax(variable));
                         if (!LowerValue(variable.Initializer)) return false;
@@ -498,7 +498,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundInvocationExpression call when call.ExtensionReceiver is null &&
                     (call.Method.IsStatic && call.Receiver is null or BoundTypeExpression ||
                      call.Method.MethodKind == MethodKind.Ordinary && SupportedInstanceCall(call.Method)):
-                    if (!CallableSignature.TryCreate(call.Method, out var callSignature)) return Reject("only nongeneric primitive or owned root-class parameters/results (Unit only as result): " + call.Method.Name, Syntax(expression));
+                    if (!CallableSignature.TryCreate(call.Method, out var callSignature)) return Reject("only supported value signatures and unconstrained static generics (Unit only as result): " + call.Method.Name, Syntax(expression));
                     if (capabilities is not null && !capabilities.Allows(callSignature))
                         return Reject("target does not support call signature types", Syntax(expression));
                     var arguments = call.Arguments.ToArray();

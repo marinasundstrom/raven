@@ -185,13 +185,20 @@ internal static class Int32Emitter
         }
         var references = new CallableReferenceTable<NeoClrCallableReference>(target =>
         {
+            if (target.IsGenericMethod)
+            {
+                if (!definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
+                    throw Unsupported("only owned generic static calls");
+                return NeoClrCallableReference.Create(definition.MakeGenericInstance(target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])).ToArray()));
+            }
             var systemFunction = ImportSystem(target);
             return systemFunction is not null
                 ? NeoClrCallableReference.Create(systemFunction)
                 : NeoClrCallableReference.Create(Import(target));
         });
         foreach (var declaration in methods)
-            references.Declare(declaration.Plan.Symbol, NeoClrCallableReference.Create(declaration.Method));
+            if (!declaration.Plan.Symbol.IsGenericMethod)
+                references.Declare(declaration.Plan.Symbol, NeoClrCallableReference.Create(declaration.Method));
         if (compilation.Options.OutputKind == OutputKind.ConsoleApplication)
         {
             var entry = compilation.GetEntryPoint() ?? throw Unsupported("entry point unavailable");
