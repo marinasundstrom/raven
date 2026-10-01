@@ -268,16 +268,9 @@ internal static class Int32Emitter
             {
                 if (definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
                     return NeoClrCallableReference.Create(definition.MakeGenericInstance(target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
-                var arguments = new List<SignatureType>();
-                foreach (var argument in target.TypeArguments)
-                {
-                    if (!CallableSignature.TryType(argument, false, out var value) ||
-                        !(value.Primitive is not null || value.Array is { } vector &&
-                            CallableSignature.TryType(vector.ElementType, false, out var element) && element.Primitive is not null))
-                        throw Unsupported("imported generic calls require concrete primitive/vector arguments");
-                    arguments.Add(NeoClrTypeMapper.Map(value, _ => throw Unsupported("imported nominal argument")));
-                }
-                return NeoClrCallableReference.Create(Import(target.OriginalDefinition ?? target).MakeGenericInstance(arguments.ToArray()));
+                var arguments = target.TypeArguments.Select(t =>
+                    NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray();
+                return NeoClrCallableReference.Create(Import(target.OriginalDefinition ?? target).MakeGenericInstance(arguments));
             }
             var systemFunction = ImportSystem(target);
             return systemFunction is not null

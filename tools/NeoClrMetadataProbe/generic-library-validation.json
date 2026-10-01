@@ -2,36 +2,37 @@
   "bindingProfile": "CompilationOptions.NeoCLR; projected CLI declarations; no host core",
   "coreSha256": "48480EAB560AD928F0B92F7914CC403904B89F045357D2A8AE6AC2C53EF02063",
   "runtimeSha256": "193B7F995EE4FC92A086439FB1FDBDAFC3A0C58139F0CAF30CB4A2D8640A432D",
-  "librarySha256": "8FE251A08D2F001EA21F5D3088A10EE56F40EA91FF6992D95E62702FD74EF1A7",
-  "applicationSha256": "FBFADFB6124D52BB1997AA3D64ABEABE89BA7F3C20F1776AA8DD833253D7BF7C",
+  "librarySha256": "5C27D0F1CAD63FD8BA3BFCD06EC94961D8FBC3FE188B46A78D1070B9280192C4",
+  "applicationSha256": "4DD50F20359D8303DBA37F90B62B9094797B58B730EA16B8C61E93EDDCDBF664",
   "verified": true,
   "result": 42,
   "coverage": [
     "separate Raven library and application",
-    "concrete primitive and vector generic arguments",
+    "primitive, vector and consumer-owned nominal generic arguments",
+    "caller method/owner generic forwarding",
+    "external constructed argument",
+    "nominal alias mutation",
     "generic arity overloads",
     "returned array alias mutation",
     "void external call",
     "unregistered dependency rejection",
     "missing generic declaration rejection"
   ],
-  "scope": "unconstrained static generic methods on nongeneric owners; nominal arguments, generic owners and constrained imports remain unsupported",
+  "scope": "unconstrained static generic methods on nongeneric owners; generic owners and constrained imports remain unsupported",
   "testedBranches": {
     "raven": "codex/metadata-consumer",
-    "neoclr": "codex/extended-cli-metadata"
+    "metadata": "codex/extended-cli-metadata"
   },
   "sourceBaseRevisions": {
-    "raven": "0138c916b",
-    "neoclr": "32008684"
+    "raven": "48a2f8d01",
+    "neoclr": "3a6380a6"
   },
-  "sourceState": "plus imported-generic method changes committed with this evidence",
-  "metadataTests": "72/72 C# groups, including external CLR MethodSpec execution, exact generic-arity MemberRef resolution and malformed/constraint rejection",
-  "vectorRegression": "earlier native-profile vector library/application still verifies and returns 42",
+  "sourceState": "plus consumer-scoped generic import changes committed with this evidence",
+  "metadataTests": "73/73 C# groups, including CLR nominal MethodSpec execution and foreign-owner/out-of-scope rejection",
   "apiSnapshotCheck": "passed",
-  "ravenOverloadScope": "generic arity overloads also differ in value-parameter count; same-signature arity-only choice reported RAV0121 in exploratory binding, not classified as a regression",
+  "ravenOverloadScope": "generic arity overloads also differ in value-parameter count; prior same-signature arity-only exploratory RAV0121 remains unclassified",
   "sourceSha256": {
-    "src/Raven.CodeAnalysis.NeoClr/Int32Emitter.cs": "5af16357beef891bc6d14bfff9eac5952e9a0e501de67752e0b80d1e94d6bd71",
-    "src/Raven.CodeAnalysis.NeoClr/NeoClrCallableReference.cs": "2c3cb736da661a737cbe12bddaf241ccbdaca9d5d2ee42cff6c6b293bffbd1f8",
-    "tools/NeoClrMetadataProbe/GenericLibraryChecks.cs": "567d6386992b11496b9246dda7b56fb42bf2a9316b2850e55dddb659bba0d30a"
+    "src/Raven.CodeAnalysis.NeoClr/Int32Emitter.cs": "5e698edf6cafee70197676142d0f70419158edeb0c960529ac47949e58fb4cb7",
+    "tools/NeoClrMetadataProbe/GenericLibraryChecks.cs": "6964fe76bf78d9782eccd07000402555cb83b92ec1b39871b68a65bb2a404b65"
   }
 }

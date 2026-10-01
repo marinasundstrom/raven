@@ -24,6 +24,7 @@ internal static class GenericLibraryChecks
         var name = AssemblyName.GetAssemblyName(corePath);
         var core = new AssemblyIdentity(name.Name!, name.Version!, name.CultureName ?? "", Convert.ToHexString(name.GetPublicKeyToken() ?? []));
         const string librarySource = """
+            public class Box<T> { }
             public static class Algorithms {
                 public static func Identity<T>(value: T) -> T => value
                 public static func First<T>(values: T[]) -> T => values[0]
@@ -40,7 +41,24 @@ internal static class GenericLibraryChecks
         var reference = MetadataReference.CreateFromFile(libraryPath);
         var definition = RuntimeAssemblyContainer.ReadCliProjection(File.ReadAllBytes(libraryPath));
         const string appSource = """
+            class Order { var Number: int = 42 }
+            class Relay<T> {
+                func Send(value: T) -> T => Algorithms.Identity<T>(value)
+            }
+            func Forward<T>(value: T) -> T => Algorithms.Identity<T>(value)
             func Main() -> int {
+                let order = Order()
+                let orders: Order[] = [order]
+                let same = Algorithms.First<Order>(orders)
+                if same.Number != 42 { return 6 }
+                same.Number = 7
+                if order.Number != 7 { return 7 }
+                let relay = Relay<Order>()
+                if relay.Send(order).Number != 7 { return 9 }
+                let empty = default(Box<int>)
+                Algorithms.Identity<Box<int>?>(empty)
+                let forwarded = Forward<Order>(order)
+                if forwarded.Number != 7 { return 8 }
                 let values: int[] = [19, 23]
                 let alias = Algorithms.Identity<int[]>(values)
                 Algorithms.Set<int>(alias, 42)
@@ -91,8 +109,8 @@ internal static class GenericLibraryChecks
             applicationSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(appPath))),
             verified = true,
             result = 42,
-            coverage = new[] { "separate Raven library and application", "concrete primitive and vector generic arguments", "generic arity overloads", "returned array alias mutation", "void external call", "unregistered dependency rejection", "missing generic declaration rejection" },
-            scope = "unconstrained static generic methods on nongeneric owners; nominal arguments, generic owners and constrained imports remain unsupported"
+            coverage = new[] { "separate Raven library and application", "primitive, vector and consumer-owned nominal generic arguments", "caller method/owner generic forwarding", "external constructed argument", "nominal alias mutation", "generic arity overloads", "returned array alias mutation", "void external call", "unregistered dependency rejection", "missing generic declaration rejection" },
+            scope = "unconstrained static generic methods on nongeneric owners; generic owners and constrained imports remain unsupported"
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
 
         string Emit(Compilation compilation, NeoClrEmitOptions options, string source)
