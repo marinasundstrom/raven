@@ -49,7 +49,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         var labels = new Dictionary<ILabelSymbol, int>(SymbolEqualityComparer.Default);
         var locals = new Dictionary<ILocalSymbol, int>(SymbolEqualityComparer.Default);
         LinearBodyFailure? rejected = null;
-        var body = model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement;
+        // Arrow clauses expose their bound statement block in the original view, as
+        // consumed by the general generator. Reuse compiler lowering for conversions
+        // and Unit expression statements instead of synthesizing backend returns.
+        var body = bodySyntax is ArrowExpressionClauseSyntax
+            ? model.GetBoundNode(bodySyntax, BoundTreeView.Original) is BoundBlockStatement arrowBody
+                ? Lowerer.LowerBlock(source, arrowBody) : null
+            : model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement;
         var success = body is not null ? LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
         if (success && capabilities is not null)
         {

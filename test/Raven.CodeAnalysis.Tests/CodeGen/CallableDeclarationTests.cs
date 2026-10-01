@@ -7,6 +7,47 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class CallableDeclarationTests
 {
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void ExpressionBodiesShareLoweringAndPreserveResults(OptimizationLevel optimization)
+    {
+        const string source = """
+            func Main() -> int => Helpers.Value(20)
+            public static class Helpers {
+                public static func Value(value: int) -> int => Twice(value + 1)
+                private static func Twice(value: int) -> int => value * 2
+                public static func Wide(value: long) -> long => value + 1L
+                public static func Widen(value: int) -> long => value
+                public static func Positive(value: int) -> bool => value > 0
+                public static func Text(value: string) -> string => value
+                public static func Finish() => Empty()
+                private static func Empty() { }
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("ArrowBodies", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        foreach (var syntax in tree.GetRoot().DescendantNodes().Where(n => n is MethodDeclarationSyntax or FunctionStatementSyntax))
+        {
+            Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+            Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), plan.MetadataName + ": " + failure?.Detail);
+        }
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var assembly = Assembly.Load(output.ToArray());
+        Assert.Equal(42, assembly.EntryPoint!.Invoke(null, null));
+        var helpers = assembly.GetType("Helpers")!;
+        Assert.Equal(5000000001L, helpers.GetMethod("Wide")!.Invoke(null, [5000000000L]));
+        Assert.Equal(42L, helpers.GetMethod("Widen")!.Invoke(null, [42]));
+        Assert.Equal(true, helpers.GetMethod("Positive")!.Invoke(null, [1]));
+        Assert.Equal("Hej 🌍", helpers.GetMethod("Text")!.Invoke(null, ["Hej 🌍"]));
+        Assert.Null(helpers.GetMethod("Finish")!.Invoke(null, null));
+    }
+
     [Fact]
     public void SharedTypeContractSeparatesNoResultFromValueTypes()
     {

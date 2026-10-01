@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 // A source declaration, not a backend definition. In particular, an assembly function
 // has no logical type owner even when the CLI symbol model supplies a carrier type.
 internal sealed record SourceCallablePlan(
-    IMethodSymbol Symbol, SyntaxNode Syntax, BlockStatementSyntax? Body,
+    IMethodSymbol Symbol, SyntaxNode Syntax, SyntaxNode? Body,
     INamedTypeSymbol? TypeOwner, string MetadataName, PrimitiveCallableSignature Signature)
 {
     internal EmissionDeclarationKind DeclarationKind => IsAssemblyFunction ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.StaticMethod;
@@ -24,12 +24,12 @@ internal sealed record SourceCallablePlan(
         switch (syntax)
         {
             case MethodDeclarationSyntax method when symbol.ContainingType is { } owner:
-                plan = new(symbol, syntax, method.Body, owner, symbol.MetadataName, signature);
+                plan = new(symbol, syntax, (SyntaxNode?)method.Body ?? method.ExpressionBody, owner, symbol.MetadataName, signature);
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
                 plan = null;
                 return false;
             case FunctionStatementSyntax function when function.Parent is GlobalStatementSyntax { Parent: CompilationUnitSyntax }:
-                plan = new(symbol, syntax, function.Body, null, symbol.Name, signature);
+                plan = new(symbol, syntax, (SyntaxNode?)function.Body ?? function.ExpressionBody, null, symbol.Name, signature);
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
                 plan = null;
                 return false;
@@ -55,7 +55,7 @@ internal sealed record SourceCallablePlan(
         if (Body is null)
         {
             body = null;
-            failure = new("only block-bodied source callables", Syntax);
+            failure = new("source callable body unavailable", Syntax);
             return false;
         }
         return LinearMethodBody.TryLower(Symbol, compilation.GetSemanticModel(Body.SyntaxTree), Body,

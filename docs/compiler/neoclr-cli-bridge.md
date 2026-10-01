@@ -1542,3 +1542,18 @@ passes with the independent metadata library at `5ccc41e8` on
 orders of a separate library preserve private/internal access, with compiler and
 runtime rejection of external callers. See
 [recorded probe evidence](../../tools/NeoClrMetadataProbe/validation.json).
+
+
+### Shared expression-bodied callable plans — 2026-10-01
+
+Callable plans now retain either a source block or arrow clause. For arrow clauses,
+the bounded body planner uses the same original bound block and compiler Lowerer as
+the established .NET generator. Return conversions, Unit expression statements and
+source mapping remain binder/lowerer responsibilities, not backend rewrites. Release
+.NET emission can use this shared path; Debug and unsupported signatures/bodies retain
+the general generator. No Runtime Contract setting, public compiler API, opcode or
+metadata format changes. Native source admission follows in a separate slice.
+
+Validation: 48 focused C# declaration/shared-body/expression-body tests pass. New
+Release/Debug cases inspect shared planning and execute Int32/Int64/Boolean/String
+results, implicit widening and Unit calls; existing expression-body regressions pass.

@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Admit expression-bodied callables in shared source plans, reusing existing bound arrow blocks and compiler lowering for .NET Release emission. Preserve Debug/general fallback and return conversions; native source admission follows separately.
+
 - **2026-10-01:** Carry public/internal/private static method access through shared declaration plans and explicit backend capabilities. Emit nonpublic neoCLR helpers with preserved CLI reference access; test legal calls and compiler/runtime rejection across assembly boundaries. Assembly-function access policy is unchanged.
 
 - **2026-10-01:** Share Int32/Int64 bitwise AND, OR and XOR across .NET and neoCLR emission, with typed metadata writer support and paired runtime checks. Add left and signed right shifts with Int32 counts for both integer widths.
