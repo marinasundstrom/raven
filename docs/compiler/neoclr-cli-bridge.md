@@ -2756,3 +2756,35 @@ core/dependency configuration is unchanged. These feature-branch results do not 
 the collections Option<Order> gate: imported value/union signatures, generic declaring
 type members and translated-System native identities remain open. Native loading of
 compiler symbols remains future work.
+
+## Imported nominal method signatures (2026-10-01)
+
+The feature-branch metadata API and Raven adapter now import static methods on
+nongeneric owners whose signatures contain dependency-local reference types,
+constructions, vectors and unconstrained method parameters. Raven compares the fully
+remapped signature against the bound symbol rather than matching module-local tokens.
+The metadata API owns bounded decoding, exact snapshot identity and reference validation;
+Raven owns explicit dependency selection and overload matching. Ordinary .NET defaults
+and Runtime Contract configuration remain unchanged.
+
+The native intent is ordinary cross-assembly calls. CLI declaration input and emitted
+TypeRef/MemberRef/MethodSpec are a temporary bridge; no native encoding or opcode change
+was required. CompilationOptions.NeoCLR still requires matching core and registered
+NeoClrMetadataDependency snapshots. The native implementation dependency must use the
+producer's format-5 identity naming; translated System still needs an origin-based map.
+
+The C# --external-signature-runtime probe now emits a factory returning Box<Order>,
+forwards it and retrieves a consumer-owned payload while preserving aliases. Interface
+vectors, nominal overload matching and missing-method rejection also pass. Both binaries
+verify and execution returns 42; 74 metadata contract test groups pass, including CLR
+factory/reader execution and malformed signature rejection. The existing generic-library
+probe still verifies/runs (42). Tested branches are codex/metadata-consumer and
+codex/extended-cli-metadata; evidence pins core/runtime hashes.
+
+The unchanged collections sample still stops at PendingOrder's Option<Order> result,
+which is a value-type union in this CLI bridge. Do not admit it as a reference type.
+Next work requires value-type category preservation in signatures/native projection,
+then appropriate union operations and imported instance/generic-owner members. The
+current projection also omits nullable annotations; the factory boundary above uses
+nonnull references. Native semantic loading remains future work. Primitive-only reader
+recognizers/MemberReference resolution remain narrower than this producer import API.

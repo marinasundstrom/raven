@@ -355,27 +355,26 @@ internal static class Int32Emitter
             var types = dependencyMetadata.MainModule.Types.Where(t => t.DeclaringType is null && t.GenericArity == 0 &&
                 (t.Namespace.Length == 0 ? t.Name : t.Namespace + "." + t.Name) == symbol.ContainingType?.ToFullyQualifiedMetadataName()).Take(2).ToArray();
             if (types.Length != 1) throw Unsupported("dependency type unavailable or ambiguous");
-            var definitions = types[0].Methods.Where(m => m.Name == symbol.MetadataName && MatchesSignature(m, symbol)).Take(2).ToArray();
-            if (definitions.Length != 1) throw Unsupported("dependency method contract unavailable or ambiguous");
-            return assembly.ImportReference(definitions[0], binding.CoreLibrary);
+            if (!CallableSignature.TryCreate(symbol, out var signature, NeoClrCapabilities.Shared))
+                throw Unsupported("unsupported dependency method signature");
+            var expected = new MethodSignature(
+                NeoClrTypeMapper.Map(signature.ReturnType, type => nativeTypes[type], ImportExternalType),
+                signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)), signature.GenericParameterNames);
+            var matches = new List<ImportedMethodReference>();
+            foreach (var candidate in types[0].Methods.Where(m => m.Name == symbol.MetadataName && m.GenericArity == symbol.Arity && m.IsStatic))
+            {
+                ImportedMethodReference imported;
+                try { imported = assembly.ImportReference(candidate, binding.CoreLibrary); }
+                catch (InvalidDataException) { continue; }
+                var actual = imported.Signature;
+                if (actual.GenericParameterNames.Count == expected.GenericParameterNames.Count && actual.ReturnType == expected.ReturnType &&
+                    actual.ParameterTypes.SequenceEqual(expected.ParameterTypes)) matches.Add(imported);
+                if (matches.Count == 2) break;
+            }
+            if (matches.Count != 1) throw Unsupported("dependency method contract unavailable or ambiguous");
+            return matches[0];
         }
         UnsupportedInputException Unsupported(string detail) => new(detail, diagnosticSyntax.GetLocation());
-
-        static bool MatchesSignature(MethodDefinition method, IMethodSymbol symbol)
-        {
-            if (!symbol.IsStatic ||
-                !(method.TryGetStaticValueSignature(out var metadata) || method.TryGetStaticGenericValueSignature(out metadata)) ||
-                !CallableSignature.TryCreate(symbol, out var signature) ||
-                !IsImportedValue(signature.ReturnType) || !signature.ParameterTypes.All(IsImportedValue)) return false;
-            var expected = new MethodSignature(Map(signature.ReturnType), signature.ParameterTypes.Select(Map), signature.GenericParameterNames);
-            return metadata!.GenericParameterNames.Count == expected.GenericParameterNames.Count && metadata.ReturnType == expected.ReturnType &&
-                metadata.ParameterTypes.SequenceEqual(expected.ParameterTypes);
-
-            static bool IsImportedValue(EmissionType type) => type.Primitive is not null || type.MethodParameter is not null ||
-                type.Array is { } array && CallableSignature.TryType(array.ElementType, false, out var element) && (element.Primitive is not null || element.MethodParameter is not null);
-            static SignatureType Map(EmissionType type) => NeoClrTypeMapper.Map(type,
-                _ => throw new InvalidOperationException("imported nominal signatures require a separate contract"));
-        }
 
         static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType == SpecialType.System_Int32;
 

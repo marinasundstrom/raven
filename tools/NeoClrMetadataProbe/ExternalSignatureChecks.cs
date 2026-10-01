@@ -24,8 +24,18 @@ internal static class ExternalSignatureChecks
         var name = AssemblyName.GetAssemblyName(corePath);
         var core = new AssemblyIdentity(name.Name!, name.Version!, name.CultureName ?? "", Convert.ToHexString(name.GetPublicKeyToken() ?? []));
         const string librarySource = """
-            public class Box<T> { }
+            public class Box<T> {
+                var Value: T
+                init(value: T) { self.Value = value }
+            }
             public interface View { }
+            public static class Operations {
+                public static func Forward<T>(value: Box<T>) -> Box<T> => value
+                public static func Create<T>(value: T) -> Box<T> => Box<T>(value)
+                public static func Read<T>(box: Box<T>) -> T => box.Value
+                public static func Count(values: Box<int>) -> int => 7
+                public static func Count(values: View[]) -> int => values.Length
+            }
             """;
         var libraryCompilation = Compilation.Create("ExternalSignatureLibrary", [SyntaxTree.ParseText(librarySource)], [coreReference],
             CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
@@ -40,8 +50,16 @@ internal static class ExternalSignatureChecks
                 let value = default(Box<Order>)
                 let alias = Forward<Order>(value)
                 Forward<Order>(alias)
+                let order = Order()
+                let created = Operations.Create<Order>(order)
+                let forwarded = Operations.Forward<Order>(created)
+                if Operations.Read<Order>(forwarded).Number != 42 { return 3 }
+                Operations.Read<Order>(forwarded).Number = 7
+                if order.Number != 7 { return 4 }
                 let views: View?[] = [default(View)]
                 if views.Length != 1 { return 1 }
+                let empty: View[] = []
+                if Operations.Count(empty) != 0 { return 2 }
                 return Accept(alias)
             }
             """;
@@ -59,6 +77,15 @@ internal static class ExternalSignatureChecks
             new(new("ExternalSignatureLibrary", new Version(1, 0, 0, 0)), core, []));
         if (!mismatchResult.Success) throw new Exception(string.Join("; ", mismatchResult.Diagnostics));
         Reject([new NeoClrMetadataDependency(reference, RuntimeAssemblyContainer.ReadCliProjection(mismatchImage.ToArray()), core)]);
+
+        var missingMethod = Compilation.Create("ExternalSignatureLibrary", [SyntaxTree.ParseText(librarySource.Replace(
+            "public static func Forward<T>(value: Box<T>) -> Box<T> => value", "", StringComparison.Ordinal))],
+            [coreReference], CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        using var missingMethodImage = new MemoryStream();
+        var missingMethodResult = NeoClrCompilationEmitter.EmitMetadataAssembly(missingMethod, missingMethodImage,
+            new(new("ExternalSignatureLibrary", new Version(1, 0, 0, 0)), core, []));
+        if (!missingMethodResult.Success) throw new Exception(string.Join("; ", missingMethodResult.Diagnostics));
+        Reject([new NeoClrMetadataDependency(reference, RuntimeAssemblyContainer.ReadCliProjection(missingMethodImage.ToArray()), core)]);
 
         void Reject(NeoClrMetadataDependency[] dependencies)
         {
@@ -78,8 +105,8 @@ internal static class ExternalSignatureChecks
             applicationSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(appPath))),
             verified = true,
             result = 42,
-            coverage = new[] { "separate Raven library and application", "external generic signatures with consumer-owned arguments", "method generic forwarding", "discarded nominal result", "external interface arrays", "unregistered dependency rejection", "missing type rejection" },
-            scope = "public top-level unconstrained reference signatures; imported constructors/member calls and translated System identity mapping remain unsupported"
+            coverage = new[] { "separate Raven library and application", "external generic signatures with consumer-owned arguments", "method generic forwarding", "discarded nominal result", "external interface arrays", "imported nominal/generic method signatures", "constructed factory/read with consumer-owned payload alias", "unregistered dependency rejection", "missing type rejection", "nominal overload matching", "missing method rejection" },
+            scope = "public top-level unconstrained reference signatures; imported constructors/instance members, value types and translated System identity mapping remain unsupported"
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
 
         string Emit(Compilation compilation, NeoClrEmitOptions options, string source)
