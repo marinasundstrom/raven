@@ -60,11 +60,17 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         // Arrow clauses expose their bound statement block in the original view, as
         // consumed by the general generator. Reuse compiler lowering for conversions
         // and Unit expression statements instead of synthesizing backend returns.
-        var body = model.Compilation.TryGetSynthesizedMethodBody(source, BoundTreeView.Lowered, out var synthesized) && synthesized is not null
+        var body = source.MethodKind == MethodKind.Constructor && bodySyntax is ClassDeclarationSyntax
+            ? new BoundBlockStatement([]) : model.Compilation.TryGetSynthesizedMethodBody(source, BoundTreeView.Lowered, out var synthesized) && synthesized is not null
             ? synthesized : bodySyntax is ArrowExpressionClauseSyntax
             ? model.GetBoundNode(bodySyntax, BoundTreeView.Original) is BoundBlockStatement arrowBody
                 ? Lowerer.LowerBlock(source, arrowBody) : null
             : model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement;
+        if (body is not null && source.MethodKind == MethodKind.Constructor)
+        {
+            var initialization = Lowerer.LowerBlock(source, new BoundBlockStatement(FieldInitializationPlan.Create(model.Compilation, source).ToArray()));
+            body = new BoundBlockStatement([initialization, body]);
+        }
         var success = body is not null ? LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
         if (success && capabilities is not null)
         {

@@ -40,6 +40,16 @@ internal static class OrderObjectChecks
                     return Number
                 }
             }
+            class Initialized {
+                private var first: int = 20
+                var Number: int = 21
+                val Sum: int => first + Number
+            }
+            class ExplicitInitialized {
+                private var first: int = 20
+                var Number: int = 21
+                init() { Number = first + Number + 1 }
+            }
             class Created {
                 var Number: int
                 init(value: int) => Set(value)
@@ -97,6 +107,8 @@ internal static class OrderObjectChecks
                 if Created(counter.Next(), counter.Next()).Number != 45 { return 14 }
                 if counter.Read() != 6 { return 15 }
                 if Created(41).Number != original.Number { return 16 }
+                if Initialized().Sum != 41 { return 17 }
+                if ExplicitInitialized().Number != 42 { return 18 }
                 return original.Number
             }
             """;
@@ -141,11 +153,8 @@ internal static class OrderObjectChecks
             if (!Equals(Assembly.Load(cli.ToArray()).EntryPoint!.Invoke(null, null), 42)) throw new Exception("CLI result mismatch");
         }
         foreach (var unsupported in new[] {
-            "class Empty { }",
             "class Chained { init(): base() { } }",
             "class AccessorStorage { var Number: int { get; set; }\n init() { Number = 1 } }",
-            "class PrivateInitialized { private var number: int = 1\n init() { } }",
-            "class Initialized { var Number: int = 1\n init() { } }",
             order + "\nfunc Main() -> int { let order: Order? = null\n return 42 }"
         })
         {
@@ -176,7 +185,8 @@ internal static class OrderObjectChecks
             privatePrimitiveStorage = true,
             computedAndExplicitAccessors = true,
             expressionConstructors = true,
-            rejectedIncompleteContracts = 6
+            implicitConstructorsAndInitializers = true,
+            rejectedIncompleteContracts = 3
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");
     }

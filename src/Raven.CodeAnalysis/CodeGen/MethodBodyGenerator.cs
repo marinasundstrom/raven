@@ -2148,28 +2148,8 @@ internal partial class MethodBodyGenerator
 
     private void EmitFieldInitializers(bool isStatic)
     {
-        var fields = MethodSymbol.ContainingType!
-            .GetMembers()
-            .OfType<SourceFieldSymbol>()
-            .Where(f => f.IsStatic == isStatic && f.Initializer is not null);
-
-        foreach (var field in fields)
-        {
-            if (field.Initializer is BoundParameterAccess parameterAccess &&
-                MethodSymbol.Parameters.All(p => !SymbolEqualityComparer.Default.Equals(p, parameterAccess.Parameter)))
-            {
-                continue;
-            }
-
-            BoundExpression assignment = new BoundFieldAssignmentExpression(
-                isStatic ? null : new BoundSelfExpression(MethodSymbol.ContainingType!),
-                field,
-                field.Initializer!,
-                Compilation.GetSpecialType(SpecialType.System_Unit));
-
-            var statement = new BoundAssignmentStatement((BoundAssignmentExpression)assignment);
+        foreach (var statement in FieldInitializationPlan.Create(Compilation, MethodSymbol))
             new StatementGenerator(baseGenerator, statement).Emit();
-        }
     }
 
     private void EmitAutoEventAccessor(SourceEventSymbol eventSymbol, SourceFieldSymbol backingField)

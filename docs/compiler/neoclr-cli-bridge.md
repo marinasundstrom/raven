@@ -1975,3 +1975,22 @@ Both source orders verify/run to 42 on .NET and binary neoCLR. Explicit base cha
 rejected without output, alongside five existing unsupported-contract cases. Implicit
 constructors, chaining, property/field initializers and nominal signatures remain open.
 [Updated evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).
+
+
+## Default constructors and primitive initialization — 2026-10-01
+
+The shared FieldInitializationPlan enumerates canonical source fields and their bound
+initializers in compiler member order. The .NET constructor generator now consumes this
+helper; native constructor lowering prepends its lowered assignments before the body.
+Root classes with a synthesized parameterless constructor receive the same plan with an
+empty body. Mutable private storage and auto-property initializers are supported within
+the existing primitive body capabilities. No Runtime Contract setting or metadata schema
+changes. .NET base initialization stays with its constructor driver; native roots require
+no base call. Chaining, lifecycle initialization blocks, readonly storage and primary
+constructors remain separate unsupported contracts, rather than silently omitted effects.
+
+44 focused constructor/property/expression tests pass, including independent Release/Debug
+initialization tests. The Order executable probe checks implicit initialization and
+initializers preceding explicit constructor mutation; both source orders verify/run to 42
+on .NET and binary neoCLR. Existing unsupported chaining/accessor/nullable fixtures reject
+without output. [Evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).

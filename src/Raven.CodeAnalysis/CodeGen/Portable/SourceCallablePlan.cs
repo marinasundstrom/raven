@@ -44,6 +44,13 @@ internal sealed record SourceCallablePlan(
             if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
             plan = null; return false;
         }
+        if (symbol is { MethodKind: MethodKind.Constructor, IsStatic: false, Parameters.Length: 0 } &&
+            symbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is ClassDeclarationSyntax ownerSyntax)
+        {
+            plan = new(symbol, ownerSyntax, ownerSyntax, symbol.ContainingType, symbol.MetadataName, signature);
+            if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
+            plan = null; return false;
+        }
         if (symbol.DeclaringSyntaxReferences.Length != 1) return false;
         var syntax = symbol.DeclaringSyntaxReferences[0].GetSyntax();
         switch (syntax)

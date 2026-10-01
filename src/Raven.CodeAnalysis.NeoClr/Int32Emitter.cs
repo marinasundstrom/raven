@@ -57,12 +57,12 @@ internal static class Int32Emitter
                         diagnosticSyntax = typeMember;
                         if (!typeSymbol.IsStatic && typeMember is PropertyDeclarationSyntax propertySyntax)
                         {
-                            if (propertySyntax.AttributeLists.Count != 0 || propertySyntax.Initializer is not null || propertySyntax.ExplicitInterfaceSpecifier is not null ||
+                            if (propertySyntax.AttributeLists.Count != 0 || propertySyntax.ExplicitInterfaceSpecifier is not null ||
                                 propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
                                 model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol { IsStatic: false } property ||
                                 property.BackingField is { IsReadOnly: true } ||
                                 !EmissionPrimitiveTypes.TryGetValueType(property.Type, out _))
-                                throw Unsupported("only primitive instance properties or mutable private storage without initializers");
+                                throw Unsupported("only primitive instance properties or mutable private storage");
                             if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||
                                 a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null) ||
@@ -97,9 +97,12 @@ internal static class Int32Emitter
             }
         }
         foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic))
-            if (type.Symbol.GetMembers().OfType<IMethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor)
-                .Any(m => !plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol, m))))
-                throw Unsupported("implicit constructors require a shared initialization contract");
+            foreach (var constructor in type.Symbol.GetMembers().OfType<IMethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor))
+                if (!plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol, constructor)))
+                {
+                    if (constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not ClassDeclarationSyntax) throw Unsupported("constructor unavailable");
+                    plans.Add(GetPlan(constructor));
+                }
         var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody Body)>();
         foreach (var plan in plans)
         {
