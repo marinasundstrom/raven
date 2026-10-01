@@ -24,6 +24,19 @@ internal static class AdapterChecks
         Check(ReferenceEquals(arrowLocation.SourceTree, arrowConversion.SyntaxTrees[0]) &&
             arrowConversion.SyntaxTrees[0].GetText().ToString(arrowLocation.SourceSpan) == "(int)(double)42",
             "unsupported arrow expression span");
+        var loopInValue = compile("""
+            func Main() -> int {
+                let chosen = if true {
+                    var value = 0
+                    while value < 2 { value = value + 1 }
+                    value
+                } else { 0 }
+                return chosen
+            }
+            """);
+        var blockRejected = Rejected(loopInValue, options, "NEOMETA001");
+        Check(blockRejected.Diagnostics.Any(d => d.GetMessage().Contains("unsupported value block statement")),
+            "nonlocal control flow in value blocks remains explicit");
         var broken = compile(source.Replace("MathLibrary.Twice", "MathLibrary.Missing"));
         var binding = Rejected(broken, options);
         Check(binding.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error && !d.Id.StartsWith("NEOMETA")), "binding diagnostics preserved");

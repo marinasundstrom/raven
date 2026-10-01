@@ -2751,3 +2751,21 @@ Validation: 32 existing shared-body/block-expression tests and both new Release/
 conditional tests pass. The complete binary runtime/rvnc probe passes against neoCLR
 `83200ad6` (runtime code `fa25609d`), including all primitive joins, nested values and
 skipped faulting/side-effecting branches. [Evidence](../../tools/NeoClrMetadataProbe/validation.json).
+
+
+### Local computation inside value blocks — 2026-10-01
+
+Primitive value blocks now permit initialized locals, local assignments and supported
+calls before the final expression. The shared statement path owns those operations,
+including discarding call results; each branch keeps distinct symbol-based local slots.
+Only the chosen branch executes and writes its outer locals. Disposal and nonlocal
+control flow inside value blocks remain explicitly rejected; this is a bounded native
+producer limitation, not a Raven language restriction. Existing .NET fallback remains.
+No Runtime Contract, metadata API/schema, runtime instruction or semantic importer
+change is introduced. Both adapters use existing local/branch stack validation, with
+ordinary CLI behavior and native execution payload/reference projection unchanged.
+
+Validation: all 52 focused shared-body/block-expression/capability C# tests pass. The
+full binary runtime/rvnc probe passes, including both local-computation branches,
+outer assignments, discarded calls and unsupported prefix-loop rejection with no
+output writes. [Recorded evidence](../../tools/NeoClrMetadataProbe/validation.json).

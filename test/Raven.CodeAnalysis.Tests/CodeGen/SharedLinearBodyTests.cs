@@ -10,6 +10,41 @@ public class SharedLinearBodyTests
     [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]
+    public void ValueBlocksKeepBranchLocalsAndAssignments(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Blocks {
+                public static func Value(flag: bool, input: int) -> int {
+                    var outer = 1
+                    let chosen = if flag {
+                        var local = input
+                        local = local + 1
+                        outer = 2
+                        Ignore(local)
+                        local * 2
+                    } else {
+                        let local = input - 1
+                        outer = 3
+                        local
+                    }
+                    return chosen + outer
+                }
+                private static func Ignore(value: int) -> int => value
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        var syntax = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
+        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+        var method = Emit(compilation).GetType("Blocks")!.GetMethod("Value")!;
+        Assert.Equal(42, method.Invoke(null, [true, 19]));
+        Assert.Equal(21, method.Invoke(null, [false, 19]));
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
     public void ConditionalValuesSelectOneBranchAndPreserveTypes(OptimizationLevel optimization)
     {
         const string source = """

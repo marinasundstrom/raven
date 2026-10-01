@@ -302,3 +302,7 @@ operands for these instructions. Nullable Boolean and enum operators remain defe
 Primitive conditional-value coverage checks both branches, nested expressions,
 Int32/Int64/Boolean/String joins and an unselected division-by-zero branch. The
 paired output proves that only the selected side-effecting branch executes.
+
+Value-block coverage also exercises branch-local storage, outer assignments and
+discarded calls before the result. Prefix loops remain unsupported and reject output
+without writing. Existing statement-form loops remain supported.

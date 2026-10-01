@@ -273,6 +273,30 @@ internal static class SharedLoweringChecks
                 public static func Positive(value: int) -> int { return +value }
             }
             """, "", 42);
+        await RunCase("SharedValueBlocks", """
+            func Main() -> int {
+                if Compute(false, 19) != 21 { return 1 }
+                return Compute(true, 19)
+            }
+            func Compute(flag: bool, input: int) -> int {
+                var outer = 1
+                let chosen = if flag {
+                    var local = input
+                    local = local + 1
+                    outer = 2
+                    System.Console.WriteLine("true block")
+                    Ignore(local)
+                    local * 2
+                } else {
+                    let local = input - 1
+                    outer = 3
+                    System.Console.WriteLine("false block")
+                    local
+                }
+                return chosen + outer
+            }
+            func Ignore(value: int) -> int => value
+            """, "false block\ntrue block", 42);
         await RunCase("SharedConditionalValues", """
             func Main() -> int {
                 let selected = if Flag(false) { Number(true, 0) } else { Number(false, 0) }

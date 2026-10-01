@@ -211,8 +211,21 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return Reject("target does not support value type " + valueType, Syntax(expression));
             switch (expression)
             {
-                case BoundBlockExpression block when block.LocalsToDispose.IsEmpty &&
-                    block.Statements.ToArray() is [BoundExpressionStatement { Expression: var result }]:
+                case BoundBlockExpression block:
+                    if (!block.LocalsToDispose.IsEmpty) return Reject("value block scope disposal", Syntax(block));
+                    var statements = block.Statements.ToImmutableArray();
+                    if (statements.IsEmpty || statements[^1] is not BoundExpressionStatement { Expression: var result } ||
+                        !EmissionPrimitiveTypes.TryGetValueType(result.Type, out _))
+                        return Reject("value block requires a trailing primitive expression", Syntax(block));
+                    foreach (var prefix in statements.AsSpan()[..^1])
+                    {
+                        // Keep nonlocal control flow and disposal outside value-block plans.
+                        // The existing statement path owns locals, stores and discarded calls.
+                        if (prefix is not (BoundLocalDeclarationStatement or BoundAssignmentStatement or
+                            BoundExpressionStatement { Expression: BoundInvocationExpression or BoundLocalAssignmentExpression }))
+                            return Reject("unsupported value block statement " + prefix.GetType().Name, Syntax(prefix));
+                        if (!LowerStatements(prefix)) return false;
+                    }
                     return LowerValue(result);
                 case BoundIfExpression conditional when conditional.ElseBranch is not null &&
                     conditional.Condition.Type.SpecialType == SpecialType.System_Boolean &&

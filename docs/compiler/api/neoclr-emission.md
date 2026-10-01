@@ -230,3 +230,8 @@ function visibility or introduce protected/instance method support.
 Block and expression bodies are accepted for supported functions and static methods.
 Both consume compiler-lowered statements, preserving result conversions and Unit
 calls. Unsupported expressions retain source-located diagnostics before writing.
+
+Primitive value-producing if/else uses matching Int32/Int64/Boolean/String joins.
+Value blocks may initialize locals, assign local values and call supported methods
+before a trailing primitive expression. Disposal and nonlocal control flow within
+value blocks are rejected before writing; statement-form loops remain supported.
