@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Emit built-in signed unary +, - and ~ through the shared .NET/native
+  body path for Int32/Int64. Preserve integer width and wrapping negation at signed
+  minima; keep Boolean logical negation separate. Validate both runtimes and metadata
+  rejection of Boolean/empty-stack unary operands.
+
 - **2026-10-01:** Share Int64 signatures, constants, locals and signed Int32/Int64
   conversions across .NET/native codegen. Preserve width through arithmetic and
   imported callable contracts; widening sign-extends and narrowing retains low bits.

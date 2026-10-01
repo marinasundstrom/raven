@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleLiteral, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32 }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleLiteral, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0);
@@ -202,6 +202,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundUnaryExpression { Operator.OperatorKind: BoundUnaryOperatorKind.LogicalNot } unary:
                     if (!LowerValue(unary.Operand)) return false;
                     Add(LinearInstructionKind.Not, Syntax(expression)); return true;
+                case BoundUnaryExpression unary when unary.Operator.OperandType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&
+                    unary.Operator.OperatorKind is BoundUnaryOperatorKind.UnaryPlus or BoundUnaryOperatorKind.UnaryMinus or BoundUnaryOperatorKind.BitwiseNot:
+                    if (!LowerValue(unary.Operand)) return false;
+                    if (unary.Operator.OperatorKind != BoundUnaryOperatorKind.UnaryPlus)
+                        Add(unary.Operator.OperatorKind == BoundUnaryOperatorKind.UnaryMinus ? LinearInstructionKind.Negate : LinearInstructionKind.Complement, Syntax(expression));
+                    return true;
                 case BoundParenthesizedExpression parenthesized:
                     return LowerValue(parenthesized.Expression);
                 case BoundConversionExpression { IsIdentity: true } conversion:

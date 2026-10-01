@@ -231,6 +231,21 @@ internal static class SharedLoweringChecks
                 public static func Narrow(value: long) -> int { return (int)value }
             }
             """, "", 42);
+        await RunCase("SharedUnaryIntegers", """
+            public static class Unary {
+                public static func Main() -> int {
+                    let minimum = -9223372036854775807L - 1L
+                    if Negate64(minimum) != minimum { return 1 }
+                    if Negate32(-2147483647 - 1) != (-2147483647 - 1) { return 2 }
+                    return Positive(Negate32(-21)) + (int)Complement64(-22L)
+                }
+                public static func Negate32(value: int) -> int { return -value }
+                public static func Negate64(value: long) -> long { return -value }
+                public static func Complement32(value: int) -> int { return ~value }
+                public static func Complement64(value: long) -> long { return ~value }
+                public static func Positive(value: int) -> int { return +value }
+            }
+            """, "", 42);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
         Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 

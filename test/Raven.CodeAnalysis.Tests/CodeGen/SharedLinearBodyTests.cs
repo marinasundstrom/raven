@@ -191,6 +191,46 @@ public class SharedLinearBodyTests
             Assert.Equal(unchecked((int)value), type.GetMethod("Narrow")!.Invoke(null, [value]));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void UnaryIntegersPreserveWidthAndWrapNegation(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Unary {
+                public static func Main() -> int {
+                    let minimum = -9223372036854775807L - 1L
+                    if Negate64(minimum) != minimum { return 1 }
+                    if Negate32(-2147483647 - 1) != (-2147483647 - 1) { return 2 }
+                    return Positive(Negate32(-21)) + (int)Complement64(-22L)
+                }
+                public static func Negate32(value: int) -> int { return -value }
+                public static func Negate64(value: long) -> long { return -value }
+                public static func Complement32(value: int) -> int { return ~value }
+                public static func Complement64(value: long) -> long { return ~value }
+                public static func Positive(value: int) -> int { return +value }
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        foreach (var declaration in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+            Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+                model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail);
+        var type = Emit(compilation).GetType("Unary")!;
+        Assert.Equal(42, type.GetMethod("Main")!.Invoke(null, null));
+        foreach (var value in new[] { int.MinValue, -1, 0, int.MaxValue })
+        {
+            Assert.Equal(unchecked(-value), type.GetMethod("Negate32")!.Invoke(null, [value]));
+            Assert.Equal(~value, type.GetMethod("Complement32")!.Invoke(null, [value]));
+            Assert.Equal(value, type.GetMethod("Positive")!.Invoke(null, [value]));
+        }
+        foreach (var value in new[] { long.MinValue, -1L, 0L, long.MaxValue })
+        {
+            Assert.Equal(unchecked(-value), type.GetMethod("Negate64")!.Invoke(null, [value]));
+            Assert.Equal(~value, type.GetMethod("Complement64")!.Invoke(null, [value]));
+        }
+    }
+
     [Fact]
     public void UnsupportedBodyIsRejectedBeforeBuildingAndUsesGeneralDotNetGenerator()
     {

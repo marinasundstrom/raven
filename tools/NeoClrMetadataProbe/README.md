@@ -238,3 +238,6 @@ retains side effects in order, and leaves no-result calls without a spurious pop
 
 Int64 cases cover native long locals/arithmetic, sign extension, extrema/truncation,
 and a separately compiled Int64 callable imported through the CLI projection.
+
+Signed unary cases execute +, - and ~ on Int32/Int64 and check wrapping at both
+signed minima in the binary assembly loaded by neoCLR.
