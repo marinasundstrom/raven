@@ -233,5 +233,5 @@ calls. Unsupported expressions retain source-located diagnostics before writing.
 
 Primitive value-producing if/else uses matching Int32/Int64/Boolean/String joins.
 Value blocks may initialize locals, assign local values and call supported methods
-before a trailing primitive expression. Disposal and nonlocal control flow within
+before a trailing primitive expression. Internal if/loop control flow is supported. Disposal, returns and jumps outside
 value blocks are rejected before writing; statement-form loops remain supported.

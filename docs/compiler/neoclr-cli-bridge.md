@@ -1632,3 +1632,26 @@ Validation: all 52 focused shared-body/block-expression/capability C# tests pass
 full binary runtime/rvnc probe passes, including both local-computation branches,
 outer assignments, discarded calls and unsupported prefix-loop rejection with no
 output writes. [Recorded evidence](../../tools/NeoClrMetadataProbe/validation.json).
+
+
+### Internal control flow in value blocks — 2026-10-01
+
+Value-block prefixes now reuse shared statement emission for lowered if/else and
+loops, including breaks/continues targeting labels inside the block. A preflight
+walk checks statement blocks and discarded block expressions before emission: returns
+and jumps outside the value block are rejected. This prevents an exit from bypassing
+completion of an enclosing expression with operands already on the stack. Pure Unit
+expression statements are no-ops. Disposal remains unsupported. General .NET fallback
+is unchanged; source semantics and loop lowering remain compiler-owned.
+
+The ordinary CLI and native adapters use existing local/branch instructions and
+stack joins. No Runtime Contract setting, native metadata API/schema or runtime change
+is needed. The temporary CLI reference projection/native importer boundary remains.
+The control-flow scan adds planning work; no throughput or allocation improvement is
+claimed. Extending exits requires an explicit enclosing-expression stack contract.
+
+Validation: 55 focused C# shared-body/block-expression/capability tests and the full
+binary runtime/rvnc probe pass. The new case retains an earlier operand through
+loops, internal break/continue and conditional assignments. A conditional return
+inside a value block rejects the shared plan and leaves native output untouched.
+[Recorded evidence](../../tools/NeoClrMetadataProbe/validation.json).

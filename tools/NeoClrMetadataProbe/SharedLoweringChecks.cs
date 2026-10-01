@@ -273,6 +273,30 @@ internal static class SharedLoweringChecks
                 public static func Positive(value: int) -> int { return +value }
             }
             """, "", 42);
+        await RunCase("SharedValueBlockControlFlow", """
+            func Main() -> int {
+                if Compute(false) != 21 { return 1 }
+                return Compute(true)
+            }
+            func Compute(flag: bool) -> int {
+                return 2 + (if flag {
+                    var value = 0
+                    var index = 0
+                    while index < 10 {
+                        index = index + 1
+                        if index == 2 { continue }
+                        if index == 5 { break }
+                        value = value + 10
+                    }
+                    if value == 30 { value = value + 10 } else { value = 0 }
+                    value
+                } else {
+                    var value = 20
+                    if value > 0 { value = value - 1 }
+                    value
+                })
+            }
+            """, "", 42);
         await RunCase("SharedValueBlocks", """
             func Main() -> int {
                 if Compute(false, 19) != 21 { return 1 }

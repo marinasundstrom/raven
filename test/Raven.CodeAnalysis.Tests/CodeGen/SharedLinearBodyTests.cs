@@ -7,6 +7,66 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class SharedLinearBodyTests
 {
+    [Fact]
+    public void ValueBlockReturnRejectsTheSharedPlan()
+    {
+        var compilation = Create("""
+            public static class Blocks {
+                public static func Value(flag: bool) -> int {
+                    let chosen = if flag {
+                        if flag { return 42 }
+                        0
+                    } else { 1 }
+                    return chosen
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        var syntax = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.False(plan!.TryLowerBody(compilation, _ => false, out var body, out var failure, ReflectionEmitCapabilities.Shared));
+        Assert.Null(body);
+        Assert.Equal("value block cannot exit its enclosing expression", failure!.Detail);
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void ValueBlockControlFlowKeepsEnclosingOperands(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Blocks {
+                public static func Value(flag: bool) -> int {
+                    return 2 + (if flag {
+                        var value = 0
+                        var index = 0
+                        while index < 10 {
+                            index = index + 1
+                            if index == 2 { continue }
+                            if index == 5 { break }
+                            value = value + 10
+                        }
+                        if value == 30 { value = value + 10 } else { value = 0 }
+                        value
+                    } else {
+                        var value = 20
+                        if value > 0 { value = value - 1 }
+                        value
+                    })
+                }
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        var syntax = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail + ": " + failure?.Syntax);
+        var method = Emit(compilation).GetType("Blocks")!.GetMethod("Value")!;
+        Assert.Equal(42, method.Invoke(null, [true]));
+        Assert.Equal(21, method.Invoke(null, [false]));
+    }
+
     [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]

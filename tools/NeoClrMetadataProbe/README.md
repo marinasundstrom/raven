@@ -304,5 +304,9 @@ Int32/Int64/Boolean/String joins and an unselected division-by-zero branch. The
 paired output proves that only the selected side-effecting branch executes.
 
 Value-block coverage also exercises branch-local storage, outer assignments and
-discarded calls before the result. Prefix loops remain unsupported and reject output
+discarded calls before the result. Internal if/loop prefixes are supported; returns/outgoing jumps reject output
 without writing. Existing statement-form loops remain supported.
+
+The control-flow case retains an earlier arithmetic operand while a value block runs
+a loop with internal break/continue and conditional assignments. Both .NET paths and
+the native verifier/runtime must preserve the enclosing expression result.

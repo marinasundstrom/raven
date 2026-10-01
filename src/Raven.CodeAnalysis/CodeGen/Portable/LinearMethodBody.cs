@@ -119,6 +119,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         {
             foreach (var statement in Flatten(body))
             {
+                if (statement is BoundExpressionStatement { Expression: BoundBlockExpression discardedBlock })
+                {
+                    if (!discardedBlock.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(discardedBlock));
+                    foreach (var child in discardedBlock.Statements)
+                        if (!LowerStatements(child)) return false;
+                    continue;
+                }
+                if (statement is BoundExpressionStatement { Expression: BoundUnitExpression }) continue;
                 if (statement is BoundIfStatement conditionalIf)
                 {
                     if (!LowerValue(conditionalIf.Condition)) return false;
@@ -198,11 +206,28 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     continue;
                 }
                 if (statement is not BoundReturnStatement { Expression: { } value })
-                    return Reject("unsupported lowered statement " + statement.GetType().Name, Syntax(statement));
+                    return Reject("unsupported lowered statement " + statement.GetType().Name +
+                        (statement is BoundExpressionStatement unsupported ? " (" + unsupported.Expression.GetType().Name + ")" : ""), Syntax(statement));
                 if (!LowerValue(value)) return false;
                 Add(LinearInstructionKind.Return, Syntax(statement));
             }
             return true;
+        }
+
+        static IEnumerable<BoundStatement> WalkStatements(BoundStatement statement)
+        {
+            yield return statement;
+            IEnumerable<BoundStatement> children = statement switch
+            {
+                BoundBlockStatement block => block.Statements,
+                BoundExpressionStatement { Expression: BoundBlockExpression block } => block.Statements,
+                BoundIfStatement conditional => conditional.ElseNode is { } alternative
+                    ? [conditional.ThenNode, alternative] : [conditional.ThenNode],
+                BoundLabeledStatement labeled => [labeled.Statement],
+                _ => []
+            };
+            foreach (var child in children)
+                foreach (var nested in WalkStatements(child)) yield return nested;
         }
 
         bool LowerValue(BoundExpression expression)
@@ -217,15 +242,20 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (statements.IsEmpty || statements[^1] is not BoundExpressionStatement { Expression: var result } ||
                         !EmissionPrimitiveTypes.TryGetValueType(result.Type, out _))
                         return Reject("value block requires a trailing primitive expression", Syntax(block));
-                    foreach (var prefix in statements.AsSpan()[..^1])
+                    // A value block may be evaluated with earlier operands still on the
+                    // stack. Exits must not bypass that enclosing expression's completion.
+                    var controlFlow = statements.Take(statements.Length - 1).SelectMany(WalkStatements).ToArray();
+                    var localLabels = controlFlow.OfType<BoundLabeledStatement>()
+                        .Select(label => label.Label).ToHashSet<ILabelSymbol>(SymbolEqualityComparer.Default);
+                    foreach (var statement in controlFlow)
                     {
-                        // Keep nonlocal control flow and disposal outside value-block plans.
-                        // The existing statement path owns locals, stores and discarded calls.
-                        if (prefix is not (BoundLocalDeclarationStatement or BoundAssignmentStatement or
-                            BoundExpressionStatement { Expression: BoundInvocationExpression or BoundLocalAssignmentExpression }))
-                            return Reject("unsupported value block statement " + prefix.GetType().Name, Syntax(prefix));
-                        if (!LowerStatements(prefix)) return false;
+                        if (statement is BoundReturnStatement or BoundExpressionStatement { Expression: BoundReturnExpression } ||
+                            statement is BoundGotoStatement jump && !localLabels.Contains(jump.Target) ||
+                            statement is BoundConditionalGotoStatement branch && !localLabels.Contains(branch.Target))
+                            return Reject("value block cannot exit its enclosing expression", Syntax(statement));
                     }
+                    foreach (var prefix in statements.AsSpan()[..^1])
+                        if (!LowerStatements(prefix)) return false;
                     return LowerValue(result);
                 case BoundIfExpression conditional when conditional.ElseBranch is not null &&
                     conditional.Condition.Type.SpecialType == SpecialType.System_Boolean &&
