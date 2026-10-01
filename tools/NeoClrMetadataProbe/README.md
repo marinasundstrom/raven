@@ -418,3 +418,13 @@ selected sources, native binaries and validation.json with source/runtime SHA-25
 full generic collections consumer or System class library compiles. Fixed-length type
 contracts, nested/multidimensional arrays, spreads and generic enumerators remain
 outside bounded native emission.
+
+## Indexed collection acceptance
+
+`NeoClrMetadataProbe --indexer-runtime <application-order-collections.rvn> <fresh-output> <neoclr>`
+compiles the original Order declaration with a separate concrete indexed collection.
+It verifies/runs both source orders on .NET and binary neoCLR (42), checks indexed
+property projections and alias/evaluation-order behavior, propagates an indexed bounds
+fault on both targets, and rejects unsupported signatures without output. The checked-in
+indexer-runtime-validation.json records source/runtime hashes. This is not a claim
+that generic ArrayList/HashMap or the complete original consumer compiles.

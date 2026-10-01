@@ -1,4 +1,5 @@
 using System.Reflection;
+
 using Raven.CodeAnalysis.CodeGen.Portable;
 using Raven.CodeAnalysis.Syntax;
 
@@ -6,6 +7,52 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class SharedIndexerBodyTests
 {
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void AssignmentEvaluatesReceiverIndicesAndValueOnceInOrder(OptimizationLevel optimization)
+    {
+        var tree = SyntaxTree.ParseText("""
+            class Cell {
+                private var number: int = 0
+                var self[first: int, second: int]: int {
+                    get => number
+                    set => number = value
+                }
+            }
+            class Evaluation {
+                private val cell: Cell = Cell()
+                private var trace: int = 0
+                func Receiver() -> Cell {
+                    trace = trace * 10 + 1
+                    return cell
+                }
+                func Index() -> int {
+                    trace = trace * 10 + 2
+                    return 0
+                }
+                func Value() -> int {
+                    trace = trace * 10 + 3
+                    return 42
+                }
+                val Trace: int => trace
+                val Result: int => cell[0, 0]
+            }
+            func Main() -> int {
+                let evaluation = Evaluation()
+                evaluation.Receiver()[evaluation.Index(), evaluation.Index()] = evaluation.Value()
+                if evaluation.Trace != 1223 { return 1 }
+                return evaluation.Result
+            }
+            """);
+        var compilation = Compilation.Create("IndexedEvaluation", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Equal(42, Assembly.Load(image.ToArray()).EntryPoint!.Invoke(null, null));
+    }
+
     [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]

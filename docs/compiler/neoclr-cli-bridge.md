@@ -2233,3 +2233,17 @@ not been benchmarked. Eleven focused C# tests pass, covering shared planning and
 Release/Debug execution plus existing struct/imported-interface fallback. The native
 probe verifies and runs overloads, two-index properties and read-only getters on both
 runtimes in both source orders (42).
+
+### Indexed Order collection acceptance
+
+The expanded separate consumer retains the original Order declaration/batch expression
+and wraps the array in a concrete OrderBuffer. Its indexers return and replace objects;
+mutations remain visible through the original array and aliases. Nominal and array
+index parameters, overloads and multi-index properties preserve their associations.
+Side-effecting receiver/index/value calls execute once in order. Both file orders
+verify/run on .NET and neoCLR to 42. An out-of-range indexed read verifies successfully
+and propagates IndexOutOfRange on both runtimes. Unsupported fixed/nested-array index
+signatures reject without writing output. C# Release/Debug tests also check two-index
+assignment order independently. Evidence fields now name the actual indexer checks,
+replacing copied array-probe labels from the initial snapshot. This is a bounded
+collection consumer, not the generic ArrayList/HashMap implementation or full sample.
