@@ -57,13 +57,18 @@ internal static class Int32Emitter
                         diagnosticSyntax = typeMember;
                         if (!typeSymbol.IsStatic && typeMember is PropertyDeclarationSyntax propertySyntax)
                         {
-                            if (propertySyntax.AttributeLists.Count != 0 || propertySyntax.AccessorList is not null || propertySyntax.ExpressionBody is not null || propertySyntax.Initializer is not null || propertySyntax.ExplicitInterfaceSpecifier is not null ||
+                            if (propertySyntax.AttributeLists.Count != 0 || propertySyntax.Initializer is not null || propertySyntax.ExplicitInterfaceSpecifier is not null ||
                                 propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
-                                model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol { IsStatic: false, BackingField: { IsReadOnly: false } } property ||
-                                (!property.IsAutoProperty && !property.EmitAsFieldOnly) ||
+                                model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol { IsStatic: false } property ||
+                                property.BackingField is { IsReadOnly: true } ||
                                 !EmissionPrimitiveTypes.TryGetValueType(property.Type, out _))
-                                throw Unsupported("only primitive mutable instance auto-properties or private storage without initializers");
-                            storageFields.Add(property.BackingField!);
+                                throw Unsupported("only primitive instance properties or mutable private storage without initializers");
+                            if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
+                                a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||
+                                a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null) ||
+                                a.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword))))
+                                throw Unsupported("only implemented get/set accessors without additional contracts");
+                            if (property.BackingField is { } backingField) storageFields.Add(backingField);
                             if (property.EmitAsFieldOnly) continue;
                             properties.Add(property);
                             if (property.GetMethod is { } get) plans.Add(GetPlan(get));

@@ -1928,3 +1928,28 @@ This is a shared compiler correction, not a neoCLR-only relaxation. It needs no
 Runtime Contract setting or metadata encoding change. 60 focused property binding,
 property execution and setter regression tests pass on modern .NET. Native explicit
 accessor emission is a separate follow-up slice.
+
+
+## Computed properties and implemented accessors — 2026-10-01
+
+Shared callable plans now admit primitive property expression bodies and explicit
+get/set block or arrow bodies. The native collector preserves property associations,
+accessor visibility and optional canonical backing fields, and body emission reuses
+ordinary instance calls and field instructions. The .NET Release adapter uses the same
+plans; Debug/general emission remains available. This adds no Runtime Contract option
+or metadata schema: ordinary CLI Property/MethodSemantics rows remain the reference
+representation, with matching properties in the native execution bridge. A computed-only
+property does not acquire storage. The setter-binding correction above is a prerequisite
+for invoking a private setter on `val` from its owner.
+
+The separate Gauge consumer tests computed getters, block getters/setters, private arrow
+setters and the `field` keyword, including constructor assignments and branch-dependent
+mutation. Both source orders verify/run to 42 on .NET and binary neoCLR alongside the
+unchanged Order declaration. CLI projection checks require two Gauge fields, four
+properties and nine methods, including a private setter and a getter-only computed
+property. Independent C# Release/Debug tests check runtime results and metadata shape;
+the 60-test focused codegen set passes. Explicit accessor lists without bodies currently
+reject before output; implicit auto-properties retain their earlier support. Initializers,
+init-only accessors, indexers, virtual members and nominal signatures remain separate
+contracts. Full native metadata/backend replacement and collection dependencies are
+still pending. [Evidence](../../tools/NeoClrMetadataProbe/order-runtime-validation.json).

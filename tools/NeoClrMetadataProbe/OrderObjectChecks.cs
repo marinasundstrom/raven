@@ -40,6 +40,29 @@ internal static class OrderObjectChecks
                     return Number
                 }
             }
+            class Gauge {
+                private var amount: int
+                init(amount: int) {
+                    self.amount = amount
+                    Offset = 0
+                }
+                var Offset: int {
+                    get => field
+                    set => field = value + 1
+                }
+                val Doubled: int => amount * 2
+                var Amount: int {
+                    get { return self.amount }
+                    set {
+                        if value < 0 { amount = 0 } else { amount = value }
+                    }
+                }
+                val Adjusted: int {
+                    get => amount + 1
+                    private set => amount = value - 1
+                }
+                func Reset(value: int) { Adjusted = value }
+            }
             func Main() -> int {
                 if !Order(1, true).Pending { return 1 }
                 if Order(2, false).Pending { return 2 }
@@ -55,6 +78,15 @@ internal static class OrderObjectChecks
                 if counter.Read() != 3 { return 7 }
                 counter.Reset(40)
                 if counter.Increment(2) != original.Number { return 8 }
+                let gauge = Gauge(3)
+                if gauge.Doubled != 6 { return 9 }
+                gauge.Amount = -1
+                if gauge.Amount != 0 { return 10 }
+                gauge.Offset = 41
+                if gauge.Offset != 42 { return 13 }
+                gauge.Reset(22)
+                if gauge.Adjusted != 22 { return 11 }
+                if gauge.Doubled != original.Number { return 12 }
                 return original.Number
             }
             """;
@@ -77,6 +109,11 @@ internal static class OrderObjectChecks
             var counterType = snapshot.MainModule.Types.Single(t => t.Name == "Counter");
             if (counterType.Fields.Count != 1 || counterType.Properties.Count != 0 || counterType.Methods.Count != 7)
                 throw new Exception("private storage must emit only a field");
+            var gaugeType = snapshot.MainModule.Types.Single(t => t.Name == "Gauge");
+            if (gaugeType.Fields.Count != 2 || gaugeType.Properties.Count != 4 || gaugeType.Methods.Count != 9 ||
+                gaugeType.Properties.Single(p => p.Name == "Doubled").SetMethod is not null ||
+                (gaugeType.Properties.Single(p => p.Name == "Adjusted").SetMethod!.Attributes & (ushort)MethodAttributes.MemberAccessMask) != (ushort)MethodAttributes.Private)
+                throw new Exception("computed accessor metadata mismatch");
             var path = Path.Combine(output, name + ".dll"); File.WriteAllBytes(path, native.ToArray());
             foreach (var command in new[] { "verify", "run" })
             {
@@ -95,6 +132,7 @@ internal static class OrderObjectChecks
         }
         foreach (var unsupported in new[] {
             "class Empty { }",
+            "class AccessorStorage { var Number: int { get; set; }\n init() { Number = 1 } }",
             "class PrivateInitialized { private var number: int = 1\n init() { } }",
             "class Initialized { var Number: int = 1\n init() { } }",
             order + "\nfunc Main() -> int { let order: Order? = null\n return 42 }"
@@ -125,7 +163,8 @@ internal static class OrderObjectChecks
             nominalLocalsAndAliasing = true,
             ordinaryInstanceCalls = true,
             privatePrimitiveStorage = true,
-            rejectedIncompleteContracts = 4
+            computedAndExplicitAccessors = true,
+            rejectedIncompleteContracts = 5
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");
     }

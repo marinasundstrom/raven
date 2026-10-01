@@ -48,6 +48,14 @@ internal sealed record SourceCallablePlan(
         var syntax = symbol.DeclaringSyntaxReferences[0].GetSyntax();
         switch (syntax)
         {
+            case PropertyDeclarationSyntax propertyDeclaration when symbol.MethodKind == MethodKind.PropertyGet && propertyDeclaration.ExpressionBody is { } expressionBody:
+                plan = new(symbol, syntax, expressionBody, symbol.ContainingType, symbol.MetadataName, signature);
+                if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
+                plan = null; return false;
+            case AccessorDeclarationSyntax accessor when symbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet:
+                plan = new(symbol, syntax, (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody, symbol.ContainingType, symbol.MetadataName, signature);
+                if (plan.Body is not null && (capabilities is null || plan.IsSupportedBy(capabilities))) return true;
+                plan = null; return false;
             case ConstructorDeclarationSyntax constructor when constructor.Initializer is null && symbol.ContainingType is { } constructorOwner:
                 plan = new(symbol, syntax, (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody, constructorOwner, symbol.MetadataName, signature);
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
