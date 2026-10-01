@@ -93,9 +93,9 @@ internal static class Int32Emitter
                         }
                         if (!typeSymbol.IsStatic && typeMember is ConstructorDeclarationSyntax constructor)
                         {
-                            if ((constructor.Body is null && constructor.ExpressionBody is null) || constructor.Initializer is not null || constructor.AttributeLists.Count != 0 ||
+                            if ((constructor.Body is null && constructor.ExpressionBody is null) || constructor.AttributeLists.Count != 0 ||
                                 constructor.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)))
-                                throw Unsupported("only explicit root constructors with a block or expression body and no chaining");
+                                throw Unsupported("only explicit root constructors with a block or expression body");
                             plans.Add(GetPlan((IMethodSymbol)model.GetDeclaredSymbol(constructor)!));
                             continue;
                         }

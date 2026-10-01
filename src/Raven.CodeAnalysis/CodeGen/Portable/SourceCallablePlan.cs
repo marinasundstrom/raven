@@ -63,7 +63,7 @@ internal sealed record SourceCallablePlan(
                 plan = new(symbol, syntax, (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody, symbol.ContainingType, symbol.MetadataName, signature);
                 if (plan.Body is not null && (capabilities is null || plan.IsSupportedBy(capabilities))) return true;
                 plan = null; return false;
-            case ConstructorDeclarationSyntax constructor when constructor.Initializer is null && symbol.ContainingType is { } constructorOwner:
+            case ConstructorDeclarationSyntax constructor when HasRootInitialization(symbol, constructor) && symbol.ContainingType is { } constructorOwner:
                 plan = new(symbol, syntax, (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody, constructorOwner, symbol.MetadataName, signature);
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
                 plan = null; return false;
@@ -81,6 +81,16 @@ internal sealed record SourceCallablePlan(
                 return false;
         }
     }
+
+    // Root construction is backend policy: CLI calls Object::.ctor; native roots have no base.
+    // An explicit base() can use that policy only after binding proves the same contract.
+    private static bool HasRootInitialization(IMethodSymbol symbol, ConstructorDeclarationSyntax syntax)
+        => syntax.Initializer is null ||
+           syntax.Initializer.Keyword.IsKind(SyntaxKind.BaseKeyword) &&
+           syntax.Initializer.ArgumentList.Arguments.Count == 0 &&
+           symbol is SourceMethodSymbol { ConstructorInitializer: { } initializer } &&
+           initializer.Constructor is { MethodKind: MethodKind.Constructor, IsStatic: false, Parameters.Length: 0 } target &&
+           target.ContainingType?.SpecialType == SpecialType.System_Object && !initializer.Arguments.Any();
 
     // The CLI adapter can supply a carrier/lifted name; native emission uses the source
     // metadata name. Concrete owner selection and physical visibility encoding remain backend policies.

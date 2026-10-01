@@ -27,6 +27,12 @@ internal static class OrderObjectChecks
             func Identity(copy: Copied) -> Copied => copy
             func CreateOrder() -> Order => Order(41, true)
             func UpdateOrder(order: Order) { order.Number = 42 }
+            class ExplicitBaseRoot {
+                private var counter: Counter = Counter(40)
+                var Number: int = counter.Next()
+                init(): base() { Number = counter.Next() + 1 }
+                init(extra: int): base() => Number = counter.Next() + extra
+            }
             class ForwardProperty {
                 var Value: LaterItem = LaterItem(17)
             }
@@ -173,6 +179,8 @@ internal static class OrderObjectChecks
                 holder.Read().Number = 42
                 if holder.Value.Number != 42 { return 26 }
                 original.Number = 42
+                if ExplicitBaseRoot().Number != 42 { return 32 }
+                if ExplicitBaseRoot(1).Number != 42 { return 33 }
                 if ForwardProperty().Value.Number != 17 { return 31 }
                 let properties = PropertyHolder(original)
                 if properties.Current.Number != 7 { return 27 }
@@ -240,7 +248,7 @@ internal static class OrderObjectChecks
             if (!Equals(Assembly.Load(cli.ToArray()).EntryPoint!.Invoke(null, null), 42)) throw new Exception("CLI result mismatch");
         }
         foreach (var unsupported in new[] {
-            "class Chained { init(): base() { } }",
+            "open class Base { init(value: int) { } }\nclass Chained : Base { init(): base(1) { } }",
             "class StaticStorage { public static field Number: int = 42 }",
             "class NominalStorage { public field Value: NominalStorage? }",
             "class NullableProperty { var Value: NullableProperty? }",
@@ -280,6 +288,7 @@ internal static class OrderObjectChecks
             explicitPrimitiveFields = true,
             nominalFieldStorage = true,
             nominalPropertyMetadata = true,
+            explicitRootBaseInitialization = true,
             rejectedIncompleteContracts = 6
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS unchanged Order constructor/properties -> .NET and binary neoCLR 42, both source orders");

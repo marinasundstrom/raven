@@ -382,8 +382,8 @@ internal partial class TypeMemberBinder : Binder
                 ? propertySymbol.Name
                 : $"<{propertySymbol.Name}>k__BackingField";
 
-            // Implicit auto-properties keep one field identity across repeated binding.
-            var backingField = (isImplicitAutoProperty ? sourcePropertySymbol.BackingField : null) ?? new SourceFieldSymbol(
+            // Stored properties keep one field identity across repeated binding, including private storage.
+            var backingField = sourcePropertySymbol.BackingField ?? new SourceFieldSymbol(
                 fieldName,
                 propertyType,
                 isStatic: isStatic,

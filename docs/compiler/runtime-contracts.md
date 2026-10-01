@@ -2907,3 +2907,9 @@ capability with no new configuration. Auto/computed/explicit accessors preserve 
 same owned identities as fields and methods. Refreshing a provisional auto-property
 initializer is a shared binder correction and applies independently of target selection.
 See [the property bridge contract](neoclr-cli-bridge.md#owned-nominal-property-emission--2026-10-01).
+
+
+Explicit parameterless System.Object base initialization (2026-10-01) uses the same
+bounded root-constructor contract as an implicit base call; no configuration changes.
+Admission checks the bound constructor identity and empty source/bound arguments.
+User-defined base initialization still requires a future native constructor contract.

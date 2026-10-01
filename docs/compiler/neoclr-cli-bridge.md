@@ -2102,3 +2102,28 @@ nominal properties. See tools/NeoClrMetadataProbe/order-runtime-validation.json 
 hashes; runtime revision e8611966 is on neoCLR's codex/extended-cli-metadata branch.
 Indexed/generic/nullable property contracts, external nominal imports, readonly/static
 storage and constructor chaining remain outside this bounded backend.
+
+
+### Explicit root base initialization — 2026-10-01
+
+Shared callable admission now accepts explicit `init(): base()` (also with an expression
+body) only after binding proves a parameterless System.Object constructor with no
+arguments. This is the same root initialization contract as an implicit base call:
+ordinary .NET emits its bound base call; the independent CLI writer supplies its existing
+Object constructor prologue; native roots have no base to initialize. No extra call,
+metadata extension or Runtime Contract option is introduced. User-defined base classes,
+base arguments and general constructor delegation remain unsupported in the bounded
+native target. An unresolved explicit initializer is rejected, not silently discarded.
+
+The consumer also exposed stale private-storage initializer identities. All stored
+properties now reuse their canonical backing field during rebinding, extending the
+existing auto-property rule. The binder refreshes the initializer on that same field.
+This is a shared compiler correction, independently checked in C# on .NET.
+
+Validation: 16 focused Release/Debug constructor, property and field tests; repeated
+private-storage binding preserves field identity and a resolved forward initializer.
+Side-effecting initializers execute in declaration order before block/arrow bodies.
+The Order probe verifies/runs to 42 on .NET and binary neoCLR in both source orders;
+six rejection fixtures remain, with explicit user-base construction replacing the now
+supported root-base case. Evidence is in tools/NeoClrMetadataProbe/order-runtime-validation.json;
+runtime e8611966 on neoCLR's codex/extended-cli-metadata is unchanged.
