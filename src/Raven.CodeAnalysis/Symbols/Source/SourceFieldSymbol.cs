@@ -38,7 +38,9 @@ internal partial class SourceFieldSymbol : SourceSymbol, IFieldSymbol
 
     public bool IsRequired => _isRequired;
 
-    public BoundExpression? Initializer { get; }
+    public BoundExpression? Initializer { get; private set; }
+
+    internal void SetInitializer(BoundExpression? initializer) => Initializer = initializer;
 
     internal bool IsAutoPropertyBackingField => _associatedProperty is not null || _associatedEvent is not null;
 

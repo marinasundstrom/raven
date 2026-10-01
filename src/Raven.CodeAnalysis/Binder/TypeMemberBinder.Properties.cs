@@ -382,7 +382,8 @@ internal partial class TypeMemberBinder : Binder
                 ? propertySymbol.Name
                 : $"<{propertySymbol.Name}>k__BackingField";
 
-            var backingField = new SourceFieldSymbol(
+            // Stored properties keep one field identity across repeated binding, including private storage.
+            var backingField = sourcePropertySymbol.BackingField ?? new SourceFieldSymbol(
                 fieldName,
                 propertyType,
                 isStatic: isStatic,
@@ -397,6 +398,9 @@ internal partial class TypeMemberBinder : Binder
                 initializer: initializer,
                 declaredAccessibility: Accessibility.Private);
 
+            // Preserve field identity while completing the initializer after forward members bind.
+            // A provisional error from an earlier declaration pass must not become emitted storage.
+            backingField.SetInitializer(initializer);
             sourcePropertySymbol?.SetBackingField(backingField);
 
             if (isPrivateInitializerOnlyStoredProperty)
@@ -973,6 +977,17 @@ internal partial class TypeMemberBinder : Binder
                 _diagnostics.Report(diagnostic);
 
             getMethod = methodSymbol;
+        }
+        else if (isImplicitAutoProperty && sourcePropertySymbol is
+        { GetMethod: SourceMethodSymbol { IsSignatureSkeleton: false } existingGetter } &&
+            existingGetter.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            sourcePropertySymbol.SetMethod is null or SourceMethodSymbol { IsSignatureSkeleton: false })
+        {
+            // A declaration may be revisited for diagnostics, semantic queries and emission.
+            // Keep its completed accessor/parameter identities: recreating a setter registers
+            // an empty signature before SetParameters and leaks another member into the type.
+            getMethod = existingGetter;
+            setMethod = (SourceMethodSymbol?)sourcePropertySymbol.SetMethod;
         }
         else if (isImplicitAutoProperty)
         {

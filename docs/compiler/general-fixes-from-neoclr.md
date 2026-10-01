@@ -19,3 +19,9 @@ Source: 762bebad0. Validation: six focused parser cases; five fail on the origin
 Allow assignment, compound assignment and increments through accessible ordinary setters on val properties, while preserving private-setter access checks and public read-only semantics.
 
 Source: 935598201. Validation: four binding cases including outside-scope rejection; positive case fails on original main.
+
+## Preserve property accessor and backing-field identity during binding
+
+Reuse completed auto-property accessors and stored backing fields during repeated binding; complete forward-bound initializers without replacing field identity. Validate ordinary .NET property values, aliases and constructor initialization.
+
+Source: f90784db4, 92c509aa4, eaebf1934. Validation: six Debug/Release semantic-identity and execution cases, failing on original main.
