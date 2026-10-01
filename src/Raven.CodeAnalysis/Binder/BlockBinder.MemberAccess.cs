@@ -939,9 +939,17 @@ partial class BlockBinder
                 var targetType = type.UnwrapLiteralType() ?? type;
                 targetType = UnwrapAlias(UnwrapTaskLikeTargetType(targetType));
 
-                var union = (targetType as INamedTypeSymbol)?.TryGetUnion()
-                    ?? (targetType as INamedTypeSymbol)?.TryGetUnionCase()?.Union;
+                // A concrete case parameter can target only that case, not every
+                // sibling in its carrier. Otherwise the first overload can bind
+                // None() with a Some<T> target before overload resolution begins.
+                if ((targetType as INamedTypeSymbol)?.TryGetUnionCase() is { } targetCase)
+                {
+                    if (targetCase.Name == caseName)
+                        return type;
+                    continue;
+                }
 
+                var union = (targetType as INamedTypeSymbol)?.TryGetUnion();
                 if (union is not null && union.Variants.Any(@case => @case.Name == caseName))
                     return type;
             }

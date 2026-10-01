@@ -71,3 +71,19 @@ Shared vector-loop/transfer lowering (`a9defade8`), field-initialization plans a
 backend abstractions remain candidates for separate isolation and validation.
 The Option constructor mismatch exposed by the order-collections application is
 still unfixed; it needs an independent compiler regression before integration.
+
+## Concrete union-case argument target typing (2026-10-01)
+
+The collections sample exposed a general binding bug: `Choice<Item>(None())`
+selected the carrier's `Some<Item>` constructor. The contextual-typing helper
+accepted any case from a parameter's union family, so the first candidate could
+supply the wrong concrete case target before overload resolution. Match concrete
+case names directly; retain family lookup only for a union carrier parameter.
+No codegen recovery or target-specific rule is added. Runtime Contracts are unchanged.
+
+`ImportedUnionConstructorTests` checks selected semantic constructor parameters and
+executed payload/empty results across Debug/Release, both case declaration orders,
+and `None()`, `.None()`, `None`, `.None`. All 16 cases pass; the original two-case
+repro failed before the fix. Existing union semantic tests pass 184/184, and the
+union codegen/overload/target-typing group passes 139/139. This addresses the recorded
+carrier-selection blocker; native importer/runtime acceptance is a separate check.
