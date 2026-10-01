@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Share statement-call result handling across .NET and neoCLR:
+  discard Int32/Boolean results, preserve call side effects and keep no-result Unit
+  calls stack-neutral. Add local/imported runtime coverage and checked metadata Pop.
+
 - **2026-10-01:** Parse assignment right-hand sides through the full expression
   grammar, accepting Boolean negation, logical operators and coalescing without
   extra parentheses. Preserve right-associative chained assignments. The native

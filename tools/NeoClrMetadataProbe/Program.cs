@@ -169,6 +169,7 @@ File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serial
     primitiveBooleanSignaturesAndImportedOverloads = true,
     typedBooleanLocalsAndAssignments = true,
     shortCircuitBooleanEvaluation = true,
+    discardedPrimitiveCallResults = true,
     nativeAssemblyFunctionOwnershipAndEmptyTypes = true,
     implicitInt32Returns = true,
     namedUnitCall = true,

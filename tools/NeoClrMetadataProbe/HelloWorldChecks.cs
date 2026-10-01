@@ -143,7 +143,16 @@ internal static class HelloWorldChecks
         await command(0, ["verify", consumerPath, "--module", libraryPath]);
         if ((await command(0, ["run", consumerPath, "--module", libraryPath])).Replace("\r\n", "\n") != "Hello World\n")
             throw new Exception("unexpected imported no-result call output");
-        Reject(Consumer(consumerSource.Replace("Greetings.Greet(42)", "Greetings.Greet()")), consumerOptions);
+        using var discardedImage = new MemoryStream();
+        var discarded = NeoClrCompilationEmitter.EmitMetadataAssembly(
+            Consumer(consumerSource.Replace("Greetings.Greet(42)", "Greetings.Greet()")), discardedImage, consumerOptions);
+        if (!discarded.Success) throw new Exception(string.Join("; ", discarded.Diagnostics));
+        var discardedPath = Path.Combine(output, "DiscardedImportedResult.dll");
+        File.WriteAllBytes(discardedPath, discardedImage.ToArray());
+        await command(0, ["verify", discardedPath, "--module", libraryPath]);
+        if ((await command(0, ["run", discardedPath, "--module", libraryPath])).Length != 0)
+            throw new Exception("discarded imported result produced unexpected output");
+        paths.Add(discardedPath);
         Reject(Consumer(consumerSource.Replace("Greetings.Greet(42)", "System.Console.WriteLine(42)")), consumerOptions);
         using var emptyEntry = new MemoryStream();
         var emptyResult = NeoClrCompilationEmitter.EmitMetadataAssembly(Consumer("func Main() { }"), emptyEntry, consumerOptions);
@@ -155,7 +164,7 @@ internal static class HelloWorldChecks
         paths.Add(emptyPath);
         paths.Add(libraryPath);
         paths.Add(consumerPath);
-        Console.WriteLine("PASS Hello World, Unit helpers, explicit/implicit returns, imported Unit and Int32 overloads, rejected discarded values");
+        Console.WriteLine("PASS Hello World, Unit helpers, explicit/implicit returns, imported Unit and Int32 overloads, discarded imported values");
         return paths.ToArray();
     }
     private static void Reject(Compilation compilation, NeoClrEmitOptions options, string diagnostic = "NEOMETA001")

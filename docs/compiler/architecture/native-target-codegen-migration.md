@@ -26,7 +26,9 @@ explicitly deferred; the independent neoCLR metadata API remains outside Raven.
    labels/branches now execute through both backends. Primitive Int32/Boolean signatures now preserve parameter/result identity through declarations, imports and native projection. Broader signatures/conversions,
    then instances/fields remain planned; negated comparisons and loop exits are validated, while exceptions remain unsupported. Pair each capability
    with metadata writer/reader and runtime validation support as required.
-4. Centralize explicit representation and capability policies: Unit, entry points,
+4. Statement-call result use is now shared: primitive results are discarded, while
+   no-result calls leave the stack unchanged; backend-specific inhabited Unit/Console
+   representations remain explicit. Centralize the remaining explicit representation and capability policies: Unit, entry points,
    function ownership, runtime helpers and strings. Reject unsupported native output
    before writing; ordinary .NET remains the default.
 5. Compose compatible backend, runtime policies and capabilities through native target

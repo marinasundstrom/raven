@@ -232,3 +232,6 @@ through the shared path, executing the resulting binary assembly in neoCLR.
 
 Short-circuit cases assert output as well as return values: exactly two helper calls
 produce output, with the other three right operands skipped by Boolean conditions.
+
+Statement-call coverage discards primitive results from local and imported helpers,
+retains side effects in order, and leaves no-result calls without a spurious pop.

@@ -1183,3 +1183,25 @@ Validation: 35 focused compiler tests, including Release/Debug skipped-operand c
 and the dual-runtime native probe. Console side effects prove that precisely two of
 five possible helper calls execute, while the program returns 42. Existing 35 metadata
 contract groups cover the unchanged branch/Boolean encoding and validation.
+
+
+## Statement-call result handling — 2026-10-01
+
+The shared body planner now permits Int32/Boolean-returning calls in statement
+position. It emits the call followed by a stack discard, preserving argument/call
+side effects. No-result Unit calls emit no discard. The .NET adapter still handles
+an imported inhabited Unit representation according to the actual CLI signature;
+the native Console literal mapping retains its existing explicit Void-value discard.
+
+Compared with CLR pop, the native metadata API's Pop has the same stack effect but
+participates in native typed-flow validation. Empty-stack discards reject before
+writing. The compiler shares result-use planning; each backend owns instruction
+encoding. No native schema, runtime implementation, Runtime Contract configuration
+or temporary reference-projection change is required. This removes a bounded emitter
+restriction, not a language rule. Nonprimitive results remain outside the shared
+subset; native semantic import and broader target composition remain pending.
+
+Validation: 37 focused compiler tests, 35 C# metadata contract groups, and the binary
+native probe cover local Int32/Boolean statement calls, no-result calls, imported
+Int32 calls, preserved side-effect order and rejected pop underflow. Both .NET and
+neoCLR execute the same source and return 42.

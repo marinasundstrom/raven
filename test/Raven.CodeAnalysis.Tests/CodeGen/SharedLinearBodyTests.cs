@@ -132,6 +132,32 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).GetType("Logic")!.GetMethod("Main")!.Invoke(null, null));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void StatementCallsDiscardPrimitiveResultsButNotUnit(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Calls {
+                public static func Main() -> int {
+                    Number()
+                    Predicate()
+                    Finish()
+                    return 42
+                }
+                public static func Number() -> int { return 7 }
+                public static func Predicate() -> bool { return true }
+                public static func Finish() { }
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
+        var model = compilation.GetSemanticModel(declaration.SyntaxTree);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+            model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail);
+        Assert.Equal(42, Emit(compilation).GetType("Calls")!.GetMethod("Main")!.Invoke(null, null));
+    }
+
     [Fact]
     public void UnsupportedBodyIsRejectedBeforeBuildingAndUsesGeneralDotNetGenerator()
     {

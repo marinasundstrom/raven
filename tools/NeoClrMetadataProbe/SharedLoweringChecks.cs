@@ -193,6 +193,25 @@ internal static class SharedLoweringChecks
                 return true
             }
             """, "Evaluated\nEvaluated", 42);
+        await RunCase("SharedDiscardedResults", """
+            func Main() -> int {
+                Number()
+                Predicate()
+                Finish()
+                return 42
+            }
+            func Number() -> int {
+                System.Console.WriteLine("Number")
+                return 7
+            }
+            func Predicate() -> bool {
+                System.Console.WriteLine("Predicate")
+                return true
+            }
+            func Finish() {
+                System.Console.WriteLine("Finish")
+            }
+            """, "Number\nPredicate\nFinish", 42);
         await RunCase("SharedEmptyUnit", "func Main() { }", "", null);
         Console.WriteLine("PASS shared lowering on .NET and neoCLR: Int32 arithmetic/calls, Unit functions/methods, explicit/implicit returns, named Unit call and empty entry");
 

@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleLiteral, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleLiteral, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null);
@@ -165,8 +165,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         Add(LinearInstructionKind.ConsoleLiteral, Syntax(call), method: call.Method, text: text);
                         continue;
                     }
-                    if (ReturnsValue(call.Method)) return Reject("discarded value calls", Syntax(statement));
                     if (!LowerValue(call)) return false;
+                    if (ReturnsValue(call.Method)) Add(LinearInstructionKind.Pop, Syntax(statement));
                     continue;
                 }
                 if (statement is BoundReturnStatement { Expression: null or BoundUnitExpression } && !ReturnsValue(source))
