@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Carry String literals, parameters, results and initialized locals
+  through shared .NET/native emission. Console text may now come from helper calls,
+  including separately compiled native libraries. Preserve selected-core .NET types
+  and native UTF-8 text; nulls, equality and concatenation remain outside the native subset.
+
 - **2026-10-01:** Coalesce native public nongeneric partial static classes by semantic
   type identity and collect members from every part before body emission. Unsupported
   members in any part still reject output with a source diagnostic. C# end-to-end

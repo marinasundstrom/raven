@@ -4,6 +4,7 @@ internal sealed class ReflectionEmitTypeMapper(Func<SpecialType, Type> resolveTy
 {
     public Type Map(EmissionPrimitiveType type) => resolveType(type switch
     {
+        EmissionPrimitiveType.String => SpecialType.System_String,
         EmissionPrimitiveType.Int32 => SpecialType.System_Int32,
         EmissionPrimitiveType.Int64 => SpecialType.System_Int64,
         EmissionPrimitiveType.Boolean => SpecialType.System_Boolean,

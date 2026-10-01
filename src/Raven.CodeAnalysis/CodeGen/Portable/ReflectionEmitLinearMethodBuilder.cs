@@ -36,7 +36,7 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
             method.MethodBase is not MethodInfo { ReturnType.FullName: "System.Void" })
             return false;
         if (!SourceCallablePlan.TryCreate(symbol, out var declaration) ||
-            !declaration!.TryLowerBody(method.Compilation, IsConsoleLiteral, out var lowered, out _))
+            !declaration!.TryLowerBody(method.Compilation, IsConsoleWrite, out var lowered, out _))
             return false;
         // Resolution can create metadata proxies just as in general codegen. Builders
         // are only opened after the complete body has passed shared lowering.
@@ -44,7 +44,7 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
         return true;
     }
 
-    private static bool IsConsoleLiteral(BoundInvocationExpression call)
+    private static bool IsConsoleWrite(BoundInvocationExpression call)
         => call.Receiver is null or BoundTypeExpression && call.Method.IsStatic && !call.Method.IsGenericMethod &&
             call.Method.Name == "WriteLine" &&
             call.Method.ContainingType?.ToFullyQualifiedMetadataName() == "System.Console" &&
@@ -79,8 +79,8 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
             case LinearInstructionKind.Add: output.Emit(OpCodes.Add); break;
             case LinearInstructionKind.Subtract: output.Emit(OpCodes.Sub); break;
             case LinearInstructionKind.Multiply: output.Emit(OpCodes.Mul); break;
-            case LinearInstructionKind.ConsoleLiteral:
-                output.Emit(OpCodes.Ldstr, instruction.Text!);
+            case LinearInstructionKind.String: output.Emit(OpCodes.Ldstr, instruction.Text!); break;
+            case LinearInstructionKind.ConsoleWrite:
                 goto case LinearInstructionKind.Call;
             case LinearInstructionKind.Call:
                 var target = method.TypeGenerator.CodeGen.LinearCallReferences.Resolve(instruction.Method!);

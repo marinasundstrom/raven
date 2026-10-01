@@ -132,8 +132,7 @@ internal static class Int32Emitter
                 method.ContainingType?.ToFullyQualifiedMetadataName() != "System.Console" ||
                 !SymbolEqualityComparer.Default.Equals(method.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(options.ConsoleReference)) ||
                 method.Parameters.Length != 1 || method.Parameters[0].Type.GetNonNullableType().SpecialType != SpecialType.System_String ||
-                method.Parameters[0].RefKind != RefKind.None || method.ReturnType.SpecialType is not (SpecialType.System_Void or SpecialType.System_Unit) ||
-                call.Arguments.ToArray() is not [BoundLiteralExpression { Value: string }])
+                method.Parameters[0].RefKind != RefKind.None || method.ReturnType.SpecialType is not (SpecialType.System_Void or SpecialType.System_Unit))
                 return false;
             return true;
         }
@@ -177,7 +176,7 @@ internal static class Int32Emitter
         SourceCallablePlan GetPlan(IMethodSymbol method)
         {
             if (!SourceCallablePlan.TryCreate(method, out var plan))
-                throw Unsupported("only nongeneric Int32/Int64/Boolean parameters and Int32/Int64/Boolean/Unit results: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
+                throw Unsupported("only nongeneric Int32/Int64/Boolean/String parameters and Int32/Int64/Boolean/String/Unit results: " + method.Name + " (" + string.Join(", ", method.Parameters.Select(p => $"{p.Type.SpecialType}, default={p.HasExplicitDefaultValue}, params={p.IsVarParams}, ref={p.RefKind}")) + ")");
             return plan!;
         }
     }

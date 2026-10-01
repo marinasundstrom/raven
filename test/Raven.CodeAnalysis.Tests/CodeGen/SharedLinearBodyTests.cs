@@ -446,6 +446,36 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).EntryPoint!.Invoke(null, null));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void StringCallsLocalsAndBranchesPreserveUnicode(OptimizationLevel optimization)
+    {
+        const string source = """
+            public static class Text {
+                public static func Echo(value: string) -> string {
+                    var result = ""
+                    result = value
+                    return result
+                }
+                public static func Choose(selected: bool) -> string {
+                    if selected {
+                        return Echo("Hej 🌍 café")
+                    }
+                    return Echo("")
+                }
+            }
+            """;
+        var compilation = Create(source, optimization);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        foreach (var declaration in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+            Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!, model, declaration.Body!,
+                _ => false, out _, out var failure), failure?.Detail);
+        var choose = Emit(compilation).GetType("Text")!.GetMethod("Choose")!;
+        Assert.Equal("Hej 🌍 café", choose.Invoke(null, [true]));
+        Assert.Equal("", choose.Invoke(null, [false]));
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));

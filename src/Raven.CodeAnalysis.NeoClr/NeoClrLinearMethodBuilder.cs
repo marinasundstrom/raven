@@ -41,7 +41,8 @@ internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
             case LinearInstructionKind.Subtract: method.Emit(OpCode.Sub); break;
             case LinearInstructionKind.Multiply: method.Emit(OpCode.Mul); break;
             case LinearInstructionKind.Call: emitCall(instruction, method); break;
-            case LinearInstructionKind.ConsoleLiteral: method.WriteConsoleLine(instruction.Text!); break;
+            case LinearInstructionKind.String: method.Emit(OpCode.Ldstr, instruction.Text!); break;
+            case LinearInstructionKind.ConsoleWrite: method.WriteConsoleLine(); break;
             case LinearInstructionKind.Return: method.Emit(OpCode.Ret); break;
             default: throw new InvalidOperationException("Unsupported native linear instruction: " + instruction.Kind);
         }

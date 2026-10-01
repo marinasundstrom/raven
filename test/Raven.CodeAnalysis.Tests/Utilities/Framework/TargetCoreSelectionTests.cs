@@ -30,6 +30,7 @@ public class TargetCoreSelectionTests
             public static class Example {
                 public static func Echo(value: int) -> int { let copy = value; return copy }
                 public static func Wide(value: long) -> long { let copy = value; return copy }
+                public static func Text(value: string) -> string { let copy = value; return copy }
                 public static func Flag(value: bool) -> bool { let copy = value; return copy }
                 public static func Notify(value: int) { }
             }
@@ -39,8 +40,8 @@ public class TargetCoreSelectionTests
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         output.Position = 0;
         using var assembly = AssemblyDefinition.ReadAssembly(output);
-        var methods = assembly.MainModule.GetType("Example").Methods.Where(m => m.Name is "Echo" or "Notify" or "Wide" or "Flag").ToArray();
-        Assert.Equal(4, methods.Length);
+        var methods = assembly.MainModule.GetType("Example").Methods.Where(m => m.Name is "Echo" or "Notify" or "Wide" or "Flag" or "Text").ToArray();
+        Assert.Equal(5, methods.Length);
         foreach (var method in methods)
         {
             Assert.Equal("System.Runtime", method.ReturnType.Scope.Name);

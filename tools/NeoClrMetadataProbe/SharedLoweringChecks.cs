@@ -15,6 +15,27 @@ internal static class SharedLoweringChecks
 {
     internal static async Task Run(AssemblyIdentity core, string output, Func<int, string[], Task<string>> command)
     {
+        await RunCase("SharedStrings", """
+            func Main() -> int {
+                var message = ""
+                message = Text.Choose(true)
+                System.Console.WriteLine(message)
+                if true {
+                    System.Console.WriteLine(Text.Choose(false))
+                }
+                Text.Choose(true)
+                return 42
+            }
+            public static class Text {
+                public static func Echo(value: string) -> string { value }
+                public static func Choose(selected: bool) -> string {
+                    if selected {
+                        return Echo("Hej 🌍 café")
+                    }
+                    return Echo("Done")
+                }
+            }
+            """, "Hej 🌍 café\nDone", 42);
         await RunCase("SharedLowering", """
             public static class Arithmetic {
                 public static func Main() -> int {

@@ -12,18 +12,22 @@ internal static class DriverChecks
         File.WriteAllText(librarySource, """
             namespace Example
             public static class Math {
+                public static func Echo(value: string) -> string { value }
                 public static func Twice(value: int) -> int { return value * 2 }
             }
             """);
         File.WriteAllText(mainSource, """
             func Main() -> int {
                 Greet()
+                System.Console.WriteLine(Example.Math.Echo("Library 🌍"))
                 return Example.Math.Twice(21)
             }
             """);
         File.WriteAllText(helperSource, """
+            func Echo(value: string) -> string { value }
             func Greet() {
-                System.Console.WriteLine("Hello World")
+                let message = Echo("Hello World")
+                System.Console.WriteLine(message)
             }
             """);
         var library = Path.Combine(directory, "DriverLibrary.dll");
@@ -32,7 +36,7 @@ internal static class DriverChecks
         await Compile(0, "--reference", library, "-o", application, mainSource, helperSource);
         await runtime(0, ["verify", application, "--module", library]);
         var result = await runtime(42, ["run", application, "--module", library]);
-        Check(result.Replace("\r\n", "\n") == "Hello World\n", "driver execution output");
+        Check(result.Replace("\r\n", "\n") == "Hello World\nLibrary 🌍\n", "driver execution output");
         var unitSource = Path.Combine(directory, "DriverUnitMain.rvn");
         var unitApplication = Path.Combine(directory, "DriverUnitApplication.dll");
         File.WriteAllText(unitSource, "func Main() { Greet() }");

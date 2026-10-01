@@ -30,7 +30,10 @@ public class CallableDeclarationTests
         Assert.Equal(EmissionPrimitiveType.NoResult, finish.ReturnType);
         Assert.False(finish.ReturnsValue);
         Assert.Empty(finish.ParameterTypes);
-        foreach (var name in new[] { "Text", "Maybe", "UnitValue" })
+        Assert.True(PrimitiveCallableSignature.TryCreate(methods["Text"], out var text));
+        Assert.Equal(EmissionPrimitiveType.String, text.ReturnType);
+        Assert.Equal(new[] { EmissionPrimitiveType.String }, text.ParameterTypes);
+        foreach (var name in new[] { "Maybe", "UnitValue" })
             Assert.False(PrimitiveCallableSignature.TryCreate(methods[name], out _));
         Assert.False(EmissionPrimitiveTypes.TryGetValueType(methods["Finish"].ReturnType, out _));
     }

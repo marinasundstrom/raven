@@ -248,3 +248,7 @@ The primitive cases also validate the shared emission type contract and independ
 PartialTypeChecks also checks split static declarations in both file orders, an empty
 part, cross-part overloads, one projected type and unsupported-member rejection.
 Both .NET execution and native binary loading must return 42.
+
+String coverage includes computed Unicode console output, String locals/results,
+branch returns and a separately compiled native String overload. The driver also
+compiles text helpers and imports a String method from its native library.

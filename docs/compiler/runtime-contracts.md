@@ -2500,3 +2500,34 @@ The independent metadata library and runtime loader are unchanged.
 C# PartialTypeChecks exercises cross-part overload calls, an empty part, both file
 orders, one projected type with three methods, and rejection in either file order.
 The same source compilation executes to 42 on .NET and from binary PE/#Neo in neoCLR.
+
+## String values and computed console output — 2026-10-01
+
+The bounded shared emitter now carries String literals, parameters/results, initialized
+locals, assignments, calls, discarded results and control-flow joins. It preserves
+binder/lowerer ownership of language semantics. Both backend type mappers recognize
+String; .NET resolves the configured core type instead of substituting host typeof.
+Native metadata uses String signatures and existing ldstr instructions. Separately
+compiled native libraries project those signatures for Raven's existing importer.
+
+Console policy remains explicit: the registered Console reference's one-string
+WriteLine overload can consume a supported expression, rather than only a literal.
+The shared plan emits the argument first; .NET calls its resolved method, while the
+native adapter uses the metadata API's stack-consuming WriteConsoleLine and discards
+bundled System's inhabited Void result. Other overloads are not implicitly mapped.
+
+Runtime Contract configuration is unchanged. Ordinary .NET remains the default;
+native output still requires the experimental backend/rvnc neoclr and hosted primitive
+binding. The independent metadata library owns encoding and validation, and the
+existing runtime loads/executes the binary payload without schema changes. CLI reference
+bodies still throw; they are not executable translations of native method bodies.
+
+This is built-in text support, not general reference/nominal type support. Native
+null literals/nullable strings, string equality, concatenation and instance members
+remain unsupported; ordinary .NET falls back to its established generator. Native
+writer literals must be valid Unicode within 64 KiB UTF-8, rejecting unpaired UTF-16
+surrogates rather than replacing them. No cross-target interning guarantee is made.
+
+Validation covers C# metadata contracts, Debug/Release .NET text helpers, selected-core
+String signatures/locals, Unicode console output and an imported String overload
+from a separately compiled binary library. See tools/NeoClrMetadataProbe/validation.json.
