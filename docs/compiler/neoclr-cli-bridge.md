@@ -1915,3 +1915,16 @@ existing incomplete-contract fixtures. Readonly storage, explicit field declarat
 initializers, nominal signatures and broader type contracts remain later slices.
 This follows CLI field representation; native field identity remains in the temporary
 binary execution payload until the full native metadata/backend replacement.
+
+
+## Accessible setters on val properties — 2026-10-01
+
+General Raven binding now honors an accessible ordinary setter for assignment,
+compound assignment and increment/decrement on a `val` property. Previously its
+public read-only contract incorrectly blocked even an explicit private setter inside
+the declaring class. The semantic symbol remains `IsMutable == false`; inaccessible
+setters still reject outside writes, and init-only/constructor rules are unchanged.
+This is a shared compiler correction, not a neoCLR-only relaxation. It needs no
+Runtime Contract setting or metadata encoding change. 60 focused property binding,
+property execution and setter regression tests pass on modern .NET. Native explicit
+accessor emission is a separate follow-up slice.
