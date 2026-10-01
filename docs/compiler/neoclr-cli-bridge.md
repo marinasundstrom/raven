@@ -2813,3 +2813,7 @@ callvirt projection/native contracts. Raven facade compatibility still verifies/
 The metadata dependency now owns interface relationships and body storage in definitions.
 Existing helpers/writers retain the same CLI/native encodings. Rebuilt Raven execution
 returns 42; this migration introduces no bridge representation or semantic changes.
+
+The authored property migration shares definitions/accessors without changing CLI/native
+property encoding. Rebuilt Raven execution passes (42); no new bridge restriction or
+compiler semantic change is introduced.

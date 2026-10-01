@@ -314,3 +314,9 @@ metadata definitions. Existing builders retain compatible handles and use that s
 Raven required no source changes. The rebuilt external-signature native probe still
 returns 42. Arbitrary instruction editing, remaining property/generic migration and loaded
 body decoding remain pending; Runtime Contract and compiler admission are unchanged.
+
+Property definitions and accessor associations now share identity with builder facades.
+CLR reflection/native execution and the rebuilt Raven probe pass (42). The author clarified
+the intended division: Cecil-like definitions with Reflection.Emit-style generation
+builders, without a replacement/compatibility promise. Existing builder entry points,
+Runtime Contract and target admission are unchanged.
