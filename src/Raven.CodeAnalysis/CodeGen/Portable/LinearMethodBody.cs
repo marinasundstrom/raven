@@ -184,6 +184,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                             if (capabilities is not null && !capabilities.Allows(primitive)) return Reject("target does not support local type " + primitive, Syntax(variable));
                             localType = new(Primitive: primitive);
                         }
+                        else if (variable.Local.Type is INamedTypeSymbol externalValue && capabilities?.AllowsExternalValueSignatures == true &&
+                            CallableSignature.IsExternalValue(externalValue) && TryType(externalValue, false, out var importedValueType) && capabilities.Allows(importedValueType))
+                            localType = importedValueType;
                         else if (variable.Local.Type.GetNonNullableType() is INamedTypeSymbol external && capabilities?.AllowsExternalReferenceSignatures == true &&
                             CallableSignature.IsExternalReference(external) && TryType(external, false, out var externalType) && capabilities.Allows(externalType))
                             localType = externalType;

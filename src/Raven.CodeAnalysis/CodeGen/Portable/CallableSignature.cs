@@ -19,6 +19,9 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(MethodParameter: parameter); return true; }
         if (type is ITypeParameterSymbol { DeclaringTypeParameterOwner: not null } ownerParameter)
         { value = new(OwnerParameter: ownerParameter); return true; }
+        if (capabilities?.AllowsExternalValueSignatures == true && type is INamedTypeSymbol externalValue && IsExternalValue(externalValue) &&
+            externalValue.TypeArguments.All(t => TryType(t, false, out _, capabilities)))
+        { value = new(Nominal: externalValue); return true; }
         if (capabilities?.AllowsExternalReferenceSignatures == true && type is INamedTypeSymbol external && IsExternalReference(external) &&
             external.TypeArguments.All(t => TryType(t, false, out _, capabilities)))
         { value = new(Nominal: external); return true; }
@@ -30,6 +33,10 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(Array: array); return true; }
         return false;
     }
+    internal static bool IsExternalValue(INamedTypeSymbol type) =>
+        type.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty && type.TypeKind == TypeKind.Struct &&
+        type.IsValueType && type.ContainingType is null && type.DeclaredAccessibility == Accessibility.Public;
+
     internal static bool IsExternalReference(INamedTypeSymbol type) =>
         type.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty && type.TypeKind is TypeKind.Class or TypeKind.Interface &&
         type.IsReferenceType && !type.IsStatic && type.ContainingType is null && type.DeclaredAccessibility == Accessibility.Public;

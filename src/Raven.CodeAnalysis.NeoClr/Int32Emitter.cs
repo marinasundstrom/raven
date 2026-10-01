@@ -168,7 +168,7 @@ internal static class Int32Emitter
                 var name = original.ToFullyQualifiedMetadataName();
                 var candidates = binding.Definition.MainModule.Types.Where(t => t.DeclaringType is null &&
                     (t.Namespace.Length == 0 ? t.Name : t.Namespace + "." + t.Name) == name).Take(2).ToArray();
-                if (candidates.Length != 1 || candidates[0].GenericArity != original.Arity)
+                if (candidates.Length != 1 || candidates[0].GenericArity != original.Arity || candidates[0].IsValueType != original.IsValueType)
                     throw Unsupported("dependency type unavailable or ambiguous: " + name);
                 imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
                 importedTypes.Add(original, imported);

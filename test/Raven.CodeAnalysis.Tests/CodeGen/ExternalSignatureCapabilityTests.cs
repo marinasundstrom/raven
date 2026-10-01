@@ -8,6 +8,39 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class ExternalSignatureCapabilityTests
 {
+    [Fact]
+    public void ExternalValueSignaturesRequireTheirOwnOptIn()
+    {
+        var app = Compilation.Create("ValueAdmission", [SyntaxTree.ParseText("""
+            import System.*
+            public static class Consumer {
+                public static func Accept(value: DateTime) -> int => 42
+            }
+            """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var references = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            allowsRootClassSignatures: true, allowsExternalReferenceSignatures: true);
+        var values = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            allowsExternalValueSignatures: true);
+        Assert.False(CallableSignature.TryCreate(method, out _, references));
+        Assert.False(CallableSignature.TryCreate(method, out _, ReflectionEmitCapabilities.Shared));
+        Assert.True(CallableSignature.TryCreate(method, out var signature, values));
+        Assert.True(values.Allows(signature));
+        Assert.False(references.Allows(signature));
+        using var image = new MemoryStream();
+        var result = app.Emit(image);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var context = new AssemblyLoadContext("value-admission", isCollectible: true);
+        try
+        {
+            image.Position = 0;
+            var assembly = context.LoadFromStream(image);
+            Assert.Equal(42, assembly.GetType("Consumer")!.GetMethod("Accept")!.Invoke(null, [new DateTime(2026, 10, 1)]));
+        }
+        finally { context.Unload(); }
+    }
+
     [Theory]
     [InlineData(OptimizationLevel.Debug)]
     [InlineData(OptimizationLevel.Release)]

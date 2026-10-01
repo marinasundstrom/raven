@@ -2821,3 +2821,25 @@ compiler semantic change is introduced.
 Generic definition authoring now shares parameter names and constraint storage with
 builders; CLI GenericParam/GenericParamConstraint and native encodings remain unchanged.
 The rebuilt Raven probe passes (42), without Runtime Contract or admission changes.
+
+## Imported value signatures (development, 2026-10-02)
+
+The neoCLR adapter opts into external value signatures independently from external
+reference signatures. Public top-level struct signatures, including bounded generic
+constructions, map through registered `NeoClrMetadataDependency` snapshots and the
+separate metadata library. Imported static methods on nongeneric owners can return
+and accept those values; locals and forwarding retain their category. Missing or
+incompatible dependencies reject without output. Ordinary .NET defaults, binding
+and Runtime Contract configuration are unchanged.
+
+The temporary CLI projection uses standard VALUETYPE/GENERICINST signatures. Native
+format-5 manifests optionally retain imported category through `value_type_references`;
+the metadata reader/writer own this annotation and the updated runtime validates it
+against loaded definitions. Images using it require that runtime. Existing images
+remain supported. This annotation should be replaced by native indexed signature
+metadata, not become a language restriction. Imported instance members, generic-owner
+member resolution, arbitrary cross-dependency TypeRefs and union body lowering remain
+open. The probe `--imported-value-runtime` verifies/runs a Raven consumer of a
+metadata-authored library with result 42 and checks missing dependency rejection.
+The unchanged collections sample now passes Option<Order> declaration admission and
+stops at invocation lowering; it has not executed.
