@@ -43,9 +43,19 @@ internal static class ConstructedMethodCodeGenResolver
             if (codeGen.GetMemberBuilder(sourceMethod) is not MethodBuilder methodBuilder)
                 throw new InvalidOperationException($"Method builder for '{sourceMethod.Name}' is unavailable.");
 
-            return methodBuilder.IsGenericMethodDefinition
-                ? methodBuilder.MakeGenericMethod(runtimeTypeArguments)
-                : methodBuilder;
+            MethodInfo method = methodBuilder;
+            // Calls on generic owners need a MemberRef on the constructed owner,
+            // including an open construction using the caller's type parameters.
+            if (containingClrType.IsGenericType)
+            {
+                var owner = containingClrType.IsGenericTypeDefinition
+                    ? containingClrType.MakeGenericType(containingClrType.GetGenericArguments())
+                    : containingClrType;
+                method = TypeBuilder.GetMethod(owner, methodBuilder);
+            }
+            return method.IsGenericMethodDefinition
+                ? method.MakeGenericMethod(runtimeTypeArguments)
+                : method;
         }
 
         if (debug)

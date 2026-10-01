@@ -31,3 +31,9 @@ Source: f90784db4, 92c509aa4, eaebf1934. Validation: six Debug/Release semantic-
 Check accessibility when qualified member expressions resolve to types; external internal types now report RAV0500 while public wrappers remain usable.
 
 Source: ee07a991e. Validation: two cross-assembly binding cases; inaccessible-type case fails on original main.
+
+## Resolve generic method calls on their constructed declaring type
+
+Resolve source method builders through their constructed generic owner before applying method arguments, preserving independent owner/method parameter scopes and avoiding invalid CLR programs.
+
+Source: 339587142. Validation: Debug/Release execution with reordered owner and forwarded method parameters; both fail with InvalidProgramException on original main.
