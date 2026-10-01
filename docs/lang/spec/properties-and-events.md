@@ -11,7 +11,10 @@ contract, while storage is an implementation detail.
   intended surface.
 
 `val` may declare `set`/`init` accessors. A `set` accessor on `val` must
-be less accessible than the getter; otherwise Raven reports `RAV0910`. A `var`
+be less accessible than the getter; otherwise Raven reports `RAV0910`.
+Within a scope where that setter is accessible, assignment, compound assignment and
+increment/decrement invoke it. The public `val` contract remains read-only; setter
+accessibility is checked separately from that contract. A `var`
 without any writable shape reports `RAV0911`. `init` remains compatible with
 public object-initializer assignment.
 

@@ -13,3 +13,9 @@ extracted by behavior rather than cherry-picked wholesale.
 Parse logical, coalescing and prefix-not expressions as complete assignment right-hand sides; retain right-associative chained assignments.
 
 Source: 762bebad0. Validation: six focused parser cases; five fail on the original main.
+
+## Honor accessible setters independently of public val mutability
+
+Allow assignment, compound assignment and increments through accessible ordinary setters on val properties, while preserving private-setter access checks and public read-only semantics.
+
+Source: 935598201. Validation: four binding cases including outside-scope rejection; positive case fails on original main.

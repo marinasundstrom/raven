@@ -3128,7 +3128,7 @@ partial class BlockBinder : Binder
         SourceFieldSymbol? backingField = null;
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
-        if (!useFieldOnlyLowering && !propertySymbol.IsMutable)
+        if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
         {
             if (!TryGetWritableAutoPropertyBackingField(propertySymbol, memberAccess, out backingField))
             {
@@ -3188,7 +3188,7 @@ partial class BlockBinder : Binder
         SourceFieldSymbol? backingField = null;
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
-        if (!useFieldOnlyLowering && !propertySymbol.IsMutable)
+        if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
         {
             if (!TryGetWritableAutoPropertyBackingField(propertySymbol, propertyAccess, out backingField))
             {
@@ -7471,7 +7471,7 @@ partial class BlockBinder : Binder
 
             var receiver = GetReceiver(left);
 
-            if (!useFieldOnlyLowering && !propertySymbol.IsMutable)
+            if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -7671,7 +7671,7 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(propertySymbol.Type ?? Compilation.ErrorTypeSymbol, propertySymbol, BoundExpressionReason.UnsupportedOperation);
             }
 
-            if (!useFieldOnlyLowering && !propertySymbol.IsMutable)
+            if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -7799,7 +7799,7 @@ partial class BlockBinder : Binder
             var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
             var receiver = GetReceiver(left);
 
-            if (!useFieldOnlyLowering && !propertySymbol.IsMutable)
+            if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -12735,6 +12735,9 @@ partial class BlockBinder : Binder
 
         return CreateLocalSymbol(designationSyntax, name, isMutable, type);
     }
+
+    private bool HasAccessibleOrdinarySetter(IPropertySymbol property)
+        => property.SetMethod is { MethodKind: MethodKind.PropertySet } setter && IsSymbolAccessible(setter);
 
     private bool TryGetWritableAutoPropertyBackingField(
         IPropertySymbol propertySymbol,
