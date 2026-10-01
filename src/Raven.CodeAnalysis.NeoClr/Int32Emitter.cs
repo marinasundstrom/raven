@@ -88,13 +88,14 @@ internal static class Int32Emitter
                             if (indexer.SetMethod is { } indexSet) plans.Add(GetPlan(indexSet));
                             continue;
                         }
-                        if (!typeSymbol.IsStatic && typeMember is PropertyDeclarationSyntax propertySyntax)
+                        if (typeMember is PropertyDeclarationSyntax propertySyntax)
                         {
                             if (propertySyntax.AttributeLists.Count != 0 || propertySyntax.ExplicitInterfaceSpecifier is not null ||
-                                propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
-                                model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol { IsStatic: false } property ||
+                                propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)) ||
+                                model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol property ||
+                                property.IsStatic && (property.BackingField is not null || propertySyntax.Initializer is not null) ||
                                 !CallableSignature.TryType(property.Type, false, out _))
-                                throw Unsupported("only primitive or owned root-class instance properties and private storage");
+                                throw Unsupported("only supported instance properties/storage or implemented static properties without storage");
                             if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||
                                 a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null) ||
@@ -125,7 +126,7 @@ internal static class Int32Emitter
                         plans.Add(plan);
                     }
                 }
-                else throw Unsupported("only top-level functions and public or internal static classes");
+                else throw Unsupported("only top-level functions and supported source class declarations");
             }
         }
         foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic))

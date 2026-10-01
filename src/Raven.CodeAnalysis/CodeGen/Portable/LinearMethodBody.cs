@@ -224,10 +224,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 if (memberAssignment is BoundPropertyAssignmentExpression propertyAssignment)
                 {
-                    if (propertyAssignment.Property.SetMethod is not { } setter || !SupportedInstanceCall(setter) ||
-                        !Receiver(propertyAssignment.Receiver, setter.ContainingType!, Syntax(statement)) || !LowerValue(propertyAssignment.Right))
-                        return Reject("unsupported instance property assignment", Syntax(statement));
-                    Add(LinearInstructionKind.InstanceCall, Syntax(statement), method: setter);
+                    if (propertyAssignment.Property.SetMethod is not { } setter || !SupportedPropertyCall(setter) ||
+                        !PropertyReceiver(propertyAssignment.Receiver, setter, Syntax(statement)) || !LowerValue(propertyAssignment.Right))
+                        return Reject("unsupported property assignment", Syntax(statement));
+                    Add(setter.IsStatic ? LinearInstructionKind.Call : LinearInstructionKind.InstanceCall, Syntax(statement), method: setter);
                     continue;
                 }
                 var assignment = statement switch
@@ -294,6 +294,18 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool SupportedInstanceCall(IMethodSymbol method) => !method.IsStatic && !method.IsVirtual && !method.IsOverride &&
             method.ContainingType is { } owner && SourceTypePlan.TryCreate(owner, out _) &&
             CallableSignature.TryCreate(method, out var signature) && SupportedTypeArguments(method) && (capabilities is null || capabilities.Allows(signature));
+        bool SupportedPropertyCall(IMethodSymbol method) =>
+            (capabilities is null || capabilities.Allows(EmissionDeclarationKind.PropertyAccessor)) &&
+            (method.IsStatic
+                ? method.ContainingType is { } owner && SourceTypePlan.TryCreate(owner, out _) &&
+                  CallableSignature.TryCreate(method, out var signature) && SupportedTypeArguments(method) &&
+                  (capabilities is null || capabilities.Allows(signature))
+                : SupportedInstanceCall(method));
+        bool PropertyReceiver(BoundExpression? receiver, IMethodSymbol accessor, SyntaxNode syntax) =>
+            accessor.IsStatic
+                ? receiver is null or BoundTypeExpression || Reject("static property receiver must be a type", syntax)
+                : Receiver(receiver, accessor.ContainingType!, syntax);
+
         bool Receiver(BoundExpression? receiver, INamedTypeSymbol owner, SyntaxNode syntax)
         {
             if (receiver is not null) return LowerValue(receiver);
@@ -412,12 +424,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundMemberAccessExpression { Member: IFieldSymbol memberField } fieldAccess when SupportedField(memberField):
                     if (!Receiver(fieldAccess.Receiver, memberField.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.LoadField, Syntax(expression), Field: memberField)); return true;
-                case BoundPropertyAccess property when property.Property.GetMethod is { } getter && SupportedInstanceCall(getter):
-                    if (!Receiver(null, getter.ContainingType!, Syntax(expression))) return false;
-                    Add(LinearInstructionKind.InstanceCall, Syntax(expression), method: getter); return true;
-                case BoundMemberAccessExpression { Member: IPropertySymbol memberProperty } access when memberProperty.GetMethod is { } memberGetter && SupportedInstanceCall(memberGetter):
-                    if (!Receiver(access.Receiver, memberGetter.ContainingType!, Syntax(expression))) return false;
-                    Add(LinearInstructionKind.InstanceCall, Syntax(expression), method: memberGetter); return true;
+                case BoundPropertyAccess property when property.Property.GetMethod is { } getter && SupportedPropertyCall(getter):
+                    if (!PropertyReceiver(null, getter, Syntax(expression))) return false;
+                    Add(getter.IsStatic ? LinearInstructionKind.Call : LinearInstructionKind.InstanceCall, Syntax(expression), method: getter); return true;
+                case BoundMemberAccessExpression { Member: IPropertySymbol memberProperty } access when memberProperty.GetMethod is { } memberGetter && SupportedPropertyCall(memberGetter):
+                    if (!PropertyReceiver(access.Receiver, memberGetter, Syntax(expression))) return false;
+                    Add(memberGetter.IsStatic ? LinearInstructionKind.Call : LinearInstructionKind.InstanceCall, Syntax(expression), method: memberGetter); return true;
                 case BoundLiteralExpression { Value: string text }:
                     Add(LinearInstructionKind.String, Syntax(expression), text: text); return true;
                 case BoundLiteralExpression { Value: bool boolean }:

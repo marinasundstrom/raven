@@ -428,3 +428,18 @@ property projections and alias/evaluation-order behavior, propagates an indexed 
 fault on both targets, and rejects unsupported signatures without output. The checked-in
 indexer-runtime-validation.json records source/runtime hashes. This is not a claim
 that generic ArrayList/HashMap or the complete original consumer compiles.
+
+
+Whole-file runtime acceptance:
+
+```sh
+dotnet NeoClrMetadataProbe.dll --whole-library-runtime <neoclr/runtime/raven/src> <fresh-output> <neoclr-executable>
+```
+
+Compiles System.Globalization.Language unchanged with a consumer, runs both source
+orders on CLI/native, and requires und/sv/he output with exit result 42. Additional
+consumer code checks static setter mutation and a constructed generic static getter;
+unsupported static storage must reject without output. Validation records hashes and
+explicitly marks the host-core bootstrap and incomplete full-library status. The
+class-library-emission inventory now also includes Language, Comparer, EqualityComparer
+and ArrayList without replacing their native dependencies.

@@ -2452,3 +2452,34 @@ source unit and let its concrete gaps drive work; the full order-collections sam
 still requires imported collections, interface dispatch, callbacks and union handling.
 Keep the neoCLR assessment in docs/experiments/extended-cli-metadata/state-assessment-2026-10-01.md
 as the detailed cross-repository record.
+
+
+### Unchanged Language source and static property accessors (2026-10-01)
+
+The whole runtime/raven/src/System/Globalization/Language.rvn file now compiles without
+source edits. Shared lowering represents static getters/setters as ordinary static
+calls; instance accessor receiver evaluation is preserved. The native declaration
+adapter admits implemented static properties on owned classes and static types,
+including constructed generic owners. Storage-backed static properties still reject
+before output: static initialization/storage is a separate capability, not synthesized
+per-call storage. No new metadata API, native opcode or runtime change is needed.
+
+The independent producer owns ordinary CLI Property/MethodSemantics and native
+accessor associations. Runtime Contract configuration and the explicit console bridge
+are unchanged. The --whole-library-runtime probe verifies and executes the binary on
+neoCLR and the ordinary CLI image on .NET, in both source orders: und/sv/he and result
+42. It also exercises a static setter and generic static getter, checks metadata,
+and rejects unsupported static storage. Five focused C# tests pass (including Debug
+and Release static-property coverage). [Evidence](../../tools/NeoClrMetadataProbe/whole-library-runtime-validation.json).
+This uses the host-core bootstrap, not a completed native metadata symbol loader.
+
+The refreshed class-library inventory shows Comparer<T> and EqualityComparer<T>
+bind successfully but require interface declaration emission. ArrayList<T> still
+requires native library dependencies before its emission frontier can be measured.
+These are next acceptance gates, not newly implemented interface/collection support.
+
+Author clarification: neoCLR follows .NET behavior and the same instruction semantics
+for supported facilities unless another choice is explicitly made. Unsupported
+features such as exception handling are coverage gaps. Physical #Neo payload transport
+is a temporary bridge, not a separate instruction-set design; its future replacement
+must retain ordinary CLI semantics and documented extensions.

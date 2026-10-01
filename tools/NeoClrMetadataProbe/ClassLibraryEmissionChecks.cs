@@ -23,7 +23,7 @@ internal static class ClassLibraryEmissionChecks
             Convert.ToHexString(host.GetPublicKeyToken() ?? []));
         var reference = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
         var reports = new List<object>();
-        foreach (var relative in new[] { "System/Math/Functions.rvn", "System/Text/UnicodeScalar.rvn", "System/Runtime/GC.rvn" })
+        foreach (var relative in new[] { "System/Math/Functions.rvn", "System/Text/UnicodeScalar.rvn", "System/Runtime/GC.rvn", "System/Globalization/Language.rvn", "System/Collections/Comparer.rvn", "System/Collections/EqualityComparer.rvn", "System/Collections/ArrayList.rvn" })
         {
             var path = Path.Combine(sourceRoot, relative);
             var original = File.ReadAllText(path);

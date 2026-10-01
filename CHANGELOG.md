@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Share static computed property get/set calls between .NET and neoCLR emission. The native adapter admits implemented static properties on owned classes/static types, retaining ordinary accessor metadata; static storage remains unsupported. Compile the complete unchanged neoCLR Language class and execute both source orders on both runtimes. Add a whole-file acceptance probe and refresh the collection interface/dependency inventory. Reaffirm .NET behavior and CLI instruction semantics as the default for the supported subset.
+
 - **2026-10-01:** Admit owned nominal class bounds on generic types through shared target capabilities. The neoCLR adapter materializes bounds after declaring all types; CLI/native reference metadata preserves them. Invalid concrete arguments are rejected by Raven binding and native verification. Extend shared capabilities and native emission with class/struct/new requirements on type parameters. Correct ordinary .NET struct emission to include its implied default-constructor flag. Matching native runtime required; nullability, method/interface/dependent bounds and open constrained dispatch remain separate work.
 
 - **2026-10-01:** Enable constructed-field references for the neoCLR target, using original field identity and constructed owner arguments. Shared field lowering now supports accesses outside generic declaring classes; binary consumers execute typed stores/loads on both runtimes. Cross-assembly field imports remain deferred.

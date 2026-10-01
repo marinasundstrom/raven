@@ -89,6 +89,75 @@
         "error RAV0103: \u0027RuntimeServices\u0027 is not in scope.",
         "error RAV0103: \u0027RuntimeServices\u0027 is not in scope."
       ]
+    },
+    {
+      "source": "System/Globalization/Language.rvn",
+      "selection": "whole-file",
+      "sourceSha256": "EBB435ACC91081F574F1515BB22870833FF5C3A935DC44BA3562FCEACC022760",
+      "selectedSha256": "EBB435ACC91081F574F1515BB22870833FF5C3A935DC44BA3562FCEACC022760",
+      "phase": "emitted",
+      "success": true,
+      "bytes": 20480,
+      "diagnostics": []
+    },
+    {
+      "source": "System/Collections/Comparer.rvn",
+      "selection": "whole-file",
+      "sourceSha256": "BEA7287FDDAB87AD0716AAB38E82EB9837A03C121D6DD4FDE96AB2F87C793592",
+      "selectedSha256": "BEA7287FDDAB87AD0716AAB38E82EB9837A03C121D6DD4FDE96AB2F87C793592",
+      "phase": "emission",
+      "success": false,
+      "bytes": 0,
+      "diagnostics": [
+        "error NEOMETA001: Native emission does not support only top-level functions and supported source class declarations."
+      ]
+    },
+    {
+      "source": "System/Collections/EqualityComparer.rvn",
+      "selection": "whole-file",
+      "sourceSha256": "820C9AB4936879F8F60A4882C3EA0BD266C3DE4F562C8F61C49B8AAC9801258B",
+      "selectedSha256": "820C9AB4936879F8F60A4882C3EA0BD266C3DE4F562C8F61C49B8AAC9801258B",
+      "phase": "emission",
+      "success": false,
+      "bytes": 0,
+      "diagnostics": [
+        "error NEOMETA001: Native emission does not support only top-level functions and supported source class declarations."
+      ]
+    },
+    {
+      "source": "System/Collections/ArrayList.rvn",
+      "selection": "whole-file",
+      "sourceSha256": "FCE400113FD50CAAB17288BACC3AFE5458FF006309CD86D6838DD316E73B7005",
+      "selectedSha256": "FCE400113FD50CAAB17288BACC3AFE5458FF006309CD86D6838DD316E73B7005",
+      "phase": "binding",
+      "success": false,
+      "bytes": 0,
+      "diagnostics": [
+        "error RAV2021: You can only import namespaces and types.",
+        "error RAV0103: \u0027List\u003CT\u003E\u0027 is not in scope.",
+        "error RAV0234: \u0027Runtime\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Fault\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Runtime\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Fault\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Fault\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Fault\u0027 was not found in \u0027System\u0027.",
+        "error RAV0234: \u0027Runtime\u0027 was not found in \u0027System\u0027.",
+        "error RAV0103: \u0027Iterator\u003CT\u003E\u0027 is not in scope.",
+        "error RAV0103: \u0027System.Option\u003CT\u003E\u0027 is not in scope.",
+        "error RAV0103: \u0027Some\u0027 is not in scope.",
+        "error RAV0103: \u0027None\u0027 is not in scope.",
+        "error RAV0103: \u0027System.Option\u003CT\u003E\u0027 is not in scope.",
+        "error RAV0103: \u0027Some\u0027 is not in scope.",
+        "error RAV0103: \u0027None\u0027 is not in scope.",
+        "error RAV0103: \u0027System.Option\u003Cint\u003E\u0027 is not in scope.",
+        "error RAV0103: \u0027Some\u0027 is not in scope.",
+        "error RAV0103: \u0027None\u0027 is not in scope.",
+        "error RAV0103: \u0027System.Option\u003Cint\u003E\u0027 is not in scope.",
+        "error RAV0103: \u0027Some\u0027 is not in scope.",
+        "error RAV0103: \u0027None\u0027 is not in scope.",
+        "error RAV0103: \u0027Iterator\u003CT\u003E\u0027 is not in scope.",
+        "error RAV0234: \u0027Fault\u0027 was not found in \u0027System\u0027."
+      ]
     }
   ]
 }
