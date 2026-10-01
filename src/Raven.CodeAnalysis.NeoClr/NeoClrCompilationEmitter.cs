@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.NeoClr;
 
 /// <summary>Opt-in native format-5 emitter for the documented static primitive source subset.</summary>
-/// <remarks>Reuses compiler-lowered bodies and the existing .NET binding bootstrap. Uses the shared Compilation.Emit pipeline through an explicit backend.</remarks>
+/// <remarks>Reuses compiler-lowered bodies with the host bootstrap or a validated neoCLR CLI declaration core. Uses the shared Compilation.Emit pipeline through an explicit backend.</remarks>
 public static class NeoClrCompilationEmitter
 {
     private static readonly DiagnosticDescriptor Unsupported = Descriptor("NEOMETA001", "Unsupported native source", "Native emission does not support {0}.");
@@ -11,7 +11,7 @@ public static class NeoClrCompilationEmitter
     private static readonly DiagnosticDescriptor Encoding = Descriptor("NEOMETA003", "Invalid native graph", "Native metadata encoding failed: {0}.");
 
     /// <summary>Validates the compilation and configuration, then writes native bytes to a caller-owned stream.</summary>
-    /// <param name="compilation">Source trees using the .NET primitive binding bootstrap.</param>
+    /// <param name="compilation">Source trees using the host bootstrap or CompilationOptions.NeoCLR with a matching CLI declaration core.</param>
     /// <param name="output">Writable stream; validation failure leaves its bytes and position unchanged.</param>
     /// <param name="options">Explicit output/core identities and compiler-reference bindings.</param>
     /// <returns>Success and preserved compiler diagnostics, or a source/backend diagnostic without output.</returns>
@@ -33,8 +33,10 @@ public static class NeoClrCompilationEmitter
         var diagnostics = ImmutableArray<Diagnostic>.Empty;
         NeoClrEmitResult Fail(DiagnosticDescriptor descriptor, string detail, Location? location = null)
             => new(false, diagnostics.Add(Diagnostic.Create(descriptor, location ?? Location.None, detail)));
-        if (compilation.Options.TargetPlatform != TargetPlatform.DotNet || compilation.Options.OutputKind is not (OutputKind.ConsoleApplication or OutputKind.DynamicallyLinkedLibrary))
-            return Fail(Configuration, "requires the .NET primitive bootstrap and console or library output");
+        if (compilation.Options.OutputKind is not (OutputKind.ConsoleApplication or OutputKind.DynamicallyLinkedLibrary))
+            return Fail(Configuration, "requires console or library output");
+        if (NeoClrBindingContract.GetError(compilation, options) is { } bindingError)
+            return Fail(Configuration, bindingError);
         if (compilation.SyntaxTrees.Length == 0 || compilation.MacroSyntaxTrees.Length != 0)
             return Fail(Configuration, "requires source trees; macro trees are unsupported");
         if (options.Identity.Name != compilation.AssemblyName || options.Identity.PublicKeyToken.Length != 0 || options.Identity.Flags != 0)
@@ -72,7 +74,7 @@ public static class NeoClrCompilationEmitter
         return new(true, diagnostics);
     }
     /// <summary>Emits a PE/#Neo assembly containing authoritative native metadata and a CLI reference projection.</summary>
-    /// <param name="compilation">Compilation using the same bounded subset and .NET bootstrap as Emit.</param>
+    /// <param name="compilation">Compilation using the same bounded subset and validated binding contract as Emit.</param>
     /// <param name="output">Caller-owned writable stream; validation errors leave it unchanged.</param>
     /// <param name="options">Explicit output/core identities and dependency bindings.</param>
     /// <returns>Compiler diagnostics and emission success; container errors use NEOMETA003.</returns>

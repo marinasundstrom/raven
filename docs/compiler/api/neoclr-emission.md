@@ -62,9 +62,20 @@ The host is responsible for keeping the snapshot and reference file consistent
 artifacts. Raven's public assembly symbol currently has no complete identity/MVID
 contract: these checks do not authenticate snapshots or replace a native loader.
 
-At most 256 dependencies are accepted. One or more source trees with console or library output,
-no macro trees, and `TargetPlatform.DotNet` as the primitive binding bootstrap is
-supported. This does not enable the separate neoCLR CLI bridge Runtime Contract.
+At most 256 dependencies are accepted. One or more source trees with console or library
+output and no macro trees are supported. The existing `TargetPlatform.DotNet` host
+bootstrap remains available. `CompilationOptions.NeoCLR` can now use its explicit
+`NeoCLR.CoreProbe` CLI declaration snapshot with the direct native backend. The adapter
+validates the profile and requires Object, Int32, Int64, Boolean, String and Unit to
+belong to one imported core matching `CoreLibrary` (name, version, culture and token).
+Core mismatches produce NEOMETA002 before output is written. For this profile, pass
+the snapshot reference as `ConsoleReference` to authorize supported WriteLine calls.
+
+This is an explicit temporary CLI declaration binding contract, not native symbol
+loading or an implementation-bootstrap seed. The runtime uses native primitive and
+no-result representations; it does not execute the declaration snapshot's CLI bodies.
+Iteration/propagation/typeof/Self contracts still bind through the selected profile;
+unsupported bodies and declarations remain rejected by the backend capabilities.
 
 ## Result, diagnostics and streams
 

@@ -2582,3 +2582,39 @@ propagation lowering driven by unchanged order-collections. Reuse the semantic i
 behind a metadata-source contract and existing shared lowering. Keep Runtime Contract
 options explicit; ordinary .NET remains default. No production options or semantics
 change in this assessment/tooling slice.
+
+## Validated native target-profile emission (2026-10-01)
+
+The direct backend now accepts `CompilationOptions.NeoCLR` with the profile's
+`NeoCLR.CoreProbe` reference snapshot. `NeoClrBindingContract` validates the existing
+profile and exact primitive/Unit core identity before native mapping. The host-core
+bootstrap and ordinary .NET default remain unchanged. No binder or .NET generator
+semantics change in this slice.
+
+Native intent: primitives, Unit/no-result, assembly functions, arrays and owned
+interface dispatch use existing native signatures/instructions. Temporary binding:
+CLI declarations supply symbols via the existing PE provider; Unit uses System.Void.
+The adapter currently requires that provider to inspect full core identity. It neither
+loads native symbols nor authenticates snapshot contents. Implementation services,
+imported nominal/generic members, native Self metadata and broader bodies remain
+separate work; the reference snapshot is not a full class-library build seed.
+The compiler target contract owns binding semantics; the adapter owns admission and
+mapping; the independent metadata library owns encoding; neoCLR owns load/verify/run.
+Replace the PE declaration dependency with a metadata-source identity contract and
+native symbol provider later, preserving the same core validation.
+
+C# `NativeProfileChecks` exercises Hello World through another function, a Unit entry,
+array iteration and owned interface dispatch using no host core reference. It verifies
+and runs each native binary, and checks wrong core name/version leave output untouched.
+The existing host-bootstrap dispatch control still verifies and returns 42 on both
+.NET and neoCLR in both file orders. Run:
+
+```sh
+dotnet tools/NeoClrMetadataProbe/bin/Debug/net10.0/NeoClrMetadataProbe.dll \
+  --native-profile-runtime /absolute/neoclr /tmp/fresh-native-profile /absolute/neoclr/target/release/neoclr
+```
+
+The preceding readiness inventory is historical evidence; its profile-wide NEOMETA002
+gate is now replaced by explicit validation, not proof that every listed app emits.
+[Shared-codegen parity audit](architecture/neoclr-refactor-parity.md) records the
+independent .NET checks and unresolved imported-carrier/loop-capture issues.

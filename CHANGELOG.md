@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Admit the explicit neoCLR CLI declaration profile in direct native emission after matching primitive/Unit core identity. Verify and run native Hello World, function/Unit entry, vector iteration and owned interface dispatch without a host core reference; reject mismatched core names/versions before output. Host bootstrap remains available; native symbol loading and implementation bootstrap remain future work.
+
 - **2026-10-01:** Audit ordinary .NET behavior across shared-codegen refactoring and add Debug/Release execution checks for evaluation order, short-circuiting, array iteration and null calls. Record passing comparison evidence and unresolved imported-carrier/loop-capture issues without claiming they are fixed.
 
 - **2026-10-01:** Add an exploratory source/sample readiness inventory for direct neoCLR
