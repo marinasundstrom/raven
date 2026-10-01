@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Parse logical, coalescing and prefix-not expressions as complete assignment right-hand sides; retain right-associative chained assignments.
+
 - **2026-09-30:** Keep imported signature-only parameters required when their optional
   CLI Param row is absent. Check row presence and default availability before
   interpreting null as a constant, preserving ordinary explicit and attribute-based defaults.
