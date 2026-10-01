@@ -272,3 +272,23 @@ is not a full System build. Whole Math/UnicodeScalar/GC files still stop in bind
 on absent native library dependencies. The order-collections consumer is the next
 acceptance expansion; its constructors/properties, generics and delegates exceed the
 current static primitive producer.
+
+
+### Definition-first metadata dependency checkpoint (2026-10-01)
+
+The separate metadata library now supports authored assembly/type/field definitions,
+shared method declarations, and direct assembly-level function construction with
+EntryPoint assignment. Its builder APIs wrap those declarations; Raven's adapter
+continues to use that compatibility facade. Body definitions and loaded editing are
+still pending. This changes neither Runtime Contract configuration nor Raven binding
+semantics, target admission or ordinary .NET emission.
+
+Rebuilt against neoCLR `codex/extended-cli-metadata` (type/field slice `fb381118`,
+method declaration slice `09166c9a`, followed by direct function construction), the
+external-signature runtime probe verifies and returns 42. The generic-library probe
+also passed against the initial definition slice. Compiler source was `55a29312f` on
+`codex/metadata-consumer`; runtime SHA256 was
+`193B7F995EE4FC92A086439FB1FDBDAFC3A0C58139F0CAF30CB4A2D8640A432D`.
+The unchanged collections sample's Option<Order> import/union/native identity gaps
+remain open. These validations establish facade compatibility, not completion of the
+compiler or general metadata editing API.

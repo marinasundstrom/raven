@@ -2788,3 +2788,12 @@ then appropriate union operations and imported instance/generic-owner members. T
 current projection also omits nullable annotations; the factory boundary above uses
 nonnull references. Native semantic loading remains future work. Primitive-only reader
 recognizers/MemberReference resolution remain narrower than this producer import API.
+
+
+Metadata authoring migration (2026-10-01): the independent metadata library now shares
+assembly/type/field/method declarations with builder facades and permits direct global
+function declarations. The existing CLI function projection and native encoding are
+unchanged; no new bridge representation or loss is introduced. Raven owns target
+mapping, the metadata library owns authoring/encoding, and neoCLR owns loading and
+execution. Native body-definition and loaded editing work remains pending. See the
+[dependency validation checkpoint](api/neoclr-emission.md#definition-first-metadata-dependency-checkpoint-2026-10-01).
