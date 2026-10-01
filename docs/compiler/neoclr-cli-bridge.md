@@ -2635,3 +2635,17 @@ order-collections sample now imports through the legacy bridge; the previous
 None-to-Some constructor stack failure is resolved. Direct metadata emission still
 rejects Register's imported collection signatures; this is a separate backend gap.
 The prior audit's carrier issue is superseded; loop capture remains open.
+
+### Focused sample reproduction
+
+Use the existing inventory machinery for one unchanged application, without running
+the whole-library sweep:
+
+```sh
+dotnet tools/NeoClrMetadataProbe/bin/Debug/net10.0/NeoClrMetadataProbe.dll \
+  --readiness-sample /absolute/neoclr /tmp/fresh-order /absolute/neoclr/target/release/neoclr application-order-collections
+```
+
+The report identifies its selection and records independent direct-emission and CLI
+control results. The historical full inventory is preserved. A successful report
+process does not imply successful direct emission; inspect its recorded diagnostics.

@@ -14,7 +14,7 @@ namespace NeoClrMetadataProbe;
 // Exploratory report: current failures are evidence, never required test expectations.
 internal static class ReadinessInventory
 {
-    internal static async Task Run(string root, string output, string runtime)
+    internal static async Task Run(string root, string output, string runtime, string? sample = null)
     {
         if (Directory.Exists(output)) throw new IOException("output must be fresh"); Directory.CreateDirectory(output);
         var library = Path.Combine(root, "runtime/raven/src");
@@ -23,6 +23,16 @@ internal static class ReadinessInventory
         var targetReference = MetadataReference.CreateFromFile(corePath);
         var hostReference = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
         var reports = new List<object>();
+        if (sample is not null)
+        {
+            var samplePath = Path.Combine(samples, sample + ".rvn");
+            if (Path.GetFileName(sample) != sample || !File.Exists(samplePath))
+                throw new ArgumentException("expected an existing sample basename", nameof(sample));
+            await Attempt(sample, [samplePath], true, true);
+            Save();
+            return;
+        }
+
         var contracts = new[] { "System/Disposable.rvn", "System/Collections/Iterator.rvn", "System/Collections/Iterable.rvn" };
         foreach (var (label, files) in new (string, string[])[] {
             ("iterator-contracts", contracts),
@@ -47,6 +57,7 @@ internal static class ReadinessInventory
 
         void Save() => File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
+            selection = sample ?? "full inventory",
             targetReference = "api-docs/reference/NeoCLR.CoreProbe.dll",
             targetReferenceSha256 = Hash(corePath),
             runtimeSha256 = Hash(runtime),
