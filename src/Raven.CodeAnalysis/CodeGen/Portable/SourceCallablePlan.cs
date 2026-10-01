@@ -19,7 +19,7 @@ internal sealed record SourceCallablePlan(
     }
     internal EmissionDeclarationKind DeclarationKind => IsAssemblyFunction
         ? Namespace.Length == 0 ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.NamespacedAssemblyFunction
-        : EmissionDeclarationKind.StaticMethod;
+        : Symbol.IsStatic ? EmissionDeclarationKind.StaticMethod : EmissionDeclarationKind.InstanceMethod;
     internal Accessibility Visibility => Symbol.DeclaredAccessibility;
     internal bool IsSupportedBy(EmissionCapabilities capabilities) => capabilities.Allows(DeclarationKind) && capabilities.Allows(Signature) &&
         (IsAssemblyFunction ? capabilities.AllowsFunctionVisibility(Visibility) : capabilities.AllowsMethodVisibility(Visibility));
@@ -29,8 +29,10 @@ internal sealed record SourceCallablePlan(
     internal static bool TryCreate(IMethodSymbol symbol, out SourceCallablePlan? plan, EmissionCapabilities? capabilities = null)
     {
         plan = null;
-        if (!symbol.IsStatic || symbol.IsExtern || symbol.DeclaringSyntaxReferences.Length != 1 ||
+        if (symbol.IsExtern || symbol.DeclaringSyntaxReferences.Length != 1 ||
             !PrimitiveCallableSignature.TryCreate(symbol, out var signature)) return false;
+        if (!symbol.IsStatic && (symbol.MethodKind != MethodKind.Ordinary || symbol.IsVirtual || symbol.IsOverride || symbol.IsAbstract ||
+            symbol.ContainingType is not { } receiver || !SourceTypePlan.TryCreate(receiver, out _))) return false;
         var syntax = symbol.DeclaringSyntaxReferences[0].GetSyntax();
         switch (syntax)
         {
@@ -39,7 +41,7 @@ internal sealed record SourceCallablePlan(
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
                 plan = null;
                 return false;
-            case FunctionStatementSyntax function when function.Parent is GlobalStatementSyntax { Parent: CompilationUnitSyntax or BaseNamespaceDeclarationSyntax }:
+            case FunctionStatementSyntax function when symbol.IsStatic && function.Parent is GlobalStatementSyntax { Parent: CompilationUnitSyntax or BaseNamespaceDeclarationSyntax }:
                 plan = new(symbol, syntax, (SyntaxNode?)function.Body ?? function.ExpressionBody, null, symbol.Name, signature);
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
                 plan = null;

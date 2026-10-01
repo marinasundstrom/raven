@@ -17,7 +17,7 @@ internal static class Int32Emitter
     {
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
-        var declaredTypes = new Dictionary<INamedTypeSymbol, SourceStaticTypePlan>(SymbolEqualityComparer.Default);
+        var declaredTypes = new Dictionary<INamedTypeSymbol, SourceTypePlan>(SymbolEqualityComparer.Default);
         // Collect all declarations before emitting any body, so calls do not depend on file order.
         foreach (var tree in compilation.SyntaxTrees)
         {
@@ -45,7 +45,7 @@ internal static class Int32Emitter
                         type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword)))
                         throw Unsupported("only public or internal nongeneric static classes without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
-                    if (!SourceStaticTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
+                    if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
                         throw Unsupported("only public or internal nongeneric static classes");
                     // Partial declarations share one semantic identity and one metadata definition.
                     // Still validate every part and collect all of its members.

@@ -2871,3 +2871,9 @@ where applicable; add explicit native mappings behind target capabilities. Do no
 strip source properties into an ad hoc field-only contract. Generic collection and
 union/delegate coverage follows that first object case; broad native symbol importing
 remains deferred.
+
+
+The 2026-10-01 shared root/instance declaration slice adds internal backend capability
+categories, not a new Runtime Contract option. Ordinary .NET emission shares primitive
+nonvirtual instance plans; native source admission stays gated until complete class
+bodies exist. See [the bridge record](neoclr-cli-bridge.md#shared-root-and-instance-declaration-contracts--2026-10-01).

@@ -246,8 +246,8 @@ internal class TypeGenerator
             }
             else
             {
-                if (!hoistNestedSealedHierarchyCase && TypeSymbol is INamedTypeSymbol staticType &&
-                    Portable.SourceStaticTypePlan.TryCreate(staticType, out var typePlan, Portable.ReflectionEmitCapabilities.Shared))
+                if (!hoistNestedSealedHierarchyCase && TypeSymbol is INamedTypeSymbol sharedType &&
+                    Portable.SourceTypePlan.TryCreate(sharedType, out var typePlan, Portable.ReflectionEmitCapabilities.Shared))
                 {
                     TypeBuilder = typePlan!.Define(new Portable.ReflectionEmitTypeDefinitionBuilder(CodeGen.ModuleBuilder, typeAttributes));
                 }

@@ -286,7 +286,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundParameterAccess parameter:
                     var index = source.Parameters.IndexOf(parameter.Parameter, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
                     if (index < 0) return Reject("captured parameter", Syntax(expression));
-                    Add(LinearInstructionKind.Argument, Syntax(expression), index); return true;
+                    Add(LinearInstructionKind.Argument, Syntax(expression), index + (source.IsStatic ? 0 : 1)); return true;
                 case BoundUnaryExpression { Operator.OperatorKind: BoundUnaryOperatorKind.LogicalNot } unary:
                     if (!LowerValue(unary.Operand)) return false;
                     Add(LinearInstructionKind.Not, Syntax(expression)); return true;

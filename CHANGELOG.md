@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Generalize shared source type plans to distinguish static types from bounded root classes, and callable admission to distinguish static from nonvirtual instance methods. .NET Release emission now shares primitive instance signature/body planning with receiver-aware argument slots; Debug/general fallback is preserved. Native adapters map these definitions to AddClass/AddInstanceMethod, but native source class admission remains gated until constructor/member bodies are complete.
+
 - **2026-10-01:** Keep implicit auto-property accessors, setter parameters and backing fields stable across repeated binding, preventing duplicate setter members. Validate independently through .NET execution. Add an unchanged order-collections consumer inventory that isolates the next native object/type emission gate without replacing native library dependencies.
 
 - **2026-10-01:** Emit namespace-scoped assembly functions through explicit shared target capabilities, preserving namespace/simple-name identity and ownerless native metadata. Compile original integer Math functions and execute 11 boundary cases on .NET and native binaries in both source orders. Requires the matching metadata/runtime namespace extension; projected global source import remains deferred.

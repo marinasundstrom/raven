@@ -161,7 +161,7 @@ internal class MethodGenerator
 
                     MethodBase = methodBuilder;
                 }
-                else if (_lambdaClosure is null && !MethodSymbol.IsExtern && MethodSymbol.IsStatic &&
+                else if (_lambdaClosure is null && !MethodSymbol.IsExtern &&
                     MethodSymbol.MethodKind is (MethodKind.Ordinary or MethodKind.Function) &&
                     TypeGenerator.GetExtensionTypeParameters().IsDefaultOrEmpty &&
                     Portable.SourceCallablePlan.TryCreate(MethodSymbol, out var declaration, Portable.ReflectionEmitCapabilities.Shared))

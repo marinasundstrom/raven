@@ -1765,3 +1765,37 @@ union/delegate coverage follows that first object case; broad native symbol impo
 remains deferred.
 
 Validation: 49 focused property/binding C# tests pass, including the independently failing identity regression and .NET execution. The unchanged consumer inventory now enumerates exactly nine Order members.
+
+
+## Shared root and instance declaration contracts — 2026-10-01
+
+SourceTypePlan replaces the static-only type plan and exposes separate StaticType and
+RootClass categories. The bounded root shape is a public/internal nongeneric top-level
+source class with System.Object base, no interfaces, records, abstract or closed
+hierarchy semantics. SourceCallablePlan distinguishes InstanceMethod from StaticMethod
+and admits nonvirtual ordinary methods of those roots with primitive declared
+signatures. Capability admission remains explicit at declaration and body boundaries.
+The receiver is not a declared parameter: shared argument slots shift by one only for
+instance bodies. Instance calls, constructor/accessor bodies, object locals and field
+operations are not admitted by this change.
+
+The .NET adapter uses shared root and method definitions while retaining TypeGenerator's
+physical flags/base policy and existing Reflection.Emit method attributes. Release
+primitive instance bodies use shared lowering; Debug and unsupported bodies retain
+the general generator. No syntax, semantic-model API or Runtime Contract configuration
+changes. Ordinary .NET remains the default target. This general abstraction is not a
+structural Function experiment.
+
+Native adapters now map root and instance definitions to the separate metadata API's
+AddClass/AddInstanceMethod. The native admission profile intentionally still rejects
+source root classes until constructor and complete member-body contracts are supported;
+it must not silently omit constructors, fields or properties. Thus Order's native
+source emission remains a gap despite metadata API object execution. The temporary
+PE/#Neo native-body/CLI-reference bridge is unchanged; broader native metadata/backend
+support will replace it, not a new CLR-specific shared contract.
+
+Validation: 54 focused pre-change tests and 56 post-change tests, including independent
+Release/Debug .NET construction and Int32/Int64/Boolean/String instance results, target
+capability denial, canonical Order property symbols and existing shared primitive bodies.
+The native probe rebuilt against the matching metadata library and passed its
+existing supported emission cases; this is not native instance source coverage.

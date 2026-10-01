@@ -18,7 +18,8 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
         };
         return owner is null
             ? assembly.AddFunction(plan.Namespace, metadataName, ToMetadata(plan.Signature), visibility)
-            : owner.AddMethod(metadataName, ToMetadata(plan.Signature), visibility);
+            : plan.Symbol.IsStatic ? owner.AddMethod(metadataName, ToMetadata(plan.Signature), visibility)
+            : owner.AddInstanceMethod(metadataName, ToMetadata(plan.Signature), visibility);
     }
     internal static PrimitiveMethodSignature ToMetadata(PrimitiveCallableSignature signature)
         => new(NeoClrTypeMapper.Instance.Map(signature.ReturnType), signature.ParameterTypes.Select(NeoClrTypeMapper.Instance.Map));

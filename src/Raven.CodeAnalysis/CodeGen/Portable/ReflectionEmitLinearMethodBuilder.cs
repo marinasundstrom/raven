@@ -26,7 +26,7 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
         // established path. Widen this gate as the shared model acquires those contracts.
         if (method.Compilation.Options.OptimizationLevel != OptimizationLevel.Release ||
             method.TypeGenerator.CodeGen.HasDebugOutput ||
-            !symbol.IsStatic || !LinearMethodBody.HasSupportedSignature(symbol) ||
+            !LinearMethodBody.HasSupportedSignature(symbol) ||
             symbol.ContainingType is not { Arity: 0 } || method.LambdaClosure is not null ||
             symbol.DeclaringSyntaxReferences.Length != 1)
             return false;

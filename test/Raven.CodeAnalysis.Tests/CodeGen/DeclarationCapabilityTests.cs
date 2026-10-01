@@ -85,12 +85,12 @@ public class DeclarationCapabilityTests
         var declarations = new[] { EmissionDeclarationKind.StaticType };
         var capabilities = new EmissionCapabilities([], [], declarations, [Accessibility.Public]);
         declarations[0] = EmissionDeclarationKind.StaticMethod;
-        Assert.True(SourceStaticTypePlan.TryCreate(symbol, out var plan, capabilities));
+        Assert.True(SourceTypePlan.TryCreate(symbol, out var plan, capabilities));
         Assert.Equal("Helpers", plan!.Name);
         Assert.False(capabilities.Allows(EmissionDeclarationKind.StaticMethod));
-        Assert.False(SourceStaticTypePlan.TryCreate(symbol, out var rejected, new([], [])));
+        Assert.False(SourceTypePlan.TryCreate(symbol, out var rejected, new([], [])));
         Assert.Null(rejected);
-        Assert.True(SourceStaticTypePlan.TryCreate(symbol, out _, ReflectionEmitCapabilities.Shared));
+        Assert.True(SourceTypePlan.TryCreate(symbol, out _, ReflectionEmitCapabilities.Shared));
     }
 
     [Fact]
@@ -102,11 +102,11 @@ public class DeclarationCapabilityTests
         var visibilities = new[] { Accessibility.Internal };
         var profile = new EmissionCapabilities([], [], [EmissionDeclarationKind.StaticType], visibilities);
         visibilities[0] = Accessibility.Public;
-        Assert.True(SourceStaticTypePlan.TryCreate(symbol, out var plan, profile));
+        Assert.True(SourceTypePlan.TryCreate(symbol, out var plan, profile));
         Assert.Equal(Accessibility.Internal, plan!.Visibility);
-        Assert.False(SourceStaticTypePlan.TryCreate(symbol, out _, new([], [], [EmissionDeclarationKind.StaticType], [Accessibility.Public])));
-        Assert.False(SourceStaticTypePlan.TryCreate(symbol, out _, new([], [], [EmissionDeclarationKind.StaticType])));
-        Assert.True(SourceStaticTypePlan.TryCreate(symbol, out _, ReflectionEmitCapabilities.Shared));
+        Assert.False(SourceTypePlan.TryCreate(symbol, out _, new([], [], [EmissionDeclarationKind.StaticType], [Accessibility.Public])));
+        Assert.False(SourceTypePlan.TryCreate(symbol, out _, new([], [], [EmissionDeclarationKind.StaticType])));
+        Assert.True(SourceTypePlan.TryCreate(symbol, out _, ReflectionEmitCapabilities.Shared));
     }
 
     [Theory]
