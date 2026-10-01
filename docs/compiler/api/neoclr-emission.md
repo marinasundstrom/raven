@@ -292,3 +292,9 @@ also passed against the initial definition slice. Compiler source was `55a29312f
 The unchanged collections sample's Option<Order> import/union/native identity gaps
 remain open. These validations establish facade compatibility, not completion of the
 compiler or general metadata editing API.
+
+The subsequent static type-method slice adds direct declarations through append-only
+TypeDefinition.Methods, with existing builder methods entering that same collection.
+Raven rebuild and external-signature native execution still pass (42); compiler source,
+Runtime Contract and encodings are unchanged. Direct instance declarations and bodies
+remain pending.

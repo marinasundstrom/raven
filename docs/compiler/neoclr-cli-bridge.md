@@ -2797,3 +2797,7 @@ unchanged; no new bridge representation or loss is introduced. Raven owns target
 mapping, the metadata library owns authoring/encoding, and neoCLR owns loading and
 execution. Native body-definition and loaded editing work remains pending. See the
 [dependency validation checkpoint](api/neoclr-emission.md#definition-first-metadata-dependency-checkpoint-2026-10-01).
+
+Direct static type-method metadata construction also preserves the existing bridge;
+Raven’s rebuilt external-signature runtime probe returns 42. This is authoring API
+compatibility validation, not new target admission or a collections-gate resolution.
