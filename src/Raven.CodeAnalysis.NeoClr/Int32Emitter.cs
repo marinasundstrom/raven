@@ -45,10 +45,10 @@ internal static class Int32Emitter
                     if (type.AttributeLists.Count != 0 || type.ParameterList is not null ||
                         type.BaseList is not null || type.ConstraintClauses.Count != 0 || type.PermitsClause is not null ||
                         type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword)))
-                        throw Unsupported("only public or internal static or nongeneric root classes without additional contracts");
+                        throw Unsupported("only public or internal static or root classes without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
-                        throw Unsupported("only public or internal nongeneric static or root classes");
+                        throw Unsupported("only public or internal unconstrained static or root classes");
                     // Partial declarations share one semantic identity and one metadata definition.
                     // Still validate every part and collect all of its members.
                     declaredTypes.TryAdd(typeSymbol, typePlan!);
@@ -83,6 +83,7 @@ internal static class Int32Emitter
                                 a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null) ||
                                 a.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword))))
                                 throw Unsupported("only implemented indexer get/set accessors");
+                            if (typeSymbol.Arity > 0) throw Unsupported("generic owner indexer metadata is not yet supported");
                             properties.Add(indexer);
                             if (indexer.GetMethod is { } indexGet) plans.Add(GetPlan(indexGet));
                             if (indexer.SetMethod is { } indexSet) plans.Add(GetPlan(indexSet));
@@ -102,6 +103,7 @@ internal static class Int32Emitter
                                 throw Unsupported("only implemented get/set accessors without additional contracts");
                             if (property.BackingField is { } backingField) storageFields.Add(backingField);
                             if (property.EmitAsFieldOnly) continue;
+                            if (typeSymbol.Arity > 0) throw Unsupported("generic owner property metadata is not yet supported");
                             properties.Add(property);
                             if (property.GetMethod is { } get) plans.Add(GetPlan(get));
                             if (property.SetMethod is { } set) plans.Add(GetPlan(set));
@@ -188,7 +190,7 @@ internal static class Int32Emitter
             if (target.ContainingType is { Arity: > 0 } owner)
             {
                 if (!definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
-                    throw Unsupported("only owned static generic type calls");
+                    throw Unsupported("only owned generic type calls");
                 return NeoClrCallableReference.Create(definition.MakeConstructedReference(
                     owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type])),
                     target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type]))));
@@ -219,7 +221,7 @@ internal static class Int32Emitter
             current.Body.Emit(new NeoClrLinearMethodBuilder(current.Method, (instruction, output) =>
             {
                 diagnosticSyntax = instruction.Syntax;
-                if (instruction.Kind == LinearInstructionKind.NewObject)
+                if (instruction.Kind == LinearInstructionKind.NewObject && instruction.Method!.ContainingType?.Arity is not > 0)
                 {
                     if (!definedMethods.TryGetValue(instruction.Method!, out var constructor)) throw Unsupported("only declared source constructors");
                     output.NewObject(constructor);

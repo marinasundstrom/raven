@@ -18,11 +18,11 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         plan = null;
         var kind = type.IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
         if (capabilities is not null && (!capabilities.Allows(kind) || !capabilities.AllowsTypeVisibility(type.DeclaredAccessibility))) return false;
-        if (type.Arity > 0 && (!type.IsStatic || capabilities is not null && !capabilities.AllowsGenericStaticOwners ||
-            type.TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty))) return false;
+        if (type.Arity > 0 && (capabilities is not null && !(type.IsStatic ? capabilities.AllowsGenericStaticOwners : capabilities.AllowsGenericClassOwners) ||
+            ((INamedTypeSymbol)type.OriginalDefinition).TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty))) return false;
         if (type.TypeKind != TypeKind.Class || type.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal) ||
             type.ContainingType is not null ||
-            !type.IsStatic && (type.IsAbstract || type is not SourceNamedTypeSymbol { IsRecord: false, IsSealedHierarchy: false } || !type.Interfaces.IsEmpty || type.BaseType?.SpecialType != SpecialType.System_Object))
+            !type.IsStatic && (type.IsAbstract || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false, IsSealedHierarchy: false } || !type.Interfaces.IsEmpty || type.BaseType?.SpecialType != SpecialType.System_Object))
             return false;
         var fullName = type.ToFullyQualifiedMetadataName();
         var typeNamespace = type.ContainingNamespace.IsGlobalNamespace ? "" : fullName[..^(type.MetadataName.Length + 1)];

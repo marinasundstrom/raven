@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-01:** Share unconstrained generic root-class signatures and instance storage emission with neoCLR. Constructed owner constructors, nested class values, mutable private fields and independent generic methods execute on .NET/native. Explicit capabilities gate generic class values and constructor arguments; direct external constructed field access and generic properties/indexers still reject in the native adapter. Ordinary .NET constructor emission remains on its general path.
+
 - **2026-10-01:** Share unconstrained static generic owner emission with independent type and method parameter scopes. The neoCLR adapter emits constructed owner references through the separate metadata API; .NET resolves source generic calls against their constructed declaring type. Release/Debug C# tests and the binary consumer cover owner arrays, defaults, forwarding, mixed VAR/MVAR and object aliases. Extend acceptance to reordered multi-parameter owners and cross-scope forwarding; gate unused owner arguments by their actual target capabilities. Generic instance types, fields, constraints and external owners remain outside native admission.
 
 - **2026-10-01:** Lower supported typed and generic default values through a shared capability-gated operation. .NET and neoCLR adapters initialize scratch locals using ordinary ldloca/initobj semantics. Generic array clearing and primitive/reference defaults execute across targets; cleared object elements raise null-reference faults on both runtimes. C# tests retain Debug/general .NET behavior. No general byref signatures or nullable source types are added.

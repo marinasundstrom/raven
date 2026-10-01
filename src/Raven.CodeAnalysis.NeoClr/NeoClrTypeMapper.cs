@@ -18,7 +18,9 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
             CallableSignature.TryType(array.ElementType, false, out var element);
             return SignatureType.ArrayOf(Map(element, resolveClass));
         }
-        return resolveClass(type.Class!);
+        var named = type.Class!;
+        if (named.Arity > 0) return resolveClass((INamedTypeSymbol)named.OriginalDefinition).MakeGenericInstance(named.TypeArguments.Select(t => Map(t, resolveClass)).ToArray());
+        return resolveClass(named);
     }
 
     internal static SignatureType Map(ITypeSymbol type, Func<INamedTypeSymbol, TypeBuilder> resolveClass)

@@ -103,6 +103,13 @@ internal static class GenericChecks
                 val Trace: int => trace
                 val Total: int => destination[0].Number + destination[1].Number
             }
+            class GenericBox<Element> {
+                private var stored: Element = default(Element)
+                init(value: Element) { stored = value }
+                func Read() -> Element => stored
+                func Write(value: Element) { stored = value }
+                func Echo<Other>(value: Other) -> Other => value
+            }
             static class PairHelpers<Left, Right> {
                 static func Second(first: Left, second: Right) -> Right => second
                 static func Flip(first: Left, second: Right) -> Left => PairHelpers<Right, Left>.Second(second, first)
@@ -149,6 +156,14 @@ internal static class GenericChecks
                 let spare = receiver.Empty<Order>()
                 if PairHelpers<int, long>.Flip(42, 5000000000L) != 42 { return 15 }
                 if PairHelpers<int, long>.Cross<long>(42, 5000000000L) != 42 { return 16 }
+                let box = GenericBox<Order>(values[0])
+                let numberBox = GenericBox<int>(1)
+                numberBox.Write(42)
+                if numberBox.Read() != 42 { return 17 }
+                let nestedBox = GenericBox<GenericBox<int>>(Identity(numberBox))
+                if nestedBox.Read().Read() != 42 { return 19 }
+                if box.Echo<long>(5000000000L) != 5000000000L { return 18 }
+                box.Read().Number = 42
                 let selectedOwner = GenericHelpers<Order>.First(values)
                 if GenericHelpers<Order>.Forward<long>(selectedOwner, 5000000000L) != 5000000000L { return 13 }
                 if GenericHelpers<int>.Empty() != 0 { return 14 }
@@ -214,7 +229,8 @@ internal static class GenericChecks
         }
         var rejectedContracts = 0;
         foreach (var unsupported in new[] {
-            "class Box<T> { }",
+            "class Box<T> { val Value: T => default(T) }",
+            "class Box<T> { public field Value: T = default(T) }\nfunc Read(value: Box<int>) -> int => value.Value",
             "open class Instance { virtual func Identity<T>(value: T) -> T => value }",
             "func Restricted<T>(value: T) -> T where T: class => value",
             "func Marker<T>() -> int => 42\nfunc Use() -> int => Marker<System.DateTime>()",
@@ -266,6 +282,8 @@ internal static class GenericChecks
             independentReceivers = true,
             genericDefaultValues = true,
             genericStaticOwners = true,
+            genericInstanceOwners = true,
+            genericInstanceFields = true,
             reorderedOwnerArguments = true,
             crossScopeForwarding = true,
             independentTypeAndMethodParameters = true,

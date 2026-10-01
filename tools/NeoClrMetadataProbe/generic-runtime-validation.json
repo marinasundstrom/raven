@@ -2,7 +2,7 @@
   "source": "application-order-collections.rvn",
   "sourceSha256": "D775C2C648591482CF53A0A735603CA51AEA48C2F2BB33633C95830E57B6550B",
   "selectedSha256": "D9142C3EEC61A731230AD4348C50536B8AA5B13323F74D2AFC5E7CBEB6599C04",
-  "consumerSha256": "3ACB303F3B084B693083EA53C2C7668E2CA115425AC30A957B7A3D370C0A5FB2",
+  "consumerSha256": "6C96279B4FDAE34A3107E257A7485AE5238E155C37B938925D85A8FE34428E52",
   "runtimeSha256": "BFD23D283267F792FE03B082B6B26639C79CEDDA5262B28E308D9DC69D9E5EB3",
   "sourceOrders": 2,
   "cliResult": 42,
@@ -30,10 +30,12 @@
   "independentReceivers": true,
   "genericDefaultValues": true,
   "genericStaticOwners": true,
+  "genericInstanceOwners": true,
+  "genericInstanceFields": true,
   "reorderedOwnerArguments": true,
   "crossScopeForwarding": true,
   "independentTypeAndMethodParameters": true,
   "genericArrayClear": true,
   "clearedReferenceFault": true,
-  "rejectedContracts": 5
+  "rejectedContracts": 6
 }

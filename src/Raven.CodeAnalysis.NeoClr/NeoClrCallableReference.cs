@@ -11,7 +11,11 @@ internal abstract record NeoClrCallableReference
     internal static NeoClrCallableReference Create(ConstructedMethodReference method) => new Constructed(method);
     private sealed record Constructed(ConstructedMethodReference Method) : NeoClrCallableReference
     {
-        internal override void EmitCall(MethodBuilder body) => body.Call(Method);
+        internal override void EmitCall(MethodBuilder body)
+        {
+            if (Method.Definition.IsConstructor) body.NewObject(Method);
+            else body.Call(Method);
+        }
     }
     internal static NeoClrCallableReference Create(GenericMethodInstance method) => new Generic(method);
     private sealed record Generic(GenericMethodInstance Method) : NeoClrCallableReference

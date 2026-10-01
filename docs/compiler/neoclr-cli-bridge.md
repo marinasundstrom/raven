@@ -2351,3 +2351,31 @@ method parameter into a callee owner, keeping simultaneous substitution independ
 of parameter ordinal/name. C# capability tests reject unsupported owner arguments even
 when the method signature contains no use of the owner parameter. The recorded
 binary evidence includes both checks for cross-scope and reordered owner forwarding.
+
+
+## Generic instance storage (2026-10-01 development slice)
+
+Shared source type/signature plans admit unconstrained generic root classes through
+GenericClassOwners, distinct from static generic owners. Constructed signatures retain
+the original definition and recursively mapped arguments. Native declarations use the
+separate producer's AddGenericClass; constructor and ordinary/generic method references
+bind both owner and method arguments. No Runtime Contract configuration changes.
+.NET constructors retain the general emitter; ordinary method bodies, object creation,
+value signatures and capability checks use the shared paths.
+
+The bridge emits standard CLI GENERICINST/VAR/member references and existing native
+Constructed owners/fields. Private var/val storage uses declaring-type VAR. External
+constructed field references require a separate explicit capability, enabled by .NET
+and denied by neoCLR until typed field-reference emission exists. Generic property and
+indexer metadata, inheritance, constraints and external generic owner imports remain
+unsupported by native emission; these are bridge limits, not permanent platform rules.
+
+Matching feature branches: Raven codex/metadata-consumer and neoCLR
+codex/extended-cli-metadata producer 62bf5931 or later, runtime 6a7a0dd2 or later.
+C# Release/Debug regression tests cover shared methods, nested Box<Box<int>> storage,
+mutation through generic aliases and independent generic methods. The binary Order
+consumer verifies/runs 42 on .NET/native in both source orders with primitive, Order
+and nested generic fields. Unsupported generic properties and external field access
+produce source diagnostics without an output assembly. See
+[recorded evidence](../../tools/NeoClrMetadataProbe/generic-runtime-validation.json).
+Full class-library emission is not yet established.

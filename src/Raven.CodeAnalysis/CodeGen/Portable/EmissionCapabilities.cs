@@ -14,7 +14,7 @@ internal sealed class EmissionCapabilities(
     IEnumerable<Accessibility>? typeVisibilities = null,
     IEnumerable<Accessibility>? methodVisibilities = null,
     IEnumerable<Accessibility>? functionVisibilities = null,
-    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false, bool allowsGenericStaticOwners = false)
+    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false, bool allowsGenericStaticOwners = false, bool allowsGenericClassOwners = false, bool allowsConstructedFieldReferences = false)
 {
     private readonly ImmutableHashSet<EmissionPrimitiveType> types = types.ToImmutableHashSet();
     private readonly ImmutableHashSet<LinearInstructionKind> instructions = instructions.ToImmutableHashSet();
@@ -27,6 +27,8 @@ internal sealed class EmissionCapabilities(
 
     private readonly ImmutableHashSet<Accessibility> functionVisibilities = (functionVisibilities ?? []).ToImmutableHashSet();
 
+    internal bool AllowsGenericClassOwners { get; } = allowsGenericClassOwners;
+    internal bool AllowsConstructedFieldReferences { get; } = allowsConstructedFieldReferences;
     internal bool AllowsGenericStaticOwners { get; } = allowsGenericStaticOwners;
 
     internal bool AllowsGenericInstanceMethods { get; } = allowsGenericInstanceMethods;
@@ -45,10 +47,19 @@ internal sealed class EmissionCapabilities(
     internal bool Allows(EmissionDeclarationKind declaration) => declarations.Contains(declaration);
     internal bool Allows(EmissionPrimitiveType type) => types.Contains(type);
     internal bool Allows(LinearInstructionKind instruction) => instructions.Contains(instruction);
-    internal bool Allows(EmissionType type) => type.Primitive is { } p ? Allows(p) : type.Array is { } array
-        ? AllowsArrays && CallableSignature.TryType(array.ElementType, false, out var element) && Allows(element)
-        : type.OwnerParameter is not null ? AllowsGenericStaticOwners : type.MethodParameter is not null ? AllowsGenericMethods : type.Class is not null && AllowsRootClassSignatures;
-    internal bool Allows(CallableSignature signature) => (signature.DeclaringTypeArity == 0 || AllowsGenericStaticOwners) && (signature.GenericParameterNames.IsDefaultOrEmpty || AllowsGenericMethods && (!signature.IsInstance || AllowsGenericInstanceMethods)) && Allows(signature.ReturnType) && signature.ParameterTypes.All(Allows);
+    internal bool Allows(EmissionType type)
+    {
+        if (type.Primitive is { } primitive) return Allows(primitive);
+        if (type.Array is { } array)
+            return AllowsArrays && CallableSignature.TryType(array.ElementType, false, out var element) && Allows(element);
+        if (type.OwnerParameter is { } parameter)
+            return parameter.DeclaringTypeParameterOwner!.IsStatic ? AllowsGenericStaticOwners : AllowsGenericClassOwners;
+        if (type.MethodParameter is not null) return AllowsGenericMethods;
+        if (type.Class is not { } owner || !AllowsRootClassSignatures) return false;
+        return owner.Arity == 0 || AllowsGenericClassOwners && owner.TypeArguments.All(t =>
+            CallableSignature.TryType(t, false, out var argument) && Allows(argument));
+    }
+    internal bool Allows(CallableSignature signature) => (signature.DeclaringTypeArity == 0 || (signature.DeclaringTypeIsStatic ? AllowsGenericStaticOwners : AllowsGenericClassOwners)) && (signature.GenericParameterNames.IsDefaultOrEmpty || AllowsGenericMethods && (!signature.IsInstance || AllowsGenericInstanceMethods)) && Allows(signature.ReturnType) && signature.ParameterTypes.All(Allows);
     internal bool Allows(PrimitiveCallableSignature signature)
         => Allows(signature.ReturnType) && signature.ParameterTypes.All(Allows);
 }

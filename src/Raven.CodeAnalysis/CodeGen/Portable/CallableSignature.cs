@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical type identity is compiler-owned; physical signature handles belong to each backend.
-internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray<EmissionType> ParameterTypes, ImmutableArray<string> GenericParameterNames = default, bool IsInstance = false, int DeclaringTypeArity = 0)
+internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray<EmissionType> ParameterTypes, ImmutableArray<string> GenericParameterNames = default, bool IsInstance = false, int DeclaringTypeArity = 0, bool DeclaringTypeIsStatic = false)
 {
     internal int ParameterCount => ParameterTypes.Length;
     internal bool ReturnsValue => ReturnType.Primitive != EmissionPrimitiveType.NoResult;
@@ -15,7 +15,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(Primitive: primitive); return true; }
         if (type is ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter)
         { value = new(MethodParameter: parameter); return true; }
-        if (type is ITypeParameterSymbol { DeclaringTypeParameterOwner: { IsStatic: true } } ownerParameter)
+        if (type is ITypeParameterSymbol { DeclaringTypeParameterOwner: not null } ownerParameter)
         { value = new(OwnerParameter: ownerParameter); return true; }
         if (type is INamedTypeSymbol named && SourceTypePlan.TryCreate(named, out var plan) && !plan!.IsStatic)
         { value = new(Class: named); return true; }
@@ -35,7 +35,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             if (parameter.RefKind != RefKind.None || parameter.HasExplicitDefaultValue || parameter.IsVarParams || !TryType(parameter.Type, false, out var type)) return false;
             parameters.Add(type);
         }
-        signature = new(result, parameters.MoveToImmutable(), method.TypeParameters.Select(p => p.Name).ToImmutableArray(), !method.IsStatic, method.ContainingType?.Arity ?? 0);
+        signature = new(result, parameters.MoveToImmutable(), method.TypeParameters.Select(p => p.Name).ToImmutableArray(), !method.IsStatic, method.ContainingType?.Arity ?? 0, method.ContainingType?.IsStatic ?? false);
         return true;
     }
 }

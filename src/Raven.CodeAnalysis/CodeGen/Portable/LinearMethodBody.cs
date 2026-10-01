@@ -286,10 +286,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         }
 
         bool SupportedField(IFieldSymbol field) => !field.IsStatic &&
+            (field.ContainingType?.Arity is not > 0 || capabilities is null || capabilities.AllowsConstructedFieldReferences ||
+                SymbolEqualityComparer.Default.Equals(field.ContainingType, source.ContainingType)) &&
             CallableSignature.TryType(field.Type, false, out var type) && (capabilities is null || capabilities.Allows(type));
+        bool SupportedTypeArguments(IMethodSymbol method) => capabilities is null ||
+            method.TypeArguments.Concat(method.ContainingType?.TypeArguments ?? []).All(t => CallableSignature.TryType(t, false, out var type) && capabilities.Allows(type));
         bool SupportedInstanceCall(IMethodSymbol method) => !method.IsStatic && !method.IsVirtual && !method.IsOverride &&
             method.ContainingType is { } owner && SourceTypePlan.TryCreate(owner, out _) &&
-            CallableSignature.TryCreate(method, out var signature) && (capabilities is null || capabilities.Allows(signature));
+            CallableSignature.TryCreate(method, out var signature) && SupportedTypeArguments(method) && (capabilities is null || capabilities.Allows(signature));
         bool Receiver(BoundExpression? receiver, INamedTypeSymbol owner, SyntaxNode syntax)
         {
             if (receiver is not null) return LowerValue(receiver);
@@ -394,7 +398,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundObjectCreationExpression creation when creation.Initializer is null && creation.Receiver is null &&
                     SourceTypePlan.TryCreate(creation.Constructor.ContainingType!, out var createdType) && !createdType!.IsStatic &&
-                    CallableSignature.TryCreate(creation.Constructor, out var constructorSignature) &&
+                    CallableSignature.TryCreate(creation.Constructor, out var constructorSignature) && SupportedTypeArguments(creation.Constructor) &&
                     (capabilities is null || capabilities.Allows(constructorSignature)):
                     var constructorArguments = creation.Arguments.ToArray();
                     if (constructorArguments.Length != creation.Constructor.Parameters.Length) return Reject("optional/expanded constructor arguments", Syntax(expression));
@@ -505,7 +509,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                      call.Method.MethodKind == MethodKind.Ordinary && SupportedInstanceCall(call.Method)):
                     if (!CallableSignature.TryCreate(call.Method, out var callSignature)) return Reject("only supported value signatures and unconstrained generics (Unit only as result): " + call.Method.Name, Syntax(expression));
                     if (capabilities is not null && (!capabilities.Allows(callSignature) ||
-                        call.Method.TypeArguments.Concat(call.Method.ContainingType?.TypeArguments ?? []).Any(t => !CallableSignature.TryType(t, false, out var argumentType) || !capabilities.Allows(argumentType))))
+                        !SupportedTypeArguments(call.Method)))
                         return Reject("target does not support call signature types", Syntax(expression));
                     var arguments = call.Arguments.ToArray();
                     if (arguments.Length != call.Method.Parameters.Length) return Reject("optional/expanded arguments", Syntax(expression));
