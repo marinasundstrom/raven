@@ -4,8 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-01:** Emit namespace-scoped assembly functions through explicit shared target capabilities, preserving namespace/simple-name identity and ownerless native metadata. Compile original integer Math functions and execute 11 boundary cases on .NET and native binaries in both source orders. Requires the matching metadata/runtime namespace extension; projected global source import remains deferred.
+- **2026-10-01:** Keep implicit auto-property accessors, setter parameters and backing fields stable across repeated binding, preventing duplicate setter members. Validate independently through .NET execution. Add an unchanged order-collections consumer inventory that isolates the next native object/type emission gate without replacing native library dependencies.
 
+- **2026-10-01:** Emit namespace-scoped assembly functions through explicit shared target capabilities, preserving namespace/simple-name identity and ownerless native metadata. Compile original integer Math functions and execute 11 boundary cases on .NET and native binaries in both source orders. Requires the matching metadata/runtime namespace extension; projected global source import remains deferred.
 
 - **2026-10-01:** Add a real class-library source emission inventory, preserving selected Math declarations and namespace, reporting binding versus backend failures and source hashes. Record namespace-function metadata as the first isolated gap; this does not yet compile the class library.
 

@@ -382,7 +382,8 @@ internal partial class TypeMemberBinder : Binder
                 ? propertySymbol.Name
                 : $"<{propertySymbol.Name}>k__BackingField";
 
-            var backingField = new SourceFieldSymbol(
+            // Implicit auto-properties keep one field identity across repeated binding.
+            var backingField = (isImplicitAutoProperty ? sourcePropertySymbol.BackingField : null) ?? new SourceFieldSymbol(
                 fieldName,
                 propertyType,
                 isStatic: isStatic,
@@ -973,6 +974,17 @@ internal partial class TypeMemberBinder : Binder
                 _diagnostics.Report(diagnostic);
 
             getMethod = methodSymbol;
+        }
+        else if (isImplicitAutoProperty && sourcePropertySymbol is
+        { GetMethod: SourceMethodSymbol { IsSignatureSkeleton: false } existingGetter } &&
+            existingGetter.DeclaringSyntaxReferences.IsDefaultOrEmpty &&
+            sourcePropertySymbol.SetMethod is null or SourceMethodSymbol { IsSignatureSkeleton: false })
+        {
+            // A declaration may be revisited for diagnostics, semantic queries and emission.
+            // Keep its completed accessor/parameter identities: recreating a setter registers
+            // an empty signature before SetParameters and leaks another member into the type.
+            getMethod = existingGetter;
+            setMethod = (SourceMethodSymbol?)sourcePropertySymbol.SetMethod;
         }
         else if (isImplicitAutoProperty)
         {

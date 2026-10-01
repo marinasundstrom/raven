@@ -16,6 +16,12 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args.Length == 3 && args[0] == "--consumer-emission")
+{
+    ConsumerEmissionChecks.Run(args[1], args[2]);
+    return;
+}
+
 if (args.Length == 4 && args[0] == "--class-library-runtime")
 {
     await ClassLibraryEmissionChecks.RunRuntime(args[1], args[2], args[3]);

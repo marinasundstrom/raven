@@ -2842,3 +2842,32 @@ is not a full System build. Whole Math/UnicodeScalar/GC files still stop in bind
 on absent native library dependencies. The order-collections consumer is the next
 acceptance expansion; its constructors/properties, generics and delegates exceed the
 current static primitive producer.
+
+## Order consumer frontier and shared property identity — 2026-10-01
+
+The broad acceptance seed is neoCLR's
+`docs/experiments/raven-target/samples/application-order-collections.rvn`.
+`NeoClrMetadataProbe --consumer-emission <sample.rvn> <fresh-output>` now inventories
+the unchanged full source and its exact global Order declaration. It records original
+and selected hashes, selected source, diagnostic phase/count (first 32 messages),
+and actual semantic members. It uses host-core references only; it does not replace
+native collection/LINQ/union dependencies with stubs. Full-source binding errors are
+not assertions about emission coverage. No Runtime Contract setting or target default
+changes, and this inventory does not claim native object execution.
+
+The isolated Order declaration binds with zero errors and reaches the native
+nonstatic-class gate. It contains two instance properties, two backing fields, four
+accessors and a constructor. Repeated binding exposed a general accessor/backing-field
+identity bug, now fixed in the shared member binder and independently validated by
+ordinary .NET execution. The producer must consume those canonical symbols, not
+filter duplicate names as a backend workaround.
+
+Next implementation sequence: shared nominal type/receiver references and nonstatic
+type definitions; primitive instance fields and constructor/accessor method contracts;
+property-to-accessor associations; then allocation, constructor calls and instance
+field access. Use the selected real Order declaration plus creation/mutation/aliasing
+checks on both targets. Preserve ordinary CLI Field/Property/MethodSemantics concepts
+where applicable; add explicit native mappings behind target capabilities. Do not
+strip source properties into an ad hoc field-only contract. Generic collection and
+union/delegate coverage follows that first object case; broad native symbol importing
+remains deferred.
