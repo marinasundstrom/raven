@@ -3,7 +3,9 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
 using NeoCLR.Metadata.Experimental.Model;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.NeoClr;
 using Raven.CodeAnalysis.Syntax;
@@ -32,6 +34,7 @@ internal static class ArrayChecks
                 private var value: int = 0
                 func Next() -> int { value = value + 1; return value }
                 func Read() -> int => value
+                func Items() -> int[] { value = value + 1; return [1, 2, 3] }
             }
             func Main() -> int {
                 let batch: Order[] = [Order(101, true), Order(202, false), Order(303, true)]
@@ -55,7 +58,27 @@ internal static class ArrayChecks
                 let text: string[] = ["array", "λ"]
                 text[1] = text[0]
                 if text.Length != 2 || batch.Length != 3 { return 7 }
-                return batch[0].Number + batch[1].Number
+                var total = 0
+                for item in batch {
+                    if item.Number == 303 { continue }
+                    total = total + item.Number
+                }
+                if total != 42 { return 8 }
+                var count = 0
+                outer: for item in batch {
+                    for number in counter.Items() {
+                        if number == 2 { continue outer }
+                        count = count + 1
+                    }
+                }
+                if count != 3 || counter.Read() != 8 { return 9 }
+                for item in empty { total = 0 }
+                for number in numbers {
+                    if number == 2 { break }
+                    total = total + number
+                }
+                if total != 47 { return 10 }
+                return total - 5
             }
             """;
         var host = typeof(object).Assembly.GetName();
@@ -99,8 +122,18 @@ internal static class ArrayChecks
             selectedSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(order))),
             consumerSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(consumer))),
             runtimeSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(runtime))),
-            sourceOrders = 2, cliResult = 42, nativeResult = 42, nativeVerify = true,
-            fullConsumer = false, arrays = true, orderedEvaluation = true, aliasing = true, storageProjection = true
+            sourceOrders = 2,
+            cliResult = 42,
+            nativeResult = 42,
+            nativeVerify = true,
+            fullConsumer = false,
+            arrays = true,
+            orderedEvaluation = true,
+            aliasing = true,
+            storageProjection = true,
+            arrayIteration = true,
+            labeledContinue = true,
+            collectionEvaluatedOnce = true
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS Order arrays on CLI/native in both source orders: 42; signatures, storage, aliases, ordered evaluation");
     }

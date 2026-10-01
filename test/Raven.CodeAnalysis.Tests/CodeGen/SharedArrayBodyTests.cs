@@ -10,6 +10,84 @@ public class SharedArrayBodyTests
     [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]
+    public void ArrayIterationSharesLoweringAndHonorsNestedControlFlow(OptimizationLevel optimization)
+    {
+        var tree = SyntaxTree.ParseText("""
+            public static class Iteration {
+                public static func Run() -> int {
+                    let items: int[] = [1, 2, 3]
+                    let empty: int[] = []
+                    var total = 0
+                    outer: for item in items {
+                        for inner in items {
+                            if inner == 2 { continue outer }
+                            total = total + item
+                        }
+                    }
+                    for item in empty { total = 100 }
+                    for item in items {
+                        if item == 2 { break }
+                        total = total + item
+                    }
+                    var index = 0
+                    while index < 2 {
+                        index = index + 1
+                        for item in items {
+                            if item == 2 { break }
+                            total = total + item
+                        }
+                    }
+                    return total
+                }
+            }
+            """);
+        var compilation = Compilation.Create("ArrayIteration", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceCallablePlan.TryCreate(method, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Equal(9, Assembly.Load(image.ToArray()).GetType("Iteration")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void RetainedEnumeratorLoopOwnsBreakInsideLoweredArrayLoop(OptimizationLevel optimization)
+    {
+        var tree = SyntaxTree.ParseText("""
+            import System.Collections.Generic.*
+            public static class MixedLoops {
+                public static func Run() -> int {
+                    let outer: int[] = [1, 2, 3]
+                    let inner: List<int> = [1, 2, 3]
+                    var total = 0
+                    for item in outer {
+                        for value in inner {
+                            if value == 2 { continue }
+                            total = total + item
+                            if value == 3 { break }
+                        }
+                    }
+                    return total
+                }
+            }
+            """);
+        var compilation = Compilation.Create("MixedArrayIteration", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Equal(12, Assembly.Load(image.ToArray()).GetType("MixedLoops")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
     public void ArraysPreserveStorageIdentityAndBounds(OptimizationLevel optimization)
     {
         var tree = SyntaxTree.ParseText("""
@@ -56,6 +134,7 @@ public class SharedArrayBodyTests
     [Theory]
     [InlineData("public static func Read(items: int[]) -> int { items[0] }", false)]
     [InlineData("public static func Read() -> int { let items: int[] = [42]; return items[0] }", false)]
+    [InlineData("public static func Read(items: int[2]) -> int { 42 }", true)]
     [InlineData("public static func Read(items: int[][]) -> int { 42 }", true)]
     [InlineData("public static func Read(items: int[]) -> int { let copy: int[] = [...items]; return copy[0] }", true)]
     public void ArrayCapabilitiesAndUnsupportedShapesRejectAPlan(string method, bool arrays)

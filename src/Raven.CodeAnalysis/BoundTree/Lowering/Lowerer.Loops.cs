@@ -1,10 +1,74 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+
+using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer
 {
+    // Ordinary vector iteration lowers once into existing language nodes. Both the
+    // general .NET generator and target-neutral body planner consume this form.
+    private bool CanLowerArrayFor(BoundForStatement node) =>
+        _containingSymbol.ContainingAssembly is SourceAssemblySymbol &&
+        node.Iteration is { Kind: ForIterationKind.Array, ArrayType: { Rank: 1 } array } &&
+        node.Local is { } local && SymbolEqualityComparer.Default.Equals(local.Type, array.ElementType);
+
+    public override BoundNode? VisitForStatement(BoundForStatement node)
+    {
+        if (!CanLowerArrayFor(node))
+        {
+            // A loop retained for general codegen owns its unlabeled transfers.
+            // Do not redirect them into an enclosing lowered while/vector loop.
+            _loopStack.Push((null, null));
+            try { return base.VisitForStatement(node); }
+            finally { _loopStack.Pop(); }
+        }
+        return LowerArrayForStatement(node, CreateLabel("for_break"), CreateLabel("for_continue"));
+    }
+
+    private BoundStatement LowerArrayForStatement(BoundForStatement node, ILabelSymbol breakLabel, ILabelSymbol continueLabel)
+    {
+        var compilation = ((SourceAssemblySymbol)_containingSymbol.ContainingAssembly!).Compilation;
+        var intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+        var arrayType = node.Iteration.ArrayType!;
+        var array = CreateTempLocal("forArray", arrayType, isMutable: false);
+        var index = CreateTempLocal("forIndex", intType, isMutable: true);
+        var begin = CreateLabel("for_begin");
+        var collection = (BoundExpression)VisitExpression(node.Collection)!;
+        BoundStatement body;
+        _loopStack.Push((breakLabel, continueLabel));
+        try { body = (BoundStatement)VisitStatement(node.Body)!; }
+        finally { _loopStack.Pop(); }
+        BoundExpression Number(int value) => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, value, intType);
+        BoundExpression Binary(BoundExpression left, SyntaxKind kind, BoundExpression right)
+        {
+            if (!BoundBinaryOperator.TryLookup(compilation, kind, left.Type, right.Type, out var op))
+                throw new InvalidOperationException("Missing built-in vector-loop operator");
+            return new BoundBinaryExpression(left, op, right);
+        }
+        var length = compilation.GetSpecialType(SpecialType.System_Array).GetMembers("Length").OfType<IPropertySymbol>().Single();
+        return new BoundBlockStatement([
+            new BoundLocalDeclarationStatement([new BoundVariableDeclarator(array, collection)]),
+            new BoundLocalDeclarationStatement([new BoundVariableDeclarator(index, Number(0))]),
+            CreateLabelStatement(begin),
+            new BoundConditionalGotoStatement(breakLabel,
+                Binary(new BoundLocalAccess(index), SyntaxKind.LessThanToken,
+                    new BoundMemberAccessExpression(new BoundLocalAccess(array), length)), jumpIfTrue: false),
+            new BoundLocalDeclarationStatement([new BoundVariableDeclarator(node.Local!,
+                new BoundArrayAccessExpression(new BoundLocalAccess(array), [new BoundLocalAccess(index)], arrayType.ElementType))]),
+            body,
+            CreateLabelStatement(continueLabel),
+            new BoundAssignmentStatement(new BoundLocalAssignmentExpression(index, new BoundLocalAccess(index),
+                Binary(new BoundLocalAccess(index), SyntaxKind.PlusToken, Number(1)), unitType)),
+            new BoundGotoStatement(begin, isBackward: true),
+            CreateLabelStatement(breakLabel)
+        ]);
+    }
+
     public override BoundNode? VisitWhileStatement(BoundWhileStatement node)
     {
         var breakLabel = CreateLabel("while_break");
@@ -71,6 +135,8 @@ internal sealed partial class Lowerer
 
         BoundStatement? loweredLoop = current switch
         {
+            BoundForStatement forStatement when CanLowerArrayFor(forStatement) => LowerLabeledLoop(labels, "for", forStatement, static (lowerer, statement, breakLabel, continueLabel) =>
+                lowerer.LowerArrayForStatement(statement, breakLabel, continueLabel)),
             BoundWhileStatement whileStatement => LowerLabeledLoop(labels, "while", whileStatement, static (lowerer, statement, breakLabel, continueLabel) =>
                 lowerer.LowerWhileStatement(statement, breakLabel, continueLabel)),
             BoundLoopStatement loopStatement => LowerLabeledLoop(labels, "loop", loopStatement, static (lowerer, statement, breakLabel, continueLabel) =>
@@ -130,7 +196,7 @@ internal sealed partial class Lowerer
             return base.VisitBreakStatement(node);
 
         var (breakLabel, _) = _loopStack.Peek();
-        return new BoundGotoStatement(breakLabel);
+        return breakLabel is null ? base.VisitBreakStatement(node) : new BoundGotoStatement(breakLabel);
     }
 
     public override BoundNode? VisitContinueStatement(BoundContinueStatement node)
@@ -147,7 +213,7 @@ internal sealed partial class Lowerer
             return base.VisitContinueStatement(node);
 
         var (_, continueLabel) = _loopStack.Peek();
-        return new BoundGotoStatement(continueLabel, isBackward: true);
+        return continueLabel is null ? base.VisitContinueStatement(node) : new BoundGotoStatement(continueLabel, isBackward: true);
     }
 
     public override BoundNode? VisitBreakExpression(BoundBreakExpression node)

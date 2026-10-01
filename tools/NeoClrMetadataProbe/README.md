@@ -395,3 +395,26 @@ where applicable; add explicit native mappings behind target capabilities. Do no
 strip source properties into an ad hoc field-only contract. Generic collection and
 union/delegate coverage follows that first object case; broad native symbol importing
 remains deferred.
+
+## Executable vector milestone — 2026-10-01
+
+The Order frontier above has advanced through constructors, properties, nominal
+signatures and arrays. Run:
+
+```sh
+dotnet run --project tools/NeoClrMetadataProbe -p:WarningLevel=0 \
+  -p:NeoClrMetadataProject=/absolute/path/to/neoclr/tools/metadata/NeoCLR.Metadata.Experimental/NeoCLR.Metadata.Experimental.csproj \
+  -- --array-runtime /absolute/path/to/application-order-collections.rvn \
+  /tmp/fresh-array-output /absolute/path/to/neoclr/target/release/neoclr
+```
+
+This selects the original Order declaration and uses its batch expression in a
+separate consumer, preserving host-core bootstrap binding. It checks literal arrays,
+primitive and nominal storage, overloads, property projections, alias mutation, ordered
+index/value evaluation, Length, empty arrays and nested/labeled for iteration on .NET
+and binary neoCLR in both source orders. Expected result is 42. Output contains the
+selected sources, native binaries and validation.json with source/runtime SHA-256.
+`array-runtime-validation.json` is the checked-in evidence; this does not claim the
+full generic collections consumer or System class library compiles. Fixed-length type
+contracts, nested/multidimensional arrays, spreads and generic enumerators remain
+outside bounded native emission.

@@ -2177,10 +2177,32 @@ native metadata backend replaces payload serialization, not this shared logical 
 The host core is still the binding bootstrap; this does not implement general native
 metadata imports or compile the complete collections application/System library.
 
-Nested/multidimensional arrays, spread/comprehension expansion, covariance, imported
+Fixed-length type contracts, nested/multidimensional arrays, spread/comprehension expansion, covariance, imported
 nominal elements, spans and element addresses remain outside this bounded shared path.
-.NET keeps its general fallback. Array iteration is the next slice. Backend primitive
+.NET keeps its general fallback. Array iteration is covered below. Backend primitive
 type tokens are cached per output, and literals allocate directly without intermediate
 collections; no performance measurement or speedup is claimed. C# shared-plan tests
 cover Release/Debug execution and capability rejection; the executable ArrayChecks
 probe verifies native binaries and storage projections in both source orders.
+
+### Shared array iteration
+
+Ordinary rank-one array `for` loops with an exact element local now lower into existing
+bound locals, Length/index operations and branches, before either backend. Collection
+evaluation occurs once. Nested loops, labeled continue/break, ordinary break/continue
+and empty arrays retain their source semantics. Loops left for general .NET codegen
+keep ownership of their unlabeled transfers, even inside a lowered vector loop.
+There is no backend-specific language rewrite or additional metadata category.
+Discard/converting iteration, generic enumerators and multidimensional arrays remain
+outside this bounded native path; .NET uses its existing general path where needed.
+
+Compared with the previous .NET generator-owned array loop, this shares lowering and
+control flow across targets at the cost of temporary bound nodes and locals during
+compilation. Runtime iteration remains indexed with no enumerator allocation. Performance
+has not been benchmarked. C# tests independently validate .NET Release/Debug, target
+admission, mixed enumerator/vector nesting and existing range/async/iterator loops
+(39 tests passed). An additional fixed-length signature rejection check also passes;
+this prevents silently erasing shape metadata. The expanded Order-array probe verifies and runs binary neoCLR
+output and .NET output in both source orders (42), including side-effecting collection
+calls and labeled continue. `array-runtime-validation.json` records source and runtime
+SHA-256 identities. The full collections application and System build remain incomplete.

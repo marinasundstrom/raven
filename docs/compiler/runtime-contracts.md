@@ -2925,3 +2925,7 @@ See [the runtime compatibility boundary](neoclr-cli-bridge.md#readonly-instance-
 Shared emission capabilities now explicitly admit vector types independently of root-class
 signatures. Vector signatures, locals, storage and typed operations use backend maps;
 no Runtime Contract configuration is needed. See [the bridge contract](neoclr-cli-bridge.md#shared-vector-emission--2026-10-01) for current limits.
+
+Array for loops with an exact element local now use ordinary shared lowering before
+emission. No target-specific iteration rewrite or Runtime Contract switch is introduced;
+retained enumerator loops remain owned by general .NET codegen.
