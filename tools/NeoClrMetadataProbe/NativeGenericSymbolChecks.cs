@@ -18,7 +18,9 @@ internal static class NativeGenericSymbolChecks
             public func OpenBoxes<T>(values: Box<T>[]) -> Box<T>[] => values
             public func Identity<T>(value: T) -> T => value
             public func ArrayIdentity<T>(values: T[]) -> T[] => values
-            public class Box<TItem> {
+            public interface Value<T> { val Current: T { get; } }
+            public interface MutableValue<T> : Value<T> { func Set(value: T) }
+            public class Box<TItem> : MutableValue<TItem> {
                 public field stored: TItem
                 public init(value: TItem) { stored = value }
                 public val Current: TItem => stored
@@ -72,6 +74,7 @@ internal static class NativeGenericSymbolChecks
             class Item { var Number: int = 42 }
             func Forward<T>(value: T) -> T => Identity<T>(value)
             func ReadBox<T>(box: Box<T>) -> T => box.stored
+            func ReadValue<T>(value: Value<T>) -> T => value.Current
             func WriteBox<T>(box: Box<T>, value: T) { box.stored = value }
             func Main() -> int {
                 let item = Item()
@@ -84,6 +87,11 @@ internal static class NativeGenericSymbolChecks
                 let boxes: Box<int>[] = [box]
                 GenericBridge.RelayBoxes(boxes)[0].Same(box).Set(42)
                 if box.Current != 42 { return 6 }
+                let mutable: MutableValue<int> = box
+                mutable.Set(40)
+                let readOnly: Value<int> = mutable
+                if ReadValue(readOnly) != 40 { return 13 }
+                mutable.Set(42)
                 box.stored = 41
                 if box.stored != 41 { return 11 }
                 box.stored = 42
@@ -99,6 +107,8 @@ internal static class NativeGenericSymbolChecks
                 if item.Number != 9 { return 7 }
                 WriteBox(nominal, Item())
                 if ReadBox(nominal).Number != 42 { return 12 }
+                let nominalContract: Value<Item> = nominal
+                if ReadValue(nominalContract).Number != 42 { return 14 }
                 let alias = box.Echo(ArrayIdentity<int>(values))
                 Algorithms.Set<int>(alias, 42)
                 if Algorithms.Choose<int>(7) != 7 { return 3 }
@@ -127,6 +137,18 @@ internal static class NativeGenericSymbolChecks
             var boxDefinition = assembly.GetTypeByMetadataName("Generics.Box`1")!;
             Check(boxDefinition.Name == "Box" && boxDefinition.Arity == 1 && boxDefinition.TypeParameters[0].Name == "TItem" &&
                 ReferenceEquals(boxDefinition.TypeParameters[0].DeclaringTypeParameterOwner, boxDefinition), "native generic owner identity");
+            var mutableDefinition = assembly.GetTypeByMetadataName("Generics.MutableValue`1")!;
+            var valueDefinition = assembly.GetTypeByMetadataName("Generics.Value`1")!;
+            Check(mutableDefinition.TypeKind == TypeKind.Interface &&
+                ReferenceEquals(mutableDefinition.Interfaces.Single().OriginalDefinition, valueDefinition) &&
+                ReferenceEquals(mutableDefinition.Interfaces.Single().TypeArguments[0], mutableDefinition.TypeParameters[0]),
+                "generic inherited interface retains declaring scope");
+            Check(ReferenceEquals(boxDefinition.Interfaces.Single().TypeArguments[0], boxDefinition.TypeParameters[0]),
+                "generic implementation retains declaring scope");
+            var incompatibleInterface = Compilation.Create("WrongInterfaceArguments",
+                [SyntaxTree.ParseText("import Generics.*\nfunc Bad(value: MutableValue<int>) -> Value<bool> => value")], references,
+                CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+            Check(incompatibleInterface.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "invariant interface arguments reject");
             var boxType = (INamedTypeSymbol)boxDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
             Check(boxType.InstanceConstructors.Single().Parameters[0].Type.SpecialType == SpecialType.System_Int32 &&
                 boxType.GetMembers("Current").OfType<IPropertySymbol>().Single().Type.SpecialType == SpecialType.System_Int32,

@@ -673,3 +673,10 @@ and aliases Box<int> and Box<int>[] fields from a separately compiled native Box
 class. The holder references the generic library; both reference orders pass and the
 runtime result is 42. Field owners remain nongeneric, with explicit symbol layout.
 Runtime Contract/core/System bootstrap requirements and encoding are unchanged.
+
+
+The native generic consumer now covers direct public fields on Box<T>, generic
+read/write forwarding, imported MutableValue<T> -> Value<T> inheritance and dispatch
+with both Int32 and class arguments. It asserts parameter scope identity and rejects
+incompatible invariant interface arguments. All seven consumers return 42. This imports
+existing relationships; declaring new implementations of external interfaces is pending.

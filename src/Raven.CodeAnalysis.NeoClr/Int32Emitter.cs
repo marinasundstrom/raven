@@ -191,7 +191,7 @@ internal static class Int32Emitter
                     var identity = new AssemblyIdentity(artifact.Name, artifact.Version, artifact.Culture, artifact.PublicKeyToken, artifact.Flags);
                     imported = original.TypeKind == TypeKind.Interface
                         ? assembly.CreateInterfaceReference(identity, binding.CoreLibrary, artifact.Sha256,
-                            original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName)
+                            original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName, original.Arity)
                         : assembly.CreateTypeReference(identity, binding.CoreLibrary, artifact.Sha256,
                             original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName, original.Arity);
                 }
@@ -206,11 +206,11 @@ internal static class Int32Emitter
                     imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
                 }
                 importedTypes.Add(original, imported);
-                if (IsSymbolOnlyReferenceDefinition(original) && original.Arity == 0)
+                if (IsSymbolOnlyReferenceDefinition(original))
                     foreach (var contract in original.Interfaces)
                     {
-                        _ = ImportExternalType(contract);
-                        assembly.AddInterfaceConversion(imported, importedTypes[(INamedTypeSymbol)contract.OriginalDefinition]);
+                        var target = ImportExternalType(contract).ImportedType!;
+                        assembly.AddInterfaceConversion(imported, target);
                     }
             }
             return imported.GenericArity == 0 ? imported : imported.MakeGenericInstance(type.TypeArguments
@@ -516,9 +516,9 @@ internal static class Int32Emitter
         static bool IsSymbolOnlyReferenceDefinition(INamedTypeSymbol original, int depth = 0) =>
             depth < 32 &&
             original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
-            (original.TypeKind == TypeKind.Class || original.TypeKind == TypeKind.Interface && original.Arity == 0) &&
+            (original.TypeKind == TypeKind.Class || original.TypeKind == TypeKind.Interface) &&
             !original.IsStatic && original.ContainingType is null && original.DeclaredAccessibility == Accessibility.Public &&
-            (original.Interfaces.IsEmpty || original.Arity == 0 && original.Interfaces.All(contract => IsSymbolOnlyReferenceDefinition(contract, depth + 1))) &&
+            original.Interfaces.All(contract => IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)contract.OriginalDefinition, depth + 1)) &&
             (original.BaseType is null || original.BaseType.SpecialType == SpecialType.System_Object) &&
             original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None);
 

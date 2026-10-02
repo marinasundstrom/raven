@@ -24,7 +24,11 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
         Definition = definition;
         TypeParameters = [.. (definition.GenericParameterNames ?? []).Select((name, i) => (ITypeParameterSymbol)new NativeTypeParameterSymbol(name, i, this))];
         TypeArguments = [.. TypeParameters];
-        interfaces = new(() => [.. definition.Interfaces.Select(i => (INamedTypeSymbol)((NativeModuleSymbol)ContainingModule).Resolve(i.InterfaceType))]);
+        interfaces = new(() => [.. definition.Interfaces.Select(i =>
+        {
+            var target = ((NativeModuleSymbol)ContainingModule).Resolve(i.InterfaceType);
+            return i.TypeArguments.Count == 0 ? target : (INamedTypeSymbol)target.Construct(i.TypeArguments.Select(Map).ToArray());
+        })]);
         allInterfaces = new(() =>
         {
             var result = new List<INamedTypeSymbol>();

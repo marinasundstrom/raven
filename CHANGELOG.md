@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Import unconstrained generic native interfaces with constructed inheritance,
+  parameter scopes and invariant argument checks; emit dispatch from semantic contracts.
+  Reader imports also bind generic-owner fields. All seven Raven consumers execute (42),
+  alongside 108 C# groups and .NET/both-container field/interface execution. External
+  interface implementation declarations and constrained/variant profiles remain pending.
+
 - **2026-10-02:** Support imported fields on constructed generic root-class owners through
   scoped, output-owned field references. Preserve CLI open signatures and native slots.
   Seven Raven consumers and .NET/both-container field tests execute (42); 108 C# groups pass.

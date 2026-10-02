@@ -3841,3 +3841,31 @@ arguments, unconstructed field operands and out-of-scope arguments reject. Seven
 consumers execute (42), including generic forwarding and nominal mutation; 108/108 C#
 metadata groups pass, with .NET and both native containers executing the field case.
 Runtime Contract/core/System bootstrap and instruction encoding remain unchanged.
+
+
+### Generic native interface imports (2026-10-02)
+
+The native reader now retains constructed same-assembly interface relationships and
+their type arguments, including open owner parameters. Raven maps these into existing
+constructed symbols, preserving parameter owner identity, inherited interfaces and
+invariant argument checking. Its emitter authors generic interface identities and
+conversion edges from symbols, then binds interface calls to constructed references.
+The loader is not consulted by emission. Metadata consumers may also import generic
+interface methods and generic-owner fields from loaded native definitions.
+
+NativeGenericConsumer now dispatches through MutableValue<int> -> Value<int> and
+Value<Item>, including generic forwarding and class-to-inherited-interface conversion.
+Both reference orders and incompatible argument diagnostics pass; all seven consumers
+execute (42). NativeGenericOwnerChecks validates immutable reader relationships,
+cycles/scope rejection, authored and reader-import dispatch, and field substitution.
+All 108 C# groups pass; equivalent field/dispatch code executes on .NET and both native
+containers. CLI TypeSpec/MemberRef and native dispatch/slot encodings are unchanged.
+
+The supported interfaces are public, top-level, unconstrained and invariant. Native
+relationship declarations currently resolve within their defining assembly. Emitting a
+new class that implements an external interface or a new interface inheriting an
+external interface remains a separate capability; this slice consumes already declared
+relationships. Variance, constrained/value/nested profiles and instance generic methods
+remain outside this native reader profile. Explicit primitive core, translated System
+bootstrap and Runtime Contract configuration remain unchanged. This does not claim full
+class-library import or remove the lazy semantic reader lifetime.
