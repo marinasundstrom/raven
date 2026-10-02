@@ -25,7 +25,7 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
     private MethodSignature ToOwnedMetadata(CallableSignature signature)
     {
         SignatureType Map(EmissionType type) => NeoClrTypeMapper.Map(type, resolveClass!, resolveExternal);
-        return new(Map(signature.ReturnType), signature.ParameterTypes.Select(Map), signature.GenericParameterNames.IsDefault ? [] : signature.GenericParameterNames);
+        return new(Map(signature.ReturnType), signature.ParameterTypes.Select(Map), signature.GenericParameterNames.IsDefault ? [] : signature.GenericParameterNames, signature.OutParameters.IsDefault ? [] : signature.OutParameters);
     }
     internal static PrimitiveMethodSignature ToMetadata(PrimitiveCallableSignature signature)
         => new(NeoClrTypeMapper.Instance.Map(signature.ReturnType), signature.ParameterTypes.Select(NeoClrTypeMapper.Instance.Map));

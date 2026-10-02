@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical type identity is compiler-owned; physical signature handles belong to each backend.
-internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray<EmissionType> ParameterTypes, ImmutableArray<string> GenericParameterNames = default, bool IsInstance = false, int DeclaringTypeArity = 0, bool DeclaringTypeIsStatic = false, bool HasTypeBounds = false, bool HasSpecialTypeConstraints = false)
+internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray<EmissionType> ParameterTypes, ImmutableArray<string> GenericParameterNames = default, bool IsInstance = false, int DeclaringTypeArity = 0, bool DeclaringTypeIsStatic = false, bool HasTypeBounds = false, bool HasSpecialTypeConstraints = false, ImmutableArray<int> OutParameters = default)
 {
     internal int ParameterCount => ParameterTypes.Length;
     internal bool ReturnsValue => ReturnType.Primitive != EmissionPrimitiveType.NoResult;
@@ -50,11 +50,11 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         var parameters = ImmutableArray.CreateBuilder<EmissionType>(method.Parameters.Length);
         foreach (var parameter in method.Parameters)
         {
-            if (parameter.RefKind != RefKind.None || parameter.HasExplicitDefaultValue || parameter.IsVarParams || !TryType(parameter.Type, false, out var type, capabilities)) return false;
-            parameters.Add(type);
+            if ((parameter.RefKind != RefKind.None && (capabilities?.AllowsManagedReferences != true || parameter.RefKind is not (RefKind.Ref or RefKind.Out))) || parameter.HasExplicitDefaultValue || parameter.IsVarParams || !TryType(parameter.Type, false, out var type, capabilities)) return false;
+            parameters.Add(type with { IsByReference = parameter.RefKind != RefKind.None });
         }
         signature = new(result, parameters.MoveToImmutable(), method.TypeParameters.Select(p => p.Name).ToImmutableArray(), !method.IsStatic, method.ContainingType?.Arity ?? 0, method.ContainingType?.IsStatic ?? false, method.ContainingType is { } declaring && ((INamedTypeSymbol)declaring.OriginalDefinition).TypeParameters.Any(p => !p.ConstraintTypes.IsEmpty),
-            method.ContainingType is { } constrained && ((INamedTypeSymbol)constrained.OriginalDefinition).TypeParameters.Any(p => (p.ConstraintKind & (TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor)) != 0));
+            method.ContainingType is { } constrained && ((INamedTypeSymbol)constrained.OriginalDefinition).TypeParameters.Any(p => (p.ConstraintKind & (TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor)) != 0), method.Parameters.Select((p, i) => (p, i)).Where(x => x.p.RefKind == RefKind.Out).Select(x => x.i).ToImmutableArray());
         return true;
     }
 }

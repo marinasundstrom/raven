@@ -23,6 +23,16 @@ internal static class NativeProfileChecks
         var core = new AssemblyIdentity(name.Name!, name.Version!, name.CultureName ?? "", Convert.ToHexString(name.GetPublicKeyToken() ?? []));
         var cases = new (string Name, string Source, int Result, string Output)[]
         {
+            ("NativeProfileRefOut", """
+                func Set(out value: int) { value = 40 }
+                func Forward(out value: int) { Set(out value) }
+                func Increment(ref value: int) { value = value + 2 }
+                func Main() -> int {
+                    Forward(out var value)
+                    Increment(ref value)
+                    return value
+                }
+                """, 42, ""),
             ("NativeProfileHello", """
                 func Greet() {
                     System.Console.WriteLine("Hello World")
@@ -70,7 +80,7 @@ internal static class NativeProfileChecks
             runtimeSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(runtime))),
             cases = cases.Select(c => new { c.Name, c.Result, c.Output, verified = true }),
             rejected = new[] { "wrong core name", "wrong core version" },
-            scope = "primitive/Unit/array/function/interface emission and runtime loading; not implementation bootstrap or native metadata symbol import"
+            scope = "primitive/Unit/array/function/interface/ref/out emission and runtime loading; not implementation bootstrap or native metadata symbol import"
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
 
         static void Reject(Compilation compilation, NeoClrEmitOptions options)

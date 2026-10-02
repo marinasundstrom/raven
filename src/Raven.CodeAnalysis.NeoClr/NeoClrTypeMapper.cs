@@ -10,6 +10,7 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
 
     internal static SignatureType Map(EmissionType type, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<INamedTypeSymbol, SignatureType>? resolveExternal = null)
     {
+        if (type.IsByReference) return SignatureType.ByReference(Map(type with { IsByReference = false }, resolveClass, resolveExternal));
         if (type.OwnerParameter is { } ownerParameter) return SignatureType.TypeParameter(ownerParameter.Ordinal);
         if (type.MethodParameter is { } parameter) return SignatureType.MethodParameter(parameter.Ordinal);
         if (type.Primitive is { } p) return Instance.Map(p);

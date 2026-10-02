@@ -400,3 +400,36 @@ propagation protocol can execute. Do not replace out parameters with unrelated v
 calls or silently initialize them to bypass the capability check. Existing CLR/CIL
 byref and address semantics remain the baseline. No new metadata encoding or runtime
 support is claimed by this checkpoint, and the complete application has not executed.
+
+
+### Managed-reference emission checkpoint (2026-10-02)
+
+The portable signature and body plans now preserve writable ref/out parameters,
+local addresses, indirect reads/writes and explicit output indices. Both adapters opt
+into `AllowsManagedReferences`; absent that capability, the bounded shared path retains
+its rejection/fallback behavior. .NET emits ordinary byref signatures and CIL; neoCLR
+uses the independent metadata API's BYREF/out contracts and native instructions.
+Inline `out var` symbols acquire an uninitialized local slot on first address use;
+synthesized declarations may likewise remain uninitialized until an out call assigns
+them. No synthetic default values are inserted. Source binding still owns language
+assignment diagnostics; the metadata producer independently validates native body flow.
+
+The C# capability/parity tests assert successful shared lowering and observable CLR
+mutation in Debug/Release, including Out reflection. NativeProfileRefOut emits and
+executes assignment, output forwarding and ref mutation (42) through the normal neoCLR
+profile alongside the existing primitive/interface/array/Unit controls. The focused
+emission/propagation/byref suite passes 64 tests (24 baseline tests passed before edits).
+
+Runtime Propagation/Self/Unit and target-core configuration are unchanged. The temporary
+CLI declaration snapshot still supplies symbols; native importing is pending. Readonly
+references, escaping byref values, field/array addresses and imported value receivers
+are not admitted by this slice. The unchanged collections sample now passes synthesized
+out-local admission and rejects `TryGetOutput(out output: Order) -> bool` instance-call
+admission; CLI control still emits 7168 bytes. Full propagation/native System mapping
+remains open. No new metadata encoding, runtime opcode or binder change is introduced.
+
+This is a shared emission capability feature, not an independent binding regression
+fix. It remains on the metadata-consumer integration line; consider a separate shared-line
+port after the bounded API is reviewed, without conflating that with native backend
+readiness. The previous independently proven concrete-union lowering fix remains on its
+main-based fix branch.

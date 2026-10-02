@@ -8,6 +8,34 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class EmissionCapabilityTests
 {
     [Theory]
+    [InlineData(OptimizationLevel.Debug)]
+    [InlineData(OptimizationLevel.Release)]
+    public void RefAndOutUseSharedEmissionAndPreserveMutation(OptimizationLevel optimization)
+    {
+        var compilation = Create("""
+            public static class RefOperations {
+                public static func Set(out value: int) { value = 40 }
+                public static func Forward(out value: int) { Set(out value) }
+                public static func Increment(ref value: int) { value = value + 2 }
+                public static func Run() -> int {
+                    Forward(out var value)
+                    Increment(ref value)
+                    return value
+                }
+            }
+            """, optimization);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        foreach (var method in Methods(compilation))
+            Assert.True(Lower(compilation, method, ReflectionEmitCapabilities.Shared, out _, out var failure), failure?.Detail);
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var type = Assembly.Load(output.ToArray()).GetType("RefOperations")!;
+        Assert.Equal(42, type.GetMethod("Run")!.Invoke(null, null));
+        Assert.True(type.GetMethod("Set")!.GetParameters()[0].IsOut);
+    }
+
+    [Theory]
     [InlineData(OptimizationLevel.Release, false)]
     [InlineData(OptimizationLevel.Release, true)]
     [InlineData(OptimizationLevel.Debug, false)]

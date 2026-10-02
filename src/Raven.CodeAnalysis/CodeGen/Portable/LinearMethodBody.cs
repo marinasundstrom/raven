@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -23,7 +23,7 @@ internal interface ILinearMethodBuilder
 internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
 // Logical value types carry compiler identity, never backend handles.
-internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null);
+internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null, bool IsByReference = false);
 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
@@ -176,7 +176,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (declaration.IsUsing) return Reject("using local", Syntax(statement));
                     foreach (var variable in declaration.Declarators)
                     {
-                        if (variable.Initializer is null || variable.FixedAddressInitializer is not null || variable.FixedPinnedLocal is not null)
+                        if (variable.Initializer is null && capabilities?.AllowsManagedReferences != true || variable.FixedAddressInitializer is not null || variable.FixedPinnedLocal is not null)
                             return Reject("only initialized value locals", Syntax(variable));
                         EmissionType localType;
                         if (EmissionPrimitiveTypes.TryGetValueType(variable.Local.Type, out var primitive))
@@ -198,11 +198,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         else if (variable.Local.Type is (IArrayTypeSymbol or ITypeParameterSymbol) && TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
                             localType = arrayType;
                         else return Reject("target does not support local type " + variable.Local.Type.Name, Syntax(variable));
-                        if (!LowerValue(variable.Initializer)) return false;
+                        if (variable.Initializer is not null && !LowerValue(variable.Initializer)) return false;
                         var slot = locals.Count;
                         locals.Add(variable.Local, slot);
                         localTypes.Add(localType);
-                        Add(LinearInstructionKind.StoreLocal, Syntax(variable), slot);
+                        if (variable.Initializer is not null) Add(LinearInstructionKind.StoreLocal, Syntax(variable), slot);
                     }
                     continue;
                 }
@@ -242,6 +242,18 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(setter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(setter), Syntax(statement), method: setter);
                     continue;
                 }
+                var referenceAssignment = statement switch
+                {
+                    BoundAssignmentStatement { Expression: BoundByRefAssignmentExpression write } => write,
+                    BoundExpressionStatement { Expression: BoundByRefAssignmentExpression write } => write,
+                    _ => null
+                };
+                if (referenceAssignment is not null)
+                {
+                    if (!LowerReference(referenceAssignment.Reference) || !LowerValue(referenceAssignment.Right)) return false;
+                    instructions.Add(new(LinearInstructionKind.StoreIndirect, Syntax(statement), Type: referenceAssignment.ElementType));
+                    continue;
+                }
                 var assignment = statement switch
                 {
                     BoundAssignmentStatement { Expression: BoundLocalAssignmentExpression localAssignment } => localAssignment,
@@ -274,7 +286,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 if (statement is not BoundReturnStatement { Expression: { } value })
                     return Reject("unsupported lowered statement " + statement.GetType().Name +
-                        (statement is BoundExpressionStatement unsupported ? " (" + unsupported.Expression.GetType().Name + ")" : ""), Syntax(statement));
+                        (statement is BoundExpressionStatement unsupported ? " (" + unsupported.Expression.GetType().Name + ")" : statement is BoundAssignmentStatement assigned ? " (" + assigned.Expression.GetType().Name + ")" : ""), Syntax(statement));
                 if (!LowerValue(value)) return false;
                 Add(LinearInstructionKind.Return, Syntax(statement));
             }
@@ -368,6 +380,33 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             }
             return true;
         }
+        bool LowerReference(BoundExpression expression)
+        {
+            if (capabilities?.AllowsManagedReferences != true) return Reject("target does not support managed references", Syntax(expression));
+            var symbol = expression is BoundAddressOfExpression address ? address.Symbol : expression is BoundParameterAccess parameter ? parameter.Parameter : null;
+            if (symbol is ILocalSymbol local)
+            {
+                if (!locals.TryGetValue(local, out var slot))
+                {
+                    // Inline out declarations have a local symbol but no declaration statement.
+                    if (!SymbolEqualityComparer.Default.Equals(local.ContainingSymbol, source) ||
+                        !TryType(local.Type, false, out var localType) || !capabilities.Allows(localType))
+                        return Reject("unsupported or captured addressed local", Syntax(expression));
+                    slot = locals.Count;
+                    locals.Add(local, slot);
+                    localTypes.Add(localType);
+                }
+                Add(LinearInstructionKind.LocalAddress, Syntax(expression), slot); return true;
+            }
+            if (symbol is IParameterSymbol reference && reference.RefKind is RefKind.Ref or RefKind.Out)
+            {
+                int ordinal = source.Parameters.IndexOf(reference, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
+                if (ordinal < 0) return Reject("captured reference parameter", Syntax(expression));
+                Add(LinearInstructionKind.Argument, Syntax(expression), ordinal + (source.IsStatic ? 0 : 1)); return true;
+            }
+            return Reject("only owned locals or ref/out parameter addresses: " + expression.GetType().Name + " (" + symbol?.ToDisplayString() + ")", Syntax(expression));
+        }
+
         bool LowerValue(BoundExpression expression)
         {
             if (capabilities is not null && EmissionPrimitiveTypes.TryGetValueType(expression.Type, out var valueType) && !capabilities.Allows(valueType))
@@ -461,10 +500,19 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundLocalAccess local:
                     if (!locals.TryGetValue(local.Local, out var slot)) return Reject("undeclared local", Syntax(expression));
                     Add(LinearInstructionKind.LoadLocal, Syntax(expression), slot); return true;
+                case BoundAddressOfExpression address:
+                    return LowerReference(address);
+                case BoundDereferenceExpression dereference:
+                    if (!LowerReference(dereference.Reference)) return false;
+                    instructions.Add(new(LinearInstructionKind.LoadIndirect, Syntax(expression), Type: dereference.ElementType));
+                    return true;
                 case BoundParameterAccess parameter:
                     var index = source.Parameters.IndexOf(parameter.Parameter, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
                     if (index < 0) return Reject("captured parameter", Syntax(expression));
-                    Add(LinearInstructionKind.Argument, Syntax(expression), index + (source.IsStatic ? 0 : 1)); return true;
+                    Add(LinearInstructionKind.Argument, Syntax(expression), index + (source.IsStatic ? 0 : 1));
+                    if (parameter.Parameter.RefKind is RefKind.Ref or RefKind.Out)
+                        instructions.Add(new(LinearInstructionKind.LoadIndirect, Syntax(expression), Type: parameter.Parameter.Type));
+                    return true;
                 case BoundUnaryExpression { Operator.OperatorKind: BoundUnaryOperatorKind.LogicalNot } unary:
                     if (!LowerValue(unary.Operand)) return false;
                     Add(LinearInstructionKind.Not, Syntax(expression)); return true;
@@ -550,9 +598,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     var arguments = call.Arguments.ToArray();
                     if (arguments.Length != call.Method.Parameters.Length) return Reject("optional/expanded arguments", Syntax(expression));
                     if (!call.Method.IsStatic && !Receiver(call.Receiver, call.Method.ContainingType!, Syntax(expression))) return false;
-                    foreach (var argument in arguments)
+                    for (int i = 0; i < arguments.Length; i++)
                     {
-                        if (!LowerValue(argument)) return false;
+                        if (call.Method.Parameters[i].RefKind is RefKind.Ref or RefKind.Out
+                            ? !LowerReference(arguments[i]) : !LowerValue(arguments[i])) return false;
                     }
                     Add(call.Method.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(call.Method), Syntax(expression), method: call.Method);
                     return true;

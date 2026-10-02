@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Share ref/out parameter signatures, local addresses and indirect
+  loads/stores between the portable .NET and neoCLR emission adapters under an explicit
+  managed-reference capability. Preserve out assignment contracts in native metadata
+  and imported signature matching; support inline out locals without synthetic defaults.
+  C# Debug/Release parity and native execution cover forwarding and mutation. Runtime
+  Contract configuration is unchanged; collections advances to imported value-receiver
+  TryGetOutput admission, with full propagation still incomplete.
+
 - **2026-10-02:** Preserve concrete union-case targets in shared lowering: explicit carrier arguments construct the case directly, matching existing .NET emission instead of attempting a second carrier wrapper. Keep binding and Runtime Contracts unchanged. Strengthen the imported constructor regressions to call shared lowering directly before executing empty/payload results; this exposes failures previously hidden by semantic-model fallback. All 25 focused tests pass on .NET 11, also independently on the main-based fix branch (dcc77ef5f). The unchanged native collections probe advances to synthesized out-local admission; no new native byref support is claimed.
 
 - **2026-10-02:** Admit imported constructed interface calls and final virtual class calls through an explicit native backend capability. Resolve open dependency signatures and dispatch kind before applying consumer type arguments. A Raven consumer of a separately authored native library verifies and executes both calls (42); four focused capability/.NET tests pass. Missing dependencies reject without output. Runtime Contract and normal .NET defaults are unchanged. The unchanged collections sample advances past TryAdd/Add to propagation-expression lowering; full application execution remains pending.

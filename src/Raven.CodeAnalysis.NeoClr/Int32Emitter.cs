@@ -205,7 +205,7 @@ internal static class Int32Emitter
             foreach (var method in contract.Methods)
                 contractMethods.Add(method.Symbol, definition.AddInterfaceMethod(method.Symbol.MetadataName, new MethodSignature(
                     NeoClrTypeMapper.Map(method.Signature.ReturnType, type => nativeTypes[type], ImportExternalType),
-                    method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)))));
+                    method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)), outParameters: method.Signature.OutParameters.IsDefault ? [] : method.Signature.OutParameters)));
             foreach (var pair in contractMethods) interfaceMethods.Add(pair.Key, pair.Value);
             foreach (var property in contract.Properties)
                 definition.AddProperty(property.Symbol.MetadataName, NeoClrTypeMapper.Map(property.Type, type => nativeTypes[type], ImportExternalType),
@@ -360,7 +360,7 @@ internal static class Int32Emitter
                 throw Unsupported("unsupported dependency method signature");
             var expected = new MethodSignature(
                 NeoClrTypeMapper.Map(signature.ReturnType, type => nativeTypes[type], ImportExternalType),
-                signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)), signature.GenericParameterNames);
+                signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)), signature.GenericParameterNames, signature.OutParameters.IsDefault ? [] : signature.OutParameters);
             var matches = new List<ImportedMethodReference>();
             foreach (var candidate in types[0].Methods.Where(m => m.Name == symbol.MetadataName && m.GenericArity == symbol.Arity && m.IsStatic == symbol.IsStatic))
             {
@@ -371,7 +371,7 @@ internal static class Int32Emitter
                     imported.RequiresVirtualDispatch != (!symbol.IsStatic && symbol.IsVirtual)) continue;
                 var actual = imported.Signature;
                 if (actual.GenericParameterNames.Count == expected.GenericParameterNames.Count && actual.ReturnType == expected.ReturnType &&
-                    actual.ParameterTypes.SequenceEqual(expected.ParameterTypes)) matches.Add(imported);
+                    actual.ParameterTypes.SequenceEqual(expected.ParameterTypes) && actual.OutParameters.SequenceEqual(expected.OutParameters)) matches.Add(imported);
                 if (matches.Count == 2) break;
             }
             if (matches.Count != 1) throw Unsupported("dependency method contract unavailable or ambiguous");

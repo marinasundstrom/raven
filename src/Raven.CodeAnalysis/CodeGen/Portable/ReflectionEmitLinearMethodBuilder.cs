@@ -57,6 +57,9 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.LocalAddress: output.Emit(OpCodes.Ldloca, locals[instruction.Integer]); break;
+            case LinearInstructionKind.LoadIndirect: output.Emit(OpCodes.Ldobj, method.ResolveClrType(instruction.Type!)); break;
+            case LinearInstructionKind.StoreIndirect: output.Emit(OpCodes.Stobj, method.ResolveClrType(instruction.Type!)); break;
             case LinearInstructionKind.DefaultValue:
                 var defaultType = method.ResolveClrType(instruction.Type!);
                 var scratch = output.DeclareLocal(defaultType);

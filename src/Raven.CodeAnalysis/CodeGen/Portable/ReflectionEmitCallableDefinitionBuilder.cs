@@ -12,6 +12,7 @@ internal sealed class ReflectionEmitCallableDefinitionBuilder(TypeBuilder owner,
     {
         Type Map(EmissionType type)
         {
+            if (type.IsByReference) return Map(type with { IsByReference = false }).MakeByRefType();
             if (type.Primitive is { } p) return types.Map(p);
             if (type.Array is { } array)
             {
