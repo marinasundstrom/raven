@@ -6,7 +6,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 - **2026-10-02:** Record proposed shared metadata resolution/views for Raven import,
   future metadata-only NeoCLR Introspection and Emit. Preserve symbol-only emission and
-  explicit output ownership; this documentation checkpoint adds no implemented API.
+  explicit output ownership. Clarify .NET-hosted prototype scope: future reuse need not
+  keep this implementation/API. This documentation checkpoint adds no implemented API.
 
 - **2026-10-02:** Import unconstrained generic native interfaces with constructed inheritance,
   parameter scopes and invariant argument checks; emit dispatch from semantic contracts.

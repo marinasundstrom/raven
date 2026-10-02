@@ -3886,5 +3886,7 @@ symbols. Emission continues to depend on symbols, never the view/context/resolve
 No shared compiler API, Runtime Contract, native encoding, primitive-core bootstrap or
 execution behavior changes in this design checkpoint. The first planned slice is an
 immutable exact-identity snapshot catalog with diamond/cycle/conflict tests, followed
-by constructed member views and one native importer integration. The future Raven/NeoCLR
-port should preserve these semantics without depending on host Reflection objects.
+by constructed member views and one native importer integration. Author clarification: this is a prototype for the .NET-hosted Raven compiler. A future
+NeoCLR-hosted compiler may reuse its lessons, but neither a port nor the same API or
+implementation is required. Do not delay the prototype for speculative portability;
+retain metadata/execution separation and keep future reuse exploratory.
