@@ -666,3 +666,10 @@ wrong core, unregistered reference and legacy snapshot mismatch reject without o
 The compiler reference retains lazy semantic reader state; explicit primitive core,
 Runtime Contract and translated System bootstrap requirements are unchanged.
 See the [API and compatibility contract](../../docs/compiler/metadata-backend-boundaries.md#native-host-bindings-without-reader-definitions-2026-10-02).
+
+
+Closed generic field checkpoint (2026-10-02): NativeGenericConsumer now loads, replaces
+and aliases Box<int> and Box<int>[] fields from a separately compiled native BoxStorage
+class. The holder references the generic library; both reference orders pass and the
+runtime result is 42. Field owners remain nongeneric, with explicit symbol layout.
+Runtime Contract/core/System bootstrap requirements and encoding are unchanged.

@@ -46,6 +46,14 @@ internal static class NativeGenericSymbolChecks
             namespace GenericBridge
             import Generics.*
             public func Create(value: int) -> Box<int> => CreateBox(value)
+            public class BoxStorage {
+                public field Value: Box<int>
+                public field Values: Box<int>[]
+                public init(value: Box<int>, values: Box<int>[]) {
+                    Value = value
+                    Values = values
+                }
+            }
             public func RelayBox<T>(value: Box<T>) -> Box<T> => OpenBox(value)
             public func RelayBoxes<T>(values: Box<T>[]) -> Box<T>[] => OpenBoxes(values)
             """;
@@ -74,6 +82,13 @@ internal static class NativeGenericSymbolChecks
                 let boxes: Box<int>[] = [box]
                 GenericBridge.RelayBoxes(boxes)[0].Same(box).Set(42)
                 if box.Current != 42 { return 6 }
+                let storage = BoxStorage(box, boxes)
+                if storage.Value.Current != 42 { return 8 }
+                storage.Value = Box<int>(19)
+                storage.Values = [storage.Value]
+                storage.Values[0].Set(23)
+                if storage.Value.Current != 23 { return 9 }
+                if box.Current != 42 { return 10 }
                 let nominal = Box<Item>(item)
                 nominal.Current.Number = 9
                 if item.Number != 9 { return 7 }

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Allow closed generic class values and vectors in imported native
+  instance fields on nongeneric root-class owners. Reconstruct references from symbols
+  and explicit layout; open parameters and generic field owners remain unsupported.
+  The cross-assembly generic consumer verifies replacement and aliasing; seven native
+  consumers execute (42), with unchanged .NET defaults and Runtime Contract bootstrap.
+
 - **2026-10-02:** Add native host dependency bindings from the registered compiler
   reference and core identity, without a separately supplied reader definition or
   assembly image roundtrip. Retain the legacy snapshot constructor; Definition throws

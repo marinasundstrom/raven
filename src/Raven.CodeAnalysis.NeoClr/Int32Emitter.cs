@@ -503,7 +503,8 @@ internal static class Int32Emitter
             return matches[0];
         }
         static bool IsFieldStorageType(ITypeSymbol type) => type is IArrayTypeSymbol array
-            ? IsFieldStorageType(array.ElementType) : type is not ITypeParameterSymbol && type is not INamedTypeSymbol { Arity: > 0 };
+            ? IsFieldStorageType(array.ElementType)
+            : type is not ITypeParameterSymbol && (type is not INamedTypeSymbol named || named.TypeArguments.All(IsFieldStorageType));
 
         // Static containers may own references, but are never signature value types.
         static bool IsSymbolOnlyOwnerDefinition(INamedTypeSymbol original) =>

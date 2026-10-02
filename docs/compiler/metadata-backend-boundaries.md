@@ -341,3 +341,23 @@ Runtime Contract selection, explicit CLI primitive core and translated System bo
 remain unchanged. The compiler reference still owns lazy semantic reader state; this
 change removes the separately supplied emission snapshot, not that reader lifetime.
 No shared .NET compiler contract, instruction encoding or metadata-library API changes.
+
+
+### Closed generic native field storage (2026-10-02)
+
+The generic consumer assessment found that imported Box<int> calls and signatures
+worked, but public fields containing Box<int> or Box<int>[] failed NEOMETA001 during
+emission. The native field authoring path now admits closed generic reference values
+and vectors, recursively checking arguments. It still requires a public instance field
+on a nongeneric root-class owner with an explicit semantic storage ordinal. Open
+parameters, generic owners, static/inherited fields and unsupported value profiles
+remain excluded. No importer definitions or resolvers are used by the emitter.
+
+NativeGenericSymbolChecks now builds BoxStorage in a second native assembly referencing
+the generic library, then reads, replaces and mutates its scalar/vector fields. Both
+reference orders compile; all seven consumers execute (42). The metadata API's C# test
+executes the equivalent field references on .NET and both native containers, retaining
+CLI generic signature/MemberRef encoding and native slot encoding. Runtime Contract,
+primitive core and System bootstrap remain unchanged; no shared .NET compiler behavior
+or format/runtime changes. Direct fields on generic declaring owners and generic
+interface imports remain follow-up work for larger class-library consumers.
