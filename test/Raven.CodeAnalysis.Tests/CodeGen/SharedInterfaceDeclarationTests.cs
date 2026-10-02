@@ -151,4 +151,50 @@ public class SharedInterfaceDeclarationTests
         var provider = loaded.GetType("Provider")!;
         Assert.Equal(42, provider.GetMethod("Get")!.Invoke(Activator.CreateInstance(provider), null));
     }
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void InterfaceIndexersPreserveSignaturesAndMutation(OptimizationLevel optimization)
+    {
+        var tree = SyntaxTree.ParseText("""
+            public interface Indexed<T> { var self[index: int]: T { get; set; } }
+            public class Buffer : Indexed<int> {
+                private var stored: int
+                var self[index: int]: int {
+                    get => stored + index
+                    set { stored = value - index }
+                }
+            }
+            public func Roundtrip(value: Indexed<int>) -> int {
+                value[2] = 42
+                return value[2]
+            }
+            """);
+        var compilation = Compilation.Create("InterfaceIndexer" + optimization, [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single())!;
+        Assert.True(SourceInterfacePlan.TryCreate(type, ReflectionEmitCapabilities.Shared, out var plan));
+        Assert.True(Assert.Single(plan!.Properties).Symbol.IsIndexer);
+        Assert.Equal(2, plan.Methods.Length);
+        var disabled = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>().Where(k => k != EmissionDeclarationKind.InterfaceIndexer),
+            [Accessibility.Public], [Accessibility.Public], allowsGenericInterfaceDeclarations: true, allowsInterfaceSignatures: true);
+        Assert.False(SourceInterfacePlan.TryCreate(type, disabled, out _));
+        var method = (IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single())!;
+        Assert.True(SourceCallablePlan.TryCreate(method, out var callable, ReflectionEmitCapabilities.Shared));
+        Assert.True(callable!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+        using var image = new MemoryStream(); var emitted = compilation.Emit(image);
+        Assert.True(emitted.Success, string.Join("; ", emitted.Diagnostics));
+        var loaded = Assembly.Load(image.ToArray());
+        var contract = loaded.GetType("Indexed`1")!.MakeGenericType(typeof(int));
+        var property = Assert.Single(contract.GetProperties());
+        Assert.Equal(typeof(int), property.PropertyType);
+        Assert.Equal(typeof(int), Assert.Single(property.GetIndexParameters()).ParameterType);
+        Assert.True(property.GetMethod!.IsAbstract && property.SetMethod!.IsAbstract);
+        var instance = Activator.CreateInstance(loaded.GetType("Buffer")!);
+        property.SetValue(instance, 42, [2]);
+        Assert.Equal(42, property.GetValue(instance, [2]));
+    }
 }

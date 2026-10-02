@@ -3132,3 +3132,28 @@ or MethodImpl mappings. Sequence<T>'s interface indexer and implementation-only 
 contracts for ArrayList remain next. Eight shared-interface tests and the unchanged
 collections application's exact-output assertion also pass; see neoCLR's
 `docs/experiments/extended-cli-metadata/collection-contracts-2026-10-02.json`.
+
+### Sequence interface indexers (2026-10-02)
+
+`InterfaceIndexer` is a separate shared declaration capability, enabled by the CLR and
+native profiles. The plan accepts public bodyless instance indexers with supported
+getter/setter signatures. Native emission reuses property definitions and ordinary
+accessor methods; index parameters remain in CLI property signatures and native calls.
+No new metadata category or runtime instruction is introduced. Default .NET emission
+retains its existing generator.
+
+The unchanged Sequence<T> source now joins the collection-contract probe. A consumer
+calls inherited Count (40) and the indexer (2), returning 42 on CLR and neoCLR, with both
+source orders. Native checks cover host bootstrap and CompilationOptions.NeoCLR with
+the matched CoreProbe Self contract. The probe also checks the projected getter-only
+property association. Shared C# tests cover getter/setter signatures, mutation and
+capability rejection in Debug and Release. The focused interface tests total 29 passes.
+
+The run exposed general [source declaration completion and abstract indexer fixes](source-interface-completion.md),
+isolated in commit d360b964f and independently exercised through ordinary .NET emission.
+The source/consumer assembly still obtains core symbols from the CLI snapshot; native
+symbol loading is the eventual replacement. Native implementing classes remain
+nongeneric, and the probe does not bootstrap the full System implementation. The next
+source-emission boundary is ArrayList's RuntimeServices/CheckedStorage implementation
+seed. Bundle evidence is in neoCLR's
+`docs/experiments/extended-cli-metadata/sequence-contracts-2026-10-02.json`.

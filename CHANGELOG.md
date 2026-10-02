@@ -11,9 +11,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 - **2026-10-02:** Add explicit shared capability for constructed interface inheritance
   and native owned generic-interface dispatch. Unchanged neoCLR library contracts
-  through Collection<T> compile with an inherited-property consumer returning 42,
-  on CLR/native and the actual target profile in both source orders. Sequence indexers
-  and full library implementation bootstrap remain pending.
+  through Sequence<T> compile with an inherited-property/indexer consumer returning 42,
+  on CLR/native and the actual target profile in both source orders. Bodyless interface
+  indexers have explicit shared admission; full library implementation bootstrap remains pending.
 
 - **2026-10-02:** Bind explicit translated native implementations through
   `NeoClrMetadataDependency.NativeImplementation`, retaining CLI declaration scopes

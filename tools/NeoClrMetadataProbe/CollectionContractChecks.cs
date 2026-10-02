@@ -16,10 +16,10 @@ internal static class CollectionContractChecks
     {
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
-        string[] paths = ["System/Disposable.rvn", "System/Collections/Iterator.rvn", "System/Collections/Iterable.rvn", "System/Collections/Collection.rvn"];
+        string[] paths = ["System/Disposable.rvn", "System/Collections/Iterator.rvn", "System/Collections/Iterable.rvn", "System/Collections/Collection.rvn", "System/Collections/Sequence.rvn"];
         var sources = paths.Select(p => File.ReadAllText(Path.Combine(root, "runtime/raven/src", p))).ToArray();
         const string consumer = """
-            public interface Counted : System.Collections.Collection<int> { }
+            public interface Counted : System.Collections.Sequence<int> { }
             public interface Cursor : System.Collections.Iterator<int> { }
             public class EmptyCursor : Cursor {
                 func MoveNext() -> bool => false
@@ -27,12 +27,13 @@ internal static class CollectionContractChecks
                 func Dispose() { }
             }
             public class Provider : Counted {
-                val Count: int => 42
+                val Count: int => 40
+                val self[index: int]: int => index + 2
                 func GetIterator() -> System.Collections.Iterator<int> => EmptyCursor()
             }
             func Main() -> int {
                 let collection: Counted = Provider()
-                return collection.Count
+                return collection.Count + collection[0]
             }
             """;
         var reports = new List<object>();
@@ -56,6 +57,8 @@ internal static class CollectionContractChecks
             if (!result.Success) throw new Exception(string.Join("; ", result.Diagnostics.Select(d => d + " at " + d.Location.SourceTree?.GetText().ToString(d.Location.SourceSpan))));
             var projection = NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.ReadCliProjection(native.ToArray());
             if (projection.MainModule.Types.Single(t => t.Name == "Collection`1").Methods.Single().Name != "get_Count") throw new Exception("collection projection lost");
+            var indexer = projection.MainModule.Types.Single(t => t.Name == "Sequence`1").Properties.Single();
+            if (indexer.GetMethod is null || indexer.SetMethod is not null || indexer.GetMethod.IsStatic) throw new Exception("sequence indexer association lost");
             var path = Path.Combine(output, name + ".dll"); File.WriteAllBytes(path, native.ToArray());
             foreach (var command in new[] { "verify", "run" })
             {
@@ -71,7 +74,7 @@ internal static class CollectionContractChecks
                 if (!emitted.Success) throw new Exception(string.Join("; ", emitted.Diagnostics));
                 var loaded = Assembly.Load(cli.ToArray());
                 if (!Equals(42, loaded.EntryPoint!.Invoke(null, null))) throw new Exception("CLR inherited dispatch");
-                if (loaded.GetType("Counted")!.GetInterfaces().Length != 2) throw new Exception("CLR inherited interface chain");
+                if (loaded.GetType("Counted")!.GetInterfaces().Length != 3) throw new Exception("CLR inherited interface chain");
             }
             reports.Add(new { name, target, reverse, nativeResult = 42, cliExecution = !target, bytes = native.Length, coreSha256 = Hash(corePath) });
         }
@@ -82,9 +85,9 @@ internal static class CollectionContractChecks
             runtimeSha256 = Hash(runtime),
             consumer,
             cases = reports,
-            scope = "unchanged collection interfaces with same-assembly consumer; inherited generic dispatch, not collection storage implementation or full class library"
+            scope = "unchanged sequence interfaces with same-assembly consumer; inherited generic property and indexer dispatch, not collection storage implementation or full class library"
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
-        Console.WriteLine("PASS unchanged collection contracts and inherited property dispatch: CLR/native 42, both source orders and native target");
+        Console.WriteLine("PASS unchanged sequence contracts and inherited property/indexer dispatch: CLR/native 42, both source orders and native target");
     }
     static string Hash(string path) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
 }

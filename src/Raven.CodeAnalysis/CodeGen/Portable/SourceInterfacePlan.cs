@@ -45,6 +45,11 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
                 property.Modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.AbstractKeyword) &&
                 accessors.Accessors.All(a => a.Kind is SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration &&
                     a.Body is null && a.ExpressionBody is null && a.AttributeLists.Count == 0 && a.Modifiers.Count == 0)) continue;
+            if (member is IndexerDeclarationSyntax { ExpressionBody: null, AccessorList: { } indexAccessors } indexer &&
+                capabilities.Allows(EmissionDeclarationKind.InterfaceIndexer) && indexer.AttributeLists.Count == 0 && indexer.ExplicitInterfaceSpecifier is null &&
+                indexer.Modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.AbstractKeyword) &&
+                indexAccessors.Accessors.All(a => a.Kind is SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration &&
+                    a.Body is null && a.ExpressionBody is null && a.AttributeLists.Count == 0 && a.Modifiers.Count == 0)) continue;
             return false;
         }
         var methods = ImmutableArray.CreateBuilder<SourceInterfaceMethod>();
@@ -70,8 +75,8 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
         foreach (var member in type.GetMembers())
         {
             if (member is IMethodSymbol method) { if (!AddMethod(method)) return false; }
-            else if (member is IPropertySymbol { IsStatic: false, IsIndexer: false } property &&
-                capabilities.Allows(EmissionDeclarationKind.InterfaceProperty) && property.DeclaredAccessibility == Accessibility.Public &&
+            else if (member is IPropertySymbol { IsStatic: false } property &&
+                capabilities.Allows(property.IsIndexer ? EmissionDeclarationKind.InterfaceIndexer : EmissionDeclarationKind.InterfaceProperty) && property.DeclaredAccessibility == Accessibility.Public &&
                 CallableSignature.TryType(property.Type, false, out var value) && capabilities.Allows(value))
             {
                 if (property.GetMethod is { } get && !AddMethod(get) || property.SetMethod is { } set && !AddMethod(set)) return false;
