@@ -42,8 +42,25 @@ internal static class NativeGenericSymbolChecks
         File.WriteAllBytes(Path.Combine(output, "NativeGenericLibrary.dll"), libraryImage.ToArray());
         File.WriteAllText(Path.Combine(output, "NativeGenericLibrary.rvn"), librarySource);
         var reference = NeoClrMetadataReference.ReadAssembly(libraryImage.ToArray());
+        const string bridgeSource = """
+            namespace GenericBridge
+            import Generics.*
+            public func Create(value: int) -> Box<int> => CreateBox(value)
+            public func RelayBox<T>(value: Box<T>) -> Box<T> => OpenBox(value)
+            public func RelayBoxes<T>(values: Box<T>[]) -> Box<T>[] => OpenBoxes(values)
+            """;
+        var bridge = Compilation.Create("NativeGenericBridge", [SyntaxTree.ParseText(bridgeSource)], [coreReference, reference],
+            CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        using var bridgeImage = new MemoryStream();
+        var bridgeResult = NeoClrCompilationEmitter.EmitMetadataAssembly(bridge, bridgeImage,
+            new(new("NativeGenericBridge", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core)]));
+        Check(bridgeResult.Success, string.Join("; ", bridgeResult.Diagnostics));
+        var bridgeReference = NeoClrMetadataReference.ReadAssembly(bridgeImage.ToArray());
+        File.WriteAllBytes(Path.Combine(output, "NativeGenericBridge.dll"), bridgeImage.ToArray());
+        File.WriteAllText(Path.Combine(output, "NativeGenericBridge.rvn"), bridgeSource);
         const string source = """
             import Generics.*
+            import GenericBridge.*
             class Item { var Number: int = 42 }
             func Forward<T>(value: T) -> T => Identity<T>(value)
             func Main() -> int {
@@ -53,9 +70,9 @@ internal static class NativeGenericSymbolChecks
                 if item.Number != 7 { return 1 }
                 if Forward<Item>(item).Number != 7 { return 2 }
                 let values: int[] = [19, 23]
-                let box = OpenBox(EchoBox(CreateBox(19)))
+                let box = RelayBox(EchoBox(Create(19)))
                 let boxes: Box<int>[] = [box]
-                OpenBoxes(boxes)[0].Same(box).Set(42)
+                RelayBoxes(boxes)[0].Same(box).Set(42)
                 if box.Current != 42 { return 6 }
                 let nominal = Box<Item>(item)
                 nominal.Current.Number = 9
@@ -70,13 +87,20 @@ internal static class NativeGenericSymbolChecks
             }
             """;
         IMethodSymbol? previousIdentity = null;
-        foreach (var references in new MetadataReference[][] { [coreReference, reference], [reference, coreReference] })
+        foreach (var references in new MetadataReference[][] { [coreReference, reference, bridgeReference], [bridgeReference, reference, coreReference] })
         {
             var tree = SyntaxTree.ParseText(source);
             var compilation = Compilation.Create("NativeGenericConsumer", [tree], references, CompilationOptions.NeoCLR);
             var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
             Check(errors.Length == 0, string.Join("; ", errors.Select(d => d.ToString())));
             var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            var bridgeAssembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(bridgeReference)!;
+            var bridgeMethod = bridgeAssembly.GlobalNamespace.LookupNamespace("GenericBridge")!.GetMembers("Create").OfType<IMethodSymbol>().Single();
+            Check(bridgeMethod.ReturnType is INamedTypeSymbol externalBox && ReferenceEquals(externalBox.OriginalDefinition, assembly.GetTypeByMetadataName("Generics.Box`1")), "canonical external constructed definition");
+            var relayMethod = bridgeAssembly.GlobalNamespace.LookupNamespace("GenericBridge")!.GetMembers("RelayBox").OfType<IMethodSymbol>().Single();
+            Check(relayMethod.ReturnType is INamedTypeSymbol externalOpen &&
+                ReferenceEquals(externalOpen.TypeArguments[0], relayMethod.TypeParameters[0]) &&
+                ReferenceEquals(externalOpen.OriginalDefinition, assembly.GetTypeByMetadataName("Generics.Box`1")), "external construction retains declaring method scope");
             var ns = assembly.GlobalNamespace.LookupNamespace("Generics")!;
             var boxDefinition = assembly.GetTypeByMetadataName("Generics.Box`1")!;
             Check(boxDefinition.Name == "Box" && boxDefinition.Arity == 1 && boxDefinition.TypeParameters[0].Name == "TItem" &&
@@ -107,7 +131,7 @@ internal static class NativeGenericSymbolChecks
                 constructed.Parameters[0].Type.SpecialType == SpecialType.System_Int32, "shared constructed method substitution");
             using var image = new MemoryStream();
             var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,
-                new(new("NativeGenericConsumer", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core)]));
+                new(new("NativeGenericConsumer", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core), new(bridgeReference, bridgeReference.Definition, core)]));
             Check(result.Success, string.Join("; ", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "NativeGenericConsumer.dll"), image.ToArray());
             var invalid = Compilation.Create("InvalidGenericCall", [SyntaxTree.ParseText("import Generics.*\nfunc Wrong() -> int => Identity<int>(true)")], references,
@@ -117,6 +141,8 @@ internal static class NativeGenericSymbolChecks
             Check(wrongConstruction.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "incompatible generic constructions diagnose");
             Check(invalid.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "invalid generic argument diagnoses");
         }
+        var missing = Compilation.Create("MissingGenericDependency", [SyntaxTree.ParseText("func Main() -> int => 0")], [coreReference, bridgeReference], CompilationOptions.NeoCLR);
+        Check(missing.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "missing external generic dependency diagnoses");
         File.WriteAllText(Path.Combine(output, "NativeGenericConsumer.rvn"), source);
         Console.WriteLine("PASS direct native generic symbols, inference, substitution and emission");
     }

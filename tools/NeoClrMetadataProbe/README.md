@@ -643,3 +643,9 @@ returns 42; open/external construction signatures remain outside direct reading.
 OpenBox<T>, OpenBoxes<T> and Box<TItem>.Same now exercise scoped local constructions,
 including inference, vectors and method/owner parameter identity. Incompatible generic
 return types diagnose. External construction signatures remain outside direct reading.
+
+NativeGenericBridge now forwards closed/open Box<T> signatures and vectors from
+NativeGenericLibrary to the consumer. The runtime command loads both dependencies.
+Checks cover original-definition identity, bridge method scope, both reference orders
+and missing dependency diagnostics. The source uses imported namespace functions;
+qualified generic namespace-call lookup remains a separately recorded follow-up.

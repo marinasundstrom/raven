@@ -844,3 +844,21 @@ return diagnostics; arrays of open constructions preserve aliases at runtime. Al
 native consumers execute (42), and metadata CLR/native generic import consumers pass.
 No Runtime Contract or encoding changes. External generic constructions, constraints
 and full native core/bootstrap remain pending.
+
+### External native generic constructions (2026-10-02 development)
+
+NativeGenericBridge now exposes closed and method-scoped Box<T> signatures owned by
+NativeGenericLibrary, including vectors. The consumer resolves the exact original
+definition in both reference orders and retains bridge-method parameter ownership.
+Missing dependencies diagnose. The existing importer, recursive substitution and emitter
+needed no changes: this slice expands the metadata reader and executable coverage.
+All seven consumers execute (42); 106 C# metadata groups pass, including CLR forwarding
+through three assemblies and missing/wrong-version resolver rejection.
+
+No Runtime Contract, metadata encoding or core bootstrap change. Constraints and generic
+inheritance remain pending. During development, qualified calls
+GenericBridge.Forward(...) and GenericBridge.ForwardArray(...) reported RAV0234 for
+generic namespace functions, while imported unqualified calls compile and execute.
+This is an observed lookup candidate, not yet independently reproduced on .NET or
+attributed to a specific binder path. Follow it up separately; no workaround was added
+to the importer or emitter.

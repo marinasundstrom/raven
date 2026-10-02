@@ -27,7 +27,7 @@ internal static class NativeSymbolChecks
             var dependencyPath = Path.Combine(output, dependency + ".dll");
             var start = new ProcessStartInfo(runtime) { RedirectStandardOutput = true, RedirectStandardError = true };
             foreach (var arg in new[] { "run", appPath, "--module", dependencyPath, "--system", system, "--show-result" }) start.ArgumentList.Add(arg);
-            var additionalDependency = app == "ExternalNativeConsumer" ? "NativePayloadLibrary" : app == "NativeInterfaceConsumer" ? "NativeInterfaceStorageLibrary" : null;
+            var additionalDependency = app == "ExternalNativeConsumer" ? "NativePayloadLibrary" : app == "NativeInterfaceConsumer" ? "NativeInterfaceStorageLibrary" : app == "NativeGenericConsumer" ? "NativeGenericBridge" : null;
             if (additionalDependency is not null)
             {
                 start.ArgumentList.Add("--module");

@@ -14,7 +14,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   signatures now import through the module cache; native Box<int> factory/identity calls
   execute. Open local constructions now map recursively using method/owner-scoped
   caches, preserving parameter identity in Box<T> and vector signatures. Inferred
-  calls execute; external constructions and constraints remain pending.
+  calls execute. External native generic constructions now also flow through a third
+  assembly using exact dependency resolution, preserving canonical definitions and
+  method scopes in both reference orders. Constraints remain pending; qualified generic
+  namespace-call lookup is a recorded follow-up.
 
 - **2026-10-02:** Diagnose incompatible expression-bodied function and method returns
   before emission by binding the complete method body during diagnostic traversal.
