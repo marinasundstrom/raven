@@ -3620,3 +3620,13 @@ report CannotConvertFromTypeToType before emission, including after GetTypeInfo 
 repeated GetDiagnostics calls. The focused .NET regression/return suite passes 106 tests.
 This is a general compiler fix, with no Runtime Contract, metadata encoding or target
 policy change; native import/bootstrap limitations remain unchanged.
+
+### Native generic metadata boundary (2026-10-02 development)
+
+The independent metadata library now reads/imports unconstrained static generic
+methods and namespace functions, with preserved names, arity and parameter/vector
+signatures. Its C# consumers execute CLR and native generic calls. Raven does not yet
+provide native method type-parameter symbols, so NeoClrMetadataReference.ReadAssembly
+explicitly rejects these declarations before compilation. This keeps the supported
+semantic profile stable as the lower-level reader grows. No Runtime Contract or
+metadata encoding changes; generic symbol integration is next.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Keep unsupported native generic declarations outside the semantic
+  input boundary while the metadata library adds generic definition reading/import.
+  References fail explicitly before compilation instead of exposing partial symbols.
+
 - **2026-10-02:** Diagnose incompatible expression-bodied function and method returns
   before emission by binding the complete method body during diagnostic traversal.
   Independently reproduced with .NET references; prior semantic queries and repeated

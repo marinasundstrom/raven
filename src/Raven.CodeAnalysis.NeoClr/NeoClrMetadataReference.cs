@@ -15,7 +15,12 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
     public AssemblyDefinition Definition { get; }
     /// <summary>Reads an API-produced PE/#Neo declaration library. Unsupported declarations fail before compilation.</summary>
     public static NeoClrMetadataReference ReadAssembly(ReadOnlySpan<byte> image)
-        => new(AssemblyDefinition.ReadNativeAssembly(image));
+    {
+        var definition = AssemblyDefinition.ReadNativeAssembly(image);
+        if (definition.MainModule.Methods.Any(method => method.GenericArity != 0))
+            throw new InvalidDataException("native generic method symbols are not yet supported by Raven");
+        return new(definition);
+    }
     public override bool Equals(object? obj) => ReferenceEquals(this, obj);
     public override bool Equals(MetadataReference? other) => ReferenceEquals(this, other);
     public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
