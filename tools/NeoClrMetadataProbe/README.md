@@ -534,3 +534,17 @@ semantic symbol/type identity, both reference orders, compilation isolation, exa
 matching and dependency/configuration errors. CLI and native emission rejection must leave
 output empty until the native call adapter exists. validation.json records scope, hashes
 and passed checks. This is semantic import evidence, not native execution evidence.
+
+Native semantic import now also emits API-authored and Raven-authored cross-assembly
+calls. To run both consumers against neoCLR and record artifact/runtime hashes:
+
+```sh
+dotnet tools/NeoClrMetadataProbe/bin/Debug/net10.0/NeoClrMetadataProbe.dll \
+  --native-symbols-runtime /path/to/NeoCLR.CoreProbe.dll /path/to/neoclr \
+  /path/to/System.neox /tmp/native-symbol-runtime-fresh
+```
+
+Both return Int32(42). The simpler --native-symbols mode emits the same artifacts
+without running them. CLI emission still rejects native references. Missing explicit
+emission bindings and mismatched native snapshots remain errors; native primitive
+namespace functions and a CLI core bootstrap are the tested boundary.

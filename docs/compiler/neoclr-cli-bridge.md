@@ -3339,3 +3339,20 @@ See [the provider contract](metadata-import.md#first-native-reference-semantic-p
 Missing/duplicate/mismatched native dependencies and wrong target selection use RAVT003.
 Default CLI emission and unsupported native calls fail before writing output. Both-target
 loading/emission remains the scope, with ordinary .NET behavior unchanged for CLI inputs.
+
+### Direct native function emission (2026-10-02)
+
+NativeMethodSymbol retains its metadata definition, so native call emission imports
+that exact declaration through AssemblyBuilder.ImportReference rather than searching
+CLI types or projecting the library. Supply a NeoClrMetadataDependency whose Reference
+is the registered NeoClrMetadataReference and whose Definition is that reference's
+Definition, with the matching explicit core identity. A replacement snapshot or a
+translated implementation binding is rejected with NEOMETA002 before output is written.
+This is the current host configuration contract, not automatic dependency discovery.
+
+The --native-symbols-runtime C# probe now covers API-authored and Raven-authored native
+libraries, direct native symbol loading, consumer emission and actual runtime calls
+returning 42. No native dependency is loaded through .NET reflection. The primitive
+core still uses the explicit CLI bootstrap. Nominal/generic native declarations, full
+native System loading and dependency probing remain pending; ordinary .NET behavior
+and its reflection provider are unchanged.

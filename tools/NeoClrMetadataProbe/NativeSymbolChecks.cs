@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Reflection;
 using System.Text.Json;
 using NeoCLR.Metadata.Experimental;
@@ -12,6 +14,35 @@ namespace NeoClrMetadataProbe;
 
 internal static class NativeSymbolChecks
 {
+    internal static async Task RunRuntime(string corePath, string runtime, string system, string output)
+    {
+        Run(corePath, output);
+        var results = new List<object>();
+        foreach (var (app, dependency) in new[] { ("NativeConsumer", "NativeSymbols"), ("RavenNativeConsumer", "RavenNativeLibrary") })
+        {
+            var appPath = Path.Combine(output, app + ".dll");
+            var dependencyPath = Path.Combine(output, dependency + ".dll");
+            var start = new ProcessStartInfo(runtime) { RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var arg in new[] { "run", appPath, "--module", dependencyPath, "--system", system, "--show-result" }) start.ArgumentList.Add(arg);
+            using var process = Process.Start(start) ?? throw new Exception("runtime did not start");
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            try { await process.WaitForExitAsync(timeout.Token); }
+            catch { process.Kill(entireProcessTree: true); throw; }
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
+            if (process.ExitCode != 42 || (stdout + stderr).Trim() != "=> Int32(42)") throw new Exception($"native runtime failed: {process.ExitCode} {stdout} {stderr}");
+            results.Add(new { app, dependency, exitCode = process.ExitCode, stdout, stderr, appSha256 = Hash(appPath), dependencySha256 = Hash(dependencyPath) });
+        }
+        File.WriteAllText(Path.Combine(output, "runtime-validation.json"), JsonSerializer.Serialize(new {
+            passed = true, runtimeSha256 = Hash(runtime), systemSha256 = Hash(system), coreSha256 = Hash(corePath), results,
+            scope = "native primitive namespace function import and cross-assembly execution; explicit CLI primitive core retained"
+        }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
+        Console.WriteLine("PASS native metadata import, emission and runtime execution");
+        static string Hash(string path) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
+    }
+
     internal static void Run(string corePath, string output)
     {
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
@@ -47,8 +78,17 @@ internal static class NativeSymbolChecks
             using var cliOutput = new MemoryStream();
             if (compilation.Emit(cliOutput).Success || cliOutput.Length != 0) throw new Exception("CLI emitter admitted native reference");
             using var nativeOutput = new MemoryStream();
-            var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, nativeOutput, new(new("NativeConsumer", new Version(1, 0, 0, 0)), core, []));
-            if (emitted.Success || nativeOutput.Length != 0 || !emitted.Diagnostics.Any(d => d.Id == "NEOMETA001")) throw new Exception("native call adapter boundary not diagnosed: " + string.Join("; ", emitted.Diagnostics));
+            var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, nativeOutput, new(new("NativeConsumer", new Version(1, 0, 0, 0)), core, [new(native, native.Definition, core)]));
+            if (!emitted.Success || nativeOutput.Length == 0) throw new Exception("native call emission failed: " + string.Join("; ", emitted.Diagnostics));
+            File.WriteAllBytes(Path.Combine(output, "NativeConsumer.dll"), nativeOutput.ToArray());
+            using var unboundOutput = new MemoryStream();
+            var unbound = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, unboundOutput,
+                new(new("NativeConsumer", new Version(1, 0, 0, 0)), core, []));
+            if (unbound.Success || unboundOutput.Length != 0 || !unbound.Diagnostics.Any(d => d.Id == "NEOMETA001")) throw new Exception("unbound native dependency admitted");
+            using var invalidOutput = new MemoryStream();
+            var mismatched = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, invalidOutput,
+                new(new("NativeConsumer", new Version(1, 0, 0, 0)), core, [new(native, NeoClrMetadataReference.ReadAssembly(image).Definition, core)]));
+            if (mismatched.Success || invalidOutput.Length != 0 || !mismatched.Diagnostics.Any(d => d.Id == "NEOMETA002")) throw new Exception("native snapshot mismatch admitted");
             var other = Create(source, refs); _ = other.GetDiagnostics();
             if (ReferenceEquals(compilation.GetAssemblyOrModuleSymbol(native), other.GetAssemblyOrModuleSymbol(native))) throw new Exception("symbols leaked across compilations");
         }
@@ -72,7 +112,25 @@ internal static class NativeSymbolChecks
         if (complete.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error)) throw new Exception("registered native dependency failed");
         var assembly = (IAssemblySymbol)complete.GetAssemblyOrModuleSymbol(dependency)!;
         if (!ReferenceEquals(assembly.Modules.Single().ReferencedAssemblySymbols.Single(), complete.GetAssemblyOrModuleSymbol(native))) throw new Exception("dependency symbol identity mismatch");
-        File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new { passed = true, nativeSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), coreSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(corePath))), cases = new[] { "native namespace overloads", "both reference orders", "semantic type and symbol identity", "compilation isolation", "accessibility", "invalid argument", "unsupported emission leaves output empty", "duplicate identity", "wrong target", "missing dependency", "registered dependency", "exact version identity" }, scope = "direct native dependency symbols with explicit CLI primitive core; native emission not yet exercised" }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
+        const string librarySource = "namespace SourceLibrary\npublic func Twice(value: int) -> int { return value + value }";
+        File.WriteAllText(Path.Combine(output, "RavenNativeLibrary.rvn"), librarySource);
+        var producer = Compilation.Create("RavenNativeLibrary", [SyntaxTree.ParseText(librarySource)], [cliCore],
+            CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        using var producerOutput = new MemoryStream();
+        var produced = NeoClrCompilationEmitter.EmitMetadataAssembly(producer, producerOutput,
+            new(new("RavenNativeLibrary", new Version(1, 0, 0, 0)), core, []));
+        if (!produced.Success) throw new Exception("native source producer failed: " + string.Join("; ", produced.Diagnostics));
+        File.WriteAllBytes(Path.Combine(output, "RavenNativeLibrary.dll"), producerOutput.ToArray());
+        var producedReference = NeoClrMetadataReference.ReadAssembly(producerOutput.ToArray());
+        var sourceConsumer = Compilation.Create("RavenNativeConsumer",
+            [SyntaxTree.ParseText("import SourceLibrary.*\nfunc Main() -> int { return Twice(21) }")],
+            [cliCore, producedReference], CompilationOptions.NeoCLR);
+        using var consumerOutput = new MemoryStream();
+        var consumed = NeoClrCompilationEmitter.EmitMetadataAssembly(sourceConsumer, consumerOutput,
+            new(new("RavenNativeConsumer", new Version(1, 0, 0, 0)), core, [new(producedReference, producedReference.Definition, core)]));
+        if (!consumed.Success) throw new Exception("native source consumer failed: " + string.Join("; ", consumed.Diagnostics));
+        File.WriteAllBytes(Path.Combine(output, "RavenNativeConsumer.dll"), consumerOutput.ToArray());
+        File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new { passed = true, nativeSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), coreSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(corePath))), cases = new[] { "native namespace overloads", "both reference orders", "semantic type and symbol identity", "compilation isolation", "accessibility", "invalid argument", "CLI emission leaves output empty", "native call emission", "Raven-produced native library read and consumed", "native snapshot mismatch leaves output empty", "duplicate identity", "wrong target", "missing dependency", "registered dependency", "exact version identity" }, scope = "direct native dependency symbols with explicit CLI primitive core; native call emitted; runtime execution validated separately" }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS direct native semantic imports");
     }
 }

@@ -62,6 +62,9 @@ public static class NeoClrCompilationEmitter
         {
             if (!compilation.References.Any(r => ReferenceEquals(r, dependency.Reference)))
                 return Fail(Configuration, "dependency reference is not registered with this compilation");
+            if (dependency.Reference is NeoClrMetadataReference native &&
+                (!ReferenceEquals(native.Definition, dependency.Definition) || dependency.NativeImplementation is not null))
+                return Fail(Configuration, "native dependency must use its semantic snapshot without a translated implementation");
             if (!options.CoreLibrary.Equals(dependency.CoreLibrary)) return Fail(Configuration, "dependency core contract mismatch");
             if (compilation.GetAssemblyOrModuleSymbol(dependency.Reference) is not IAssemblySymbol symbol || symbol.Name != dependency.Definition.Name)
                 return Fail(Configuration, "dependency snapshot does not match the reference assembly name");

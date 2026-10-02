@@ -407,6 +407,12 @@ internal static class Int32Emitter
             var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
                 ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name);
             var dependencyMetadata = binding.Definition;
+            if (symbol is NativeMethodSymbol native)
+            {
+                if (!ReferenceEquals(native.Definition.Module.Assembly, dependencyMetadata))
+                    throw Unsupported("native dependency snapshot differs from semantic reference");
+                return assembly.ImportReference(native.Definition, binding.CoreLibrary);
+            }
             var types = dependencyMetadata.MainModule.Types.Where(t => symbol.ContainingType is { } owner && t.GenericArity == owner.Arity && MatchesType(t, owner)).Take(2).ToArray();
             if (types.Length != 1) throw Unsupported("dependency type unavailable or ambiguous");
             if (!CallableSignature.TryCreate(symbol, out var signature, NeoClrCapabilities.Shared))

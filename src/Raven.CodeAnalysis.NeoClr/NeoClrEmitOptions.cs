@@ -5,7 +5,8 @@ using NeoCLR.Metadata.Experimental.Model;
 namespace Raven.CodeAnalysis.NeoClr;
 
 /// <summary>A host-supplied binding between a compiler reference and its read-only metadata contract.</summary>
-/// <remarks>The host must keep the reference and snapshot consistent and provide matching native dependency artifacts.</remarks>
+/// <remarks>The host must keep the reference and snapshot consistent and provide matching native dependency artifacts.
+/// A NeoClrMetadataReference requires its exact Definition snapshot and no translated nativeImplementation binding.</remarks>
 public sealed class NeoClrMetadataDependency
 {
     /// <summary>Creates a binding; no files or runtime assemblies are loaded.</summary>
