@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Record coordinated structural Function integration on the neoCLR
+  metadata feature branch. Existing target-owned inhabited callback results already
+  match the Function transport; ordinary .NET delegate selection is unchanged.
+  Direct native metadata callback emission remains pending after runtime integration.
+
 - **2026-10-02:** Preserve nested imported type scopes in native codegen under an
   explicit capability. Match union-case physical owners separately from semantic
   carriers. A separate-library Raven consumer constructs and mutates nested/generic

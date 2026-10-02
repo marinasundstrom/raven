@@ -2966,3 +2966,19 @@ The Raven native fixture constructs, mutates and reads nested values including a
 owner across a dependency boundary (42). The unchanged collections sample advances to
 the Single callable signature, with a successful 7168-byte CLI emission control. It has
 not executed; extension/delegate signatures and native System bindings remain open.
+
+
+## Coordinated Function runtime integration (2026-10-02)
+
+The author authorized reusing the structural Function feature branches. neoCLR's
+metadata branch integrates runtime/library revision a081c6e3 from codex/structural-types,
+retaining System.Fail, binary PE loading and the metadata API. Raven already carries
+the needed target-owned inhabited callback-result policy in CliRuntimeContract; ordinary
+.NET remains delegate-based. No binding or Runtime Contract configuration changed.
+
+The combined runtime/reference/bridge bundle passes existing structural callback,
+closure, async and comparer CLI-import controls. These remain temporary CLI Func/Action
+encodings owned by the bridge. The native metadata API and shared emission plan must
+now expose structural Function signatures and checked binding/invocation directly;
+that direct path is still incomplete for the unchanged collections application.
+Main does not gain structural Functions from these feature-branch checks.
