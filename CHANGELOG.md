@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Add a target-owned reference conversion operation using metadata
+  castclass for neoCLR; ordinary .NET keeps its existing conversion path. Recognize
+  equal physical union-case storage across semantic carrier views. The unchanged
+  collections sample now reaches iterator-loop lowering.
+
 - **2026-10-02:** Lower opt-in union-case branches through checked TryGet calls and
   payload accessors in the shared body plan. Keep pattern bindings on successful
   paths, mark compiler-generated match failure for native terminal failure, and

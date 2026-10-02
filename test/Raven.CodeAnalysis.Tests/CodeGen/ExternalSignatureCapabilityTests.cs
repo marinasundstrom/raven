@@ -8,22 +8,24 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class ExternalSignatureCapabilityTests
 {
-    [Fact]
-    public void ImportedCasePatternUsesCheckedPayloadAndPreservesDotNetBehavior()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ImportedCasePatternUsesCheckedPayloadAndPreservesDotNetBehavior(bool generic)
     {
-        var library = Compilation.Create("CaseLibrary", [SyntaxTree.ParseText("""
-            public union Choice {
-                case Some(int)
+        var library = Compilation.Create(generic ? "GenericCaseLibrary" : "CaseLibrary", [SyntaxTree.ParseText($$"""
+            public union Choice{{(generic ? "<T>" : "")}} {
+                case Some({{(generic ? "T" : "int")}})
                 case None
             }
             """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         using var libraryImage = new MemoryStream();
         var built = library.Emit(libraryImage);
         Assert.True(built.Success, string.Join("\n", built.Diagnostics));
-        var app = Compilation.Create("CaseConsumer", [SyntaxTree.ParseText("""
+        var app = Compilation.Create(generic ? "GenericCaseConsumer" : "CaseConsumer", [SyntaxTree.ParseText($$"""
             import Choice.*
             public static class Consumer {
-                public static func Read(choice: Choice) -> int {
+                public static func Read(choice: Choice{{(generic ? "<int>" : "")}}) -> int {
                     var result = 0
                     match choice {
                         Some(let value) => { result = value }
@@ -31,14 +33,14 @@ public class ExternalSignatureCapabilityTests
                     }
                     return result
                 }
-                public static func Run() -> int => Read(Some(42)) + Read(None())
+                public static func Run() -> int => Read(Some{{(generic ? "<int>" : "")}}(42)) + Read(None())
             }
             """)], TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(libraryImage.ToArray())).ToArray(), new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(app.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsExternalValueSignatures: true, allowsExternalValueInstanceCalls: true, allowsManagedReferences: true,
-            allowsExternalConstructors: true, allowsNestedExternalTypes: true, allowsCasePatterns: true);
+            allowsExternalConstructors: true, allowsNestedExternalTypes: true, allowsCasePatterns: true, allowsGenericClassOwners: true);
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "Read");
         var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, capabilities));

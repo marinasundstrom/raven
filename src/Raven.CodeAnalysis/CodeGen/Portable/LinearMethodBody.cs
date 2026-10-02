@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -156,14 +156,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool PatternValue(ITypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
         {
             if (pattern is BoundDiscardPattern) { Add(LinearInstructionKind.Pop, syntax); return true; }
-            if (pattern is BoundDeclarationPattern declaration && SymbolEqualityComparer.Default.Equals(input, declaration.DeclaredType))
+            if (pattern is BoundDeclarationPattern declaration && CallableSignature.SameStorageType(input, declaration.DeclaredType))
                 return PatternDesignator(declaration.Designator, input, syntax);
             var tryGet = pattern switch { BoundCasePattern c => c.TryGetMethod, BoundUnionMemberPattern m => m.TryGetMethod, _ => null };
             if (tryGet is null || !SymbolEqualityComparer.Default.Equals(input, tryGet.ContainingType) ||
                 !SupportedInstanceCall(tryGet) || tryGet.Parameters is not [{ RefKind: RefKind.Out } output] ||
                 !TryType(input, false, out var inputType) || !TryType(output.Type, false, out var caseType) ||
                 capabilities?.Allows(inputType) != true || !capabilities.Allows(caseType))
-                return Reject("unsupported pattern " + pattern.GetType().Name, syntax);
+                return Reject("unsupported pattern " + pattern.GetType().Name + " from " + input.ToDisplayString() + " to " + pattern.Type.ToDisplayString(), syntax);
             var receiver = localTypes.Count; localTypes.Add(inputType);
             Add(LinearInstructionKind.StoreLocal, syntax, receiver);
             var payload = localTypes.Count; localTypes.Add(caseType);
@@ -201,7 +201,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         {
             if (designator is BoundDiscardDesignator) { Add(LinearInstructionKind.Pop, syntax); return true; }
             if (designator is not BoundSingleVariableDesignator variable ||
-                !SymbolEqualityComparer.Default.Equals(input, variable.Local.Type) || !TryType(input, false, out var type) || capabilities?.Allows(type) != true)
+                !CallableSignature.SameStorageType(input, variable.Local.Type) || !TryType(input, false, out var type) || capabilities?.Allows(type) != true)
                 return Reject("unsupported pattern binding", syntax);
             if (!locals.TryGetValue(variable.Local, out var slot))
             {
@@ -644,6 +644,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundParenthesizedExpression parenthesized:
                     return LowerValue(parenthesized.Expression);
+                case BoundConversionExpression conversion when conversion.Conversion.IsReference && conversion.Conversion.IsImplicit &&
+                    capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true && conversion.Expression.Type.IsReferenceType &&
+                    conversion.Type.IsReferenceType && conversion.Type.TypeKind != TypeKind.Delegate &&
+                    TryType(conversion.Type, false, out var targetType) && capabilities.Allows(targetType) &&
+                    TryType(conversion.Expression.Type, false, out var sourceType) && capabilities.Allows(sourceType):
+                    if (!LowerValue(conversion.Expression)) return false;
+                    instructions.Add(new(LinearInstructionKind.ReferenceConvert, Syntax(expression), Type: conversion.Type));
+                    return true;
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && conversion.Conversion.IsImplicit &&
                     capabilities?.AllowsInterfaceDispatch == true && conversion.Type.GetNonNullableType() is INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } target &&
                     SourceInterfacePlan.HasSupportedIdentity(target) && TryType(conversion.Expression.Type, false, out var from) && capabilities.Allows(from):

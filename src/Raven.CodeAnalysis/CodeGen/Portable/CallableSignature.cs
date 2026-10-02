@@ -56,6 +56,15 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         signature = new(result, parameters.ToImmutable());
         return true;
     }
+    // Union cases can carry different semantic carrier substitutions while sharing
+    // one physical nested case definition (notably nongeneric None).
+    internal static bool SameStorageType(ITypeSymbol left, ITypeSymbol right) =>
+        SymbolEqualityComparer.Default.Equals(left, right) ||
+        left is IUnionCaseTypeSymbol a && right is IUnionCaseTypeSymbol b &&
+        SymbolEqualityComparer.Default.Equals(a.ContainingAssembly, b.ContainingAssembly) &&
+        a.ToFullyQualifiedMetadataName() == b.ToFullyQualifiedMetadataName() &&
+        Enumerable.SequenceEqual<ITypeSymbol>(a.TypeArguments, b.TypeArguments, SymbolEqualityComparer.Default);
+
     internal static bool IsExternalValue(INamedTypeSymbol type, bool allowNested = false) =>
         type.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty && type.TypeKind == TypeKind.Struct &&
         type.IsValueType && (type.ContainingType is null || allowNested) && type.DeclaredAccessibility == Accessibility.Public;

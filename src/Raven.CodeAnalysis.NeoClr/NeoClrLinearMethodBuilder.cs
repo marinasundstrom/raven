@@ -18,6 +18,7 @@ internal sealed class NeoClrLinearMethodBuilder(MethodBuilder method,
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.ReferenceConvert: method.CastReference(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
             case LinearInstructionKind.FunctionBind: emitCall(instruction, method); break;
             case LinearInstructionKind.FunctionInvoke: method.InvokeFunction(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
             case LinearInstructionKind.LocalAddress: method.Emit(OpCode.Ldloca, instruction.Integer); break;

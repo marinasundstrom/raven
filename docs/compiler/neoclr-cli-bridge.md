@@ -3031,3 +3031,18 @@ support. No Runtime Contract or source binding change is introduced.
 34 focused compiler tests pass, including imported Some/None extraction and ordinary
 .NET execution. The unchanged collections sample progresses to reference conversions;
 this checkpoint does not establish execution of that sample on the native backend.
+
+### Reference conversion and physical case identity (2026-10-02)
+
+The native adapter explicitly admits `ReferenceConvert` for bound implicit reference
+conversions between supported reference signatures. It emits the metadata API's
+checked `castclass`; ordinary .NET does not opt into the instruction and keeps its
+existing path. This provides the native interface representation transition without
+requiring the metadata validator to invent imported inheritance relationships.
+
+Case pattern storage comparisons retain semantic identity by default, but recognize
+union-case symbols with the same assembly, physical metadata name and exact type
+arguments. A nongeneric `Option.None` case can therefore be consumed across different
+semantic carrier views. This changes codegen storage matching, not the binder's symbol
+equality or Runtime Contracts. The seven native profile cases remain passing; the
+unchanged collections sample next reaches retained iterator `for` statements.

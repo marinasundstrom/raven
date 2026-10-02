@@ -8,7 +8,7 @@ internal static class NeoClrCapabilities
     internal static EmissionCapabilities Shared { get; } = new(
         [EmissionPrimitiveType.NoResult, EmissionPrimitiveType.Int32, EmissionPrimitiveType.Int64, EmissionPrimitiveType.Boolean, EmissionPrimitiveType.String],
         [
-            LinearInstructionKind.FunctionBind, LinearInstructionKind.FunctionInvoke, LinearInstructionKind.Constant, LinearInstructionKind.Argument, LinearInstructionKind.Add,
+            LinearInstructionKind.ReferenceConvert, LinearInstructionKind.FunctionBind, LinearInstructionKind.FunctionInvoke, LinearInstructionKind.Constant, LinearInstructionKind.Argument, LinearInstructionKind.Add,
             LinearInstructionKind.Subtract, LinearInstructionKind.Multiply, LinearInstructionKind.Call,
             LinearInstructionKind.ConsoleWrite, LinearInstructionKind.String, LinearInstructionKind.Return, LinearInstructionKind.CompilerFailure,
             LinearInstructionKind.LoadLocal, LinearInstructionKind.StoreLocal, LinearInstructionKind.Boolean,
