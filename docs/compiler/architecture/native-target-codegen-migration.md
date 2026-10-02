@@ -113,3 +113,13 @@ change. Its focused Debug/Release fixture validates shared planning with explici
 and managed-local admission, and ordinary .NET execution returns 42. The Reflection.Emit
 shared profile still delegates patterns to its existing backend. Native ArrayList search
 consumers independently exercise the wrapper with Option case results.
+
+## Interface signature capability propagation (2026-10-02)
+
+Source interface planning now passes the selected capabilities when interpreting method
+results, parameters and property types, matching callable/body planning. This corrects
+an omission rather than adding a target policy. Explicit external reference/value
+admission is respected; the ordinary Reflection.Emit shared profile remains restricted
+and its existing emission fallback preserves CLR metadata. Independent C# tests inspect
+DateTime and Exception interface contracts, and reject them under the unchanged shared
+.NET profile. Native Map<K,V>.Find can consequently retain its imported Option<V> result.

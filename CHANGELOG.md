@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Propagate the selected target capabilities into shared interface
+  signature admission for method results, parameters and properties. Explicitly admitted
+  imported reference/value types now plan correctly; the ordinary .NET shared profile
+  retains its prior restrictions and CLR interface metadata retains the declared types.
+
 - **2026-10-02:** Apply neoCLR type capabilities when admitting and mapping explicit
   instance fields, enabling structural Function storage in generic comparer classes.
   Unchanged FunctionComparer/FunctionEqualityComparer sources compile and execute

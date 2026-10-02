@@ -60,12 +60,12 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
             if (!seen.Add(method)) return true;
             if (method.IsStatic || method.IsGenericMethod || !method.IsAbstract ||
                 method.MethodKind is not (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet) ||
-                method.DeclaredAccessibility != Accessibility.Public || !CallableSignature.TryType(method.ReturnType, true, out var result)) return false;
+                method.DeclaredAccessibility != Accessibility.Public || !CallableSignature.TryType(method.ReturnType, true, out var result, capabilities)) return false;
             var parameters = ImmutableArray.CreateBuilder<EmissionType>();
             foreach (var parameter in method.Parameters)
             {
                 if (parameter.RefKind != RefKind.None || parameter.HasExplicitDefaultValue || parameter.IsVarParams ||
-                    !CallableSignature.TryType(parameter.Type, false, out var value) || !capabilities.Allows(value)) return false;
+                    !CallableSignature.TryType(parameter.Type, false, out var value, capabilities) || !capabilities.Allows(value)) return false;
                 parameters.Add(value);
             }
             if (!capabilities.Allows(result)) return false;
@@ -77,7 +77,7 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
             if (member is IMethodSymbol method) { if (!AddMethod(method)) return false; }
             else if (member is IPropertySymbol { IsStatic: false } property &&
                 capabilities.Allows(property.IsIndexer ? EmissionDeclarationKind.InterfaceIndexer : EmissionDeclarationKind.InterfaceProperty) && property.DeclaredAccessibility == Accessibility.Public &&
-                CallableSignature.TryType(property.Type, false, out var value) && capabilities.Allows(value))
+                CallableSignature.TryType(property.Type, false, out var value, capabilities) && capabilities.Allows(value))
             {
                 if (property.GetMethod is { } get && !AddMethod(get) || property.SetMethod is { } set && !AddMethod(set)) return false;
                 properties.Add(new(property, value));

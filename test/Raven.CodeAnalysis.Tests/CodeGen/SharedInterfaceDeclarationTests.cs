@@ -8,6 +8,40 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class SharedInterfaceDeclarationTests
 {
     [Theory]
+    [InlineData("System.DateTime", false, true)]
+    [InlineData("System.Exception", true, false)]
+    public void ImportedInterfaceSignaturesRequireExplicitTargetCapabilities(string name, bool reference, bool value)
+    {
+        var tree = SyntaxTree.ParseText($$"""
+            public interface Contract {
+                val Current: {{name}} { get }
+                func Echo(input: {{name}}) -> {{name}}
+            }
+            """);
+        var compilation = Compilation.Create("ImportedContract", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single();
+        var type = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        Assert.False(SourceInterfacePlan.TryCreate(type, ReflectionEmitCapabilities.Shared, out _));
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
+            Enum.GetValues<LinearInstructionKind>(), Enum.GetValues<EmissionDeclarationKind>(),
+            [Accessibility.Public], [Accessibility.Public], [Accessibility.Public],
+            allowsRootClassSignatures: reference, allowsExternalReferenceSignatures: reference, allowsExternalValueSignatures: value);
+        Assert.True(SourceInterfacePlan.TryCreate(type, capabilities, out var plan));
+        Assert.Single(plan!.Properties);
+        Assert.Equal(2, plan.Methods.Length);
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var emitted = Assembly.Load(image.ToArray()).GetType("Contract")!;
+        var expected = name == "System.DateTime" ? typeof(DateTime) : typeof(Exception);
+        Assert.Equal(expected, emitted.GetProperty("Current")!.PropertyType);
+        Assert.Equal(expected, emitted.GetMethod("Echo")!.ReturnType);
+        Assert.Equal(expected, emitted.GetMethod("Echo")!.GetParameters()[0].ParameterType);
+    }
+
+    [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]
     public void InterfaceContractPlanMatchesCliMetadata(OptimizationLevel optimization)
