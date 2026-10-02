@@ -41,8 +41,8 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     internal TypeDefinition Definition { get; }
     public override string MetadataName => Definition.Name;
     internal ITypeSymbol Map(SignatureType signature) => signature.TypeParameterIndex is { } ordinal ? TypeParameters[ordinal]
-        : signature.ArrayElement is { TypeParameterIndex: not null } element
-            ? genericSignatureTypes.GetOrAdd(signature, _ => compilation.CreateArrayTypeSymbol(Map(element)))
+        : NativeModuleSymbol.HasParameter(signature, method: false)
+            ? genericSignatureTypes.GetOrAdd(signature, type => ((NativeModuleSymbol)ContainingModule).ConstructSignature(type, Map))
         : ((NativeModuleSymbol)ContainingModule).Map(signature);
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;

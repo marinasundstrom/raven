@@ -12,7 +12,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   parameters and reuse shared constructed-type/member substitution. Box<int>/Box<Item>
   construction, methods, properties and aliases execute. Local closed constructed
   signatures now import through the module cache; native Box<int> factory/identity calls
-  execute. Open/external constructions and constraints remain pending.
+  execute. Open local constructions now map recursively using method/owner-scoped
+  caches, preserving parameter identity in Box<T> and vector signatures. Inferred
+  calls execute; external constructions and constraints remain pending.
 
 - **2026-10-02:** Diagnose incompatible expression-bodied function and method returns
   before emission by binding the complete method body during diagnostic traversal.

@@ -72,6 +72,14 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         var external = (NativeAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(input)!;
         return external.Module.typeSymbols[definition];
     }
+    internal static bool HasParameter(SignatureType type, bool method) =>
+        (method ? type.MethodParameterIndex : type.TypeParameterIndex) is not null ||
+        type.ArrayElement is { } element && HasParameter(element, method) ||
+        type.ReferencedGenericInstance is { } constructed && constructed.TypeArguments.Any(argument => HasParameter(argument, method));
+    internal ITypeSymbol ConstructSignature(SignatureType type, Func<SignatureType, ITypeSymbol> map) =>
+        type.ArrayElement is { } element ? compilation.CreateArrayTypeSymbol(map(element))
+        : type.ReferencedGenericInstance is { } constructed ? Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(map).ToArray())
+        : throw new InvalidDataException("expected composite native signature");
     internal ITypeSymbol Map(SignatureType signature) => signatureTypes.GetOrAdd(signature, type =>
         type.ReferencedGenericInstance is { } constructed ? Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(Map).ToArray())
         : type.ArrayElement is { } element ? compilation.CreateArrayTypeSymbol(Map(element))
@@ -150,8 +158,8 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public ISymbol? AssociatedSymbol => property;
     internal MethodDefinition Definition { get; }
     private ITypeSymbol Map(SignatureType type) => type.MethodParameterIndex is { } ordinal ? TypeParameters[ordinal]
-        : type.ArrayElement is { MethodParameterIndex: not null } element
-            ? genericSignatureTypes.GetOrAdd(type, _ => compilation.CreateArrayTypeSymbol(Map(element)))
+        : NativeModuleSymbol.HasParameter(type, method: true)
+            ? genericSignatureTypes.GetOrAdd(type, signature => ((NativeModuleSymbol)ContainingModule).ConstructSignature(signature, Map))
         : ContainingType is NativeNamedTypeSymbol owner ? owner.Map(type) : ((NativeModuleSymbol)ContainingModule).Map(type);
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;

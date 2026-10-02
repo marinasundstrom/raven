@@ -14,6 +14,8 @@ internal static class NativeGenericSymbolChecks
             namespace Generics
             public func CreateBox(value: int) -> Box<int> => Box<int>(value)
             public func EchoBox(value: Box<int>) -> Box<int> => value
+            public func OpenBox<T>(value: Box<T>) -> Box<T> => value
+            public func OpenBoxes<T>(values: Box<T>[]) -> Box<T>[] => values
             public func Identity<T>(value: T) -> T => value
             public func ArrayIdentity<T>(values: T[]) -> T[] => values
             public class Box<TItem> {
@@ -22,6 +24,7 @@ internal static class NativeGenericSymbolChecks
                 public val Current: TItem => stored
                 public func Set(value: TItem) { stored = value }
                 public func Echo(values: TItem[]) -> TItem[] => values
+                public func Same(value: Box<TItem>) -> Box<TItem> => value
             }
             public static class Algorithms {
                 public static func First<T>(values: T[]) -> T => values[0]
@@ -50,8 +53,9 @@ internal static class NativeGenericSymbolChecks
                 if item.Number != 7 { return 1 }
                 if Forward<Item>(item).Number != 7 { return 2 }
                 let values: int[] = [19, 23]
-                let box = EchoBox(CreateBox(19))
-                box.Set(42)
+                let box = OpenBox(EchoBox(CreateBox(19)))
+                let boxes: Box<int>[] = [box]
+                OpenBoxes(boxes)[0].Same(box).Set(42)
                 if box.Current != 42 { return 6 }
                 let nominal = Box<Item>(item)
                 nominal.Current.Number = 9
@@ -81,6 +85,13 @@ internal static class NativeGenericSymbolChecks
             Check(boxType.InstanceConstructors.Single().Parameters[0].Type.SpecialType == SpecialType.System_Int32 &&
                 boxType.GetMembers("Current").OfType<IPropertySymbol>().Single().Type.SpecialType == SpecialType.System_Int32,
                 "shared constructed owner substitution");
+            var openMethod = ns.GetMembers("OpenBox").OfType<IMethodSymbol>().Single();
+            Check(openMethod.ReturnType is INamedTypeSymbol openResult &&
+                ReferenceEquals(openResult.TypeArguments[0], openMethod.TypeParameters[0]) &&
+                ReferenceEquals(openMethod.ReturnType, openMethod.Parameters[0].Type), "constructed signature retains method scope");
+            var sameMethod = boxDefinition.GetMembers("Same").OfType<IMethodSymbol>().Single();
+            Check(sameMethod.ReturnType is INamedTypeSymbol ownerResult &&
+                ReferenceEquals(ownerResult.TypeArguments[0], boxDefinition.TypeParameters[0]), "constructed signature retains owner scope");
             var identity = ns.GetMembers("Identity").OfType<IMethodSymbol>().Single();
             Check(identity.IsGenericMethod && identity.Arity == 1 && identity.TypeParameters[0].Name == "T" &&
                 identity.TypeParameters[0].Ordinal == 0 && ReferenceEquals(identity.TypeParameters[0].DeclaringMethodParameterOwner, identity) &&
@@ -101,6 +112,9 @@ internal static class NativeGenericSymbolChecks
             File.WriteAllBytes(Path.Combine(output, "NativeGenericConsumer.dll"), image.ToArray());
             var invalid = Compilation.Create("InvalidGenericCall", [SyntaxTree.ParseText("import Generics.*\nfunc Wrong() -> int => Identity<int>(true)")], references,
                 CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+            var wrongConstruction = Compilation.Create("WrongConstruction", [SyntaxTree.ParseText("import Generics.*\nfunc Wrong(value: Box<bool>) -> Box<int> => OpenBox(value)")], references,
+                CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+            Check(wrongConstruction.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "incompatible generic constructions diagnose");
             Check(invalid.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "invalid generic argument diagnoses");
         }
         File.WriteAllText(Path.Combine(output, "NativeGenericConsumer.rvn"), source);

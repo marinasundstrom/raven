@@ -639,3 +639,7 @@ signature imports, constraints and direct imported constructed-field emission ar
 CreateBox(int)->Box<int> and EchoBox(Box<int>)->Box<int> now exercise local closed
 constructed signatures across the native library boundary. The same consumer still
 returns 42; open/external construction signatures remain outside direct reading.
+
+OpenBox<T>, OpenBoxes<T> and Box<TItem>.Same now exercise scoped local constructions,
+including inference, vectors and method/owner parameter identity. Incompatible generic
+return types diagnose. External construction signatures remain outside direct reading.

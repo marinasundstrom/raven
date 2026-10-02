@@ -830,3 +830,17 @@ namespace functions instead of allocating its integer box locally. All seven con
 execute (42); the C# metadata/CLR counterpart passes. No Runtime Contract, codegen
 abstraction or metadata encoding change was needed. Open/external generic constructions,
 constraints and the full native core/bootstrap remain separate work.
+
+### Scoped native constructions (2026-10-02 development)
+
+Open local signatures such as Box<T> now resolve recursively through the declaring
+method or type's cache. Closed signatures retain module caching. Scope checks remain
+in the metadata reader; no synthetic parameters or reflection objects are created.
+Shared constructed-type/member substitution and inference handle OpenBox/OpenBoxes
+namespace functions and Box<TItem>.Same without new emission logic.
+
+The C# consumer checks exact method/owner parameter identity and incompatible generic
+return diagnostics; arrays of open constructions preserve aliases at runtime. All seven
+native consumers execute (42), and metadata CLR/native generic import consumers pass.
+No Runtime Contract or encoding changes. External generic constructions, constraints
+and full native core/bootstrap remain pending.
