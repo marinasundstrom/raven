@@ -16,6 +16,10 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args.Length == 4 && args[0] == "--value-constructor-runtime")
+{
+    await ValueReceiverChecks.Run(args[1], args[2], args[3], constructors: true); return;
+}
 if (args.Length == 4 && args[0] == "--imported-interface-runtime")
 {
     await ImportedInterfaceChecks.Run(args[1], args[2], args[3]);

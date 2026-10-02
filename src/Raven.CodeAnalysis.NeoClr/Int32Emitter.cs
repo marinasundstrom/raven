@@ -294,12 +294,7 @@ internal static class Int32Emitter
             current.Body.Emit(new NeoClrLinearMethodBuilder(current.Method, (instruction, output) =>
             {
                 diagnosticSyntax = instruction.Syntax;
-                if (instruction.Kind == LinearInstructionKind.NewObject && instruction.Method!.ContainingType?.Arity is not > 0)
-                {
-                    if (!definedMethods.TryGetValue(instruction.Method!, out var constructor)) throw Unsupported("only declared source constructors");
-                    output.NewObject(constructor);
-                }
-                else if (instruction.Kind == LinearInstructionKind.InterfaceCall && interfaceMethods.TryGetValue(instruction.Method!, out var contract))
+                if (instruction.Kind == LinearInstructionKind.InterfaceCall && interfaceMethods.TryGetValue(instruction.Method!, out var contract))
                     output.CallVirtual(contract);
                 else references.Resolve(instruction.Method!).EmitCall(output);
             }, field =>

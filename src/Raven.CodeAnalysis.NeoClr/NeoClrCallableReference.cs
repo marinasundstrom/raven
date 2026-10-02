@@ -20,7 +20,7 @@ internal abstract record NeoClrCallableReference
     internal static NeoClrCallableReference Create(ImportedConstructedMethodReference method) => new ImportedConstructed(method);
     private sealed record ImportedConstructed(ImportedConstructedMethodReference Method) : NeoClrCallableReference
     {
-        internal override void EmitCall(MethodBuilder body) => body.Emit(Method.Definition.RequiresVirtualDispatch ? OpCode.Callvirt : OpCode.Call, Method);
+        internal override void EmitCall(MethodBuilder body) => body.Emit(Method.Definition.IsConstructor ? OpCode.Newobj : Method.Definition.RequiresVirtualDispatch ? OpCode.Callvirt : OpCode.Call, Method);
     }
     internal static NeoClrCallableReference Create(ImportedGenericMethodReference method) => new ImportedGeneric(method);
     private sealed record ImportedGeneric(ImportedGenericMethodReference Method) : NeoClrCallableReference
@@ -40,12 +40,12 @@ internal abstract record NeoClrCallableReference
 
     private sealed record Defined(MethodBuilder Method) : NeoClrCallableReference
     {
-        internal override void EmitCall(MethodBuilder body) => body.Emit(OpCode.Call, Method);
+        internal override void EmitCall(MethodBuilder body) => body.Emit(Method.IsConstructor ? OpCode.Newobj : OpCode.Call, Method);
     }
 
     private sealed record Imported(ImportedMethodReference Method) : NeoClrCallableReference
     {
-        internal override void EmitCall(MethodBuilder body) => body.Emit(Method.RequiresVirtualDispatch ? OpCode.Callvirt : OpCode.Call, Method);
+        internal override void EmitCall(MethodBuilder body) => body.Emit(Method.IsConstructor ? OpCode.Newobj : Method.RequiresVirtualDispatch ? OpCode.Callvirt : OpCode.Call, Method);
     }
 
     private sealed record Native(NativeFunctionDefinition Method) : NeoClrCallableReference

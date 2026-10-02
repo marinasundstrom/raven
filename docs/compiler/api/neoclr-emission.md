@@ -498,3 +498,15 @@ throws NullReferenceException on .NET. The metadata producer independently execu
 success/failure on CLR and neoCLR. The unchanged collections source advances to imported
 carrier construction from None; its CLI control still emits 7168 bytes. Full native
 propagation execution remains pending; admission progress is not execution evidence.
+
+
+### Imported constructors (development, 2026-10-02)
+
+The native target opts into the shared `AllowsExternalConstructors` capability.
+Public imported top-level reference/value constructors, including closed generic
+owners, use the same NewObject plan and callable resolution as source constructors.
+No new public compilation option or Runtime Contract configuration is required.
+Ordinary .NET emission remains the default. Nested owner/parameter identities,
+byref constructor parameters, chaining and type initializers remain unsupported.
+See the [bridge checkpoint](../neoclr-cli-bridge.md#imported-constructor-checkpoint-2026-10-02)
+for executable validation and the unchanged collections sample's remaining gap.

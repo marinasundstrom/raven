@@ -9,6 +9,35 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class ExternalSignatureCapabilityTests
 {
     [Fact]
+    public void ImportedConstructorsRequireExplicitCapability()
+    {
+        var app = Compilation.Create("ConstructorCapability", [SyntaxTree.ParseText("""
+            import System.*
+            public static class Consumer {
+                public static func Create() -> DateTime => DateTime(2026, 10, 2)
+            }
+            """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        EmissionCapabilities Capabilities(bool constructors) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsExternalValueSignatures: true, allowsExternalConstructors: constructors);
+        Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(false)));
+        Assert.False(plan!.TryLowerBody(app, _ => false, out _, out _, Capabilities(false)));
+        Assert.True(plan.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
+        using var image = new MemoryStream();
+        var emitted = app.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        var context = new AssemblyLoadContext("constructor-admission", true);
+        try
+        {
+            image.Position = 0;
+            Assert.Equal(new DateTime(2026, 10, 2), context.LoadFromStream(image).GetType("Consumer")!.GetMethod("Create")!.Invoke(null, null));
+        }
+        finally { context.Unload(); }
+    }
+
+    [Fact]
     public void ValueReceiverCallsRequireExplicitAddressCapability()
     {
         var library = Compilation.Create("ValueReceiverContract", [SyntaxTree.ParseText("""

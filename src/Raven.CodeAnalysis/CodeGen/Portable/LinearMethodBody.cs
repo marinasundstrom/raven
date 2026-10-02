@@ -490,7 +490,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.Label, Syntax(expression), joined);
                     return true;
                 case BoundObjectCreationExpression creation when creation.Initializer is null && creation.Receiver is null &&
-                    SourceTypePlan.TryCreate(creation.Constructor.ContainingType!, out var createdType) && !createdType!.IsStatic &&
+                    (SourceTypePlan.TryCreate(creation.Constructor.ContainingType!, out var createdType) && !createdType!.IsStatic ||
+                     capabilities?.AllowsExternalConstructors == true && creation.Constructor.DeclaredAccessibility == Accessibility.Public &&
+                     creation.Constructor.ContainingType is { } externalOwner && (CallableSignature.IsExternalValue(externalOwner) || CallableSignature.IsExternalReference(externalOwner))) &&
                     TrySignature(creation.Constructor, out var constructorSignature) && SupportedTypeArguments(creation.Constructor) &&
                     (capabilities is null || capabilities.Allows(constructorSignature)):
                     var constructorArguments = creation.Arguments.ToArray();
@@ -498,7 +500,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     foreach (var argument in constructorArguments) if (!LowerValue(argument)) return false;
                     Add(LinearInstructionKind.NewObject, Syntax(expression), method: creation.Constructor); return true;
                 case BoundObjectCreationExpression unsupportedCreation:
-                    return Reject("constructor " + unsupportedCreation.Constructor.ContainingType?.ToDisplayString() + "." + unsupportedCreation.Constructor.ToDisplayString(), Syntax(expression));
+                    var nestedParameter = unsupportedCreation.Constructor.Parameters.Select(p => p.Type).OfType<INamedTypeSymbol>().FirstOrDefault(t => t.ContainingType is not null);
+                    return Reject("constructor " + unsupportedCreation.Constructor.ContainingType?.ToDisplayString() + "." + unsupportedCreation.Constructor.ToDisplayString() +
+                        (nestedParameter is null ? "" : " with nested parameter type " + nestedParameter.ContainingType!.ToDisplayString() + "." + nestedParameter.MetadataName), Syntax(expression));
                 case BoundSelfExpression self when !source.IsStatic && SymbolEqualityComparer.Default.Equals(self.Type, source.ContainingType):
                     Add(LinearInstructionKind.Receiver, Syntax(expression)); return true;
                 case BoundFieldAccess field when SupportedField(field.Field):

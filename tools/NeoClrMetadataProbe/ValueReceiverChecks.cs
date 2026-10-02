@@ -16,7 +16,7 @@ namespace NeoClrMetadataProbe;
 
 internal static class ValueReceiverChecks
 {
-    internal static async Task Run(string root, string output, string runtime)
+    internal static async Task Run(string root, string output, string runtime, bool constructors = false)
     {
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
@@ -26,6 +26,8 @@ internal static class ValueReceiverChecks
         var library = new AssemblyBuilder(new("ValueReceiverLibrary", new Version(1, 0, 0, 0)), core);
         var number = library.AddValueType("Example", "Number");
         var field = number.AddField("Value", PrimitiveType.Int32, FieldVisibility.Public);
+        var numberConstructor = number.AddConstructor([PrimitiveType.Int32]);
+        numberConstructor.LoadArgument(0); numberConstructor.LoadArgument(1); numberConstructor.StoreField(field); numberConstructor.Return();
         var ops = library.AddType("Example", "Operations");
         var create = ops.AddMethod("Create", new MethodSignature(number, []));
         var local = create.DeclareLocal(number); create.LoadDefault(number); create.StoreLocal(local);
@@ -37,6 +39,8 @@ internal static class ValueReceiverChecks
         get.LoadArgument(1); get.LoadArgument(0); get.LoadField(field); get.StoreObject(PrimitiveType.Int32); get.Emit(OpCode.Ldc_Bool, true); get.Return();
         var box = library.AddGenericValueType("Example", "Box", ["T"]);
         var t = SignatureType.TypeParameter(0); var payload = box.AddField("Value", t, FieldVisibility.Public);
+        var boxConstructor = box.AddConstructor(new MethodSignature(PrimitiveType.Void, [t]));
+        boxConstructor.LoadArgument(0); boxConstructor.LoadArgument(1); boxConstructor.StoreField(payload); boxConstructor.Return();
         var set = box.AddInstanceMethod("Set", new MethodSignature(PrimitiveType.Void, [t]));
         set.LoadArgument(0); set.LoadArgument(1); set.StoreField(payload); set.Return();
         var tryGet = box.AddInstanceMethod("TryGet", new MethodSignature(PrimitiveType.Boolean, [SignatureType.ByReference(t)], outParameters: [0]));
@@ -47,7 +51,7 @@ internal static class ValueReceiverChecks
         var libraryPath = Path.Combine(output, "ValueReceiverLibrary.dll"); File.WriteAllBytes(libraryPath, libraryImage);
         var reference = MetadataReference.CreateFromImage(libraryImage);
         var dependency = new NeoClrMetadataDependency(reference, RuntimeAssemblyContainer.ReadCliProjection(libraryImage), core);
-        const string source = """
+        var source = """
             import Example.*
             func Advance(ref value: Number) -> int {
                 if !value.TryGet(out var output) {
@@ -77,6 +81,7 @@ internal static class ValueReceiverChecks
                 return copy
             }
             """;
+        if (constructors) source = source.Replace("Operations.Create()", "Number(40)").Replace("Operations.MakeBox()", "Box<int>(0)");
         var compilation = Compilation.Create("ValueReceiverApp", [SyntaxTree.ParseText(source)],
             [MetadataReference.CreateFromFile(corePath), reference], CompilationOptions.NeoCLR);
         using var image = new MemoryStream();
@@ -100,6 +105,7 @@ internal static class ValueReceiverChecks
             verified = true, result = 42,
             coreSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(corePath))),
             runtimeSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(runtime))),
+            constructors,
             scope = "Raven imported value-receiver mutation and generic value-owner out calls; no union lowering or native System mapping"
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
     }

@@ -2917,3 +2917,30 @@ Validation: all eight focused `NeoClrFaultControlFlowTests` pass on .NET 11. The
 qualified/imported Fail calls, unreachable code, ref/out termination, wrong assembly,
 wrong container/marker and the old Fault spelling without terminal treatment. The neoCLR
 bridge also passes four source-export admission cases, including old-name rejection.
+
+
+## Imported constructor checkpoint (2026-10-02)
+
+The portable plan exposes `AllowsExternalConstructors`, disabled by default and
+selected by the native adapter. Public top-level class/value constructors now use
+one callable resolver for source, imported and constructed imported owners. The
+metadata library encodes CLI Newobj and the existing native constructor operation;
+value construction uses a managed construction receiver with definite field
+initialization. No binding, semantic-model or Runtime Contract changes are required.
+The ordinary .NET fallback and capability defaults are unchanged.
+
+The CLI reference snapshot remains the temporary symbol source, owned jointly by
+the compiler bridge and metadata importer. It cannot flatten nested owners without
+losing identity. Native symbol loading and explicit nested definition/reference
+scopes must replace this limitation. Byref constructor parameters, constructor
+chaining and type initializers remain outside this bounded capability.
+
+Validation: 29 focused capability/parity C# tests pass on .NET 11, including an
+ordinary DateTime constructor consumer. A Raven consumer of separately authored
+value and generic-value constructors verifies and executes to 42 on neoCLR; five
+existing native controls pass. The metadata library additionally executes imported
+value, generic-value and class constructors on both CLR and neoCLR (42). The
+unchanged collections sample still emits a 7168-byte CLI control and rejects native
+emission at Option<Order>(None), whose parameter has the nested identity
+System.Option.None. The application has not run; accepting top-level constructors
+alone does not close that gap.

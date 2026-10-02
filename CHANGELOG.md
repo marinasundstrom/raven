@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Admit public imported class/value constructors through an explicit
+  neoCLR capability and the shared callable resolver, including constructed generic
+  owners. Ordinary .NET defaults and Runtime Contracts remain unchanged. A separate
+  library consumer executes on neoCLR (42); 29 focused compiler tests and five native
+  controls pass. Collections still rejects the nested Option.None parameter, now
+  reported explicitly; nested metadata identities remain unsupported.
+
 - **2026-10-02:** Mark compiler-generated invalid propagation-carrier guards explicitly
   and carry them through the shared emission plan. .NET retains its existing null-throw
   behavior; neoCLR emits a terminal diagnostic using its metadata Fail operation. Ordinary
