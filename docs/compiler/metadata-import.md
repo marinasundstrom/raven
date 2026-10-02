@@ -381,3 +381,53 @@ reference metadata and executable code. It does not implement a complete target-
 schema, binary loading in another runtime, or removal of every downstream adapter.
 The neoCLR experiment independently verifies emitted dependency closure and execution;
 Raven retains normal metadata/CIL emission rather than a neoCLR-specific backend.
+
+## Direct neoCLR metadata importing: next integration work (2026-10-02)
+
+Author direction now prioritizes native semantic importing over expanding CLI reference
+translation. This follows neoCLR's existing metadata-library architecture: optional
+builders over definitions, definitions encoded as metadata and packaged in PE, with
+readers reversing those boundaries. The independent library remains the common model
+for authoring, reading and eventual Introspection. Raven owns semantic symbols and
+binding; it must not parse native JSON/CBOR records or introduce a parallel metadata model.
+
+The detailed sequence is recorded in neoCLR's docs/design/extended-cli-metadata.md,
+“Direct native semantic import: implementation alignment (2026-10-02)”. This is an
+application of the existing direction and ADR-0003, not a replacement architecture.
+
+The audit found an existing ISemanticDataLoader/IImportedAssemblySymbol boundary, but
+Compilation still owns DotNetCompilationTarget; target setup opens a .NET metadata
+session, and PE symbols require ReflectionTypeLoader/reflection objects. A native
+loader therefore also needs target composition and core-selection work. Do not route
+a native reference through CreateReferenceAssembly or MetadataLoadContext to claim
+completion. Preserve current .NET loader behavior while making native selection explicit.
+
+First complete native declaration materialization in the metadata library's existing
+definition model, including exact identity/scopes and namespace functions. Then add a
+bounded native-reference semantic test through Compilation/SemanticModel: lookup,
+GetSymbolInfo/GetTypeInfo, accessibility, overloads and unsupported/missing references.
+An explicit CLI core can temporarily supply primitive symbols for that first test,
+provided the native dependency itself is never projected or reflection-loaded. Record
+that limitation; native System/core import is a later acceptance step.
+
+Retain original native definition identity into codegen and prove a Raven consumer calls
+the library and executes on neoCLR (42). Expand nominal members, generic substitution,
+interfaces and structural Function signatures through the same definitions, then resolve
+core/iteration/propagation contracts from native System. Symbols belong to each compilation;
+reuse only compatible immutable reader data. Never unify distinct source and imported
+assemblies by name to bypass the currently observed bootstrap identity failure.
+
+No native importer, new Runtime Contract setting or semantic behavior is implemented by
+this audit. Existing source collection and translated-library execution evidence remains
+valid; broad source bootstrap work follows the native import foundation.
+
+Dependency resolution is not reflection emulation. The metadata library already exposes
+IAssemblyResolver (exact identity to AssemblyDefinition) and rechecks references against
+the returned identity. Native materialization should use that same contract. A compiler
+import session supplies explicit sources, caches immutable definitions and creates its
+own symbols; discovery/probing remains caller policy. Publish declaration identities
+before resolving dependent signatures to support legal assembly cycles without duplicate
+symbols or authoritative queries observing incomplete members. Diagnose missing,
+conflicting, mismatched and unsupported dependencies distinctly. Exact registered inputs
+are sufficient initially; host Assembly.Load, Type and MemberInfo are not prerequisites.
+Native diamond/cycle and snapshot-isolation tests remain part of the planned integration.

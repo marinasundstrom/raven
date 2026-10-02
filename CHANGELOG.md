@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Record the author-directed shift to direct neoCLR semantic import,
+  following the independent metadata library's existing definition-first architecture.
+  Audit reflection-owned target setup and plan native declaration materialization,
+  compiler symbol import and cross-assembly execution. Native importing is not yet
+  implemented; existing CLI bridge behavior is unchanged. Dependency resolution should
+  use the metadata library's existing exact-identity contract, not reflection emulation.
+
 - **2026-10-02:** Extend source-built HashMap/ArrayList execution to internal reference
   payloads, proving shared object identity through filtering, map lookup, mutation and
   replacement. Both numeric and reference consumers verify and return 42. Add a broad

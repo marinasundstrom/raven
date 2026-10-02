@@ -3307,3 +3307,13 @@ projection must be established before claiming full source-built application exe
 source extension declaration emission and the rest of Operators remain unverified.
 Native semantic importing is still deferred; the normal translated-System application
 checkpoint is separate from this source-library assessment.
+
+### Direct native import takes priority (2026-10-02)
+
+The author now directs reading native metadata into Raven's semantic model, developing
+the independent metadata library according to its already recorded definition-first
+architecture. See [the import alignment](metadata-import.md#direct-neoclr-metadata-importing-next-integration-work-2026-10-02).
+Existing CLI projections remain controls; new projections are not the implementation
+route. Native declarations must feed compiler-owned symbols through a native loader,
+then preserve identity into codegen. This is planned work; Runtime Contract settings,
+current importer behavior and ordinary .NET defaults are unchanged.
