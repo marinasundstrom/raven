@@ -3359,7 +3359,11 @@ internal partial class TypeMemberBinder : Binder
         var modifiers = indexerDecl.Modifiers;
         ReportRedundantPublicModifierIfNeeded(modifiers);
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
-        var isStatic = hasStaticModifier; var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword);
+        var isStatic = hasStaticModifier;
+        var isAbstract = modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword)
+            || _containingType.TypeKind == TypeKind.Interface && indexerDecl.ExpressionBody is null
+                && indexerDecl.AccessorList is { } interfaceAccessors
+                && interfaceAccessors.Accessors.All(a => a.Body is null && a.ExpressionBody is null);
         var isVirtual = modifiers.Any(m => m.Kind == SyntaxKind.VirtualKeyword);
         var isOverride = modifiers.Any(m => m.Kind == SyntaxKind.OverrideKeyword);
         var isSealed = modifiers.Any(m => m.Kind is SyntaxKind.SealedKeyword or SyntaxKind.FinalKeyword);

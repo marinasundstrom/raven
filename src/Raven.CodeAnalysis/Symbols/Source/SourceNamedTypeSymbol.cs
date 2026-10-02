@@ -134,7 +134,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public ImmutableArray<INamedTypeSymbol> Interfaces => _interfaces;
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
-        _allInterfaces ??= ComputeAllInterfaces();
+        GetDeclaringCompilation() is { SourceDeclarationsComplete: false }
+            ? ComputeAllInterfaces() : _allInterfaces ??= ComputeAllInterfaces();
 
     public bool IsValueType => TypeKind == TypeKind.Struct || TypeKind == TypeKind.Enum;
 
