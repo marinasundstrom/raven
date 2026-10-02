@@ -933,3 +933,8 @@ Public nonvirtual root-class methods and constructors now author references from
 symbols, including generic-owner substitution. See [scope and validation](metadata-backend-boundaries.md#root-class-member-contracts-2026-10-02).
 Fields and richer dispatch/type profiles remain reader-backed; Runtime Contract and
 bootstrap requirements are unchanged.
+
+
+Supported native root-class fields now emit from symbols and an explicit compiler-owned
+layout ordinal. See [layout contract and limits](metadata-backend-boundaries.md#explicit-native-field-layout-2026-10-02).
+Artifact validation and Runtime Contract/bootstrap requirements are unchanged.

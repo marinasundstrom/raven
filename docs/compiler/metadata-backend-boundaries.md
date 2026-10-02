@@ -193,3 +193,22 @@ Validation: all seven native consumers compile and execute (42). All 107 metadat
 groups pass, including authored member identity/conflict/owner/scope checks. The generic
 owner consumer now authors constructor/Get/Set/Same from semantic values and executes
 on CLR and both native containers (42). Next migrate fields and dispatch facts.
+
+
+### Explicit native field layout (2026-10-02)
+
+The optional compiler-owned IInstanceFieldLayoutSymbol carries the zero-based instance
+slot, scoped by its containing type and ResolvedAssemblyArtifact. The native importer
+copies it in one field enumeration (including private fields); readonly status is also
+copied into symbol state. The emitter authors public nongeneric root-class field
+references from these values and semantic storage types, without NativeFieldSymbol
+casts or reader definitions on this path. Root primitive/nominal/vector storage is
+supported. Richer layouts, constructed owners and interface/value/nested profiles retain
+the previous route or limitations. Ordinary .NET uses names rather than this layout fact.
+
+The slot is an asserted target linkage value; snapshot checks retain the exact artifact
+binding but cannot validate a dishonest slot without reopening metadata. C# checks
+cover conflicting slots/contracts and readonly-store rejection. Seven native consumers
+execute (42), including alias writes and public fields following private storage. Runtime
+Contract, CLI primitive core and translated System requirements are unchanged. Native
+format and opcodes are unchanged. The independent library generator remains pending.

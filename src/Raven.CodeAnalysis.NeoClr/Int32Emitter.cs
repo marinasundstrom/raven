@@ -352,6 +352,18 @@ internal static class Int32Emitter
                 if (fields.TryGetValue(field, out var definition)) return new NeoClrFieldReference(definition);
                 if (field is SubstitutedFieldSymbol substituted && field.ContainingType is { Arity: > 0 } owner && fields.TryGetValue(substituted.OriginalField, out definition))
                     return new NeoClrFieldReference(definition, definition.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
+                if (field is IInstanceFieldLayoutSymbol layout && field.ContainingType is { Arity: 0 } declaring &&
+                    IsSymbolOnlyClassDefinition(declaring) && field.DeclaredAccessibility == Accessibility.Public &&
+                    !field.IsStatic && IsSymbolOnlyType(field.Type, false) && IsFieldStorageType(field.Type))
+                {
+                    if (importedFields.TryGetValue(field, out var cached)) return cached;
+                    _ = ImportExternalType(declaring);
+                    var reference = assembly.CreateFieldReference(importedTypes[declaring], field.MetadataName,
+                        MapSymbolOnlyType(field.Type), layout.InstanceStorageOrdinal, field.IsReadOnly);
+                    cached = new NeoClrFieldReference(null, Import: reference);
+                    importedFields.Add(field, cached);
+                    return cached;
+                }
                 if (field is NativeFieldSymbol nativeField)
                 {
                     if (importedFields.TryGetValue(field, out var imported)) return imported;
@@ -492,6 +504,9 @@ internal static class Int32Emitter
             if (matches.Count != 1) throw Unsupported("dependency method contract unavailable or ambiguous: " + symbol.ToDisplayString() + (importFailures.Count == 0 ? "" : " (" + string.Join("; ", importFailures) + ")"));
             return matches[0];
         }
+        static bool IsFieldStorageType(ITypeSymbol type) => type is IArrayTypeSymbol array
+            ? IsFieldStorageType(array.ElementType) : type is not ITypeParameterSymbol && type is not INamedTypeSymbol { Arity: > 0 };
+
         static bool IsSymbolOnlyClassDefinition(INamedTypeSymbol original) =>
             original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
             original.TypeKind == TypeKind.Class && !original.IsStatic && original.ContainingType is null &&

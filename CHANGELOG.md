@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Capture native field layout ordinals and readonly status in compiler
+  symbol contracts. Author public nongeneric root-class field references without reader
+  definitions, preserving exact artifact checks and private-slot ordering. All seven
+  native consumers execute (42); ordinary .NET field emission is unchanged.
+
 - **2026-10-02:** Reconstruct public nonvirtual native root-class methods and constructors
   from symbols, including owner-scoped generic signatures. Keep unsupported dispatch/type
   profiles and fields on the previous path; all seven native consumers execute (42).

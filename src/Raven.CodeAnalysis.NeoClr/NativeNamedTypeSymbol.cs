@@ -35,7 +35,7 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
         });
         var methods = definition.Methods.ToDictionary(method => method, method => new NativeMethodSymbol(compilation, method, this));
         members = [.. methods.Values,
-            .. definition.Fields.Select(field => (ISymbol)new NativeFieldSymbol(compilation, field, this)),
+            .. definition.Fields.Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(compilation, field, this, ordinal)),
             .. definition.Properties.Select(property => (ISymbol)new NativePropertySymbol(property, this, methods))];
     }
     internal TypeDefinition Definition { get; }
