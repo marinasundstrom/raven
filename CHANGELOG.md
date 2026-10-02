@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Record the planned importer/emitter separation: compiler-owned
+  symbols carry resolved meaning, and backends reconstruct output references without
+  loader objects. Document current native coupling and distinguish Raven's compiler
+  interfaces from the metadata library's proposed instruction-generator API. No API
+  migration or runtime behavior change is claimed.
+
 - **2026-10-02:** Include direct namespace-owned static methods in shared qualified
   namespace lookup, alongside methods promoted from CLI containers. Bind ownerless
   functions without a synthetic type receiver. Native qualified generic calls now bind;

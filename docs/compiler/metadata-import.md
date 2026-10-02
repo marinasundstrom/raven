@@ -878,3 +878,14 @@ qualified-call controls (three overlap that run). An incompatible explicit type 
 still diagnoses. Native inferred/explicit qualified calls now compile and execute; all
 seven consumers return 42. No Runtime Contract, metadata encoding or runtime change.
 Constraint import and full native System/bootstrap remain pending.
+
+
+### Independent importer and emitter contracts (2026-10-02 direction)
+
+The importer must populate Raven symbols; emission must reconstruct references from
+those symbols without reusing loader definitions, resolvers or handles. Raven's shared
+emission contracts are separate from the Cecil-like library's proposed body-generator
+API. See [ownership, current violations and migration slices](metadata-backend-boundaries.md).
+The current native path has not yet completed this separation. Explicit Runtime
+Contract selection, CLI primitive bootstrap and translated System requirements are
+unchanged; existing execution evidence does not prove the proposed separation.
