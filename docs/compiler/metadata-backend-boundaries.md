@@ -297,3 +297,20 @@ was added. Direct calls on concrete implementations and their getters were added
 the probe alongside existing interface dispatch. All seven consumers execute (42).
 Existing 108 metadata-group evidence is reused because the library is unchanged.
 Runtime Contract and primitive/translated System bootstrap requirements are unchanged.
+
+
+### Native type/field fallbacks removed (2026-10-02)
+
+Native type and field reference construction now fails closed on unsupported symbol
+contracts, like callable construction. Int32Emitter no longer creates a native metadata
+resolver or casts fields to NativeFieldSymbol to access reader definitions. The unused
+field definition property is removed. Supported native references are authored from
+compiler symbols, exact artifact values, explicit layout ordinals and interface edges.
+Definition lookup remaining in this emitter is confined to translated CLI compatibility.
+
+All seven native consumers compile and execute (42), covering fields, external signatures,
+interfaces and generic constructions. Existing diagnostic checks still pass. The library
+and runtime are unchanged, so previous 108-group metadata evidence is reused. Host
+dependency setup and lazy semantic materialization still retain readers; full disposal
+before emission is not established. Next separate host-native input binding from the
+translated CLI binding contract. Runtime Contract and bootstrap requirements are unchanged.

@@ -3806,3 +3806,9 @@ Runtime Contract/bootstrap requirements and translated CLI compatibility paths a
 Native callable emission now fails closed on incomplete symbol contracts instead of
 using a reader-definition fallback. See [boundary and native/CLI flag distinction](metadata-backend-boundaries.md#native-callable-fallback-removed-2026-10-02).
 Translated CLI compatibility binding and bootstrap requirements are unchanged.
+
+
+Native type and field reference fallbacks are now removed alongside callable fallback.
+Unsupported semantic contracts diagnose; the emitter no longer creates a native resolver.
+See [boundary, validation and remaining host/lifetime work](metadata-backend-boundaries.md#native-typefield-fallbacks-removed-2026-10-02).
+Translated CLI and bootstrap requirements remain unchanged.

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Remove native type/field reader fallbacks, the emitter's native resolver,
+  and the unused native field definition property. Unsupported contracts diagnose;
+  supported native references use symbols and explicit identity/layout facts. All seven
+  consumers execute (42). Host input setup and lazy semantic loading still retain readers.
+
 - **2026-10-02:** Remove the native callable reader-definition fallback and the unused
   native method definition property. Unsupported native contracts diagnose rather than
   reopening reader methods. All seven consumers execute (42), including added direct

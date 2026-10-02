@@ -12,13 +12,11 @@ internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLa
         : base(SymbolKind.Field, definition.Name, owner, owner, owner.ContainingNamespace, [], [],
             (definition.Attributes & 7) == 6 ? Accessibility.Public : (definition.Attributes & 7) == 3 ? Accessibility.Internal : Accessibility.Private)
     {
-        Definition = definition;
         InstanceStorageOrdinal = instanceStorageOrdinal;
         IsReadOnly = (definition.Attributes & 0x20) != 0;
         if (!definition.TryGetSignature(out var signature)) throw new InvalidDataException("unsupported native field signature");
         type = new(() => owner.Map(signature!));
     }
-    internal FieldDefinition Definition { get; }
     public ITypeSymbol Type => type.Value;
     public override IModuleSymbol ContainingModule => ContainingType!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingType!.ContainingAssembly!;

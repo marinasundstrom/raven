@@ -16,7 +16,6 @@ internal static class Int32Emitter
     internal static byte[] Emit(Compilation compilation, NeoClrEmitOptions options,
         IReadOnlyList<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)> dependencies)
     {
-        var nativeResolver = new Lazy<NativeAssemblyResolver>(() => new(dependencies.Select(d => d.Dependency.Definition)));
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
         var interfaces = new List<SourceInterfacePlan>();
@@ -198,6 +197,8 @@ internal static class Int32Emitter
                 }
                 else
                 {
+                    if (original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
+                        throw Unsupported("native type requires a supported symbol-only emission contract");
                     var name = original.ToFullyQualifiedMetadataName();
                     var candidates = binding.Definition.MainModule.Types.Where(t => MatchesType(t, original)).Take(2).ToArray();
                     if (candidates.Length != 1 || candidates[0].GenericArity != original.Arity || candidates[0].IsValueType != original.IsValueType)
@@ -372,17 +373,8 @@ internal static class Int32Emitter
                     importedFields.Add(field, cached);
                     return cached;
                 }
-                if (field is NativeFieldSymbol nativeField)
-                {
-                    if (importedFields.TryGetValue(field, out var imported)) return imported;
-                    var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, field.ContainingAssembly)).Dependency
-                        ?? throw Unsupported("unregistered dependency field");
-                    if (!ReferenceEquals(nativeField.Definition.Module.Assembly, binding.Definition))
-                        throw Unsupported("native field snapshot differs from semantic reference");
-                    imported = new NeoClrFieldReference(null, Import: assembly.ImportReference(nativeField.Definition, binding.CoreLibrary, nativeResolver.Value));
-                    importedFields.Add(field, imported);
-                    return imported;
-                }
+                if (field.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    throw Unsupported("native field requires a supported symbol-only emission contract and layout");
                 throw Unsupported("undeclared instance field");
             },
                 type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local"), ImportExternalType));
