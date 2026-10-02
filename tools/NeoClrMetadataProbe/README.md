@@ -513,3 +513,14 @@ noncapturing callbacks through concrete and interface receivers.
 compiles unchanged HashMap with its source collection/policy dependencies and checks
 collisions, growth, duplicate rejection, update/insert, independent key snapshots,
 interface dispatch and Option lookups. Success returns 42 after native verification.
+
+The HashMap source checkpoint also checks internal Order reference payloads, mutation
+visibility across map/list/filtered-list storage, replacement independence and iterator
+reads. Both source consumers return 42.
+
+`--assess-source-application <neo-root> <fresh-output> <implementation-seed.dll> <System.neox>`
+records two inventories of the unchanged broad collections application: source-built
+collections with translated queries, and source-built collections plus unchanged query
+operators. This is an assessment command; successful process exit means reports were
+written, not that the application emitted. Inspect each validation.json phase/diagnostics.
+The current mixed bootstrap exposes source/seed iterable identity mismatches.

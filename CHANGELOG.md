@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Extend source-built HashMap/ArrayList execution to internal reference
+  payloads, proving shared object identity through filtering, map lookup, mutation and
+  replacement. Both numeric and reference consumers verify and return 42. Add a broad
+  application assessment recording the remaining mixed source/seed iteration identity
+  boundary, including the unchanged query operator source; no full application source
+  bootstrap is claimed.
+
 - **2026-10-02:** Add an executable unchanged HashMap source checkpoint, compiling its
   source interfaces, ArrayList and callback equality policy together. Native verification
   and collision/growth, duplicate, update, key-snapshot and Option lookup execution pass

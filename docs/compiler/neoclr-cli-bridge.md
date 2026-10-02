@@ -3286,3 +3286,24 @@ still pass. neoCLR's docs/experiments/extended-cli-metadata/hashmap-*-2026-10-02
 record source/consumer and bundle hashes. CLI seed signatures and translated System
 remain temporary dependencies until native semantic importing and full source bootstrap;
 capturing closures remain unsupported. This does not imply a feature merge to main.
+
+### Reference payloads and query bootstrap boundary (2026-10-02)
+
+The unchanged source collection checkpoint now also uses an internal Order reference
+type. Nine entries force map/list growth; filtered list storage retains the same objects.
+Mutation through a map lookup is visible through the original and filtered lists, while
+replacing the map value leaves their earlier reference intact. Iteration observes the
+mutated payloads. Numeric and reference consumers both verify and execute (42). No
+compiler/runtime encoding change is needed for this additional evidence.
+
+The broad application is assessed unchanged with the thirteen source collection units.
+Translated query extensions target the seed Iterable rather than the newly source-defined
+Iterable, so Single is not found. Adding unchanged Operators.rvn resolves that method
+binding but retains RAVT001: the iteration contract selects the seed assembly while
+metadata-name lookup finds the source iterable/iterator declarations. Arrays and their
+configured shape still belong to the seed. Do not erase these assembly identities or
+rewrite the sample to conceal the mismatch. A coherent source bootstrap contract/core
+projection must be established before claiming full source-built application execution;
+source extension declaration emission and the rest of Operators remain unverified.
+Native semantic importing is still deferred; the normal translated-System application
+checkpoint is separate from this source-library assessment.

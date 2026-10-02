@@ -206,13 +206,73 @@ internal static class LibrarySourceChecks
                 }
                 return equivalent
             }
+            """, Message: (string?)null), (Name: "reference-identity", Source: """
+            import System.Option.*
+
+            class Order {
+                var Number: int
+                var Pending: bool
+                init(number: int) {
+                    Number = number
+                    Pending = true
+                }
+            }
+
+            func Main() -> int {
+                let map = System.Collections.HashMap<int, Order>((left, right) => left == right, value => value)
+                let orders = System.Collections.ArrayList<Order>()
+                var index = 0
+                while index < 9 {
+                    let order = Order(index)
+                    if !map.TryAdd(index, order) { return 1 }
+                    orders.Add(order)
+                    index = index + 1
+                }
+                let pending = orders.FindAll(order => order.Pending)
+                if pending.Count != 9 { return 2 }
+                let first = match map.Find(0) {
+                    Some(let order) => order
+                    None => Order(-1)
+                }
+                first.Pending = false
+                if pending[0].Pending { return 3 }
+                if orders[0].Pending { return 4 }
+                let replacement = Order(42)
+                map.Set(0, replacement)
+                let updated = match map.Find(0) {
+                    Some(let order) => order
+                    None => Order(-1)
+                }
+                if updated.Number != 42 { return 5 }
+                if pending[0].Number != 0 { return 6 }
+                let iterator = orders.GetIterator()
+                var count = 0
+                while iterator.MoveNext() {
+                    if iterator.Current.Pending { count = count + 1 }
+                }
+                iterator.Dispose()
+                if count != 8 { return 7 }
+                return 42
+            }
             """, Message: (string?)null) };
         await ExecuteCases(root, output, seed, nativeSystem, runtime, cases,
-            ["System/Disposable.rvn", "System/Collections/Iterator.rvn", "System/Collections/Iterable.rvn",
+            HashMapSources);
+    }
+
+    private static readonly string[] HashMapSources = ["System/Disposable.rvn", "System/Collections/Iterator.rvn", "System/Collections/Iterable.rvn",
              "System/Collections/Collection.rvn", "System/Collections/Sequence.rvn", "System/Collections/MutableSequence.rvn",
              "System/Collections/List.rvn", "System/Collections/ArrayList.rvn",
              "System/Collections/EqualityComparer.rvn", "System/Collections/FunctionEqualityComparer.rvn",
-             "System/Collections/Map.rvn", "System/Collections/MutableMap.rvn", "System/Collections/HashMap.rvn"]);
+             "System/Collections/Map.rvn", "System/Collections/MutableMap.rvn", "System/Collections/HashMap.rvn"];
+
+    internal static void AssessApplication(string root, string output, string seed, string nativeSystem)
+    {
+        if (Directory.Exists(output)) throw new IOException("output must be fresh");
+        Directory.CreateDirectory(output);
+        var consumer = File.ReadAllText(Path.Combine(root, "docs/experiments/raven-target/samples/application-order-collections.rvn"));
+        Run(root, Path.Combine(output, "translated-queries"), seed, nativeSystem, consumer, HashMapSources);
+        Run(root, Path.Combine(output, "source-queries"), seed, nativeSystem, consumer,
+            [.. HashMapSources, "System/Linq/Operators.rvn"]);
     }
 
     private static async Task ExecuteCases(string root, string output, string seed, string nativeSystem,
