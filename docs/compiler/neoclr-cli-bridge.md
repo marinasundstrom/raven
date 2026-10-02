@@ -3596,3 +3596,25 @@ and neoCLR returns 42. All six native consumers and 103 metadata groups pass. Lo
 relationships are supported; external implementation edges, generic/value owners and
 full System loading remain pending. The CLI primitive core and translated System remain
 explicit bootstrap inputs, to be replaced by native core loading/source compilation.
+
+### External interface storage validation (2026-10-02 development)
+
+The native interface case now spans a contract/implementation library, a storage library
+and its consumer. The storage library imports interface-valued fields, arrays and
+constructor arguments directly from native metadata; its method dispatches through a
+stored interface. The consumer replaces values through a shared array and confirms
+original-reference independence (42). Unrelated native classes do not convert to the
+interface. Both reference orders preserve canonical external interface symbols.
+
+All six runtime consumers and 103 C# metadata groups pass, including CLR field/array
+store execution using imports from native definitions. This is additional validation of
+existing shared paths: no new encoding, runtime opcode, compiler policy or Runtime
+Contract change. CLI core/translated System bootstrap dependencies remain explicit.
+Generic/value owners and external implementation edges remain pending.
+
+Deferred diagnostic candidate: in the native probe, `func Wrong(value: Storage) ->
+Value => value` has no early GetDiagnostics error even though Storage does not implement
+Value. The emitter rejects it and leaves output empty; a typed local assignment already
+diagnoses. Reproduce independently with .NET references and inspect expression-bodied
+return binding before making a general compiler fix. This is not accepted native output
+or evidence that the default .NET target has the same gap.

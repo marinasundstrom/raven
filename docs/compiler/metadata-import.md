@@ -755,3 +755,24 @@ can support a future .NET provider/backend using Cecil or another mechanism inst
 of Reflection/Reflection.Emit. It is evidence for that evaluation, not a backend choice
 or proof of complete .NET parity. Keep default .NET behavior and provider-specific
 identity/capability policy explicit as native coverage grows.
+
+### External interface storage acceptance (2026-10-02)
+
+NativeInterfaceChecks now compiles a second library with fields and constructor
+parameters typed as the first library's Value interface and Value[]. Existing lazy
+signature mapping resolves them to canonical symbols in both reference orders. The
+consumer passes derived-interface values, replaces a field and array element, preserves
+reference aliases, then invokes through the stored interface (42). An unrelated class
+conversion diagnoses. No compiler implementation changes were needed for this slice.
+
+All six native consumers pass. The independent metadata tests execute equivalent
+interface field/array stores on CLR (103 groups pass). This supports the author's
+provider-neutral architecture criterion while leaving the explicit CLI core bootstrap,
+generic/value imports and a separate .NET backend evaluation open.
+
+Deferred diagnostic candidate: in the native probe, `func Wrong(value: Storage) ->
+Value => value` has no early GetDiagnostics error even though Storage does not implement
+Value. The emitter rejects it and leaves output empty; a typed local assignment already
+diagnoses. Reproduce independently with .NET references and inspect expression-bodied
+return binding before making a general compiler fix. This is not accepted native output
+or evidence that the default .NET target has the same gap.

@@ -27,10 +27,11 @@ internal static class NativeSymbolChecks
             var dependencyPath = Path.Combine(output, dependency + ".dll");
             var start = new ProcessStartInfo(runtime) { RedirectStandardOutput = true, RedirectStandardError = true };
             foreach (var arg in new[] { "run", appPath, "--module", dependencyPath, "--system", system, "--show-result" }) start.ArgumentList.Add(arg);
-            if (app == "ExternalNativeConsumer")
+            var additionalDependency = app == "ExternalNativeConsumer" ? "NativePayloadLibrary" : app == "NativeInterfaceConsumer" ? "NativeInterfaceStorageLibrary" : null;
+            if (additionalDependency is not null)
             {
                 start.ArgumentList.Add("--module");
-                start.ArgumentList.Add(Path.Combine(output, "NativePayloadLibrary.dll"));
+                start.ArgumentList.Add(Path.Combine(output, additionalDependency + ".dll"));
             }
             using var process = Process.Start(start) ?? throw new Exception("runtime did not start");
             var stdoutTask = process.StandardOutput.ReadToEndAsync();
@@ -41,7 +42,7 @@ internal static class NativeSymbolChecks
             var stdout = await stdoutTask;
             var stderr = await stderrTask;
             if (process.ExitCode != 42 || (stdout + stderr).Trim() != "=> Int32(42)") throw new Exception($"native runtime failed: {process.ExitCode} {stdout} {stderr}");
-            results.Add(new { app, dependency, exitCode = process.ExitCode, stdout, stderr, appSha256 = Hash(appPath), dependencySha256 = Hash(dependencyPath), additionalDependency = app == "ExternalNativeConsumer" ? "NativePayloadLibrary" : null, additionalDependencySha256 = app == "ExternalNativeConsumer" ? Hash(Path.Combine(output, "NativePayloadLibrary.dll")) : null });
+            results.Add(new { app, dependency, exitCode = process.ExitCode, stdout, stderr, appSha256 = Hash(appPath), dependencySha256 = Hash(dependencyPath), additionalDependency, additionalDependencySha256 = additionalDependency is not null ? Hash(Path.Combine(output, additionalDependency + ".dll")) : null });
         }
         File.WriteAllText(Path.Combine(output, "runtime-validation.json"), JsonSerializer.Serialize(new
         {

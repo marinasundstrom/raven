@@ -613,3 +613,13 @@ nongeneric interface inheritance and two root-class implementations. Factories r
 the derived interface; the separate consumer calls inherited methods/properties (42).
 The direct native symbols preserve interface classification, abstract/virtual flags,
 canonical direct/transitive relationships and reference-order independence.
+
+NativeInterfaceChecks additionally emits NativeInterfaceStorageLibrary, whose fields
+and constructor use Value and Value[] from NativeInterfaceLibrary. The runtime harness
+loads both dependencies. The consumer replaces values through an array alias and
+dispatches through the stored interface (42), checking canonical signature symbols and
+rejecting unrelated class conversions. Dependency hashes include both libraries.
+
+The invalid interface-return case must fail emission with empty output. Early
+expression-bodied return diagnostics remain a tracked follow-up; typed local
+assignments already reject the unrelated class.
