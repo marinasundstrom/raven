@@ -575,3 +575,8 @@ namespace/static/instance class identity calls, and a constructor receiving anot
 class. Semantic checks require the same canonical type symbols in both reference orders;
 invalid nominal arguments diagnose. All four native runtime consumers still return 42.
 The direct dependency remains PE/#Neo; only the primitive bootstrap core uses CLI metadata.
+
+The native type consumer additionally exercises a class-valued field: replace the object,
+mutate the replacement through nested field access, and check original-object independence
+before returning 42. Nominal field symbol identity and invalid assignments are checked.
+No CLI projection of the native library is involved.

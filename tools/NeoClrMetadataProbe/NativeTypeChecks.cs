@@ -33,8 +33,10 @@ internal static class NativeTypeChecks
             }
             public class Snapshot {
                 public field Value: int
+                public field Source: Calculator
                 public init(source: Calculator) {
                     self.Value = source.Visible
+                    self.Source = source
                 }
             }
             public func PassCalculator(value: Calculator) -> Calculator => value
@@ -61,7 +63,11 @@ internal static class NativeTypeChecks
                 let calculator = NativeMath.Create(20)
                 let alias = PassCalculator(NativeMath.Pass(calculator.Same(calculator)))
                 alias.Visible = NativeMath.Echo(22)
-                return alias.Add(Snapshot(calculator).Value)
+                let snapshot = Snapshot(calculator)
+                snapshot.Source = NativeMath.Create(19)
+                snapshot.Source.Visible = 23
+                if calculator.Visible != 22 { return 2 }
+                return snapshot.Source.Add(snapshot.Source.Visible)
             }
             """;
         foreach (var references in new MetadataReference[][] { [coreReference, reference], [reference, coreReference] })
@@ -89,6 +95,7 @@ internal static class NativeTypeChecks
                 ReferenceEquals(same.Parameters[0].Type, calculator), "canonical nominal parameter/result symbols");
             var snapshot = assembly.GetTypeByMetadataName("Example.Snapshot")!;
             Check(ReferenceEquals(snapshot.InstanceConstructors.Single().Parameters[0].Type, calculator), "nominal constructor parameter identity");
+            Check(ReferenceEquals(snapshot.GetMembers("Source").OfType<IFieldSymbol>().Single().Type, calculator), "nominal field symbol identity");
             var stored = calculator!.GetMembers("stored").OfType<IFieldSymbol>().Single();
             var visible = calculator.GetMembers("Visible").OfType<IFieldSymbol>().Single();
             Check(stored.DeclaredAccessibility == Accessibility.Private && stored.Type.SpecialType == SpecialType.System_Int32 &&
@@ -110,6 +117,19 @@ internal static class NativeTypeChecks
                 ? diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error)
                 : diagnostics.Any(d => d.Id == "RAV0500"), "access/signature violation accepted: " + expression + ": " + string.Join("; ", diagnostics));
         }
+        var wrongFieldTree = SyntaxTree.ParseText("""
+            import Example.*
+            func Main() -> int {
+                let snapshot = Snapshot(Calculator(1))
+                snapshot.Source = 42
+                return 0
+            }
+            """);
+        Check(!wrongFieldTree.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "invalid nominal field test syntax");
+        var wrongField = Compilation.Create("WrongField",
+            [wrongFieldTree],
+            [coreReference, reference], CompilationOptions.NeoCLR);
+        Check(wrongField.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "wrong nominal field value accepted");
         var fieldConsumer = Compilation.Create("NativeFieldConsumer",
             [SyntaxTree.ParseText("import Example.*\nfunc Main() -> int { return Calculator(42).Visible }")],
             [coreReference, reference], CompilationOptions.NeoCLR);

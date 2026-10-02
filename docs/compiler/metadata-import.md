@@ -604,3 +604,18 @@ explicit CLI primitive core and exact dependency bindings remain the bootstrap c
 Only local nongeneric root class signatures are newly admitted; nominal fields, external
 signature dependencies, value/interface/generic types and full native System import
 remain pending. This changes neither language syntax nor Runtime Contract configuration.
+
+### Native local nominal fields (2026-10-02)
+
+NativeFieldSymbol uses the metadata library's FieldDefinition.TryGetSignature and lazily
+resolves local nominal references through the module's canonical type map. This preserves
+forward/cyclic field declarations without querying an incompletely published module.
+The existing emitter imports the exact field snapshot, now with nominal storage types;
+no shared binder, .NET provider or Runtime Contract configuration changes are required.
+
+The C# probe's native library includes a Calculator-valued field. Its consumer replaces
+the value, mutates the replacement, checks the original is unchanged and returns 42 in
+neoCLR. Wrong field assignments diagnose. Both reference orders and canonical type
+identity are tested. All four native consumers pass; CLI primitive core/translated
+System bootstrap inputs remain explicit. External/generic/value/interface/array field
+signatures and full native System loading remain pending.

@@ -24,7 +24,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   external field loads/stores now execute successfully through exact native references.
   Local class signature types now resolve to canonical native symbols: factory results,
   namespace/static/instance arguments/results and nominal constructor arguments execute
-  in neoCLR (42). Wider native importing remains pending.
+  in neoCLR (42). Class-valued fields now also resolve lazily to canonical native symbols;
+  a native consumer replaces/mutates a stored object while preserving the original (42).
+  Wider native importing remains pending.
 
 - **2026-10-02:** Document the independent metadata library's first direct native
   definition reader and the next Raven loader integration boundary. Current .NET and

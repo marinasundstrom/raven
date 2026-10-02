@@ -3459,3 +3459,22 @@ The metadata library owns future native shape/resolution support; Raven's target
 owns symbol mapping. Existing translated System runtime input and CLI core bootstrap are
 still temporary and require native core/reference loading and full source emission to
 replace them.
+
+### Direct native local class fields (2026-10-02 development)
+
+Native fields may now refer to another supported class in the same module, including
+forward/cyclic declaration references. The metadata reader publishes immutable nominal
+field signatures; Raven lazily maps them to canonical native type symbols and the
+existing field import contract creates output-owned operands. A source-library consumer
+replaces a stored object, mutates the replacement and proves original-object independence
+in neoCLR (42). This follows ordinary CLR nominal field/alias behavior; PE/#Neo encoding
+and runtime instructions are unchanged.
+
+99 C# metadata groups pass, including .NET execution from native snapshot imports,
+wrong-type and readonly-store rejection. All four native runtime consumers return 42.
+No shared binder or .NET provider changes were made. Existing CLI primitive core and
+explicit dependency bindings remain required; Runtime Contract configuration is unchanged.
+No CLI projection is used for these native library symbols. External signature types,
+generic/value/interface/array field profiles and full System import remain pending.
+The independent metadata library owns those reader/import extensions; Raven owns symbol
+mapping. Native core loading/source emission remain the replacement for bootstrap inputs.
