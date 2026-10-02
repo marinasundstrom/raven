@@ -251,3 +251,15 @@ Audit: translated CLI bindings, unsupported type/dispatch profiles, host referen
 configuration and lazy semantic materialization still depend on readers. Their
 remaining boundaries must be addressed before claiming full import/emission separation
 or reader disposal before emission. Internal library engine separation is also pending.
+
+
+### Generator engine ownership (2026-10-02)
+
+The metadata library now implements body mutation, local/label creation and immediate
+operand validation in MethodILGenerator. Its builder instruction methods forward to the
+generator for compatibility. Raven's adapter continues to use IILGenerator, with no
+shared compiler changes. The definition remains the single body store. Writer-side
+graph/flow validation and operation representation are unchanged, as are Runtime
+Contract mappings, bootstrap requirements and supported opcodes. Mixed legacy/generator
+use preserves handle ownership. All 108 metadata C# groups and seven native consumers
+pass; generic-owner generation executes on CLR and both native containers (42).
