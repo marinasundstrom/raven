@@ -3890,3 +3890,21 @@ by constructed member views and one native importer integration. Author clarific
 NeoCLR-hosted compiler may reuse its lessons, but neither a port nor the same API or
 implementation is required. Do not delay the prototype for speculative portability;
 retain metadata/execution separation and keep future reuse exploratory.
+
+
+### Metadata facade integration (2026-10-02)
+
+The C# metadata library now supplies MetadataLoadContext and Introspection-shaped
+assembly/module/nominal views. Raven removes NativeAssemblyResolver and uses one fixed
+context per immutable compilation, retained through an internal weak-key lifetime
+adapter. The context owns exact dependency resolution and canonical view identity;
+Raven maps assembly identity and module-local type token into compiler-owned symbols.
+Validation still applies Raven's target and duplicate-reference diagnostic policy.
+
+All seven native consumers compile and execute (42); 109 metadata C# groups pass,
+including exact versions, snapshot conflicts, diamonds, legal assembly cycles and
+context isolation. No runtime loading or Reflection facade is introduced. The emitter
+remains symbol-only. Runtime Contract, explicit CLI primitive core and translated
+System bootstrap are unchanged. Signature substitution and member mapping remain in
+the importer pending constructed/member facade views. This prototype follows the
+runtime System.Introspection shape without committing a future identical port or API.

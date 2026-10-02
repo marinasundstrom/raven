@@ -33,14 +33,14 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
 {
     private readonly Compilation compilation;
     private readonly NativeAssemblySymbol assembly;
-    private readonly Dictionary<TypeDefinition, NativeNamedTypeSymbol> typeSymbols;
-    private readonly NativeAssemblyResolver resolver;
+    private readonly Dictionary<uint, NativeNamedTypeSymbol> typeSymbols;
+    private readonly NeoCLR.Metadata.Experimental.Introspection.MetadataLoadContext metadata;
     private readonly ConcurrentDictionary<SignatureType, ITypeSymbol> signatureTypes = new();
     internal NativeModuleSymbol(Compilation compilation, NativeAssemblySymbol assembly)
         : base(SymbolKind.Module, assembly.Reference.Definition.MainModule.Name, assembly, null, null, [], [])
     {
         this.compilation = compilation; this.assembly = assembly;
-        resolver = new(compilation.References.OfType<NeoClrMetadataReference>().Select(r => r.Definition));
+        metadata = NativeMetadataContext.For(compilation);
         var root = new NativeNamespaceSymbol("", this, null);
         GlobalNamespace = root;
         Types = [.. assembly.Reference.Definition.MainModule.Types.Select(type => {
@@ -49,7 +49,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             ns.Add(symbol);
             return symbol;
         })];
-        typeSymbols = Types.ToDictionary(type => type.Definition);
+        typeSymbols = Types.ToDictionary(type => type.Definition.MetadataToken);
         NativeNamespaceSymbol Namespace(string name)
         {
             var ns = root;
@@ -67,11 +67,12 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     internal ImmutableArray<NativeNamedTypeSymbol> Types { get; }
     internal NativeNamedTypeSymbol Resolve(TypeReference reference)
     {
-        var definition = reference.Resolve(resolver);
-        if (typeSymbols.TryGetValue(definition, out var local)) return local;
-        var input = compilation.References.OfType<NeoClrMetadataReference>().Single(r => ReferenceEquals(r.Definition, definition.Module.Assembly));
+        var view = metadata.Resolve(reference);
+        if (view.Module.Assembly.Identity.Equals(assembly.Reference.Definition.Identity))
+            return typeSymbols[view.MetadataToken];
+        var input = compilation.References.OfType<NeoClrMetadataReference>().Single(r => r.Definition.Identity.Equals(view.Module.Assembly.Identity));
         var external = (NativeAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(input)!;
-        return external.Module.typeSymbols[definition];
+        return external.Module.typeSymbols[view.MetadataToken];
     }
     internal static bool HasParameter(SignatureType type, bool method) =>
         (method ? type.MethodParameterIndex : type.TypeParameterIndex) is not null ||

@@ -40,10 +40,10 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         foreach (var dependency in Definition.MainModule.AssemblyReferences)
             if (supplied.Count(r => r.Definition.Identity.Equals(dependency.Identity)) != 1)
                 return "missing or mismatched native dependency: " + dependency.Identity.Name;
-        var resolver = new NativeAssemblyResolver(supplied.Select(r => r.Definition));
+        var metadata = NativeMetadataContext.For(compilation);
         try
         {
-            foreach (var reference in Definition.MainModule.TypeReferences) _ = reference.Resolve(resolver);
+            foreach (var reference in Definition.MainModule.TypeReferences) _ = metadata.Resolve(reference);
         }
         catch (InvalidDataException error) { return "invalid native signature dependency: " + error.Message; }
         return null;

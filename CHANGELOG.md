@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Replace the native importer's private assembly resolver with the
+  metadata library's Introspection load context, shared per immutable compilation.
+  Preserve symbol ownership, target diagnostics and symbol-only emission. Seven native
+  consumers execute (42); constructed/member projection remains a later slice.
+
 - **2026-10-02:** Record proposed shared metadata resolution/views for Raven import,
   future metadata-only NeoCLR Introspection and Emit. Preserve symbol-only emission and
   explicit output ownership. Clarify .NET-hosted prototype scope: future reuse need not
