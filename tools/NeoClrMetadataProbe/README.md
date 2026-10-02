@@ -607,3 +607,9 @@ The Boolean indexer overload has only a setter. The native consumer replaces a P
 through it and observes the result through another indexer (42). Symbol checks verify
 that only the Boolean index appears in Parameters, excluding the setter value; reads
 from the setter-only overload diagnose. This shares the ordinary .NET binder path.
+
+Runtime mode now runs six consumers. NativeInterfaceChecks compiles a library with
+nongeneric interface inheritance and two root-class implementations. Factories return
+the derived interface; the separate consumer calls inherited methods/properties (42).
+The direct native symbols preserve interface classification, abstract/virtual flags,
+canonical direct/transitive relationships and reference-order independence.

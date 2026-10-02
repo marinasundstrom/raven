@@ -734,3 +734,24 @@ executes to 42. Read, compound assignment and increment remain diagnostics. All 
 focused indexer/accessibility tests pass. This general correction is isolated from
 native integration for shared-line adoption. Runtime Contract settings, metadata
 encoding and the default .NET target are unchanged.
+
+### Direct native interfaces (2026-10-02)
+
+NativeNamedTypeSymbol classifies interface definitions and lazily maps direct and
+transitive relationships after module publication. NativeMethodSymbol preserves
+abstract/virtual flags so inherited method/property access follows the shared binder
+and existing interface-call emission path. The independent metadata library owns
+relationship validation and imported nominal conformance; native libraries are never
+projected to CLI for these symbols. Runtime Contract settings are unchanged.
+
+The new C# NativeInterfaceChecks compiles factories returning a derived interface and
+a separate consumer. Both reference orders preserve symbol identity; two concrete
+implementations execute inherited methods/properties in neoCLR (42). All six native
+consumers and 103 metadata groups pass. External implementation edges, generic/value
+owners and full System loading remain pending; CLI primitive core remains bootstrap.
+
+Author direction: this native path also tests whether semantic and emission contracts
+can support a future .NET provider/backend using Cecil or another mechanism instead
+of Reflection/Reflection.Emit. It is evidence for that evaluation, not a backend choice
+or proof of complete .NET parity. Keep default .NET behavior and provider-specific
+identity/capability policy explicit as native coverage grows.

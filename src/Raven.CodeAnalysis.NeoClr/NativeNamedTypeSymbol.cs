@@ -11,6 +11,8 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
 {
     private readonly Compilation compilation;
+    private readonly Lazy<ImmutableArray<INamedTypeSymbol>> interfaces;
+    private readonly Lazy<ImmutableArray<INamedTypeSymbol>> allInterfaces;
     private readonly ImmutableArray<ISymbol> members;
     internal NativeNamedTypeSymbol(Compilation compilation, TypeDefinition definition, NativeNamespaceSymbol owner)
         : base(SymbolKind.Type, definition.Name, owner, null, owner, [], [],
@@ -18,6 +20,15 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     {
         this.compilation = compilation;
         Definition = definition;
+        interfaces = new(() => [.. definition.Interfaces.Select(i => (INamedTypeSymbol)((NativeModuleSymbol)ContainingModule).Resolve(i.InterfaceType))]);
+        allInterfaces = new(() =>
+        {
+            var result = new List<INamedTypeSymbol>();
+            var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            void Add(INamedTypeSymbol contract) { if (seen.Add(contract)) { result.Add(contract); foreach (var parent in contract.Interfaces) Add(parent); } }
+            foreach (var contract in Interfaces) Add(contract);
+            return [.. result];
+        });
         var methods = definition.Methods.ToDictionary(method => method, method => new NativeMethodSymbol(compilation, method, this));
         members = [.. methods.Values,
             .. definition.Fields.Select(field => (ISymbol)new NativeFieldSymbol(compilation, field, this)),
@@ -31,9 +42,9 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     public bool IsClosed => (Definition.Attributes & 0x100) != 0;
     public bool IsNamespace => false;
     public bool IsType => true;
-    public TypeKind TypeKind => TypeKind.Class;
+    public TypeKind TypeKind => (Definition.Attributes & 0x20) != 0 ? TypeKind.Interface : TypeKind.Class;
     public SpecialType SpecialType => SpecialType.None;
-    public INamedTypeSymbol? BaseType => compilation.GetSpecialType(SpecialType.System_Object) as INamedTypeSymbol;
+    public INamedTypeSymbol? BaseType => TypeKind == TypeKind.Interface ? null : compilation.GetSpecialType(SpecialType.System_Object) as INamedTypeSymbol;
     public ITypeSymbol OriginalDefinition => this;
     public ITypeSymbol ConstructedFrom => this;
     public int Arity => 0;
@@ -41,8 +52,8 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     public bool IsUnboundGenericType => false;
     public ImmutableArray<ITypeSymbol> TypeArguments => [];
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
-    public ImmutableArray<INamedTypeSymbol> Interfaces => [];
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => [];
+    public ImmutableArray<INamedTypeSymbol> Interfaces => interfaces.Value;
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces => allInterfaces.Value;
     public ImmutableArray<IMethodSymbol> Constructors => InstanceConstructors;
     public ImmutableArray<IMethodSymbol> InstanceConstructors => [.. members.OfType<IMethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor)];
     public IMethodSymbol? StaticConstructor => null;

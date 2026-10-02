@@ -3581,3 +3581,18 @@ with 79 passing .NET indexer/accessibility tests. The unchanged metadata library
 its prior 102-group evidence. CLI primitive core and translated System remain explicit
 bootstrap inputs; native interfaces/generics/value owners and full System import remain
 pending. No native library is projected to CLI for symbol loading.
+
+### Direct native interface import (2026-10-02 development)
+
+Native nongeneric interfaces, local inheritance and root-class implementations now
+load into canonical definitions and Raven symbols. Interface method abstract/virtual
+flags and inherited properties drive the existing callvirt emission path. The metadata
+importer validates reference-to-interface conversions against exact native relationships;
+no CLI projection, runtime opcode or Runtime Contract change is involved.
+
+A native library exposes two implementations through factories returning a derived
+interface. Its separately compiled consumer invokes inherited method/property contracts
+and neoCLR returns 42. All six native consumers and 103 metadata groups pass. Local
+relationships are supported; external implementation edges, generic/value owners and
+full System loading remain pending. The CLI primitive core and translated System remain
+explicit bootstrap inputs, to be replaced by native core loading/source compilation.

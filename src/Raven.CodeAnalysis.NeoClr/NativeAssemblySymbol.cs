@@ -160,7 +160,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments => [];
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => [];
     public IMethodSymbol Construct(params ITypeSymbol[] types) => types.Length == 0 ? this : throw new ArgumentException("nongeneric native function");
-    public bool IsAbstract => false;
+    public bool IsAbstract => (Definition.Attributes & 0x400) != 0;
     public bool IsAsync => false;
     public bool IsCheckedBuiltin => false;
     public bool IsDefinition => true;
@@ -171,7 +171,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public bool IsOverride => false;
     public bool IsReadOnly => false;
     public bool IsFinal => false;
-    public bool IsVirtual => false;
+    public bool IsVirtual => (Definition.Attributes & 0x40) != 0;
     public bool IsIterator => false;
     public IteratorMethodKind IteratorKind => IteratorMethodKind.None;
     public ITypeSymbol? IteratorElementType => null;

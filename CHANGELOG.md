@@ -56,6 +56,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   and cross-library indexed element replacement/read executing in neoCLR (42).
   The native consumer also exercises a setter-only Boolean indexer with an external
   nominal value, checking symbol identity and invalid reads before runtime execution.
+  Nongeneric native interfaces now expose lazy canonical inheritance/implementation
+  symbols and abstract virtual methods. A native factory library and consumer execute
+  inherited method/property dispatch (42); all six runtime cases pass.
   Wider native importing remains pending.
 
 - **2026-10-02:** Document the independent metadata library's first direct native
