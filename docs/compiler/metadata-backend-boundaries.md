@@ -212,3 +212,21 @@ cover conflicting slots/contracts and readonly-store rejection. Seven native con
 execute (42), including alias writes and public fields following private storage. Runtime
 Contract, CLI primitive core and translated System requirements are unchanged. Native
 format and opcodes are unchanged. The independent library generator remains pending.
+
+
+### Interface relationships and dispatch (2026-10-02)
+
+Nongeneric native interfaces and root classes implementing them now author identities
+and direct interface edges from symbols. The backend caches identities before following
+relationships, and admits a bounded interface graph; deeper/unhandled profiles retain
+the prior route. Authored interface members use abstract/virtual symbol flags to create
+dispatch contracts without input method definitions. Signature and field-storage mapping
+can therefore carry interfaces without losing assignability information. The metadata
+library checks cycles and classification conflicts and derives transitive conversions.
+
+All seven native consumers execute (42), including inherited method/property dispatch
+and interface-valued storage/aliasing. 107 metadata C# groups pass, with authored graph
+and dispatch-body checks. Generic interfaces, class inheritance, class virtual dispatch,
+remaining unsupported members, host setup and lazy semantic materialization are still
+outside this separation. Runtime Contract configuration and primitive/translated System
+bootstrap remain unchanged; the separate library generator API is pending.

@@ -938,3 +938,9 @@ bootstrap requirements are unchanged.
 Supported native root-class fields now emit from symbols and an explicit compiler-owned
 layout ordinal. See [layout contract and limits](metadata-backend-boundaries.md#explicit-native-field-layout-2026-10-02).
 Artifact validation and Runtime Contract/bootstrap requirements are unchanged.
+
+
+Nongeneric interface inheritance/implementation edges and abstract dispatch references
+now author from semantic symbols. See [scope and evidence](metadata-backend-boundaries.md#interface-relationships-and-dispatch-2026-10-02).
+Generic interfaces and broader inheritance remain pending; bootstrap and Runtime
+Contract requirements are unchanged.

@@ -185,14 +185,16 @@ internal static class Int32Emitter
                 var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, original.ContainingAssembly)).Dependency
                     ?? throw Unsupported("unregistered dependency type: " + original.ToDisplayString());
                 if (original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: { } artifact } &&
-                    IsSymbolOnlyClassDefinition(original))
+                    IsSymbolOnlyReferenceDefinition(original))
                 {
                     if (artifact.Sha256 != binding.NativeArtifactSha256)
                         throw Unsupported("native dependency snapshot differs from semantic reference");
-                    imported = assembly.CreateTypeReference(
-                        new AssemblyIdentity(artifact.Name, artifact.Version, artifact.Culture, artifact.PublicKeyToken, artifact.Flags),
-                        binding.CoreLibrary, artifact.Sha256, original.ContainingNamespace?.ToMetadataName() ?? "",
-                        original.MetadataName, original.Arity);
+                    var identity = new AssemblyIdentity(artifact.Name, artifact.Version, artifact.Culture, artifact.PublicKeyToken, artifact.Flags);
+                    imported = original.TypeKind == TypeKind.Interface
+                        ? assembly.CreateInterfaceReference(identity, binding.CoreLibrary, artifact.Sha256,
+                            original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName)
+                        : assembly.CreateTypeReference(identity, binding.CoreLibrary, artifact.Sha256,
+                            original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName, original.Arity);
                 }
                 else
                 {
@@ -203,6 +205,12 @@ internal static class Int32Emitter
                     imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
                 }
                 importedTypes.Add(original, imported);
+                if (IsSymbolOnlyReferenceDefinition(original) && original.Arity == 0)
+                    foreach (var contract in original.Interfaces)
+                    {
+                        _ = ImportExternalType(contract);
+                        assembly.AddInterfaceConversion(imported, importedTypes[(INamedTypeSymbol)contract.OriginalDefinition]);
+                    }
             }
             return imported.GenericArity == 0 ? imported : imported.MakeGenericInstance(type.TypeArguments
                 .Select(t => NeoClrTypeMapper.Map(t, owned => nativeTypes[owned], ImportExternalType)).ToArray());
@@ -353,7 +361,7 @@ internal static class Int32Emitter
                 if (field is SubstitutedFieldSymbol substituted && field.ContainingType is { Arity: > 0 } owner && fields.TryGetValue(substituted.OriginalField, out definition))
                     return new NeoClrFieldReference(definition, definition.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
                 if (field is IInstanceFieldLayoutSymbol layout && field.ContainingType is { Arity: 0 } declaring &&
-                    IsSymbolOnlyClassDefinition(declaring) && field.DeclaredAccessibility == Accessibility.Public &&
+                    IsSymbolOnlyReferenceDefinition(declaring) && field.DeclaredAccessibility == Accessibility.Public &&
                     !field.IsStatic && IsSymbolOnlyType(field.Type, false) && IsFieldStorageType(field.Type))
                 {
                     if (importedFields.TryGetValue(field, out var cached)) return cached;
@@ -460,8 +468,8 @@ internal static class Int32Emitter
                 return assembly.CreateFunctionReference(identity, binding.CoreLibrary, artifact.Sha256,
                     symbol.ContainingNamespace?.ToMetadataName() ?? "", symbol.MetadataName, contract);
             }
-            if (symbol.ContainingType is { } owner && IsSymbolOnlyClassDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
-                !symbol.IsAbstract && !symbol.IsVirtual && !symbol.IsOverride &&
+            if (symbol.ContainingType is { } owner && IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
+                !symbol.IsOverride && (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : !symbol.IsAbstract && !symbol.IsVirtual) &&
                 symbol.DeclaredAccessibility == Accessibility.Public && (symbol.IsStatic || symbol.Arity == 0) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, NeoClrCapabilities.Shared) &&
                 IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind == RefKind.None && IsSymbolOnlyType(p.Type, false)))
@@ -507,10 +515,12 @@ internal static class Int32Emitter
         static bool IsFieldStorageType(ITypeSymbol type) => type is IArrayTypeSymbol array
             ? IsFieldStorageType(array.ElementType) : type is not ITypeParameterSymbol && type is not INamedTypeSymbol { Arity: > 0 };
 
-        static bool IsSymbolOnlyClassDefinition(INamedTypeSymbol original) =>
+        static bool IsSymbolOnlyReferenceDefinition(INamedTypeSymbol original, int depth = 0) =>
+            depth < 32 &&
             original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
-            original.TypeKind == TypeKind.Class && !original.IsStatic && original.ContainingType is null &&
-            original.DeclaredAccessibility == Accessibility.Public && original.Interfaces.IsEmpty &&
+            (original.TypeKind == TypeKind.Class || original.TypeKind == TypeKind.Interface && original.Arity == 0) &&
+            !original.IsStatic && original.ContainingType is null && original.DeclaredAccessibility == Accessibility.Public &&
+            (original.Interfaces.IsEmpty || original.Arity == 0 && original.Interfaces.All(contract => IsSymbolOnlyReferenceDefinition(contract, depth + 1))) &&
             (original.BaseType is null || original.BaseType.SpecialType == SpecialType.System_Object) &&
             original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None);
 
@@ -519,7 +529,7 @@ internal static class Int32Emitter
             type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
             type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean or SpecialType.System_String ||
             result && type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void ||
-            type is INamedTypeSymbol named && IsSymbolOnlyClassDefinition((INamedTypeSymbol)named.OriginalDefinition) &&
+            type is INamedTypeSymbol named && IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)named.OriginalDefinition) &&
             named.TypeArguments.All(argument => IsSymbolOnlyType(argument, false));
 
         SignatureType MapSymbolOnlyType(ITypeSymbol type) => type switch
@@ -527,7 +537,7 @@ internal static class Int32Emitter
             ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter => SignatureType.MethodParameter(parameter.Ordinal),
             ITypeParameterSymbol parameter => SignatureType.TypeParameter(parameter.Ordinal),
             IArrayTypeSymbol array => SignatureType.ArrayOf(MapSymbolOnlyType(array.ElementType)),
-            INamedTypeSymbol named when IsSymbolOnlyClassDefinition((INamedTypeSymbol)named.OriginalDefinition) => ImportExternalType(named),
+            INamedTypeSymbol named when IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)named.OriginalDefinition) => ImportExternalType(named),
             _ => type.SpecialType switch
             {
                 SpecialType.System_Int32 => PrimitiveType.Int32,

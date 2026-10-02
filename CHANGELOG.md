@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Reconstruct nongeneric native interface identities, direct inheritance/
+  implementation edges and abstract dispatch contracts from symbols. Preserve transitive
+  assignability without reader queries on the authored path. All seven native consumers
+  execute (42); generic interfaces and broader inheritance remain pending.
+
 - **2026-10-02:** Capture native field layout ordinals and readonly status in compiler
   symbol contracts. Author public nongeneric root-class field references without reader
   definitions, preserving exact artifact checks and private-slot ordering. All seven
