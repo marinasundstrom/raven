@@ -3612,9 +3612,11 @@ existing shared paths: no new encoding, runtime opcode, compiler policy or Runti
 Contract change. CLI core/translated System bootstrap dependencies remain explicit.
 Generic/value owners and external implementation edges remain pending.
 
-Deferred diagnostic candidate: in the native probe, `func Wrong(value: Storage) ->
-Value => value` has no early GetDiagnostics error even though Storage does not implement
-Value. The emitter rejects it and leaves output empty; a typed local assignment already
-diagnoses. Reproduce independently with .NET references and inspect expression-bodied
-return binding before making a general compiler fix. This is not accepted native output
-or evidence that the default .NET target has the same gap.
+Resolved shared diagnostic gap (2026-10-02): the previously deferred incompatible
+expression-bodied return was reproduced independently with .NET references. Diagnostic
+traversal now binds the complete arrow body through MethodBodyBinder, reusing its return
+conversion checks instead of inspecting only the expression. Functions and methods now
+report CannotConvertFromTypeToType before emission, including after GetTypeInfo and on
+repeated GetDiagnostics calls. The focused .NET regression/return suite passes 106 tests.
+This is a general compiler fix, with no Runtime Contract, metadata encoding or target
+policy change; native import/bootstrap limitations remain unchanged.

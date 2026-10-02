@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Diagnose incompatible expression-bodied function and method returns
+  before emission by binding the complete method body during diagnostic traversal.
+  Independently reproduced with .NET references; prior semantic queries and repeated
+  diagnostic requests preserve the error. No target policy or metadata encoding changes.
+
 - **2026-10-02:** Normalize source type names before separating namespace and local
   metadata name in shared codegen. Qualified metadata names no longer cause negative
   substring lengths during .NET emission; the existing self-override/indexer regression

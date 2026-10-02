@@ -924,10 +924,7 @@ public partial class SemanticModel
                 return;
             }
 
-            if (node is ArrowExpressionClauseSyntax && currentBinder is MethodBodyBinder &&
-                currentBinder.ContainingSymbol is IMethodSymbol methodWithPatterns &&
-                methodWithPatterns.Parameters.Any(parameter => parameter.DeclaringSyntaxReferences
-                    .Any(reference => reference.GetSyntax() is ParameterSyntax { Pattern: not null })))
+            if (node is ArrowExpressionClauseSyntax && currentBinder is MethodBodyBinder)
             {
                 currentBinder.GetOrBind(node);
                 return;
