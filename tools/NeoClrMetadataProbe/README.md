@@ -602,3 +602,8 @@ The external consumer now reads/writes an imported Int32 indexer and reads a Str
 overload. Both return the canonical external Payload type. Tests check index parameter
 identity, private-setter/wrong-index diagnostics and indexed replacement through an
 array alias. All five runtime cases still return 42.
+
+The Boolean indexer overload has only a setter. The native consumer replaces a Payload
+through it and observes the result through another indexer (42). Symbol checks verify
+that only the Boolean index appears in Parameters, excluding the setter value; reads
+from the setter-only overload diagnose. This shares the ordinary .NET binder path.

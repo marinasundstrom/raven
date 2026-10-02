@@ -54,6 +54,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   capabilities. Read-only and inaccessible setter writes diagnose. Native indexed
   properties now retain cached parameter/accessor symbols, with overload resolution
   and cross-library indexed element replacement/read executing in neoCLR (42).
+  The native consumer also exercises a setter-only Boolean indexer with an external
+  nominal value, checking symbol identity and invalid reads before runtime execution.
   Wider native importing remains pending.
 
 - **2026-10-02:** Document the independent metadata library's first direct native

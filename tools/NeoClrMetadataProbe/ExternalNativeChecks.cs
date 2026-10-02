@@ -51,6 +51,11 @@ internal static class ExternalNativeChecks
                     get => Item
                     private set => Item = value
                 }
+                public var self[enabled: bool]: Payload {
+                    set {
+                        if enabled { Item = value }
+                    }
+                }
                 public val ReadOnly: Payload => Item
                 public val Protected: int {
                     get => Item.Value
@@ -75,6 +80,7 @@ internal static class ExternalNativeChecks
                 let values: Payload[] = [first]
                 let arrayHolder = Holder(Holder.PassItems(values))
                 holder.Batch = arrayHolder.Batch
+                holder[true] = Payload(42)
                 holder[0] = holder.Item
                 if holder[0].Value != 42 { return 6 }
                 if holder["key"].Value != 42 { return 7 }
@@ -105,6 +111,9 @@ internal static class ExternalNativeChecks
             var indexer = holderType.GetMembers().OfType<IPropertySymbol>().Single(p => p.IsIndexer && p.Parameters[0].Type.SpecialType == SpecialType.System_Int32);
             Check(indexer.Parameters.Length == 1 && ReferenceEquals(indexer.Type, payloadType) &&
                 ReferenceEquals(indexer.GetMethod!.AssociatedSymbol, indexer) && ReferenceEquals(indexer.SetMethod!.AssociatedSymbol, indexer), "canonical indexer signature and accessors");
+            var writeOnly = holderType.GetMembers().OfType<IPropertySymbol>().Single(p => p.IsIndexer && p.Parameters[0].Type.SpecialType == SpecialType.System_Boolean);
+            Check(writeOnly.GetMethod is null && writeOnly.Parameters.Length == 1 && ReferenceEquals(writeOnly.Type, payloadType) &&
+                ReferenceEquals(writeOnly.SetMethod!.AssociatedSymbol, writeOnly), "write-only index signature excludes setter value");
             var current = holderType.GetMembers("Current").OfType<IPropertySymbol>().Single();
             var batch = holderType.GetMembers("Batch").OfType<IPropertySymbol>().Single();
             Check(ReferenceEquals(current.Type, payloadType) && ReferenceEquals(batch.Type, arrayMethod.ReturnType) &&
@@ -120,7 +129,7 @@ internal static class ExternalNativeChecks
             Check(result.Success, string.Join("; ", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "ExternalNativeConsumer.dll"), image.ToArray());
         }
-        foreach (var assignment in new[] { "holder.ReadOnly = Payload(0)", "holder.Protected = 0", "holder[\"key\"] = Payload(0)", "holder[true] = Payload(0)" })
+        foreach (var assignment in new[] { "holder.ReadOnly = Payload(0)", "holder.Protected = 0", "holder[\"key\"] = Payload(0)", "holder[1, 2] = Payload(0)", "let unreadable = holder[true]" })
         {
             var syntax = SyntaxTree.ParseText("import External.*\nfunc Main() -> int {\nlet holder = Holder(Payload(1))\n" + assignment + "\nreturn 0\n}");
             Check(!syntax.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "invalid property test syntax");
