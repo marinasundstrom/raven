@@ -281,7 +281,7 @@ internal sealed partial class Lowerer
                 compilation);
             var returnExpression = CreatePropagateErrorExpression(propagate, new[] { residual }, compilation);
             var invalidContractCarrier = new BoundThrowStatement(
-                new BoundDefaultValueExpression(compilation.GetSpecialType(SpecialType.System_Exception)));
+                new BoundDefaultValueExpression(compilation.GetSpecialType(SpecialType.System_Exception)), compilerFailure: "Invalid propagation carrier");
 
             return new BoundBlockStatement(new BoundStatement[]
             {
@@ -334,7 +334,7 @@ internal sealed partial class Lowerer
         payload = ApplyErrorConversion(payload, ctor.Parameters[0].Type, propagate.ErrorConversion, compilation);
         var errorExpression = CreatePropagateErrorExpression(propagate, new[] { payload }, compilation);
         var invalidCarrier = new BoundThrowStatement(
-            new BoundDefaultValueExpression(compilation.GetSpecialType(SpecialType.System_Exception)));
+            new BoundDefaultValueExpression(compilation.GetSpecialType(SpecialType.System_Exception)), compilerFailure: "Invalid propagation carrier");
 
         return new BoundBlockStatement(new BoundStatement[]
         {

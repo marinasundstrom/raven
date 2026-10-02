@@ -270,7 +270,7 @@ internal static class PropagateLowerer
             payload = ApplyErrorConversion(payload, ctor.Parameters[0].Type, propagate.ErrorConversion);
             var errorExpression = CreatePropagateErrorExpression(propagate, new[] { payload });
             var invalidCarrier = new BoundThrowStatement(
-                new BoundDefaultValueExpression(_compilation.GetSpecialType(SpecialType.System_Exception)));
+                new BoundDefaultValueExpression(_compilation.GetSpecialType(SpecialType.System_Exception)), compilerFailure: "Invalid propagation carrier");
 
             return new BoundBlockStatement(new BoundStatement[]
             {

@@ -471,3 +471,30 @@ receiver control uses an explicitly declared output local; the native executable
 covers inline output locals. This observation has not been isolated against main and
 must not be labeled a regression caused or fixed by this capability. Reduce the query/
 emission sequence independently before deciding whether to port a compiler fix.
+
+
+### Compiler-generated propagation guards (2026-10-02)
+
+`BoundThrowStatement.CompilerFailure` records an internal diagnostic only for generated
+invalid propagation-carrier guards. Generated bound-tree rewriting retains the marker.
+The shared plan represents it as `CompilerFailure`, selected through the existing
+instruction capability set. .NET emits the original ldnull/throw and therefore preserves
+NullReferenceException behavior; neoCLR uses metadata `Fail` to emit its existing native
+terminal fault with a diagnostic. It is not a rewrite of arbitrary throws, and no guest
+exception handling, native format version or runtime instruction is added. The metadata
+API's standalone CLI Fail operation throws InvalidOperationException, but Raven's .NET
+adapter deliberately retains the previous propagation behavior.
+
+Binding and Runtime Contract Propagation/Self/Unit settings are unchanged. Symbols still
+come from the temporary CLI declaration snapshot. The ordinary .NET fallback remains
+available; native source throws and unsupported constructors continue to reject. This
+is shared target emission support, not an isolated general binding fix. The metadata
+contract is tested independently on CLR/native success and terminal paths; broad native
+propagation execution still depends on imported carrier construction and dependencies.
+
+Validation: the full generator/build script succeeds and all 14 focused propagation,
+external-signature and shared-emission tests pass. The invalid-carrier regression still
+throws NullReferenceException on .NET. The metadata producer independently executes
+success/failure on CLR and neoCLR. The unchanged collections source advances to imported
+carrier construction from None; its CLI control still emits 7168 bytes. Full native
+propagation execution remains pending; admission progress is not execution evidence.

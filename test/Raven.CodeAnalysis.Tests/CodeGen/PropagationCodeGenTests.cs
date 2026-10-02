@@ -8,8 +8,10 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class PropagationCodeGenTests
 {
-    [Fact]
-    public void CustomCarrier_PropagationUsesContractForEarlyReturn()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CustomCarrier_PropagationUsesContractForEarlyReturn(bool validCarrier)
     {
         const string code = """
 import System.*
@@ -50,7 +52,7 @@ class Harness {
 }
 """;
 
-        var syntaxTree = SyntaxTree.ParseText(code);
+        var syntaxTree = SyntaxTree.ParseText(validCarrier ? code : code.Replace("return !IsSuccess", "return false"));
         var references = TestMetadataReferences.DefaultWithRavenCore;
         var compilation = Compilation.Create(
             "custom-carrier-propagation",
@@ -66,7 +68,10 @@ class Harness {
         var harnessType = loaded.Assembly.GetType("Harness", throwOnError: true)!;
         var check = harnessType.GetMethod("Check", BindingFlags.Public | BindingFlags.Static)!;
 
-        Assert.Equal(true, check.Invoke(null, null));
+        if (validCarrier)
+            Assert.Equal(true, check.Invoke(null, null));
+        else
+            Assert.IsType<NullReferenceException>(Assert.Throws<TargetInvocationException>(() => check.Invoke(null, null)).InnerException);
     }
 
     [Fact]

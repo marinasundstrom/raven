@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -124,7 +124,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return Reject("target does not support callable signature types", bodySyntax);
             if (!body.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(body));
             if (!LowerStatements(body)) return false;
-            if (!ReturnsValue(source) && instructions.LastOrDefault().Kind != LinearInstructionKind.Return)
+            if (!ReturnsValue(source) && instructions.LastOrDefault().Kind is not (LinearInstructionKind.Return or LinearInstructionKind.CompilerFailure))
                 Add(LinearInstructionKind.Return, Syntax(body));
             return true;
         }
@@ -141,13 +141,18 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     continue;
                 }
                 if (statement is BoundExpressionStatement { Expression: BoundUnitExpression }) continue;
+                if (statement is BoundThrowStatement { CompilerFailure: { } message })
+                {
+                    Add(LinearInstructionKind.CompilerFailure, Syntax(statement), text: message);
+                    continue;
+                }
                 if (statement is BoundIfStatement conditionalIf)
                 {
                     if (!LowerValue(conditionalIf.Condition)) return false;
                     var otherwise = nextLabel++; var end = nextLabel++;
                     Add(LinearInstructionKind.BranchFalse, Syntax(statement), otherwise);
                     if (!LowerStatements(conditionalIf.ThenNode)) return false;
-                    if (instructions.LastOrDefault().Kind is not (LinearInstructionKind.Return or LinearInstructionKind.Branch))
+                    if (instructions.LastOrDefault().Kind is not (LinearInstructionKind.Return or LinearInstructionKind.Branch or LinearInstructionKind.CompilerFailure))
                         Add(LinearInstructionKind.Branch, Syntax(statement), end);
                     Add(LinearInstructionKind.Label, Syntax(statement), otherwise);
                     if (conditionalIf.ElseNode is { } alternative && !LowerStatements(alternative)) return false;
@@ -492,6 +497,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (constructorArguments.Length != creation.Constructor.Parameters.Length) return Reject("optional/expanded constructor arguments", Syntax(expression));
                     foreach (var argument in constructorArguments) if (!LowerValue(argument)) return false;
                     Add(LinearInstructionKind.NewObject, Syntax(expression), method: creation.Constructor); return true;
+                case BoundObjectCreationExpression unsupportedCreation:
+                    return Reject("constructor " + unsupportedCreation.Constructor.ContainingType?.ToDisplayString() + "." + unsupportedCreation.Constructor.ToDisplayString(), Syntax(expression));
                 case BoundSelfExpression self when !source.IsStatic && SymbolEqualityComparer.Default.Equals(self.Type, source.ContainingType):
                     Add(LinearInstructionKind.Receiver, Syntax(expression)); return true;
                 case BoundFieldAccess field when SupportedField(field.Field):

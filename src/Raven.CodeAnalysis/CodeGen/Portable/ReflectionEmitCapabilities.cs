@@ -8,7 +8,7 @@ internal static class ReflectionEmitCapabilities
         [
             LinearInstructionKind.Constant, LinearInstructionKind.Argument, LinearInstructionKind.Add,
             LinearInstructionKind.Subtract, LinearInstructionKind.Multiply, LinearInstructionKind.Call,
-            LinearInstructionKind.ConsoleWrite, LinearInstructionKind.String, LinearInstructionKind.Return,
+            LinearInstructionKind.ConsoleWrite, LinearInstructionKind.String, LinearInstructionKind.Return, LinearInstructionKind.CompilerFailure,
             LinearInstructionKind.LoadLocal, LinearInstructionKind.StoreLocal, LinearInstructionKind.Boolean,
             LinearInstructionKind.Not, LinearInstructionKind.Equal, LinearInstructionKind.Less,
             LinearInstructionKind.Greater, LinearInstructionKind.Label, LinearInstructionKind.Branch,

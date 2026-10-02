@@ -118,6 +118,7 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
                 if (!LinearMethodBody.ReturnsValue(instruction.Method!) && target.ReturnType.FullName != "System.Void")
                     output.Emit(OpCodes.Pop);
                 break;
+            case LinearInstructionKind.CompilerFailure: output.Emit(OpCodes.Ldnull); output.Emit(OpCodes.Throw); break;
             case LinearInstructionKind.Return: output.Emit(OpCodes.Ret); break;
             default: throw new InvalidOperationException("Unsupported .NET linear instruction: " + instruction.Kind);
         }

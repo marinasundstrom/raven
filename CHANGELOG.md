@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Mark compiler-generated invalid propagation-carrier guards explicitly
+  and carry them through the shared emission plan. .NET retains its existing null-throw
+  behavior; neoCLR emits a terminal diagnostic using its metadata Fail operation. Ordinary
+  source throws remain outside native admission. Preserve the marker through generated
+  bound-tree updates and report rejected constructor identities in native diagnostics.
+
 - **2026-10-02:** Recognize `System.Fail(string)` as the neoCLR terminal namespace action,
   replacing the old `System.Fault` name. Keep exact core-assembly/signature/namespace-marker
   checks and ordinary .NET behavior. Update the compiler together with neoCLR reference
