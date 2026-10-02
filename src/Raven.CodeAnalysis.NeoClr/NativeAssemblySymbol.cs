@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
+
 using NeoCLR.Metadata.Experimental.Model;
+
 using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
 
@@ -29,6 +31,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
 {
     private readonly Compilation compilation;
     private readonly NativeAssemblySymbol assembly;
+    private readonly Dictionary<TypeDefinition, NativeNamedTypeSymbol> typeSymbols;
     internal NativeModuleSymbol(Compilation compilation, NativeAssemblySymbol assembly)
         : base(SymbolKind.Module, assembly.Reference.Definition.MainModule.Name, assembly, null, null, [], [])
     {
@@ -41,6 +44,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             ns.Add(symbol);
             return symbol;
         })];
+        typeSymbols = Types.ToDictionary(type => type.Definition);
         NativeNamespaceSymbol Namespace(string name)
         {
             var ns = root;
@@ -56,6 +60,8 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         }
     }
     internal ImmutableArray<NativeNamedTypeSymbol> Types { get; }
+    internal NativeNamedTypeSymbol Resolve(TypeReference reference) => typeSymbols.TryGetValue(reference.Resolve(), out var type)
+        ? type : throw new InvalidDataException("native signature type is outside this module");
     public override IAssemblySymbol ContainingAssembly => assembly;
     public override IModuleSymbol ContainingModule => this;
     public INamespaceSymbol GlobalNamespace { get; }
@@ -98,6 +104,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     private readonly Compilation compilation;
     private readonly MethodSignature signature;
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
+    private readonly Lazy<ITypeSymbol> returnType;
     internal NativeMethodSymbol(Compilation compilation, MethodDefinition definition, ISymbol owner)
         : base(SymbolKind.Method, definition.Name, owner, owner as INamedTypeSymbol, owner as INamespaceSymbol ?? owner.ContainingNamespace, [], [],
             (definition.Attributes & 7) == 6 ? Accessibility.Public : (definition.Attributes & 7) == 3 ? Accessibility.Internal : Accessibility.Private)
@@ -105,18 +112,26 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         this.compilation = compilation; Definition = definition;
         if (!definition.TryGetSignature(out var decoded)) throw new InvalidDataException("native signature unavailable");
         signature = decoded!;
-        parameters = new(() => [.. signature.ParameterTypes.Select((p, i) => (IParameterSymbol)new NativeParameterSymbol(i, Map(p.Primitive!.Value), this))]);
+        returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : Map(signature.ReturnType));
+        parameters = new(() => [.. signature.ParameterTypes.Select((p, i) => (IParameterSymbol)new NativeParameterSymbol(i, Map(p), this))]);
     }
     internal MethodDefinition Definition { get; }
-    private ITypeSymbol Map(PrimitiveType type) => compilation.GetSpecialType(type switch {
-        PrimitiveType.Int32 => SpecialType.System_Int32, PrimitiveType.Int64 => SpecialType.System_Int64,
-        PrimitiveType.Boolean => SpecialType.System_Boolean, PrimitiveType.String => SpecialType.System_String,
-        PrimitiveType.Void => SpecialType.System_Unit, _ => throw new InvalidDataException("unsupported native primitive") });
+    private ITypeSymbol Map(SignatureType type) => type.ReferencedType is { } reference
+        ? ((NativeModuleSymbol)ContainingModule).Resolve(reference)
+        : compilation.GetSpecialType(type.Primitive switch
+        {
+            PrimitiveType.Int32 => SpecialType.System_Int32,
+            PrimitiveType.Int64 => SpecialType.System_Int64,
+            PrimitiveType.Boolean => SpecialType.System_Boolean,
+            PrimitiveType.String => SpecialType.System_String,
+            PrimitiveType.Void => SpecialType.System_Unit,
+            _ => throw new InvalidDataException("unsupported native primitive")
+        });
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic => Definition.IsStatic;
     public MethodKind MethodKind => Definition.Name == ".ctor" ? MethodKind.Constructor : MethodKind.Ordinary;
-    public ITypeSymbol ReturnType => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : Map(signature.ReturnType.Primitive!.Value);
+    public ITypeSymbol ReturnType => returnType.Value;
     public ImmutableArray<IParameterSymbol> Parameters => parameters.Value;
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => [];
     public IMethodSymbol OriginalDefinition => this;

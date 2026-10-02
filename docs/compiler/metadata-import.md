@@ -586,3 +586,21 @@ matching native dependency bindings remain required. Nominal field signatures, g
 value owners, translated layouts and reference-comparison lowering remain separate gaps.
 The library also writes ordinary CLI MemberRefs for its imported-field API; C# tests
 execute that encoding on the CLR. Raven's existing .NET backend remains unchanged.
+
+### Native local nominal signatures (2026-10-02)
+
+The opt-in native provider now resolves SignatureType.ReferencedType through the loaded
+module's definition-keyed symbol map. Parameter and result symbols are lazy and cached,
+so signatures may reference classes declared later without exposing a partially built
+module or recursively loading the primitive core. Factory results, namespace/static/
+instance method arguments/results and constructor arguments preserve canonical type
+identity. The emitter imports these definitions through the independent metadata API;
+no translated CLI dependency is introduced. Ordinary .NET providers are unchanged.
+
+NeoClrMetadataProbe validates both reference orders, semantic identity, bad arguments,
+native emission and four runtime consumers returning 42. The source native type library
+uses a factory, class identity calls and a constructor receiving another class. The
+explicit CLI primitive core and exact dependency bindings remain the bootstrap contract.
+Only local nongeneric root class signatures are newly admitted; nominal fields, external
+signature dependencies, value/interface/generic types and full native System import
+remain pending. This changes neither language syntax nor Runtime Contract configuration.

@@ -1,4 +1,5 @@
 using NeoCLR.Metadata.Experimental.Model;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.NeoClr;
 using Raven.CodeAnalysis.Syntax;
@@ -12,6 +13,8 @@ internal static class NativeTypeChecks
         const string source = """
             namespace Example
             public static class NativeMath {
+                public static func Create(value: int) -> Calculator => Calculator(value)
+                public static func Pass(value: Calculator) -> Calculator => value
                 public static func Echo(value: int) -> int => value
                 public static func Echo(value: bool) -> bool => value
                 internal static func Hidden() -> int => 0
@@ -24,9 +27,17 @@ internal static class NativeTypeChecks
                     self.stored = value
                     self.Visible = value
                 }
+                public func Same(value: Calculator) -> Calculator => value
                 public func Add(value: int) -> int => stored + value
                 private func Secret() -> int => 0
             }
+            public class Snapshot {
+                public field Value: int
+                public init(source: Calculator) {
+                    self.Value = source.Visible
+                }
+            }
+            public func PassCalculator(value: Calculator) -> Calculator => value
             public class Restricted {
                 private init() {}
             }
@@ -47,10 +58,10 @@ internal static class NativeTypeChecks
             import Example.*
             func Main() -> int {
                 if !NativeMath.Echo(true) { return 1 }
-                let calculator = Calculator(20)
-                let alias = calculator
+                let calculator = NativeMath.Create(20)
+                let alias = PassCalculator(NativeMath.Pass(calculator.Same(calculator)))
                 alias.Visible = NativeMath.Echo(22)
-                return alias.Add(calculator.Visible)
+                return alias.Add(Snapshot(calculator).Value)
             }
             """;
         foreach (var references in new MetadataReference[][] { [coreReference, reference], [reference, coreReference] })
@@ -70,6 +81,14 @@ internal static class NativeTypeChecks
             Check(methods.Select(m => m!.ReturnType.SpecialType).ToHashSet().SetEquals([SpecialType.System_Boolean, SpecialType.System_Int32]), "primitive overload selection");
             var calculator = assembly.GetTypeByMetadataName("Example.Calculator");
             Check(calculator is { IsStatic: false, IsAbstract: false, IsClosed: false } && calculator.InstanceConstructors.Length == 1, "instance class/constructor classification");
+            var create = type!.GetMembers("Create").OfType<IMethodSymbol>().Single();
+            var pass = type.GetMembers("Pass").OfType<IMethodSymbol>().Single();
+            var same = calculator!.GetMembers("Same").OfType<IMethodSymbol>().Single();
+            Check(ReferenceEquals(create.ReturnType, calculator) && ReferenceEquals(pass.Parameters[0].Type, calculator) &&
+                ReferenceEquals(pass.ReturnType, calculator) && ReferenceEquals(same.ReturnType, calculator) &&
+                ReferenceEquals(same.Parameters[0].Type, calculator), "canonical nominal parameter/result symbols");
+            var snapshot = assembly.GetTypeByMetadataName("Example.Snapshot")!;
+            Check(ReferenceEquals(snapshot.InstanceConstructors.Single().Parameters[0].Type, calculator), "nominal constructor parameter identity");
             var stored = calculator!.GetMembers("stored").OfType<IFieldSymbol>().Single();
             var visible = calculator.GetMembers("Visible").OfType<IFieldSymbol>().Single();
             Check(stored.DeclaredAccessibility == Accessibility.Private && stored.Type.SpecialType == SpecialType.System_Int32 &&
@@ -82,7 +101,7 @@ internal static class NativeTypeChecks
             Check(result.Success, string.Join("; ", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "NativeTypeConsumer.dll"), image.ToArray());
         }
-        foreach (var expression in new[] { "NativeMath.Hidden()", "NativeMath.Secret()", "HiddenType.Value()", "Calculator(20).Secret()", "Calculator(20).stored", "Restricted()", "NativeMath.Echo(\"wrong\")" })
+        foreach (var expression in new[] { "NativeMath.Hidden()", "NativeMath.Secret()", "HiddenType.Value()", "Calculator(20).Secret()", "Calculator(20).stored", "Restricted()", "NativeMath.Echo(\"wrong\")", "NativeMath.Pass(\"wrong\").Visible" })
         {
             var rejected = Compilation.Create("Rejected", [SyntaxTree.ParseText("import Example.*\nfunc Main() -> int { return " + expression + " }")],
                 [coreReference, reference], CompilationOptions.NeoCLR);

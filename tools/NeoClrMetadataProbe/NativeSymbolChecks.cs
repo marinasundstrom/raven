@@ -2,11 +2,14 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Reflection;
 using System.Text.Json;
+
 using NeoCLR.Metadata.Experimental;
 using NeoCLR.Metadata.Experimental.Model;
+
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.NeoClr;
 using Raven.CodeAnalysis.Syntax;
+
 using MetadataReference = Raven.CodeAnalysis.MetadataReference;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 
@@ -35,9 +38,14 @@ internal static class NativeSymbolChecks
             if (process.ExitCode != 42 || (stdout + stderr).Trim() != "=> Int32(42)") throw new Exception($"native runtime failed: {process.ExitCode} {stdout} {stderr}");
             results.Add(new { app, dependency, exitCode = process.ExitCode, stdout, stderr, appSha256 = Hash(appPath), dependencySha256 = Hash(dependencyPath) });
         }
-        File.WriteAllText(Path.Combine(output, "runtime-validation.json"), JsonSerializer.Serialize(new {
-            passed = true, runtimeSha256 = Hash(runtime), systemSha256 = Hash(system), coreSha256 = Hash(corePath), results,
-            scope = "native primitive function/class import and cross-assembly execution; explicit CLI primitive core retained"
+        File.WriteAllText(Path.Combine(output, "runtime-validation.json"), JsonSerializer.Serialize(new
+        {
+            passed = true,
+            runtimeSha256 = Hash(runtime),
+            systemSha256 = Hash(system),
+            coreSha256 = Hash(corePath),
+            results,
+            scope = "native primitive/local-class signature import and cross-assembly execution; explicit CLI primitive core retained"
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS native metadata import, emission and runtime execution");
         static string Hash(string path) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
@@ -131,7 +139,7 @@ internal static class NativeSymbolChecks
         if (!consumed.Success) throw new Exception("native source consumer failed: " + string.Join("; ", consumed.Diagnostics));
         File.WriteAllBytes(Path.Combine(output, "RavenNativeConsumer.dll"), consumerOutput.ToArray());
         NativeTypeChecks.Run(cliCore, core, output);
-        File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new { passed = true, nativeSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), coreSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(corePath))), cases = new[] { "native namespace overloads", "both reference orders", "semantic type and symbol identity", "compilation isolation", "accessibility", "invalid argument", "CLI emission leaves output empty", "native call emission", "Raven-produced native library read and consumed", "native snapshot mismatch leaves output empty", "duplicate identity", "wrong target", "missing dependency", "registered dependency", "exact version identity", "native class/field symbols, overloads, constructors and stateful instance calls and direct field load/store" }, scope = "direct native dependency symbols with explicit CLI primitive core; native call emitted; runtime execution validated separately" }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
+        File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new { passed = true, nativeSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), coreSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(corePath))), cases = new[] { "native namespace overloads", "both reference orders", "semantic type and symbol identity", "compilation isolation", "accessibility", "invalid argument", "CLI emission leaves output empty", "native call emission", "Raven-produced native library read and consumed", "native snapshot mismatch leaves output empty", "duplicate identity", "wrong target", "missing dependency", "registered dependency", "exact version identity", "native class/field symbols, nominal function/method/constructor signatures, overloads, stateful instance calls and direct field load/store" }, scope = "direct native dependency symbols with explicit CLI primitive core; native call emitted; runtime execution validated separately" }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS direct native semantic imports");
     }
 }

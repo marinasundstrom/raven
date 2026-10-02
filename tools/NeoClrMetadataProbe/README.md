@@ -569,3 +569,9 @@ Direct public primitive field emission is now positive coverage: the main class 
 stores through an alias and loads through the original reference, and NativeFieldConsumer
 executes a constructor followed by a direct field load. Runtime mode runs all four
 consumers (42). The earlier NEOMETA001 field-operand limitation is closed for this subset.
+
+The native type consumer now also exercises local nominal signatures: factory results,
+namespace/static/instance class identity calls, and a constructor receiving another
+class. Semantic checks require the same canonical type symbols in both reference orders;
+invalid nominal arguments diagnose. All four native runtime consumers still return 42.
+The direct dependency remains PE/#Neo; only the primitive bootstrap core uses CLI metadata.

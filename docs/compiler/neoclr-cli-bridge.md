@@ -3436,3 +3436,26 @@ matching native dependency bindings remain required. Nominal field signatures, g
 value owners, translated layouts and reference-comparison lowering remain separate gaps.
 The library also writes ordinary CLI MemberRefs for its imported-field API; C# tests
 execute that encoding on the CLR. Raven's existing .NET backend remains unchanged.
+
+### Direct native local class signatures (2026-10-02 development)
+
+Native function/method/constructor signatures can now refer to another supported class
+in the same native assembly. The metadata library owns immutable nominal references;
+Raven maps them to the same compilation-owned types returned by namespace/type lookup
+and imports output operands through the metadata API. The existing CLI primitive core
+and explicit native dependency/core bindings remain required; Runtime Contract settings
+are unchanged. No CLI projection of this dependency is generated, and no shared binder
+or .NET loading/emission behavior changes.
+
+The Raven source library exposes a factory, namespace/static/instance identity calls and
+a constructor accepting a class. Its native consumer preserves aliases and returns 42;
+all four runtime consumers pass. C# metadata checks pass 98 groups, including CLR execution
+of the corresponding imported nominal signatures. Ordinary .NET regression evidence from
+the preceding shared-layer slices is reused, not claimed as rerun here.
+
+Local nongeneric root classes only: native signature dependencies on other assemblies,
+nominal fields, generic/interface/value types and full System import remain pending.
+The metadata library owns future native shape/resolution support; Raven's target provider
+owns symbol mapping. Existing translated System runtime input and CLI core bootstrap are
+still temporary and require native core/reference loading and full source emission to
+replace them.
