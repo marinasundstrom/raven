@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Add an executable unchanged HashMap source checkpoint, compiling its
+  source interfaces, ArrayList and callback equality policy together. Native verification
+  and collision/growth, duplicate, update, key-snapshot and Option lookup execution pass
+  (42). Translated System remains required; full source bootstrap is not yet complete.
+
 - **2026-10-02:** Propagate the selected target capabilities into shared interface
   signature admission for method results, parameters and properties. Explicitly admitted
   imported reference/value types now plan correctly; the ordinary .NET shared profile

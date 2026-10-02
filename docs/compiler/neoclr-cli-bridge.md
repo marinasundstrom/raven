@@ -3269,3 +3269,20 @@ sources now emit native PE, verify and execute ordering, equality and hash calls
 concrete/interface receivers (42), using the same explicit implementation seed and
 translated System dependency bundle as ArrayList. Native semantic importing remains
 the replacement for CLI transport signatures.
+
+### Source HashMap execution (2026-10-02)
+
+The --hash-map-source-runtime probe compiles thirteen unchanged library source units
+together using the existing explicit implementation seed, BootstrapReference and native
+System dependency binding. HashMap, ArrayList, the source map/sequence interfaces and
+FunctionEqualityComparer execute native PE (42), including collision chains, growth,
+duplicate rejection, insertion/update, key snapshot independence, inherited interface
+dispatch and absent/present Option results. A custom policy constructor also verifies
+equality-equivalent keys. The isolated shared interface signature capability correction
+admits imported Option<V>; no new native encoding or runtime behavior is introduced.
+
+All 14 focused interface tests pass, and source ArrayList's success and failure cases
+still pass. neoCLR's docs/experiments/extended-cli-metadata/hashmap-*-2026-10-02.json
+record source/consumer and bundle hashes. CLI seed signatures and translated System
+remain temporary dependencies until native semantic importing and full source bootstrap;
+capturing closures remain unsupported. This does not imply a feature merge to main.

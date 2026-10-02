@@ -508,3 +508,8 @@ checks explicitly bound System.Fail calls, including a dynamic message.
 `--comparer-source-runtime <neo-root> <fresh-output> <implementation-seed.dll> <System.neox> <runtime>`
 compiles unchanged callback comparer sources and executes generic Function fields with
 noncapturing callbacks through concrete and interface receivers.
+
+`--hash-map-source-runtime <neo-root> <fresh-output> <implementation-seed.dll> <System.neox> <runtime>`
+compiles unchanged HashMap with its source collection/policy dependencies and checks
+collisions, growth, duplicate rejection, update/insert, independent key snapshots,
+interface dispatch and Option lookups. Success returns 42 after native verification.

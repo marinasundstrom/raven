@@ -152,6 +152,69 @@ internal static class LibrarySourceChecks
              "System/Collections/FunctionComparer.rvn", "System/Collections/FunctionEqualityComparer.rvn"]);
     }
 
+    internal static async Task RunHashMap(string root, string output, string seed, string nativeSystem, string runtime)
+    {
+        if (Directory.Exists(output)) throw new IOException("output must be fresh");
+        Directory.CreateDirectory(output);
+        var cases = new[] { (Name: "collisions-growth-update", Source: """
+            import System.Option.*
+
+            func Main() -> int {
+                let map = System.Collections.HashMap<int, int>((left, right) => left == right, value => 1)
+                let mutable: System.Collections.MutableMap<int, int> = map
+                var index = 0
+                while index < 12 {
+                    if !mutable.TryAdd(index, index * 3) { return 1 }
+                    index = index + 1
+                }
+                if mutable.TryAdd(5, 999) { return 2 }
+                let view: System.Collections.Map<int, int> = map
+                if view.Count != 12 { return 3 }
+                if !view.ContainsKey(11) { return 4 }
+                if view.ContainsKey(20) { return 5 }
+                let keys = view.Keys
+                mutable.Set(5, 42)
+                mutable.Set(20, 60)
+                if keys.Count != 12 { return 6 }
+                if view.Count != 13 { return 7 }
+                let found = match view.Find(5) {
+                    Some(let value) => value
+                    None => -1
+                }
+                if found != 42 { return 8 }
+                let absent = match view.Find(99) {
+                    Some(let value) => false
+                    None => true
+                }
+                if !absent { return 9 }
+                index = 0
+                while index < 12 {
+                    let actual = match view.Find(index) {
+                        Some(let value) => value
+                        None => -1
+                    }
+                    if index != 5 && actual != index * 3 { return 10 }
+                    index = index + 1
+                }
+                let policy = System.Collections.FunctionEqualityComparer<int>((left, right) => left % 10 == right % 10, value => value % 10)
+                let custom = System.Collections.HashMap<int, int>(policy)
+                if !custom.TryAdd(12, 42) { return 11 }
+                if custom.TryAdd(22, 7) { return 12 }
+                let equivalent = match custom.Find(32) {
+                    Some(let value) => value
+                    None => -1
+                }
+                return equivalent
+            }
+            """, Message: (string?)null) };
+        await ExecuteCases(root, output, seed, nativeSystem, runtime, cases,
+            ["System/Disposable.rvn", "System/Collections/Iterator.rvn", "System/Collections/Iterable.rvn",
+             "System/Collections/Collection.rvn", "System/Collections/Sequence.rvn", "System/Collections/MutableSequence.rvn",
+             "System/Collections/List.rvn", "System/Collections/ArrayList.rvn",
+             "System/Collections/EqualityComparer.rvn", "System/Collections/FunctionEqualityComparer.rvn",
+             "System/Collections/Map.rvn", "System/Collections/MutableMap.rvn", "System/Collections/HashMap.rvn"]);
+    }
+
     private static async Task ExecuteCases(string root, string output, string seed, string nativeSystem,
         string runtime, (string Name, string Source, string? Message)[] cases, string[]? sourcePaths = null)
     {
