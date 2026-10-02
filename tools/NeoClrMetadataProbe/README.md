@@ -647,5 +647,7 @@ return types diagnose. External construction signatures remain outside direct re
 NativeGenericBridge now forwards closed/open Box<T> signatures and vectors from
 NativeGenericLibrary to the consumer. The runtime command loads both dependencies.
 Checks cover original-definition identity, bridge method scope, both reference orders
-and missing dependency diagnostics. The source uses imported namespace functions;
-qualified generic namespace-call lookup remains a separately recorded follow-up.
+and missing dependency diagnostics. The source now exercises qualified inferred and explicit namespace-function calls.
+Incompatible explicit arguments diagnose; all seven native consumers return 42.
+Shared lookup now includes directly namespace-owned functions without a synthetic
+type receiver. The existing .NET container-based controls also pass.

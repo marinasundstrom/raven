@@ -70,9 +70,9 @@ internal static class NativeGenericSymbolChecks
                 if item.Number != 7 { return 1 }
                 if Forward<Item>(item).Number != 7 { return 2 }
                 let values: int[] = [19, 23]
-                let box = RelayBox(EchoBox(Create(19)))
+                let box = GenericBridge.RelayBox<int>(EchoBox(GenericBridge.Create(19)))
                 let boxes: Box<int>[] = [box]
-                RelayBoxes(boxes)[0].Same(box).Set(42)
+                GenericBridge.RelayBoxes(boxes)[0].Same(box).Set(42)
                 if box.Current != 42 { return 6 }
                 let nominal = Box<Item>(item)
                 nominal.Current.Number = 9
@@ -138,6 +138,9 @@ internal static class NativeGenericSymbolChecks
                 CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
             var wrongConstruction = Compilation.Create("WrongConstruction", [SyntaxTree.ParseText("import Generics.*\nfunc Wrong(value: Box<bool>) -> Box<int> => OpenBox(value)")], references,
                 CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+            var wrongExplicit = Compilation.Create("WrongQualifiedArgument", [SyntaxTree.ParseText("import Generics.*\nfunc Wrong(value: Box<int>) -> Box<int> => GenericBridge.RelayBox<bool>(value)")], references,
+                CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+            Check(wrongExplicit.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "qualified explicit type argument is enforced");
             Check(wrongConstruction.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "incompatible generic constructions diagnose");
             Check(invalid.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "invalid generic argument diagnoses");
         }

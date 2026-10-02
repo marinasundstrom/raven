@@ -8,6 +8,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   namespace lookup, alongside methods promoted from CLI containers. Bind ownerless
   functions without a synthetic type receiver. Native qualified generic calls now bind;
   .NET qualified-call controls and focused namespace/generic tests retain their behavior.
+  The native probe now executes qualified inferred/explicit calls across three assemblies
+  and rejects incompatible explicit arguments; all seven consumers return 42.
 
 - **2026-10-02:** Import unconstrained native static generic methods and namespace
   functions into compilation-owned symbols, completing the earlier guarded metadata
