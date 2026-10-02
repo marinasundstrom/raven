@@ -19,6 +19,7 @@ internal sealed class NativeAssemblySymbol : Symbol, IImportedAssemblySymbol
     internal NeoClrMetadataReference Reference { get; }
     internal NativeModuleSymbol Module { get; }
     public object DefinitionIdentity => Reference.Definition.Identity;
+    public ResolvedAssemblyArtifact ResolvedArtifact => Reference.Artifact;
     public INamespaceSymbol GlobalNamespace => Module.GlobalNamespace;
     public IEnumerable<IModuleSymbol> Modules => [Module];
     public INamedTypeSymbol? GetTypeByMetadataName(string name) => Module.Types.SingleOrDefault(t => ((ITypeSymbol)t).ToFullyQualifiedMetadataName() == name);
@@ -142,6 +143,9 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
             (definition.Attributes & 7) == 6 ? Accessibility.Public : (definition.Attributes & 7) == 3 ? Accessibility.Internal : Accessibility.Private)
     {
         this.compilation = compilation; Definition = definition;
+        IsStatic = definition.IsStatic;
+        IsAbstract = (definition.Attributes & 0x400) != 0;
+        IsVirtual = (definition.Attributes & 0x40) != 0;
         if (!definition.TryGetSignature(out var decoded)) throw new InvalidDataException("native signature unavailable");
         signature = decoded!;
         TypeParameters = [.. signature.GenericParameterNames.Select((name, i) => (ITypeParameterSymbol)new NativeTypeParameterSymbol(name, i, this))];
@@ -163,8 +167,8 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         : ContainingType is NativeNamedTypeSymbol owner ? owner.Map(type) : ((NativeModuleSymbol)ContainingModule).Map(type);
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
-    public override bool IsStatic => Definition.IsStatic;
-    public MethodKind MethodKind => Definition.Name == ".ctor" ? MethodKind.Constructor : property is null ? MethodKind.Ordinary
+    public override bool IsStatic { get; }
+    public MethodKind MethodKind => Name == ".ctor" ? MethodKind.Constructor : property is null ? MethodKind.Ordinary
         : ReferenceEquals(property.GetMethod, this) ? MethodKind.PropertyGet : MethodKind.PropertySet;
     public ITypeSymbol ReturnType => returnType.Value;
     public ImmutableArray<IParameterSymbol> Parameters => parameters.Value;
@@ -175,7 +179,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => [];
     public IMethodSymbol Construct(params ITypeSymbol[] types) => types.Length == 0 && TypeParameters.IsEmpty ? this : new ConstructedMethodSymbol(this, [.. types]);
-    public bool IsAbstract => (Definition.Attributes & 0x400) != 0;
+    public bool IsAbstract { get; }
     public bool IsAsync => false;
     public bool IsCheckedBuiltin => false;
     public bool IsDefinition => true;
@@ -186,7 +190,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public bool IsOverride => false;
     public bool IsReadOnly => false;
     public bool IsFinal => false;
-    public bool IsVirtual => (Definition.Attributes & 0x40) != 0;
+    public bool IsVirtual { get; }
     public bool IsIterator => false;
     public IteratorMethodKind IteratorKind => IteratorMethodKind.None;
     public ITypeSymbol? IteratorElementType => null;

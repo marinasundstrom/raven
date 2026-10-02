@@ -651,3 +651,9 @@ and missing dependency diagnostics. The source now exercises qualified inferred 
 Incompatible explicit arguments diagnose; all seven native consumers return 42.
 Shared lookup now includes directly namespace-owned functions without a synthetic
 type receiver. The existing .NET container-based controls also pass.
+
+
+Primitive/method-generic/vector namespace-function calls now exercise symbol-only
+reference authoring: the emitter reconstructs signatures and exact assembly identity
+without native method definitions. Host artifact digest checks remain. Nominal
+signatures and type-owned members still exercise the older reader-backed path.

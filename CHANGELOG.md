@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Reconstruct native namespace-function references from compiler symbol
+  signatures and value-only assembly/artifact identities for primitive, method-generic
+  and vector signatures. This path no longer reads importer definitions or resolves
+  metadata during reference construction. Keep host snapshot validation; nominal
+  members remain on the old path. All seven native runtime consumers execute (42).
+
 - **2026-10-02:** Record the planned importer/emitter separation: compiler-owned
   symbols carry resolved meaning, and backends reconstruct output references without
   loader objects. Document current native coupling and distinguish Raven's compiler

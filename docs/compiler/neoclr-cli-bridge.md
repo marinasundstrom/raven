@@ -3731,3 +3731,29 @@ API. See [ownership, current violations and migration slices](metadata-backend-b
 The current native path has not yet completed this separation. Explicit Runtime
 Contract selection, CLI primitive bootstrap and translated System requirements are
 unchanged; existing execution evidence does not prove the proposed separation.
+
+
+### First symbol-only emission slice (2026-10-02)
+
+Native namespace functions with primitive, method-parameter and single-vector signatures
+now reconstruct output references using IMethodSymbol and a compiler-owned
+ResolvedAssemblyArtifact value. The latter contains exact assembly identity and the
+selected input image's SHA-256, not a reader handle. The importer copies method flags
+into symbol state. The backend maps the signature from symbols, compares the host
+binding's captured digest, and calls the metadata library's CreateFunctionReference.
+It does not use NativeMethodSymbol.Definition, input tokens or the metadata resolver on
+this path. Resolver creation is lazy so this profile does not instantiate it.
+
+This is intentionally bounded. Nominal signatures, type-owned methods and fields still
+use the old reader-backed path; host dependency setup still accepts definitions and
+performs existing validation. Native symbol lazy materialization is unchanged. No claim
+is made that readers can yet be disposed before emission or that all compiler boundaries
+are independent. The metadata library's separate IILGenerator is still planned.
+
+The format remains unchanged: native linking selects namespace/name/signature. The
+artifact digest guards compiler/output consistency; it is not encoded runtime integrity.
+Explicit Runtime Contract selection, CLI primitive core and translated System remain
+required. .NET emission is unchanged. The seven native consumers compile and execute
+with exit 42, including generic vector calls and negative reference checks; the library's
+107 C# test groups pass and its generic vector reference executes in both containers.
+Next remove nominal type-reference reconstruction's dependency on input definitions.

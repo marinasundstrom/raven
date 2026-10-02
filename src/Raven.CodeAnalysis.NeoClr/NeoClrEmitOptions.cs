@@ -23,7 +23,11 @@ public sealed class NeoClrMetadataDependency
         Definition = definition;
         CoreLibrary = coreLibrary;
         NativeImplementation = nativeImplementation;
+        NativeArtifactSha256 = definition.IsNative
+            ? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(definition.Write())) : null;
     }
+    internal string? NativeArtifactSha256 { get; }
+
     /// <summary>Gets an explicitly bound translated native implementation, or null for the metadata writer naming contract.</summary>
     public NativeLibraryDefinition? NativeImplementation { get; }
     /// <summary>Gets the compiler reference whose assembly symbol identifies calls.</summary>

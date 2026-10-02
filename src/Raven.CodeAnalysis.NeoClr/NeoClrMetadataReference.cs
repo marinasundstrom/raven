@@ -10,14 +10,20 @@ namespace Raven.CodeAnalysis.NeoClr;
 /// <remarks>The profile supports unconstrained generic root classes, nongeneric interfaces and static generic methods/functions, with primitive, nominal and vector signatures and explicitly resolved dependencies. An explicit CLI core still supplies primitive symbols.</remarks>
 public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetadataReference
 {
-    private NeoClrMetadataReference(AssemblyDefinition definition) => Definition = definition;
+    private NeoClrMetadataReference(AssemblyDefinition definition, string sha256)
+    {
+        Definition = definition;
+        var identity = definition.Identity;
+        Artifact = new(identity.Name, identity.Version, identity.Culture, identity.PublicKeyToken, identity.Flags, sha256);
+    }
+    internal ResolvedAssemblyArtifact Artifact { get; }
     /// <summary>Gets the immutable native definition snapshot.</summary>
     public AssemblyDefinition Definition { get; }
     /// <summary>Reads an API-produced PE/#Neo declaration library. Unsupported declarations fail before compilation.</summary>
     public static NeoClrMetadataReference ReadAssembly(ReadOnlySpan<byte> image)
     {
         var definition = AssemblyDefinition.ReadNativeAssembly(image);
-        return new(definition);
+        return new(definition, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)));
     }
     public override bool Equals(object? obj) => ReferenceEquals(this, obj);
     public override bool Equals(MetadataReference? other) => ReferenceEquals(this, other);

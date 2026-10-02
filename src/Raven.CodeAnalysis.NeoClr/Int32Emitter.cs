@@ -1,6 +1,7 @@
 using NeoCLR.Metadata.Experimental.Model;
 
 using Raven.CodeAnalysis.CodeGen.Portable;
+using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -15,7 +16,7 @@ internal static class Int32Emitter
     internal static byte[] Emit(Compilation compilation, NeoClrEmitOptions options,
         IReadOnlyList<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)> dependencies)
     {
-        var nativeResolver = new NativeAssemblyResolver(dependencies.Select(d => d.Dependency.Definition));
+        var nativeResolver = new Lazy<NativeAssemblyResolver>(() => new(dependencies.Select(d => d.Dependency.Definition)));
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
         var interfaces = new List<SourceInterfacePlan>();
@@ -345,7 +346,7 @@ internal static class Int32Emitter
                         ?? throw Unsupported("unregistered dependency field");
                     if (!ReferenceEquals(nativeField.Definition.Module.Assembly, binding.Definition))
                         throw Unsupported("native field snapshot differs from semantic reference");
-                    imported = new NeoClrFieldReference(null, Import: assembly.ImportReference(nativeField.Definition, binding.CoreLibrary, nativeResolver));
+                    imported = new NeoClrFieldReference(null, Import: assembly.ImportReference(nativeField.Definition, binding.CoreLibrary, nativeResolver.Value));
                     importedFields.Add(field, imported);
                     return imported;
                 }
@@ -419,12 +420,27 @@ internal static class Int32Emitter
         {
             var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
                 ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name);
+            // This bounded profile uses only compiler symbols and host artifact values.
+            // Nominal signatures stay on the old path until type-reference authoring migrates.
+            if (symbol.IsStatic && symbol.ContainingType is null &&
+                symbol.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: { } artifact } &&
+                CallableSignature.TryCreate(symbol, out var callable, NeoClrCapabilities.Shared) &&
+                IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind == RefKind.None && IsSymbolOnlyType(p.Type, false)))
+            {
+                if (artifact.Sha256 != binding.NativeArtifactSha256)
+                    throw Unsupported("native dependency snapshot differs from semantic reference");
+                var identity = new AssemblyIdentity(artifact.Name, artifact.Version, artifact.Culture, artifact.PublicKeyToken, artifact.Flags);
+                var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType),
+                    symbol.Parameters.Select(p => MapSymbolOnlyType(p.Type)), callable.GenericParameterNames);
+                return assembly.CreateFunctionReference(identity, binding.CoreLibrary, artifact.Sha256,
+                    symbol.ContainingNamespace?.ToMetadataName() ?? "", symbol.MetadataName, contract);
+            }
             var dependencyMetadata = binding.Definition;
             if (symbol is NativeMethodSymbol native)
             {
                 if (!ReferenceEquals(native.Definition.Module.Assembly, dependencyMetadata))
                     throw Unsupported("native dependency snapshot differs from semantic reference");
-                return assembly.ImportReference(native.Definition, binding.CoreLibrary, nativeResolver);
+                return assembly.ImportReference(native.Definition, binding.CoreLibrary, nativeResolver.Value);
             }
             var types = dependencyMetadata.MainModule.Types.Where(t => symbol.ContainingType is { } owner && t.GenericArity == owner.Arity && MatchesType(t, owner)).Take(2).ToArray();
             if (types.Length != 1) throw Unsupported("dependency type unavailable or ambiguous");
@@ -451,6 +467,27 @@ internal static class Int32Emitter
             if (matches.Count != 1) throw Unsupported("dependency method contract unavailable or ambiguous: " + symbol.ToDisplayString() + (importFailures.Count == 0 ? "" : " (" + string.Join("; ", importFailures) + ")"));
             return matches[0];
         }
+        static bool IsSymbolOnlyType(ITypeSymbol type, bool result) =>
+            type is ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } ||
+            type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
+            type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean or SpecialType.System_String ||
+            result && type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void;
+
+        static SignatureType MapSymbolOnlyType(ITypeSymbol type) => type switch
+        {
+            ITypeParameterSymbol parameter => SignatureType.MethodParameter(parameter.Ordinal),
+            IArrayTypeSymbol array => SignatureType.ArrayOf(MapSymbolOnlyType(array.ElementType)),
+            _ => type.SpecialType switch
+            {
+                SpecialType.System_Int32 => PrimitiveType.Int32,
+                SpecialType.System_Int64 => PrimitiveType.Int64,
+                SpecialType.System_Boolean => PrimitiveType.Boolean,
+                SpecialType.System_String => PrimitiveType.String,
+                SpecialType.System_Unit or SpecialType.System_Void => PrimitiveType.Void,
+                _ => throw new InvalidOperationException("unsupported symbol-only signature")
+            }
+        };
+
         UnsupportedInputException Unsupported(string detail) => new(detail, diagnosticSyntax.GetLocation());
 
         static bool ReturnsValue(IMethodSymbol method) => method.ReturnType.SpecialType == SpecialType.System_Int32;
