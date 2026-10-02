@@ -8,30 +8,53 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
     internal int ParameterCount => ParameterTypes.Length;
     internal bool ReturnsValue => ReturnType.Primitive != EmissionPrimitiveType.NoResult;
 
-    internal static bool TryType(ITypeSymbol type, bool result, out EmissionType value, EmissionCapabilities? capabilities = null)
+    internal static bool TryType(ITypeSymbol type, bool result, out EmissionType value, EmissionCapabilities? capabilities = null, int depth = 0)
     {
         value = default;
+        if (depth >= 16) return false;
         if (type.IsNullable && type.GetNonNullableType().IsReferenceType)
             type = type.GetNonNullableType();
         if ((result ? EmissionPrimitiveTypes.TryGetReturnType(type, out var primitive) : EmissionPrimitiveTypes.TryGetValueType(type, out primitive)))
         { value = new(Primitive: primitive); return true; }
+        if (capabilities?.AllowsFunctionValues == true && type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } function && TryFunction(function, out _, capabilities, depth + 1))
+        { value = new(Nominal: function); return true; }
         if (type is ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter)
         { value = new(MethodParameter: parameter); return true; }
         if (type is ITypeParameterSymbol { DeclaringTypeParameterOwner: not null } ownerParameter)
         { value = new(OwnerParameter: ownerParameter); return true; }
         if (capabilities?.AllowsExternalValueSignatures == true && type is INamedTypeSymbol externalValue && IsExternalValue(externalValue, capabilities?.AllowsNestedExternalTypes == true) &&
-            externalValue.TypeArguments.All(t => TryType(t, false, out _, capabilities)))
+            externalValue.TypeArguments.All(t => TryType(t, false, out _, capabilities, depth + 1)))
         { value = new(Nominal: externalValue); return true; }
         if (capabilities?.AllowsExternalReferenceSignatures == true && type is INamedTypeSymbol external && IsExternalReference(external, capabilities?.AllowsNestedExternalTypes == true) &&
-            external.TypeArguments.All(t => TryType(t, false, out _, capabilities)))
+            external.TypeArguments.All(t => TryType(t, false, out _, capabilities, depth + 1)))
         { value = new(Nominal: external); return true; }
         if (type is INamedTypeSymbol { TypeKind: TypeKind.Interface } contract && SourceInterfacePlan.HasSupportedIdentity(contract))
         { value = new(Nominal: contract); return true; }
         if (type is INamedTypeSymbol named && SourceTypePlan.TryCreate(named, out var plan) && !plan!.IsStatic)
         { value = new(Nominal: named); return true; }
-        if (type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } array && TryType(array.ElementType, false, out _, capabilities))
+        if (type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } array && TryType(array.ElementType, false, out _, capabilities, depth + 1))
         { value = new(Array: array); return true; }
         return false;
+    }
+    internal static bool TryFunction(INamedTypeSymbol type, out CallableSignature signature, EmissionCapabilities capabilities, int depth = 0)
+    {
+        signature = null!;
+        if (depth >= 16) return false;
+        // The first transport profile admits core Func/Action shapes only. Named
+        // delegates retain nominal semantics and must not silently lose identity.
+        if (type.TypeKind != TypeKind.Delegate || type.ContainingNamespace?.ToDisplayString() != "System" ||
+            type.Name is not ("Func" or "Action") ||
+            !SymbolEqualityComparer.Default.Equals(type.ContainingAssembly, type.BaseType?.ContainingAssembly) || type.GetDelegateInvokeMethod() is not { } invoke ||
+            invoke.Parameters.Any(p => p.RefKind != RefKind.None) || invoke.Parameters.Length > 16 ||
+            !TryType(invoke.ReturnType, true, out var result, capabilities, depth + 1)) return false;
+        var parameters = ImmutableArray.CreateBuilder<EmissionType>();
+        foreach (var parameter in invoke.Parameters)
+        {
+            if (!TryType(parameter.Type, false, out var value, capabilities, depth + 1)) return false;
+            parameters.Add(value);
+        }
+        signature = new(result, parameters.ToImmutable());
+        return true;
     }
     internal static bool IsExternalValue(INamedTypeSymbol type, bool allowNested = false) =>
         type.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty && type.TypeKind == TypeKind.Struct &&

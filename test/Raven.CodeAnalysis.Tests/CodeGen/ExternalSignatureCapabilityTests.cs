@@ -9,6 +9,37 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class ExternalSignatureCapabilityTests
 {
     [Fact]
+    public void FunctionValuesRequireExplicitCapabilityAndPreserveDotNetExecution()
+    {
+        var app = Compilation.Create("FunctionAdmission", [SyntaxTree.ParseText("""
+            public static class Consumer {
+                public static func Increment(value: int) -> int => value + 2
+                public static func Apply(callback: (int) -> int, value: int) -> int => callback(value)
+                public static func Run() -> int {
+                    let callback: (int) -> int = Increment
+                    return Apply(callback, 40)
+                }
+            }
+            """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        EmissionCapabilities Capabilities(bool functions) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsFunctionValues: functions);
+        foreach (var syntax in app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+        {
+            var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+            Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
+            Assert.True(plan!.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
+            if (method.Name == "Apply") Assert.False(SourceCallablePlan.TryCreate(method, out _, Capabilities(false)));
+        }
+        using var image = new MemoryStream();
+        var emitted = app.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        var context = new AssemblyLoadContext("function-admission", true);
+        try { image.Position = 0; Assert.Equal(42, context.LoadFromStream(image).GetType("Consumer")!.GetMethod("Run")!.Invoke(null, null)); }
+        finally { context.Unload(); }
+    }
+
+    [Fact]
     public void NestedImportsRequireExplicitCapability()
     {
         var library = Compilation.Create("NestedContract", [SyntaxTree.ParseText("""

@@ -293,7 +293,12 @@ internal static class Int32Emitter
             current.Body.Emit(new NeoClrLinearMethodBuilder(current.Method, (instruction, output) =>
             {
                 diagnosticSyntax = instruction.Syntax;
-                if (instruction.Kind == LinearInstructionKind.InterfaceCall && interfaceMethods.TryGetValue(instruction.Method!, out var contract))
+                if (instruction.Kind == LinearInstructionKind.FunctionBind)
+                {
+                    if (!definedMethods.TryGetValue(instruction.Method!, out var target)) throw Unsupported("Function binding requires an owned static target");
+                    output.BindFunction(NeoClrTypeMapper.Map(instruction.Type!, type => nativeTypes[type], ImportExternalType), target);
+                }
+                else if (instruction.Kind == LinearInstructionKind.InterfaceCall && interfaceMethods.TryGetValue(instruction.Method!, out var contract))
                     output.CallVirtual(contract);
                 else references.Resolve(instruction.Method!).EmitCall(output);
             }, field =>

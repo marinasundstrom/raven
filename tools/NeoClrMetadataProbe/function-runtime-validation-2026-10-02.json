@@ -1,0 +1,49 @@
+{
+  "bindingProfile": "CompilationOptions.NeoCLR with CLI declaration snapshot; no host core reference",
+  "coreReference": "api-docs/reference/NeoCLR.CoreProbe.dll",
+  "coreSha256": "F85826C88FD3617FC357E6261A73B2BC745550E635D8130166AE09B61A72D1AD",
+  "runtimeSha256": "4B18A856E78DA581713BE4228EC6F4096B2A80F2FC7F941A3C1C5FBB251641BF",
+  "cases": [
+    {
+      "Name": "NativeProfileFunction",
+      "Result": 42,
+      "Output": "",
+      "verified": true
+    },
+    {
+      "Name": "NativeProfileRefOut",
+      "Result": 42,
+      "Output": "",
+      "verified": true
+    },
+    {
+      "Name": "NativeProfileHello",
+      "Result": 42,
+      "Output": "Hello World\n",
+      "verified": true
+    },
+    {
+      "Name": "NativeProfileDispatch",
+      "Result": 42,
+      "Output": "",
+      "verified": true
+    },
+    {
+      "Name": "NativeProfileArray",
+      "Result": 42,
+      "Output": "",
+      "verified": true
+    },
+    {
+      "Name": "NativeProfileUnit",
+      "Result": 0,
+      "Output": "Hello World\n",
+      "verified": true
+    }
+  ],
+  "rejected": [
+    "wrong core name",
+    "wrong core version"
+  ],
+  "scope": "primitive/Unit/array/function/interface/ref/out emission and runtime loading; not implementation bootstrap or native metadata symbol import"
+}

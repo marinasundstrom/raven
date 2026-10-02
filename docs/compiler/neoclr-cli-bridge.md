@@ -2982,3 +2982,21 @@ encodings owned by the bridge. The native metadata API and shared emission plan 
 now expose structural Function signatures and checked binding/invocation directly;
 that direct path is still incomplete for the unchanged collections application.
 Main does not gain structural Functions from these feature-branch checks.
+
+### Native Function producer checkpoint (2026-10-02)
+
+The metadata adapter opts into `AllowsFunctionValues` and logical Function bind/invoke
+instructions. It maps core Func/Action-shaped compiler symbols to structural native
+signatures, independent of the selected method. Static owned nongeneric method groups
+can be bound, stored in locals, passed as parameters, and invoked. A direct PE consumer
+returns 42 on neoCLR; the other five native profile controls remain passing. The shared
+admission test also executes the equivalent ordinary .NET consumer to 42.
+
+Runtime Contract configuration and semantic binding are unchanged. Ordinary .NET does
+not opt into these operations and retains the existing delegate generator. CLI metadata
+uses Func/Action solely as transport; native bodies use `function.bind` and Function
+invocation. The compiler owns lowering and capability admission; the separate metadata
+library owns encoding, and the runtime owns invocation. Noncapturing lambda synthesis,
+captured receivers, imported/generic binding targets and inhabited-Void callbacks still
+need producer support. The runtime feature integration is on
+`codex/extended-cli-metadata`, not evidence of main-branch availability.

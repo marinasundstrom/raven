@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -189,6 +189,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                             if (capabilities is not null && !capabilities.Allows(primitive)) return Reject("target does not support local type " + primitive, Syntax(variable));
                             localType = new(Primitive: primitive);
                         }
+                        else if (variable.Local.Type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } &&
+                            TryType(variable.Local.Type, false, out var callableType) && capabilities?.Allows(callableType) == true)
+                            localType = callableType;
                         else if (variable.Local.Type is INamedTypeSymbol externalValue && capabilities?.AllowsExternalValueSignatures == true &&
                             CallableSignature.IsExternalValue(externalValue, capabilities?.AllowsNestedExternalTypes == true) && TryType(externalValue, false, out var importedValueType) && capabilities.Allows(importedValueType))
                             localType = importedValueType;
@@ -615,6 +618,19 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     }, Syntax(expression));
                     if (binary.Operator.OperatorKind is OperatorKind.Inequality or OperatorKind.LessThanOrEqual or OperatorKind.GreaterThanOrEqual)
                         Add(LinearInstructionKind.Not, Syntax(expression));
+                    return true;
+                case BoundDelegateCreationExpression creation when capabilities?.AllowsFunctionValues == true &&
+                    creation.Method is { IsStatic: true, IsGenericMethod: false } target &&
+                    target.ContainingType?.Arity is not > 0 && !target.DeclaringSyntaxReferences.IsEmpty &&
+                    TryType(creation.DelegateType, false, out var functionType) && capabilities.Allows(functionType):
+                    instructions.Add(new(LinearInstructionKind.FunctionBind, Syntax(expression), Method: target, Type: creation.DelegateType));
+                    return true;
+                case BoundInvocationExpression call when capabilities?.AllowsFunctionValues == true &&
+                    call.Method.Name == "Invoke" && call.Method.ContainingType?.TypeKind == TypeKind.Delegate && call.Receiver is not null &&
+                    call.Receiver.Type is INamedTypeSymbol function && CallableSignature.TryFunction(function, out var shape, capabilities):
+                    if (call.Arguments.Count() != shape.ParameterCount || !LowerValue(call.Receiver)) return false;
+                    foreach (var argument in call.Arguments) if (!LowerValue(argument)) return false;
+                    instructions.Add(new(LinearInstructionKind.FunctionInvoke, Syntax(expression), Type: function));
                     return true;
                 case BoundInvocationExpression call when call.ExtensionReceiver is null &&
                     (call.Method.IsStatic && call.Receiver is null or BoundTypeExpression ||

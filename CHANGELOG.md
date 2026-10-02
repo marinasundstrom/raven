@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Add opt-in shared Function value signatures, locals, static method
+  binding and invocation for the native neoCLR adapter. A Raven program emits a PE
+  directly and executes its callback to 42. Ordinary .NET keeps delegate emission;
+  capturing lambdas and imported/generic binding targets remain outside this slice.
+
 - **2026-10-02:** Record coordinated structural Function integration on the neoCLR
   metadata feature branch. Existing target-owned inhabited callback results already
   match the Function transport; ordinary .NET delegate selection is unchanged.

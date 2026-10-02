@@ -14,7 +14,7 @@ internal sealed class EmissionCapabilities(
     IEnumerable<Accessibility>? typeVisibilities = null,
     IEnumerable<Accessibility>? methodVisibilities = null,
     IEnumerable<Accessibility>? functionVisibilities = null,
-    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false, bool allowsGenericStaticOwners = false, bool allowsGenericClassOwners = false, bool allowsConstructedFieldReferences = false, bool allowsNominalTypeBounds = false, bool allowsSpecialTypeConstraints = false, bool allowsGenericInterfaceDeclarations = false, bool allowsInterfaceSignatures = false, bool allowsInterfaceDispatch = false, bool allowsExternalReferenceSignatures = false, bool allowsExternalValueSignatures = false, bool allowsExternalInstanceCalls = false, bool allowsManagedReferences = false, bool allowsExternalValueInstanceCalls = false, bool allowsExternalConstructors = false, bool allowsNestedExternalTypes = false)
+    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false, bool allowsGenericStaticOwners = false, bool allowsGenericClassOwners = false, bool allowsConstructedFieldReferences = false, bool allowsNominalTypeBounds = false, bool allowsSpecialTypeConstraints = false, bool allowsGenericInterfaceDeclarations = false, bool allowsInterfaceSignatures = false, bool allowsInterfaceDispatch = false, bool allowsExternalReferenceSignatures = false, bool allowsExternalValueSignatures = false, bool allowsExternalInstanceCalls = false, bool allowsManagedReferences = false, bool allowsExternalValueInstanceCalls = false, bool allowsExternalConstructors = false, bool allowsNestedExternalTypes = false, bool allowsFunctionValues = false)
 {
     private readonly ImmutableHashSet<EmissionPrimitiveType> types = types.ToImmutableHashSet();
     private readonly ImmutableHashSet<LinearInstructionKind> instructions = instructions.ToImmutableHashSet();
@@ -27,6 +27,7 @@ internal sealed class EmissionCapabilities(
 
     private readonly ImmutableHashSet<Accessibility> functionVisibilities = (functionVisibilities ?? []).ToImmutableHashSet();
 
+    internal bool AllowsFunctionValues { get; } = allowsFunctionValues;
     internal bool AllowsExternalConstructors { get; } = allowsExternalConstructors;
     internal bool AllowsNestedExternalTypes { get; } = allowsNestedExternalTypes;
     internal bool AllowsExternalValueInstanceCalls { get; } = allowsExternalValueInstanceCalls;
@@ -61,6 +62,8 @@ internal sealed class EmissionCapabilities(
     internal bool Allows(LinearInstructionKind instruction) => instructions.Contains(instruction);
     internal bool Allows(EmissionType type)
     {
+        if (type.Nominal is { TypeKind: TypeKind.Delegate } function)
+            return AllowsFunctionValues && CallableSignature.TryFunction(function, out var shape, this) && Allows(shape);
         if (type.IsByReference) return AllowsManagedReferences && Allows(type with { IsByReference = false });
         if (type.Nominal is { } externalValue && AllowsExternalValueSignatures && CallableSignature.IsExternalValue(externalValue, AllowsNestedExternalTypes))
             return externalValue.Arity == 0 || AllowsGenericClassOwners && externalValue.TypeArguments.All(t => CallableSignature.TryType(t, false, out var argument, this) && Allows(argument));
