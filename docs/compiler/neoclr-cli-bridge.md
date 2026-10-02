@@ -3661,3 +3661,14 @@ CLR/native generic-owner consumers pass. No Runtime Contract or encoding change.
 Constraints, constructed nominal signatures in imported declarations, generic interface
 inheritance and direct field emission on constructed imported owners remain unsupported.
 The CLI primitive core and translated System bootstrap are still required.
+
+### Closed native constructed signatures (2026-10-02 development)
+
+Native parameter/result signatures now include local closed generic root classes such
+as Box<int>. The metadata model exposes immutable definition references and arguments;
+NativeModuleSymbol resolves them through the existing signature cache and shared
+constructed-type symbols. The generic consumer now calls native CreateBox and EchoBox
+namespace functions instead of allocating its integer box locally. All seven consumers
+execute (42); the C# metadata/CLR counterpart passes. No Runtime Contract, codegen
+abstraction or metadata encoding change was needed. Open/external generic constructions,
+constraints and the full native core/bootstrap remain separate work.

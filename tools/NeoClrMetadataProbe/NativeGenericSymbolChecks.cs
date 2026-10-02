@@ -12,6 +12,8 @@ internal static class NativeGenericSymbolChecks
     {
         const string librarySource = """
             namespace Generics
+            public func CreateBox(value: int) -> Box<int> => Box<int>(value)
+            public func EchoBox(value: Box<int>) -> Box<int> => value
             public func Identity<T>(value: T) -> T => value
             public func ArrayIdentity<T>(values: T[]) -> T[] => values
             public class Box<TItem> {
@@ -48,7 +50,7 @@ internal static class NativeGenericSymbolChecks
                 if item.Number != 7 { return 1 }
                 if Forward<Item>(item).Number != 7 { return 2 }
                 let values: int[] = [19, 23]
-                let box = Box<int>(19)
+                let box = EchoBox(CreateBox(19))
                 box.Set(42)
                 if box.Current != 42 { return 6 }
                 let nominal = Box<Item>(item)

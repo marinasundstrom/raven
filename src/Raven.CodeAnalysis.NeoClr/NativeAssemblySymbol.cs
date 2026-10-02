@@ -73,7 +73,8 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         return external.Module.typeSymbols[definition];
     }
     internal ITypeSymbol Map(SignatureType signature) => signatureTypes.GetOrAdd(signature, type =>
-        type.ArrayElement is { } element ? compilation.CreateArrayTypeSymbol(Map(element))
+        type.ReferencedGenericInstance is { } constructed ? Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(Map).ToArray())
+        : type.ArrayElement is { } element ? compilation.CreateArrayTypeSymbol(Map(element))
         : type.ReferencedType is { } reference ? Resolve(reference)
         : compilation.GetSpecialType(type.Primitive switch
         {

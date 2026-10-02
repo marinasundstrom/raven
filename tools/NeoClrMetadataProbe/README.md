@@ -635,3 +635,7 @@ The generic native consumer also imports unconstrained Box<TItem>, checks owner-
 parameter identity and shared constructor/property substitution, then executes Box<int>
 and Box<Item> construction, mutation, getters and vector aliases. Constructed nominal
 signature imports, constraints and direct imported constructed-field emission are pending.
+
+CreateBox(int)->Box<int> and EchoBox(Box<int>)->Box<int> now exercise local closed
+constructed signatures across the native library boundary. The same consumer still
+returns 42; open/external construction signatures remain outside direct reading.
