@@ -564,3 +564,8 @@ The class consumer now initializes private primitive storage in its constructor 
 reads it through an imported instance method (42). Field-symbol ownership/type/access
 and private-field RAV0500 are checked. Direct public field emission is a separate
 negative check: semantic binding succeeds, but NEOMETA001 must leave output empty.
+
+Direct public primitive field emission is now positive coverage: the main class consumer
+stores through an alias and loads through the original reference, and NativeFieldConsumer
+executes a constructor followed by a direct field load. Runtime mode runs all four
+consumers (42). The earlier NEOMETA001 field-operand limitation is closed for this subset.

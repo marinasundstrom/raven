@@ -49,7 +49,8 @@ internal static class NativeTypeChecks
                 if !NativeMath.Echo(true) { return 1 }
                 let calculator = Calculator(20)
                 let alias = calculator
-                return alias.Add(NativeMath.Echo(22))
+                alias.Visible = NativeMath.Echo(22)
+                return alias.Add(calculator.Visible)
             }
             """;
         foreach (var references in new MetadataReference[][] { [coreReference, reference], [reference, coreReference] })
@@ -95,9 +96,10 @@ internal static class NativeTypeChecks
             [coreReference, reference], CompilationOptions.NeoCLR);
         Check(!fieldConsumer.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "public field semantic binding failed");
         using var fieldOutput = new MemoryStream();
-        var unsupportedField = NeoClrCompilationEmitter.EmitMetadataAssembly(fieldConsumer, fieldOutput,
+        var emittedField = NeoClrCompilationEmitter.EmitMetadataAssembly(fieldConsumer, fieldOutput,
             new(new("NativeFieldConsumer", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core)]));
-        Check(!unsupportedField.Success && fieldOutput.Length == 0 && unsupportedField.Diagnostics.Any(d => d.Id == "NEOMETA001"), "external field emission must reject without output");
+        Check(emittedField.Success && fieldOutput.Length > 0, "external field emission failed: " + string.Join("; ", emittedField.Diagnostics));
+        File.WriteAllBytes(Path.Combine(output, "NativeFieldConsumer.dll"), fieldOutput.ToArray());
         Console.WriteLine("PASS native class identity, constructors, instance/static calls, access and emission");
     }
     private static void Check(bool value, string message) { if (!value) throw new Exception(message); }

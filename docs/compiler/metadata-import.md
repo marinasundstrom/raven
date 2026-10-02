@@ -568,3 +568,21 @@ adapter. This limit is tested and is not worked around with a CLI projection.
 The explicit CLI primitive core and exact native dependency binding are unchanged.
 Nominal/vector/structural field signatures, properties and wider type categories remain
 outside this direct-reader slice. Shared .NET loading/emission paths are unchanged.
+
+### Direct native field operands (2026-10-02)
+
+The earlier external-field emission gap is closed for public primitive instance fields
+on public nongeneric top-level reference classes. The emitter resolves NativeFieldSymbol's
+exact definition through the explicit dependency snapshot, then uses an immutable
+ImportedFieldReference for Ldfld/Stfld. Existing owned/constructed field paths remain.
+Readonly stores are rejected; source accessibility checks continue to reject private
+members. Native operands use the validated declaring field ordinal, including preceding
+private fields, rather than looking up fields by name at runtime.
+
+The class consumer writes Visible through a local alias, reads it through the original
+reference and passes it to Add, returning 42. A separate NativeFieldConsumer constructs
+Calculator(42) and directly reads Visible (42). The explicit CLI primitive core and
+matching native dependency bindings remain required. Nominal field signatures, generic/
+value owners, translated layouts and reference-comparison lowering remain separate gaps.
+The library also writes ordinary CLI MemberRefs for its imported-field API; C# tests
+execute that encoding on the CLR. Raven's existing .NET backend remains unchanged.

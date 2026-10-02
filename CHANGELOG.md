@@ -20,8 +20,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   execute cross-assembly function and Boolean/Int32 static overload calls in neoCLR
   (42), including constructor calls, local reference storage and primitive instance calls.
   Preserve nominal type/member identity and accessibility, including primitive fields
-  and readonly flags. Stateful constructor/method consumers run successfully; direct
-  external field emission remains unsupported and fails without output. Wider native importing
+  and readonly flags. Stateful constructor/method consumers and direct primitive
+  external field loads/stores now execute successfully through exact native references. Wider native importing
   remains pending.
 
 - **2026-10-02:** Document the independent metadata library's first direct native

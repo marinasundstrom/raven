@@ -250,6 +250,7 @@ internal static class Int32Emitter
                 nativeTypes[type.Symbol].SetSpecialConstraints(parameter.Ordinal, flags);
             }
         var fields = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
+        var importedFields = new Dictionary<IFieldSymbol, NeoClrFieldReference>(SymbolEqualityComparer.Default);
         foreach (var field in storageFields)
         {
             CallableSignature.TryType(field.Type, false, out var fieldType, NeoClrCapabilities.Shared);
@@ -336,6 +337,17 @@ internal static class Int32Emitter
                 if (fields.TryGetValue(field, out var definition)) return new NeoClrFieldReference(definition);
                 if (field is SubstitutedFieldSymbol substituted && field.ContainingType is { Arity: > 0 } owner && fields.TryGetValue(substituted.OriginalField, out definition))
                     return new NeoClrFieldReference(definition, definition.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
+                if (field is NativeFieldSymbol nativeField)
+                {
+                    if (importedFields.TryGetValue(field, out var imported)) return imported;
+                    var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, field.ContainingAssembly)).Dependency
+                        ?? throw Unsupported("unregistered dependency field");
+                    if (!ReferenceEquals(nativeField.Definition.Module.Assembly, binding.Definition))
+                        throw Unsupported("native field snapshot differs from semantic reference");
+                    imported = new NeoClrFieldReference(null, Import: assembly.ImportReference(nativeField.Definition, binding.CoreLibrary));
+                    importedFields.Add(field, imported);
+                    return imported;
+                }
                 throw Unsupported("undeclared instance field");
             },
                 type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local"), ImportExternalType));
