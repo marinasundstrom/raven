@@ -648,6 +648,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (unary.Operator.OperatorKind != BoundUnaryOperatorKind.UnaryPlus)
                         Add(unary.Operator.OperatorKind == BoundUnaryOperatorKind.UnaryMinus ? LinearInstructionKind.Negate : LinearInstructionKind.Complement, Syntax(expression));
                     return true;
+                case BoundRequiredResultExpression required:
+                    return LowerValue(required.Operand);
                 case BoundParenthesizedExpression parenthesized:
                     return LowerValue(parenthesized.Expression);
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && conversion.Conversion.IsImplicit &&

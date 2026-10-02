@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Preserve required match-arm results in the shared body planner.
+  The value-preserving wrapper now forwards its operand; ordinary .NET pattern emission
+  keeps its existing backend. Independent Debug/Release .NET execution returns 42,
+  with shared planning validated under explicit pattern/managed-local capabilities.
+
 - **2026-10-02:** Map the library-authoring CheckedStorage.Reserve<T> contract to native
   checked-uninitialized reservation with an explicit registered BootstrapReference.
   Generic helper execution returns stored values and faults on unread slots; absent

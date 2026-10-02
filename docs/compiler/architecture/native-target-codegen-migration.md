@@ -104,3 +104,12 @@ Compare the shared .NET path with its established generator and measure native
 projection/payload writing separately. Optimize observed costs while preserving
 diagnostics, selected-core binding and identical executable results. This is a
 recorded follow-up, not a new benchmark result or a reprioritization of correctness.
+
+## Required expression results (2026-10-02)
+
+The shared body planner unwraps BoundRequiredResultExpression through value lowering,
+preserving match-arm results. This general correction adds no target policy or binder
+change. Its focused Debug/Release fixture validates shared planning with explicit pattern
+and managed-local admission, and ordinary .NET execution returns 42. The Reflection.Emit
+shared profile still delegates patterns to its existing backend. Native ArrayList search
+consumers independently exercise the wrapper with Option case results.
