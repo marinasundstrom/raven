@@ -915,3 +915,8 @@ required. .NET emission is unchanged. The seven native consumers compile and exe
 with exit 42, including generic vector calls and negative reference checks; the library's
 107 C# test groups pass and its generic vector reference executes in both containers.
 Next remove nominal type-reference reconstruction's dependency on input definitions.
+
+
+Native public root-class identities now also reconstruct from symbols and artifact
+values, including unconstrained generics. Other type profiles and member references
+remain reader-backed. See [scope and validation](metadata-backend-boundaries.md#symbol-only-root-class-references-2026-10-02).

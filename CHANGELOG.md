@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Author native public top-level root-class references from symbols and
+  exact artifact values, including unconstrained generic identities and constructed
+  arguments. Avoid input type-row searches on this path. Other type profiles and members
+  retain reader-backed imports; all seven native consumers execute (42).
+
 - **2026-10-02:** Reconstruct native namespace-function references from compiler symbol
   signatures and value-only assembly/artifact identities for primitive, method-generic
   and vector signatures. This path no longer reads importer definitions or resolves

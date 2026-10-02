@@ -184,11 +184,27 @@ internal static class Int32Emitter
             {
                 var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, original.ContainingAssembly)).Dependency
                     ?? throw Unsupported("unregistered dependency type: " + original.ToDisplayString());
-                var name = original.ToFullyQualifiedMetadataName();
-                var candidates = binding.Definition.MainModule.Types.Where(t => MatchesType(t, original)).Take(2).ToArray();
-                if (candidates.Length != 1 || candidates[0].GenericArity != original.Arity || candidates[0].IsValueType != original.IsValueType)
-                    throw Unsupported("dependency type unavailable or ambiguous: " + name);
-                imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
+                if (original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: { } artifact } &&
+                    original.TypeKind == TypeKind.Class && !original.IsStatic && original.ContainingType is null &&
+                    original.DeclaredAccessibility == Accessibility.Public && original.Interfaces.IsEmpty &&
+                    (original.BaseType is null || original.BaseType.SpecialType == SpecialType.System_Object) &&
+                    original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None))
+                {
+                    if (artifact.Sha256 != binding.NativeArtifactSha256)
+                        throw Unsupported("native dependency snapshot differs from semantic reference");
+                    imported = assembly.CreateTypeReference(
+                        new AssemblyIdentity(artifact.Name, artifact.Version, artifact.Culture, artifact.PublicKeyToken, artifact.Flags),
+                        binding.CoreLibrary, artifact.Sha256, original.ContainingNamespace?.ToMetadataName() ?? "",
+                        original.MetadataName, original.Arity);
+                }
+                else
+                {
+                    var name = original.ToFullyQualifiedMetadataName();
+                    var candidates = binding.Definition.MainModule.Types.Where(t => MatchesType(t, original)).Take(2).ToArray();
+                    if (candidates.Length != 1 || candidates[0].GenericArity != original.Arity || candidates[0].IsValueType != original.IsValueType)
+                        throw Unsupported("dependency type unavailable or ambiguous: " + name);
+                    imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
+                }
                 importedTypes.Add(original, imported);
             }
             return imported.GenericArity == 0 ? imported : imported.MakeGenericInstance(type.TypeArguments

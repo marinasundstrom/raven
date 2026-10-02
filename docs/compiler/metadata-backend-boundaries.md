@@ -138,3 +138,26 @@ required. .NET emission is unchanged. The seven native consumers compile and exe
 with exit 42, including generic vector calls and negative reference checks; the library's
 107 C# test groups pass and its generic vector reference executes in both containers.
 Next remove nominal type-reference reconstruction's dependency on input definitions.
+
+
+### Symbol-only root-class references (2026-10-02)
+
+ImportExternalType now authors native public top-level root-class references from
+INamedTypeSymbol and ResolvedAssemblyArtifact values. It preserves namespace, metadata
+name, arity, exact dependency and artifact identity; generic construction maps symbol
+arguments recursively. The selected profile is invariant/unconstrained, has no declared
+interfaces, and has no non-Object base. It performs no type-row search or definition
+import on this path. The metadata library's new CreateTypeReference shares canonical
+output identity and snapshot checks with existing reader imports.
+
+Interfaces, inheritance, nested/value types, member references and nominal function
+signature imports remain reader-backed. This avoids removing conversion/dispatch facts
+before their semantic-to-output contracts exist. Host input setup and lazy symbol
+materialization still retain readers. Runtime Contract configuration, CLI primitive
+core and translated System bootstrap are unchanged; the format is unchanged.
+
+All seven native consumers compile and execute (42). Metadata C# checks cover interning,
+argument copying and negative digest/core/identity/arity contracts; the authored generic
+class reference works with imported members on CLR and both native containers (42).
+The library IILGenerator remains a separate pending API. Next migrate nominal callable
+references without moving any metadata-library interfaces into shared compiler contracts.
