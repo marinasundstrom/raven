@@ -1,5 +1,7 @@
 using System.Reflection;
 
+using Raven.CodeAnalysis.Syntax;
+
 namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class SourceInterfaceCompletionTests

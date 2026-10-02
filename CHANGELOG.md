@@ -8,6 +8,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   and interface-closure caches until declarations are complete. Infer abstract accessors
   for bodyless interface indexers, matching ordinary interface properties. Independent
   .NET tests compile and execute inherited property/indexer calls in both source orders.
+  Restore the test file's syntax namespace import required for clean test builds.
 
 - **2026-10-02:** Add explicit shared capability for constructed interface inheritance
   and native owned generic-interface dispatch. Unchanged neoCLR library contracts
