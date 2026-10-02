@@ -636,3 +636,18 @@ Payload symbol. Invalid dependencies diagnose even when source does not use the 
 The five-consumer runtime harness supplies both libraries and verifies 42 from the
 three-assembly consumer. Ordinary .NET provider/import behavior is unchanged. Full native
 System loading and generic/value/interface/array signatures remain outside this profile.
+
+### Direct native array signatures (2026-10-02)
+
+NativeModuleSymbol shares signature mapping for methods and fields, with a concurrent
+module-local cache for primitive, nominal and one-dimensional array symbols. Resolution
+remains lazy until module publication; external array elements resolve through explicit
+native dependencies. Fields and methods with the same signature in a module share array
+symbols, and their element is the canonical symbol from the declaring assembly.
+
+The existing emitter imports array method/field contracts through the independent metadata
+library's recursive signature mapping. No new syntax, binder policy, .NET provider or
+Runtime Contract setting is introduced. The C# probe checks array symbol identity in both
+reference orders and executes cross-library array aliasing/element replacement in neoCLR
+(42); all five runtime consumers pass. Jagged/multidimensional/generic/value/interface
+array profiles and full native System importing remain pending.

@@ -586,3 +586,8 @@ then NativeHolderLibrary using the payload's direct native reference, then a con
 using both. Constructor/method/field signature identity is checked in both reference
 orders; missing assemblies, wrong versions, missing types and duplicates diagnose. The
 runtime harness supplies both modules, hashes both artifacts and verifies result 42.
+
+ExternalNativeChecks now also covers Payload[] constructor/field/method signatures and
+Int32[] methods. The consumer replaces an element through a stored array alias and
+passes a primitive array across libraries, returning 42. Field/parameter/result array
+symbols share exact external element identity in both reference orders.

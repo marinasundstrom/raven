@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Collections.Concurrent;
 
 using NeoCLR.Metadata.Experimental.Model;
 
@@ -33,6 +34,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     private readonly NativeAssemblySymbol assembly;
     private readonly Dictionary<TypeDefinition, NativeNamedTypeSymbol> typeSymbols;
     private readonly NativeAssemblyResolver resolver;
+    private readonly ConcurrentDictionary<SignatureType, ITypeSymbol> signatureTypes = new();
     internal NativeModuleSymbol(Compilation compilation, NativeAssemblySymbol assembly)
         : base(SymbolKind.Module, assembly.Reference.Definition.MainModule.Name, assembly, null, null, [], [])
     {
@@ -70,6 +72,18 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         var external = (NativeAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(input)!;
         return external.Module.typeSymbols[definition];
     }
+    internal ITypeSymbol Map(SignatureType signature) => signatureTypes.GetOrAdd(signature, type =>
+        type.ArrayElement is { } element ? compilation.CreateArrayTypeSymbol(Map(element))
+        : type.ReferencedType is { } reference ? Resolve(reference)
+        : compilation.GetSpecialType(type.Primitive switch
+        {
+            PrimitiveType.Int32 => SpecialType.System_Int32,
+            PrimitiveType.Int64 => SpecialType.System_Int64,
+            PrimitiveType.Boolean => SpecialType.System_Boolean,
+            PrimitiveType.String => SpecialType.System_String,
+            PrimitiveType.Void => SpecialType.System_Unit,
+            _ => throw new InvalidDataException("unsupported native signature")
+        }));
     public override IAssemblySymbol ContainingAssembly => assembly;
     public override IModuleSymbol ContainingModule => this;
     public INamespaceSymbol GlobalNamespace { get; }
@@ -124,17 +138,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         parameters = new(() => [.. signature.ParameterTypes.Select((p, i) => (IParameterSymbol)new NativeParameterSymbol(i, Map(p), this))]);
     }
     internal MethodDefinition Definition { get; }
-    private ITypeSymbol Map(SignatureType type) => type.ReferencedType is { } reference
-        ? ((NativeModuleSymbol)ContainingModule).Resolve(reference)
-        : compilation.GetSpecialType(type.Primitive switch
-        {
-            PrimitiveType.Int32 => SpecialType.System_Int32,
-            PrimitiveType.Int64 => SpecialType.System_Int64,
-            PrimitiveType.Boolean => SpecialType.System_Boolean,
-            PrimitiveType.String => SpecialType.System_String,
-            PrimitiveType.Void => SpecialType.System_Unit,
-            _ => throw new InvalidDataException("unsupported native primitive")
-        });
+    private ITypeSymbol Map(SignatureType type) => ((NativeModuleSymbol)ContainingModule).Map(type);
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic => Definition.IsStatic;

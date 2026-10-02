@@ -29,7 +29,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Native signatures can now reference classes in other explicitly supplied native
   assemblies; lazy resolution preserves canonical symbols and emission uses exact
   metadata bindings. Missing/version/type dependencies diagnose. A Raven-produced
-  three-assembly consumer executes in neoCLR (42). Wider native importing remains pending.
+  three-assembly consumer executes in neoCLR (42). Native array signatures now preserve
+  primitive and external class elements across method/constructor/field imports, with
+  shared cached array symbols; cross-library aliases and element replacement execute (42).
+  Wider native importing remains pending.
 
 - **2026-10-02:** Document the independent metadata library's first direct native
   definition reader and the next Raven loader integration boundary. Current .NET and

@@ -26,9 +26,17 @@ internal static class ExternalNativeChecks
             namespace External
             public class Holder {
                 public field Item: Payload
+                public field Items: Payload[]
                 public init(item: Payload) {
                     self.Item = item
+                    self.Items = [item]
                 }
+                public init(items: Payload[]) {
+                    self.Item = items[0]
+                    self.Items = items
+                }
+                public static func PassItems(items: Payload[]) -> Payload[] => items
+                public static func Numbers(items: int[]) -> int[] => items
                 public static func Pass(value: Payload) -> Payload => value
             }
             """, [payload]);
@@ -39,7 +47,14 @@ internal static class ExternalNativeChecks
                 let holder = Holder(Holder.Pass(first))
                 holder.Item = Payload(42)
                 if first.Value != 1 { return 2 }
-                return holder.Item.Value
+                let values: Payload[] = [first]
+                let arrayHolder = Holder(Holder.PassItems(values))
+                holder.Items = arrayHolder.Items
+                holder.Items[0] = holder.Item
+                if values[0].Value != 42 { return 3 }
+                let numbers: int[] = [0]
+                Holder.Numbers(numbers)[0] = values[0].Value
+                return numbers[0]
             }
             """;
         File.WriteAllText(Path.Combine(output, "ExternalNativeConsumer.rvn"), source);
@@ -54,7 +69,12 @@ internal static class ExternalNativeChecks
             var pass = holderType.GetMembers("Pass").OfType<IMethodSymbol>().Single();
             Check(ReferenceEquals(pass.ReturnType, payloadType) && ReferenceEquals(pass.Parameters[0].Type, payloadType) &&
                 ReferenceEquals(holderType.GetMembers("Item").OfType<IFieldSymbol>().Single().Type, payloadType) &&
-                ReferenceEquals(holderType.InstanceConstructors.Single().Parameters[0].Type, payloadType), "external canonical signature symbols");
+                ReferenceEquals(holderType.InstanceConstructors.Single(c => c.Parameters[0].Type is not IArrayTypeSymbol).Parameters[0].Type, payloadType), "external canonical signature symbols");
+            var arrayMethod = holderType.GetMembers("PassItems").OfType<IMethodSymbol>().Single();
+            var arrayField = holderType.GetMembers("Items").OfType<IFieldSymbol>().Single();
+            Check(arrayMethod.ReturnType is IArrayTypeSymbol { Rank: 1 } array && ReferenceEquals(array.ElementType, payloadType) &&
+                ReferenceEquals(arrayMethod.ReturnType, arrayMethod.Parameters[0].Type) && ReferenceEquals(arrayMethod.ReturnType, arrayField.Type) &&
+                ReferenceEquals(arrayMethod.ReturnType, holderType.InstanceConstructors.Single(c => c.Parameters[0].Type is IArrayTypeSymbol).Parameters[0].Type), "canonical native array symbols");
             using var image = new MemoryStream();
             var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,
                 new(new("ExternalNativeConsumer", new Version(1, 0, 0, 0)), core, [new(payload, payload.Definition, core), new(holder, holder.Definition, core)]));

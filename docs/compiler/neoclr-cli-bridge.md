@@ -3500,3 +3500,23 @@ The CLI primitive core and translated System remain explicit bootstrap inputs. G
 value/interface/array signatures, type forwarding and full System native import remain
 open; the independent metadata library owns reader/import support and Raven owns symbol
 mapping. Native core loading and source compilation remain their bootstrap replacement.
+
+### Direct native array signatures (2026-10-02 development)
+
+Native field/method/constructor signatures now admit one-dimensional zero-based arrays
+of supported primitives and local or explicitly resolved external classes. The metadata
+library owns immutable element shapes and recursive output import; Raven shares cached
+signature-to-symbol mapping between methods and fields. Array symbols preserve canonical
+element identity. Existing explicit dependency/core bindings and Runtime Contract settings
+are unchanged. No CLI projection is used to load these native library symbols.
+
+The Raven-produced payload/holder/consumer case now stores an external-class array in a
+field, replaces an element through an alias, and passes a primitive array across libraries;
+neoCLR returns 42. All five runtime consumers and 101 metadata C# groups pass, including
+.NET execution of equivalent imported vectors and wrong-element-type rejection.
+No shared binder or .NET provider change is made, and the format/opcodes are unchanged.
+
+Jagged/multidimensional arrays, covariance, generic/value/interface elements, broader
+properties and full native System import remain outside this slice. The explicit CLI
+primitive core and translated System bootstrap still require native core loading and
+source compilation for their eventual replacement.

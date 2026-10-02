@@ -13,16 +13,7 @@ internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol
     {
         Definition = definition;
         if (!definition.TryGetSignature(out var signature)) throw new InvalidDataException("unsupported native field signature");
-        type = new(() => signature!.ReferencedType is { } reference
-            ? ((NativeModuleSymbol)ContainingModule).Resolve(reference)
-            : compilation.GetSpecialType(signature.Primitive switch
-            {
-                PrimitiveType.Int32 => SpecialType.System_Int32,
-                PrimitiveType.Int64 => SpecialType.System_Int64,
-                PrimitiveType.Boolean => SpecialType.System_Boolean,
-                PrimitiveType.String => SpecialType.System_String,
-                _ => throw new InvalidDataException("unsupported native field signature")
-            }));
+        type = new(() => ((NativeModuleSymbol)ContainingModule).Map(signature!));
     }
     internal FieldDefinition Definition { get; }
     public ITypeSymbol Type => type.Value;
