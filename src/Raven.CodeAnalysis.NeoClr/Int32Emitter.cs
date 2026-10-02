@@ -168,6 +168,9 @@ internal static class Int32Emitter
         // Materialize definitions only after all source declarations and body capabilities pass.
         // Every definition exists before reference resolution or method-body emission.
         var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);
+        foreach (var (_, binding) in dependencies)
+            if (binding.NativeImplementation is { } implementation)
+                assembly.BindNativeLibrary(binding.Definition, implementation, binding.CoreLibrary);
         var owners = new Dictionary<INamedTypeSymbol, NeoClrCallableDefinitionBuilder>(SymbolEqualityComparer.Default);
         var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly);
         var nativeTypes = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
@@ -382,11 +385,12 @@ internal static class Int32Emitter
                 NeoClrTypeMapper.Map(signature.ReturnType, type => nativeTypes[type], ImportExternalType),
                 signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)), signature.GenericParameterNames, signature.OutParameters.IsDefault ? [] : signature.OutParameters);
             var matches = new List<ImportedMethodReference>();
+            var importFailures = new List<string>();
             foreach (var candidate in types[0].Methods.Where(m => m.Name == symbol.MetadataName && m.GenericArity == symbol.Arity && m.IsStatic == symbol.IsStatic))
             {
                 ImportedMethodReference imported;
                 try { imported = assembly.ImportReference(candidate, binding.CoreLibrary); }
-                catch (InvalidDataException) { continue; }
+                catch (InvalidDataException error) { if (importFailures.Count < 2) importFailures.Add(error.Message); continue; }
                 if (imported.IsInterfaceMethod != (symbol.ContainingType?.TypeKind == TypeKind.Interface) ||
                     imported.RequiresVirtualDispatch != (!symbol.IsStatic && symbol.ContainingType?.IsValueType != true && symbol.IsVirtual) ||
                     imported.RequiresManagedReceiver != (!symbol.IsStatic && symbol.ContainingType?.IsValueType == true)) continue;
@@ -395,7 +399,7 @@ internal static class Int32Emitter
                     actual.ParameterTypes.SequenceEqual(expected.ParameterTypes) && actual.OutParameters.SequenceEqual(expected.OutParameters)) matches.Add(imported);
                 if (matches.Count == 2) break;
             }
-            if (matches.Count != 1) throw Unsupported("dependency method contract unavailable or ambiguous");
+            if (matches.Count != 1) throw Unsupported("dependency method contract unavailable or ambiguous: " + symbol.ToDisplayString() + (importFailures.Count == 0 ? "" : " (" + string.Join("; ", importFailures) + ")"));
             return matches[0];
         }
         UnsupportedInputException Unsupported(string detail) => new(detail, diagnosticSyntax.GetLocation());

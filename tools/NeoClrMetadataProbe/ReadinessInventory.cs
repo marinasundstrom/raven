@@ -11,10 +11,10 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace NeoClrMetadataProbe;
 
-// Exploratory report: current failures are evidence, never required test expectations.
+// Exploratory report; linked samples with expected output additionally enforce execution acceptance.
 internal static class ReadinessInventory
 {
-    internal static async Task Run(string root, string output, string runtime, string? sample = null)
+    internal static async Task Run(string root, string output, string runtime, string? sample = null, string? nativeSystem = null)
     {
         if (Directory.Exists(output)) throw new IOException("output must be fresh"); Directory.CreateDirectory(output);
         var library = Path.Combine(root, "runtime/raven/src");
@@ -23,6 +23,9 @@ internal static class ReadinessInventory
         var targetReference = MetadataReference.CreateFromFile(corePath);
         var hostReference = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
         var reports = new List<object>();
+        var expectedPath = sample is not null && nativeSystem is not null ? Path.Combine(samples, sample + ".expected.txt") : null;
+        var expectedOutput = expectedPath is not null && File.Exists(expectedPath) ? File.ReadAllText(expectedPath).Replace("\r\n", "\n") : null;
+        bool expectedOutputMatched = false;
         if (sample is not null)
         {
             var samplePath = Path.Combine(samples, sample + ".rvn");
@@ -30,6 +33,7 @@ internal static class ReadinessInventory
                 throw new ArgumentException("expected an existing sample basename", nameof(sample));
             await Attempt(sample, [samplePath], true, true);
             Save();
+            if (expectedOutput is not null && !expectedOutputMatched) throw new InvalidOperationException("linked sample did not compile, verify and match its expected output; see validation.json");
             return;
         }
 
@@ -58,6 +62,8 @@ internal static class ReadinessInventory
         void Save() => File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
             selection = sample ?? "full inventory",
+            expectedOutput = expectedOutput is null ? null : new { path = Path.GetRelativePath(root, expectedPath!), sha256 = Hash(expectedPath!), matched = expectedOutputMatched },
+            nativeSystem = nativeSystem is null ? null : new { path = nativeSystem, sha256 = Hash(nativeSystem) },
             targetReference = "api-docs/reference/NeoCLR.CoreProbe.dll",
             targetReferenceSha256 = Hash(corePath),
             runtimeSha256 = Hash(runtime),
@@ -82,7 +88,9 @@ internal static class ReadinessInventory
                 if (diagnostics.Length == 0)
                 {
                     phase = "emission"; using var image = new MemoryStream();
-                    var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image, new(new(compilation.AssemblyName!, new Version(1, 0, 0, 0)), core, []));
+                    var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image, new(new(compilation.AssemblyName!, new Version(1, 0, 0, 0)), core,
+                        nativeSystem is null ? [] : [new NeoClrMetadataDependency(reference, AssemblyDefinition.ReadAssembly(File.ReadAllBytes(corePath), expectedExtended: false), core,
+                            NativeLibraryDefinition.ReadAssembly(File.ReadAllBytes(nativeSystem)))], nativeSystem is not null ? reference : null));
                     diagnostics = emitted.Diagnostics.Select(d => d.ToString()).ToArray(); bytes = image.Length;
                     if (target)
                     {
@@ -103,6 +111,7 @@ internal static class ReadinessInventory
                         var verification = await Command("verify", path);
                         var run = executable && verification.ExitCode == 0 ? await Command("run", path) : null;
                         execution = new { verification, run };
+                        expectedOutputMatched = expectedOutput is not null && verification.ExitCode == 0 && run is { ExitCode: 0, Stderr.Length: 0 } && run.Stdout.Replace("\r\n", "\n") == expectedOutput;
                     }
                 }
             }
@@ -126,6 +135,7 @@ internal static class ReadinessInventory
         {
             var start = new ProcessStartInfo(runtime) { RedirectStandardOutput = true, RedirectStandardError = true };
             start.ArgumentList.Add(command); start.ArgumentList.Add(path);
+            if (nativeSystem is not null) { start.ArgumentList.Add("--system"); start.ArgumentList.Add(nativeSystem); }
             using var process = Process.Start(start)!; var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             try { await process.WaitForExitAsync(timeout.Token); }

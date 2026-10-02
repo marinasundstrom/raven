@@ -12,7 +12,8 @@ public sealed class NeoClrMetadataDependency
     /// <param name="reference">The exact reference registered with the compilation.</param>
     /// <param name="definition">Snapshot describing that reference.</param>
     /// <param name="coreLibrary">Explicit dependency core contract.</param>
-    public NeoClrMetadataDependency(MetadataReference reference, AssemblyDefinition definition, AssemblyIdentity coreLibrary)
+    /// <param name="nativeImplementation">Optional translated native inventory; selected imports must match its physical names and signatures.</param>
+    public NeoClrMetadataDependency(MetadataReference reference, AssemblyDefinition definition, AssemblyIdentity coreLibrary, NativeLibraryDefinition? nativeImplementation = null)
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(definition);
@@ -20,7 +21,10 @@ public sealed class NeoClrMetadataDependency
         Reference = reference;
         Definition = definition;
         CoreLibrary = coreLibrary;
+        NativeImplementation = nativeImplementation;
     }
+    /// <summary>Gets an explicitly bound translated native implementation, or null for the metadata writer naming contract.</summary>
+    public NativeLibraryDefinition? NativeImplementation { get; }
     /// <summary>Gets the compiler reference whose assembly symbol identifies calls.</summary>
     public MetadataReference Reference { get; }
     /// <summary>Gets the read-only dependency snapshot.</summary>

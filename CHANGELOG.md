@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Bind explicit translated native implementations through
+  `NeoClrMetadataDependency.NativeImplementation`, retaining CLI declaration scopes
+  and reporting selected contract mismatches. The unchanged neoCLR collections sample
+  now emits native PE, verifies and runs against matched System with exact expected
+  output. The linked-sample probe enforces its checked-in output assertion; native
+  symbol importing and full class-library source emission remain open.
+
 - **2026-10-02:** Add opt-in portable reference-enumerator lowering using existing
   bound calls, locals and branches, including break/continue. Default .NET enumeration
   stays on its current generator. The unchanged collections sample completes body

@@ -3062,3 +3062,47 @@ path as ordinary methods. No Runtime Contract or binding change is introduced.
 The unchanged collections application now finishes native body planning and reports
 its first unregistered class-library type, MutableMap. Linking the matching translated
 System implementation remains necessary before native output can be executed.
+
+### Explicit translated System linkage and collections acceptance (2026-10-02)
+
+The metadata feature integration now runs the unchanged neoCLR
+`application-order-collections.rvn` through direct native PE emission and native execution
+(exit 0, exact expected stdout). Configuration uses `CompilationOptions.NeoCLR`, the
+matching CoreProbe reference, the explicit native Self marker, and
+`NeoClrMetadataDependency(reference, definition, coreLibrary, nativeImplementation)`.
+The new optional `NativeLibraryDefinition? NativeImplementation` property pairs the CLI
+declaration snapshot with the translated native implementation. Omitting it preserves the
+metadata writer's existing dependency naming contract. No ordinary .NET defaults change.
+
+The emitter registers this binding before importing declarations. The independent metadata
+API validates selected native names, generic arities, public type/member categories,
+parameters/results, managed receivers and outputs; diagnostic candidate details now show
+the rejected contract. CLI references keep their exact identity. Native code uses the
+implementation's module/name conventions and carries manifest mappings for PE reference
+projection. Core-local TypeRefs and Func/Action carriers retain exact scope. Inhabited
+System.Void storage differs from no result; the API handles the translated library's
+result convention and adjusts native branch offsets when a discarded result is required.
+
+The application body is produced directly by the metadata backend. The System library is
+still translated, and CLI metadata still provides compiler symbols. This bridge does not
+implement a native semantic symbol loader, complete native class-library source emission,
+or general captured/generic/imported Function binding. Its cost is explicit matched-bundle
+maintenance and restricted imported signatures; the intended replacement consumes native
+declarations and implementation metadata directly. Raven owns target/symbol mappings, the
+metadata library owns encoding/projection, and neoCLR owns runtime admission and execution.
+
+A runtime Function access fix was also required: specialization with an application-internal
+type must not revoke a generic library's permission to invoke a supplied callback. The
+runtime still rejects explicit foreign internal-type references and checks binding access.
+The reference System/runtime bundle includes this feature-branch fix; compiler support does
+not imply a corresponding main-branch runtime release.
+
+`NeoClrMetadataProbe --readiness-linked-sample <neo-root> <fresh-output> <runtime>
+application-order-collections <System.neox>` saves hashed evidence and compares the linked
+sample against its checked-in `.expected.txt`. Failed emission, verification, nonzero exit,
+stderr or stdout mismatch fails the command. The acceptance covers map insertion/lookup,
+Option/Result propagation, noncapturing callbacks, query composition, shared object identity
+and iteration. See neoCLR's `docs/experiments/extended-cli-metadata/collections-end-to-end-2026-10-02.json`.
+Focused validation also retains the seven native profile controls, 91 C# metadata groups,
+and runtime binary-fixture/access tests. This is a working application checkpoint, not a
+claim that all source constructs or the full runtime library use the native backend.
