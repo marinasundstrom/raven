@@ -78,27 +78,36 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         var external = (NativeAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(input)!;
         return external.Module.typeSymbols[view.MetadataToken];
     }
-    internal static bool HasParameter(SignatureType type, bool method) =>
-        (method ? type.MethodParameterIndex : type.TypeParameterIndex) is not null ||
-        type.ArrayElement is { } element && HasParameter(element, method) ||
-        type.ReferencedGenericInstance is { } constructed && constructed.TypeArguments.Any(argument => HasParameter(argument, method));
-    internal ITypeSymbol ConstructSignature(SignatureType type, Func<SignatureType, ITypeSymbol> map) =>
-        type.ArrayElement is { } element ? compilation.CreateArrayTypeSymbol(map(element))
-        : type.ReferencedGenericInstance is { } constructed ? Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(map).ToArray())
-        : throw new InvalidDataException("expected composite native signature");
+    internal NeoCLR.Metadata.Experimental.Introspection.MethodInfo MethodView(MethodDefinition definition) => metadata.Resolve(definition);
+    private readonly Dictionary<uint, NativeMethodSymbol> methodSymbols = [];
+    internal void RegisterMethod(uint token, NativeMethodSymbol symbol) => methodSymbols.Add(token, symbol);
+    internal ITypeSymbol Map(SignatureType signature, NativeNamedTypeSymbol owner) =>
+        MapView(metadata.ResolveSignature(signature, metadata.Resolve(owner.Definition.ToReference()).GetGenericArguments()));
+    private ITypeSymbol MapMethodParameter(MethodGenericParameterTypeInfo parameter)
+    {
+        var view = parameter.DeclaringMethod;
+        var module = this;
+        if (!view.Module.Assembly.Identity.Equals(assembly.Reference.Definition.Identity))
+        {
+            var input = compilation.References.OfType<NeoClrMetadataReference>().Single(r => r.Definition.Identity.Equals(view.Module.Assembly.Identity));
+            module = ((NativeAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(input)!).Module;
+        }
+        return module.methodSymbols[view.MetadataToken].TypeParameters[parameter.Position];
+    }
     internal ITypeSymbol Map(SignatureType signature) => MapView(metadata.ResolveSignature(signature));
     internal ITypeSymbol MapField(NativeNamedTypeSymbol owner, uint token)
     {
         var view = metadata.Resolve(owner.Definition.ToReference());
         return MapView(view.GetFields().Single(field => field.MetadataToken == token).FieldType);
     }
-    private ITypeSymbol MapView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => viewSymbols.GetOrAdd(view, MapViewCore);
+    internal ITypeSymbol MapView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => viewSymbols.GetOrAdd(view, MapViewCore);
     private ITypeSymbol MapViewCore(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => view switch
     {
         NominalTypeInfo nominal => Resolve(nominal),
         ConstructedTypeInfo constructed => Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(MapView).ToArray()),
         ArrayTypeInfo array => compilation.CreateArrayTypeSymbol(MapView(array.ElementType)),
         GenericParameterTypeInfo parameter => Resolve(parameter.DeclaringType).TypeParameters[parameter.Position],
+        MethodGenericParameterTypeInfo parameter => MapMethodParameter(parameter),
         PrimitiveTypeInfo primitive => compilation.GetSpecialType(primitive.Kind switch
         {
             PrimitiveType.Int32 => SpecialType.System_Int32,
@@ -150,10 +159,10 @@ internal sealed class NativeNamespaceSymbol : Symbol, INamespaceSymbol
 internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
 {
     private readonly Compilation compilation;
-    private readonly MethodSignature signature;
+    private readonly NeoCLR.Metadata.Experimental.Introspection.MethodInfo view;
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
     private readonly Lazy<ITypeSymbol> returnType;
-    private readonly ConcurrentDictionary<SignatureType, ITypeSymbol> genericSignatureTypes = new();
+
     internal NativeMethodSymbol(Compilation compilation, MethodDefinition definition, ISymbol owner)
         : base(SymbolKind.Method, definition.Name, owner, owner as INamedTypeSymbol, owner as INamespaceSymbol ?? owner.ContainingNamespace, [], [],
             (definition.Attributes & 7) == 6 ? Accessibility.Public : (definition.Attributes & 7) == 3 ? Accessibility.Internal : Accessibility.Private)
@@ -162,12 +171,13 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         IsStatic = definition.IsStatic;
         IsAbstract = (definition.Attributes & 0x400) != 0;
         IsVirtual = (definition.Attributes & 0x40) != 0;
-        if (!definition.TryGetSignature(out var decoded)) throw new InvalidDataException("native signature unavailable");
-        signature = decoded!;
-        TypeParameters = [.. signature.GenericParameterNames.Select((name, i) => (ITypeParameterSymbol)new NativeTypeParameterSymbol(name, i, this))];
+        var module = (NativeModuleSymbol)ContainingModule;
+        view = module.MethodView(definition);
+        TypeParameters = [.. view.GenericParameterNames.Select((name, i) => (ITypeParameterSymbol)new NativeTypeParameterSymbol(name, i, this))];
         TypeArguments = [.. TypeParameters];
-        returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : Map(signature.ReturnType));
-        parameters = new(() => [.. signature.ParameterTypes.Select((p, i) => (IParameterSymbol)new NativeParameterSymbol(i, Map(p), this))]);
+        module.RegisterMethod(view.MetadataToken, this);
+        returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : module.MapView(view.ReturnType));
+        parameters = new(() => [.. view.GetParameters().Select(p => (IParameterSymbol)new NativeParameterSymbol(p.Position, module.MapView(p.ParameterType), this))]);
     }
     private NativePropertySymbol? property;
     internal void Associate(NativePropertySymbol value)
@@ -176,10 +186,6 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         property = value;
     }
     public ISymbol? AssociatedSymbol => property;
-    private ITypeSymbol Map(SignatureType type) => type.MethodParameterIndex is { } ordinal ? TypeParameters[ordinal]
-        : NativeModuleSymbol.HasParameter(type, method: true)
-            ? genericSignatureTypes.GetOrAdd(type, signature => ((NativeModuleSymbol)ContainingModule).ConstructSignature(signature, Map))
-        : ContainingType is NativeNamedTypeSymbol owner ? owner.Map(type) : ((NativeModuleSymbol)ContainingModule).Map(type);
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic { get; }

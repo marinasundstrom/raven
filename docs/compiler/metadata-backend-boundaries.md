@@ -457,3 +457,22 @@ Open method-signature adaptation remains in Raven until method/parameter views e
 No emitter dependency on the context, Runtime Contract change, bootstrap change or
 runtime/metadata encoding change is introduced. The runtime model informs names and
 semantics but its guest implementation is unchanged. No performance claim is made.
+
+
+Method/parameter facade checkpoint (2026-10-02): MethodInfo, ParameterInfo and
+MethodGenericParameterTypeInfo now project namespace functions and declared methods,
+including methods viewed on constructed owners. Owner and method argument scopes are
+separate and substitution is simultaneous. Method/parameter identities remain canonical
+within the context; no invocation or runtime loading is introduced.
+
+Raven now builds native return/parameter symbols from these views and maps scoped
+parameter identities back to the declaring compiler symbols. Its recursive signature
+walkers and type/method generic-signature caches have been removed; the view-to-symbol
+cache preserves signature identity. Language binding and special constructor return
+semantics stay in Raven. This changes no Runtime Contract, primitive core/System
+bootstrap, emission contract or metadata/runtime encoding. Properties and interface
+relationship views remain next; generic method construction is not yet a facade API.
+
+109 C# groups pass, including mixed owner/method scopes, generic function vectors,
+constructed-owner returns, canonical method identity and invalid/foreign scopes.
+All seven Raven native consumers compile and execute (42).

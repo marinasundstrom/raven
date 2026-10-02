@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Add metadata method/parameter views with distinct owner and method scopes.
+  Raven consumes them instead of recursive signature projection and per-signature generic
+  caches. All 109 C# groups and seven native consumers pass (42); no encoding change.
+
 - **2026-10-02:** Add constructed/array/primitive/owner-parameter metadata views and declared
   field projection. Raven consumes facade field types and closed signatures, preserving
   canonical array symbols. Method/parameter views and open method scopes remain pending.

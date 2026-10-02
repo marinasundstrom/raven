@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Collections.Concurrent;
 
 using NeoCLR.Metadata.Experimental.Model;
 
@@ -12,7 +11,6 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
 {
     private readonly Compilation compilation;
-    private readonly ConcurrentDictionary<SignatureType, ITypeSymbol> genericSignatureTypes = new();
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> interfaces;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> allInterfaces;
     private readonly ImmutableArray<ISymbol> members;
@@ -44,10 +42,7 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     }
     internal TypeDefinition Definition { get; }
     public override string MetadataName => Definition.Name;
-    internal ITypeSymbol Map(SignatureType signature) => signature.TypeParameterIndex is { } ordinal ? TypeParameters[ordinal]
-        : NativeModuleSymbol.HasParameter(signature, method: false)
-            ? genericSignatureTypes.GetOrAdd(signature, type => ((NativeModuleSymbol)ContainingModule).ConstructSignature(type, Map))
-        : ((NativeModuleSymbol)ContainingModule).Map(signature);
+    internal ITypeSymbol Map(SignatureType signature) => ((NativeModuleSymbol)ContainingModule).Map(signature, this);
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic => (Definition.Attributes & 0x180) == 0x180;
