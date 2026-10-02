@@ -9,6 +9,53 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class ExternalSignatureCapabilityTests
 {
     [Fact]
+    public void ImportedCasePatternUsesCheckedPayloadAndPreservesDotNetBehavior()
+    {
+        var library = Compilation.Create("CaseLibrary", [SyntaxTree.ParseText("""
+            public union Choice {
+                case Some(int)
+                case None
+            }
+            """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var libraryImage = new MemoryStream();
+        var built = library.Emit(libraryImage);
+        Assert.True(built.Success, string.Join("\n", built.Diagnostics));
+        var app = Compilation.Create("CaseConsumer", [SyntaxTree.ParseText("""
+            import Choice.*
+            public static class Consumer {
+                public static func Read(choice: Choice) -> int {
+                    var result = 0
+                    match choice {
+                        Some(let value) => { result = value }
+                        None => { result = 0 }
+                    }
+                    return result
+                }
+                public static func Run() -> int => Read(Some(42)) + Read(None())
+            }
+            """)], TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(libraryImage.ToArray())).ToArray(), new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(app.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsExternalValueSignatures: true, allowsExternalValueInstanceCalls: true, allowsManagedReferences: true,
+            allowsExternalConstructors: true, allowsNestedExternalTypes: true, allowsCasePatterns: true);
+        var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "Read");
+        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceCallablePlan.TryCreate(method, out var plan, capabilities));
+        Assert.True(plan!.TryLowerBody(app, _ => false, out _, out var failure, capabilities), failure?.Detail);
+        using var image = new MemoryStream();
+        var emitted = app.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        var context = new AssemblyLoadContext("case-admission", true);
+        try
+        {
+            libraryImage.Position = 0; context.LoadFromStream(libraryImage);
+            image.Position = 0; Assert.Equal(42, context.LoadFromStream(image).GetType("Consumer")!.GetMethod("Run")!.Invoke(null, null));
+        }
+        finally { context.Unload(); }
+    }
+
+    [Fact]
     public void LoweredExtensionCallsRequireExplicitCapability()
     {
         var app = Compilation.Create("ExtensionAdmission", [SyntaxTree.ParseText("""

@@ -126,10 +126,10 @@ internal sealed partial class Lowerer
             .FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
 
         if (constructor is null)
-            return new BoundThrowStatement(new BoundDefaultValueExpression(compilation.GetSpecialType(SpecialType.System_Exception)));
+            return new BoundThrowStatement(new BoundDefaultValueExpression(compilation.GetSpecialType(SpecialType.System_Exception)), compilerFailure: "Non-exhaustive match");
 
         var creation = new BoundObjectCreationExpression(constructor, ImmutableArray<BoundExpression>.Empty);
-        return new BoundThrowStatement(creation);
+        return new BoundThrowStatement(creation, compilerFailure: "Non-exhaustive match");
     }
 
     private ImmutableArray<RewrittenMatchArm> RewriteMatchArms(

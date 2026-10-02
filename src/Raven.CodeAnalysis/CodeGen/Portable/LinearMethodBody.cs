@@ -147,6 +147,70 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
+        bool LowerPattern(BoundExpression input, BoundPattern pattern, int fail, SyntaxNode syntax)
+        {
+            if (!LowerValue(input)) return false;
+            return PatternValue(input.Type, pattern, fail, syntax);
+        }
+
+        bool PatternValue(ITypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
+        {
+            if (pattern is BoundDiscardPattern) { Add(LinearInstructionKind.Pop, syntax); return true; }
+            if (pattern is BoundDeclarationPattern declaration && SymbolEqualityComparer.Default.Equals(input, declaration.DeclaredType))
+                return PatternDesignator(declaration.Designator, input, syntax);
+            var tryGet = pattern switch { BoundCasePattern c => c.TryGetMethod, BoundUnionMemberPattern m => m.TryGetMethod, _ => null };
+            if (tryGet is null || !SymbolEqualityComparer.Default.Equals(input, tryGet.ContainingType) ||
+                !SupportedInstanceCall(tryGet) || tryGet.Parameters is not [{ RefKind: RefKind.Out } output] ||
+                !TryType(input, false, out var inputType) || !TryType(output.Type, false, out var caseType) ||
+                capabilities?.Allows(inputType) != true || !capabilities.Allows(caseType))
+                return Reject("unsupported pattern " + pattern.GetType().Name, syntax);
+            var receiver = localTypes.Count; localTypes.Add(inputType);
+            Add(LinearInstructionKind.StoreLocal, syntax, receiver);
+            var payload = localTypes.Count; localTypes.Add(caseType);
+            Add(input.IsValueType ? LinearInstructionKind.LocalAddress : LinearInstructionKind.LoadLocal, syntax, receiver);
+            Add(LinearInstructionKind.LocalAddress, syntax, payload);
+            Add(InstanceCallKind(tryGet), syntax, method: tryGet);
+            Add(LinearInstructionKind.BranchFalse, syntax, fail);
+            if (pattern is BoundUnionMemberPattern member)
+            {
+                Add(LinearInstructionKind.LoadLocal, syntax, payload);
+                return PatternValue(output.Type, member.Pattern, fail, syntax);
+            }
+            var casePattern = (BoundCasePattern)pattern;
+            if (casePattern.Arguments.Length != casePattern.CaseSymbol.ConstructorParameters.Length)
+                return Reject("case payload arity mismatch", syntax);
+            for (var i = 0; i < casePattern.Arguments.Length; i++)
+            {
+                var name = casePattern.CaseSymbol.ConstructorParameters[i].Name;
+                var propertyName = name.Length == 0 ? name : char.ToUpperInvariant(name[0]) + name[1..];
+                var property = casePattern.CaseSymbol.GetMembers(propertyName).OfType<IPropertySymbol>().SingleOrDefault();
+                if (property?.GetMethod is not { } getter || !SupportedInstanceCall(getter)) return Reject("unsupported case payload accessor", syntax);
+                Add(output.Type.IsValueType ? LinearInstructionKind.LocalAddress : LinearInstructionKind.LoadLocal, syntax, payload);
+                Add(InstanceCallKind(getter), syntax, method: getter);
+                if (!PatternValue(property.Type, casePattern.Arguments[i], fail, syntax)) return false;
+            }
+            if (casePattern.Designator is not null)
+            {
+                Add(LinearInstructionKind.LoadLocal, syntax, payload);
+                if (!PatternDesignator(casePattern.Designator, output.Type, syntax)) return false;
+            }
+            return true;
+        }
+
+        bool PatternDesignator(BoundDesignator designator, ITypeSymbol input, SyntaxNode syntax)
+        {
+            if (designator is BoundDiscardDesignator) { Add(LinearInstructionKind.Pop, syntax); return true; }
+            if (designator is not BoundSingleVariableDesignator variable ||
+                !SymbolEqualityComparer.Default.Equals(input, variable.Local.Type) || !TryType(input, false, out var type) || capabilities?.Allows(type) != true)
+                return Reject("unsupported pattern binding", syntax);
+            if (!locals.TryGetValue(variable.Local, out var slot))
+            {
+                slot = localTypes.Count; localTypes.Add(type); locals.Add(variable.Local, slot);
+            }
+            Add(LinearInstructionKind.StoreLocal, syntax, slot);
+            return true;
+        }
+
         bool LowerStatements(BoundStatement body)
         {
             foreach (var statement in Flatten(body))
@@ -166,9 +230,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 if (statement is BoundIfStatement conditionalIf)
                 {
-                    if (!LowerValue(conditionalIf.Condition)) return false;
                     var otherwise = nextLabel++; var end = nextLabel++;
-                    Add(LinearInstructionKind.BranchFalse, Syntax(statement), otherwise);
+                    if (conditionalIf.Condition is BoundIsPatternExpression pattern && capabilities?.AllowsCasePatterns == true)
+                    {
+                        if (!LowerPattern(pattern.Expression, pattern.Pattern, otherwise, Syntax(statement))) return false;
+                    }
+                    else
+                    {
+                        if (!LowerValue(conditionalIf.Condition)) return false;
+                        Add(LinearInstructionKind.BranchFalse, Syntax(statement), otherwise);
+                    }
                     if (!LowerStatements(conditionalIf.ThenNode)) return false;
                     if (instructions.LastOrDefault().Kind is not (LinearInstructionKind.Return or LinearInstructionKind.Branch or LinearInstructionKind.CompilerFailure))
                         Add(LinearInstructionKind.Branch, Syntax(statement), end);
@@ -225,7 +296,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                             localType = arrayType;
                         else return Reject("target does not support local type " + variable.Local.Type.Name, Syntax(variable));
                         if (variable.Initializer is not null && !LowerValue(variable.Initializer)) return false;
-                        var slot = locals.Count;
+                        var slot = localTypes.Count;
                         locals.Add(variable.Local, slot);
                         localTypes.Add(localType);
                         if (variable.Initializer is not null) Add(LinearInstructionKind.StoreLocal, Syntax(variable), slot);
@@ -351,7 +422,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 ? LinearInstructionKind.InterfaceCall : LinearInstructionKind.InstanceCall;
         bool SupportedValueInstanceCall(IMethodSymbol method) => capabilities?.AllowsExternalValueInstanceCalls == true &&
             capabilities.AllowsManagedReferences && !method.IsStatic && !method.IsGenericMethod && !method.IsAbstract &&
-            (!method.IsVirtual && !method.IsOverride || method.IsFinal) && method.DeclaredAccessibility == Accessibility.Public &&
+            method.DeclaredAccessibility == Accessibility.Public &&
             method.ContainingType is { } owner && CallableSignature.IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && capabilities.Allows(signature);
         bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true)) &&
@@ -435,7 +506,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!SymbolEqualityComparer.Default.Equals(local.ContainingSymbol, source) ||
                         !TryType(local.Type, false, out var localType) || !capabilities.Allows(localType))
                         return Reject("unsupported or captured addressed local", Syntax(expression));
-                    slot = locals.Count;
+                    slot = localTypes.Count;
                     locals.Add(local, slot);
                     localTypes.Add(localType);
                 }

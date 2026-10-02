@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Lower opt-in union-case branches through checked TryGet calls and
+  payload accessors in the shared body plan. Keep pattern bindings on successful
+  paths, mark compiler-generated match failure for native terminal failure, and
+  admit concrete imported value overrides. 34 focused compiler tests pass;
+  collections advances to reference conversion emission.
+
 - **2026-10-02:** Let the native adapter admit static extension calls after the shared
   lowerer has made their receiver an explicit argument. The opt-in capability leaves
   ordinary .NET admission unchanged; collections progresses to union-pattern emission.

@@ -3014,3 +3014,20 @@ static callable signatures; the existing shared lowerer remains responsible for
 receiver evaluation and argument placement. Unlowered extension receivers are still
 rejected by the portable plan. Runtime Contracts, binding and .NET defaults are
 unchanged. The collections consumer now reaches union-pattern emission.
+
+### Imported union-case branches (2026-10-02)
+
+The native profile opts into `AllowsCasePatterns` for conditional union-case and
+union-member patterns with exact typed bindings or discards. Shared planning emits
+TryGet calls and payload getters, branching directly on failure so successful-path
+locals retain their assignment state. It preserves the same checked extraction used
+by the .NET generator; unrelated pattern categories remain on that generator or
+produce a native diagnostic. Compiler-generated non-exhaustive-match throws now carry
+the existing terminal-failure annotation; ordinary .NET still emits the original
+exception. User throws are unchanged. Concrete imported value overrides use an
+addressed direct call, while nonfinal class overrides still require future dispatch
+support. No Runtime Contract or source binding change is introduced.
+
+34 focused compiler tests pass, including imported Some/None extraction and ordinary
+.NET execution. The unchanged collections sample progresses to reference conversions;
+this checkpoint does not establish execution of that sample on the native backend.
