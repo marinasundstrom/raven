@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Include direct namespace-owned static methods in shared qualified
+  namespace lookup, alongside methods promoted from CLI containers. Bind ownerless
+  functions without a synthetic type receiver. Native qualified generic calls now bind;
+  .NET qualified-call controls and focused namespace/generic tests retain their behavior.
+
 - **2026-10-02:** Import unconstrained native static generic methods and namespace
   functions into compilation-owned symbols, completing the earlier guarded metadata
   reader expansion. Shared inference and constructed-method substitution now drive

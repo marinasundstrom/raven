@@ -11110,7 +11110,7 @@ partial class BlockBinder : Binder
                 .ToImmutableArray();
             if (!topLevelMethods.IsDefaultOrEmpty)
             {
-                var methodGroupReceiver = new BoundTypeExpression(topLevelMethods[0].ContainingType!);
+                BoundExpression? methodGroupReceiver = topLevelMethods[0].ContainingType is { } container ? new BoundTypeExpression(container) : null;
                 var accessibleMethods = GetAccessibleMethods(DistinctMethodCandidates(topLevelMethods), callSyntax.GetLocation());
                 var candidatesForArgumentBinding = !accessibleMethods.IsDefaultOrEmpty ? accessibleMethods : topLevelMethods;
                 candidatesForArgumentBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgumentBinding, argumentList.Arguments);

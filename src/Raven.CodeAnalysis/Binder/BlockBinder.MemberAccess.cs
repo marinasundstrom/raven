@@ -4147,11 +4147,11 @@ partial class BlockBinder
                 {
                     var instantiated = InstantiateMethodCandidates(topLevelMethods, typeArgs, genericTypeSyntax, nameLocation);
                     if (!instantiated.IsDefaultOrEmpty)
-                        return BindMethodGroup(new BoundTypeExpression(topLevelMethods[0].ContainingType!), instantiated, nameLocation);
+                        return BindMethodGroup(topLevelMethods[0].ContainingType is { } container ? new BoundTypeExpression(container) : null, instantiated, nameLocation);
                 }
                 else
                 {
-                    return BindMethodGroup(new BoundTypeExpression(topLevelMethods[0].ContainingType!), topLevelMethods, nameLocation);
+                    return BindMethodGroup(topLevelMethods[0].ContainingType is { } container ? new BoundTypeExpression(container) : null, topLevelMethods, nameLocation);
                 }
             }
 

@@ -862,3 +862,19 @@ generic namespace functions, while imported unqualified calls compile and execut
 This is an observed lookup candidate, not yet independently reproduced on .NET or
 attributed to a specific binder path. Follow it up separately; no workaround was added
 to the importer or emitter.
+
+### Qualified native namespace functions resolved (2026-10-02)
+
+The earlier RAV0234 lookup candidate was narrowed with independent .NET source controls:
+qualified inferred/explicit generic calls already passed on .NET. The shared namespace
+member query only collected functions promoted from container types; native providers
+also expose methods owned directly by a namespace. It now includes those static methods,
+using the same deduplication and namespace-import option gate. Binding uses a null
+receiver for ownerless functions instead of inventing a containing type.
+
+This is a provider-neutral contract fix, not a .NET generic inference regression.
+A focused 156-test namespace/generic/completion/codegen run passes, along with four
+qualified-call controls (three overlap that run). An incompatible explicit type argument
+still diagnoses. Native inferred/explicit qualified calls now compile and execute; all
+seven consumers return 42. No Runtime Contract, metadata encoding or runtime change.
+Constraint import and full native System/bootstrap remain pending.

@@ -1327,6 +1327,14 @@ public partial class Compilation
         var members = ImmutableArray.CreateBuilder<ISymbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
+        if (namespaceSymbol is SourceNamespaceSymbol)
+            namespaceSymbol = GetNamespaceSymbolCached(GetNamespaceMetadataName(namespaceSymbol)) ?? namespaceSymbol;
+        foreach (var method in namespaceSymbol.GetMembers(name).OfType<IMethodSymbol>())
+        {
+            if (method.IsStatic && method.ContainingType is null && seen.Add(method.GetLookupIdentityKey()))
+                members.Add(method);
+        }
+
         foreach (var container in GetNamespaceMemberContainers(namespaceSymbol))
         {
             foreach (var member in container.GetMembers(name))
@@ -1351,6 +1359,14 @@ public partial class Compilation
 
         var members = ImmutableArray.CreateBuilder<ISymbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        if (namespaceSymbol is SourceNamespaceSymbol)
+            namespaceSymbol = GetNamespaceSymbolCached(GetNamespaceMetadataName(namespaceSymbol)) ?? namespaceSymbol;
+        foreach (var method in namespaceSymbol.GetMembers().OfType<IMethodSymbol>())
+        {
+            if (method.IsStatic && method.ContainingType is null && seen.Add(method.GetLookupIdentityKey()))
+                members.Add(method);
+        }
 
         foreach (var container in GetNamespaceMemberContainers(namespaceSymbol))
         {
