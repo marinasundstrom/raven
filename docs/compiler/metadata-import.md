@@ -949,3 +949,8 @@ Contract requirements are unchanged.
 The NeoCLR body adapter now uses the metadata library's own IILGenerator while Raven's
 shared emission interfaces remain independent. See [implementation and remaining audit](metadata-backend-boundaries.md#independent-library-body-generator-2026-10-02).
 Runtime Contract/bootstrapping behavior is unchanged.
+
+
+Native static containers now author method references from symbols as declaration
+owners, while remaining excluded from signature value types. See [validation and limits](metadata-backend-boundaries.md#static-declaration-containers-2026-10-02).
+Runtime Contract/bootstrap requirements and translated CLI compatibility paths are unchanged.

@@ -185,7 +185,7 @@ internal static class Int32Emitter
                 var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, original.ContainingAssembly)).Dependency
                     ?? throw Unsupported("unregistered dependency type: " + original.ToDisplayString());
                 if (original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: { } artifact } &&
-                    IsSymbolOnlyReferenceDefinition(original))
+                    IsSymbolOnlyOwnerDefinition(original))
                 {
                     if (artifact.Sha256 != binding.NativeArtifactSha256)
                         throw Unsupported("native dependency snapshot differs from semantic reference");
@@ -468,7 +468,7 @@ internal static class Int32Emitter
                 return assembly.CreateFunctionReference(identity, binding.CoreLibrary, artifact.Sha256,
                     symbol.ContainingNamespace?.ToMetadataName() ?? "", symbol.MetadataName, contract);
             }
-            if (symbol.ContainingType is { } owner && IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
+            if (symbol.ContainingType is { } owner && IsSymbolOnlyOwnerDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
                 !symbol.IsOverride && (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : !symbol.IsAbstract && !symbol.IsVirtual) &&
                 symbol.DeclaredAccessibility == Accessibility.Public && (symbol.IsStatic || symbol.Arity == 0) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, NeoClrCapabilities.Shared) &&
@@ -514,6 +514,14 @@ internal static class Int32Emitter
         }
         static bool IsFieldStorageType(ITypeSymbol type) => type is IArrayTypeSymbol array
             ? IsFieldStorageType(array.ElementType) : type is not ITypeParameterSymbol && type is not INamedTypeSymbol { Arity: > 0 };
+
+        // Static containers may own references, but are never signature value types.
+        static bool IsSymbolOnlyOwnerDefinition(INamedTypeSymbol original) =>
+            IsSymbolOnlyReferenceDefinition(original) ||
+            original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
+            original.TypeKind == TypeKind.Class && original.IsStatic && original.ContainingType is null &&
+            original.DeclaredAccessibility == Accessibility.Public && original.Interfaces.IsEmpty &&
+            original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None);
 
         static bool IsSymbolOnlyReferenceDefinition(INamedTypeSymbol original, int depth = 0) =>
             depth < 32 &&

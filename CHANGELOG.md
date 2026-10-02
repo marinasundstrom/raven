@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Author native static-container method references from symbols,
+  including generic static calls. Keep declaration-owner admission separate from value
+  signatures. All seven native consumers execute (42); translated CLI and remaining
+  virtual/profile paths still use their existing bindings.
+
 - **2026-10-02:** Route NeoCLR body, call and field instruction generation through the
   separate metadata-library IILGenerator. Keep Raven's shared emission contracts
   unchanged. All seven native consumers execute (42); the library now uses a

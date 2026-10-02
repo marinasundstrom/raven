@@ -263,3 +263,18 @@ graph/flow validation and operation representation are unchanged, as are Runtime
 Contract mappings, bootstrap requirements and supported opcodes. Mixed legacy/generator
 use preserves handle ownership. All 108 metadata C# groups and seven native consumers
 pass; generic-owner generation executes on CLR and both native containers (42).
+
+
+### Static declaration containers (2026-10-02)
+
+Static native classes now qualify as declaration owners on the symbol-only reference
+path. Their static and generic-static methods use authored references rather than
+NativeMethodSymbol.Definition. Owner admission is deliberately separate from signature
+value admission: this does not make static classes instantiable or valid storage types.
+Existing signature, accessibility, generic-constraint and artifact checks remain.
+
+All seven native consumers execute (42), including static overloads and generic calls.
+The metadata generic-static test authors references from values for CLR and both native
+containers (42); 108 metadata C# groups pass. Remaining reader paths include final/virtual
+class contracts, unsupported profiles, translated CLI compatibility bindings, host setup
+and lazy symbol materialization. Runtime Contract/bootstrap behavior is unchanged.

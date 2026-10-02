@@ -3796,3 +3796,8 @@ Runtime Contract/bootstrapping behavior is unchanged.
 The library generator now owns body-authoring implementation; builder calls are
 compatibility forwarders. [Validation and remaining responsibilities](metadata-backend-boundaries.md#generator-engine-ownership-2026-10-02)
 record the unchanged runtime/metadata contract and reader-boundary limitations.
+
+
+Native static containers now author method references from symbols as declaration
+owners, while remaining excluded from signature value types. See [validation and limits](metadata-backend-boundaries.md#static-declaration-containers-2026-10-02).
+Runtime Contract/bootstrap requirements and translated CLI compatibility paths are unchanged.
