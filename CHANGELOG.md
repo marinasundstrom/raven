@@ -26,7 +26,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   namespace/static/instance arguments/results and nominal constructor arguments execute
   in neoCLR (42). Class-valued fields now also resolve lazily to canonical native symbols;
   a native consumer replaces/mutates a stored object while preserving the original (42).
-  Wider native importing remains pending.
+  Native signatures can now reference classes in other explicitly supplied native
+  assemblies; lazy resolution preserves canonical symbols and emission uses exact
+  metadata bindings. Missing/version/type dependencies diagnose. A Raven-produced
+  three-assembly consumer executes in neoCLR (42). Wider native importing remains pending.
 
 - **2026-10-02:** Document the independent metadata library's first direct native
   definition reader and the next Raven loader integration boundary. Current .NET and

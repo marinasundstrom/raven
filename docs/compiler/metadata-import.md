@@ -619,3 +619,20 @@ neoCLR. Wrong field assignments diagnose. Both reference orders and canonical ty
 identity are tested. All four native consumers pass; CLI primitive core/translated
 System bootstrap inputs remain explicit. External/generic/value/interface/array field
 signatures and full native System loading remain pending.
+
+### Explicit external native signature resolution (2026-10-02)
+
+Native references now carry assembly-scoped TypeReferences in method/constructor and
+field signatures. Validate checks the complete explicitly supplied native reference set
+for duplicate identities, missing/wrong versions and missing exported types, reporting
+RAVT003. Lazy signature resolution uses IAssemblyResolver over immutable snapshots and
+then the referenced compilation-owned module's canonical symbol map. It never loads
+runtime reflection types or probes files. Emission uses an analogous resolver over exact
+validated metadata bindings; Runtime Contract configuration is unchanged.
+
+The new C# ExternalNativeChecks probe compiles PayloadLibrary, HolderLibrary and a
+consumer with references in both orders. Method/constructor/field types must be the same
+Payload symbol. Invalid dependencies diagnose even when source does not use the member.
+The five-consumer runtime harness supplies both libraries and verifies 42 from the
+three-assembly consumer. Ordinary .NET provider/import behavior is unchanged. Full native
+System loading and generic/value/interface/array signatures remain outside this profile.

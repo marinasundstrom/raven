@@ -32,10 +32,12 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     private readonly Compilation compilation;
     private readonly NativeAssemblySymbol assembly;
     private readonly Dictionary<TypeDefinition, NativeNamedTypeSymbol> typeSymbols;
+    private readonly NativeAssemblyResolver resolver;
     internal NativeModuleSymbol(Compilation compilation, NativeAssemblySymbol assembly)
         : base(SymbolKind.Module, assembly.Reference.Definition.MainModule.Name, assembly, null, null, [], [])
     {
         this.compilation = compilation; this.assembly = assembly;
+        resolver = new(compilation.References.OfType<NeoClrMetadataReference>().Select(r => r.Definition));
         var root = new NativeNamespaceSymbol("", this, null);
         GlobalNamespace = root;
         Types = [.. assembly.Reference.Definition.MainModule.Types.Select(type => {
@@ -60,8 +62,14 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         }
     }
     internal ImmutableArray<NativeNamedTypeSymbol> Types { get; }
-    internal NativeNamedTypeSymbol Resolve(TypeReference reference) => typeSymbols.TryGetValue(reference.Resolve(), out var type)
-        ? type : throw new InvalidDataException("native signature type is outside this module");
+    internal NativeNamedTypeSymbol Resolve(TypeReference reference)
+    {
+        var definition = reference.Resolve(resolver);
+        if (typeSymbols.TryGetValue(definition, out var local)) return local;
+        var input = compilation.References.OfType<NeoClrMetadataReference>().Single(r => ReferenceEquals(r.Definition, definition.Module.Assembly));
+        var external = (NativeAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(input)!;
+        return external.Module.typeSymbols[definition];
+    }
     public override IAssemblySymbol ContainingAssembly => assembly;
     public override IModuleSymbol ContainingModule => this;
     public INamespaceSymbol GlobalNamespace { get; }

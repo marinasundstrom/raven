@@ -21,12 +21,17 @@ internal static class NativeSymbolChecks
     {
         Run(corePath, output);
         var results = new List<object>();
-        foreach (var (app, dependency) in new[] { ("NativeConsumer", "NativeSymbols"), ("RavenNativeConsumer", "RavenNativeLibrary"), ("NativeTypeConsumer", "NativeTypeLibrary"), ("NativeFieldConsumer", "NativeTypeLibrary") })
+        foreach (var (app, dependency) in new[] { ("NativeConsumer", "NativeSymbols"), ("RavenNativeConsumer", "RavenNativeLibrary"), ("NativeTypeConsumer", "NativeTypeLibrary"), ("NativeFieldConsumer", "NativeTypeLibrary"), ("ExternalNativeConsumer", "NativeHolderLibrary") })
         {
             var appPath = Path.Combine(output, app + ".dll");
             var dependencyPath = Path.Combine(output, dependency + ".dll");
             var start = new ProcessStartInfo(runtime) { RedirectStandardOutput = true, RedirectStandardError = true };
             foreach (var arg in new[] { "run", appPath, "--module", dependencyPath, "--system", system, "--show-result" }) start.ArgumentList.Add(arg);
+            if (app == "ExternalNativeConsumer")
+            {
+                start.ArgumentList.Add("--module");
+                start.ArgumentList.Add(Path.Combine(output, "NativePayloadLibrary.dll"));
+            }
             using var process = Process.Start(start) ?? throw new Exception("runtime did not start");
             var stdoutTask = process.StandardOutput.ReadToEndAsync();
             var stderrTask = process.StandardError.ReadToEndAsync();
@@ -36,7 +41,7 @@ internal static class NativeSymbolChecks
             var stdout = await stdoutTask;
             var stderr = await stderrTask;
             if (process.ExitCode != 42 || (stdout + stderr).Trim() != "=> Int32(42)") throw new Exception($"native runtime failed: {process.ExitCode} {stdout} {stderr}");
-            results.Add(new { app, dependency, exitCode = process.ExitCode, stdout, stderr, appSha256 = Hash(appPath), dependencySha256 = Hash(dependencyPath) });
+            results.Add(new { app, dependency, exitCode = process.ExitCode, stdout, stderr, appSha256 = Hash(appPath), dependencySha256 = Hash(dependencyPath), additionalDependency = app == "ExternalNativeConsumer" ? "NativePayloadLibrary" : null, additionalDependencySha256 = app == "ExternalNativeConsumer" ? Hash(Path.Combine(output, "NativePayloadLibrary.dll")) : null });
         }
         File.WriteAllText(Path.Combine(output, "runtime-validation.json"), JsonSerializer.Serialize(new
         {
@@ -45,7 +50,7 @@ internal static class NativeSymbolChecks
             systemSha256 = Hash(system),
             coreSha256 = Hash(corePath),
             results,
-            scope = "native primitive/local-class signature import and cross-assembly execution; explicit CLI primitive core retained"
+            scope = "native primitive/nominal signature import and explicit dependency execution; explicit CLI primitive core retained"
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS native metadata import, emission and runtime execution");
         static string Hash(string path) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
@@ -139,7 +144,8 @@ internal static class NativeSymbolChecks
         if (!consumed.Success) throw new Exception("native source consumer failed: " + string.Join("; ", consumed.Diagnostics));
         File.WriteAllBytes(Path.Combine(output, "RavenNativeConsumer.dll"), consumerOutput.ToArray());
         NativeTypeChecks.Run(cliCore, core, output);
-        File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new { passed = true, nativeSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), coreSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(corePath))), cases = new[] { "native namespace overloads", "both reference orders", "semantic type and symbol identity", "compilation isolation", "accessibility", "invalid argument", "CLI emission leaves output empty", "native call emission", "Raven-produced native library read and consumed", "native snapshot mismatch leaves output empty", "duplicate identity", "wrong target", "missing dependency", "registered dependency", "exact version identity", "native class/field symbols, nominal function/method/constructor signatures, overloads, stateful instance calls and primitive/nominal field load/store" }, scope = "direct native dependency symbols with explicit CLI primitive core; native call emitted; runtime execution validated separately" }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
+        ExternalNativeChecks.Run(cliCore, core, output);
+        File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new { passed = true, nativeSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), coreSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(corePath))), cases = new[] { "external nominal method/constructor/field signatures", "native namespace overloads", "both reference orders", "semantic type and symbol identity", "compilation isolation", "accessibility", "invalid argument", "CLI emission leaves output empty", "native call emission", "Raven-produced native library read and consumed", "native snapshot mismatch leaves output empty", "duplicate identity", "wrong target", "missing dependency", "registered dependency", "exact version identity", "native class/field symbols, nominal function/method/constructor signatures, overloads, stateful instance calls and primitive/nominal field load/store" }, scope = "direct native dependency symbols with explicit CLI primitive core; native call emitted; runtime execution validated separately" }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS direct native semantic imports");
     }
 }

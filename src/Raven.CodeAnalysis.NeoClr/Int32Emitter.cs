@@ -15,6 +15,7 @@ internal static class Int32Emitter
     internal static byte[] Emit(Compilation compilation, NeoClrEmitOptions options,
         IReadOnlyList<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)> dependencies)
     {
+        var nativeResolver = new NativeAssemblyResolver(dependencies.Select(d => d.Dependency.Definition));
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
         var interfaces = new List<SourceInterfacePlan>();
@@ -344,7 +345,7 @@ internal static class Int32Emitter
                         ?? throw Unsupported("unregistered dependency field");
                     if (!ReferenceEquals(nativeField.Definition.Module.Assembly, binding.Definition))
                         throw Unsupported("native field snapshot differs from semantic reference");
-                    imported = new NeoClrFieldReference(null, Import: assembly.ImportReference(nativeField.Definition, binding.CoreLibrary));
+                    imported = new NeoClrFieldReference(null, Import: assembly.ImportReference(nativeField.Definition, binding.CoreLibrary, nativeResolver));
                     importedFields.Add(field, imported);
                     return imported;
                 }
@@ -423,7 +424,7 @@ internal static class Int32Emitter
             {
                 if (!ReferenceEquals(native.Definition.Module.Assembly, dependencyMetadata))
                     throw Unsupported("native dependency snapshot differs from semantic reference");
-                return assembly.ImportReference(native.Definition, binding.CoreLibrary);
+                return assembly.ImportReference(native.Definition, binding.CoreLibrary, nativeResolver);
             }
             var types = dependencyMetadata.MainModule.Types.Where(t => symbol.ContainingType is { } owner && t.GenericArity == owner.Arity && MatchesType(t, owner)).Take(2).ToArray();
             if (types.Length != 1) throw Unsupported("dependency type unavailable or ambiguous");

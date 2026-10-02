@@ -3478,3 +3478,25 @@ No CLI projection is used for these native library symbols. External signature t
 generic/value/interface/array field profiles and full System import remain pending.
 The independent metadata library owns those reader/import extensions; Raven owns symbol
 mapping. Native core loading/source emission remain the replacement for bootstrap inputs.
+
+### Explicit native signature dependencies (2026-10-02 development)
+
+Native method/constructor/field signatures now refer to supported classes in explicitly
+supplied native dependencies. The metadata library retains immutable assembly-scoped
+TypeReferences and resolves them through IAssemblyResolver; Raven maps the resolved
+definition to its canonical compilation-owned symbol. Emission supplies the exact
+registered dependency snapshots to the new resolver-taking import overloads. Missing,
+wrong-version or missing-type dependencies diagnose; no CLI projection or reflection
+loading is used for these native references. Runtime Contract settings are unchanged.
+
+A Raven-produced payload library, holder library and consumer now compile and execute
+as three native assemblies (42), including constructor parameters, nominal method
+results/arguments and class-valued field replacement. All five runtime consumers and
+100 metadata C# groups pass. Equivalent imported signatures execute on .NET too.
+Existing .NET provider behavior and CLI cross-dependency decoding remain unchanged.
+No PE/#Neo schema or runtime instruction change is required.
+
+The CLI primitive core and translated System remain explicit bootstrap inputs. Generic,
+value/interface/array signatures, type forwarding and full System native import remain
+open; the independent metadata library owns reader/import support and Raven owns symbol
+mapping. Native core loading and source compilation remain their bootstrap replacement.

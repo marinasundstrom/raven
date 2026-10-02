@@ -580,3 +580,9 @@ The native type consumer additionally exercises a class-valued field: replace th
 mutate the replacement through nested field access, and check original-object independence
 before returning 42. Nominal field symbol identity and invalid assignments are checked.
 No CLI projection of the native library is involved.
+
+Runtime mode now runs five consumers. ExternalNativeChecks builds NativePayloadLibrary,
+then NativeHolderLibrary using the payload's direct native reference, then a consumer
+using both. Constructor/method/field signature identity is checked in both reference
+orders; missing assemblies, wrong versions, missing types and duplicates diagnose. The
+runtime harness supplies both modules, hashes both artifacts and verifies result 42.
