@@ -433,3 +433,41 @@ fix. It remains on the metadata-consumer integration line; consider a separate s
 port after the bounded API is reviewed, without conflating that with native backend
 readiness. The previous independently proven concrete-union lowering fix remains on its
 main-based fix branch.
+
+
+### Imported value-receiver checkpoint (2026-10-02)
+
+`AllowsExternalValueInstanceCalls` opts the native adapter into direct calls on public
+nongeneric methods of imported ordinary or constructed value types. Concrete virtual
+implementations must be final. Shared lowering takes the address of an owned local or
+forwards an existing ref/out receiver; both adapters represent the call explicitly.
+The metadata import match requires the managed receiver contract as well as the output
+indices and open signature. This follows CLI value-instance calling semantics and
+preserves mutation of caller storage. There is no boxing or unconstrained virtual call.
+
+The ordinary .NET shared profile does not enable this new capability; its existing
+emission fallback remains available. Runtime Contract Propagation/Self/Unit settings and
+binding are unchanged. By-value parameter addresses, temporary/field/array receivers,
+source value declarations, value constructors and constrained interface dispatch remain
+outside the bounded native profile. These are emitter limitations, not language rules.
+The CLI declaration snapshot still supplies symbols; a native metadata importer remains
+pending. This shared capability remains a candidate for separate shared-line integration,
+not an independently isolated binder fix.
+
+`NeoClrMetadataProbe --value-receiver-runtime` compiles a Raven consumer of a separately
+produced native library. Receiver mutation, a generic value-owner setter and generic out
+calls verify and run on neoCLR with result 42. Missing dependency registration rejects
+without modifying output. All 28 focused external-signature, capability and shared-emission C# tests pass on
+.NET 11, including explicit receiver admission and ordinary .NET execution. The unchanged collections sample now passes TryGetOutput admission and
+stops at `BoundThrowStatement`; its CLI control still emits 7168 bytes. Propagation
+lowering contains an invalid-carrier throw guard, so dropping that guard would change
+behavior. Native terminal failure semantics and their shared lowering contract need a
+separate slice; full collections execution is not yet supported.
+
+Deferred independent investigation: the initial .NET control using
+`if !value.TryGet(out var result) { return 0 }` followed by `return result` reported
+RAV0103 after semantic-plan inspection and subsequent ordinary emission. The final
+receiver control uses an explicitly declared output local; the native executable still
+covers inline output locals. This observation has not been isolated against main and
+must not be labeled a regression caused or fixed by this capability. Reduce the query/
+emission sequence independently before deciding whether to port a compiler fix.

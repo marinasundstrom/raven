@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Add explicit imported value-receiver calls to the shared emission plan
+  and neoCLR adapter, preserving caller mutation through managed local/ref receivers
+  and matching dependency receiver contracts. A separate-library Raven consumer verifies
+  and runs generic value/out calls (42). Default .NET emission and Runtime Contracts are
+  unchanged. Collections advances to a lowered throw guard; native propagation remains
+  incomplete.
+
 - **2026-10-02:** Share ref/out parameter signatures, local addresses and indirect
   loads/stores between the portable .NET and neoCLR emission adapters under an explicit
   managed-reference capability. Preserve out assignment contracts in native metadata

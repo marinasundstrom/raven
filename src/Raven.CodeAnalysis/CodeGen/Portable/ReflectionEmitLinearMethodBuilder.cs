@@ -70,6 +70,7 @@ internal sealed class ReflectionEmitLinearMethodBuilder(MethodGenerator method, 
             case LinearInstructionKind.LoadElement: output.Emit(OpCodes.Ldelem, method.ResolveClrType(instruction.Type!)); break;
             case LinearInstructionKind.StoreElement: output.Emit(OpCodes.Stelem, method.ResolveClrType(instruction.Type!)); break;
             case LinearInstructionKind.ArrayLength: output.Emit(OpCodes.Ldlen); output.Emit(OpCodes.Conv_I4); break;
+            case LinearInstructionKind.ValueInstanceCall: output.Emit(OpCodes.Call, method.TypeGenerator.CodeGen.LinearCallReferences.Resolve(instruction.Method!)); break;
             case LinearInstructionKind.NewObject: output.Emit(OpCodes.Newobj, method.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetConstructorInfo(instruction.Method!)); break;
             case LinearInstructionKind.Receiver: output.Emit(OpCodes.Ldarg_0); break;
             case LinearInstructionKind.LoadField: output.Emit(OpCodes.Ldfld, method.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(instruction.Field!)); break;

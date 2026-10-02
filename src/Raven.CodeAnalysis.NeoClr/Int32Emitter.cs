@@ -368,7 +368,8 @@ internal static class Int32Emitter
                 try { imported = assembly.ImportReference(candidate, binding.CoreLibrary); }
                 catch (InvalidDataException) { continue; }
                 if (imported.IsInterfaceMethod != (symbol.ContainingType?.TypeKind == TypeKind.Interface) ||
-                    imported.RequiresVirtualDispatch != (!symbol.IsStatic && symbol.IsVirtual)) continue;
+                    imported.RequiresVirtualDispatch != (!symbol.IsStatic && symbol.ContainingType?.IsValueType != true && symbol.IsVirtual) ||
+                    imported.RequiresManagedReceiver != (!symbol.IsStatic && symbol.ContainingType?.IsValueType == true)) continue;
                 var actual = imported.Signature;
                 if (actual.GenericParameterNames.Count == expected.GenericParameterNames.Count && actual.ReturnType == expected.ReturnType &&
                     actual.ParameterTypes.SequenceEqual(expected.ParameterTypes) && actual.OutParameters.SequenceEqual(expected.OutParameters)) matches.Add(imported);

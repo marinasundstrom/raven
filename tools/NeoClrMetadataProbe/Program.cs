@@ -22,6 +22,12 @@ if (args.Length == 4 && args[0] == "--imported-interface-runtime")
     return;
 }
 
+if (args.Length == 4 && args[0] == "--value-receiver-runtime")
+{
+    await ValueReceiverChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
 if (args.Length == 4 && args[0] == "--imported-value-runtime")
 {
     await ImportedValueChecks.Run(args[1], args[2], args[3]);

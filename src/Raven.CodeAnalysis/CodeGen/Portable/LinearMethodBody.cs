@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -320,9 +320,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             (owner.Arity == 0 && SourceInterfacePlan.HasSupportedIdentity(owner) ||
              capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner)) &&
             capabilities?.AllowsInterfaceDispatch == true && TrySignature(method, out var signature) && capabilities.Allows(signature);
-        LinearInstructionKind InstanceCallKind(IMethodSymbol method) => method.ContainingType?.TypeKind == TypeKind.Interface
-            ? LinearInstructionKind.InterfaceCall : LinearInstructionKind.InstanceCall;
-        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner)) &&
+        LinearInstructionKind InstanceCallKind(IMethodSymbol method) => method.ContainingType?.IsValueType == true
+            ? LinearInstructionKind.ValueInstanceCall : method.ContainingType?.TypeKind == TypeKind.Interface
+                ? LinearInstructionKind.InterfaceCall : LinearInstructionKind.InstanceCall;
+        bool SupportedValueInstanceCall(IMethodSymbol method) => capabilities?.AllowsExternalValueInstanceCalls == true &&
+            capabilities.AllowsManagedReferences && !method.IsStatic && !method.IsGenericMethod && !method.IsAbstract &&
+            (!method.IsVirtual && !method.IsOverride || method.IsFinal) && method.DeclaredAccessibility == Accessibility.Public &&
+            method.ContainingType is { } owner && CallableSignature.IsExternalValue(owner) &&
+            TrySignature(method, out var signature) && SupportedTypeArguments(method) && capabilities.Allows(signature);
+        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner)) &&
             method.ContainingType is { } owner && (SourceTypePlan.TryCreate(owner, out _) ||
                 capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner)) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && (capabilities is null || capabilities.Allows(signature));
@@ -340,6 +346,17 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
 
         bool Receiver(BoundExpression? receiver, INamedTypeSymbol owner, SyntaxNode syntax)
         {
+            if (owner.IsValueType)
+            {
+                if (capabilities?.AllowsExternalValueInstanceCalls != true) return Reject("target does not support value receivers", syntax);
+                return receiver switch
+                {
+                    BoundLocalAccess local => LowerReference(new BoundAddressOfExpression(local)),
+                    BoundParameterAccess parameter when parameter.Parameter.RefKind is RefKind.Ref or RefKind.Out => LowerReference(parameter),
+                    BoundDereferenceExpression dereference => LowerReference(dereference.Reference),
+                    _ => Reject("value receiver requires an owned local or ref/out parameter", syntax)
+                };
+            }
             if (receiver is not null) return LowerValue(receiver);
             if (source.IsStatic || !SymbolEqualityComparer.Default.Equals(source.ContainingType, owner)) return Reject("implicit receiver unavailable", syntax);
             Add(LinearInstructionKind.Receiver, syntax); return true;
