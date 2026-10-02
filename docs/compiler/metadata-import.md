@@ -665,3 +665,23 @@ Contract configuration.
 Validation: the C# fixture reproduced four missing diagnostics before the fix;
 76 focused property/accessibility tests pass afterward, including pipeline writes.
 This correction is isolated for independent shared-line integration.
+
+### Direct native non-indexed properties (2026-10-02)
+
+NativePropertySymbol consumes PropertyDefinition.TryGetSignature and shares the lazy
+module signature map with fields/methods. Properties reuse the exact accessor symbols
+in the declaring type's member list, setting AssociatedSymbol and PropertyGet/PropertySet
+MethodKind before publication. Property visibility follows the most visible accessor;
+each accessor retains its own visibility. No reflection/CLI projection is used.
+
+The emitter uses the target's signature capabilities for source properties and imports
+canonical getter/setter method operands. Shared lowering admits static properties on
+external reference owners only when that capability is enabled; default .NET capabilities
+are unchanged. The separately committed setter-accessibility fix (23161cffb) applies
+to both providers and has independent .NET tests. No Runtime Contract change is needed.
+
+C# semantic checks cover both reference orders, accessor identity, nominal/vector types,
+static/readonly/private setters and invalid assignments. All five runtime consumers
+execute (42), including source native libraries with class/array properties. The CLI
+primitive core and translated System remain bootstrap inputs; indexed properties,
+generic/value/interface owners and full native System importing remain pending.

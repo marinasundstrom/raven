@@ -1,10 +1,12 @@
 using System.Collections.Immutable;
+
 using NeoCLR.Metadata.Experimental.Model;
+
 using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-// The reader currently admits nongeneric top-level classes with primitive fields.
+// The reader currently admits nongeneric top-level classes with bounded fields and properties.
 // Keep unsupported categories at the reader boundary rather than manufacturing members.
 internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
 {
@@ -16,8 +18,10 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     {
         this.compilation = compilation;
         Definition = definition;
-        members = [.. definition.Methods.Select(method => (ISymbol)new NativeMethodSymbol(compilation, method, this)),
-            .. definition.Fields.Select(field => (ISymbol)new NativeFieldSymbol(compilation, field, this))];
+        var methods = definition.Methods.ToDictionary(method => method, method => new NativeMethodSymbol(compilation, method, this));
+        members = [.. methods.Values,
+            .. definition.Fields.Select(field => (ISymbol)new NativeFieldSymbol(compilation, field, this)),
+            .. definition.Properties.Select(property => (ISymbol)new NativePropertySymbol(property, this, methods))];
     }
     internal TypeDefinition Definition { get; }
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;

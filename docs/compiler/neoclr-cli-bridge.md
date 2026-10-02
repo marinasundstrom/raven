@@ -3520,3 +3520,28 @@ Jagged/multidimensional arrays, covariance, generic/value/interface elements, br
 properties and full native System import remain outside this slice. The explicit CLI
 primitive core and translated System bootstrap still require native core loading and
 source compilation for their eventual replacement.
+
+### Direct native non-indexed properties (2026-10-02 development)
+
+Native properties now load into canonical metadata definitions and Raven property
+symbols, with associated getter/setter methods and lazily resolved primitive, class
+and vector signatures. Static/read-only/write-only accessors retain visibility and
+identity. Emission imports the existing method operands; no property format or opcode
+changes are required. Property signature admission uses explicit NeoCLR capabilities;
+shared static property lowering allows external owners through the external-reference
+capability. A separate general binder fix rejects inaccessible setter writes, proved
+with an ordinary C#/.NET fixture. Runtime Contract configuration is unchanged.
+
+The Raven payload/holder/consumer case reads/writes native nominal and array properties,
+reads a static property, preserves aliases and returns 42 in neoCLR. All five native
+consumers and 102 C# metadata groups pass. Read-only/private setter writes diagnose.
+The native dependencies are not projected to CLI. The primitive CLI core and translated
+System remain explicit bootstrap inputs; the metadata library owns broader reader
+support, Raven owns symbol mapping, and native core loading/source compilation remain
+their eventual replacement. Indexers, generic/value/interface owners and full native
+System loading remain open.
+
+Validated with metadata commit 7368716c on codex/extended-cli-metadata and the
+existing runtime bundle recorded in neoCLR native-properties-2026-10-02.json.
+The independent binder fix is 23161cffb (76 focused .NET tests); it is isolated
+for shared-line integration, not merged into main by this slice.

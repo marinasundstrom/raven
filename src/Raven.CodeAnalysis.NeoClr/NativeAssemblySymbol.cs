@@ -137,12 +137,20 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : Map(signature.ReturnType));
         parameters = new(() => [.. signature.ParameterTypes.Select((p, i) => (IParameterSymbol)new NativeParameterSymbol(i, Map(p), this))]);
     }
+    private NativePropertySymbol? property;
+    internal void Associate(NativePropertySymbol value)
+    {
+        if (property is not null) throw new InvalidDataException("native accessor is associated with more than one property");
+        property = value;
+    }
+    public ISymbol? AssociatedSymbol => property;
     internal MethodDefinition Definition { get; }
     private ITypeSymbol Map(SignatureType type) => ((NativeModuleSymbol)ContainingModule).Map(type);
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic => Definition.IsStatic;
-    public MethodKind MethodKind => Definition.Name == ".ctor" ? MethodKind.Constructor : MethodKind.Ordinary;
+    public MethodKind MethodKind => Definition.Name == ".ctor" ? MethodKind.Constructor : property is null ? MethodKind.Ordinary
+        : ReferenceEquals(property.GetMethod, this) ? MethodKind.PropertyGet : MethodKind.PropertySet;
     public ITypeSymbol ReturnType => returnType.Value;
     public ImmutableArray<IParameterSymbol> Parameters => parameters.Value;
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => [];

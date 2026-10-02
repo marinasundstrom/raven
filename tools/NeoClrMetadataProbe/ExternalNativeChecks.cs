@@ -35,6 +35,20 @@ internal static class ExternalNativeChecks
                     self.Item = items[0]
                     self.Items = items
                 }
+                public var Current: Payload {
+                    get => Item
+                    set => Item = value
+                }
+                public var Batch: Payload[] {
+                    get => Items
+                    set => Items = value
+                }
+                public val ReadOnly: Payload => Item
+                public val Protected: int {
+                    get => Item.Value
+                    private set => Item.Value = value
+                }
+                public static val Answer: int => 42
                 public static func PassItems(items: Payload[]) -> Payload[] => items
                 public static func Numbers(items: int[]) -> int[] => items
                 public static func Pass(value: Payload) -> Payload => value
@@ -45,11 +59,14 @@ internal static class ExternalNativeChecks
             func Main() -> int {
                 let first = Payload(1)
                 let holder = Holder(Holder.Pass(first))
-                holder.Item = Payload(42)
+                holder.Current = Payload(41)
+                holder.Current.Value = Holder.Answer
+                if holder.ReadOnly.Value != 42 { return 4 }
+                if holder.Protected != 42 { return 5 }
                 if first.Value != 1 { return 2 }
                 let values: Payload[] = [first]
                 let arrayHolder = Holder(Holder.PassItems(values))
-                holder.Items = arrayHolder.Items
+                holder.Batch = arrayHolder.Batch
                 holder.Items[0] = holder.Item
                 if values[0].Value != 42 { return 3 }
                 let numbers: int[] = [0]
@@ -75,11 +92,27 @@ internal static class ExternalNativeChecks
             Check(arrayMethod.ReturnType is IArrayTypeSymbol { Rank: 1 } array && ReferenceEquals(array.ElementType, payloadType) &&
                 ReferenceEquals(arrayMethod.ReturnType, arrayMethod.Parameters[0].Type) && ReferenceEquals(arrayMethod.ReturnType, arrayField.Type) &&
                 ReferenceEquals(arrayMethod.ReturnType, holderType.InstanceConstructors.Single(c => c.Parameters[0].Type is IArrayTypeSymbol).Parameters[0].Type), "canonical native array symbols");
+            var current = holderType.GetMembers("Current").OfType<IPropertySymbol>().Single();
+            var batch = holderType.GetMembers("Batch").OfType<IPropertySymbol>().Single();
+            Check(ReferenceEquals(current.Type, payloadType) && ReferenceEquals(batch.Type, arrayMethod.ReturnType) &&
+                current.GetMethod is { MethodKind: MethodKind.PropertyGet } && current.SetMethod is { MethodKind: MethodKind.PropertySet } &&
+                ReferenceEquals(current.GetMethod.AssociatedSymbol, current) && ReferenceEquals(current.SetMethod.AssociatedSymbol, current) &&
+                holderType.GetMembers().Contains(current.GetMethod), "canonical native property/accessor identity");
+            Check(holderType.GetMembers("ReadOnly").OfType<IPropertySymbol>().Single().SetMethod is null &&
+                holderType.GetMembers("Protected").OfType<IPropertySymbol>().Single().SetMethod!.DeclaredAccessibility == Accessibility.Private &&
+                holderType.GetMembers("Answer").OfType<IPropertySymbol>().Single().IsStatic, "readonly/private/static property contracts");
             using var image = new MemoryStream();
             var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,
                 new(new("ExternalNativeConsumer", new Version(1, 0, 0, 0)), core, [new(payload, payload.Definition, core), new(holder, holder.Definition, core)]));
             Check(result.Success, string.Join("; ", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "ExternalNativeConsumer.dll"), image.ToArray());
+        }
+        foreach (var assignment in new[] { "holder.ReadOnly = Payload(0)", "holder.Protected = 0" })
+        {
+            var syntax = SyntaxTree.ParseText("import External.*\nfunc Main() -> int {\nlet holder = Holder(Payload(1))\n" + assignment + "\nreturn 0\n}");
+            Check(!syntax.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "invalid property test syntax");
+            var invalidProperty = Compilation.Create("InvalidProperty", [syntax], [coreReference, holder, payload], CompilationOptions.NeoCLR);
+            Check(invalidProperty.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "forbidden property assignment accepted: " + assignment);
         }
         var empty = new AssemblyBuilder(payload.Definition.Identity, core);
         empty.AddClass("External", "Different");

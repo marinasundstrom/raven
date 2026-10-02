@@ -591,3 +591,9 @@ ExternalNativeChecks now also covers Payload[] constructor/field/method signatur
 Int32[] methods. The consumer replaces an element through a stored array alias and
 passes a primitive array across libraries, returning 42. Field/parameter/result array
 symbols share exact external element identity in both reference orders.
+
+ExternalNativeChecks also covers native non-indexed properties: class/array get/set,
+read-only and private-set properties, and a static getter. Property signatures reuse
+canonical types and accessor symbols in both reference orders. The consumer replaces
+objects/arrays via setters, reads through getters and returns 42. Read-only/private
+setter assignments must diagnose before emission.

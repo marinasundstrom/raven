@@ -103,7 +103,7 @@ internal static class Int32Emitter
                                 propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)) ||
                                 model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol property ||
                                 property.IsStatic && (property.BackingField is not null || propertySyntax.Initializer is not null) ||
-                                !CallableSignature.TryType(property.Type, false, out _))
+                                !CallableSignature.TryType(property.Type, false, out _, NeoClrCapabilities.Shared))
                                 throw Unsupported("only supported instance properties/storage or implemented static properties without storage");
                             if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||
@@ -274,7 +274,7 @@ internal static class Int32Emitter
         var definedMethods = methods.ToDictionary(m => m.Plan.Symbol, m => m.Method, (IEqualityComparer<IMethodSymbol>)SymbolEqualityComparer.Default);
         foreach (var property in properties)
         {
-            CallableSignature.TryType(property.Type, false, out var propertyType);
+            CallableSignature.TryType(property.Type, false, out var propertyType, NeoClrCapabilities.Shared);
             var valueType = NeoClrTypeMapper.Map(propertyType, type => nativeTypes[type], ImportExternalType);
             nativeTypes[property.ContainingType!].AddProperty(property.MetadataName, valueType,
                 property.GetMethod is null ? null : definedMethods[property.GetMethod], property.SetMethod is null ? null : definedMethods[property.SetMethod]);

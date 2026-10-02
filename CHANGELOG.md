@@ -38,6 +38,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   three-assembly consumer executes in neoCLR (42). Native array signatures now preserve
   primitive and external class elements across method/constructor/field imports, with
   shared cached array symbols; cross-library aliases and element replacement execute (42).
+  Non-indexed native properties now expose canonical accessor symbols and primitive,
+  nominal or array types. Cross-library instance/static property calls execute (42);
+  property type admission and static external-owner lowering use explicit target
+  capabilities. Read-only and inaccessible setter writes diagnose.
   Wider native importing remains pending.
 
 - **2026-10-02:** Document the independent metadata library's first direct native

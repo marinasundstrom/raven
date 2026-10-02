@@ -438,7 +438,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool SupportedPropertyCall(IMethodSymbol method) =>
             (capabilities is null || capabilities.Allows(EmissionDeclarationKind.PropertyAccessor)) &&
             (method.IsStatic
-                ? method.ContainingType is { } owner && SourceTypePlan.TryCreate(owner, out _) &&
+                ? method.ContainingType is { } owner && (SourceTypePlan.TryCreate(owner, out _) ||
+                  capabilities?.AllowsExternalReferenceSignatures == true &&
+                  CallableSignature.IsExternalReference(owner, capabilities.AllowsNestedExternalTypes)) &&
                   TrySignature(method, out var signature) && SupportedTypeArguments(method) &&
                   (capabilities is null || capabilities.Allows(signature))
                 : SupportedInstanceCall(method));
