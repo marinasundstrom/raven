@@ -7282,7 +7282,7 @@ partial class BlockBinder : Binder
 
             var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments);
 
-            if (indexer is null || !indexer.IsMutable)
+            if (indexer is null || !HasAccessibleOrdinarySetter(indexer))
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);
@@ -7596,7 +7596,7 @@ partial class BlockBinder : Binder
         if (left is BoundIndexerAccessExpression indexerAccess)
         {
             var indexer = indexerAccess.Indexer;
-            if (!indexer.IsMutable)
+            if (!HasAccessibleOrdinarySetter(indexer))
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.NotFound);
@@ -7754,7 +7754,7 @@ partial class BlockBinder : Binder
         if (left is BoundIndexerAccessExpression indexerAccess)
         {
             var indexer = indexerAccess.Indexer;
-            if (!indexer.IsMutable)
+            if (!HasAccessibleOrdinarySetter(indexer))
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(indexer.Type, null, BoundExpressionReason.NotFound);

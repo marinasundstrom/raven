@@ -3256,7 +3256,7 @@ partial class BlockBinder
             location);
     }
 
-    private static IEnumerable<IPropertySymbol> GetIndexerCandidates(ITypeSymbol receiverType, bool requireSetter)
+    private IEnumerable<IPropertySymbol> GetIndexerCandidates(ITypeSymbol receiverType, bool requireSetter)
     {
         var types = receiverType.TypeKind == TypeKind.Interface
             ? new[] { receiverType }.Concat(receiverType.AllInterfaces.OrderByDescending(i => i.AllInterfaces.Length))
@@ -3277,7 +3277,8 @@ partial class BlockBinder
                      derived.ContainingType!.AllInterfaces.Contains(property.ContainingType!, SymbolEqualityComparer.Default))))
                     continue;
                 visible.Add(property);
-                if (!requireSetter || property.SetMethod is not null)
+                if (IsSymbolAccessible(property) && (requireSetter
+                    ? HasAccessibleOrdinarySetter(property) : IsSymbolAccessible(property.GetMethod)))
                     yield return property;
             }
         }
@@ -3492,7 +3493,7 @@ partial class BlockBinder
                     ? resolvedByRefElementType
                     : null;
             var isWritableByRef = byRefElementType is not null && !IsReadOnlyByRefIndexer(indexer!);
-            if (indexer is null || !indexer.IsMutable && !isWritableByRef)
+            if (indexer is null || !HasAccessibleOrdinarySetter(indexer) && !isWritableByRef)
             {
                 _diagnostics.ReportLeftOfAssignmentMustBeAVariablePropertyOrIndexer(node.GetLocation());
                 return new BoundErrorExpression(receiver.Type!, null, BoundExpressionReason.NotFound);

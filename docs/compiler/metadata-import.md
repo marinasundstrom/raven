@@ -685,3 +685,11 @@ static/readonly/private setters and invalid assignments. All five runtime consum
 execute (42), including source native libraries with class/array properties. The CLI
 primitive core and translated System remain bootstrap inputs; indexed properties,
 generic/value/interface owners and full native System importing remain pending.
+
+### Imported indexer accessibility (2026-10-02)
+
+Indexer candidate selection now checks property and relevant accessor accessibility.
+Assignment fallback to a readable indexer still requires an accessible setter or the
+existing writable-byref contract. This shared binder correction is independently
+reproduced with C#/.NET private indexer setters for simple and compound assignment;
+public overloads remain usable. No Runtime Contract or metadata format change is needed.
