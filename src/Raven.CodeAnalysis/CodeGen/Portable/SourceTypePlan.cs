@@ -35,8 +35,10 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
                 i.Arity != 0 && capabilities is not null && !capabilities.AllowsConstructedInterfaceImplementations ||
                 !SymbolEqualityComparer.Default.Equals(i.ContainingAssembly, type.ContainingAssembly)))) return false;
         var fullName = type.ToFullyQualifiedMetadataName();
-        var typeNamespace = type.ContainingNamespace.IsGlobalNamespace ? "" : fullName[..^(type.MetadataName.Length + 1)];
-        plan = new(type, typeNamespace, type.MetadataName);
+        // MetadataName may already be qualified on synthesized owners. Split the
+        // normalized full name instead of subtracting a potentially qualified name.
+        var separator = fullName.LastIndexOf('.');
+        plan = new(type, separator < 0 ? "" : fullName[..separator], fullName[(separator + 1)..]);
         return true;
     }
 

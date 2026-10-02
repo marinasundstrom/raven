@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Normalize source type names before separating namespace and local
+  metadata name in shared codegen. Qualified metadata names no longer cause negative
+  substring lengths during .NET emission; the existing self-override/indexer regression
+  now emits successfully.
+
 - **2026-10-02:** Check property setter accessibility for assignments, compound
   assignments, pipeline writes and increments even when metadata marks the property mutable.
   Imported private setters now diagnose before emission; public setters and existing

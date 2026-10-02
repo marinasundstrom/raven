@@ -693,3 +693,12 @@ Assignment fallback to a readable indexer still requires an accessible setter or
 existing writable-byref contract. This shared binder correction is independently
 reproduced with C#/.NET private indexer setters for simple and compound assignment;
 public overloads remain usable. No Runtime Contract or metadata format change is needed.
+
+### Shared emission name normalization (2026-10-02)
+
+SourceTypePlan splits the normalized fully qualified metadata name into namespace
+and local name instead of subtracting the raw MetadataName length. Synthesized
+owners may expose an already qualified MetadataName, which previously caused a
+negative substring length before emission. The existing .NET self-override/indexer
+regression now passes. This general correction is isolated from native loading;
+75 focused indexer/accessibility tests pass with both corrections applied.
