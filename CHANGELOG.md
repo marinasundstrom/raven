@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Route NeoCLR body, call and field instruction generation through the
+  separate metadata-library IILGenerator. Keep Raven's shared emission contracts
+  unchanged. All seven native consumers execute (42); the library retains its existing
+  builder engine internally as a documented migration step.
+
 - **2026-10-02:** Reconstruct nongeneric native interface identities, direct inheritance/
   implementation edges and abstract dispatch contracts from symbols. Preserve transitive
   assignability without reader queries on the authored path. All seven native consumers

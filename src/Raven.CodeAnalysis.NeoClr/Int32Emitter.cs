@@ -338,7 +338,7 @@ internal static class Int32Emitter
         foreach (var current in methods)
         {
             diagnosticSyntax = current.Plan.Syntax;
-            current.Body.Emit(new NeoClrLinearMethodBuilder(current.Method, (instruction, output) =>
+            current.Body.Emit(new NeoClrLinearMethodBuilder(current.Method.GetILGenerator(), (instruction, output) =>
             {
                 diagnosticSyntax = instruction.Syntax;
                 if (instruction.Kind == LinearInstructionKind.FunctionBind)

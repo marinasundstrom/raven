@@ -230,3 +230,24 @@ and dispatch-body checks. Generic interfaces, class inheritance, class virtual d
 remaining unsupported members, host setup and lazy semantic materialization are still
 outside this separation. Runtime Contract configuration and primitive/translated System
 bootstrap remain unchanged; the separate library generator API is pending.
+
+
+### Independent library body generator (2026-10-02)
+
+The NeoCLR adapter now passes the metadata library's IILGenerator through its body,
+call and field emission helpers. Shared Raven ILinearMethodBuilder and other compiler
+contracts are unchanged. The adapter obtains a generator from each declared method;
+metadata builders remain declaration/reference handles rather than the adapter's body
+writer. The library's generator writes the same definition-owned body and initially
+delegates to the existing builder engine. Legacy library builder operations remain
+compatible; no loaded-body editing or instruction insertion is implied.
+
+All seven native consumers compile and execute (42). The metadata library's 108 C#
+groups pass, with typed/raw emit, scope rejection, canonical generator access and CLR
+execution. Generic-owner generation through the interface runs on CLR and both native
+containers. Runtime Contract and CLI primitive/translated System bootstrap are unchanged.
+
+Audit: translated CLI bindings, unsupported type/dispatch profiles, host reference
+configuration and lazy semantic materialization still depend on readers. Their
+remaining boundaries must be addressed before claiming full import/emission separation
+or reader disposal before emission. Internal library engine separation is also pending.

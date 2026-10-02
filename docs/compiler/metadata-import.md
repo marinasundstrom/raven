@@ -944,3 +944,8 @@ Nongeneric interface inheritance/implementation edges and abstract dispatch refe
 now author from semantic symbols. See [scope and evidence](metadata-backend-boundaries.md#interface-relationships-and-dispatch-2026-10-02).
 Generic interfaces and broader inheritance remain pending; bootstrap and Runtime
 Contract requirements are unchanged.
+
+
+The NeoCLR body adapter now uses the metadata library's own IILGenerator while Raven's
+shared emission interfaces remain independent. See [implementation and remaining audit](metadata-backend-boundaries.md#independent-library-body-generator-2026-10-02).
+Runtime Contract/bootstrapping behavior is unchanged.
