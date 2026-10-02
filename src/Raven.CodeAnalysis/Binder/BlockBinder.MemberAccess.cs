@@ -3158,12 +3158,13 @@ partial class BlockBinder
         BoundExpression[] arguments,
         SeparatedSyntaxList<ArgumentSyntax> argumentSyntaxes,
         bool requireSetter,
-        out BoundExpression[] convertedArguments)
+        out BoundExpression[] convertedArguments,
+        bool requireGetter = false)
     {
         convertedArguments = arguments;
 
-        var candidates = GetIndexerCandidates(receiverType, requireSetter)
-            .Where(p => p.GetMethod!.Parameters.Length == arguments.Length)
+        var candidates = GetIndexerCandidates(receiverType, requireSetter, requireGetter)
+            .Where(p => p.Parameters.Length == arguments.Length)
             .ToArray();
 
         IPropertySymbol? best = null;
@@ -3179,7 +3180,7 @@ partial class BlockBinder
 
             for (var i = 0; i < arguments.Length; i++)
             {
-                var parameterType = candidate.GetMethod!.Parameters[i].Type;
+                var parameterType = candidate.Parameters[i].Type;
                 var convertedArgument = arguments[i];
 
                 if (parameterType.TypeKind != TypeKind.Error &&
@@ -3216,8 +3217,8 @@ partial class BlockBinder
                 !best.ContainingType!.AllInterfaces.Contains(candidate.ContainingType!, SymbolEqualityComparer.Default) &&
                 !candidate.ContainingType!.AllInterfaces.Contains(best.ContainingType!, SymbolEqualityComparer.Default))
             {
-                if (ambiguous.Count == 0) ambiguous.Add(best.GetMethod!);
-                ambiguous.Add(candidate.GetMethod!);
+                if (ambiguous.Count == 0) ambiguous.Add((requireSetter ? best.SetMethod : best.GetMethod)!);
+                ambiguous.Add((requireSetter ? candidate.SetMethod : candidate.GetMethod)!);
             }
         }
 
@@ -3256,7 +3257,7 @@ partial class BlockBinder
             location);
     }
 
-    private IEnumerable<IPropertySymbol> GetIndexerCandidates(ITypeSymbol receiverType, bool requireSetter)
+    private IEnumerable<IPropertySymbol> GetIndexerCandidates(ITypeSymbol receiverType, bool requireSetter, bool requireGetter = false)
     {
         var types = receiverType.TypeKind == TypeKind.Interface
             ? new[] { receiverType }.Concat(receiverType.AllInterfaces.OrderByDescending(i => i.AllInterfaces.Length))
@@ -3266,19 +3267,20 @@ partial class BlockBinder
         {
             foreach (var property in type.GetMembers().OfType<IPropertySymbol>())
             {
-                if (property.GetMethod is null || !(property.IsIndexer || property.GetMethod.Parameters.Length > 0))
+                if (!property.IsIndexer)
                     continue;
                 // Apply hiding before checking writability: a derived read-only indexer
                 // must not expose a setter from the interface member it hides.
                 if (visible.Any(derived => derived.Name == property.Name &&
-                    derived.GetMethod!.Parameters.Select(p => p.Type).SequenceEqual(
-                        property.GetMethod.Parameters.Select(p => p.Type), SymbolEqualityComparer.Default) &&
+                    derived.Parameters.Select(p => p.Type).SequenceEqual(
+                        property.Parameters.Select(p => p.Type), SymbolEqualityComparer.Default) &&
                     (SymbolEqualityComparer.Default.Equals(derived.ContainingType, property.ContainingType) ||
                      derived.ContainingType!.AllInterfaces.Contains(property.ContainingType!, SymbolEqualityComparer.Default))))
                     continue;
                 visible.Add(property);
-                if (IsSymbolAccessible(property) && (requireSetter
-                    ? HasAccessibleOrdinarySetter(property) : IsSymbolAccessible(property.GetMethod)))
+                if (IsSymbolAccessible(property) &&
+                    (!requireSetter || HasAccessibleOrdinarySetter(property)) &&
+                    (requireSetter && !requireGetter || property.GetMethod is { } getter && IsSymbolAccessible(getter)))
                     yield return property;
             }
         }
@@ -3304,7 +3306,7 @@ partial class BlockBinder
 
     private static string FormatIndexerParameterTypes(IPropertySymbol indexer)
     {
-        var parameters = indexer.GetMethod!.Parameters;
+        var parameters = indexer.Parameters;
         if (parameters.Length == 0)
             return "none";
 

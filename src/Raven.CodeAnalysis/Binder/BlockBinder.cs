@@ -7280,7 +7280,7 @@ partial class BlockBinder : Binder
                 return BoundFactory.CreateArrayAssignmentExpression(arrayAccess, arrayRight);
             }
 
-            var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments);
+            var indexer = ResolveIndexer(receiver.Type!, args, elementAccess.ArgumentList.Arguments, requireSetter: true, out var convertedArguments, requireGetter: true);
 
             if (indexer is null || !HasAccessibleOrdinarySetter(indexer))
             {

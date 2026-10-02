@@ -547,7 +547,9 @@ public interface IPropertySymbol : ISymbol
     bool IsMutable => SetMethod is { MethodKind: MethodKind.PropertySet };
     bool IsIndexer { get; }
     bool IsRequired { get; }
-    ImmutableArray<IParameterSymbol> Parameters => IsIndexer ? GetMethod?.Parameters ?? [] : [];
+    /// <summary>Gets ordered index parameters, excluding a setter's value parameter; empty for ordinary properties.</summary>
+    ImmutableArray<IParameterSymbol> Parameters => !IsIndexer ? [] : GetMethod?.Parameters ??
+        (SetMethod is { Parameters: var parameters } && !parameters.IsEmpty ? parameters.RemoveAt(parameters.Length - 1) : []);
     ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations => [];
     bool IsExtensionProperty => false;
 }

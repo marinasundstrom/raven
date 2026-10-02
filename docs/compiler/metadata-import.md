@@ -718,3 +718,19 @@ in both reference orders. All five native consumers return 42; 102 metadata grou
 and 75 focused .NET indexer/accessibility tests pass. General binder/name-normalization
 corrections are isolated in 9ee5aad97 and 2df6f3f6d for independent integration.
 Native core loading and broader owner categories remain pending.
+
+### Setter-only indexed access (2026-10-02)
+
+The shared binder resolves index arguments through IPropertySymbol.Parameters rather
+than getter parameters. The property contract now exposes setter-only index parameters
+without the trailing value parameter; PEPropertySymbol caches this immutable list.
+NativePropertySymbol already provides the same contract. Hiding and overload comparison
+use the property signature, and ambiguous setter calls report setter candidates.
+Assignments require an accessible setter; reads and compound assignments require an
+accessible getter as well. Writable-byref fallback remains unchanged.
+
+An independent C#/.NET fixture reproduces the former rejected assignment and now
+executes to 42. Read, compound assignment and increment remain diagnostics. All 79
+focused indexer/accessibility tests pass. This general correction is isolated from
+native integration for shared-line adoption. Runtime Contract settings, metadata
+encoding and the default .NET target are unchanged.

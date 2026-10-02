@@ -15,7 +15,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   constructor/field-storage paths retain their behavior. Independently reproduced
   with a C#/.NET fixture, without NeoCLR dependencies. Indexer resolution now also
   checks accessor accessibility, including assignment fallback to readable indexers;
-  private indexed setters no longer bypass access checks.
+  private indexed setters no longer bypass access checks. Setter-only indexers now
+  bind assignments using IPropertySymbol.Parameters, excluding the setter value. Reads
+  and compound assignments still require an accessible getter. A C#/.NET consumer
+  executes the imported setter successfully; PE parameter lists are cached.
 
 - **2026-10-02:** Reject static member access through an inaccessible imported type
   when that type is resolved by an unqualified expression name. The binder now checks
