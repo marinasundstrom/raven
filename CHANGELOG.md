@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Admit owned constructed interface implementations on generic classes
+  behind a shared target capability, preserving owner arguments in native emission.
+  Accept open root-class declarations using the existing nonsealed metadata shape.
+  Generic providers/iterators execute against unchanged neoCLR Sequence contracts on
+  CLR/native in both source orders. An explicit implementation-seed inventory binds
+  unchanged ArrayList sources and records the remaining CheckedStorage.Reserve mapping gap.
+
 - **2026-10-02:** Fix cross-file generic interface binding by deferring source member
   and interface-closure caches until declarations are complete. Infer abstract accessors
   for bodyless interface indexers, matching ordinary interface properties. Independent

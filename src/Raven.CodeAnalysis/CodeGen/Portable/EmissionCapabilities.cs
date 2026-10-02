@@ -14,7 +14,7 @@ internal sealed class EmissionCapabilities(
     IEnumerable<Accessibility>? typeVisibilities = null,
     IEnumerable<Accessibility>? methodVisibilities = null,
     IEnumerable<Accessibility>? functionVisibilities = null,
-    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false, bool allowsGenericStaticOwners = false, bool allowsGenericClassOwners = false, bool allowsConstructedFieldReferences = false, bool allowsNominalTypeBounds = false, bool allowsSpecialTypeConstraints = false, bool allowsGenericInterfaceDeclarations = false, bool allowsInterfaceSignatures = false, bool allowsInterfaceDispatch = false, bool allowsExternalReferenceSignatures = false, bool allowsExternalValueSignatures = false, bool allowsExternalInstanceCalls = false, bool allowsManagedReferences = false, bool allowsExternalValueInstanceCalls = false, bool allowsExternalConstructors = false, bool allowsNestedExternalTypes = false, bool allowsFunctionValues = false, bool allowsLoweredExtensionCalls = false, bool allowsCasePatterns = false, bool allowsReferenceEnumeration = false, bool allowsConstructedInterfaceInheritance = false)
+    bool allowsRootClassLocals = false, bool allowsRootClassSignatures = false, bool allowsArrays = false, bool allowsGenericMethods = false, bool allowsGenericInstanceMethods = false, bool allowsGenericStaticOwners = false, bool allowsGenericClassOwners = false, bool allowsConstructedFieldReferences = false, bool allowsNominalTypeBounds = false, bool allowsSpecialTypeConstraints = false, bool allowsGenericInterfaceDeclarations = false, bool allowsInterfaceSignatures = false, bool allowsInterfaceDispatch = false, bool allowsExternalReferenceSignatures = false, bool allowsExternalValueSignatures = false, bool allowsExternalInstanceCalls = false, bool allowsManagedReferences = false, bool allowsExternalValueInstanceCalls = false, bool allowsExternalConstructors = false, bool allowsNestedExternalTypes = false, bool allowsFunctionValues = false, bool allowsLoweredExtensionCalls = false, bool allowsCasePatterns = false, bool allowsReferenceEnumeration = false, bool allowsConstructedInterfaceInheritance = false, bool allowsConstructedInterfaceImplementations = false)
 {
     private readonly ImmutableHashSet<EmissionPrimitiveType> types = types.ToImmutableHashSet();
     private readonly ImmutableHashSet<LinearInstructionKind> instructions = instructions.ToImmutableHashSet();
@@ -28,6 +28,7 @@ internal sealed class EmissionCapabilities(
     private readonly ImmutableHashSet<Accessibility> functionVisibilities = (functionVisibilities ?? []).ToImmutableHashSet();
 
     internal bool AllowsConstructedInterfaceInheritance { get; } = allowsConstructedInterfaceInheritance;
+    internal bool AllowsConstructedInterfaceImplementations { get; } = allowsConstructedInterfaceImplementations;
     internal bool AllowsReferenceEnumeration { get; } = allowsReferenceEnumeration;
     internal bool AllowsCasePatterns { get; } = allowsCasePatterns;
     internal bool AllowsLoweredExtensionCalls { get; } = allowsLoweredExtensionCalls;

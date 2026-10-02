@@ -28,8 +28,11 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
             type.ContainingType is not null ||
             !type.IsStatic && (type.IsAbstract || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false, IsSealedHierarchy: false } || type.BaseType?.SpecialType != SpecialType.System_Object))
             return false;
-        if (!type.Interfaces.IsEmpty && (type.Arity != 0 || capabilities is not null && !capabilities.Allows(EmissionDeclarationKind.InterfaceImplementation) ||
-            type.Interfaces.Any(i => i.Arity != 0 || !SourceInterfacePlan.HasSupportedIdentity(i) ||
+        // Check relationship identity here. Arguments are mapped by the adapter; recursively
+        // admitting their source owners would loop for shapes such as C<T> : I<C<T>>.
+        if (!type.Interfaces.IsEmpty && (type.Arity != 0 && capabilities is not null && !capabilities.AllowsConstructedInterfaceImplementations || capabilities is not null && !capabilities.Allows(EmissionDeclarationKind.InterfaceImplementation) ||
+            type.Interfaces.Any(i => !SourceInterfacePlan.HasSupportedIdentity(i) ||
+                i.Arity != 0 && capabilities is not null && !capabilities.AllowsConstructedInterfaceImplementations ||
                 !SymbolEqualityComparer.Default.Equals(i.ContainingAssembly, type.ContainingAssembly)))) return false;
         var fullName = type.ToFullyQualifiedMetadataName();
         var typeNamespace = type.ContainingNamespace.IsGlobalNamespace ? "" : fullName[..^(type.MetadataName.Length + 1)];

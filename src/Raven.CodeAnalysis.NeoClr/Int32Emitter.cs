@@ -52,7 +52,7 @@ internal static class Int32Emitter
                 {
                     if (type.AttributeLists.Count != 0 || type.ParameterList is not null ||
                         type.PermitsClause is not null ||
-                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword)))
+                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword)))
                         throw Unsupported("only public or internal static or root classes without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
@@ -231,7 +231,13 @@ internal static class Int32Emitter
         }
         foreach (var type in declaredTypes.Values)
             foreach (var contract in type.Symbol.Interfaces)
-                nativeTypes[type.Symbol].AddInterfaceImplementation(nativeInterfaces.TryGetValue(contract, out var definition) ? definition : throw Unsupported("interface implementation must be emitted"));
+            {
+                if (!nativeInterfaces.TryGetValue((INamedTypeSymbol)contract.OriginalDefinition, out var definition))
+                    throw Unsupported("interface implementation must be emitted");
+                if (contract.Arity == 0) nativeTypes[type.Symbol].AddInterfaceImplementation(definition);
+                else nativeTypes[type.Symbol].AddInterfaceImplementation(definition.MakeGenericInstance(
+                    contract.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, owner => nativeTypes[owner], ImportExternalType)).ToArray()));
+            }
         foreach (var type in declaredTypes.Values)
             foreach (var parameter in type.Symbol.TypeParameters)
             {

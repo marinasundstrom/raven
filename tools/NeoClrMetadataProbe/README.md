@@ -475,3 +475,15 @@ generic declarations without output writes. Method arity overloads in this Raven
 consumer also have different value-parameter counts; same-signature generic-arity
 resolution is covered separately by the metadata API tests. See the compiler bridge
 doc for the open Raven binding observation. Nominal/generic owners remain unsupported.
+
+
+The `--generic-collection-contract-runtime <neo-root> <fresh-output> <runtime>` mode
+executes generic provider/iterator implementations of the unchanged source collection
+contracts on CLR and neoCLR in both source orders (42). The target cases use the matching
+CoreProbe Self marker and CompilationOptions.NeoCLR.
+
+The exploratory `--library-source <neo-root> <fresh-output> <implementation-seed.dll>
+<System.neox>` mode binds unchanged ArrayList and its interface hierarchy, reports the
+native emission boundary, and performs a nonexecuted CLI emission control. Generate the
+seed with neoCLR's raven-target probe `--reference-library-core`; the consumer reference
+omits bootstrap intrinsics intentionally. The report is not an execution acceptance test.

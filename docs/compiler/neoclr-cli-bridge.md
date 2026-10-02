@@ -3157,3 +3157,40 @@ nongeneric, and the probe does not bootstrap the full System implementation. The
 source-emission boundary is ArrayList's RuntimeServices/CheckedStorage implementation
 seed. Bundle evidence is in neoCLR's
 `docs/experiments/extended-cli-metadata/sequence-contracts-2026-10-02.json`.
+
+
+### Generic implementation owners and library authoring seed (2026-10-02)
+
+`AllowsConstructedInterfaceImplementations` defaults off; CLR/native shared profiles
+opt in. Generic root classes can implement owned interfaces with constructed arguments.
+Native mapping uses the original interface definition plus owner arguments, rather than
+looking up a constructed symbol as a declaration. Open root classes use the existing
+nonsealed root-class representation. Derived class bodies, variance, explicit MethodImpl
+and default interface methods remain outside this admission.
+
+`--generic-collection-contract-runtime <neo-root> <fresh-output> <runtime>` compiles
+unchanged collection interfaces through Sequence<T> with generic provider/iterator
+implementations. Constructors store T, inherited Count/indexer/iterator calls return 42,
+and both source orders execute on CLR/native. Native checks cover both host bootstrap
+and CompilationOptions.NeoCLR with the CoreProbe Self contract. 32 focused interface
+C# tests pass, including Debug/Release generic implementation and capability controls,
+plus recursive owner argument admission (Box<T> implementing EchoContract<Box<T>>).
+The broad collections sample retains its exact stdout and exit 0.
+
+Use the bridge producer's `--reference-library-core <seed.dll>` for authoring library
+implementations; the consumer core intentionally omits RuntimeServices and CheckedStorage.
+`--library-source <neo-root> <fresh-output> <seed.dll> <System.neox>` binds unchanged
+ArrayList plus its source interface hierarchy with the real target profile, then reports
+native emission and a nonexecuted CLI emission control. It registers the seed's imported
+Option declarations against the explicit translated System implementation. It neither
+executes reference bodies nor treats an emission diagnostic as successful runtime support.
+Seed/System/source hashes and the exact boundary are written to validation.json.
+
+The current boundary is CheckedStorage.Reserve<T>: it is a bootstrap intrinsic, absent
+as an ordinary native System type. Its intended operation is checked uninitialized array
+reservation; replacing it with initialized newarr would change observable behavior.
+A native producer mapping and explicit target contract remain to be implemented.
+Core symbol loading still uses the CLI authoring seed, with native semantic importing
+as the eventual replacement. These changes do not compile or execute full ArrayList yet.
+See neoCLR's `generic-collection-contracts-2026-10-02.json` and
+`array-list-authoring-seed-2026-10-02.json` under docs/experiments/extended-cli-metadata.

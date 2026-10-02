@@ -12,13 +12,13 @@ namespace NeoClrMetadataProbe;
 
 internal static class CollectionContractChecks
 {
-    internal static async Task Run(string root, string output, string runtime)
+    internal static async Task Run(string root, string output, string runtime, bool genericImplementation = false)
     {
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
         string[] paths = ["System/Disposable.rvn", "System/Collections/Iterator.rvn", "System/Collections/Iterable.rvn", "System/Collections/Collection.rvn", "System/Collections/Sequence.rvn"];
         var sources = paths.Select(p => File.ReadAllText(Path.Combine(root, "runtime/raven/src", p))).ToArray();
-        const string consumer = """
+        var consumer = """
             public interface Counted : System.Collections.Sequence<int> { }
             public interface Cursor : System.Collections.Iterator<int> { }
             public class EmptyCursor : Cursor {
@@ -36,6 +36,26 @@ internal static class CollectionContractChecks
                 return collection.Count + collection[0]
             }
             """;
+        if (genericImplementation) consumer = """
+            public class EmptyCursor<T> : System.Collections.Iterator<T> {
+                private var stored: T
+                init(value: T) { stored = value }
+                func MoveNext() -> bool => false
+                val Current: T => stored
+                func Dispose() { }
+            }
+            public class Provider<T> : System.Collections.Sequence<T> {
+                private var stored: T
+                init(value: T) { stored = value }
+                val Count: int => 40
+                val self[index: int]: T => stored
+                func GetIterator() -> System.Collections.Iterator<T> => EmptyCursor<T>(stored)
+            }
+            func Main() -> int {
+                let collection: System.Collections.Sequence<int> = Provider<int>(2)
+                return collection.Count + collection[0] + collection.GetIterator().Current - 2
+            }
+            """;
         var reports = new List<object>();
         foreach (var target in new[] { false, true })
         foreach (var reverse in new[] { false, true })
@@ -48,7 +68,7 @@ internal static class CollectionContractChecks
                 .WithRuntimeSelfTypeContract(new("NeoCLR.CoreProbe", "System.Runtime.CompilerServices.Self")) : new CompilationOptions(OutputKind.ConsoleApplication);
             var trees = paths.Select((p, i) => SyntaxTree.ParseText(sources[i], path: p)).Append(SyntaxTree.ParseText(consumer, path: "Main.rvn")).ToArray();
             if (reverse) Array.Reverse(trees);
-            var name = "CollectionContracts" + (target ? "Target" : "Host") + (reverse ? "Reverse" : "Forward");
+            var name = (genericImplementation ? "GenericCollectionContracts" : "CollectionContracts") + (target ? "Target" : "Host") + (reverse ? "Reverse" : "Forward");
             var compilation = Compilation.Create(name, trees, [reference], options);
             var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
             if (errors.Length != 0) throw new Exception(string.Join("; ", errors.Select(d => d.ToString())));
@@ -74,13 +94,14 @@ internal static class CollectionContractChecks
                 if (!emitted.Success) throw new Exception(string.Join("; ", emitted.Diagnostics));
                 var loaded = Assembly.Load(cli.ToArray());
                 if (!Equals(42, loaded.EntryPoint!.Invoke(null, null))) throw new Exception("CLR inherited dispatch");
-                if (loaded.GetType("Counted")!.GetInterfaces().Length != 3) throw new Exception("CLR inherited interface chain");
+                if ((genericImplementation ? loaded.GetType("Provider`1")!.MakeGenericType(typeof(int)) : loaded.GetType("Counted")!).GetInterfaces().Length != 3) throw new Exception("CLR inherited interface chain");
             }
             reports.Add(new { name, target, reverse, nativeResult = 42, cliExecution = !target, bytes = native.Length, coreSha256 = Hash(corePath) });
         }
         File.WriteAllText(Path.Combine(output, "Main.rvn"), consumer);
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
+            genericImplementation,
             sources = paths.Select((p, i) => new { path = "runtime/raven/src/" + p, sha256 = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(sources[i]))) }),
             runtimeSha256 = Hash(runtime),
             consumer,
