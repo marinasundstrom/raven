@@ -361,3 +361,16 @@ CLI generic signature/MemberRef encoding and native slot encoding. Runtime Contr
 primitive core and System bootstrap remain unchanged; no shared .NET compiler behavior
 or format/runtime changes. Direct fields on generic declaring owners and generic
 interface imports remain follow-up work for larger class-library consumers.
+
+
+Generic-owner fields (2026-10-02): native public instance fields now support constructed
+unconstrained root-class owners. Raven reads open field type/layout facts from compiler
+symbols and binds consumer type arguments through ImportedConstructedFieldReference.
+The metadata library preserves the open CLI MemberRef signature with a constructed
+TypeSpec parent; stack validation uses the substituted type, while native emission keeps
+the existing ordinal. IILGenerator owns instruction authoring. No importer definition
+is reused by emission. Open caller parameters retain their scope; invalid arity, foreign
+arguments, unconstructed field operands and out-of-scope arguments reject. Seven Raven
+consumers execute (42), including generic forwarding and nominal mutation; 108/108 C#
+metadata groups pass, with .NET and both native containers executing the field case.
+Runtime Contract/core/System bootstrap and instruction encoding remain unchanged.

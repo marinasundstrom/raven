@@ -19,7 +19,7 @@ internal static class NativeGenericSymbolChecks
             public func Identity<T>(value: T) -> T => value
             public func ArrayIdentity<T>(values: T[]) -> T[] => values
             public class Box<TItem> {
-                private var stored: TItem
+                public field stored: TItem
                 public init(value: TItem) { stored = value }
                 public val Current: TItem => stored
                 public func Set(value: TItem) { stored = value }
@@ -71,6 +71,8 @@ internal static class NativeGenericSymbolChecks
             import GenericBridge.*
             class Item { var Number: int = 42 }
             func Forward<T>(value: T) -> T => Identity<T>(value)
+            func ReadBox<T>(box: Box<T>) -> T => box.stored
+            func WriteBox<T>(box: Box<T>, value: T) { box.stored = value }
             func Main() -> int {
                 let item = Item()
                 let same = Identity(item)
@@ -82,6 +84,9 @@ internal static class NativeGenericSymbolChecks
                 let boxes: Box<int>[] = [box]
                 GenericBridge.RelayBoxes(boxes)[0].Same(box).Set(42)
                 if box.Current != 42 { return 6 }
+                box.stored = 41
+                if box.stored != 41 { return 11 }
+                box.stored = 42
                 let storage = BoxStorage(box, boxes)
                 if storage.Value.Current != 42 { return 8 }
                 storage.Value = Box<int>(19)
@@ -92,6 +97,8 @@ internal static class NativeGenericSymbolChecks
                 let nominal = Box<Item>(item)
                 nominal.Current.Number = 9
                 if item.Number != 9 { return 7 }
+                WriteBox(nominal, Item())
+                if ReadBox(nominal).Number != 42 { return 12 }
                 let alias = box.Echo(ArrayIdentity<int>(values))
                 Algorithms.Set<int>(alias, 42)
                 if Algorithms.Choose<int>(7) != 7 { return 3 }

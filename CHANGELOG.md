@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Support imported fields on constructed generic root-class owners through
+  scoped, output-owned field references. Preserve CLI open signatures and native slots.
+  Seven Raven consumers and .NET/both-container field tests execute (42); 108 C# groups pass.
+
 - **2026-10-02:** Allow closed generic class values and vectors in imported native
   instance fields on nongeneric root-class owners. Reconstruct references from symbols
   and explicit layout; open parameters and generic field owners remain unsupported.

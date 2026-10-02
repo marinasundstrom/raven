@@ -361,15 +361,18 @@ internal static class Int32Emitter
                 if (fields.TryGetValue(field, out var definition)) return new NeoClrFieldReference(definition);
                 if (field is SubstitutedFieldSymbol substituted && field.ContainingType is { Arity: > 0 } owner && fields.TryGetValue(substituted.OriginalField, out definition))
                     return new NeoClrFieldReference(definition, definition.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
-                if (field is IInstanceFieldLayoutSymbol layout && field.ContainingType is { Arity: 0 } declaring &&
-                    IsSymbolOnlyReferenceDefinition(declaring) && field.DeclaredAccessibility == Accessibility.Public &&
-                    !field.IsStatic && IsSymbolOnlyType(field.Type, false) && IsFieldStorageType(field.Type))
+                var originalField = field is SubstitutedFieldSymbol importedSubstitution ? importedSubstitution.OriginalField : field;
+                if (originalField is IInstanceFieldLayoutSymbol layout && originalField.ContainingType is { } declaring &&
+                    IsSymbolOnlyReferenceDefinition(declaring) && originalField.DeclaredAccessibility == Accessibility.Public &&
+                    !originalField.IsStatic && IsSymbolOnlyType(originalField.Type, false))
                 {
                     if (importedFields.TryGetValue(field, out var cached)) return cached;
                     _ = ImportExternalType(declaring);
-                    var reference = assembly.CreateFieldReference(importedTypes[declaring], field.MetadataName,
-                        MapSymbolOnlyType(field.Type), layout.InstanceStorageOrdinal, field.IsReadOnly);
-                    cached = new NeoClrFieldReference(null, Import: reference);
+                    var reference = assembly.CreateFieldReference(importedTypes[declaring], originalField.MetadataName,
+                        MapSymbolOnlyType(originalField.Type), layout.InstanceStorageOrdinal, originalField.IsReadOnly);
+                    cached = declaring.Arity == 0 ? new NeoClrFieldReference(null, Import: reference)
+                        : new NeoClrFieldReference(null, ImportedConstruction: reference.MakeConstructedReference(
+                            field.ContainingType!.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
                     importedFields.Add(field, cached);
                     return cached;
                 }
@@ -502,10 +505,6 @@ internal static class Int32Emitter
             if (matches.Count != 1) throw Unsupported("dependency method contract unavailable or ambiguous: " + symbol.ToDisplayString() + (importFailures.Count == 0 ? "" : " (" + string.Join("; ", importFailures) + ")"));
             return matches[0];
         }
-        static bool IsFieldStorageType(ITypeSymbol type) => type is IArrayTypeSymbol array
-            ? IsFieldStorageType(array.ElementType)
-            : type is not ITypeParameterSymbol && (type is not INamedTypeSymbol named || named.TypeArguments.All(IsFieldStorageType));
-
         // Static containers may own references, but are never signature value types.
         static bool IsSymbolOnlyOwnerDefinition(INamedTypeSymbol original) =>
             IsSymbolOnlyReferenceDefinition(original) ||
