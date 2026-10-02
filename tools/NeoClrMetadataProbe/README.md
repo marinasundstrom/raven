@@ -597,3 +597,8 @@ read-only and private-set properties, and a static getter. Property signatures r
 canonical types and accessor symbols in both reference orders. The consumer replaces
 objects/arrays via setters, reads through getters and returns 42. Read-only/private
 setter assignments must diagnose before emission.
+
+The external consumer now reads/writes an imported Int32 indexer and reads a String
+overload. Both return the canonical external Payload type. Tests check index parameter
+identity, private-setter/wrong-index diagnostics and indexed replacement through an
+array alias. All five runtime cases still return 42.

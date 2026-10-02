@@ -702,3 +702,19 @@ owners may expose an already qualified MetadataName, which previously caused a
 negative substring length before emission. The existing .NET self-override/indexer
 regression now passes. This general correction is isolated from native loading;
 75 focused indexer/accessibility tests pass with both corrections applied.
+
+### Direct native indexed properties (2026-10-02)
+
+NativePropertySymbol uses the full logical property-signature overload and exposes
+IsIndexer plus a lazily cached parameter list from its canonical accessor symbols.
+Setter-only metadata excludes the setter value from that list, though source indexer
+resolution still requires a getter. Existing overload binding and accessor-call
+emission handle supported primitive/nominal/vector contracts. Source indexer value
+admission now uses explicit NeoCLR capabilities; no Runtime Contract change is needed.
+
+The native payload/holder/consumer test verifies Int32/String overloads, canonical
+external value types, indexed replacement/read, private setters and wrong index types
+in both reference orders. All five native consumers return 42; 102 metadata groups
+and 75 focused .NET indexer/accessibility tests pass. General binder/name-normalization
+corrections are isolated in 9ee5aad97 and 2df6f3f6d for independent integration.
+Native core loading and broader owner categories remain pending.

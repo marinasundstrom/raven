@@ -3545,3 +3545,22 @@ Validated with metadata commit 7368716c on codex/extended-cli-metadata and the
 existing runtime bundle recorded in neoCLR native-properties-2026-10-02.json.
 The independent binder fix is 23161cffb (76 focused .NET tests); it is isolated
 for shared-line integration, not merged into main by this slice.
+
+### Direct native indexed properties (2026-10-02 development)
+
+The independent metadata reader now retains indexed-property signatures, and Raven
+imports them with canonical getter/setter symbols and cached index parameters. Source
+indexers use explicit NeoCLR signature capabilities; emission imports the existing
+accessor method operands. No metadata schema, opcode or Runtime Contract changes are
+needed. Libraries are read directly from native definitions without CLI projection.
+
+The payload/holder/consumer case now replaces and reads an external-class array element
+through an imported indexer. An overloaded String indexer reads the nominal property;
+private-setter and wrong-index-type assignments diagnose. All five native consumers
+return 42. The CLI primitive core and translated System remain explicit bootstrap
+inputs. Setter-only indexers can be inspected but source access remains a binder gap;
+full native System importing and broader owner categories remain pending.
+
+Validation: 102 metadata groups, 75 focused .NET indexer/accessibility tests and five
+native runtime consumers pass. General Raven corrections are isolated in 9ee5aad97
+and 2df6f3f6d. Bundle hashes are recorded in neoCLR's native-indexers-2026-10-02.json.

@@ -48,7 +48,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Non-indexed native properties now expose canonical accessor symbols and primitive,
   nominal or array types. Cross-library instance/static property calls execute (42);
   property type admission and static external-owner lowering use explicit target
-  capabilities. Read-only and inaccessible setter writes diagnose.
+  capabilities. Read-only and inaccessible setter writes diagnose. Native indexed
+  properties now retain cached parameter/accessor symbols, with overload resolution
+  and cross-library indexed element replacement/read executing in neoCLR (42).
   Wider native importing remains pending.
 
 - **2026-10-02:** Document the independent metadata library's first direct native

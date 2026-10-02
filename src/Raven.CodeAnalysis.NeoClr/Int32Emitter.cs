@@ -85,7 +85,7 @@ internal static class Int32Emitter
                             if (indexerSyntax.AttributeLists.Count != 0 || indexerSyntax.ExplicitInterfaceSpecifier is not null || indexerSyntax.Initializer is not null ||
                                 indexerSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
                                 model.GetDeclaredSymbol(indexerSyntax) is not SourcePropertySymbol { IsStatic: false, IsIndexer: true } indexer ||
-                                !CallableSignature.TryType(indexer.Type, false, out _))
+                                !CallableSignature.TryType(indexer.Type, false, out _, NeoClrCapabilities.Shared))
                                 throw Unsupported("only implemented root-class indexers with supported value types");
                             if (indexerSyntax.AccessorList is { } indexerAccessors && indexerAccessors.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||

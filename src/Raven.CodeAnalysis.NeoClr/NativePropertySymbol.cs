@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using NeoCLR.Metadata.Experimental.Model;
 
 using Raven.CodeAnalysis.Symbols;
@@ -7,15 +9,18 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
 {
     private readonly Lazy<ITypeSymbol> type;
+    private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
     internal NativePropertySymbol(PropertyDefinition definition, NativeNamedTypeSymbol owner,
         IReadOnlyDictionary<MethodDefinition, NativeMethodSymbol> methods)
         : base(SymbolKind.Property, definition.Name, owner, owner, owner.ContainingNamespace, [], [], AccessibilityFor(definition))
     {
-        if (!definition.TryGetSignature(out var signature, out var isStatic)) throw new InvalidDataException("unsupported native property signature");
+        if (!definition.TryGetSignature(out var signature, out var indices, out var isStatic)) throw new InvalidDataException("unsupported native property signature");
         IsStatic = isStatic;
+        IsIndexer = indices.Count != 0;
         type = new(() => ((NativeModuleSymbol)ContainingModule).Map(signature!));
         GetMethod = definition.GetMethod is { } getter ? methods[getter] : null;
         SetMethod = definition.SetMethod is { } setter ? methods[setter] : null;
+        parameters = new(() => !IsIndexer ? [] : GetMethod?.Parameters ?? [.. SetMethod!.Parameters.Take(SetMethod.Parameters.Length - 1)]);
         (GetMethod as NativeMethodSymbol)?.Associate(this);
         (SetMethod as NativeMethodSymbol)?.Associate(this);
     }
@@ -29,7 +34,8 @@ internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
     public IMethodSymbol? SetMethod { get; }
     public IPropertySymbol OriginalDefinition => this;
     public override bool IsStatic { get; }
-    public bool IsIndexer => false;
+    public bool IsIndexer { get; }
+    public ImmutableArray<IParameterSymbol> Parameters => parameters.Value;
     public bool IsRequired => false;
     public override IModuleSymbol ContainingModule => ContainingType!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingType!.ContainingAssembly!;

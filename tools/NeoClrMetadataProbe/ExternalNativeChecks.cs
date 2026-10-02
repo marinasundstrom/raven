@@ -43,6 +43,14 @@ internal static class ExternalNativeChecks
                     get => Items
                     set => Items = value
                 }
+                public var self[index: int]: Payload {
+                    get => Items[index]
+                    set => Items[index] = value
+                }
+                public val self[key: string]: Payload {
+                    get => Item
+                    private set => Item = value
+                }
                 public val ReadOnly: Payload => Item
                 public val Protected: int {
                     get => Item.Value
@@ -67,7 +75,9 @@ internal static class ExternalNativeChecks
                 let values: Payload[] = [first]
                 let arrayHolder = Holder(Holder.PassItems(values))
                 holder.Batch = arrayHolder.Batch
-                holder.Items[0] = holder.Item
+                holder[0] = holder.Item
+                if holder[0].Value != 42 { return 6 }
+                if holder["key"].Value != 42 { return 7 }
                 if values[0].Value != 42 { return 3 }
                 let numbers: int[] = [0]
                 Holder.Numbers(numbers)[0] = values[0].Value
@@ -92,6 +102,9 @@ internal static class ExternalNativeChecks
             Check(arrayMethod.ReturnType is IArrayTypeSymbol { Rank: 1 } array && ReferenceEquals(array.ElementType, payloadType) &&
                 ReferenceEquals(arrayMethod.ReturnType, arrayMethod.Parameters[0].Type) && ReferenceEquals(arrayMethod.ReturnType, arrayField.Type) &&
                 ReferenceEquals(arrayMethod.ReturnType, holderType.InstanceConstructors.Single(c => c.Parameters[0].Type is IArrayTypeSymbol).Parameters[0].Type), "canonical native array symbols");
+            var indexer = holderType.GetMembers().OfType<IPropertySymbol>().Single(p => p.IsIndexer && p.Parameters[0].Type.SpecialType == SpecialType.System_Int32);
+            Check(indexer.Parameters.Length == 1 && ReferenceEquals(indexer.Type, payloadType) &&
+                ReferenceEquals(indexer.GetMethod!.AssociatedSymbol, indexer) && ReferenceEquals(indexer.SetMethod!.AssociatedSymbol, indexer), "canonical indexer signature and accessors");
             var current = holderType.GetMembers("Current").OfType<IPropertySymbol>().Single();
             var batch = holderType.GetMembers("Batch").OfType<IPropertySymbol>().Single();
             Check(ReferenceEquals(current.Type, payloadType) && ReferenceEquals(batch.Type, arrayMethod.ReturnType) &&
@@ -107,7 +120,7 @@ internal static class ExternalNativeChecks
             Check(result.Success, string.Join("; ", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "ExternalNativeConsumer.dll"), image.ToArray());
         }
-        foreach (var assignment in new[] { "holder.ReadOnly = Payload(0)", "holder.Protected = 0" })
+        foreach (var assignment in new[] { "holder.ReadOnly = Payload(0)", "holder.Protected = 0", "holder[\"key\"] = Payload(0)", "holder[true] = Payload(0)" })
         {
             var syntax = SyntaxTree.ParseText("import External.*\nfunc Main() -> int {\nlet holder = Holder(Payload(1))\n" + assignment + "\nreturn 0\n}");
             Check(!syntax.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "invalid property test syntax");
