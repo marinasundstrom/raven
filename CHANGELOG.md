@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Remove the native callable reader-definition fallback and the unused
+  native method definition property. Unsupported native contracts diagnose rather than
+  reopening reader methods. All seven consumers execute (42), including added direct
+  concrete interface-implementation calls. Translated CLI binding remains separate.
+
 - **2026-10-02:** Author native static-container method references from symbols,
   including generic static calls. Keep declaration-owner admission separate from value
   signatures. All seven native consumers execute (42); translated CLI and remaining

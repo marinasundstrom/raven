@@ -278,3 +278,22 @@ The metadata generic-static test authors references from values for CLR and both
 containers (42); 108 metadata C# groups pass. Remaining reader paths include final/virtual
 class contracts, unsupported profiles, translated CLI compatibility bindings, host setup
 and lazy symbol materialization. Runtime Contract/bootstrap behavior is unchanged.
+
+
+### Native callable fallback removed (2026-10-02)
+
+The native callable reader-definition fallback has been removed. After symbol-only
+namespace/member authoring, an unsupported native callable now diagnoses instead of
+reading NativeMethodSymbol.Definition. That unused property is removed from native
+method symbols. Translated CLI compatibility binding remains a separate path. Input
+signature materialization and field/type/host reference paths still retain reader data;
+this is not a claim of whole-compilation reader disposal.
+
+The audit corrected an earlier assumption: native concrete interface implementations
+are ordinary methods in the current writer format. Only abstract interface contracts
+carry the native virtual flag. The CLI projection's final/virtual implementation flags
+must not be invented in native symbols. No final-virtual API or native format change
+was added. Direct calls on concrete implementations and their getters were added to
+the probe alongside existing interface dispatch. All seven consumers execute (42).
+Existing 108 metadata-group evidence is reused because the library is unchanged.
+Runtime Contract and primitive/translated System bootstrap requirements are unchanged.

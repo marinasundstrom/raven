@@ -954,3 +954,8 @@ Runtime Contract/bootstrapping behavior is unchanged.
 Native static containers now author method references from symbols as declaration
 owners, while remaining excluded from signature value types. See [validation and limits](metadata-backend-boundaries.md#static-declaration-containers-2026-10-02).
 Runtime Contract/bootstrap requirements and translated CLI compatibility paths are unchanged.
+
+
+Native callable emission now fails closed on incomplete symbol contracts instead of
+using a reader-definition fallback. See [boundary and native/CLI flag distinction](metadata-backend-boundaries.md#native-callable-fallback-removed-2026-10-02).
+Translated CLI compatibility binding and bootstrap requirements are unchanged.

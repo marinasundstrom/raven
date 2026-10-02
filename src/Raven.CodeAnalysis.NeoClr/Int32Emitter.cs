@@ -480,13 +480,11 @@ internal static class Int32Emitter
                     symbol.Parameters.Select(p => MapSymbolOnlyType(p.Type)), memberSignature.GenericParameterNames);
                 return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic);
             }
+            // A native callable must carry a complete supported semantic contract.
+            // Do not recover missing emission facts by reopening its reader definition.
+            if (symbol.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
+                throw Unsupported("native callable requires a supported symbol-only emission contract");
             var dependencyMetadata = binding.Definition;
-            if (symbol is NativeMethodSymbol native)
-            {
-                if (!ReferenceEquals(native.Definition.Module.Assembly, dependencyMetadata))
-                    throw Unsupported("native dependency snapshot differs from semantic reference");
-                return assembly.ImportReference(native.Definition, binding.CoreLibrary, nativeResolver.Value);
-            }
             var types = dependencyMetadata.MainModule.Types.Where(t => symbol.ContainingType is { } owner && t.GenericArity == owner.Arity && MatchesType(t, owner)).Take(2).ToArray();
             if (types.Length != 1) throw Unsupported("dependency type unavailable or ambiguous");
             if (!CallableSignature.TryCreate(symbol, out var signature, NeoClrCapabilities.Shared))

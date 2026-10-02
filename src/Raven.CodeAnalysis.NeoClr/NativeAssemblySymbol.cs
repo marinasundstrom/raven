@@ -142,7 +142,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         : base(SymbolKind.Method, definition.Name, owner, owner as INamedTypeSymbol, owner as INamespaceSymbol ?? owner.ContainingNamespace, [], [],
             (definition.Attributes & 7) == 6 ? Accessibility.Public : (definition.Attributes & 7) == 3 ? Accessibility.Internal : Accessibility.Private)
     {
-        this.compilation = compilation; Definition = definition;
+        this.compilation = compilation;
         IsStatic = definition.IsStatic;
         IsAbstract = (definition.Attributes & 0x400) != 0;
         IsVirtual = (definition.Attributes & 0x40) != 0;
@@ -160,7 +160,6 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         property = value;
     }
     public ISymbol? AssociatedSymbol => property;
-    internal MethodDefinition Definition { get; }
     private ITypeSymbol Map(SignatureType type) => type.MethodParameterIndex is { } ordinal ? TypeParameters[ordinal]
         : NativeModuleSymbol.HasParameter(type, method: true)
             ? genericSignatureTypes.GetOrAdd(type, signature => ((NativeModuleSymbol)ContainingModule).ConstructSignature(signature, Map))

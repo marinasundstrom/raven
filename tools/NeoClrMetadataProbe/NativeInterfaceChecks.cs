@@ -61,6 +61,8 @@ internal static class NativeInterfaceChecks
         const string source = """
             import Contracts.*
             func Main() -> int {
+                if First().Get(0) != 19 { return 3 }
+                if Second().Current != 23 { return 4 }
                 let first = FirstValue()
                 let second = SecondValue()
                 let values: Value[] = [first, second]
