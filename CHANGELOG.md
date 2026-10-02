@@ -4,9 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-02:** Keep unsupported native generic declarations outside the semantic
-  input boundary while the metadata library adds generic definition reading/import.
-  References fail explicitly before compilation instead of exposing partial symbols.
+- **2026-10-02:** Import unconstrained native static generic methods and namespace
+  functions into compilation-owned symbols, completing the earlier guarded metadata
+  reader expansion. Shared inference and constructed-method substitution now drive
+  generic native calls, forwarding and vector signatures; all seven runtime consumers
+  execute (42). Generic owners, constraints and instance generic imports remain pending.
 
 - **2026-10-02:** Diagnose incompatible expression-bodied function and method returns
   before emission by binding the complete method body during diagnostic traversal.

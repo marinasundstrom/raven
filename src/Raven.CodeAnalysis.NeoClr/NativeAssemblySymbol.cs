@@ -127,6 +127,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     private readonly MethodSignature signature;
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
     private readonly Lazy<ITypeSymbol> returnType;
+    private readonly ConcurrentDictionary<SignatureType, ITypeSymbol> genericSignatureTypes = new();
     internal NativeMethodSymbol(Compilation compilation, MethodDefinition definition, ISymbol owner)
         : base(SymbolKind.Method, definition.Name, owner, owner as INamedTypeSymbol, owner as INamespaceSymbol ?? owner.ContainingNamespace, [], [],
             (definition.Attributes & 7) == 6 ? Accessibility.Public : (definition.Attributes & 7) == 3 ? Accessibility.Internal : Accessibility.Private)
@@ -134,6 +135,8 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         this.compilation = compilation; Definition = definition;
         if (!definition.TryGetSignature(out var decoded)) throw new InvalidDataException("native signature unavailable");
         signature = decoded!;
+        TypeParameters = [.. signature.GenericParameterNames.Select((name, i) => (ITypeParameterSymbol)new NativeMethodTypeParameterSymbol(name, i, this))];
+        TypeArguments = [.. TypeParameters];
         returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : Map(signature.ReturnType));
         parameters = new(() => [.. signature.ParameterTypes.Select((p, i) => (IParameterSymbol)new NativeParameterSymbol(i, Map(p), this))]);
     }
@@ -145,7 +148,10 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     }
     public ISymbol? AssociatedSymbol => property;
     internal MethodDefinition Definition { get; }
-    private ITypeSymbol Map(SignatureType type) => ((NativeModuleSymbol)ContainingModule).Map(type);
+    private ITypeSymbol Map(SignatureType type) => type.MethodParameterIndex is { } ordinal ? TypeParameters[ordinal]
+        : type.ArrayElement is { MethodParameterIndex: not null } element
+            ? genericSignatureTypes.GetOrAdd(type, _ => compilation.CreateArrayTypeSymbol(Map(element)))
+        : ((NativeModuleSymbol)ContainingModule).Map(type);
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic => Definition.IsStatic;
@@ -156,10 +162,10 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => [];
     public IMethodSymbol OriginalDefinition => this;
     public IMethodSymbol ConstructedFrom => this;
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
-    public ImmutableArray<ITypeSymbol> TypeArguments => [];
+    public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
+    public ImmutableArray<ITypeSymbol> TypeArguments { get; }
     public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => [];
-    public IMethodSymbol Construct(params ITypeSymbol[] types) => types.Length == 0 ? this : throw new ArgumentException("nongeneric native function");
+    public IMethodSymbol Construct(params ITypeSymbol[] types) => types.Length == 0 && TypeParameters.IsEmpty ? this : new ConstructedMethodSymbol(this, [.. types]);
     public bool IsAbstract => (Definition.Attributes & 0x400) != 0;
     public bool IsAsync => false;
     public bool IsCheckedBuiltin => false;
@@ -167,7 +173,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public bool IsExtensionMethod => false;
     public bool IsExtern => false;
     public bool IsUnsafe => false;
-    public bool IsGenericMethod => false;
+    public bool IsGenericMethod => !TypeParameters.IsEmpty;
     public bool IsOverride => false;
     public bool IsReadOnly => false;
     public bool IsFinal => false;

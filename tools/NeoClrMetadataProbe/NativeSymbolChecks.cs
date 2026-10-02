@@ -21,7 +21,7 @@ internal static class NativeSymbolChecks
     {
         Run(corePath, output);
         var results = new List<object>();
-        foreach (var (app, dependency) in new[] { ("NativeConsumer", "NativeSymbols"), ("RavenNativeConsumer", "RavenNativeLibrary"), ("NativeTypeConsumer", "NativeTypeLibrary"), ("NativeFieldConsumer", "NativeTypeLibrary"), ("ExternalNativeConsumer", "NativeHolderLibrary"), ("NativeInterfaceConsumer", "NativeInterfaceLibrary") })
+        foreach (var (app, dependency) in new[] { ("NativeConsumer", "NativeSymbols"), ("RavenNativeConsumer", "RavenNativeLibrary"), ("NativeTypeConsumer", "NativeTypeLibrary"), ("NativeFieldConsumer", "NativeTypeLibrary"), ("ExternalNativeConsumer", "NativeHolderLibrary"), ("NativeInterfaceConsumer", "NativeInterfaceLibrary"), ("NativeGenericConsumer", "NativeGenericLibrary") })
         {
             var appPath = Path.Combine(output, app + ".dll");
             var dependencyPath = Path.Combine(output, dependency + ".dll");
@@ -147,19 +147,8 @@ internal static class NativeSymbolChecks
         NativeTypeChecks.Run(cliCore, core, output);
         ExternalNativeChecks.Run(cliCore, core, output);
         NativeInterfaceChecks.Run(cliCore, core, output);
-        var generic = new AssemblyBuilder(new("GenericBoundary", new Version(1, 0, 0, 0)), core);
-        var identity = generic.AddFunction("Identity", new MethodSignature(SignatureType.MethodParameter(0), [SignatureType.MethodParameter(0)], ["T"]));
-        identity.LoadArgument(0); identity.Return();
-        var genericImage = RuntimeAssemblyContainer.WriteBinary(generic.WriteNativeAssembly(), core);
-        if (AssemblyDefinition.ReadNativeAssembly(genericImage).MainModule.Functions.Single().GenericArity != 1)
-            throw new Exception("metadata generic signature lost");
-        try
-        {
-            _ = NeoClrMetadataReference.ReadAssembly(genericImage);
-            throw new Exception("unsupported generic semantic profile was accepted");
-        }
-        catch (InvalidDataException error) when (error.Message.Contains("generic method symbols", StringComparison.Ordinal)) { }
-        File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new { passed = true, nativeSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), coreSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(corePath))), cases = new[] { "external nominal method/constructor/field signatures", "primitive and external-class array signatures and aliasing", "native property identity, instance/static calls and setter accessibility", "native namespace overloads", "both reference orders", "semantic type and symbol identity", "compilation isolation", "accessibility", "invalid argument", "CLI emission leaves output empty", "native call emission", "Raven-produced native library read and consumed", "native snapshot mismatch leaves output empty", "duplicate identity", "wrong target", "missing dependency", "registered dependency", "exact version identity", "native class/field symbols, nominal function/method/constructor signatures, overloads, stateful instance calls and primitive/nominal field load/store" }, scope = "direct native dependency symbols with explicit CLI primitive core; native call emitted; runtime execution validated separately" }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
+        NativeGenericSymbolChecks.Run(cliCore, core, output);
+        File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new { passed = true, nativeSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), coreSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(corePath))), cases = new[] { "native generic static/namespace calls, inference, forwarding, overloads and method-scoped vectors", "external nominal method/constructor/field signatures", "primitive and external-class array signatures and aliasing", "native property identity, instance/static calls and setter accessibility", "native namespace overloads", "both reference orders", "semantic type and symbol identity", "compilation isolation", "accessibility", "invalid argument", "CLI emission leaves output empty", "native call emission", "Raven-produced native library read and consumed", "native snapshot mismatch leaves output empty", "duplicate identity", "wrong target", "missing dependency", "registered dependency", "exact version identity", "native class/field symbols, nominal function/method/constructor signatures, overloads, stateful instance calls and primitive/nominal field load/store" }, scope = "direct native dependency symbols with explicit CLI primitive core; native call emitted; runtime execution validated separately" }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS direct native semantic imports");
     }
 }

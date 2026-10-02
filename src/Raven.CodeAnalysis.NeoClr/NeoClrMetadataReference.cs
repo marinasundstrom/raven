@@ -7,7 +7,7 @@ using Raven.CodeAnalysis.Metadata;
 namespace Raven.CodeAnalysis.NeoClr;
 
 /// <summary>An owned native metadata input, read directly without a CLI projection.</summary>
-/// <remarks>The first profile supports primitive namespace functions and nongeneric top-level classes with primitive/nominal fields and methods with explicitly resolved dependencies. An explicit CLI core still supplies primitive symbols.</remarks>
+/// <remarks>The profile supports nongeneric top-level classes/interfaces and unconstrained static generic methods/functions, with primitive, nominal and vector signatures and explicitly resolved dependencies. An explicit CLI core still supplies primitive symbols.</remarks>
 public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetadataReference
 {
     private NeoClrMetadataReference(AssemblyDefinition definition) => Definition = definition;
@@ -17,8 +17,6 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
     public static NeoClrMetadataReference ReadAssembly(ReadOnlySpan<byte> image)
     {
         var definition = AssemblyDefinition.ReadNativeAssembly(image);
-        if (definition.MainModule.Methods.Any(method => method.GenericArity != 0))
-            throw new InvalidDataException("native generic method symbols are not yet supported by Raven");
         return new(definition);
     }
     public override bool Equals(object? obj) => ReferenceEquals(this, obj);

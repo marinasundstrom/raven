@@ -3623,10 +3623,22 @@ policy change; native import/bootstrap limitations remain unchanged.
 
 ### Native generic metadata boundary (2026-10-02 development)
 
-The independent metadata library now reads/imports unconstrained static generic
-methods and namespace functions, with preserved names, arity and parameter/vector
-signatures. Its C# consumers execute CLR and native generic calls. Raven does not yet
-provide native method type-parameter symbols, so NeoClrMetadataReference.ReadAssembly
-explicitly rejects these declarations before compilation. This keeps the supported
-semantic profile stable as the lower-level reader grows. No Runtime Contract or
-metadata encoding changes; generic symbol integration is next.
+The independent metadata library reads/imports unconstrained static generic methods
+and namespace functions, preserving names, arity and parameter/vector signatures. An
+initial explicit rejection boundary kept Raven safe during that library expansion;
+the subsequent symbol integration now admits this profile.
+
+Native method parameters are owned by their declaration and compilation. Parameter
+vectors are cached per method; ordinary nominal/primitive vectors retain module-wide
+identity. Construct uses the shared ConstructedMethodSymbol, inference/substitution and
+callable lowering. No .NET reflection objects or CLI projections are created for these
+native declarations. Existing generic metadata imports emit the calls; no backend,
+Runtime Contract or encoding change was needed.
+
+The seventh native consumer compiles its library from Raven, imports it directly, and
+executes inferred/explicit namespace identity, generic forwarding, static generic
+methods, overloads with different arities, Int64 vectors and reference/array aliases (42).
+C# checks validate canonical parameter ownership, vector identity, compilation isolation,
+both reference orders and invalid argument diagnostics. All seven consumers pass.
+Generic owners, constraints and instance generic imports remain outside this profile;
+the explicit CLI primitive core and translated System bootstrap remain required.

@@ -623,3 +623,10 @@ rejecting unrelated class conversions. Dependency hashes include both libraries.
 The invalid interface-return case must report RAV1503 before emission and fail emission
 with empty output. This reuses the shared return diagnostic fix; typed local
 assignments already reject the unrelated class.
+
+The seventh direct-native consumer builds NativeGenericLibrary from Raven and imports
+its generic namespace functions and static methods without a CLI projection. It checks
+method-owned type parameters, vector identity, shared construction, inference, explicit
+calls, forwarding, overload arity and invalid arguments. The consumer executes aliases,
+array mutation and Int64 generic calls, returning 42. Generic owners, constraints and
+instance generic imports remain unsupported; the CLI core bootstrap is unchanged.
