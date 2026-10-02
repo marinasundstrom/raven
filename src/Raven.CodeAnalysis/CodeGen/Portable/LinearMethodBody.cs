@@ -215,6 +215,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         {
             foreach (var statement in Flatten(body))
             {
+                if (statement is BoundForStatement loop && capabilities?.AllowsReferenceEnumeration == true &&
+                    Lowerer.TryLowerPortableEnumeration(source, loop, out var enumerated))
+                {
+                    if (!LowerStatements(enumerated!)) return false;
+                    continue;
+                }
                 if (statement is BoundExpressionStatement { Expression: BoundBlockExpression discardedBlock })
                 {
                     if (!discardedBlock.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(discardedBlock));
@@ -738,7 +744,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundInvocationExpression call when call.ExtensionReceiver is null &&
                     (call.Method.IsStatic && call.Receiver is null or BoundTypeExpression ||
-                     call.Method.MethodKind == MethodKind.Ordinary && SupportedInstanceCall(call.Method)):
+                     call.Method.MethodKind is (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet) && SupportedInstanceCall(call.Method)):
                     if (!TrySignature(call.Method, out var callSignature)) return Reject("only supported value signatures and unconstrained generics (Unit only as result): " + call.Method.Name, Syntax(expression));
                     if (capabilities is not null && (!capabilities.Allows(callSignature) ||
                         !SupportedTypeArguments(call.Method)))

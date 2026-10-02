@@ -8,6 +8,39 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class ExternalSignatureCapabilityTests
 {
+    [Fact]
+    public void ReferenceEnumerationPreservesBreakContinueAndResult()
+    {
+        var app = Compilation.Create("EnumerationAdmission", [SyntaxTree.ParseText("""
+            import System.Collections.Generic.*
+            public static class Consumer {
+                public static func Read(values: IEnumerable<int>) -> int {
+                    var total = 0
+                    for value in values {
+                        if value == 1 { continue }
+                        if value == 99 { break }
+                        total = total + value
+                    }
+                    return total
+                }
+            }
+            """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        EmissionCapabilities Capabilities(bool enumeration) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsRootClassSignatures: true, allowsGenericClassOwners: true, allowsInterfaceSignatures: true,
+            allowsExternalReferenceSignatures: true, allowsExternalInstanceCalls: true, allowsInterfaceDispatch: true, allowsReferenceEnumeration: enumeration);
+        var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
+        Assert.False(plan!.TryLowerBody(app, _ => false, out _, out _, Capabilities(false)));
+        Assert.True(plan.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
+        using var image = new MemoryStream(); var emitted = app.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        var context = new AssemblyLoadContext("enumeration-admission", true);
+        try { image.Position = 0; Assert.Equal(42, context.LoadFromStream(image).GetType("Consumer")!.GetMethod("Read")!.Invoke(null, [new[] { 1, 19, 23, 99, 7 }])); }
+        finally { context.Unload(); }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

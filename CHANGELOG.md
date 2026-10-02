@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Add opt-in portable reference-enumerator lowering using existing
+  bound calls, locals and branches, including break/continue. Default .NET enumeration
+  stays on its current generator. The unchanged collections sample completes body
+  planning and reaches explicit native System dependency linkage.
+
 - **2026-10-02:** Add a target-owned reference conversion operation using metadata
   castclass for neoCLR; ordinary .NET keeps its existing conversion path. Recognize
   equal physical union-case storage across semantic carrier views. The unchanged
