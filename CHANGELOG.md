@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Reject static member access through an inaccessible imported type
+  when that type is resolved by an unqualified expression name. The binder now checks
+  named-type accessibility on this path, matching qualified/type-annotation behavior.
+  A standalone .NET metadata regression reproduces the previous missing diagnostic.
+
 - **2026-10-02:** Bind primitive native namespace-function references directly into
   Raven symbols through an opt-in semantic provider, with an explicit CLI primitive
   core retained for bootstrap. Preserve exact assembly identity, overloads and

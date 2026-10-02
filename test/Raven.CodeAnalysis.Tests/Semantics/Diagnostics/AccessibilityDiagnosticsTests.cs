@@ -648,6 +648,23 @@ let exported: Exported = Exported()
             diagnostic => diagnostic.GetMessage().Contains("Exported"));
     }
 
+    [Fact]
+    public void StaticCallThroughImportedInternalType_ReportsRAV0500()
+    {
+        var reference = CreateMetadataReference("""
+            namespace Lib
+            internal static class Hidden {
+                public static func Value() -> int => 42
+            }
+            """);
+        var compilation = Compilation.Create("consumer",
+            [SyntaxTree.ParseText("import Lib.*\nfunc Main() -> int { return Hidden.Value() }")],
+            TestMetadataReferences.Default.Append(reference).ToArray());
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic =>
+            diagnostic.Id == CompilerDiagnostics.SymbolIsInaccessible.Id &&
+            diagnostic.GetMessageArgs().SequenceEqual(new object[] { "type", "Hidden" }));
+    }
+
     private static MetadataReference CreateMetadataReference(string source)
     {
         return TestMetadataFactory.CreateFileReferenceFromSource(

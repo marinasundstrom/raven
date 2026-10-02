@@ -8716,7 +8716,7 @@ partial class BlockBinder : Binder
                     return unionCaseFromLookup;
                 }
 
-                return new BoundTypeExpression(type);
+                return new BoundTypeExpression(EnsureTypeAccessible(type, syntax.Identifier.GetLocation()));
             }
 
             var ns = LookupNamespace(name);
@@ -8762,7 +8762,7 @@ partial class BlockBinder : Binder
                     if (BindDiscriminatedUnionCaseType(aliasType) is { } unionCase)
                         return unionCase;
 
-                    return new BoundTypeExpression(aliasType);
+                    return new BoundTypeExpression(EnsureTypeAccessible(aliasType, syntax.Identifier.GetLocation()));
                 }
             case INamespaceSymbol ns:
                 return new BoundNamespaceExpression(ns);
@@ -8816,7 +8816,7 @@ partial class BlockBinder : Binder
                         return unionCase;
                     }
 
-                    return new BoundTypeExpression(type);
+                    return new BoundTypeExpression(EnsureTypeAccessible(type, syntax.Identifier.GetLocation()));
                 }
             case IEventSymbol @event:
                 if (!EnsureMemberAccessible(@event, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(@event)))
