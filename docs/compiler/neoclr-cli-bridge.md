@@ -3869,3 +3869,22 @@ relationships. Variance, constrained/value/nested profiles and instance generic 
 remain outside this native reader profile. Explicit primitive core, translated System
 bootstrap and Runtime Contract configuration remain unchanged. This does not claim full
 class-library import or remove the lazy semantic reader lifetime.
+
+
+### Shared pure metadata view direction (2026-10-02, proposed)
+
+The author requests a dependency-aware metadata view above neoCLR reader/writer
+definitions, reusable by Raven and future NeoCLR metadata-only Introspection and
+System.Runtime.Reflection.Emit. Reuse exact-identity IAssemblyResolver and loaded
+snapshots; add a bounded resolution context and constructed type/member views rather
+than a Reflection facade or a CLI projection. Definitions preserve original declarations;
+views retain provenance and substitute arguments. An emitter explicitly imports contracts
+into its own output graph. Metadata inspection must not load executable runtime types.
+
+Raven's importer may consume this library view, but must copy semantic facts into its
+symbols. Emission continues to depend on symbols, never the view/context/resolver.
+No shared compiler API, Runtime Contract, native encoding, primitive-core bootstrap or
+execution behavior changes in this design checkpoint. The first planned slice is an
+immutable exact-identity snapshot catalog with diamond/cycle/conflict tests, followed
+by constructed member views and one native importer integration. The future Raven/NeoCLR
+port should preserve these semantics without depending on host Reflection objects.
