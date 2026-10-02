@@ -37,7 +37,7 @@ public sealed class NeoClrMetadataDependency
 public sealed class NeoClrEmitOptions
 {
     /// <summary>Copies the supplied bindings into an immutable configuration.</summary>
-    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null)
+    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null, MetadataReference? bootstrapReference = null)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(coreLibrary);
@@ -46,9 +46,13 @@ public sealed class NeoClrEmitOptions
         CoreLibrary = coreLibrary;
         ConsoleReference = consoleReference;
         SystemSymbols = systemSymbols;
+        BootstrapReference = bootstrapReference;
         Dependencies = dependencies.ToImmutableArray();
         if (Dependencies.Any(d => d is null)) throw new ArgumentException("Null dependency", nameof(dependencies));
     }
+    /// <summary>Gets the explicit implementation seed authorizing CheckedStorage.Reserve&lt;T&gt;(Int32).</summary>
+    /// <remarks>Null disables native bootstrap intrinsics. The exact registered reference must supply the selected core; ordinary .NET emission is unchanged.</remarks>
+    public MetadataReference? BootstrapReference { get; }
     /// <summary>Gets the unsigned output identity; its name must match the compilation.</summary>
     public AssemblyIdentity Identity { get; }
     /// <summary>Gets the explicit core-library identity for primitive contracts.</summary>

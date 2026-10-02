@@ -38,7 +38,7 @@ internal static class LibrarySourceChecks
             cliBridgeEmission = new { success = cliResult.Success, bytes = cli.Length,
                 diagnostics = cliResult.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.ToString()).ToArray() };
             using var image = new MemoryStream();
-            var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image, new(new("LibrarySource", new Version(1, 0, 0, 0)), core, [new NeoClrMetadataDependency(reference, AssemblyDefinition.ReadAssembly(File.ReadAllBytes(seed), expectedExtended: false), core, NativeLibraryDefinition.ReadAssembly(File.ReadAllBytes(nativeSystem)))], reference));
+            var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image, new(new("LibrarySource", new Version(1, 0, 0, 0)), core, [new NeoClrMetadataDependency(reference, AssemblyDefinition.ReadAssembly(File.ReadAllBytes(seed), expectedExtended: false), core, NativeLibraryDefinition.ReadAssembly(File.ReadAllBytes(nativeSystem)))], reference, bootstrapReference: reference));
             errors = emitted.Diagnostics.Select(d => d.ToString()).ToArray();
             phase = emitted.Success ? "emitted" : "emission";
             bytes = image.Length;

@@ -3194,3 +3194,39 @@ Core symbol loading still uses the CLI authoring seed, with native semantic impo
 as the eventual replacement. These changes do not compile or execute full ArrayList yet.
 See neoCLR's `generic-collection-contracts-2026-10-02.json` and
 `array-list-authoring-seed-2026-10-02.json` under docs/experiments/extended-cli-metadata.
+
+
+### Checked storage authoring intrinsic (2026-10-02)
+
+`NeoClrEmitOptions` now accepts optional `MetadataReference? bootstrapReference = null`
+after `systemSymbols` and exposes read-only `BootstrapReference`. Existing source calls
+remain valid; binary host consumers must rebuild for the extended constructor. Null disables the
+intrinsic. The exact reference must be registered in the compilation and supply its
+Int32 core declaration; existing target-core identity validation still applies. This
+is explicit backend configuration, independent of normal .NET emission and consumer
+reference contents. The compiler still uses the shared generic call/body path.
+
+For that exact assembly, the native adapter recognizes only public static
+`System.Runtime.CompilerServices.CheckedStorage.Reserve<T>(Int32) -> T[]` on its static
+owner, with one unconstrained method parameter and no byref argument. It preserves the
+actual element argument, including a caller generic parameter. The metadata API emits
+native `array.reserve`; the runtime retains checked unreadable slots until stored.
+Same-named calls outside the bound core do not acquire intrinsic semantics. Invalid
+configuration yields NEOMETA002; unsupported/malformed calls yield NEOMETA001, with
+output unchanged. The helper's CLI reference body is never executed by native emission.
+
+The host metadata API's `ReserveArray(SignatureType)` and typed raw opcode are native-only.
+Its executable CLI writer rejects the operation rather than mapping it to newarr, whose
+initialization contract differs. Native PE/#Neo still includes the ordinary reference-only
+CLI declaration projection. See neoCLR's `docs/reserved-array-capacity.md` for the existing
+.NET comparison, tracked-state cost and native semantics; no performance claim is made.
+
+`NeoClrMetadataProbe --reserved-storage-runtime <seed.dll> <fresh-output> <runtime>`
+compiles a generic Raven helper and checks stored-slot result 42, unread-slot faults,
+default-disabled mapping and unregistered-reference rejection. Metadata C# checks also
+cover raw emits, generic substitution, invalid element/scope/stack contracts, CLI refusal,
+and native container/projection loading. All 94 metadata groups pass. The source inventory
+now gets unchanged ArrayList past Reserve and stops at System.Fail's imported namespace
+container, which still needs a namespace-function dependency mapping. Full ArrayList
+native emission/execution is not yet complete. CLI symbols and translated System remain
+the temporary bootstrap; native symbol importing remains future work.

@@ -65,6 +65,12 @@ if (args.Length == 4 && args[0] == "--vector-library-runtime")
     return;
 }
 
+if (args.Length == 4 && args[0] == "--reserved-storage-runtime")
+{
+    await ReservedStorageChecks.Run(args[1], args[2], args[3]);
+    return;
+}
+
 if (args.Length == 4 && args[0] == "--generic-collection-contract-runtime")
 {
     await CollectionContractChecks.Run(args[1], args[2], args[3], genericImplementation: true);

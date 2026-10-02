@@ -41,6 +41,11 @@ public static class NeoClrCompilationEmitter
             return Fail(Configuration, "requires source trees; macro trees are unsupported");
         if (options.Identity.Name != compilation.AssemblyName || options.Identity.PublicKeyToken.Length != 0 || options.Identity.Flags != 0)
             return Fail(Configuration, "requires matching unsigned output identity");
+        if (options.BootstrapReference is { } bootstrap &&
+            (!compilation.References.Any(r => ReferenceEquals(r, bootstrap)) ||
+             compilation.GetAssemblyOrModuleSymbol(bootstrap) is not IAssemblySymbol bootstrapAssembly ||
+             !SymbolEqualityComparer.Default.Equals(bootstrapAssembly, compilation.GetSpecialType(SpecialType.System_Int32).ContainingAssembly)))
+            return Fail(Configuration, "bootstrap reference must be the registered primitive core reference");
         if (options.ConsoleReference is { } console &&
             (!compilation.References.Any(r => ReferenceEquals(r, console)) || compilation.GetAssemblyOrModuleSymbol(console) is not IAssemblySymbol))
             return Fail(Configuration, "console contract reference is not registered or has no assembly symbol");

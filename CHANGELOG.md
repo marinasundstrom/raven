@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Map the library-authoring CheckedStorage.Reserve<T> contract to native
+  checked-uninitialized reservation with an explicit registered BootstrapReference.
+  Generic helper execution returns stored values and faults on unread slots; absent
+  opt-in or an unregistered seed is rejected without output. ArrayList source emission
+  advances to its System.Fail namespace-function dependency; ordinary .NET is unchanged.
+  Rebuild host consumers for the extended experimental NeoClrEmitOptions constructor.
+
 - **2026-10-02:** Admit owned constructed interface implementations on generic classes
   behind a shared target capability, preserving owner arguments in native emission.
   Accept open root-class declarations using the existing nonsealed metadata shape.

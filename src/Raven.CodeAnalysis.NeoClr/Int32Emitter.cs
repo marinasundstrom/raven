@@ -328,6 +328,8 @@ internal static class Int32Emitter
                         output.CallVirtual(contract.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType))));
                     else output.CallVirtual(contract);
                 }
+                else if (instruction.Kind == LinearInstructionKind.Call && IsCheckedReservation(instruction.Method!))
+                    output.ReserveArray(NeoClrTypeMapper.Map(instruction.Method!.TypeArguments[0], type => nativeTypes[type], ImportExternalType));
                 else references.Resolve(instruction.Method!).EmitCall(output);
             }, field =>
             {
@@ -339,6 +341,23 @@ internal static class Int32Emitter
                 type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local"), ImportExternalType));
         }
         return assembly.WriteNativeAssembly();
+
+        bool IsCheckedReservation(IMethodSymbol method)
+        {
+            if (options.BootstrapReference is null ||
+                !SymbolEqualityComparer.Default.Equals(method.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(options.BootstrapReference)) ||
+                method.ContainingType?.ToFullyQualifiedMetadataName() != "System.Runtime.CompilerServices.CheckedStorage" || method.Name != "Reserve")
+                return false;
+            var definition = method.OriginalDefinition ?? method;
+            if (definition.ContainingType?.IsStatic != true || !definition.IsStatic || definition.IsVirtual || definition.DeclaredAccessibility != Accessibility.Public ||
+                definition.TypeParameters.Length != 1 || method.TypeArguments.Length != 1 ||
+                definition.TypeParameters[0].ConstraintKind != TypeParameterConstraintKind.None || !definition.TypeParameters[0].ConstraintTypes.IsEmpty ||
+                definition.Parameters.Length != 1 || definition.Parameters[0].RefKind != RefKind.None || definition.Parameters[0].Type.SpecialType != SpecialType.System_Int32 ||
+                definition.ReturnType is not IArrayTypeSymbol { Rank: 1, IsFixedArray: false } array ||
+                !SymbolEqualityComparer.Default.Equals(array.ElementType, definition.TypeParameters[0]))
+                throw Unsupported("invalid checked-storage reservation contract");
+            return true;
+        }
 
         static IEnumerable<MemberDeclarationSyntax> Flatten(IEnumerable<MemberDeclarationSyntax> members)
         {

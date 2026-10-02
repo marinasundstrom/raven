@@ -487,3 +487,9 @@ The exploratory `--library-source <neo-root> <fresh-output> <implementation-seed
 native emission boundary, and performs a nonexecuted CLI emission control. Generate the
 seed with neoCLR's raven-target probe `--reference-library-core`; the consumer reference
 omits bootstrap intrinsics intentionally. The report is not an execution acceptance test.
+
+
+`--reserved-storage-runtime <implementation-seed.dll> <fresh-output> <runtime>` verifies
+explicit bootstrap opt-in, generic reservation, publication and unread-slot faults in
+Raven-emitted native PE. The library-source inventory also opts into the same registered
+seed; consumer/default native emission does not gain the intrinsic implicitly.
