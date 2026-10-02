@@ -190,10 +190,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                             localType = new(Primitive: primitive);
                         }
                         else if (variable.Local.Type is INamedTypeSymbol externalValue && capabilities?.AllowsExternalValueSignatures == true &&
-                            CallableSignature.IsExternalValue(externalValue) && TryType(externalValue, false, out var importedValueType) && capabilities.Allows(importedValueType))
+                            CallableSignature.IsExternalValue(externalValue, capabilities?.AllowsNestedExternalTypes == true) && TryType(externalValue, false, out var importedValueType) && capabilities.Allows(importedValueType))
                             localType = importedValueType;
                         else if (variable.Local.Type.GetNonNullableType() is INamedTypeSymbol external && capabilities?.AllowsExternalReferenceSignatures == true &&
-                            CallableSignature.IsExternalReference(external) && TryType(external, false, out var externalType) && capabilities.Allows(externalType))
+                            CallableSignature.IsExternalReference(external, capabilities?.AllowsNestedExternalTypes == true) && TryType(external, false, out var externalType) && capabilities.Allows(externalType))
                             localType = externalType;
                         else if (variable.Local.Type is INamedTypeSymbol nominal && SourceTypePlan.TryCreate(nominal, out var typePlan) && !typePlan!.IsStatic && capabilities?.AllowsRootClassLocals == true)
                             localType = new(Nominal: nominal);
@@ -323,7 +323,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool SupportedInterfaceCall(IMethodSymbol method) => !method.IsStatic && !method.IsGenericMethod && method.IsAbstract &&
             method.ContainingType is { TypeKind: TypeKind.Interface } owner &&
             (owner.Arity == 0 && SourceInterfacePlan.HasSupportedIdentity(owner) ||
-             capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner)) &&
+             capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) &&
             capabilities?.AllowsInterfaceDispatch == true && TrySignature(method, out var signature) && capabilities.Allows(signature);
         LinearInstructionKind InstanceCallKind(IMethodSymbol method) => method.ContainingType?.IsValueType == true
             ? LinearInstructionKind.ValueInstanceCall : method.ContainingType?.TypeKind == TypeKind.Interface
@@ -331,11 +331,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool SupportedValueInstanceCall(IMethodSymbol method) => capabilities?.AllowsExternalValueInstanceCalls == true &&
             capabilities.AllowsManagedReferences && !method.IsStatic && !method.IsGenericMethod && !method.IsAbstract &&
             (!method.IsVirtual && !method.IsOverride || method.IsFinal) && method.DeclaredAccessibility == Accessibility.Public &&
-            method.ContainingType is { } owner && CallableSignature.IsExternalValue(owner) &&
+            method.ContainingType is { } owner && CallableSignature.IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && capabilities.Allows(signature);
-        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner)) &&
+        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true)) &&
             method.ContainingType is { } owner && (SourceTypePlan.TryCreate(owner, out _) ||
-                capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner)) &&
+                capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && (capabilities is null || capabilities.Allows(signature));
         bool SupportedPropertyCall(IMethodSymbol method) =>
             (capabilities is null || capabilities.Allows(EmissionDeclarationKind.PropertyAccessor)) &&
@@ -492,7 +492,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundObjectCreationExpression creation when creation.Initializer is null && creation.Receiver is null &&
                     (SourceTypePlan.TryCreate(creation.Constructor.ContainingType!, out var createdType) && !createdType!.IsStatic ||
                      capabilities?.AllowsExternalConstructors == true && creation.Constructor.DeclaredAccessibility == Accessibility.Public &&
-                     creation.Constructor.ContainingType is { } externalOwner && (CallableSignature.IsExternalValue(externalOwner) || CallableSignature.IsExternalReference(externalOwner))) &&
+                     creation.Constructor.ContainingType is { } externalOwner && (CallableSignature.IsExternalValue(externalOwner, capabilities?.AllowsNestedExternalTypes == true) || CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true))) &&
                     TrySignature(creation.Constructor, out var constructorSignature) && SupportedTypeArguments(creation.Constructor) &&
                     (capabilities is null || capabilities.Allows(constructorSignature)):
                     var constructorArguments = creation.Arguments.ToArray();

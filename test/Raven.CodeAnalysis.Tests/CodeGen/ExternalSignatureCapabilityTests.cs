@@ -9,6 +9,47 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class ExternalSignatureCapabilityTests
 {
     [Fact]
+    public void NestedImportsRequireExplicitCapability()
+    {
+        var library = Compilation.Create("NestedContract", [SyntaxTree.ParseText("""
+            public class Container {
+                public struct Item {
+                    public var Value: int
+                    public init(value: int) { Value = value }
+                }
+            }
+            """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var libraryImage = new MemoryStream();
+        var built = library.Emit(libraryImage);
+        Assert.True(built.Success, string.Join("\n", built.Diagnostics));
+        var app = Compilation.Create("NestedConsumer", [SyntaxTree.ParseText("""
+            public static class Consumer {
+                public static func Create() -> Container.Item => Container.Item(42)
+            }
+            """)], TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(libraryImage.ToArray())).ToArray(), new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        EmissionCapabilities Capabilities(bool nested) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsExternalValueSignatures: true, allowsExternalConstructors: true, allowsNestedExternalTypes: nested);
+        Assert.False(SourceCallablePlan.TryCreate(method, out _, Capabilities(false)));
+        Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
+        Assert.True(plan!.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
+        using var image = new MemoryStream();
+        var emitted = app.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        var context = new AssemblyLoadContext("nested-admission", true);
+        try
+        {
+            libraryImage.Position = 0; context.LoadFromStream(libraryImage);
+            image.Position = 0; var loaded = context.LoadFromStream(image);
+            var item = loaded.GetType("Consumer")!.GetMethod("Create")!.Invoke(null, null)!;
+            Assert.Equal(42, item.GetType().GetProperty("Value")!.GetValue(item));
+        }
+        finally { context.Unload(); }
+    }
+
+    [Fact]
     public void ImportedConstructorsRequireExplicitCapability()
     {
         var app = Compilation.Create("ConstructorCapability", [SyntaxTree.ParseText("""

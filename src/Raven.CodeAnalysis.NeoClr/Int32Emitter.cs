@@ -166,8 +166,7 @@ internal static class Int32Emitter
                 var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, original.ContainingAssembly)).Dependency
                     ?? throw Unsupported("unregistered dependency type: " + original.ToDisplayString());
                 var name = original.ToFullyQualifiedMetadataName();
-                var candidates = binding.Definition.MainModule.Types.Where(t => t.DeclaringType is null &&
-                    (t.Namespace.Length == 0 ? t.Name : t.Namespace + "." + t.Name) == name).Take(2).ToArray();
+                var candidates = binding.Definition.MainModule.Types.Where(t => MatchesType(t, original)).Take(2).ToArray();
                 if (candidates.Length != 1 || candidates[0].GenericArity != original.Arity || candidates[0].IsValueType != original.IsValueType)
                     throw Unsupported("dependency type unavailable or ambiguous: " + name);
                 imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
@@ -343,13 +342,20 @@ internal static class Int32Emitter
             if (matches.Length != 1) throw Unsupported("System callable absent from explicit native selection");
             return matches[0];
         }
+        static bool MatchesType(NeoCLR.Metadata.Experimental.Model.TypeDefinition definition, INamedTypeSymbol symbol)
+        {
+            var original = (INamedTypeSymbol)symbol.OriginalDefinition;
+            var parent = original is PEUnionCaseSymbol unionCase ? unionCase.MetadataContainingType : original.ContainingType;
+            return definition.Name == original.MetadataName && (parent is null
+                ? definition.DeclaringType is null && (definition.Namespace.Length == 0 ? definition.Name : definition.Namespace + "." + definition.Name) == original.ToFullyQualifiedMetadataName()
+                : definition.DeclaringType is { } declaring && MatchesType(declaring, parent));
+        }
         ImportedMethodReference Import(IMethodSymbol symbol)
         {
             var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
                 ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name);
             var dependencyMetadata = binding.Definition;
-            var types = dependencyMetadata.MainModule.Types.Where(t => t.DeclaringType is null && t.GenericArity == symbol.ContainingType?.Arity &&
-                (t.Namespace.Length == 0 ? t.Name : t.Namespace + "." + t.Name) == symbol.ContainingType?.ToFullyQualifiedMetadataName()).Take(2).ToArray();
+            var types = dependencyMetadata.MainModule.Types.Where(t => symbol.ContainingType is { } owner && t.GenericArity == owner.Arity && MatchesType(t, owner)).Take(2).ToArray();
             if (types.Length != 1) throw Unsupported("dependency type unavailable or ambiguous");
             if (!CallableSignature.TryCreate(symbol, out var signature, NeoClrCapabilities.Shared))
                 throw Unsupported("unsupported dependency method signature");

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Preserve nested imported type scopes in native codegen under an
+  explicit capability. Match union-case physical owners separately from semantic
+  carriers. A separate-library Raven consumer constructs and mutates nested/generic
+  values and executes to 42; collections advances to the Single callable signature.
+  Ordinary .NET defaults and Runtime Contracts remain unchanged.
+
 - **2026-10-02:** Admit public imported class/value constructors through an explicit
   neoCLR capability and the shared callable resolver, including constructed generic
   owners. Ordinary .NET defaults and Runtime Contracts remain unchanged. A separate

@@ -2944,3 +2944,25 @@ unchanged collections sample still emits a 7168-byte CLI control and rejects nat
 emission at Option<Order>(None), whose parameter has the nested identity
 System.Option.None. The application has not run; accepting top-level constructors
 alone does not close that gap.
+
+
+## Nested imports (2026-10-02)
+
+Native emission selects `AllowsNestedExternalTypes`; ordinary .NET defaults remain
+unchanged. Imported reference/value signatures, local storage, constructors and receiver
+calls retain their explicit enclosing metadata identity. Matching uses a union case's
+physical metadata container when it differs from its semantic union carrier. This is a
+symbol-to-metadata mapping correction, with no binder or Runtime Contract changes.
+
+The independent metadata reader/writer preserves nested TypeRef scopes, NestedClass
+rows and native owner identities. Generic nested value types under nongeneric owners
+are supported; capturing outer generic parameters remains unsupported. CLI projections
+are still the temporary symbol-loading bridge, owned by the metadata producer/importer
+and compiler target adapter; native symbol loading must eventually preserve the same
+scope graph directly. No name-flattening convention is used.
+
+The C# metadata fixtures execute nested imported constructors on CLR and neoCLR (42).
+The Raven native fixture constructs, mutates and reads nested values including a generic
+owner across a dependency boundary (42). The unchanged collections sample advances to
+the Single callable signature, with a successful 7168-byte CLI emission control. It has
+not executed; extension/delegate signatures and native System bindings remain open.

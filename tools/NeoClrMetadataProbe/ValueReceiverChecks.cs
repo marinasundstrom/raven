@@ -16,7 +16,7 @@ namespace NeoClrMetadataProbe;
 
 internal static class ValueReceiverChecks
 {
-    internal static async Task Run(string root, string output, string runtime, bool constructors = false)
+    internal static async Task Run(string root, string output, string runtime, bool constructors = false, bool nested = false)
     {
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
@@ -24,7 +24,8 @@ internal static class ValueReceiverChecks
         var name = AssemblyName.GetAssemblyName(corePath);
         var core = new AssemblyIdentity(name.Name!, name.Version!, name.CultureName ?? "", Convert.ToHexString(name.GetPublicKeyToken() ?? []));
         var library = new AssemblyBuilder(new("ValueReceiverLibrary", new Version(1, 0, 0, 0)), core);
-        var number = library.AddValueType("Example", "Number");
+        var container = nested ? library.AddType("Example", "Container") : null;
+        var number = nested ? container!.AddNestedValueType("Number") : library.AddValueType("Example", "Number");
         var field = number.AddField("Value", PrimitiveType.Int32, FieldVisibility.Public);
         var numberConstructor = number.AddConstructor([PrimitiveType.Int32]);
         numberConstructor.LoadArgument(0); numberConstructor.LoadArgument(1); numberConstructor.StoreField(field); numberConstructor.Return();
@@ -37,7 +38,7 @@ internal static class ValueReceiverChecks
         var get = number.AddInstanceMethod("TryGet", new MethodSignature(PrimitiveType.Boolean, [SignatureType.ByReference(PrimitiveType.Int32)], outParameters: [0]));
         get.LoadArgument(0); get.LoadArgument(0); get.LoadField(field); get.LoadConstant(2); get.Emit(OpCode.Add); get.StoreField(field);
         get.LoadArgument(1); get.LoadArgument(0); get.LoadField(field); get.StoreObject(PrimitiveType.Int32); get.Emit(OpCode.Ldc_Bool, true); get.Return();
-        var box = library.AddGenericValueType("Example", "Box", ["T"]);
+        var box = nested ? container!.AddNestedGenericValueType("Box", ["T"]) : library.AddGenericValueType("Example", "Box", ["T"]);
         var t = SignatureType.TypeParameter(0); var payload = box.AddField("Value", t, FieldVisibility.Public);
         var boxConstructor = box.AddConstructor(new MethodSignature(PrimitiveType.Void, [t]));
         boxConstructor.LoadArgument(0); boxConstructor.LoadArgument(1); boxConstructor.StoreField(payload); boxConstructor.Return();
@@ -82,6 +83,7 @@ internal static class ValueReceiverChecks
             }
             """;
         if (constructors) source = source.Replace("Operations.Create()", "Number(40)").Replace("Operations.MakeBox()", "Box<int>(0)");
+        if (nested) source = source.Replace("import Example.*", "import Example.*\nimport Example.Container.*");
         var compilation = Compilation.Create("ValueReceiverApp", [SyntaxTree.ParseText(source)],
             [MetadataReference.CreateFromFile(corePath), reference], CompilationOptions.NeoCLR);
         using var image = new MemoryStream();
@@ -105,7 +107,7 @@ internal static class ValueReceiverChecks
             verified = true, result = 42,
             coreSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(corePath))),
             runtimeSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(runtime))),
-            constructors,
+            constructors, nested,
             scope = "Raven imported value-receiver mutation and generic value-owner out calls; no union lowering or native System mapping"
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
     }

@@ -510,3 +510,8 @@ Ordinary .NET emission remains the default. Nested owner/parameter identities,
 byref constructor parameters, chaining and type initializers remain unsupported.
 See the [bridge checkpoint](../neoclr-cli-bridge.md#imported-constructor-checkpoint-2026-10-02)
 for executable validation and the unchanged collections sample's remaining gap.
+
+The native nested-import capability now admits explicit nested public reference/value
+identities and generic children under nongeneric owners. Union case matching respects
+the physical CLI owner. Captured generic outer parameters remain unsupported. See the
+[nested import checkpoint](../neoclr-cli-bridge.md#nested-imports-2026-10-02).

@@ -19,10 +19,10 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(MethodParameter: parameter); return true; }
         if (type is ITypeParameterSymbol { DeclaringTypeParameterOwner: not null } ownerParameter)
         { value = new(OwnerParameter: ownerParameter); return true; }
-        if (capabilities?.AllowsExternalValueSignatures == true && type is INamedTypeSymbol externalValue && IsExternalValue(externalValue) &&
+        if (capabilities?.AllowsExternalValueSignatures == true && type is INamedTypeSymbol externalValue && IsExternalValue(externalValue, capabilities?.AllowsNestedExternalTypes == true) &&
             externalValue.TypeArguments.All(t => TryType(t, false, out _, capabilities)))
         { value = new(Nominal: externalValue); return true; }
-        if (capabilities?.AllowsExternalReferenceSignatures == true && type is INamedTypeSymbol external && IsExternalReference(external) &&
+        if (capabilities?.AllowsExternalReferenceSignatures == true && type is INamedTypeSymbol external && IsExternalReference(external, capabilities?.AllowsNestedExternalTypes == true) &&
             external.TypeArguments.All(t => TryType(t, false, out _, capabilities)))
         { value = new(Nominal: external); return true; }
         if (type is INamedTypeSymbol { TypeKind: TypeKind.Interface } contract && SourceInterfacePlan.HasSupportedIdentity(contract))
@@ -33,19 +33,19 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(Array: array); return true; }
         return false;
     }
-    internal static bool IsExternalValue(INamedTypeSymbol type) =>
+    internal static bool IsExternalValue(INamedTypeSymbol type, bool allowNested = false) =>
         type.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty && type.TypeKind == TypeKind.Struct &&
-        type.IsValueType && type.ContainingType is null && type.DeclaredAccessibility == Accessibility.Public;
+        type.IsValueType && (type.ContainingType is null || allowNested) && type.DeclaredAccessibility == Accessibility.Public;
 
-    internal static bool IsExternalReference(INamedTypeSymbol type) =>
+    internal static bool IsExternalReference(INamedTypeSymbol type, bool allowNested = false) =>
         type.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty && type.TypeKind is TypeKind.Class or TypeKind.Interface &&
-        type.IsReferenceType && !type.IsStatic && type.ContainingType is null && type.DeclaredAccessibility == Accessibility.Public;
+        type.IsReferenceType && !type.IsStatic && (type.ContainingType is null || allowNested) && type.DeclaredAccessibility == Accessibility.Public;
 
     internal static bool TryCreate(IMethodSymbol method, out CallableSignature signature, EmissionCapabilities? capabilities = null)
     {
         signature = null!;
         if ((method.IsGenericMethod && method.TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty)) || method.IsExtensionMethod || method.IsAsync || !TryType(method.ReturnType, true, out var result, capabilities)) return false;
-        if (method.ContainingType is { Arity: > 0 } owner && ((!SourceTypePlan.TryCreate(owner, out _) && !(capabilities?.AllowsExternalReferenceSignatures == true && IsExternalReference(owner)) && !(capabilities?.AllowsExternalValueSignatures == true && IsExternalValue(owner))) || owner.TypeArguments.Any(t => !TryType(t, false, out _, capabilities)))) return false;
+        if (method.ContainingType is { Arity: > 0 } owner && ((!SourceTypePlan.TryCreate(owner, out _) && !(capabilities?.AllowsExternalReferenceSignatures == true && IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) && !(capabilities?.AllowsExternalValueSignatures == true && IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true))) || owner.TypeArguments.Any(t => !TryType(t, false, out _, capabilities)))) return false;
         if (method.IsGenericMethod && method.TypeArguments.Any(t => !TryType(t, false, out _, capabilities))) return false;
         var parameters = ImmutableArray.CreateBuilder<EmissionType>(method.Parameters.Length);
         foreach (var parameter in method.Parameters)
