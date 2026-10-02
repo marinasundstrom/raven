@@ -11,7 +11,7 @@ namespace NeoClrMetadataProbe;
 // Reports the next native boundary using an explicit implementation seed, never consumer stubs.
 internal static class LibrarySourceChecks
 {
-    internal static void Run(string root, string output, string seed, string nativeSystem, string? consumer = null)
+    internal static void Run(string root, string output, string seed, string nativeSystem, string? consumer = null, string[]? sourcePaths = null)
     {
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
@@ -19,7 +19,7 @@ internal static class LibrarySourceChecks
         var core = new AssemblyIdentity(identity.Name!, identity.Version!, identity.CultureName ?? "",
             Convert.ToHexString(identity.GetPublicKeyToken() ?? []));
         var reference = MetadataReference.CreateFromFile(seed);
-        var paths = new[] { "System/Disposable.rvn", "System/Collections/Iterator.rvn", "System/Collections/Iterable.rvn",
+        var paths = sourcePaths ?? new[] { "System/Disposable.rvn", "System/Collections/Iterator.rvn", "System/Collections/Iterable.rvn",
             "System/Collections/Collection.rvn", "System/Collections/Sequence.rvn", "System/Collections/MutableSequence.rvn",
             "System/Collections/List.rvn", "System/Collections/ArrayList.rvn" };
         var trees = paths.Select(p => SyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "runtime/raven/src", p)), path: p)).ToArray();
@@ -51,7 +51,7 @@ internal static class LibrarySourceChecks
             seedSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(seed))),
             sources = paths.Select(p => new { path = "runtime/raven/src/" + p, sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(root, "runtime/raven/src", p)))) }),
             consumer, phase, bytes, bindingDiagnosticCount, cliBridgeEmission, diagnostics = errors,
-            scope = "unchanged collection source hierarchy and ArrayList implementation; explicit authoring seed; emission inventory only, no runtime execution"
+            scope = "unchanged library source units; explicit authoring seed; execution, when requested, is recorded separately in execution.json"
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine(phase + ": " + string.Join("; ", errors));
     }
@@ -126,11 +126,40 @@ internal static class LibrarySourceChecks
                 }
                 """, Message: "ArrayList index out of range")
         };
+        await ExecuteCases(root, output, seed, nativeSystem, runtime, cases);
+    }
+
+    internal static async Task RunComparers(string root, string output, string seed, string nativeSystem, string runtime)
+    {
+        if (Directory.Exists(output)) throw new IOException("output must be fresh");
+        Directory.CreateDirectory(output);
+        var cases = new[] { (Name: "callback-policies", Source: """
+            func Main() -> int {
+                let ordering = System.Collections.FunctionComparer<int>((left, right) => left - right + 5)
+                let policy: System.Collections.Comparer<int> = ordering
+                if policy.Compare(7, 10) != 2 { return 1 }
+                if ordering.Compare(3, 3) != 5 { return 2 }
+                let equality = System.Collections.FunctionEqualityComparer<int>((left, right) => left % 10 == right % 10, value => value % 10)
+                let equalPolicy: System.Collections.EqualityComparer<int> = equality
+                if !equalPolicy.Equals(12, 22) { return 3 }
+                if equalPolicy.Equals(12, 23) { return 4 }
+                if equalPolicy.GetHashCode(32) != 2 { return 5 }
+                return 42
+            }
+            """, Message: (string?)null) };
+        await ExecuteCases(root, output, seed, nativeSystem, runtime, cases,
+            ["System/Collections/Comparer.rvn", "System/Collections/EqualityComparer.rvn",
+             "System/Collections/FunctionComparer.rvn", "System/Collections/FunctionEqualityComparer.rvn"]);
+    }
+
+    private static async Task ExecuteCases(string root, string output, string seed, string nativeSystem,
+        string runtime, (string Name, string Source, string? Message)[] cases, string[]? sourcePaths = null)
+    {
         var reports = new List<object>();
         foreach (var test in cases)
         {
             var directory = Path.Combine(output, test.Name);
-            Run(root, directory, seed, nativeSystem, test.Source);
+            Run(root, directory, seed, nativeSystem, test.Source, sourcePaths);
             var image = Path.Combine(directory, "LibrarySource.dll");
             if (!File.Exists(image)) throw new Exception("source implementation did not emit: " + directory);
             foreach (var command in new[] { "verify", "run" })
@@ -146,7 +175,7 @@ internal static class LibrarySourceChecks
                 if (!passed) throw new Exception(test.Name + " " + command + ": " + text);
             }
         }
-        Console.WriteLine("PASS unchanged ArrayList source: growth, copy, iteration and failure paths");
+        Console.WriteLine("PASS unchanged library source consumers");
     }
 
 }

@@ -504,3 +504,7 @@ The implementation seed is not the consumer projection and its stubs must not ex
 
 `--namespace-function-runtime <seed.dll> <fresh-output> <runtime> <System.neox>`
 checks explicitly bound System.Fail calls, including a dynamic message.
+
+`--comparer-source-runtime <neo-root> <fresh-output> <implementation-seed.dll> <System.neox> <runtime>`
+compiles unchanged callback comparer sources and executes generic Function fields with
+noncapturing callbacks through concrete and interface receivers.

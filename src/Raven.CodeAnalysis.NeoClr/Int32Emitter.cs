@@ -67,14 +67,14 @@ internal static class Int32Emitter
                         {
                             if (fieldSyntax.AttributeLists.Count != 0 ||
                                 fieldSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)))
-                                throw Unsupported("only public/internal/private mutable primitive or owned root-class instance fields");
+                                throw Unsupported("only public/internal/private mutable instance fields with target-supported storage types");
                             foreach (var variable in fieldSyntax.Declaration.Declarators)
                             {
                                 diagnosticSyntax = variable;
                                 if (model.GetDeclaredSymbol(variable) is not IFieldSymbol { IsStatic: false, IsReadOnly: false, IsConst: false, RefKind: RefKind.None } field ||
                                     field.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal or Accessibility.Private) ||
-                                    !CallableSignature.TryType(field.Type, false, out _))
-                                    throw Unsupported("only public/internal/private mutable primitive or owned root-class instance fields");
+                                    !CallableSignature.TryType(field.Type, false, out _, NeoClrCapabilities.Shared))
+                                    throw Unsupported("only public/internal/private mutable instance fields with target-supported storage types");
                                 storageFields.Add(field);
                             }
                             continue;
@@ -252,7 +252,7 @@ internal static class Int32Emitter
         var fields = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
         foreach (var field in storageFields)
         {
-            CallableSignature.TryType(field.Type, false, out var fieldType);
+            CallableSignature.TryType(field.Type, false, out var fieldType, NeoClrCapabilities.Shared);
             var storageType = NeoClrTypeMapper.Map(fieldType, type => nativeTypes[type], ImportExternalType);
             fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, storageType, field.DeclaredAccessibility switch
             {

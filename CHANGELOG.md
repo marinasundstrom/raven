@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Apply neoCLR type capabilities when admitting and mapping explicit
+  instance fields, enabling structural Function storage in generic comparer classes.
+  Unchanged FunctionComparer/FunctionEqualityComparer sources compile and execute
+  callback calls through concrete and interface receivers (42). Capturing closures
+  remain unsupported; ordinary .NET admission is unchanged.
+
 - **2026-10-02:** Lower array Length through the explicitly configured runtime array
   shape, retaining ordinary System.Array support. Source ArrayList now emits native PE
   and executes growth, copies, iteration, callback searches and Option results, with

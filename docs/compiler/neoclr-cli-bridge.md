@@ -3255,3 +3255,17 @@ pass; the broad collections application retains exact output. Full library sourc
 compilation and native semantic loading remain open; translated System still provides
 dependencies. Bundle hashes and source consumers are recorded in neoCLR's
 docs/experiments/extended-cli-metadata/array-list-source-2026-10-02.
+
+### Source callback comparer fields (2026-10-02)
+
+Explicit instance field declaration and mapping now use NeoClrCapabilities.Shared,
+matching body and signature admission. Stored core Func/Action transport types map
+to existing native structural Function signatures, including owner type parameters.
+No new metadata encoding or shared .NET policy is added. Nominal delegates and capturing
+closures retain their existing restrictions; this check uses noncapturing callbacks.
+
+The unchanged Comparer, EqualityComparer, FunctionComparer and FunctionEqualityComparer
+sources now emit native PE, verify and execute ordering, equality and hash calls through
+concrete/interface receivers (42), using the same explicit implementation seed and
+translated System dependency bundle as ArrayList. Native semantic importing remains
+the replacement for CLI transport signatures.
