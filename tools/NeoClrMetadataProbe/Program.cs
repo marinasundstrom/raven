@@ -65,6 +65,18 @@ if (args.Length == 4 && args[0] == "--vector-library-runtime")
     return;
 }
 
+if (args.Length == 6 && args[0] == "--array-list-source-runtime")
+{
+    await LibrarySourceChecks.RunRuntime(args[1], args[2], args[3], args[4], args[5]);
+    return;
+}
+
+if (args.Length == 5 && args[0] == "--namespace-function-runtime")
+{
+    await NamespaceFunctionChecks.Run(args[1], args[2], args[3], args[4]);
+    return;
+}
+
 if (args.Length == 4 && args[0] == "--reserved-storage-runtime")
 {
     await ReservedStorageChecks.Run(args[1], args[2], args[3]);

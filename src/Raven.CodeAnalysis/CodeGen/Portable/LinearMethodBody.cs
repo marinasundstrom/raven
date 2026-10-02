@@ -546,7 +546,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundArrayAccessExpression access:
                     if (!ArrayReceiverAndIndex(access)) return false;
                     instructions.Add(new(LinearInstructionKind.LoadElement, Syntax(expression), Type: access.ElementType)); return true;
-                case BoundMemberAccessExpression { Member: IPropertySymbol { Name: "Length", ContainingType.SpecialType: SpecialType.System_Array } } length when SupportedArray(length.Receiver.Type):
+                case BoundMemberAccessExpression { Member: IPropertySymbol { Name: "Length", IsStatic: false, Type.SpecialType: SpecialType.System_Int32, GetMethod.Parameters.Length: 0 } lengthProperty } length
+                    when SupportedArray(length.Receiver.Type) && (lengthProperty.ContainingType?.SpecialType == SpecialType.System_Array ||
+                        lengthProperty.ContainingType is { } arrayShape && model.Compilation.IsRuntimeArrayShape(arrayShape)):
                     if (!LowerValue(length.Receiver)) return false;
                     Add(LinearInstructionKind.ArrayLength, Syntax(expression)); return true;
                 case BoundBlockExpression block:

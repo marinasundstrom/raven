@@ -493,3 +493,14 @@ omits bootstrap intrinsics intentionally. The report is not an execution accepta
 explicit bootstrap opt-in, generic reservation, publication and unread-slot faults in
 Raven-emitted native PE. The library-source inventory also opts into the same registered
 seed; consumer/default native emission does not gain the intrinsic implicitly.
+
+### Executable library-source checkpoint
+
+`--array-list-source-runtime <neo-root> <fresh-output> <implementation-seed.dll> <System.neox> <runtime>`
+compiles the unchanged ArrayList source hierarchy with success and failure consumers,
+verifies each emitted native PE and checks execution. validation.json records sources,
+consumer and seed/System hashes; execution.json records the runtime hash and results.
+The implementation seed is not the consumer projection and its stubs must not execute.
+
+`--namespace-function-runtime <seed.dll> <fresh-output> <runtime> <System.neox>`
+checks explicitly bound System.Fail calls, including a dynamic message.

@@ -11,7 +11,7 @@ namespace NeoClrMetadataProbe;
 // Reports the next native boundary using an explicit implementation seed, never consumer stubs.
 internal static class LibrarySourceChecks
 {
-    internal static void Run(string root, string output, string seed, string nativeSystem)
+    internal static void Run(string root, string output, string seed, string nativeSystem, string? consumer = null)
     {
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
@@ -23,8 +23,9 @@ internal static class LibrarySourceChecks
             "System/Collections/Collection.rvn", "System/Collections/Sequence.rvn", "System/Collections/MutableSequence.rvn",
             "System/Collections/List.rvn", "System/Collections/ArrayList.rvn" };
         var trees = paths.Select(p => SyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "runtime/raven/src", p)), path: p)).ToArray();
+        if (consumer is not null) trees = [.. trees, SyntaxTree.ParseText(consumer, path: "Consumer.rvn")];
         var compilation = Compilation.Create("LibrarySource", trees, [reference],
-            CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
+            CompilationOptions.NeoCLR.WithOutputKind(consumer is null ? OutputKind.DynamicallyLinkedLibrary : OutputKind.ConsoleApplication)
                 .WithRuntimeSelfTypeContract(new("NeoCLR.CoreProbe", "System.Runtime.CompilerServices.Self")));
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.ToString()).ToArray();
         var bindingDiagnosticCount = errors.Length;
@@ -49,9 +50,103 @@ internal static class LibrarySourceChecks
             nativeSystemSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(nativeSystem))),
             seedSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(seed))),
             sources = paths.Select(p => new { path = "runtime/raven/src/" + p, sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(root, "runtime/raven/src", p)))) }),
-            phase, bytes, bindingDiagnosticCount, cliBridgeEmission, diagnostics = errors,
+            consumer, phase, bytes, bindingDiagnosticCount, cliBridgeEmission, diagnostics = errors,
             scope = "unchanged collection source hierarchy and ArrayList implementation; explicit authoring seed; emission inventory only, no runtime execution"
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine(phase + ": " + string.Join("; ", errors));
     }
+    internal static async Task RunRuntime(string root, string output, string seed, string nativeSystem, string runtime)
+    {
+        if (Directory.Exists(output)) throw new IOException("output must be fresh");
+        Directory.CreateDirectory(output);
+        var cases = new[] {
+            (Name: "growth-copy-iterator", Source: """
+                import System.Option.*
+
+                func Main() -> int {
+                    let values = System.Collections.ArrayList<int>()
+                    var index = 1
+                    while index <= 6 {
+                        values.Add(index)
+                        index = index + 1
+                    }
+                    if values.Count != 6 { return 1 }
+                    if values.Capacity < 6 { return 2 }
+                    let copy = values.Copy()
+                    values[0] = 9
+                    if copy[0] != 1 { return 3 }
+                    let iterator = copy.GetIterator()
+                    var sum = 0
+                    while iterator.MoveNext() { sum = sum + iterator.Current }
+                    iterator.Dispose()
+                    if sum != 21 { return 4 }
+                    let filtered = copy.FindAll(value => value > 3)
+                    if filtered.Count != 3 { return 5 }
+                    if filtered[0] != 4 { return 6 }
+                    if !copy.Exists(value => value == 4) { return 7 }
+                    if !copy.TrueForAll(value => value > 0) { return 8 }
+                    let first = match copy.Find(value => value == 4) {
+                        Some(let found) => found
+                        None => -1
+                    }
+                    if first != 4 { return 9 }
+                    let absent = match copy.Find(value => value == 99) {
+                        Some(let found) => false
+                        None => true
+                    }
+                    if !absent { return 10 }
+                    let last = match copy.FindLast(value => value > 3) {
+                        Some(let found) => found
+                        None => -1
+                    }
+                    if last != 6 { return 11 }
+                    let firstIndex = match copy.FindIndex(value => value > 3) {
+                        Some(let position) => position
+                        None => -1
+                    }
+                    if firstIndex != 3 { return 12 }
+                    let lastIndex = match copy.FindLastIndex(value => value > 3) {
+                        Some(let position) => position
+                        None => -1
+                    }
+                    if lastIndex != 5 { return 13 }
+                    return 42
+                }
+                """, Message: (string?)null),
+            (Name: "negative-capacity", Source: """
+                func Main() -> int {
+                    let values = System.Collections.ArrayList<int>(-1)
+                    return values.Count
+                }
+                """, Message: "ArrayList capacity must be non-negative"),
+            (Name: "invalid-index", Source: """
+                func Main() -> int {
+                    let values = System.Collections.ArrayList<int>()
+                    return values[0]
+                }
+                """, Message: "ArrayList index out of range")
+        };
+        var reports = new List<object>();
+        foreach (var test in cases)
+        {
+            var directory = Path.Combine(output, test.Name);
+            Run(root, directory, seed, nativeSystem, test.Source);
+            var image = Path.Combine(directory, "LibrarySource.dll");
+            if (!File.Exists(image)) throw new Exception("source implementation did not emit: " + directory);
+            foreach (var command in new[] { "verify", "run" })
+            {
+                var start = new System.Diagnostics.ProcessStartInfo(runtime) { RedirectStandardOutput = true, RedirectStandardError = true };
+                foreach (var arg in new[] { command, image, "--system", nativeSystem }) start.ArgumentList.Add(arg);
+                using var process = System.Diagnostics.Process.Start(start)!;
+                var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
+                await process.WaitForExitAsync(); var text = await stdout + await stderr;
+                var passed = command == "verify" ? process.ExitCode == 0 : test.Message is null ? process.ExitCode == 42 : process.ExitCode != 0 && text.Contains(test.Message, StringComparison.Ordinal);
+                reports.Add(new { test.Name, command, passed, exitCode = process.ExitCode, text });
+                File.WriteAllText(Path.Combine(output, "execution.json"), JsonSerializer.Serialize(new { runtimeSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(runtime))), cases = reports }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
+                if (!passed) throw new Exception(test.Name + " " + command + ": " + text);
+            }
+        }
+        Console.WriteLine("PASS unchanged ArrayList source: growth, copy, iteration and failure paths");
+    }
+
 }

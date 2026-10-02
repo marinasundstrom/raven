@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Lower array Length through the explicitly configured runtime array
+  shape, retaining ordinary System.Array support. Source ArrayList now emits native PE
+  and executes growth, copies, iteration, callback searches and Option results, with
+  expected System.Fail faults via scoped namespace binding. Translated System and an
+  explicit authoring seed remain required; full library compilation is not yet complete.
+
 - **2026-10-02:** Preserve required match-arm results in the shared body planner.
   The value-preserving wrapper now forwards its operand; ordinary .NET pattern emission
   keeps its existing backend. Independent Debug/Release .NET execution returns 42,

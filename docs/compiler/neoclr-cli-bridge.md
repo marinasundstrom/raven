@@ -3230,3 +3230,28 @@ now gets unchanged ArrayList past Reserve and stops at System.Fail's imported na
 container, which still needs a namespace-function dependency mapping. Full ArrayList
 native emission/execution is not yet complete. CLI symbols and translated System remain
 the temporary bootstrap; native symbol importing remains future work.
+
+### Unchanged ArrayList source execution (2026-10-02)
+
+The array-length lowering recognizes System.Array or the exact configured
+RuntimeIterationContract.ArrayShapeTypeName definition. It requires an instance Int32
+Length getter without parameters and an admitted array receiver. No arbitrary name-only
+intrinsic or binder semantic change is introduced.
+
+The host metadata library now binds public static methods on public abstract sealed
+nongeneric namespace containers carrying the exact configured core TopLevelAttribute.
+Native emission uses namespace.method without an owner; CLI references retain their
+container. The scoped marker is a temporary CLI representation, owned by metadata binding;
+native semantic imports will eventually replace it. Raw CLI global imports remain outside
+this bridge. The compiler supplies explicit declaration/native System dependencies.
+
+The --array-list-source-runtime probe compiles unchanged ArrayList and its source
+interfaces with the implementation seed and BootstrapReference. Growth, copy independence,
+iteration, callback predicates/searches and Option results return 42 on native execution.
+Negative capacity and invalid index reach expected System.Fail faults. A separate
+namespace-function consumer verifies dynamic messages and a successful branch.
+Thirteen array/default tests and two independent required-result Debug/Release tests
+pass; the broad collections application retains exact output. Full library source
+compilation and native semantic loading remain open; translated System still provides
+dependencies. Bundle hashes and source consumers are recorded in neoCLR's
+docs/experiments/extended-cli-metadata/array-list-source-2026-10-02.
