@@ -524,3 +524,13 @@ collections with translated queries, and source-built collections plus unchanged
 operators. This is an assessment command; successful process exit means reports were
 written, not that the application emitted. Inspect each validation.json phase/diagnostics.
 The current mixed bootstrap exposes source/seed iterable identity mismatches.
+
+### Direct native semantic input
+
+`--native-symbols <NeoCLR.CoreProbe.dll> <fresh-output>` writes a small native function
+library using the metadata API and reads it directly into Raven through
+NeoClrMetadataReference.ReadAssembly. It checks overload/argument/accessibility binding,
+semantic symbol/type identity, both reference orders, compilation isolation, exact version
+matching and dependency/configuration errors. CLI and native emission rejection must leave
+output empty until the native call adapter exists. validation.json records scope, hashes
+and passed checks. This is semantic import evidence, not native execution evidence.

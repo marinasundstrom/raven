@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis;
 
@@ -55,6 +56,11 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         if (x.Kind != y.Kind)
             return false;
+
+        var importedX = (x as IImportedAssemblySymbol)?.DefinitionIdentity;
+        var importedY = (y as IImportedAssemblySymbol)?.DefinitionIdentity;
+        if (importedX is not null || importedY is not null)
+            return importedX is not null && importedY is not null && importedX.Equals(importedY);
 
         if (x is ITypeSymbol typeX && y is ITypeSymbol typeY)
         {
@@ -401,6 +407,11 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         var hash = new HashCode();
         hash.Add(obj.Kind);
+        if (obj is IImportedAssemblySymbol { DefinitionIdentity: { } identity })
+        {
+            hash.Add(identity);
+            return hash.ToHashCode();
+        }
 
         if (obj is ITypeSymbol typeSymbol)
         {

@@ -451,3 +451,41 @@ in the compiler and preserve its identity into native emission, while retaining 
 The author has deferred evaluating Cecil as a replacement for .NET reflection until
 the neoCLR target is implemented. Current work remains support for both targets'
 assembly loading and emission, not recreating reflection or replacing the .NET backend.
+
+### First native-reference semantic provider (2026-10-02)
+
+NeoClrMetadataReference.ReadAssembly(ReadOnlySpan<byte>) in the independent adapter
+project now accepts the metadata library's bounded native-function PE profile. Definition
+exposes its owned immutable AssemblyDefinition; input is neither converted to CLI nor
+loaded through reflection. The compiler's internal semantic-reference provider boundary
+composes with the existing .NET loader. Only the neoCLR target admits this reference.
+An explicitly registered CLI primitive core remains required by the current target
+setup, so this is not a standalone native-core importer.
+
+Native assembly/module/namespace/method/parameter symbols belong to each compilation.
+Lookup and GetSymbolInfo/GetTypeInfo consume them directly, including overload and
+accessibility checks, without inventing a declaring type for namespace functions.
+Imported parameters have implicit ordinal display names because this reader profile
+does not retain declared parameter names; only positional calls are supported.
+Native no-result signatures map to the selected language Unit type.
+
+References use snapshot identity for input equality; exact artifact identity governs
+dependency matching and native assembly-symbol equality. The import configuration
+requires one explicitly supplied native reference per required full identity. Missing
+or mismatched dependencies, duplicate identities and wrong target selection report
+RAVT003 before loading. No package/filesystem probing or version roll-forward is added.
+Dependency symbols are resolved through the compilation after declaration publication;
+the first consumer tests direct dependencies, not full cyclic-graph qualification.
+
+Compilation.Emit's default CLI emitter rejects these references before output. The
+native emitter currently reports its missing native callable adapter (NEOMETA001),
+also without output. Next connect original native definition identity to metadata call
+imports and execute a cross-assembly consumer. Generic/nominal/structural import and
+native System/core loading remain subsequent work.
+
+The --native-symbols C# probe validates both reference orders, native namespace overloads,
+semantic type and repeated lookup identity, compilation isolation, accessibility, invalid
+arguments, missing/version-mismatched dependencies, distinct assembly versions, duplicate
+inputs and output-free emission rejection. All 67 focused .NET target and symbol-equality tests pass as separate
+regression evidence. Existing public MetadataReference file/image factories still mean
+CLI references; this native entry point is explicit and its experimental API may evolve.

@@ -1,6 +1,7 @@
 using System.IO;
 
 using Raven.CodeAnalysis.CodeGen;
+using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Targets;
 
@@ -8,6 +9,9 @@ internal sealed class DotNetCompilationEmitter(Compilation compilation) : ICompi
 {
     public EmitResult Emit(Stream output, Stream? debugOutput, EmitOptions? options)
     {
+        if (compilation.References.Any(reference => reference is ISemanticMetadataReference))
+            return new EmitResult(false, [TargetDiagnostics.InvalidConfiguration("non-CLI semantic references require a compatible target emission backend")!]);
+
         if (ResolveEmitOptions(options, out var effectiveOptions) is { } diagnostic)
             return new EmitResult(false, [diagnostic]);
 

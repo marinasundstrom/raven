@@ -57,13 +57,14 @@ internal sealed class DotNetCompilationTarget
         CoreAssembly = _metadataSession.CoreAssembly;
         EmitCoreAssembly = HostRuntime.ResolveEmitCoreAssembly() ?? RuntimeCoreAssembly;
         HostRuntime.RegisterRuntimeAssembly(CoreAssembly, RuntimeCoreAssembly.Location);
-        return new DotNetSemanticDataLoader(_metadataSession, ReflectionTypeLoader, HostRuntime);
+        return new CompositeSemanticDataLoader(_compilation, new DotNetSemanticDataLoader(_metadataSession, ReflectionTypeLoader, HostRuntime));
     }
 
     internal Diagnostic? GetConfigurationDiagnostic()
         => _compilation.Options.TargetPlatform is not (TargetPlatform.DotNet or TargetPlatform.NeoCLR)
             ? TargetDiagnostics.UnsupportedPlatform(_compilation.Options.TargetPlatform)
-            : TargetDiagnostics.InvalidConfiguration(RuntimeContract.GetConfigurationError());
+            : TargetDiagnostics.InvalidConfiguration(RuntimeContract.GetConfigurationError() ??
+                _compilation.References.OfType<ISemanticMetadataReference>().Select(r => r.Validate(_compilation)).FirstOrDefault(error => error is not null));
 
     internal Diagnostic? GetResolvedConfigurationDiagnostic()
         => TargetDiagnostics.InvalidConfiguration(RuntimeContract.GetResolvedConfigurationError(_compilation, CoreAssembly.GetName().Name));

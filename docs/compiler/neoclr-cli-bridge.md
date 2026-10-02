@@ -3325,3 +3325,17 @@ without a CLI projection. See [the reader foundation](metadata-import.md#reader-
 This is the next importer input, not a completed Raven native loader. Current contracts,
 .NET loading/emission and the existing CLI bridge are unchanged. Both-target load/emit
 support remains the scope; a later Cecil investigation is deferred.
+
+### Native function symbols (2026-10-02)
+
+A native function library can now populate Raven's semantic model directly through
+NeoClrMetadataReference.ReadAssembly. Namespace functions retain native ownership,
+primitive signatures and exact assembly identity. The current target still uses its
+explicit CLI core for primitive symbols and runtime contracts. This is the only CLI
+bootstrap dependency required by the small semantic probe; the native library itself
+is not projected. Broader native declarations and native call emission remain pending.
+See [the provider contract](metadata-import.md#first-native-reference-semantic-provider-2026-10-02).
+
+Missing/duplicate/mismatched native dependencies and wrong target selection use RAVT003.
+Default CLI emission and unsupported native calls fail before writing output. Both-target
+loading/emission remains the scope, with ordinary .NET behavior unchanged for CLI inputs.

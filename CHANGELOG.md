@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Bind primitive native namespace-function references directly into
+  Raven symbols through an opt-in semantic provider, with an explicit CLI primitive
+  core retained for bootstrap. Preserve exact native assembly identity, overloads and
+  compilation-local ownership; diagnose missing/mismatched dependencies, duplicate
+  identities and wrong targets. Default CLI emission rejects native references without
+  output. Native call emission and wider metadata importing remain next.
+
 - **2026-10-02:** Document the independent metadata library's first direct native
   definition reader and the next Raven loader integration boundary. Current .NET and
   neoCLR CLI import behavior is unchanged. Keep both-target loading/emission as scope;
