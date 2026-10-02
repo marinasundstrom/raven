@@ -7,7 +7,7 @@ using Raven.CodeAnalysis.Metadata;
 namespace Raven.CodeAnalysis.NeoClr;
 
 /// <summary>An owned native metadata input, read directly without a CLI projection.</summary>
-/// <remarks>The profile supports nongeneric top-level classes/interfaces and unconstrained static generic methods/functions, with primitive, nominal and vector signatures and explicitly resolved dependencies. An explicit CLI core still supplies primitive symbols.</remarks>
+/// <remarks>The profile supports unconstrained generic root classes, nongeneric interfaces and static generic methods/functions, with primitive, nominal and vector signatures and explicitly resolved dependencies. An explicit CLI core still supplies primitive symbols.</remarks>
 public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetadataReference
 {
     private NeoClrMetadataReference(AssemblyDefinition definition) => Definition = definition;

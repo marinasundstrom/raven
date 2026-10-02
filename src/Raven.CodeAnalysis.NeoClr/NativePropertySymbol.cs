@@ -17,7 +17,7 @@ internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
         if (!definition.TryGetSignature(out var signature, out var indices, out var isStatic)) throw new InvalidDataException("unsupported native property signature");
         IsStatic = isStatic;
         IsIndexer = indices.Count != 0;
-        type = new(() => ((NativeModuleSymbol)ContainingModule).Map(signature!));
+        type = new(() => owner.Map(signature!));
         GetMethod = definition.GetMethod is { } getter ? methods[getter] : null;
         SetMethod = definition.SetMethod is { } setter ? methods[setter] : null;
         parameters = new(() => !IsIndexer ? [] : GetMethod?.Parameters ?? [.. SetMethod!.Parameters.Take(SetMethod.Parameters.Length - 1)]);

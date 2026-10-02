@@ -630,3 +630,8 @@ method-owned type parameters, vector identity, shared construction, inference, e
 calls, forwarding, overload arity and invalid arguments. The consumer executes aliases,
 array mutation and Int64 generic calls, returning 42. Generic owners, constraints and
 instance generic imports remain unsupported; the CLI core bootstrap is unchanged.
+
+The generic native consumer also imports unconstrained Box<TItem>, checks owner-scoped
+parameter identity and shared constructor/property substitution, then executes Box<int>
+and Box<Item> construction, mutation, getters and vector aliases. Constructed nominal
+signature imports, constraints and direct imported constructed-field emission are pending.

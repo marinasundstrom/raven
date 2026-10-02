@@ -800,3 +800,22 @@ C# checks validate canonical parameter ownership, vector identity, compilation i
 both reference orders and invalid argument diagnostics. All seven consumers pass.
 Generic owners, constraints and instance generic imports remain outside this profile;
 the explicit CLI primitive core and translated System bootstrap remain required.
+
+### Native generic root class import (2026-10-02 development)
+
+Direct native references now include unconstrained generic root classes whose member
+signatures use positional owner parameters and vectors. NativeNamedTypeSymbol preserves
+simple and metadata names, arity and declaring-type parameter ownership. Fields,
+properties and methods resolve through the owner's scope; method parameters remain
+independent. Construct uses the shared ConstructedNamedTypeSymbol and ordinary member
+substitution. No Reflection/Reflection.Emit dependency or new codegen route was added.
+
+The native generic library/consumer case now exercises Box<int> construction, Set and
+Current, Box<Item> reference aliases and generic-owner vector arguments/results. C#
+checks assert names, owner identity and constructor/property substitution. All seven
+native consumers compile and execute (42); 105 metadata groups and the standalone
+CLR/native generic-owner consumers pass. No Runtime Contract or encoding change.
+
+Constraints, constructed nominal signatures in imported declarations, generic interface
+inheritance and direct field emission on constructed imported owners remain unsupported.
+The CLI primitive core and translated System bootstrap are still required.

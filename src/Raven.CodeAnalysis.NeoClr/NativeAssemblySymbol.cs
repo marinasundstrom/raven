@@ -135,7 +135,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         this.compilation = compilation; Definition = definition;
         if (!definition.TryGetSignature(out var decoded)) throw new InvalidDataException("native signature unavailable");
         signature = decoded!;
-        TypeParameters = [.. signature.GenericParameterNames.Select((name, i) => (ITypeParameterSymbol)new NativeMethodTypeParameterSymbol(name, i, this))];
+        TypeParameters = [.. signature.GenericParameterNames.Select((name, i) => (ITypeParameterSymbol)new NativeTypeParameterSymbol(name, i, this))];
         TypeArguments = [.. TypeParameters];
         returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : Map(signature.ReturnType));
         parameters = new(() => [.. signature.ParameterTypes.Select((p, i) => (IParameterSymbol)new NativeParameterSymbol(i, Map(p), this))]);
@@ -151,7 +151,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     private ITypeSymbol Map(SignatureType type) => type.MethodParameterIndex is { } ordinal ? TypeParameters[ordinal]
         : type.ArrayElement is { MethodParameterIndex: not null } element
             ? genericSignatureTypes.GetOrAdd(type, _ => compilation.CreateArrayTypeSymbol(Map(element)))
-        : ((NativeModuleSymbol)ContainingModule).Map(type);
+        : ContainingType is NativeNamedTypeSymbol owner ? owner.Map(type) : ((NativeModuleSymbol)ContainingModule).Map(type);
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic => Definition.IsStatic;

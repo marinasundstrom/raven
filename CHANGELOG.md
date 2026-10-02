@@ -8,7 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   functions into compilation-owned symbols, completing the earlier guarded metadata
   reader expansion. Shared inference and constructed-method substitution now drive
   generic native calls, forwarding and vector signatures; all seven runtime consumers
-  execute (42). Generic owners, constraints and instance generic imports remain pending.
+  execute (42). Unconstrained native generic root classes now also import owner-scoped
+  parameters and reuse shared constructed-type/member substitution. Box<int>/Box<Item>
+  construction, methods, properties and aliases execute; constrained and constructed
+  signature imports remain pending.
 
 - **2026-10-02:** Diagnose incompatible expression-bodied function and method returns
   before emission by binding the complete method body during diagnostic traversal.

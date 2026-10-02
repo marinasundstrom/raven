@@ -4,15 +4,15 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-internal sealed class NativeMethodTypeParameterSymbol : Symbol, ITypeParameterSymbol
+internal sealed class NativeTypeParameterSymbol : Symbol, ITypeParameterSymbol
 {
-    internal NativeMethodTypeParameterSymbol(string name, int ordinal, NativeMethodSymbol owner)
-        : base(SymbolKind.TypeParameter, name, owner, owner.ContainingType, owner.ContainingNamespace, [], []) => Ordinal = ordinal;
+    internal NativeTypeParameterSymbol(string name, int ordinal, ISymbol owner)
+        : base(SymbolKind.TypeParameter, name, owner, owner as INamedTypeSymbol ?? owner.ContainingType, owner.ContainingNamespace, [], []) => Ordinal = ordinal;
 
     public int Ordinal { get; }
-    public TypeParameterOwnerKind OwnerKind => TypeParameterOwnerKind.Method;
-    public INamedTypeSymbol? DeclaringTypeParameterOwner => null;
-    public IMethodSymbol? DeclaringMethodParameterOwner => (IMethodSymbol)ContainingSymbol!;
+    public TypeParameterOwnerKind OwnerKind => ContainingSymbol is IMethodSymbol ? TypeParameterOwnerKind.Method : TypeParameterOwnerKind.Type;
+    public INamedTypeSymbol? DeclaringTypeParameterOwner => ContainingSymbol as INamedTypeSymbol;
+    public IMethodSymbol? DeclaringMethodParameterOwner => ContainingSymbol as IMethodSymbol;
     public TypeParameterConstraintKind ConstraintKind => TypeParameterConstraintKind.None;
     public ImmutableArray<ITypeSymbol> ConstraintTypes => [];
     public VarianceKind Variance => VarianceKind.None;

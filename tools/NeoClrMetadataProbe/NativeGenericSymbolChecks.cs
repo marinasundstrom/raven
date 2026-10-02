@@ -14,6 +14,13 @@ internal static class NativeGenericSymbolChecks
             namespace Generics
             public func Identity<T>(value: T) -> T => value
             public func ArrayIdentity<T>(values: T[]) -> T[] => values
+            public class Box<TItem> {
+                private var stored: TItem
+                public init(value: TItem) { stored = value }
+                public val Current: TItem => stored
+                public func Set(value: TItem) { stored = value }
+                public func Echo(values: TItem[]) -> TItem[] => values
+            }
             public static class Algorithms {
                 public static func First<T>(values: T[]) -> T => values[0]
                 public static func Set<T>(values: T[], value: T) { values[0] = value }
@@ -41,7 +48,13 @@ internal static class NativeGenericSymbolChecks
                 if item.Number != 7 { return 1 }
                 if Forward<Item>(item).Number != 7 { return 2 }
                 let values: int[] = [19, 23]
-                let alias = ArrayIdentity<int>(values)
+                let box = Box<int>(19)
+                box.Set(42)
+                if box.Current != 42 { return 6 }
+                let nominal = Box<Item>(item)
+                nominal.Current.Number = 9
+                if item.Number != 9 { return 7 }
+                let alias = box.Echo(ArrayIdentity<int>(values))
                 Algorithms.Set<int>(alias, 42)
                 if Algorithms.Choose<int>(7) != 7 { return 3 }
                 if Algorithms.Choose<int, bool>(8, true) != 8 { return 4 }
@@ -59,6 +72,13 @@ internal static class NativeGenericSymbolChecks
             Check(errors.Length == 0, string.Join("; ", errors.Select(d => d.ToString())));
             var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
             var ns = assembly.GlobalNamespace.LookupNamespace("Generics")!;
+            var boxDefinition = assembly.GetTypeByMetadataName("Generics.Box`1")!;
+            Check(boxDefinition.Name == "Box" && boxDefinition.Arity == 1 && boxDefinition.TypeParameters[0].Name == "TItem" &&
+                ReferenceEquals(boxDefinition.TypeParameters[0].DeclaringTypeParameterOwner, boxDefinition), "native generic owner identity");
+            var boxType = (INamedTypeSymbol)boxDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+            Check(boxType.InstanceConstructors.Single().Parameters[0].Type.SpecialType == SpecialType.System_Int32 &&
+                boxType.GetMembers("Current").OfType<IPropertySymbol>().Single().Type.SpecialType == SpecialType.System_Int32,
+                "shared constructed owner substitution");
             var identity = ns.GetMembers("Identity").OfType<IMethodSymbol>().Single();
             Check(identity.IsGenericMethod && identity.Arity == 1 && identity.TypeParameters[0].Name == "T" &&
                 identity.TypeParameters[0].Ordinal == 0 && ReferenceEquals(identity.TypeParameters[0].DeclaringMethodParameterOwner, identity) &&
