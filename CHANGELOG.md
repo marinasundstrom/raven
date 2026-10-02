@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Let the native adapter admit static extension calls after the shared
+  lowerer has made their receiver an explicit argument. The opt-in capability leaves
+  ordinary .NET admission unchanged; collections progresses to union-pattern emission.
+
 - **2026-10-02:** Emit noncapturing synchronous lambdas as internal assembly functions
   for the native metadata adapter, using the shared body planner and structural
   binding. Two lambda callbacks compile directly and execute to 42. Capturing,

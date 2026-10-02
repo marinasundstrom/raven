@@ -8,6 +8,39 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class ExternalSignatureCapabilityTests
 {
+    [Fact]
+    public void LoweredExtensionCallsRequireExplicitCapability()
+    {
+        var app = Compilation.Create("ExtensionAdmission", [SyntaxTree.ParseText("""
+            import System.Runtime.CompilerServices.*
+            public static class NumberExtensions {
+                [ExtensionAttribute]
+                public static func Double(value: int) -> int => value + value
+            }
+            public static class Consumer {
+                public static func Run() -> int {
+                    let value = 21
+                    return value.Double()
+                }
+            }
+            """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "Run");
+        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        EmissionCapabilities Capabilities(bool extensions) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsArrays: true, allowsInterfaceSignatures: true, allowsExternalReferenceSignatures: true, allowsGenericClassOwners: true,
+            allowsLoweredExtensionCalls: extensions);
+        Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
+        Assert.False(plan!.TryLowerBody(app, _ => false, out _, out _, Capabilities(false)));
+        Assert.True(plan.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
+        using var image = new MemoryStream();
+        var emitted = app.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        var context = new AssemblyLoadContext("extension-admission", true);
+        try { image.Position = 0; Assert.Equal(42, context.LoadFromStream(image).GetType("Consumer")!.GetMethod("Run")!.Invoke(null, null)); }
+        finally { context.Unload(); }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

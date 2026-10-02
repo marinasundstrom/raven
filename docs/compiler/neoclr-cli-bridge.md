@@ -3008,3 +3008,9 @@ symbols or closure policy. The shared planner retains each synthesized body and
 uses the existing lowered expressions. Two direct native lambda callbacks return
 42; captured environments, async/iterator bodies and generic lambda targets are
 still rejected. No Runtime Contract or semantic-model change is introduced.
+
+The native adapter also opts into `AllowsLoweredExtensionCalls`. This only admits
+static callable signatures; the existing shared lowerer remains responsible for
+receiver evaluation and argument placement. Unlowered extension receivers are still
+rejected by the portable plan. Runtime Contracts, binding and .NET defaults are
+unchanged. The collections consumer now reaches union-pattern emission.
