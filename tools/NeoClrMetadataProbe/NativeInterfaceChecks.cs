@@ -53,7 +53,7 @@ internal static class NativeInterfaceChecks
             CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
         using var storageImage = new MemoryStream();
         var storageResult = NeoClrCompilationEmitter.EmitMetadataAssembly(storageCompilation, storageImage,
-            new(new("NativeInterfaceStorageLibrary", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core)]));
+            new(new("NativeInterfaceStorageLibrary", new Version(1, 0, 0, 0)), core, [new(reference, core)]));
         Check(storageResult.Success, string.Join("; ", storageResult.Diagnostics));
         File.WriteAllBytes(Path.Combine(output, "NativeInterfaceStorageLibrary.dll"), storageImage.ToArray());
         File.WriteAllText(Path.Combine(output, "NativeInterfaceStorageLibrary.rvn"), storageSource);
@@ -102,11 +102,11 @@ internal static class NativeInterfaceChecks
                 "unrelated native interface return must diagnose before emission");
             using var rejectedImage = new MemoryStream();
             var rejected = NeoClrCompilationEmitter.EmitMetadataAssembly(invalidReturn, rejectedImage,
-                new(new("InvalidInterfaceReturn", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core), new(storageReference, storageReference.Definition, core)]));
+                new(new("InvalidInterfaceReturn", new Version(1, 0, 0, 0)), core, [new(reference, core), new(storageReference, core)]));
             Check(!rejected.Success && rejectedImage.Length == 0, "invalid interface return must not emit an assembly");
             using var image = new MemoryStream();
             var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,
-                new(new("NativeInterfaceConsumer", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core), new(storageReference, storageReference.Definition, core)]));
+                new(new("NativeInterfaceConsumer", new Version(1, 0, 0, 0)), core, [new(reference, core), new(storageReference, core)]));
             Check(result.Success, string.Join("; ", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "NativeInterfaceConsumer.dll"), image.ToArray());
         }

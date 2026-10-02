@@ -63,12 +63,13 @@ public static class NeoClrCompilationEmitter
             if (!compilation.References.Any(r => ReferenceEquals(r, dependency.Reference)))
                 return Fail(Configuration, "dependency reference is not registered with this compilation");
             if (dependency.Reference is NeoClrMetadataReference native &&
-                (!ReferenceEquals(native.Definition, dependency.Definition) || dependency.NativeImplementation is not null))
+                (dependency.LegacyDefinition is { } snapshot && !ReferenceEquals(native.Definition, snapshot) ||
+                 native.Artifact.Sha256 != dependency.NativeArtifactSha256 || dependency.NativeImplementation is not null))
                 return Fail(Configuration, "native dependency must use its semantic snapshot without a translated implementation");
             if (!options.CoreLibrary.Equals(dependency.CoreLibrary)) return Fail(Configuration, "dependency core contract mismatch");
-            if (compilation.GetAssemblyOrModuleSymbol(dependency.Reference) is not IAssemblySymbol symbol || symbol.Name != dependency.Definition.Name)
+            if (compilation.GetAssemblyOrModuleSymbol(dependency.Reference) is not IAssemblySymbol symbol || symbol.Name != dependency.Identity.Name)
                 return Fail(Configuration, "dependency snapshot does not match the reference assembly name");
-            if (bindings.Any(b => b.Dependency.Definition.Identity.Equals(dependency.Definition.Identity) || SymbolEqualityComparer.Default.Equals(b.Symbol, symbol)))
+            if (bindings.Any(b => b.Dependency.Identity.Equals(dependency.Identity) || SymbolEqualityComparer.Default.Equals(b.Symbol, symbol)))
                 return Fail(Configuration, "duplicate dependency identity or assembly symbol");
             bindings.Add((symbol, dependency));
         }

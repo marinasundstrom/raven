@@ -4,11 +4,29 @@ using NeoCLR.Metadata.Experimental.Model;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-/// <summary>A host-supplied binding between a compiler reference and its read-only metadata contract.</summary>
-/// <remarks>The host must keep the reference and snapshot consistent and provide matching native dependency artifacts.
-/// A NeoClrMetadataReference requires its exact Definition snapshot and no translated nativeImplementation binding.</remarks>
+/// <summary>A host-supplied native artifact binding or legacy CLI metadata/implementation binding.</summary>
+/// <remarks>Native bindings use captured identity/digest values and no separately supplied definition.
+/// Legacy bindings retain snapshot validation. Hosts must supply matching runtime artifacts.</remarks>
 public sealed class NeoClrMetadataDependency
 {
+    private readonly AssemblyDefinition? definition;
+    /// <summary>Binds a native compiler reference using its captured identity and image digest, without a reader definition.</summary>
+    /// <param name="reference">Exact native reference registered with the compilation.</param>
+    /// <param name="coreLibrary">Explicit matching primitive core contract.</param>
+    /// <remarks>No snapshot is read or copied. Definition is unavailable for this binding; translated implementations require the legacy constructor.</remarks>
+    public NeoClrMetadataDependency(NeoClrMetadataReference reference, AssemblyIdentity coreLibrary)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentNullException.ThrowIfNull(coreLibrary);
+        Reference = reference;
+        CoreLibrary = coreLibrary;
+        var artifact = reference.Artifact;
+        Identity = new(artifact.Name, artifact.Version, artifact.Culture, artifact.PublicKeyToken, artifact.Flags);
+        NativeArtifactSha256 = artifact.Sha256;
+    }
+    internal AssemblyDefinition? LegacyDefinition => definition;
+    internal AssemblyIdentity Identity { get; }
+
     /// <summary>Creates a binding; no files or runtime assemblies are loaded.</summary>
     /// <param name="reference">The exact reference registered with the compilation.</param>
     /// <param name="definition">Snapshot describing that reference.</param>
@@ -20,7 +38,8 @@ public sealed class NeoClrMetadataDependency
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(coreLibrary);
         Reference = reference;
-        Definition = definition;
+        this.definition = definition;
+        Identity = definition.Identity;
         CoreLibrary = coreLibrary;
         NativeImplementation = nativeImplementation;
         NativeArtifactSha256 = definition.IsNative
@@ -32,8 +51,9 @@ public sealed class NeoClrMetadataDependency
     public NativeLibraryDefinition? NativeImplementation { get; }
     /// <summary>Gets the compiler reference whose assembly symbol identifies calls.</summary>
     public MetadataReference Reference { get; }
-    /// <summary>Gets the read-only dependency snapshot.</summary>
-    public AssemblyDefinition Definition { get; }
+    /// <summary>Gets the legacy read-only dependency snapshot.</summary>
+    /// <exception cref="InvalidOperationException">This is a native value-only binding created without a definition.</exception>
+    public AssemblyDefinition Definition => definition ?? throw new InvalidOperationException("native binding has no reader definition");
     /// <summary>Gets the host-asserted core contract.</summary>
     public AssemblyIdentity CoreLibrary { get; }
 }

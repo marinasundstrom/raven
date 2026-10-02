@@ -53,7 +53,7 @@ internal static class NativeGenericSymbolChecks
             CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
         using var bridgeImage = new MemoryStream();
         var bridgeResult = NeoClrCompilationEmitter.EmitMetadataAssembly(bridge, bridgeImage,
-            new(new("NativeGenericBridge", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core)]));
+            new(new("NativeGenericBridge", new Version(1, 0, 0, 0)), core, [new(reference, core)]));
         Check(bridgeResult.Success, string.Join("; ", bridgeResult.Diagnostics));
         var bridgeReference = NeoClrMetadataReference.ReadAssembly(bridgeImage.ToArray());
         File.WriteAllBytes(Path.Combine(output, "NativeGenericBridge.dll"), bridgeImage.ToArray());
@@ -131,7 +131,7 @@ internal static class NativeGenericSymbolChecks
                 constructed.Parameters[0].Type.SpecialType == SpecialType.System_Int32, "shared constructed method substitution");
             using var image = new MemoryStream();
             var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,
-                new(new("NativeGenericConsumer", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core), new(bridgeReference, bridgeReference.Definition, core)]));
+                new(new("NativeGenericConsumer", new Version(1, 0, 0, 0)), core, [new(reference, core), new(bridgeReference, core)]));
             Check(result.Success, string.Join("; ", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "NativeGenericConsumer.dll"), image.ToArray());
             var invalid = Compilation.Create("InvalidGenericCall", [SyntaxTree.ParseText("import Generics.*\nfunc Wrong() -> int => Identity<int>(true)")], references,

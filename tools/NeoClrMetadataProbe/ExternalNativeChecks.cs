@@ -125,7 +125,7 @@ internal static class ExternalNativeChecks
                 holderType.GetMembers("Answer").OfType<IPropertySymbol>().Single().IsStatic, "readonly/private/static property contracts");
             using var image = new MemoryStream();
             var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,
-                new(new("ExternalNativeConsumer", new Version(1, 0, 0, 0)), core, [new(payload, payload.Definition, core), new(holder, holder.Definition, core)]));
+                new(new("ExternalNativeConsumer", new Version(1, 0, 0, 0)), core, [new(payload, core), new(holder, core)]));
             Check(result.Success, string.Join("; ", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "ExternalNativeConsumer.dll"), image.ToArray());
         }
@@ -155,7 +155,7 @@ internal static class ExternalNativeChecks
                 CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
             using var image = new MemoryStream();
             var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,
-                new(new(name, new Version(1, 0, 0, 0)), core, dependencies.Select(d => new NeoClrMetadataDependency(d, d.Definition, core)).ToArray()));
+                new(new(name, new Version(1, 0, 0, 0)), core, dependencies.Select(d => new NeoClrMetadataDependency(d, core)).ToArray()));
             Check(emitted.Success, name + ": " + string.Join("; ", emitted.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, name + ".dll"), image.ToArray());
             File.WriteAllText(Path.Combine(output, name + ".rvn"), text);

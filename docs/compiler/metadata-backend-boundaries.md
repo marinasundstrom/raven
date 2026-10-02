@@ -314,3 +314,30 @@ and runtime are unchanged, so previous 108-group metadata evidence is reused. Ho
 dependency setup and lazy semantic materialization still retain readers; full disposal
 before emission is not established. Next separate host-native input binding from the
 translated CLI binding contract. Runtime Contract and bootstrap requirements are unchanged.
+
+
+### Native host bindings without reader definitions (2026-10-02)
+
+`NeoClrMetadataDependency(NeoClrMetadataReference reference, AssemblyIdentity coreLibrary)`
+binds the exact native reference registered in the compilation. Both arguments are
+required (`ArgumentNullException` otherwise). It captures the reference's immutable
+artifact identity and SHA-256; constructing the binding does not read, write, hash or
+copy an assembly image. The emitter authors output references from semantic symbols.
+
+Use `new NeoClrMetadataDependency(nativeReference, coreIdentity)` for native inputs.
+`Reference` exposes the registered compiler reference, `CoreLibrary` the explicit host
+contract, and `NativeImplementation` is null. `Definition` throws
+`InvalidOperationException` for this overload: it is a legacy snapshot accessor.
+The existing `(MetadataReference, AssemblyDefinition, AssemblyIdentity,
+NativeLibraryDefinition?)` overload is retained for CLI/translated inputs and existing
+native snapshot callers; native snapshots must still be the semantic reference's exact
+snapshot and cannot specify a translated implementation.
+
+Emission rejects duplicate identities/symbols, unregistered reference instances, core
+mismatches and mismatched legacy native snapshots with NEOMETA002, without output.
+All seven native probe consumers now use the new overload and execute (42); C# negative
+checks cover these configuration errors and the unavailable Definition accessor.
+Runtime Contract selection, explicit CLI primitive core and translated System bootstrap
+remain unchanged. The compiler reference still owns lazy semantic reader state; this
+change removes the separately supplied emission snapshot, not that reader lifetime.
+No shared .NET compiler contract, instruction encoding or metadata-library API changes.

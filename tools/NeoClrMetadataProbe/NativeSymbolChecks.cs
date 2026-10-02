@@ -92,7 +92,7 @@ internal static class NativeSymbolChecks
             using var cliOutput = new MemoryStream();
             if (compilation.Emit(cliOutput).Success || cliOutput.Length != 0) throw new Exception("CLI emitter admitted native reference");
             using var nativeOutput = new MemoryStream();
-            var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, nativeOutput, new(new("NativeConsumer", new Version(1, 0, 0, 0)), core, [new(native, native.Definition, core)]));
+            var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, nativeOutput, new(new("NativeConsumer", new Version(1, 0, 0, 0)), core, [new(native, core)]));
             if (!emitted.Success || nativeOutput.Length == 0) throw new Exception("native call emission failed: " + string.Join("; ", emitted.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "NativeConsumer.dll"), nativeOutput.ToArray());
             using var unboundOutput = new MemoryStream();
@@ -103,6 +103,22 @@ internal static class NativeSymbolChecks
             var mismatched = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, invalidOutput,
                 new(new("NativeConsumer", new Version(1, 0, 0, 0)), core, [new(native, NeoClrMetadataReference.ReadAssembly(image).Definition, core)]));
             if (mismatched.Success || invalidOutput.Length != 0 || !mismatched.Diagnostics.Any(d => d.Id == "NEOMETA002")) throw new Exception("native snapshot mismatch admitted");
+            var nativeBinding = new NeoClrMetadataDependency(native, core);
+            try { _ = nativeBinding.Definition; throw new Exception("native binding exposed a reader definition"); }
+            catch (InvalidOperationException) { }
+            foreach (var bindings in new[]
+            {
+                new[] { nativeBinding, nativeBinding },
+                new[] { new NeoClrMetadataDependency(native, new AssemblyIdentity("WrongCore", new Version(1, 0, 0, 0))) },
+                new[] { new NeoClrMetadataDependency(NeoClrMetadataReference.ReadAssembly(image), core) }
+            })
+            {
+                using var rejected = new MemoryStream();
+                var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, rejected,
+                    new(new("NativeConsumer", new Version(1, 0, 0, 0)), core, bindings));
+                if (result.Success || rejected.Length != 0 || !result.Diagnostics.Any(d => d.Id == "NEOMETA002"))
+                    throw new Exception("invalid native value binding accepted");
+            }
             var other = Create(source, refs); _ = other.GetDiagnostics();
             if (ReferenceEquals(compilation.GetAssemblyOrModuleSymbol(native), other.GetAssemblyOrModuleSymbol(native))) throw new Exception("symbols leaked across compilations");
         }
@@ -141,7 +157,7 @@ internal static class NativeSymbolChecks
             [cliCore, producedReference], CompilationOptions.NeoCLR);
         using var consumerOutput = new MemoryStream();
         var consumed = NeoClrCompilationEmitter.EmitMetadataAssembly(sourceConsumer, consumerOutput,
-            new(new("RavenNativeConsumer", new Version(1, 0, 0, 0)), core, [new(producedReference, producedReference.Definition, core)]));
+            new(new("RavenNativeConsumer", new Version(1, 0, 0, 0)), core, [new(producedReference, core)]));
         if (!consumed.Success) throw new Exception("native source consumer failed: " + string.Join("; ", consumed.Diagnostics));
         File.WriteAllBytes(Path.Combine(output, "RavenNativeConsumer.dll"), consumerOutput.ToArray());
         NativeTypeChecks.Run(cliCore, core, output);

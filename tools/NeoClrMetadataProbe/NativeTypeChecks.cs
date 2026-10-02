@@ -104,7 +104,7 @@ internal static class NativeTypeChecks
             Check(!add!.IsStatic && ReferenceEquals(add.ContainingType, calculator), "instance method ownership");
             using var image = new MemoryStream();
             var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,
-                new(new("NativeTypeConsumer", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core)]));
+                new(new("NativeTypeConsumer", new Version(1, 0, 0, 0)), core, [new(reference, core)]));
             Check(result.Success, string.Join("; ", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "NativeTypeConsumer.dll"), image.ToArray());
         }
@@ -136,7 +136,7 @@ internal static class NativeTypeChecks
         Check(!fieldConsumer.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "public field semantic binding failed");
         using var fieldOutput = new MemoryStream();
         var emittedField = NeoClrCompilationEmitter.EmitMetadataAssembly(fieldConsumer, fieldOutput,
-            new(new("NativeFieldConsumer", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core)]));
+            new(new("NativeFieldConsumer", new Version(1, 0, 0, 0)), core, [new(reference, core)]));
         Check(emittedField.Success && fieldOutput.Length > 0, "external field emission failed: " + string.Join("; ", emittedField.Diagnostics));
         File.WriteAllBytes(Path.Combine(output, "NativeFieldConsumer.dll"), fieldOutput.ToArray());
         Console.WriteLine("PASS native class identity, constructors, instance/static calls, access and emission");

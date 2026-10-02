@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Add native host dependency bindings from the registered compiler
+  reference and core identity, without a separately supplied reader definition or
+  assembly image roundtrip. Retain the legacy snapshot constructor; Definition throws
+  for the new binding. Seven native consumers execute (42); invalid configuration
+  rejects without output. Lazy semantic readers and CLI bootstrap remain supported.
+
 - **2026-10-02:** Remove native type/field reader fallbacks, the emitter's native resolver,
   and the unused native field definition property. Unsupported contracts diagnose;
   supported native references use symbols and explicit identity/layout facts. All seven

@@ -657,3 +657,12 @@ Primitive/method-generic/vector namespace-function calls now exercise symbol-onl
 reference authoring: the emitter reconstructs signatures and exact assembly identity
 without native method definitions. Host artifact digest checks remain. Nominal
 signatures and type-owned members still exercise the older reader-backed path.
+
+
+Native host binding checkpoint (2026-10-02): native dependencies now use
+`new NeoClrMetadataDependency(nativeReference, coreIdentity)` without a separately
+supplied reader definition. Seven native consumers execute (42); duplicate binding,
+wrong core, unregistered reference and legacy snapshot mismatch reject without output.
+The compiler reference retains lazy semantic reader state; explicit primitive core,
+Runtime Contract and translated System bootstrap requirements are unchanged.
+See the [API and compatibility contract](../../docs/compiler/metadata-backend-boundaries.md#native-host-bindings-without-reader-definitions-2026-10-02).

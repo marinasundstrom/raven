@@ -965,3 +965,12 @@ Native type and field reference fallbacks are now removed alongside callable fal
 Unsupported semantic contracts diagnose; the emitter no longer creates a native resolver.
 See [boundary, validation and remaining host/lifetime work](metadata-backend-boundaries.md#native-typefield-fallbacks-removed-2026-10-02).
 Translated CLI and bootstrap requirements remain unchanged.
+
+
+Native host binding checkpoint (2026-10-02): native dependencies now use
+`new NeoClrMetadataDependency(nativeReference, coreIdentity)` without a separately
+supplied reader definition. Seven native consumers execute (42); duplicate binding,
+wrong core, unregistered reference and legacy snapshot mismatch reject without output.
+The compiler reference retains lazy semantic reader state; explicit primitive core,
+Runtime Contract and translated System bootstrap requirements are unchanged.
+See the [API and compatibility contract](metadata-backend-boundaries.md#native-host-bindings-without-reader-definitions-2026-10-02).
