@@ -18,8 +18,13 @@ internal static class NativeTypeChecks
                 private static func Secret() -> int => 0
             }
             public class Calculator {
-                public init() {}
-                public func Add(left: int, right: int) -> int => left + right
+                private var stored: int
+                public field Visible: int
+                public init(value: int) {
+                    self.stored = value
+                    self.Visible = value
+                }
+                public func Add(value: int) -> int => stored + value
                 private func Secret() -> int => 0
             }
             public class Restricted {
@@ -42,9 +47,9 @@ internal static class NativeTypeChecks
             import Example.*
             func Main() -> int {
                 if !NativeMath.Echo(true) { return 1 }
-                let calculator = Calculator()
+                let calculator = Calculator(20)
                 let alias = calculator
-                return alias.Add(NativeMath.Echo(20), 22)
+                return alias.Add(NativeMath.Echo(22))
             }
             """;
         foreach (var references in new MetadataReference[][] { [coreReference, reference], [reference, coreReference] })
@@ -64,6 +69,10 @@ internal static class NativeTypeChecks
             Check(methods.Select(m => m!.ReturnType.SpecialType).ToHashSet().SetEquals([SpecialType.System_Boolean, SpecialType.System_Int32]), "primitive overload selection");
             var calculator = assembly.GetTypeByMetadataName("Example.Calculator");
             Check(calculator is { IsStatic: false, IsAbstract: false, IsClosed: false } && calculator.InstanceConstructors.Length == 1, "instance class/constructor classification");
+            var stored = calculator!.GetMembers("stored").OfType<IFieldSymbol>().Single();
+            var visible = calculator.GetMembers("Visible").OfType<IFieldSymbol>().Single();
+            Check(stored.DeclaredAccessibility == Accessibility.Private && stored.Type.SpecialType == SpecialType.System_Int32 &&
+                visible.DeclaredAccessibility == Accessibility.Public && !visible.IsStatic && !visible.IsReadOnly && ReferenceEquals(visible.ContainingType, calculator), "native field identity/type/access");
             var add = calls.Select(call => model.GetSymbolInfo(call).Symbol as IMethodSymbol).Single(m => m?.Name == "Add");
             Check(!add!.IsStatic && ReferenceEquals(add.ContainingType, calculator), "instance method ownership");
             using var image = new MemoryStream();
@@ -72,7 +81,7 @@ internal static class NativeTypeChecks
             Check(result.Success, string.Join("; ", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "NativeTypeConsumer.dll"), image.ToArray());
         }
-        foreach (var expression in new[] { "NativeMath.Hidden()", "NativeMath.Secret()", "HiddenType.Value()", "Calculator().Secret()", "Restricted()", "NativeMath.Echo(\"wrong\")" })
+        foreach (var expression in new[] { "NativeMath.Hidden()", "NativeMath.Secret()", "HiddenType.Value()", "Calculator(20).Secret()", "Calculator(20).stored", "Restricted()", "NativeMath.Echo(\"wrong\")" })
         {
             var rejected = Compilation.Create("Rejected", [SyntaxTree.ParseText("import Example.*\nfunc Main() -> int { return " + expression + " }")],
                 [coreReference, reference], CompilationOptions.NeoCLR);
@@ -81,6 +90,14 @@ internal static class NativeTypeChecks
                 ? diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error)
                 : diagnostics.Any(d => d.Id == "RAV0500"), "access/signature violation accepted: " + expression + ": " + string.Join("; ", diagnostics));
         }
+        var fieldConsumer = Compilation.Create("NativeFieldConsumer",
+            [SyntaxTree.ParseText("import Example.*\nfunc Main() -> int { return Calculator(42).Visible }")],
+            [coreReference, reference], CompilationOptions.NeoCLR);
+        Check(!fieldConsumer.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "public field semantic binding failed");
+        using var fieldOutput = new MemoryStream();
+        var unsupportedField = NeoClrCompilationEmitter.EmitMetadataAssembly(fieldConsumer, fieldOutput,
+            new(new("NativeFieldConsumer", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core)]));
+        Check(!unsupportedField.Success && fieldOutput.Length == 0 && unsupportedField.Diagnostics.Any(d => d.Id == "NEOMETA001"), "external field emission must reject without output");
         Console.WriteLine("PASS native class identity, constructors, instance/static calls, access and emission");
     }
     private static void Check(bool value, string message) { if (!value) throw new Exception(message); }

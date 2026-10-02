@@ -9,7 +9,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   named-type accessibility on this path, matching qualified/type-annotation behavior.
   A standalone .NET metadata regression reproduces the previous missing diagnostic.
 
-- **2026-10-02:** Bind primitive native namespace functions and fieldless nongeneric
+- **2026-10-02:** Bind primitive native namespace functions and nongeneric
   static/instance classes directly into
   Raven symbols through an opt-in semantic provider, with an explicit CLI primitive
   core retained for bootstrap. Preserve exact assembly identity, overloads and
@@ -19,7 +19,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   native libraries and consumers, read declarations without a CLI projection and
   execute cross-assembly function and Boolean/Int32 static overload calls in neoCLR
   (42), including constructor calls, local reference storage and primitive instance calls.
-  Preserve nominal type/member identity and accessibility. Wider native importing
+  Preserve nominal type/member identity and accessibility, including primitive fields
+  and readonly flags. Stateful constructor/method consumers run successfully; direct
+  external field emission remains unsupported and fails without output. Wider native importing
   remains pending.
 
 - **2026-10-02:** Document the independent metadata library's first direct native

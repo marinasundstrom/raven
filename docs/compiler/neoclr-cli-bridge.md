@@ -3399,3 +3399,22 @@ are still outside this direct-reader profile. An additional `alias != calculator
 portable lowerer currently admits primitive comparisons, not these reference comparisons.
 That exploratory case is recorded as a separate lowering gap, not executable evidence.
 No new shared binder change or runtime-format change is part of this slice.
+
+### Native primitive field symbols and stateful consumers (2026-10-02)
+
+NativeNamedTypeSymbol now owns field symbols from the shared FieldDefinition graph,
+including primitive type, access, readonly flag and exact containing type/assembly.
+The reader retains native field origin tokens and answers TryGetPrimitiveType directly;
+it does not translate the dependency into CLI metadata. Core primitive resolution stays
+lazy so symbol publication does not recursively load the bootstrap.
+
+NativeTypeLibrary's Calculator stores its constructor argument in a private Int32 field.
+The consumer constructs Calculator(20), stores an alias and invokes Add(22), which reads
+the stored value and returns 42 in neoCLR. Public field binding and RAV0500 for private
+field access are tested too. Direct public field reads across assemblies bind, but
+emission reports NEOMETA001 with empty output: external field operands still need an
+adapter. This limit is tested and is not worked around with a CLI projection.
+
+The explicit CLI primitive core and exact native dependency binding are unchanged.
+Nominal/vector/structural field signatures, properties and wider type categories remain
+outside this direct-reader slice. Shared .NET loading/emission paths are unchanged.

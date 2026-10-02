@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-// The reader currently admits only fieldless nongeneric top-level classes.
+// The reader currently admits nongeneric top-level classes with primitive fields.
 // Keep unsupported categories at the reader boundary rather than manufacturing members.
 internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
 {
@@ -16,7 +16,8 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     {
         this.compilation = compilation;
         Definition = definition;
-        members = [.. definition.Methods.Select(method => (ISymbol)new NativeMethodSymbol(compilation, method, this))];
+        members = [.. definition.Methods.Select(method => (ISymbol)new NativeMethodSymbol(compilation, method, this)),
+            .. definition.Fields.Select(field => (ISymbol)new NativeFieldSymbol(compilation, field, this))];
     }
     internal TypeDefinition Definition { get; }
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;

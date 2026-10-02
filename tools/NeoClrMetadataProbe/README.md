@@ -559,3 +559,8 @@ NativeTypeConsumer additionally constructs a fieldless Calculator, stores an ali
 calls its primitive Add method. NativeTypeChecks verifies constructor classification
 and RAV0500 for private constructors/instance methods. Reference equality/inequality
 expressions remain a recorded portable-lowering gap, not part of the passing consumer.
+
+The class consumer now initializes private primitive storage in its constructor and
+reads it through an imported instance method (42). Field-symbol ownership/type/access
+and private-field RAV0500 are checked. Direct public field emission is a separate
+negative check: semantic binding succeeds, but NEOMETA001 must leave output empty.
