@@ -14,8 +14,7 @@ internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLa
     {
         InstanceStorageOrdinal = instanceStorageOrdinal;
         IsReadOnly = (definition.Attributes & 0x20) != 0;
-        if (!definition.TryGetSignature(out var signature)) throw new InvalidDataException("unsupported native field signature");
-        type = new(() => owner.Map(signature!));
+        type = new(() => ((NativeModuleSymbol)owner.ContainingModule).MapField(owner, definition.MetadataToken));
     }
     public ITypeSymbol Type => type.Value;
     public override IModuleSymbol ContainingModule => ContainingType!.ContainingModule!;

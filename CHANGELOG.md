@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Add constructed/array/primitive/owner-parameter metadata views and declared
+  field projection. Raven consumes facade field types and closed signatures, preserving
+  canonical array symbols. Method/parameter views and open method scopes remain pending.
+
 - **2026-10-02:** Replace the native importer's private assembly resolver with the
   metadata library's Introspection load context, shared per immutable compilation.
   Preserve symbol ownership, target diagnostics and symbol-only emission. Seven native

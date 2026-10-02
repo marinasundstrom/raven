@@ -3908,3 +3908,19 @@ remains symbol-only. Runtime Contract, explicit CLI primitive core and translate
 System bootstrap are unchanged. Signature substitution and member mapping remain in
 the importer pending constructed/member facade views. This prototype follows the
 runtime System.Introspection shape without committing a future identical port or API.
+
+
+Constructed/field facade checkpoint (2026-10-02): the C# Introspection model now has
+canonical primitive, vector, owner-parameter and constructed-type views plus declared
+FieldInfo views. Definitions remain open; constructed owners substitute field signatures
+simultaneously, preserving caller parameter scope and declaration identity. Recursive
+nominal fields resolve without eagerly expanding members. Foreign/Void/bare-generic
+arguments, wrong arity and unsupported method-parameter scopes reject explicitly.
+
+Raven now consumes facade field types and closed signature projections, caching symbol
+mapping by canonical view identity. This preserves array identity across fields, methods
+and constructors; the existing integration assertion caught and verified that boundary.
+Open method-signature adaptation remains in Raven until method/parameter views exist.
+No emitter dependency on the context, Runtime Contract change, bootstrap change or
+runtime/metadata encoding change is introduced. The runtime model informs names and
+semantics but its guest implementation is unchanged. No performance claim is made.

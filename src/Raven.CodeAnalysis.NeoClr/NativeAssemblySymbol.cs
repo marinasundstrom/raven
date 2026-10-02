@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Collections.Concurrent;
 
 using NeoCLR.Metadata.Experimental.Model;
+using NeoCLR.Metadata.Experimental.Introspection;
 
 using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
@@ -35,7 +36,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     private readonly NativeAssemblySymbol assembly;
     private readonly Dictionary<uint, NativeNamedTypeSymbol> typeSymbols;
     private readonly NeoCLR.Metadata.Experimental.Introspection.MetadataLoadContext metadata;
-    private readonly ConcurrentDictionary<SignatureType, ITypeSymbol> signatureTypes = new();
+    private readonly ConcurrentDictionary<NeoCLR.Metadata.Experimental.Introspection.TypeInfo, ITypeSymbol> viewSymbols = new();
     internal NativeModuleSymbol(Compilation compilation, NativeAssemblySymbol assembly)
         : base(SymbolKind.Module, assembly.Reference.Definition.MainModule.Name, assembly, null, null, [], [])
     {
@@ -67,7 +68,10 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     internal ImmutableArray<NativeNamedTypeSymbol> Types { get; }
     internal NativeNamedTypeSymbol Resolve(TypeReference reference)
     {
-        var view = metadata.Resolve(reference);
+        return Resolve(metadata.Resolve(reference));
+    }
+    private NativeNamedTypeSymbol Resolve(NominalTypeInfo view)
+    {
         if (view.Module.Assembly.Identity.Equals(assembly.Reference.Definition.Identity))
             return typeSymbols[view.MetadataToken];
         var input = compilation.References.OfType<NeoClrMetadataReference>().Single(r => r.Definition.Identity.Equals(view.Module.Assembly.Identity));
@@ -82,19 +86,30 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         type.ArrayElement is { } element ? compilation.CreateArrayTypeSymbol(map(element))
         : type.ReferencedGenericInstance is { } constructed ? Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(map).ToArray())
         : throw new InvalidDataException("expected composite native signature");
-    internal ITypeSymbol Map(SignatureType signature) => signatureTypes.GetOrAdd(signature, type =>
-        type.ReferencedGenericInstance is { } constructed ? Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(Map).ToArray())
-        : type.ArrayElement is { } element ? compilation.CreateArrayTypeSymbol(Map(element))
-        : type.ReferencedType is { } reference ? Resolve(reference)
-        : compilation.GetSpecialType(type.Primitive switch
+    internal ITypeSymbol Map(SignatureType signature) => MapView(metadata.ResolveSignature(signature));
+    internal ITypeSymbol MapField(NativeNamedTypeSymbol owner, uint token)
+    {
+        var view = metadata.Resolve(owner.Definition.ToReference());
+        return MapView(view.GetFields().Single(field => field.MetadataToken == token).FieldType);
+    }
+    private ITypeSymbol MapView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => viewSymbols.GetOrAdd(view, MapViewCore);
+    private ITypeSymbol MapViewCore(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => view switch
+    {
+        NominalTypeInfo nominal => Resolve(nominal),
+        ConstructedTypeInfo constructed => Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(MapView).ToArray()),
+        ArrayTypeInfo array => compilation.CreateArrayTypeSymbol(MapView(array.ElementType)),
+        GenericParameterTypeInfo parameter => Resolve(parameter.DeclaringType).TypeParameters[parameter.Position],
+        PrimitiveTypeInfo primitive => compilation.GetSpecialType(primitive.Kind switch
         {
             PrimitiveType.Int32 => SpecialType.System_Int32,
             PrimitiveType.Int64 => SpecialType.System_Int64,
             PrimitiveType.Boolean => SpecialType.System_Boolean,
             PrimitiveType.String => SpecialType.System_String,
             PrimitiveType.Void => SpecialType.System_Unit,
-            _ => throw new InvalidDataException("unsupported native signature")
-        }));
+            _ => throw new InvalidDataException("unsupported native primitive")
+        }),
+        _ => throw new InvalidDataException("unsupported metadata type view")
+    };
     public override IAssemblySymbol ContainingAssembly => assembly;
     public override IModuleSymbol ContainingModule => this;
     public INamespaceSymbol GlobalNamespace { get; }
