@@ -620,6 +620,6 @@ loads both dependencies. The consumer replaces values through an array alias and
 dispatches through the stored interface (42), checking canonical signature symbols and
 rejecting unrelated class conversions. Dependency hashes include both libraries.
 
-The invalid interface-return case must fail emission with empty output. Early
-expression-bodied return diagnostics remain a tracked follow-up; typed local
+The invalid interface-return case must report RAV1503 before emission and fail emission
+with empty output. This reuses the shared return diagnostic fix; typed local
 assignments already reject the unrelated class.

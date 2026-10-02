@@ -8,6 +8,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   before emission by binding the complete method body during diagnostic traversal.
   Independently reproduced with .NET references; prior semantic queries and repeated
   diagnostic requests preserve the error. No target policy or metadata encoding changes.
+  The native interface probe now requires the same early RAV1503 diagnostic as well as
+  rejection with empty emitted output.
 
 - **2026-10-02:** Normalize source type names before separating namespace and local
   metadata name in shared codegen. Qualified metadata names no longer cause negative

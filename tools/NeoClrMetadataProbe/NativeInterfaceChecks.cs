@@ -96,6 +96,8 @@ internal static class NativeInterfaceChecks
             Check(invalid.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "unrelated native class must not convert to interface");
             var invalidReturn = Compilation.Create("InvalidInterfaceReturn", [SyntaxTree.ParseText("import Contracts.*\nfunc Wrong(value: Storage) -> Value => value")],
                 references, CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+            Check(invalidReturn.GetDiagnostics().Count(d => d.Id == "RAV1503") == 1,
+                "unrelated native interface return must diagnose before emission");
             using var rejectedImage = new MemoryStream();
             var rejected = NeoClrCompilationEmitter.EmitMetadataAssembly(invalidReturn, rejectedImage,
                 new(new("InvalidInterfaceReturn", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core), new(storageReference, storageReference.Definition, core)]));
