@@ -28,8 +28,9 @@ internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
 // source-located boundary. Language rewrites remain owned by the existing Lowerer.
-internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, ImmutableArray<EmissionType> localTypes, int labelCount)
+internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instructions, ImmutableArray<EmissionType> localTypes, int labelCount, ImmutableArray<(BoundFunctionExpression Expression, SyntaxNode Syntax)> functions)
 {
+    internal ImmutableArray<(BoundFunctionExpression Expression, SyntaxNode Syntax)> Functions { get; } = functions;
     internal void Emit(ILinearMethodBuilder builder)
     {
         foreach (var type in localTypes)
@@ -45,11 +46,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         => CallableSignature.TryType(method.ReturnType, false, out _);
 
     internal static bool TryLower(IMethodSymbol source, SemanticModel model, SyntaxNode bodySyntax,
-        Func<BoundInvocationExpression, bool> permitsConsoleWrite, out LinearMethodBody? lowered, out LinearBodyFailure? failure, EmissionCapabilities? capabilities = null)
+        Func<BoundInvocationExpression, bool> permitsConsoleWrite, out LinearMethodBody? lowered, out LinearBodyFailure? failure, EmissionCapabilities? capabilities = null, BoundFunctionExpression? functionBody = null)
     {
+        var isStaticBody = source.IsStatic || functionBody is not null;
         bool ReturnsValue(IMethodSymbol method) => TryType(method.ReturnType, false, out _);
         bool TryType(ITypeSymbol type, bool result, out EmissionType value) => CallableSignature.TryType(type, result, out value, capabilities);
         bool TrySignature(IMethodSymbol method, out CallableSignature signature) => CallableSignature.TryCreate(method, out signature, capabilities);
+        var functions = ImmutableArray.CreateBuilder<(BoundFunctionExpression, SyntaxNode)>();
         var instructions = ImmutableArray.CreateBuilder<LinearInstruction>();
         var localTypes = ImmutableArray.CreateBuilder<EmissionType>();
         var nextLabel = 0;
@@ -59,7 +62,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         // Arrow clauses expose their bound statement block in the original view, as
         // consumed by the general generator. Reuse compiler lowering for conversions
         // and Unit expression statements instead of synthesizing backend returns.
-        var body = source.MethodKind == MethodKind.Constructor && bodySyntax is ClassDeclarationSyntax
+        var body = functionBody is not null ? FunctionBlock(functionBody) : source.MethodKind == MethodKind.Constructor && bodySyntax is ClassDeclarationSyntax
             ? new BoundBlockStatement([]) : model.Compilation.TryGetSynthesizedMethodBody(source, BoundTreeView.Lowered, out var synthesized) && synthesized is not null
             ? synthesized : bodySyntax is ArrowExpressionClauseSyntax
             ? model.GetBoundNode(bodySyntax, BoundTreeView.Original) is BoundBlockStatement arrowBody
@@ -82,9 +85,23 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
             }
         }
-        lowered = success ? new(instructions.ToImmutable(), localTypes.ToImmutable(), nextLabel) : null;
+        lowered = success ? new(instructions.ToImmutable(), localTypes.ToImmutable(), nextLabel, functions.ToImmutable()) : null;
         failure = rejected;
         return success;
+
+        static BoundBlockStatement FunctionBlock(BoundFunctionExpression function)
+        {
+            if (function.Body is BoundBlockExpression block)
+            {
+                var statements = block.Statements.ToImmutableArray();
+                if (statements.Length > 0 && statements[^1] is BoundExpressionStatement last &&
+                    function.ReturnType.SpecialType != SpecialType.System_Unit)
+                    statements = statements.SetItem(statements.Length - 1, new BoundReturnStatement(last.Expression));
+                return new BoundBlockStatement(statements, block.LocalsToDispose);
+            }
+            return new BoundBlockStatement(function.ReturnType.SpecialType == SpecialType.System_Unit
+                ? [new BoundExpressionStatement(function.Body)] : [new BoundReturnStatement(function.Body)]);
+        }
 
         bool Reject(string detail, SyntaxNode syntax)
         {
@@ -120,6 +137,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool LowerBody(BoundBlockStatement body)
         {
             if (!TrySignature(source, out var signature)) return Reject("only supported value signatures and unconstrained generics (Unit only as result)", bodySyntax);
+            if (functionBody is not null) signature = signature with { IsInstance = false };
             if (capabilities is not null && !capabilities.Allows(signature))
                 return Reject("target does not support callable signature types", bodySyntax);
             if (!body.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(body));
@@ -366,7 +384,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 };
             }
             if (receiver is not null) return LowerValue(receiver);
-            if (source.IsStatic || !SymbolEqualityComparer.Default.Equals(source.ContainingType, owner)) return Reject("implicit receiver unavailable", syntax);
+            if (isStaticBody || !SymbolEqualityComparer.Default.Equals(source.ContainingType, owner)) return Reject("implicit receiver unavailable", syntax);
             Add(LinearInstructionKind.Receiver, syntax); return true;
         }
 
@@ -427,7 +445,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             {
                 int ordinal = source.Parameters.IndexOf(reference, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
                 if (ordinal < 0) return Reject("captured reference parameter", Syntax(expression));
-                Add(LinearInstructionKind.Argument, Syntax(expression), ordinal + (source.IsStatic ? 0 : 1)); return true;
+                Add(LinearInstructionKind.Argument, Syntax(expression), ordinal + (isStaticBody ? 0 : 1)); return true;
             }
             return Reject("only owned locals or ref/out parameter addresses: " + expression.GetType().Name + " (" + symbol?.ToDisplayString() + ")", Syntax(expression));
         }
@@ -506,7 +524,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     var nestedParameter = unsupportedCreation.Constructor.Parameters.Select(p => p.Type).OfType<INamedTypeSymbol>().FirstOrDefault(t => t.ContainingType is not null);
                     return Reject("constructor " + unsupportedCreation.Constructor.ContainingType?.ToDisplayString() + "." + unsupportedCreation.Constructor.ToDisplayString() +
                         (nestedParameter is null ? "" : " with nested parameter type " + nestedParameter.ContainingType!.ToDisplayString() + "." + nestedParameter.MetadataName), Syntax(expression));
-                case BoundSelfExpression self when !source.IsStatic && SymbolEqualityComparer.Default.Equals(self.Type, source.ContainingType):
+                case BoundSelfExpression self when !isStaticBody && SymbolEqualityComparer.Default.Equals(self.Type, source.ContainingType):
                     Add(LinearInstructionKind.Receiver, Syntax(expression)); return true;
                 case BoundFieldAccess field when SupportedField(field.Field):
                     if (!Receiver(field.Receiver, field.Field.ContainingType!, Syntax(expression))) return false;
@@ -540,7 +558,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundParameterAccess parameter:
                     var index = source.Parameters.IndexOf(parameter.Parameter, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
                     if (index < 0) return Reject("captured parameter", Syntax(expression));
-                    Add(LinearInstructionKind.Argument, Syntax(expression), index + (source.IsStatic ? 0 : 1));
+                    Add(LinearInstructionKind.Argument, Syntax(expression), index + (isStaticBody ? 0 : 1));
                     if (parameter.Parameter.RefKind is RefKind.Ref or RefKind.Out)
                         instructions.Add(new(LinearInstructionKind.LoadIndirect, Syntax(expression), Type: parameter.Parameter.Type));
                     return true;
@@ -618,6 +636,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     }, Syntax(expression));
                     if (binary.Operator.OperatorKind is OperatorKind.Inequality or OperatorKind.LessThanOrEqual or OperatorKind.GreaterThanOrEqual)
                         Add(LinearInstructionKind.Not, Syntax(expression));
+                    return true;
+                case BoundFunctionExpression function when capabilities?.AllowsFunctionValues == true &&
+                    function.Symbol is SourceLambdaSymbol { IsAsync: false, IsIterator: false, IsExpressionTreeLambda: false, IsGenericMethod: false } lambda &&
+                    !function.CapturedVariables.Any() && lambda.ContainingType?.Arity is not > 0 &&
+                    TryType(function.DelegateType, false, out var lambdaType) && capabilities.Allows(lambdaType):
+                    functions.Add((function, Syntax(expression)));
+                    instructions.Add(new(LinearInstructionKind.FunctionBind, Syntax(expression), Method: lambda, Type: function.DelegateType));
                     return true;
                 case BoundDelegateCreationExpression creation when capabilities?.AllowsFunctionValues == true &&
                     creation.Method is { IsStatic: true, IsGenericMethod: false } target &&

@@ -8,15 +8,17 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class ExternalSignatureCapabilityTests
 {
-    [Fact]
-    public void FunctionValuesRequireExplicitCapabilityAndPreserveDotNetExecution()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FunctionValuesRequireExplicitCapabilityAndPreserveDotNetExecution(bool lambda)
     {
-        var app = Compilation.Create("FunctionAdmission", [SyntaxTree.ParseText("""
+        var app = Compilation.Create("FunctionAdmission", [SyntaxTree.ParseText($$"""
             public static class Consumer {
                 public static func Increment(value: int) -> int => value + 2
                 public static func Apply(callback: (int) -> int, value: int) -> int => callback(value)
                 public static func Run() -> int {
-                    let callback: (int) -> int = Increment
+                    let callback: (int) -> int = {{(lambda ? "(value: int) => value + 2" : "Increment")}}
                     return Apply(callback, 40)
                 }
             }
@@ -28,7 +30,9 @@ public class ExternalSignatureCapabilityTests
         {
             var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
             Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
-            Assert.True(plan!.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
+            Assert.True(plan!.TryLowerBody(app, _ => false, out var body, out var failure, Capabilities(true)), failure?.Detail);
+            foreach (var (function, location) in body!.Functions)
+                Assert.True(LinearMethodBody.TryLower((IMethodSymbol)function.Symbol!, app.GetSemanticModel(location.SyntaxTree), location, _ => false, out _, out var nestedFailure, Capabilities(true), function), nestedFailure?.Detail);
             if (method.Name == "Apply") Assert.False(SourceCallablePlan.TryCreate(method, out _, Capabilities(false)));
         }
         using var image = new MemoryStream();

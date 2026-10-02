@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Emit noncapturing synchronous lambdas as internal assembly functions
+  for the native metadata adapter, using the shared body planner and structural
+  binding. Two lambda callbacks compile directly and execute to 42. Capturing,
+  async, iterator and generic lambda targets remain outside this producer slice.
+
 - **2026-10-02:** Add opt-in shared Function value signatures, locals, static method
   binding and invocation for the native neoCLR adapter. A Raven program emits a PE
   directly and executes its callback to 42. Ordinary .NET keeps delegate emission;

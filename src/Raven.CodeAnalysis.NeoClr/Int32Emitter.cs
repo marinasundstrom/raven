@@ -151,6 +151,20 @@ internal static class Int32Emitter
                 throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
             prepared.Add((plan, body!));
         }
+        var lambdaSymbols = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        for (var index = 0; index < prepared.Count; index++)
+            foreach (var (function, syntax) in prepared[index].Body.Functions)
+            {
+                var symbol = (IMethodSymbol)function.Symbol!;
+                if (!lambdaSymbols.Add(symbol)) continue;
+                if (!CallableSignature.TryCreate(symbol, out var signature, NeoClrCapabilities.Shared)) throw Unsupported("unsupported Function body signature");
+                signature = signature with { IsInstance = false };
+                if (!LinearMethodBody.TryLower(symbol, compilation.GetSemanticModel(syntax.SyntaxTree), syntax, IsConsoleCall,
+                    out var body, out var failure, NeoClrCapabilities.Shared, function))
+                    throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
+                var plan = new SourceCallablePlan(symbol, syntax, syntax, null, "$function$" + lambdaSymbols.Count, signature, IsSynthesizedStatic: true);
+                prepared.Add((plan, body!));
+            }
         // Materialize definitions only after all source declarations and body capabilities pass.
         // Every definition exists before reference resolution or method-body emission.
         var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);

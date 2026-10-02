@@ -23,6 +23,13 @@ internal static class NativeProfileChecks
         var core = new AssemblyIdentity(name.Name!, name.Version!, name.CultureName ?? "", Convert.ToHexString(name.GetPublicKeyToken() ?? []));
         var cases = new (string Name, string Source, int Result, string Output)[]
         {
+            ("NativeProfileLambda", """
+                func Apply(callback: (int) -> int, value: int) -> int => callback(value)
+                func Main() -> int {
+                    let callback: (int) -> int = (value: int) => value + 1
+                    return Apply((value: int) => value + 1, callback(40))
+                }
+                """, 42, ""),
             ("NativeProfileFunction", """
                 func Increment(value: int) -> int => value + 2
                 func Apply(callback: (int) -> int, value: int) -> int => callback(value)

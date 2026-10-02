@@ -5,6 +5,12 @@
   "runtimeSha256": "4B18A856E78DA581713BE4228EC6F4096B2A80F2FC7F941A3C1C5FBB251641BF",
   "cases": [
     {
+      "Name": "NativeProfileLambda",
+      "Result": 42,
+      "Output": "",
+      "verified": true
+    },
+    {
       "Name": "NativeProfileFunction",
       "Result": 42,
       "Output": "",

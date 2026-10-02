@@ -3000,3 +3000,11 @@ library owns encoding, and the runtime owns invocation. Noncapturing lambda synt
 captured receivers, imported/generic binding targets and inhabited-Void callbacks still
 need producer support. The runtime feature integration is on
 `codex/extended-cli-metadata`, not evidence of main-branch availability.
+
+The subsequent noncapturing-lambda slice prepares all lambda bodies before metadata
+materialization and gives them internal assembly-function definitions. Parameter
+slots use logical static ownership without changing the compiler's .NET lambda
+symbols or closure policy. The shared planner retains each synthesized body and
+uses the existing lowered expressions. Two direct native lambda callbacks return
+42; captured environments, async/iterator bodies and generic lambda targets are
+still rejected. No Runtime Contract or semantic-model change is introduced.

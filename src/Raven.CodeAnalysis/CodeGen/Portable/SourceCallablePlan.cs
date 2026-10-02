@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 // has no logical type owner even when the CLI symbol model supplies a carrier type.
 internal sealed record SourceCallablePlan(
     IMethodSymbol Symbol, SyntaxNode Syntax, SyntaxNode? Body,
-    INamedTypeSymbol? TypeOwner, string MetadataName, CallableSignature Signature)
+    INamedTypeSymbol? TypeOwner, string MetadataName, CallableSignature Signature, bool IsSynthesizedStatic = false)
 {
     internal string Namespace { get; } = GetNamespace(Symbol.ContainingNamespace);
     private static string GetNamespace(INamespaceSymbol? scope)
@@ -24,7 +24,7 @@ internal sealed record SourceCallablePlan(
         : Symbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
             ? Symbol.ContainingSymbol is IPropertySymbol { IsIndexer: true } ? EmissionDeclarationKind.IndexerAccessor : EmissionDeclarationKind.PropertyAccessor
         : Symbol.IsStatic ? EmissionDeclarationKind.StaticMethod : EmissionDeclarationKind.InstanceMethod;
-    internal Accessibility Visibility => Symbol.DeclaredAccessibility;
+    internal Accessibility Visibility => IsSynthesizedStatic ? Accessibility.Internal : Symbol.DeclaredAccessibility;
     internal bool IsSupportedBy(EmissionCapabilities capabilities) => capabilities.Allows(DeclarationKind) && capabilities.Allows(Signature) &&
         (IsAssemblyFunction ? capabilities.AllowsFunctionVisibility(Visibility) : capabilities.AllowsMethodVisibility(Visibility));
 
