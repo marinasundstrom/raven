@@ -27,7 +27,7 @@ internal static class NeoClrCliCompatibility
     // imported method's assembly, independently of the configured target core.
     internal static bool IsTerminalRuntimeFault(IMethodSymbol method)
     {
-        if (method.Name != "Fault" || !method.IsStatic || method.IsGenericMethod ||
+        if (method.Name != "Fail" || !method.IsStatic || method.IsGenericMethod ||
             method.ContainingAssembly?.Name != CoreAssemblyName ||
             method.ContainingNamespace?.ToMetadataName() != "System" ||
             method.Parameters.Length != 1 ||

@@ -3008,3 +3008,25 @@ includes runtime/source hashes. Matching producer API: neoCLR `8e7fada6` or late
 receiver runtime: `6a7a0dd2` or later on the metadata feature branch. Validation includes
 13 focused C# generic/default tests and both source orders. No full-library support
 is claimed.
+
+
+### Terminal API naming correction (2026-10-02)
+
+The neoCLR namespace action is `System.Fail(message)`; Fault names the runtime outcome.
+The transitional `NeoClrCliCompatibility` contract now recognizes Fail with the same
+exact NeoCLR.CoreProbe assembly, TopLevel namespace-container marker, static/nongeneric
+shape, String parameter and void/Unit result. It remains non-returning for control flow,
+output assignment and emission. The old Fault method name does not qualify, and ordinary
+.NET methods named Fail do not qualify. Runtime Contract configuration is unchanged.
+
+Migrate source and use a matching reference/compiler/runtime bundle; the public old-name
+alias is not retained. The native host Fault result and UserFault code are unchanged.
+The CLI void signature cannot independently express terminal behavior; this temporary
+identity check remains owned by target compatibility until general target-owned
+non-returning semantics/native metadata are available. Compiler-generated propagation
+failure guards remain a separate native-emission gap; this rename does not admit throws.
+
+Validation: all eight focused `NeoClrFaultControlFlowTests` pass on .NET 11. They cover
+qualified/imported Fail calls, unreachable code, ref/out termination, wrong assembly,
+wrong container/marker and the old Fault spelling without terminal treatment. The neoCLR
+bridge also passes four source-export admission cases, including old-name rejection.

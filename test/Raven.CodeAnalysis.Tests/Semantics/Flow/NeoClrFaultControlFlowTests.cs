@@ -25,12 +25,13 @@ public sealed class NeoClrFaultControlFlowTests : CompilationTestBase
     }
 
     [Theory]
-    [InlineData("NeoCLR.CoreProbe", true, "System.Fault", true, "System.Runtime.CompilerServices")]
-    [InlineData("NeoCLR.CoreProbe", true, "Fault", true, "System.Runtime.CompilerServices")]
-    [InlineData("OrdinaryLibrary", true, "System.Fault", false, "System.Runtime.CompilerServices")]
-    [InlineData("NeoCLR.CoreProbe", false, "System.ArbitraryContainer.Fault", false, "System.Runtime.CompilerServices")]
-    [InlineData("NeoCLR.CoreProbe", true, "System.Fault", false, "Custom.CompilerServices")]
-    public void FaultCall_OnlyRuntimeNamespaceFunctionTerminates(
+    [InlineData("NeoCLR.CoreProbe", true, "System.Fail", true, "System.Runtime.CompilerServices")]
+    [InlineData("NeoCLR.CoreProbe", true, "Fail", true, "System.Runtime.CompilerServices")]
+    [InlineData("NeoCLR.CoreProbe", true, "System.Fault", false, "System.Runtime.CompilerServices")]
+    [InlineData("OrdinaryLibrary", true, "System.Fail", false, "System.Runtime.CompilerServices")]
+    [InlineData("NeoCLR.CoreProbe", false, "System.ArbitraryContainer.Fail", false, "System.Runtime.CompilerServices")]
+    [InlineData("NeoCLR.CoreProbe", true, "System.Fail", false, "Custom.CompilerServices")]
+    public void FailCall_OnlyRuntimeNamespaceFunctionTerminates(
         string assemblyName, bool namespaceMember, string call, bool terminates, string attributeNamespace)
     {
         var directory = Path.Combine(Path.GetTempPath(), "raven-fault-" + Guid.NewGuid().ToString("N"));
@@ -44,6 +45,7 @@ public sealed class NeoClrFaultControlFlowTests : CompilationTestBase
                 namespace System {
                     {{(namespaceMember ? "[" + attributeNamespace + ".TopLevel]" : "")}}
                     public static class ArbitraryContainer {
+                        public static void Fail(string message) { }
                         public static void Fault(string message) { }
                     }
                 }
