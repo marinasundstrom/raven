@@ -3317,3 +3317,11 @@ Existing CLI projections remain controls; new projections are not the implementa
 route. Native declarations must feed compiler-owned symbols through a native loader,
 then preserve identity into codegen. This is planned work; Runtime Contract settings,
 current importer behavior and ordinary .NET defaults are unchanged.
+
+### Native definition read API available (2026-10-02)
+
+The independent library's direct native function reader now supplies shared definitions
+without a CLI projection. See [the reader foundation](metadata-import.md#reader-foundation-available-2026-10-02).
+This is the next importer input, not a completed Raven native loader. Current contracts,
+.NET loading/emission and the existing CLI bridge are unchanged. Both-target load/emit
+support remains the scope; a later Cecil investigation is deferred.

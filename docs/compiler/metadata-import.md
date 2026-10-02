@@ -431,3 +431,23 @@ symbols or authoritative queries observing incomplete members. Diagnose missing,
 conflicting, mismatched and unsupported dependencies distinctly. Exact registered inputs
 are sufficient initially; host Assembly.Load, Type and MemberInfo are not prerequisites.
 Native diamond/cycle and snapshot-isolation tests remain part of the planned integration.
+
+### Reader foundation available (2026-10-02)
+
+The independent metadata library now exposes AssemblyDefinition.ReadNativeAssembly
+for native PE/#Neo containing primitive nongeneric namespace functions. It returns the
+existing definitions with exact assembly references, native namespace ownership and
+entry identity. MethodDefinition.TryGetSignature reads logical signatures without a
+CLI conversion; IAssemblyResolver accepts native snapshots and checks exact scopes.
+The native manifest has no MVID, so snapshot/definition ownership must participate in
+compiler identity rather than relying on Guid.Empty. Bodies are opaque; loaded editing
+and broader nominal/generic signatures are not admitted by this first profile.
+
+96 C# metadata groups validate this foundation, including ordinary CLI compatibility.
+Raven's semantic loader is not yet connected. Next support a native function dependency
+in the compiler and preserve its identity into native emission, while retaining existing
+.NET load/emit behavior. No new Runtime Contract configuration is introduced here.
+
+The author has deferred evaluating Cecil as a replacement for .NET reflection until
+the neoCLR target is implemented. Current work remains support for both targets'
+assembly loading and emission, not recreating reflection or replacing the .NET backend.

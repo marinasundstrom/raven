@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Document the independent metadata library's first direct native
+  definition reader and the next Raven loader integration boundary. Current .NET and
+  neoCLR CLI import behavior is unchanged. Keep both-target loading/emission as scope;
+  evaluating Cecil for .NET reflection replacement is deferred.
+
 - **2026-10-02:** Record the author-directed shift to direct neoCLR semantic import,
   following the independent metadata library's existing definition-first architecture.
   Audit reflection-owned target setup and plan native declaration materialization,
