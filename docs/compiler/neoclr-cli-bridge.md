@@ -3106,3 +3106,29 @@ and iteration. See neoCLR's `docs/experiments/extended-cli-metadata/collections-
 Focused validation also retains the seven native profile controls, 91 C# metadata groups,
 and runtime binary-fixture/access tests. This is a working application checkpoint, not a
 claim that all source constructs or the full runtime library use the native backend.
+
+### Constructed collection interface inheritance (2026-10-02)
+
+The shared declaration plan now admits owned invariant constructed interface bases
+behind `AllowsConstructedInterfaceInheritance`. CLR/native adapters opt in; other
+profiles retain their previous admission. Native mapping preserves original definitions
+and substituted owner arguments, including owned constructed interface calls through
+Callvirt. Ordinary .NET emission remains on its existing path.
+
+The matching metadata library validates definition cycles, owner scopes, transitive
+method substitution and exact public implementations. The unchanged Disposable,
+Iterator<T>, Iterable<T> and Collection<T> files compile with an executable consumer;
+inherited Count dispatch returns 42 on CLR and native, in both source orders. The native
+runs cover host bootstrap and CompilationOptions.NeoCLR with the explicit CoreProbe Self
+contract. No new runtime instruction or format category was necessary: this follows
+CLI's existing InterfaceImpl/TypeSpec and generic callvirt contracts.
+
+The C# probe `--collection-contract-runtime <neo-root> <fresh-output> <runtime>` records
+source/core/runtime hashes and results. It combines source interfaces and consumer in
+one assembly, not a separately bootstrapped System implementation. CLI metadata still
+provides core symbols; native symbol import remains a separate future layer. Producer
+limits include nongeneric implementing classes, no variance/default interface bodies
+or MethodImpl mappings. Sequence<T>'s interface indexer and implementation-only seed
+contracts for ArrayList remain next. Eight shared-interface tests and the unchanged
+collections application's exact-output assertion also pass; see neoCLR's
+`docs/experiments/extended-cli-metadata/collection-contracts-2026-10-02.json`.

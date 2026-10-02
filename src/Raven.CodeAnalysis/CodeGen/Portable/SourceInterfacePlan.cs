@@ -33,7 +33,8 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
             syntax.AttributeLists.Count != 0 || syntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword)))
             return false;
         if (!type.Interfaces.IsEmpty && (!capabilities.Allows(EmissionDeclarationKind.InterfaceInheritance) ||
-            type.Interfaces.Any(b => b.Arity != 0 || b.TypeKind != TypeKind.Interface || b.DeclaringSyntaxReferences.IsEmpty ||
+            type.Interfaces.Any(b => !HasSupportedIdentity(b) || b.Arity != 0 && (!capabilities.AllowsConstructedInterfaceInheritance ||
+                !CallableSignature.TryType(b, false, out var inherited, capabilities) || !capabilities.Allows(inherited)) ||
                 !SymbolEqualityComparer.Default.Equals(b.ContainingAssembly, type.ContainingAssembly)))) return false;
         foreach (var member in syntax.Members)
         {

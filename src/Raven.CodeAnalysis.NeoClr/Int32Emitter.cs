@@ -214,8 +214,9 @@ internal static class Int32Emitter
             var definition = nativeInterfaces[contract.Symbol];
             foreach (var inherited in contract.BaseInterfaces)
             {
-                if (!nativeInterfaces.TryGetValue(inherited, out var parent)) throw Unsupported("inherited interface must be an emitted declaration");
-                definition.AddBaseInterface(parent);
+                if (!nativeInterfaces.TryGetValue((INamedTypeSymbol)inherited.OriginalDefinition, out var parent)) throw Unsupported("inherited interface must be an emitted declaration");
+                if (inherited.Arity == 0) definition.AddBaseInterface(parent);
+                else definition.AddBaseInterface(parent.MakeGenericInstance(inherited.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
             }
             var contractMethods = new Dictionary<IMethodSymbol, MetadataMethod>(SymbolEqualityComparer.Default);
             foreach (var method in contract.Methods)
@@ -315,8 +316,12 @@ internal static class Int32Emitter
                     if (!definedMethods.TryGetValue(instruction.Method!, out var target)) throw Unsupported("Function binding requires an owned static target");
                     output.BindFunction(NeoClrTypeMapper.Map(instruction.Type!, type => nativeTypes[type], ImportExternalType), target);
                 }
-                else if (instruction.Kind == LinearInstructionKind.InterfaceCall && interfaceMethods.TryGetValue(instruction.Method!, out var contract))
-                    output.CallVirtual(contract);
+                else if (instruction.Kind == LinearInstructionKind.InterfaceCall && interfaceMethods.TryGetValue(instruction.Method!.OriginalDefinition ?? instruction.Method, out var contract))
+                {
+                    if (instruction.Method.ContainingType is { Arity: > 0 } owner)
+                        output.CallVirtual(contract.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType))));
+                    else output.CallVirtual(contract);
+                }
                 else references.Resolve(instruction.Method!).EmitCall(output);
             }, field =>
             {

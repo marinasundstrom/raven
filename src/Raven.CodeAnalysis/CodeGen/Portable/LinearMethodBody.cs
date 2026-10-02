@@ -420,7 +420,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             method.TypeArguments.Concat(method.ContainingType?.TypeArguments ?? []).All(t => TryType(t, false, out var type) && capabilities.Allows(type));
         bool SupportedInterfaceCall(IMethodSymbol method) => !method.IsStatic && !method.IsGenericMethod && method.IsAbstract &&
             method.ContainingType is { TypeKind: TypeKind.Interface } owner &&
-            (owner.Arity == 0 && SourceInterfacePlan.HasSupportedIdentity(owner) ||
+            ((owner.Arity == 0 || capabilities?.AllowsConstructedInterfaceInheritance == true && SupportedTypeArguments(method)) && SourceInterfacePlan.HasSupportedIdentity(owner) ||
              capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) &&
             capabilities?.AllowsInterfaceDispatch == true && TrySignature(method, out var signature) && capabilities.Allows(signature);
         LinearInstructionKind InstanceCallKind(IMethodSymbol method) => method.ContainingType?.IsValueType == true

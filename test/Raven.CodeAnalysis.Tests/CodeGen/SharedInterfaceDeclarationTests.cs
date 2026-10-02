@@ -121,4 +121,34 @@ public class SharedInterfaceDeclarationTests
         var type = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         Assert.False(SourceInterfacePlan.TryCreate(type, ReflectionEmitCapabilities.Shared, out _));
     }
+    [Fact]
+    public void ConstructedInheritancePreservesArgumentsAndDispatch()
+    {
+        var tree = SyntaxTree.ParseText("""
+            public interface Root<T> { func Get() -> T }
+            public interface Middle<T> : Root<T> { }
+            public interface Leaf : Middle<int> { }
+            public class Provider : Leaf { func Get() -> int => 42 }
+            public func Read(value: Leaf) -> int => value.Get()
+            """);
+        var compilation = Compilation.Create("ConstructedInterfacePlan", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>())
+        {
+            var type = (INamedTypeSymbol)model.GetDeclaredSymbol(syntax)!;
+            Assert.True(SourceInterfacePlan.TryCreate(type, ReflectionEmitCapabilities.Shared, out _));
+        }
+        var function = (IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single())!;
+        Assert.True(SourceCallablePlan.TryCreate(function, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+        using var image = new MemoryStream(); var emitted = compilation.Emit(image);
+        Assert.True(emitted.Success, string.Join("; ", emitted.Diagnostics));
+        var loaded = Assembly.Load(image.ToArray());
+        var leaf = loaded.GetType("Leaf")!;
+        Assert.Contains(leaf.GetInterfaces(), t => t.GetGenericTypeDefinition().Name == "Root`1" && t.GenericTypeArguments.Single() == typeof(int));
+        var provider = loaded.GetType("Provider")!;
+        Assert.Equal(42, provider.GetMethod("Get")!.Invoke(Activator.CreateInstance(provider), null));
+    }
 }
