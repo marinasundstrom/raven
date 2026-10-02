@@ -3128,7 +3128,7 @@ partial class BlockBinder : Binder
         SourceFieldSymbol? backingField = null;
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
-        if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
+        if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
         {
             if (!TryGetWritableAutoPropertyBackingField(propertySymbol, memberAccess, out backingField))
             {
@@ -3188,7 +3188,7 @@ partial class BlockBinder : Binder
         SourceFieldSymbol? backingField = null;
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
-        if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
+        if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
         {
             if (!TryGetWritableAutoPropertyBackingField(propertySymbol, propertyAccess, out backingField))
             {
@@ -7471,7 +7471,7 @@ partial class BlockBinder : Binder
 
             var receiver = GetReceiver(left);
 
-            if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
+            if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -7671,7 +7671,7 @@ partial class BlockBinder : Binder
                 return new BoundErrorExpression(propertySymbol.Type ?? Compilation.ErrorTypeSymbol, propertySymbol, BoundExpressionReason.UnsupportedOperation);
             }
 
-            if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
+            if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -7799,7 +7799,7 @@ partial class BlockBinder : Binder
             var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
             var receiver = GetReceiver(left);
 
-            if (!useFieldOnlyLowering && !propertySymbol.IsMutable && !HasAccessibleOrdinarySetter(propertySymbol))
+            if (!useFieldOnlyLowering && !HasAccessibleOrdinarySetter(propertySymbol))
             {
                 if (!TryGetWritableAutoPropertyBackingField(propertySymbol, left, out backingField))
                 {
@@ -9530,7 +9530,7 @@ partial class BlockBinder : Binder
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
         if (!useFieldOnlyLowering &&
-            !propertySymbol.IsMutable &&
+            !HasAccessibleOrdinarySetter(propertySymbol) &&
             !TryGetWritableAutoPropertyBackingField(propertySymbol, target, out backingField))
         {
             _diagnostics.ReportPropertyOrIndexerCannotBeAssignedIsReadOnly(propertySymbol.Name, propertySyntax.GetLocation());

@@ -651,3 +651,17 @@ Runtime Contract setting is introduced. The C# probe checks array symbol identit
 reference orders and executes cross-library array aliasing/element replacement in neoCLR
 (42); all five runtime consumers pass. Jagged/multidimensional/generic/value/interface
 array profiles and full native System importing remain pending.
+
+### Imported setter accessibility (2026-10-02)
+
+The shared binder requires an accessible ordinary setter for property assignment,
+compound assignment, pipeline writes and increments. IsMutable alone cannot grant access to a private
+setter on an imported property. Existing constructor auto-property initialization and
+field-only storage rules remain separate. This is a general .NET/compiler correction,
+reproduced with a C# metadata fixture independently of the native provider; it changes
+diagnostics for formerly accepted invalid writes, not metadata encoding or Runtime
+Contract configuration.
+
+Validation: the C# fixture reproduced four missing diagnostics before the fix;
+76 focused property/accessibility tests pass afterward, including pipeline writes.
+This correction is isolated for independent shared-line integration.

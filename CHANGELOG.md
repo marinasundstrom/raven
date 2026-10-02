@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Check property setter accessibility for assignments, compound
+  assignments, pipeline writes and increments even when metadata marks the property mutable.
+  Imported private setters now diagnose before emission; public setters and existing
+  constructor/field-storage paths retain their behavior. Independently reproduced
+  with a C#/.NET fixture, without NeoCLR dependencies.
+
 - **2026-10-02:** Reject static member access through an inaccessible imported type
   when that type is resolved by an unqualified expression name. The binder now checks
   named-type accessibility on this path, matching qualified/type-annotation behavior.
