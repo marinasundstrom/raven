@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Reconstruct nominal namespace-function signatures from symbols,
+  including external root-class constructions and vectors. Share type-admission checks
+  with symbol-only nominal reference authoring. Type-owned members remain reader-backed;
+  no changes to ordinary .NET emission or Runtime Contract configuration. All seven
+  native consumers compile and execute successfully (42).
+
 - **2026-10-02:** Author native public top-level root-class references from symbols and
   exact artifact values, including unconstrained generic identities and constructed
   arguments. Avoid input type-row searches on this path. Other type profiles and members

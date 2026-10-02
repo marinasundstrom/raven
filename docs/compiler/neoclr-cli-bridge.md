@@ -3762,3 +3762,10 @@ Next remove nominal type-reference reconstruction's dependency on input definiti
 Native public root-class identities now also reconstruct from symbols and artifact
 values, including unconstrained generics. Other type profiles and member references
 remain reader-backed. See [scope and validation](metadata-backend-boundaries.md#symbol-only-root-class-references-2026-10-02).
+
+
+Namespace functions with external root-class signatures now reconstruct references
+from symbols too, including open/closed constructions and arrays across dependencies.
+See [the bounded contract](metadata-backend-boundaries.md#nominal-namespace-call-reconstruction-2026-10-02).
+Type-owned members and richer type profiles remain reader-backed; bootstrap and
+Runtime Contract requirements are unchanged.

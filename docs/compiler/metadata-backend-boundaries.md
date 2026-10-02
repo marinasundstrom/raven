@@ -161,3 +161,18 @@ argument copying and negative digest/core/identity/arity contracts; the authored
 class reference works with imported members on CLR and both native containers (42).
 The library IILGenerator remains a separate pending API. Next migrate nominal callable
 references without moving any metadata-library interfaces into shared compiler contracts.
+
+
+### Nominal namespace-call reconstruction (2026-10-02)
+
+The symbol-only namespace-function path now handles external root-class signatures,
+including closed/open generic constructions and vectors. Signature admission reuses
+the root-class identity predicate, so mapping cannot silently fall back to type-row
+lookup for an admitted signature. Type arguments map recursively from symbols and
+each dependency retains its exact artifact check. The metadata writer now recognizes
+authored nominal call references as validated contracts during graph validation.
+
+This covers cross-dependency Box<T> forwarding. Type-owned methods, fields, richer
+type profiles, host setup and symbol materialization remain reader-backed. The
+separate library instruction generator is still pending. Runtime Contract and
+bootstrap configuration and native metadata encoding are unchanged.

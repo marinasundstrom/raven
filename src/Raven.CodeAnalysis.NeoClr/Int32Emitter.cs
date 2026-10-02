@@ -185,10 +185,7 @@ internal static class Int32Emitter
                 var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, original.ContainingAssembly)).Dependency
                     ?? throw Unsupported("unregistered dependency type: " + original.ToDisplayString());
                 if (original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: { } artifact } &&
-                    original.TypeKind == TypeKind.Class && !original.IsStatic && original.ContainingType is null &&
-                    original.DeclaredAccessibility == Accessibility.Public && original.Interfaces.IsEmpty &&
-                    (original.BaseType is null || original.BaseType.SpecialType == SpecialType.System_Object) &&
-                    original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None))
+                    IsSymbolOnlyClassDefinition(original))
                 {
                     if (artifact.Sha256 != binding.NativeArtifactSha256)
                         throw Unsupported("native dependency snapshot differs from semantic reference");
@@ -437,7 +434,7 @@ internal static class Int32Emitter
             var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
                 ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name);
             // This bounded profile uses only compiler symbols and host artifact values.
-            // Nominal signatures stay on the old path until type-reference authoring migrates.
+            // Nominal identities use the same symbol-only root-class authoring path.
             if (symbol.IsStatic && symbol.ContainingType is null &&
                 symbol.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: { } artifact } &&
                 CallableSignature.TryCreate(symbol, out var callable, NeoClrCapabilities.Shared) &&
@@ -483,16 +480,26 @@ internal static class Int32Emitter
             if (matches.Count != 1) throw Unsupported("dependency method contract unavailable or ambiguous: " + symbol.ToDisplayString() + (importFailures.Count == 0 ? "" : " (" + string.Join("; ", importFailures) + ")"));
             return matches[0];
         }
+        static bool IsSymbolOnlyClassDefinition(INamedTypeSymbol original) =>
+            original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
+            original.TypeKind == TypeKind.Class && !original.IsStatic && original.ContainingType is null &&
+            original.DeclaredAccessibility == Accessibility.Public && original.Interfaces.IsEmpty &&
+            (original.BaseType is null || original.BaseType.SpecialType == SpecialType.System_Object) &&
+            original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None);
+
         static bool IsSymbolOnlyType(ITypeSymbol type, bool result) =>
             type is ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } ||
             type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
             type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean or SpecialType.System_String ||
-            result && type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void;
+            result && type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void ||
+            type is INamedTypeSymbol named && IsSymbolOnlyClassDefinition((INamedTypeSymbol)named.OriginalDefinition) &&
+            named.TypeArguments.All(argument => IsSymbolOnlyType(argument, false));
 
-        static SignatureType MapSymbolOnlyType(ITypeSymbol type) => type switch
+        SignatureType MapSymbolOnlyType(ITypeSymbol type) => type switch
         {
             ITypeParameterSymbol parameter => SignatureType.MethodParameter(parameter.Ordinal),
             IArrayTypeSymbol array => SignatureType.ArrayOf(MapSymbolOnlyType(array.ElementType)),
+            INamedTypeSymbol named when IsSymbolOnlyClassDefinition((INamedTypeSymbol)named.OriginalDefinition) => ImportExternalType(named),
             _ => type.SpecialType switch
             {
                 SpecialType.System_Int32 => PrimitiveType.Int32,
