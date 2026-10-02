@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-02:** Reconstruct public nonvirtual native root-class methods and constructors
+  from symbols, including owner-scoped generic signatures. Keep unsupported dispatch/type
+  profiles and fields on the previous path; all seven native consumers execute (42).
+
 - **2026-10-02:** Reconstruct nominal namespace-function signatures from symbols,
   including external root-class constructions and vectors. Share type-admission checks
   with symbol-only nominal reference authoring. Type-owned members remain reader-backed;

@@ -3769,3 +3769,9 @@ from symbols too, including open/closed constructions and arrays across dependen
 See [the bounded contract](metadata-backend-boundaries.md#nominal-namespace-call-reconstruction-2026-10-02).
 Type-owned members and richer type profiles remain reader-backed; bootstrap and
 Runtime Contract requirements are unchanged.
+
+
+Public nonvirtual root-class methods and constructors now author references from
+symbols, including generic-owner substitution. See [scope and validation](metadata-backend-boundaries.md#root-class-member-contracts-2026-10-02).
+Fields and richer dispatch/type profiles remain reader-backed; Runtime Contract and
+bootstrap requirements are unchanged.

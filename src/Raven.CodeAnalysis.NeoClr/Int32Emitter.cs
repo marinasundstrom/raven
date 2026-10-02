@@ -448,6 +448,18 @@ internal static class Int32Emitter
                 return assembly.CreateFunctionReference(identity, binding.CoreLibrary, artifact.Sha256,
                     symbol.ContainingNamespace?.ToMetadataName() ?? "", symbol.MetadataName, contract);
             }
+            if (symbol.ContainingType is { } owner && IsSymbolOnlyClassDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
+                !symbol.IsAbstract && !symbol.IsVirtual && !symbol.IsOverride &&
+                symbol.DeclaredAccessibility == Accessibility.Public && (symbol.IsStatic || symbol.Arity == 0) &&
+                CallableSignature.TryCreate(symbol, out var memberSignature, NeoClrCapabilities.Shared) &&
+                IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind == RefKind.None && IsSymbolOnlyType(p.Type, false)))
+            {
+                _ = ImportExternalType(owner);
+                var declaration = importedTypes[(INamedTypeSymbol)owner.OriginalDefinition];
+                var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType),
+                    symbol.Parameters.Select(p => MapSymbolOnlyType(p.Type)), memberSignature.GenericParameterNames);
+                return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic);
+            }
             var dependencyMetadata = binding.Definition;
             if (symbol is NativeMethodSymbol native)
             {
@@ -488,7 +500,7 @@ internal static class Int32Emitter
             original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None);
 
         static bool IsSymbolOnlyType(ITypeSymbol type, bool result) =>
-            type is ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } ||
+            type is ITypeParameterSymbol ||
             type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
             type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean or SpecialType.System_String ||
             result && type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void ||
@@ -497,7 +509,8 @@ internal static class Int32Emitter
 
         SignatureType MapSymbolOnlyType(ITypeSymbol type) => type switch
         {
-            ITypeParameterSymbol parameter => SignatureType.MethodParameter(parameter.Ordinal),
+            ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter => SignatureType.MethodParameter(parameter.Ordinal),
+            ITypeParameterSymbol parameter => SignatureType.TypeParameter(parameter.Ordinal),
             IArrayTypeSymbol array => SignatureType.ArrayOf(MapSymbolOnlyType(array.ElementType)),
             INamedTypeSymbol named when IsSymbolOnlyClassDefinition((INamedTypeSymbol)named.OriginalDefinition) => ImportExternalType(named),
             _ => type.SpecialType switch

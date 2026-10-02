@@ -176,3 +176,20 @@ This covers cross-dependency Box<T> forwarding. Type-owned methods, fields, rich
 type profiles, host setup and symbol materialization remain reader-backed. The
 separate library instruction generator is still pending. Runtime Contract and
 bootstrap configuration and native metadata encoding are unchanged.
+
+
+### Root-class member contracts (2026-10-02)
+
+Public concrete nonvirtual root-class methods and constructors now use the symbol-only
+path. The backend reconstructs the declaring reference, static/constructor distinction
+and scoped signature from symbols, then authors the member reference. Generic owner
+parameters retain owner ordinals and use existing constructed-reference substitution.
+Instance generic methods, virtual/interface dispatch, value/nested profiles and fields
+remain on prior paths. Dependency snapshot checks, explicit Runtime Contract mapping,
+CLI primitive core and translated System bootstrap are unchanged; host input setup and
+semantic materialization still retain readers. The separate library generator is pending.
+
+Validation: all seven native consumers compile and execute (42). All 107 metadata C#
+groups pass, including authored member identity/conflict/owner/scope checks. The generic
+owner consumer now authors constructor/Get/Set/Same from semantic values and executes
+on CLR and both native containers (42). Next migrate fields and dispatch facts.
