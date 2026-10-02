@@ -3356,3 +3356,27 @@ returning 42. No native dependency is loaded through .NET reflection. The primit
 core still uses the explicit CLI bootstrap. Nominal/generic native declarations, full
 native System loading and dependency probing remain pending; ordinary .NET behavior
 and its reflection provider are unchanged.
+
+### Direct native static types (2026-10-02)
+
+NeoClrMetadataReference also accepts fieldless nongeneric top-level static classes
+with primitive static methods. The metadata reader supplies canonical TypeDefinition
+and MethodDefinition ownership. Raven's native provider now exposes named-type lookup,
+static/abstract/closed classification, public/internal types and public/internal/private
+members. Method calls retain their exact native definition and use the existing native
+import/emission path. Ordinary .NET loading remains unchanged.
+
+The C# native-symbol runtime probe compiles NativeTypeLibrary from Raven source, reads
+its native metadata directly, binds Boolean and Int32 overloads, emits NativeTypeConsumer
+and executes it in neoCLR. Both reference orders and access/signature failures are
+checked. Explicit CLI primitive core and exact native emission bindings remain required.
+Instance types, nominal signatures, fields/properties, nested types and generics are
+still rejected by this reader profile; no unsupported members are silently omitted.
+
+An ordinary .NET metadata regression also exposed a shared identifier-expression
+accessibility gap for public static methods on internal types. Its binder fix and test
+are isolated from the native provider changes for independent integration.
+
+Validation: all three native consumers return 42; 96 metadata contract groups and
+39 .NET accessibility tests pass. The independent binder fix is e3afed13c on the
+integration branch, not merged to main by this slice.

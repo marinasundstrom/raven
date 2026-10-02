@@ -5,13 +5,13 @@ using Raven.CodeAnalysis.Metadata;
 namespace Raven.CodeAnalysis.NeoClr;
 
 /// <summary>An owned native metadata input, read directly without a CLI projection.</summary>
-/// <remarks>The first profile supports primitive namespace functions. An explicit CLI core still supplies primitive symbols.</remarks>
+/// <remarks>The first profile supports primitive namespace functions and fieldless nongeneric top-level static classes. An explicit CLI core still supplies primitive symbols.</remarks>
 public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetadataReference
 {
     private NeoClrMetadataReference(AssemblyDefinition definition) => Definition = definition;
     /// <summary>Gets the immutable native definition snapshot.</summary>
     public AssemblyDefinition Definition { get; }
-    /// <summary>Reads an API-produced PE/#Neo function library. Unsupported declarations fail before compilation.</summary>
+    /// <summary>Reads an API-produced PE/#Neo declaration library. Unsupported declarations fail before compilation.</summary>
     public static NeoClrMetadataReference ReadAssembly(ReadOnlySpan<byte> image)
         => new(AssemblyDefinition.ReadNativeAssembly(image));
     public override bool Equals(object? obj) => ReferenceEquals(this, obj);

@@ -548,3 +548,9 @@ Both return Int32(42). The simpler --native-symbols mode emits the same artifact
 without running them. CLI emission still rejects native references. Missing explicit
 emission bindings and mismatched native snapshots remain errors; native primitive
 namespace functions and a CLI core bootstrap are the tested boundary.
+
+The native-symbol modes also build a Raven static class library, read its native type
+and method definitions, and emit a consumer selecting Boolean/Int32 overloads. Runtime
+mode runs this third consumer (42). Both input reference orders, canonical type/member
+identity, internal type/member and private member access, and argument mismatch are
+checked. The admitted type subset is fieldless nongeneric top-level static classes.

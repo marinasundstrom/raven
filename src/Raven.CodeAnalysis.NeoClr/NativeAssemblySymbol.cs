@@ -18,8 +18,8 @@ internal sealed class NativeAssemblySymbol : Symbol, IImportedAssemblySymbol
     public object DefinitionIdentity => Reference.Definition.Identity;
     public INamespaceSymbol GlobalNamespace => Module.GlobalNamespace;
     public IEnumerable<IModuleSymbol> Modules => [Module];
-    public INamedTypeSymbol? GetTypeByMetadataName(string name) => null;
-    public INamedTypeSymbol? GetTypeBySimpleName(string name, int arity) => null;
+    public INamedTypeSymbol? GetTypeByMetadataName(string name) => Module.Types.SingleOrDefault(t => ((ITypeSymbol)t).ToFullyQualifiedMetadataName() == name);
+    public INamedTypeSymbol? GetTypeBySimpleName(string name, int arity) => Module.Types.Where(t => t.Name == name && t.Arity == arity).Take(2).ToArray() is [var only] ? only : null;
     public ImmutableArray<INamedTypeSymbol> GetExtensionConversionContainers() => [];
     public override void Accept(SymbolVisitor visitor) => visitor.VisitAssembly(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitAssembly(this);
@@ -35,6 +35,18 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         this.compilation = compilation; this.assembly = assembly;
         var root = new NativeNamespaceSymbol("", this, null);
         GlobalNamespace = root;
+        Types = [.. assembly.Reference.Definition.MainModule.Types.Select(type => {
+            var ns = Namespace(type.Namespace);
+            var symbol = new NativeNamedTypeSymbol(compilation, type, ns);
+            ns.Add(symbol);
+            return symbol;
+        })];
+        NativeNamespaceSymbol Namespace(string name)
+        {
+            var ns = root;
+            foreach (var part in name.Split('.', StringSplitOptions.RemoveEmptyEntries)) ns = ns.GetOrAddNamespace(part);
+            return ns;
+        }
         foreach (var method in assembly.Reference.Definition.MainModule.Functions)
         {
             var ns = root;
@@ -43,6 +55,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             ns.Add(new NativeMethodSymbol(compilation, method, ns));
         }
     }
+    internal ImmutableArray<NativeNamedTypeSymbol> Types { get; }
     public override IAssemblySymbol ContainingAssembly => assembly;
     public override IModuleSymbol ContainingModule => this;
     public INamespaceSymbol GlobalNamespace { get; }
@@ -73,7 +86,7 @@ internal sealed class NativeNamespaceSymbol : Symbol, INamespaceSymbol
     public ImmutableArray<ISymbol> GetMembers() => [.. members];
     public ImmutableArray<ISymbol> GetMembers(string name) => [.. members.Where(m => m.Name == name)];
     public INamespaceSymbol? LookupNamespace(string name) => members.OfType<INamespaceSymbol>().SingleOrDefault(n => n.Name == name);
-    public ITypeSymbol? LookupType(string name) => null;
+    public ITypeSymbol? LookupType(string name) => members.OfType<ITypeSymbol>().SingleOrDefault(t => t.Name == name);
     public bool IsMemberDefined(string name, out ISymbol? symbol) { symbol = members.FirstOrDefault(m => m.Name == name); return symbol is not null; }
     public string ToMetadataName() => IsGlobalNamespace ? "" : ContainingNamespace!.IsGlobalNamespace ? Name : ContainingNamespace.ToMetadataName() + "." + Name;
     public override void Accept(SymbolVisitor visitor) => visitor.VisitNamespace(this);
@@ -85,9 +98,9 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     private readonly Compilation compilation;
     private readonly MethodSignature signature;
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
-    internal NativeMethodSymbol(Compilation compilation, MethodDefinition definition, NativeNamespaceSymbol owner)
-        : base(SymbolKind.Method, definition.Name, owner, null, owner, [], [],
-            (definition.Attributes & 7) == 6 ? Accessibility.Public : Accessibility.Internal)
+    internal NativeMethodSymbol(Compilation compilation, MethodDefinition definition, ISymbol owner)
+        : base(SymbolKind.Method, definition.Name, owner, owner as INamedTypeSymbol, owner as INamespaceSymbol ?? owner.ContainingNamespace, [], [],
+            (definition.Attributes & 7) == 6 ? Accessibility.Public : (definition.Attributes & 7) == 3 ? Accessibility.Internal : Accessibility.Private)
     {
         this.compilation = compilation; Definition = definition;
         if (!definition.TryGetSignature(out var decoded)) throw new InvalidDataException("native signature unavailable");
