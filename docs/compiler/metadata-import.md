@@ -530,3 +530,22 @@ are isolated from the native provider changes for independent integration.
 Validation: all three native consumers return 42; 96 metadata contract groups and
 39 .NET accessibility tests pass. The independent binder fix is e3afed13c on the
 integration branch, not merged to main by this slice.
+
+### Direct native instance construction (2026-10-02)
+
+The native reader/provider now also admits fieldless nongeneric top-level instance
+classes with primitive method signatures and constructors. Type flags, receiver
+presence and constructor attributes/kind are preserved in the shared definitions and
+compiler symbols. No constructors are invented. Public constructor/instance imports
+reuse the existing metadata references, NewObject and Call emission paths. A Raven
+consumer constructs Calculator, stores its reference in locals and invokes Add(20, 22)
+through an alias; the native runtime returns 42. Private constructors/methods produce
+RAV0500. Existing namespace-function and static-overload controls remain in the probe.
+
+The CLI primitive core bootstrap and exact explicit dependency bindings remain required.
+Fields/properties, value/interface/nested/generic declarations and nominal signatures
+are still outside this direct-reader profile. An additional `alias != calculator` /
+`Calculator() == calculator` consumer reached NEOMETA001 (BoundBinaryExpression): the
+portable lowerer currently admits primitive comparisons, not these reference comparisons.
+That exploratory case is recorded as a separate lowering gap, not executable evidence.
+No new shared binder change or runtime-format change is part of this slice.

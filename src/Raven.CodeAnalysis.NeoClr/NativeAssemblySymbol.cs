@@ -114,9 +114,9 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         PrimitiveType.Void => SpecialType.System_Unit, _ => throw new InvalidDataException("unsupported native primitive") });
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
-    public override bool IsStatic => true;
-    public MethodKind MethodKind => MethodKind.Ordinary;
-    public ITypeSymbol ReturnType => Map(signature.ReturnType.Primitive!.Value);
+    public override bool IsStatic => Definition.IsStatic;
+    public MethodKind MethodKind => Definition.Name == ".ctor" ? MethodKind.Constructor : MethodKind.Ordinary;
+    public ITypeSymbol ReturnType => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : Map(signature.ReturnType.Primitive!.Value);
     public ImmutableArray<IParameterSymbol> Parameters => parameters.Value;
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => [];
     public IMethodSymbol OriginalDefinition => this;

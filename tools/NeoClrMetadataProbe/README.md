@@ -554,3 +554,8 @@ and method definitions, and emit a consumer selecting Boolean/Int32 overloads. R
 mode runs this third consumer (42). Both input reference orders, canonical type/member
 identity, internal type/member and private member access, and argument mismatch are
 checked. The admitted type subset is fieldless nongeneric top-level static classes.
+
+NativeTypeConsumer additionally constructs a fieldless Calculator, stores an alias and
+calls its primitive Add method. NativeTypeChecks verifies constructor classification
+and RAV0500 for private constructors/instance methods. Reference equality/inequality
+expressions remain a recorded portable-lowering gap, not part of the passing consumer.

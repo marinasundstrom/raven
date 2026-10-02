@@ -17,6 +17,14 @@ internal static class NativeTypeChecks
                 internal static func Hidden() -> int => 0
                 private static func Secret() -> int => 0
             }
+            public class Calculator {
+                public init() {}
+                public func Add(left: int, right: int) -> int => left + right
+                private func Secret() -> int => 0
+            }
+            public class Restricted {
+                private init() {}
+            }
             internal static class HiddenType {
                 public static func Value() -> int => 0
             }
@@ -34,7 +42,9 @@ internal static class NativeTypeChecks
             import Example.*
             func Main() -> int {
                 if !NativeMath.Echo(true) { return 1 }
-                return NativeMath.Echo(42)
+                let calculator = Calculator()
+                let alias = calculator
+                return alias.Add(NativeMath.Echo(20), 22)
             }
             """;
         foreach (var references in new MetadataReference[][] { [coreReference, reference], [reference, coreReference] })
@@ -48,23 +58,30 @@ internal static class NativeTypeChecks
             var tree = compilation.SyntaxTrees.Single();
             var model = compilation.GetSemanticModel(tree);
             var calls = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
-            Check(calls.Length == 2, "two overload calls");
-            var methods = calls.Select(call => model.GetSymbolInfo(call).Symbol as IMethodSymbol).ToArray();
+            Check(calls.Length >= 3, "overload and instance calls");
+            var methods = calls.Select(call => model.GetSymbolInfo(call).Symbol as IMethodSymbol).Where(m => m?.Name == "Echo").ToArray();
             Check(methods.All(m => m is not null && ReferenceEquals(m.ContainingType, type) && ReferenceEquals(m.ContainingAssembly, assembly)), "nominal method ownership");
             Check(methods.Select(m => m!.ReturnType.SpecialType).ToHashSet().SetEquals([SpecialType.System_Boolean, SpecialType.System_Int32]), "primitive overload selection");
+            var calculator = assembly.GetTypeByMetadataName("Example.Calculator");
+            Check(calculator is { IsStatic: false, IsAbstract: false, IsClosed: false } && calculator.InstanceConstructors.Length == 1, "instance class/constructor classification");
+            var add = calls.Select(call => model.GetSymbolInfo(call).Symbol as IMethodSymbol).Single(m => m?.Name == "Add");
+            Check(!add!.IsStatic && ReferenceEquals(add.ContainingType, calculator), "instance method ownership");
             using var image = new MemoryStream();
             var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,
                 new(new("NativeTypeConsumer", new Version(1, 0, 0, 0)), core, [new(reference, reference.Definition, core)]));
             Check(result.Success, string.Join("; ", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "NativeTypeConsumer.dll"), image.ToArray());
         }
-        foreach (var expression in new[] { "NativeMath.Hidden()", "NativeMath.Secret()", "HiddenType.Value()", "NativeMath.Echo(\"wrong\")" })
+        foreach (var expression in new[] { "NativeMath.Hidden()", "NativeMath.Secret()", "HiddenType.Value()", "Calculator().Secret()", "Restricted()", "NativeMath.Echo(\"wrong\")" })
         {
             var rejected = Compilation.Create("Rejected", [SyntaxTree.ParseText("import Example.*\nfunc Main() -> int { return " + expression + " }")],
                 [coreReference, reference], CompilationOptions.NeoCLR);
-            Check(rejected.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "access/signature violation accepted: " + expression);
+            var diagnostics = rejected.GetDiagnostics();
+            Check(expression.Contains("wrong")
+                ? diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error)
+                : diagnostics.Any(d => d.Id == "RAV0500"), "access/signature violation accepted: " + expression + ": " + string.Join("; ", diagnostics));
         }
-        Console.WriteLine("PASS native static type identity, overloads, access and emission");
+        Console.WriteLine("PASS native class identity, constructors, instance/static calls, access and emission");
     }
     private static void Check(bool value, string message) { if (!value) throw new Exception(message); }
 }

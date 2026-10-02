@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-// The reader currently admits only fieldless nongeneric top-level static classes.
+// The reader currently admits only fieldless nongeneric top-level classes.
 // Keep unsupported categories at the reader boundary rather than manufacturing members.
 internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
 {
@@ -21,9 +21,9 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     internal TypeDefinition Definition { get; }
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
-    public override bool IsStatic => true;
-    public bool IsAbstract => true;
-    public bool IsClosed => true;
+    public override bool IsStatic => (Definition.Attributes & 0x180) == 0x180;
+    public bool IsAbstract => (Definition.Attributes & 0x80) != 0;
+    public bool IsClosed => (Definition.Attributes & 0x100) != 0;
     public bool IsNamespace => false;
     public bool IsType => true;
     public TypeKind TypeKind => TypeKind.Class;
@@ -38,8 +38,8 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
     public ImmutableArray<INamedTypeSymbol> Interfaces => [];
     public ImmutableArray<INamedTypeSymbol> AllInterfaces => [];
-    public ImmutableArray<IMethodSymbol> Constructors => [];
-    public ImmutableArray<IMethodSymbol> InstanceConstructors => [];
+    public ImmutableArray<IMethodSymbol> Constructors => InstanceConstructors;
+    public ImmutableArray<IMethodSymbol> InstanceConstructors => [.. members.OfType<IMethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor)];
     public IMethodSymbol? StaticConstructor => null;
     public INamedTypeSymbol? UnderlyingTupleType => null;
     public ImmutableArray<IFieldSymbol> TupleElements => [];
