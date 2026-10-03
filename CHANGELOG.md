@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Preserve native metadata value declarations as Struct symbols with
+  the semantic System.ValueType base and substituted generic payload fields. This uses
+  the introspection facade; source-union and external value emission remain pending.
+  Native semantic probe checks pass against the explicit CLI bootstrap.
+
 - **2026-10-03:** Preserve native ref/out parameter facts in imported symbols and
   symbol-authored member references. Admit writable interface parameters through target
   capabilities; separately compiled inherited generic interface dispatch executes on

@@ -74,6 +74,18 @@ internal static class NativeSymbolChecks
         File.WriteAllBytes(Path.Combine(output, "NativeSymbols.dll"), image);
         var native = NeoClrMetadataReference.ReadAssembly(image);
         var cliCore = MetadataReference.CreateFromFile(corePath);
+        var values = new AssemblyBuilder(new("NativeValues", new Version(1, 0, 0, 0)), core);
+        var payload = values.AddGenericValueType("Example", "Payload", ["T"]);
+        payload.AddField("Value", SignatureType.TypeParameter(0), FieldVisibility.Public);
+        var valueReference = NeoClrMetadataReference.ReadAssembly(RuntimeAssemblyContainer.WriteBinary(values));
+        var valueCompilation = Compilation.Create("ValueSymbols", [], [cliCore, valueReference], CompilationOptions.NeoCLR);
+        var valueSymbol = valueCompilation.GetTypeByMetadataName("Example.Payload`1")!;
+        if (valueSymbol.TypeKind != TypeKind.Struct || valueSymbol.BaseType?.SpecialType != SpecialType.System_ValueType)
+            throw new Exception("native value declaration lost struct identity");
+        var intPayload = valueSymbol.Construct(valueCompilation.GetSpecialType(SpecialType.System_Int32));
+        if (intPayload.TypeKind != TypeKind.Struct || intPayload.GetMembers("Value").OfType<IFieldSymbol>().Single().Type.SpecialType != SpecialType.System_Int32)
+            throw new Exception("native constructed value field lost substitution");
+
         Compilation Create(string source, params MetadataReference[] references) => Compilation.Create("NativeConsumer",
             [SyntaxTree.ParseText(source)], references, CompilationOptions.NeoCLR);
         const string source = "import Example.*\nfunc Main() -> int { return Echo(42) }";
