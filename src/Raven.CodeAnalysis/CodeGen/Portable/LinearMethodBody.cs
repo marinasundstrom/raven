@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -165,6 +165,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool PatternValue(ITypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
         {
             if (pattern is BoundDiscardPattern) { Add(LinearInstructionKind.Pop, syntax); return true; }
+            if (pattern is BoundDeclarationPattern { Designator: BoundDiscardDesignator } tested &&
+                capabilities?.Allows(LinearInstructionKind.TypeTest) == true && input.IsReferenceType &&
+                TryType(tested.DeclaredType, false, out var testedType) && capabilities.Allows(testedType))
+            {
+                instructions.Add(new(LinearInstructionKind.TypeTest, syntax, Type: tested.DeclaredType));
+                Add(LinearInstructionKind.BranchFalse, syntax, fail);
+                return true;
+            }
             if (pattern is BoundDeclarationPattern declaration && CallableSignature.SameStorageType(input, declaration.DeclaredType))
                 return PatternDesignator(declaration.Designator, input, syntax);
             var tryGet = pattern switch { BoundCasePattern c => c.TryGetMethod, BoundUnionMemberPattern m => m.TryGetMethod, _ => null };
@@ -530,6 +538,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
+        static bool IsNullLiteral(BoundExpression expression) => expression is BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral } ||
+            expression is BoundConversionExpression { IsUserDefined: false } conversion && IsNullLiteral(conversion.Expression);
+
         bool LowerReference(BoundExpression expression)
         {
             if (capabilities?.AllowsManagedReferences != true) return Reject("target does not support managed references", Syntax(expression));
@@ -651,6 +662,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundMemberAccessExpression { Member: IPropertySymbol memberProperty } access when memberProperty.GetMethod is { } memberGetter && SupportedPropertyCall(memberGetter):
                     if (!PropertyReceiver(access.Receiver, memberGetter, Syntax(expression))) return false;
                     Add(memberGetter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(memberGetter), Syntax(expression), method: memberGetter); return true;
+                case BoundIsPatternExpression { Pattern: BoundDeclarationPattern { Designator: BoundDiscardDesignator } tested } typeTest when
+                    capabilities?.Allows(LinearInstructionKind.TypeTest) == true && typeTest.Expression.Type.IsReferenceType &&
+                    TryType(tested.DeclaredType, false, out var testedType) && capabilities.Allows(testedType):
+                    if (!LowerValue(typeTest.Expression)) return false;
+                    instructions.Add(new(LinearInstructionKind.TypeTest, Syntax(expression), Type: tested.DeclaredType));
+                    return true;
                 case BoundLiteralExpression { Value: string text }:
                     Add(LinearInstructionKind.String, Syntax(expression), text: text); return true;
                 case BoundLiteralExpression { Value: bool boolean }:
@@ -698,7 +715,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!LowerValue(conversion.Expression)) return false;
                     instructions.Add(new(LinearInstructionKind.BoxToObject, Syntax(expression), Type: conversion.Expression.Type));
                     return true;
-                case BoundConversionExpression conversion when conversion.Conversion.IsReference && conversion.Conversion.IsImplicit &&
+                case BoundConversionExpression conversion when conversion.Conversion.IsReference && !conversion.IsUserDefined &&
                     capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true && conversion.Expression.Type.IsReferenceType &&
                     conversion.Type.IsReferenceType && conversion.Type.TypeKind != TypeKind.Delegate &&
                     TryType(conversion.Type, false, out var targetType) && capabilities.Allows(targetType) &&
@@ -732,6 +749,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.Label, Syntax(expression), shortCircuit);
                     Add(LinearInstructionKind.Boolean, Syntax(expression), isOr ? 1 : 0);
                     Add(LinearInstructionKind.Label, Syntax(expression), completed);
+                    return true;
+                case BoundBinaryExpression comparison when capabilities?.Allows(LinearInstructionKind.ReferenceIsNull) == true &&
+                    comparison.Operator.MethodSymbol is null && comparison.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality &&
+                    (IsNullLiteral(comparison.Left) || IsNullLiteral(comparison.Right)):
+                    var reference = IsNullLiteral(comparison.Left) ? comparison.Right : comparison.Left;
+                    if (!reference.Type.IsReferenceType || !TryType(reference.Type, false, out var referenceType) || !capabilities.Allows(referenceType))
+                        return Reject("null comparison requires a supported reference", Syntax(expression));
+                    if (!LowerValue(reference)) return false;
+                    Add(LinearInstructionKind.ReferenceIsNull, Syntax(expression));
+                    if (comparison.Operator.OperatorKind == OperatorKind.Inequality) Add(LinearInstructionKind.Not, Syntax(expression));
                     return true;
                 case BoundBinaryExpression shift when shift.Operator.MethodSymbol is null &&
                     shift.Operator.LeftType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&

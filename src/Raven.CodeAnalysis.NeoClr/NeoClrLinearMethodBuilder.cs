@@ -18,6 +18,10 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.ReferenceIsNull: method.IsNull(); break;
+            case LinearInstructionKind.TypeTest:
+                method.IsInstance(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal));
+                method.IsNull(); method.Emit(OpCode.Ldc_Bool, false); method.Emit(OpCode.Ceq); break;
             case LinearInstructionKind.BoxToObject: method.Box(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
             case LinearInstructionKind.ReferenceConvert: method.CastReference(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
             case LinearInstructionKind.FunctionBind: emitCall(instruction, method); break;

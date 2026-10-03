@@ -4577,3 +4577,24 @@ receivers plus readonly/foreign operands. Ten focused Raven tests and 120 metada
 pass. Unchanged source Option and ordinary/generic unions advance to the generated
 <RavenFormatUnionValue> helper's BoundBinaryExpression/null comparison, still without native
 output. Reference/null operations, remaining formatting and union/case metadata are open.
+
+## Reference-test continuation (2026-10-03)
+
+ReferenceIsNull and TypeTest are compiler-owned operations. NeoCLR maps them through
+IILGenerator.IsNull/IsInstance and the existing Boolean operations. Non-user-defined
+comparisons with a null literal use the bound operator facts, preserving overload choices.
+Discard declaration patterns from reference inputs use a real type test, including null
+failure; general binding/extraction patterns are not implied. Supported explicit reference
+conversions use checked CastReference, including String. No importer objects are exposed.
+
+`--reference-operations-driver <driver> <runtime> <core> <seed> <fresh-output>` runs one
+source through both ordinary commands: boxed integer mismatch, null detection and String
+matching return 42. C# metadata tests additionally check generic scopes and String cast
+identity; the native API image verifies/runs 42. 121 metadata groups and ten focused Raven
+tests pass; the nullable-source capability case is verified separately. Runtime Contract
+configuration, native formats and runtime code are unchanged. Explicit core/seed binding
+remains required for boxed objects and value-type tests; no native-reference fallback.
+
+Union declaration controls advance to `union body <RavenFormatUnionValue>: invocation
+virtual func ToString()`, still without native output. The remaining core virtual call,
+formatting and union metadata contracts must execute before removing the publication guard.

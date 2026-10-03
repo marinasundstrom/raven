@@ -4,17 +4,41 @@ using System.Text.Json;
 
 namespace NeoClrMetadataProbe;
 
+internal enum StorageDriverScenario { Boxing, FieldAddresses, ReferenceOperations }
+
 internal static class BoxingDriverChecks
 {
-    internal static async Task Run(string driver, string runtime, string core, string seed, string output, bool fieldAddresses = false)
+    internal static async Task Run(string driver, string runtime, string core, string seed, string output, StorageDriverScenario scenario = StorageDriverScenario.Boxing)
     {
         driver = Path.GetFullPath(driver); runtime = Path.GetFullPath(runtime);
         core = Path.GetFullPath(core); seed = Path.GetFullPath(seed); output = Path.GetFullPath(output);
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
-        var stem = fieldAddresses ? "FieldAddress" : "Box";
+        var fieldAddresses = scenario == StorageDriverScenario.FieldAddresses;
+        var references = scenario == StorageDriverScenario.ReferenceOperations;
+        var stem = references ? "References" : fieldAddresses ? "FieldAddress" : "Box";
         var source = Path.Combine(output, stem + ".rvn");
-        File.WriteAllText(source, fieldAddresses ? """
+        File.WriteAllText(source, references ? """
+            func Box<T>(value: T) -> object => value
+            func Read(value: object?) -> int {
+                if value == null {
+                    return 3
+                }
+                if value is string {
+                    return 42
+                }
+                return 4
+            }
+            func Main() -> int {
+                if Read(Box(42)) != 4 {
+                    return 1
+                }
+                if Read(default(object?)) != 3 {
+                    return 2
+                }
+                return Read(Box("text"))
+            }
+            """ : fieldAddresses ? """
             public struct Counter {
                 public field Value: int
                 public init(value: int) {
@@ -60,9 +84,9 @@ internal static class BoxingDriverChecks
             if (native) await Command(runtime, ["verify", assembly, "--system", seed], 0);
             await Command(native ? runtime : "dotnet", native
                 ? ["run", assembly, "--system", seed]
-                : ["exec", "--runtimeconfig", Path.ChangeExtension(driver, ".runtimeconfig.json"), assembly], 42, fieldAddresses ? "" : "boxed");
+                : ["exec", "--runtimeconfig", Path.ChangeExtension(driver, ".runtimeconfig.json"), assembly], 42, scenario != StorageDriverScenario.Boxing ? "" : "boxed");
         }
-        if (!fieldAddresses)
+        if (scenario == StorageDriverScenario.Boxing)
         {
             var rejected = Path.Combine(output, "MissingSeed.dll");
             var error = await Command("dotnet", [driver, "neoclr", "--core-reference", core, "-o", rejected, source], 1);
@@ -70,10 +94,10 @@ internal static class BoxingDriverChecks
         }
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
-            scope = fieldAddresses ? "Dual-target nested generic field addresses preserve mutable storage and object aliases (42)." : "Dual-target ordinary-command boxing smoke; detailed value/identity assertions live in C# metadata and CLR conversion tests, not this discarded-result smoke.",
+            scope = references ? "Dual-target reference null checks and discard type tests return 42." : fieldAddresses ? "Dual-target nested generic field addresses preserve mutable storage and object aliases (42)." : "Dual-target ordinary-command boxing smoke; detailed value/identity assertions live in C# metadata and CLR conversion tests, not this discarded-result smoke.",
             driverSha256 = Hash(driver), runtimeSha256 = Hash(runtime), coreSha256 = Hash(core), seedSha256 = Hash(seed), sourceSha256 = Hash(source), commands
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
-        Console.WriteLine(fieldAddresses ? "PASS dual-target nested field mutation and alias identity" : "PASS dual-target boxing smoke and missing-seed publication guard");
+        Console.WriteLine(references ? "PASS dual-target null checks and type tests" : fieldAddresses ? "PASS dual-target nested field mutation and alias identity" : "PASS dual-target boxing smoke and missing-seed publication guard");
 
         async Task<string> Command(string executable, string[] arguments, int expected, string? expectedOutput = null)
         {

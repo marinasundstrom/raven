@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Add explicit native null-identity and discard type-test operations, and
+  admit supported checked reference casts. Keep overload resolution/equality binding and
+  .NET's default backend unchanged. Ordinary-command null/type-test cases return 42 on
+  both targets; union display preflight now reaches Object.ToString dispatch.
+
 - **2026-10-03:** Lower owned mutable field addresses through an explicit target capability
   and NeoCLR IL-generator adapter. Nested generic value fields now support mutation via
   aliased object storage; the same ordinary-command consumer returns 42 on both targets.
