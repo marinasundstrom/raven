@@ -119,7 +119,8 @@ internal static class ExternalNativeChecks
             Check(ReferenceEquals(current.Type, payloadType) && ReferenceEquals(batch.Type, arrayMethod.ReturnType) &&
                 current.GetMethod is { MethodKind: MethodKind.PropertyGet } && current.SetMethod is { MethodKind: MethodKind.PropertySet } &&
                 ReferenceEquals(current.GetMethod.AssociatedSymbol, current) && ReferenceEquals(current.SetMethod.AssociatedSymbol, current) &&
-                holderType.GetMembers().Contains(current.GetMethod), "canonical native property/accessor identity");
+                holderType.GetMembers().Contains(current.GetMethod) && holderType.GetMembers().Contains(current.SetMethod) &&
+                current.DeclaredAccessibility == Accessibility.Public, "canonical native property/accessor identity");
             Check(holderType.GetMembers("ReadOnly").OfType<IPropertySymbol>().Single().SetMethod is null &&
                 holderType.GetMembers("Protected").OfType<IPropertySymbol>().Single().SetMethod!.DeclaredAccessibility == Accessibility.Private &&
                 holderType.GetMembers("Answer").OfType<IPropertySymbol>().Single().IsStatic, "readonly/private/static property contracts");

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Simplify native field/property import to consume introspection views
+  directly, reusing the module's canonical accessor symbols. Remove repeated definition
+  lookups and the extra per-type accessor dictionary; .NET loading/emission is unchanged.
+  Native semantic checks and all seven executable consumers pass before and after.
+
 - **2026-10-03:** Scope vector-loop expansion to explicit portable body planning.
   Ordinary .NET lowering retains its established for-loop path; native array loops
   retain their bound-operation expansion. All 86 selected checks and native broad/

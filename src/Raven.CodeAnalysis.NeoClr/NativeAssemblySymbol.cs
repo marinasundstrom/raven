@@ -110,6 +110,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     internal NominalTypeInfo TypeView(TypeDefinition definition) => metadata.Resolve(definition.ToReference());
     private readonly Dictionary<uint, NativeMethodSymbol> methodSymbols = [];
     internal void RegisterMethod(uint token, NativeMethodSymbol symbol) => methodSymbols.Add(token, symbol);
+    internal NativeMethodSymbol GetMethodSymbol(uint token) => methodSymbols[token];
     internal ITypeSymbol Map(SignatureType signature, NativeNamedTypeSymbol owner) =>
         MapView(metadata.ResolveSignature(signature, metadata.Resolve(owner.Definition.ToReference()).GetGenericArguments()));
     private ITypeSymbol MapMethodParameter(MethodGenericParameterTypeInfo parameter)
@@ -124,8 +125,6 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         return module.methodSymbols[view.MetadataToken].TypeParameters[parameter.Position];
     }
     internal ITypeSymbol Map(SignatureType signature) => MapView(metadata.ResolveSignature(signature));
-    internal NeoCLR.Metadata.Experimental.Introspection.FieldInfo FieldView(NativeNamedTypeSymbol owner, uint token)
-        => TypeView(owner.Definition).GetFields().Single(field => field.MetadataToken == token);
     internal ITypeSymbol MapView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => viewSymbols.GetOrAdd(view, MapViewCore);
     private ITypeSymbol MapViewCore(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => view switch
     {

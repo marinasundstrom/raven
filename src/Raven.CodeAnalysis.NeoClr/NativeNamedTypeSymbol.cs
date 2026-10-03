@@ -34,10 +34,10 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
             var module = (NativeModuleSymbol)ContainingModule;
             return [.. module.TypeView(definition).GetInterfaces().Select(view => (INamedTypeSymbol)module.MapView(view))];
         });
-        var methods = definition.Methods.ToDictionary(method => method, method => new NativeMethodSymbol(compilation, method, this));
-        members = [.. methods.Values,
-            .. definition.Fields.Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(compilation, field, this, ordinal)),
-            .. definition.Properties.Select(property => (ISymbol)new NativePropertySymbol(property, this, methods))];
+        var methods = definition.Methods.Select(method => new NativeMethodSymbol(compilation, method, this)).ToArray();
+        members = [.. methods,
+            .. view.GetFields().Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(field, this, ordinal)),
+            .. view.GetProperties().Select(property => (ISymbol)new NativePropertySymbol(property, this))];
     }
     internal void AddNestedType(INamedTypeSymbol type) => members = members.Add(type);
     internal bool IsExtensionContainer

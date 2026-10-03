@@ -1,4 +1,4 @@
-using NeoCLR.Metadata.Experimental.Model;
+using NeoCLR.Metadata.Experimental.Introspection;
 
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Metadata;
@@ -8,10 +8,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLayoutSymbol
 {
     private readonly Lazy<ITypeSymbol> type;
-    internal NativeFieldSymbol(Compilation compilation, FieldDefinition definition, NativeNamedTypeSymbol owner, int instanceStorageOrdinal)
-        : this(((NativeModuleSymbol)owner.ContainingModule).FieldView(owner, definition.MetadataToken), owner, instanceStorageOrdinal) { }
-
-    private NativeFieldSymbol(NeoCLR.Metadata.Experimental.Introspection.FieldInfo view, NativeNamedTypeSymbol owner, int instanceStorageOrdinal)
+    internal NativeFieldSymbol(FieldInfo view, NativeNamedTypeSymbol owner, int instanceStorageOrdinal)
         : base(SymbolKind.Field, view.Name, owner, owner, owner.ContainingNamespace, [], [], NativeMetadataAccess.Map(view.Accessibility))
     {
         InstanceStorageOrdinal = instanceStorageOrdinal;

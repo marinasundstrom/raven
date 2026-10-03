@@ -592,3 +592,39 @@ round-trip, and runtime dependency/dispatch verification. Current writer/reader 
 attachment requires owned definitions. Do not simply remove admission checks or duplicate
 contracts into the implementation assembly. No compiler/runtime behavior changes in this
 baseline test slice.
+
+
+## Native/legacy consumer inventory (2026-10-03)
+
+| Path | Current callers | Action |
+| --- | --- | --- |
+| Native reference with value-only NeoClrMetadataDependency | NeoClrCommand --reference, ExternalNativeChecks, NativeSymbolChecks and native driver cases | Keep: native declarations enter Raven through introspection; emission uses symbol facts and captured artifact identities. |
+| CLI primitive reference plus explicit NativeImplementation seed | NeoClrCommand --runtime-seed and NamespaceFunctionChecks | Keep the explicitly permitted bootstrap. It is a configured service binding, not fallback for native library references. |
+| CLI definition snapshot plus optional translated implementation | ExternalSignatureChecks, GenericLibraryChecks, ImportedInterfaceChecks, ImportedValueChecks, HelloWorldChecks | Retain as explicitly legacy comparison coverage until replacement consumers are identified. Do not delete based on the native gate alone. |
+| NeoClrSystemSymbols partial Int32 projection | NeoClrCommand --system-symbols/--system-method and existing System-symbol probes | Legacy opt-in; keep separate from ordinary native reference loading. |
+| Ordinary .NET metadata references | DotNetSemanticDataLoader and existing .NET compiler workflow | Retain existing Reflection implementation; the native library does not replace it in this milestone. |
+
+No legacy branch is removed in this slice. Runtime Contract configuration and bootstrap
+ownership remain unchanged. This inventory is a caller audit, not a promise to retain
+legacy modes permanently or justification for adding more projections.
+
+Native field and property construction now consumes the already-projected FieldInfo and
+PropertyInfo collections from the owner's introspection view. Property accessors resolve
+by their facade-provided module-local tokens through the existing canonical method-symbol
+table. Raven still combines accessor accessibility according to its supported language
+policy. Definitions remain for other declaration categories and union transport; this is
+not a claim that all native symbol construction is definition-free.
+
+The symbol importer does not supply builders or accessor objects to emission. Emission
+continues to use Raven symbols and explicit host artifact bindings. No public facade,
+metadata encoding or .NET loader/codegen changes are made.
+
+Validation: build the native probe with NeoClrMetadataProject configured and run
+`--native-symbols-runtime <NeoCLR.CoreProbe.dll> <neoclr> <System.neox> <fresh-output>`.
+Both before and after runs pass all seven consumers (exit 42), plus native semantic and
+rejection checks. The C# canonical property test additionally verifies setter membership
+and public property accessibility, alongside getter/setter associations, write-only
+indexers, private setters, static properties, external signatures and generic substitution.
+The probe requires its documented introspection-capable CoreProbe; ArrayListCore lacks
+that typeof contract and rejects during setup. That configuration rejection is not a
+regression in property import.

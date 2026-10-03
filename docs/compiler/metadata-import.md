@@ -1039,3 +1039,10 @@ relationship views remain next; generic method construction is not yet a facade 
 109 C# groups pass, including mixed owner/method scopes, generic function vectors,
 constructed-owner returns, canonical method identity and invalid/foreign scopes.
 All seven Raven native consumers compile and execute (42).
+
+
+Native member import simplification (2026-10-03): fields and properties consume their
+owner's introspection views directly. Property accessor association reuses module-canonical
+method symbols. Reader-definition searches and the extra accessor dictionary are removed;
+Raven retains accessibility policy. Seven native consumers and existing semantic contracts
+pass before/after. See [the boundary inventory](metadata-backend-boundaries.md#nativelegacy-consumer-inventory-2026-10-03).

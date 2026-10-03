@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-using NeoCLR.Metadata.Experimental.Model;
+using NeoCLR.Metadata.Experimental.Introspection;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -10,26 +10,23 @@ internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
 {
     private readonly Lazy<ITypeSymbol> type;
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
-    internal NativePropertySymbol(PropertyDefinition definition, NativeNamedTypeSymbol owner,
-        IReadOnlyDictionary<MethodDefinition, NativeMethodSymbol> methods)
-        : base(SymbolKind.Property, definition.Name, owner, owner, owner.ContainingNamespace, [], [], AccessibilityFor(definition, owner))
+    internal NativePropertySymbol(PropertyInfo view, NativeNamedTypeSymbol owner)
+        : base(SymbolKind.Property, view.Name, owner, owner, owner.ContainingNamespace, [], [], AccessibilityFor(view))
     {
         var module = (NativeModuleSymbol)owner.ContainingModule;
-        var view = module.TypeView(owner.Definition).GetProperties().Single(p => p.MetadataToken == definition.MetadataToken);
         IsStatic = view.IsStatic;
         IsIndexer = view.IndexParameterTypes.Count != 0;
         type = new(() => module.MapView(view.PropertyType));
-        GetMethod = definition.GetMethod is { } getter ? methods[getter] : null;
-        SetMethod = definition.SetMethod is { } setter ? methods[setter] : null;
+        GetMethod = view.GetMethod is { } getter ? module.GetMethodSymbol(getter.MetadataToken) : null;
+        SetMethod = view.SetMethod is { } setter ? module.GetMethodSymbol(setter.MetadataToken) : null;
         parameters = new(() => !IsIndexer ? [] : GetMethod?.Parameters ?? [.. SetMethod!.Parameters.Take(SetMethod.Parameters.Length - 1)]);
         (GetMethod as NativeMethodSymbol)?.Associate(this);
         (SetMethod as NativeMethodSymbol)?.Associate(this);
     }
-    private static Accessibility AccessibilityFor(PropertyDefinition definition, NativeNamedTypeSymbol owner)
+    private static Accessibility AccessibilityFor(PropertyInfo view)
     {
-        var module = (NativeModuleSymbol)owner.ContainingModule;
-        var access = new[] { definition.GetMethod, definition.SetMethod }.Where(m => m is not null)
-            .Select(m => NativeMetadataAccess.Map(module.MethodView(m!).Accessibility)).ToArray();
+        var access = new[] { view.GetMethod, view.SetMethod }.Where(m => m is not null)
+            .Select(m => NativeMetadataAccess.Map(m!.Accessibility)).ToArray();
         return access.Contains(Accessibility.Public) ? Accessibility.Public : access.Contains(Accessibility.Internal) ? Accessibility.Internal : Accessibility.Private;
     }
     public ITypeSymbol Type => type.Value;

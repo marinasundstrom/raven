@@ -4996,3 +4996,10 @@ Runtime Contract, native metadata or nominal Array<T> change. The 86 focused .NE
 native broad application and native labeled-loop execution pass. The known lexical
 closure-lifetime bug remains unresolved; see
 [the parity audit](architecture/neoclr-refactor-parity.md#array-expansion-scoped-to-portable-planning-2026-10-03).
+
+
+Native field/property facade adoption (2026-10-03) removes redundant reader-definition
+lookups from those symbol classes. It adds no CLI transport, Runtime Contract option or
+metadata encoding. Native references remain native; the explicit primitive seed and older
+projection probes remain separately configured. All seven native consumers execute after
+the change. See [the caller inventory](metadata-backend-boundaries.md#nativelegacy-consumer-inventory-2026-10-03).
