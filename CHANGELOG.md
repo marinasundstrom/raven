@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Correct the struct-constraint round-trip test to distinguish written
+  source flags from imported CLI flags, which include the implied constructor constraint.
+  No compiler or metadata behavior changes; focused constraint checks pass.
+
 - **2026-10-03:** Record the target-boundary audit against main: 71 additional execution
   checks pass on both lines; metadata/import checks expose the same struct-constraint
   discrepancy on both. Recommend reviewing the second .NET body-emission path while

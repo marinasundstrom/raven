@@ -109,3 +109,10 @@ This is a bounded recommendation, not approval to rewrite both backends or a cla
 all listed code must be reverted. The proposed CLR array adapter remains suspended.
 Ordinary .NET regression tests and native library/runtime acceptance must remain separate;
 forcing the NeoCLR source library to execute on the CLR is not proof of target parity.
+
+
+Constraint reconciliation (2026-10-03): the PE importer intentionally retains CLI flags,
+while source flags describe written constraints. Correct the round-trip test's imported
+expectation for struct to ValueType | Constructor; retain the source ValueType assertion.
+This changes no compiler contract. Four round-trip cases pass on integration; the same
+four plus three existing CLR metadata flag cases pass on the main-based fix branch.

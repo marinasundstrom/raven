@@ -558,8 +558,13 @@ class C {
         var metadataBox = Assert.IsAssignableFrom<INamedTypeSymbol>(consumer.GetTypeByMetadataName("Box`1"));
         var metadataMethod = Assert.Single(metadataBox.GetMembers("Echo").OfType<IMethodSymbol>());
 
-        Assert.Equal(expectedConstraintKind, Assert.Single(metadataBox.TypeParameters).ConstraintKind);
-        Assert.Equal(expectedConstraintKind, Assert.Single(metadataMethod.TypeParameters).ConstraintKind);
+        // Source flags describe the written constraint. CLI struct metadata also
+        // carries the implied default-constructor flag, which the importer preserves.
+        var expectedMetadataKind = expectedConstraintKind.HasFlag(TypeParameterConstraintKind.ValueType)
+            ? expectedConstraintKind | TypeParameterConstraintKind.Constructor
+            : expectedConstraintKind;
+        Assert.Equal(expectedMetadataKind, Assert.Single(metadataBox.TypeParameters).ConstraintKind);
+        Assert.Equal(expectedMetadataKind, Assert.Single(metadataMethod.TypeParameters).ConstraintKind);
     }
 
     [Theory]
