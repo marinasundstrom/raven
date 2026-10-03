@@ -4858,3 +4858,24 @@ and conversion is the next bounded gap. No sample rewrite is used. Full broad-ap
 execution and .NET source-library adapters remain pending. Reproduce with NeoCLR's
 bootstrap `verify_source_unions.py --queries`; the manifest owns the complete query source
 set, and application compilation receives only emitted library references.
+
+### Preserve nominal Array<T> backing (2026-10-03)
+
+The author explicitly retains Array<T> backing for this integration; structural array
+identity decisions belong to later structural-types work. Keep vector storage separate
+from its nominal member/iteration shape. The existing RuntimeIterationContract supports
+ArrayShapeTypeName, and the current shared array symbol delegates member/interface
+projection to its provider. No structural array redesign is part of this slice.
+
+NeoCLR's `array-ownership.json` selects the unchanged source System.Array<T> and its
+iterator, together with source-owned Iterable/Iterator and Propagatable. The cumulative
+library and a reference-only array query consumer compile. Runtime execution currently
+fails interface implementation selection for the vector receiver. The next fix must
+connect vector storage to the canonical nominal descriptor and source iterator; old
+translated ArrayEnumerable naming must not become a silent native fallback.
+
+The prior Filter lookup failure also exposed incomplete host configuration: the query
+manifest did not opt arrays into Iterable. Separately, leaving propagation unset selects
+ordinary CLR exception-capturing lowering. These observations do not justify globally
+changing default .NET semantics. The ordinary query success gate remains unchanged;
+this additional nominal-array case is explicitly an assessment, not an execution pass.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Record the author-directed nominal Array<T> backing contract and native
+  source-array assessment. Library and separate consumer compilation succeed; runtime vector
+  interface backing remains a demonstrated blocker. No compiler or .NET behavior changed.
+
 - **2026-10-03:** Lower built-in generic/value unboxing through an explicit target operation.
   NeoCLR now compiles and separately consumes unchanged query sources, executing OfType,
   Filter, Map, ToList and Single (42), including shared reference identity. The broad sample
