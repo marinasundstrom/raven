@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Admit generated union case constructors and payload getters to
+  shared body planning despite their retained case/parameter source locations. Validate
+  the owning union anchor and preserve authored method bodies. Core union body lowering
+  and .NET execution regressions pass; native override/display and union metadata
+  contracts remain blockers to complete union emission.
+
 - **2026-10-03:** Opt native emission into value-type interface declarations, preserving
   concrete addressed calls. Paired source fixtures execute on both targets; boxed
   conversion remains unsupported and rejects before publication. Option now reaches

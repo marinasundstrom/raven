@@ -14,8 +14,8 @@ public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
     public void CompleteGraphPreservesPhysicalCaseOwnersAndUnusedContracts(bool generic)
     {
         var source = generic
-            ? "union Choice<T> { case Some(value: T) case None }"
-            : "union Choice { case Some(value: int) case None }";
+            ? "union Choice<T> { case Some(value: T) case None func Read() -> int => 42 }"
+            : "union Choice { case Some(value: int) case None func Read() -> int => 42 }";
         var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var tree = compilation.SyntaxTrees.Single();
@@ -29,10 +29,11 @@ public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
         Assert.All(union.DeclaredCaseTypes, @case => Assert.Contains(carrier.Fields, field => field.MetadataName == UnionFieldUtilities.GetPayloadFieldName(@case.Name)));
         Assert.Contains(carrier.Methods, m => m.Name == "TryGetValue");
         Assert.Contains(carrier.Methods, m => m.Name == "ToString");
-        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), [],
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), [Accessibility.Public, Accessibility.Internal],
             [Accessibility.Public, Accessibility.Internal, Accessibility.Private],
-            allowsRootClassSignatures: true, allowsManagedReferences: true,
+            allowsRootClassSignatures: true, allowsRootClassLocals: true, allowsManagedReferences: true,
+            allowsConstructedFieldReferences: true, allowsGenericInstanceMethods: true,
             allowsGenericStaticOwners: true, allowsGenericClassOwners: true);
         foreach (var @case in union.DeclaredCaseTypes)
         {
@@ -55,8 +56,24 @@ public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
         Assert.Same(declaration, callable!.Body);
         Assert.True(compilation.TryGetSynthesizedMethodBody(helper, BoundTreeView.Lowered, out var body));
         Assert.NotNull(body);
+        Assert.True(callable.TryLowerBody(compilation, _ => false, out var lowered, out var failure, capabilities), failure?.Detail);
+        Assert.NotNull(lowered);
+        var wrongAnchor = SyntaxTree.ParseText("union Other { case None }").GetRoot()
+            .DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        Assert.False(SourceCallablePlan.TryCreate(helper, out _, capabilities, wrongAnchor));
+        var authored = carrier.Methods.Single(m => m.Name == "Read");
+        Assert.True(SourceCallablePlan.TryCreate(authored, out var authoredPlan, capabilities, declaration));
+        Assert.IsType<ArrowExpressionClauseSyntax>(authoredPlan!.Body);
+        var rejected = new List<string>();
         foreach (var type in plan.Types)
         {
+            foreach (var method in type.Methods.Where(m => m.MethodKind == MethodKind.Constructor || m.Name is "TryGetValue" or "Deconstruct" || m.MethodKind == MethodKind.PropertyGet && type.Symbol is IUnionCaseTypeSymbol))
+            {
+                if (!SourceCallablePlan.TryCreate(method, out var core, capabilities, declaration))
+                    rejected.Add(method.ToDisplayString() + ": declaration " + string.Join(",", method.DeclaringSyntaxReferences.Select(r => r.GetSyntax().GetType().Name)));
+                else if (!core!.TryLowerBody(compilation, _ => false, out _, out var rejectedBody, capabilities))
+                    rejected.Add(method.ToDisplayString() + ": " + rejectedBody!.Detail);
+            }
             Assert.Equal(type.Methods.Length, type.Methods.Distinct<IMethodSymbol>(SymbolEqualityComparer.Default).Count());
             Assert.All(type.Properties, property =>
             {
@@ -64,5 +81,6 @@ public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
                 if (property.SetMethod is { } set) Assert.Contains(type.Methods, method => SymbolEqualityComparer.Default.Equals(method, set));
             });
         }
+        Assert.True(rejected.Count == 0, string.Join("\n", rejected));
     }
 }

@@ -4413,3 +4413,28 @@ RavenDoc snapshot regeneration blocker remains.
 Unchanged source Option now passes the value-interface declaration boundary and reaches
 its synthesized ToString override. Next address generated override/display contracts and
 native union/case metadata preservation; this slice does not complete source union emission.
+
+## Generated union body planning (2026-10-03)
+
+Portable callable planning now recognizes generated case constructors whose location is
+a CaseDeclarationSyntax and generated payload getters whose location is a ParameterSyntax.
+These symbols previously failed declaration admission even though Raven already provides
+their bound bodies. The union anchor must match a declaring syntax reference of the actual
+owning union. Authored methods keep their own syntax/body; an unrelated union cannot
+supply the generated-body anchor. This is internal target planning, not a binder rewrite.
+
+The existing synthesized-body factory and Lowerer remain the semantic owners. C# tests
+now require successful shared lowering of carrier constructors, case constructors,
+TryGetValue, payload getters and available deconstructors for generic/nongeneric unions.
+Seven focused planning/backend checks and two existing .NET union execution regressions
+pass. The .NET Reflection/Emit path, Runtime Contracts, primitive bootstrap and metadata
+library APIs are unchanged. No native union execution is claimed from plan admission.
+
+Investigation of the next blocker confirms that synthesized ToString must retain a real
+Object virtual-slot contract. It cannot be emitted as an ordinary nonvirtual method.
+The current metadata declaration API cannot author that override; native runtime slot
+validation also needs the explicit retained System.Object dependency and correct target
+identity/name. The generated formatting helper additionally uses object/string/character
+operations. Next add the bounded override/reference contract and formatting dependencies,
+then preserve union/case metadata for native imports. The production union publication
+gate stays closed throughout; supported core bodies are not a complete union contract.

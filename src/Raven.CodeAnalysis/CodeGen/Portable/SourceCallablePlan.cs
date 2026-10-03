@@ -52,9 +52,8 @@ internal sealed record SourceCallablePlan(
             if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
             plan = null; return false;
         }
-        if (symbol is SourceMethodSymbol && symbol.DeclaringSyntaxReferences.IsEmpty &&
-            symbol.ContainingType is SourceUnionSymbol or SourceUnionCaseTypeSymbol &&
-            synthesizedAnchor is UnionDeclarationSyntax)
+        if (symbol is SourceMethodSymbol && synthesizedAnchor is UnionDeclarationSyntax unionAnchor &&
+            HasSynthesizedUnionBody(symbol, unionAnchor))
         {
             // The anchor supplies diagnostics and the semantic model. The body still
             // comes from Compilation.TryGetSynthesizedMethodBody during lowering.
@@ -95,6 +94,28 @@ internal sealed record SourceCallablePlan(
             default:
                 return false;
         }
+    }
+
+    private static bool HasSynthesizedUnionBody(IMethodSymbol method, UnionDeclarationSyntax anchor)
+    {
+        var union = method.ContainingType switch
+        {
+            SourceUnionSymbol owner => owner,
+            SourceUnionCaseTypeSymbol @case => @case.Union as SourceUnionSymbol,
+            _ => null
+        };
+        if (union is null || !union.DeclaringSyntaxReferences.Any(reference =>
+            reference.SyntaxTree == anchor.SyntaxTree && reference.Span == anchor.Span)) return false;
+        if (method.DeclaringSyntaxReferences.IsEmpty) return true;
+        if (method.ContainingType is not SourceUnionCaseTypeSymbol || method.DeclaringSyntaxReferences.Length != 1) return false;
+        // Case constructors and payload getters are generated, but retain case/parameter
+        // source locations. They have no user-authored callable body to bind.
+        return (method.MethodKind, method.DeclaringSyntaxReferences[0].GetSyntax()) switch
+        {
+            (MethodKind.Constructor, CaseDeclarationSyntax) => true,
+            (MethodKind.PropertyGet, ParameterSyntax) => true,
+            _ => false
+        };
     }
 
     // Root construction is backend policy: CLI calls Object::.ctor; native roots have no base.
