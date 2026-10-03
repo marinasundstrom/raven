@@ -45,6 +45,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   preserving once-only evaluation and early residual returns without loading the unused
   success value. Backport the general fix independently of the NeoCLR emitter;
   all six focused .NET/lowering checks pass on main.
+- **2026-10-03:** Correct the struct-constraint round-trip test to distinguish written
+  source flags from imported CLI flags, which include the implied constructor constraint.
+  No compiler or metadata behavior changes; focused constraint checks pass.
+
 - **2026-10-03:** Add explicit .NET source-void-to-unit mapping to RuntimeUnitContract.
   An ordinary service assembly can own the unit value; declaration/type-expression
   binding and emitted interface/MethodImpl scopes agree. CLR no-result returns and

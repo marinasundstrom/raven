@@ -118,3 +118,9 @@ existing helper; retain async/pattern handling, with no binder or Runtime Contra
 Eight existing expression-body tests passed before the fix. Ten tests pass with the fix,
 including static/instance Int32 boxing, reference identity and null. No NeoCLR metadata
 project or target code is required. This branch remains based on main; main is unchanged.
+
+
+Constraint round-trip test reconciliation (2026-10-03): source struct flags remain
+ValueType; imported CLI flags include the implied Constructor. Correct the existing
+round-trip expectation without changing importer or emitter behavior. Seven focused
+round-trip/CLR-flag checks pass on this main-based branch.
