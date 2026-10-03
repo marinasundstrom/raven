@@ -4089,6 +4089,13 @@ internal partial class TypeMemberBinder : Binder
         if (overriddenReturnType.TypeKind == TypeKind.Error || overridingReturnType.TypeKind == TypeKind.Error)
             return true;
 
+        // A stronger reference-return guarantee preserves the inherited CLR signature.
+        // Keep value-nullable storage and unrelated return types on the existing path.
+        if (overriddenReturnType is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullableBase &&
+            overridingReturnType.IsReferenceType && !overridingReturnType.IsNullable &&
+            TypesMatchForExplicitImplementation(nullableBase.UnderlyingType, overridingReturnType))
+            return true;
+
         var overriddenProjection = overriddenReturnType.GetNullableAbiProjection();
         var overridingProjection = overridingReturnType.GetNullableAbiProjection();
 

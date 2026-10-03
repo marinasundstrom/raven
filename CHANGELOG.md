@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Allow method overrides to strengthen a nullable reference return to
+  the same nonnullable reference type, including Object.ToString. Retain rejection of
+  weaker reference promises, unrelated types and nullable value-storage mismatches.
+  Independently validated on the main-based fix branch as 54fc1e0aa (13 focused tests).
+
 - **2026-10-03:** Preserve native inherited-slot metadata in imported method symbols and
   author bounded value ToString override references from those symbols. Unchanged
   application-order-collections now compiles against a separately built native library

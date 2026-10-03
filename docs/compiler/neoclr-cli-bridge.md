@@ -4920,3 +4920,21 @@ runs a minimal separate imported union display test (Multiple, 42). Primitive co
 ownership and runtime seed remain explicit; native application/library imports use no CLI
 projection fallback. This completes the native side of the broad gate. The equivalent
 .NET source-library execution adapter work remains pending.
+
+### Paired .NET source-library assessment (2026-10-03)
+
+The native broad gate exposed a shared .NET binding limitation: Object.ToString's nullable
+reference result prevented the unchanged nonnullable SingleError override. The bounded
+same-underlying-reference strengthening fix is isolated on the main-based fix branch as
+54fc1e0aa and validated by 13 diagnostic/executable tests. It changes language binding in
+both targets, not a native emitter special case. Nullable value ABI mismatches and weakened
+reference return promises remain rejected; parameter and property rules are unchanged.
+
+The .NET assessment uses --emit-core-types-only to avoid competing Raven.Core union copies,
+the same ownership manifest, real .NET CheckedStorage/RuntimeFailure adapters, and unchanged
+source Functions.rvn. Library emission alone succeeds after the override fix. Separate
+consumer emission exposes invalid System.Void in the imported Propagatable generic
+instantiation. The CLR cannot use its void marker as a stored/generic value. Explicit
+source-unit to CLR unit-value projection is the next requirement; array backing adaptation
+also needs executable proof. No source rewriting or CLI-projection fallback is counted as
+success. The driver harness records failing stages as failures.

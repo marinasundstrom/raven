@@ -322,3 +322,12 @@ partial class Notifier {
 All partial member parts must use the `partial` modifier, live inside a partial type, and have the same signature. A declaration
 without an implementation, or an implementation without a declaration, produces a diagnostic. Partial properties and partial
 events do not allow an auto/field-like implementation part; the implementing declaration must provide real accessor bodies.
+
+### Reference return nullability in method overrides
+
+An override may strengthen a nullable reference return to the same underlying nonnullable
+reference type (for example `ToString() -> string` overriding `string?`). It retains the
+same CLR signature and inherited slot. Weakening the return promise remains rejected;
+nullable value-type storage is not erased. This is a bounded nullability adjustment, not
+general covariant-return support. It follows the substitutability direction described in
+[the C# method override specification](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/classes#1565-override-methods).
