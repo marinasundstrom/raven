@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Load native value-returning callbacks through metadata facade views
+  and author their emission operands from symbols. Unchanged ArrayList now compiles as a
+  library and executes in a separate consumer, including Find and iteration (42). Explicit
+  no-result callbacks reject instead of being changed to inhabited-unit signatures; the
+  existing .NET backend and separate structural Function experiments remain unchanged.
+
 - **2026-10-03:** Record the next NeoCLR integration assessment: the bounded collection
   bootstrap enables unchanged ArrayList source execution, but separate native import still
   rejects callback signatures. This is a diagnosed importer gap, not completion of the

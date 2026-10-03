@@ -131,6 +131,8 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     {
         NominalTypeInfo nominal => Resolve(nominal),
         ConstructedTypeInfo constructed => Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(MapView).ToArray()),
+        FunctionTypeInfo { NoResult: true } => throw new InvalidDataException("native no-result callback import requires a distinct callable contract; inhabited unit must not be substituted"),
+        FunctionTypeInfo function => compilation.CreateFunctionTypeSymbol(function.ParameterTypes.Select(MapView).ToArray(), MapView(function.ReturnType)),
         ArrayTypeInfo array => compilation.CreateArrayTypeSymbol(MapView(array.ElementType)),
         GenericParameterTypeInfo parameter => Resolve(parameter.DeclaringType).TypeParameters[parameter.Position],
         MethodGenericParameterTypeInfo parameter => MapMethodParameter(parameter),

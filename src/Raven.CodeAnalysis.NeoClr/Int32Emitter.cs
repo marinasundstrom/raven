@@ -615,6 +615,7 @@ internal static class Int32Emitter
             SymbolEqualityComparer.Default.Equals(type, compilation.GetSpecialType(SpecialType.System_Unit));
 
         bool IsSymbolOnlyType(ITypeSymbol type, bool result) =>
+            type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType && CallableSignature.TryFunction(functionType, out _, NeoClrCapabilities.Shared) ||
             !result && IsRuntimeUnitValue(type) ||
             type is ITypeParameterSymbol ||
             type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
@@ -625,6 +626,10 @@ internal static class Int32Emitter
 
         SignatureType MapSymbolOnlyType(ITypeSymbol type, bool result = false) => type switch
         {
+            INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType when CallableSignature.TryFunction(functionType, out var shape, NeoClrCapabilities.Shared) =>
+                SignatureType.Function(new MethodSignature(
+                    NeoClrTypeMapper.Map(shape.ReturnType, owned => nativeTypes[owned], ImportExternalType),
+                    shape.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, owned => nativeTypes[owned], ImportExternalType)))),
             INamedTypeSymbol when !result && IsRuntimeUnitValue(type) =>
                 ImportExternalType(((UnitTypeSymbol)compilation.GetSpecialType(SpecialType.System_Unit)).RuntimeRepresentation!),
             ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter => SignatureType.MethodParameter(parameter.Ordinal),

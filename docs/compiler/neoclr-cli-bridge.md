@@ -4764,3 +4764,24 @@ separate Option/Result consumer still passes. See the bootstrap README and
 `docs/experiments/extended-cli-metadata/arraylist-source-assessment-2026-10-03.json` in neoCLR.
 The CLI callback declarations are existing bridge transport; no new Function semantics or
 integration of the separate structural Function branches is claimed.
+
+
+### Separate ArrayList callback import executes (2026-10-03)
+
+Native metadata reading now retains the existing function signature category. The
+metadata-only FunctionTypeInfo facade owns generic substitution, canonical signature
+views and dependency resolution. Raven maps value-returning shapes into its existing
+callable symbols using the explicit primitive bootstrap; emission independently authors
+callback operands from those symbols. There is no importer-object reuse, format revision,
+Reflection backend change or integration of the separate Function language experiments.
+Explicit no-result callback imports reject rather than silently acquiring an inhabited
+unit result; the facade preserves both categories.
+
+The ordinary driver compiles unchanged ArrayList, iteration and Option/Result sources to
+NeoCLR.Collections.dll, then compiles its consumer with only the emitted reference.
+Alias mutation, independent copies, iteration and Find callbacks execute (42). Negative
+capacity also executes through a separately compiled consumer and fails as expected.
+The assessment driver now requires native import success; the previous failure record
+remains historical. Metadata contracts pass 125 groups, all seven existing native consumers
+pass, and the separate source-union gate still passes. The .NET class-library adapter,
+HashMap/comparers, queries and broad application gate remain open.
