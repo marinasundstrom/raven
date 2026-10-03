@@ -22,6 +22,10 @@ internal static class BoxingDriverChecks
         var stem = unit ? "UnitStorage" : nulls ? "NullLiterals" : display ? "ObjectDisplay" : references ? "References" : fieldAddresses ? "FieldAddress" : "Box";
         var source = Path.Combine(output, stem + ".rvn");
         File.WriteAllText(source, unit ? """
+            union Residual<T> {
+                case Present(value: T)
+                case Absent
+            }
             func Fill(out residual: System.Void) -> bool {
                 residual = ()
                 return true
@@ -32,7 +36,11 @@ internal static class BoxingDriverChecks
                 if !Fill(out residual) {
                     return 1
                 }
-                return Consume(residual)
+                let wrapped: Residual<System.Void> = .Present(residual)
+                return match wrapped {
+                    .Present(let value) => Consume(value)
+                    .Absent => 2
+                }
             }
             """ : nulls ? """
             func EmptyObject() -> object? => null
@@ -138,7 +146,7 @@ internal static class BoxingDriverChecks
         }
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
-            scope = unit ? "Native ordinary-command configured inhabited unit storage/out argument executes42; not a dual-target case." : nulls ? "Dual-target typed null returns and initialized local (42)." : display ? "Dual-target core Object.ToString dispatch on generic boxed integer and string (42)." : references ? "Dual-target reference null checks and discard type tests return 42." : fieldAddresses ? "Dual-target nested generic field addresses preserve mutable storage and object aliases (42)." : "Dual-target ordinary-command boxing smoke; detailed value/identity assertions live in C# metadata and CLR conversion tests, not this discarded-result smoke.",
+            scope = unit ? "Native ordinary-command configured inhabited unit storage/out argument and generic union payload execute42; not a dual-target case." : nulls ? "Dual-target typed null returns and initialized local (42)." : display ? "Dual-target core Object.ToString dispatch on generic boxed integer and string (42)." : references ? "Dual-target reference null checks and discard type tests return 42." : fieldAddresses ? "Dual-target nested generic field addresses preserve mutable storage and object aliases (42)." : "Dual-target ordinary-command boxing smoke; detailed value/identity assertions live in C# metadata and CLR conversion tests, not this discarded-result smoke.",
             driverSha256 = Hash(driver),
             runtimeSha256 = Hash(runtime),
             coreSha256 = Hash(core),

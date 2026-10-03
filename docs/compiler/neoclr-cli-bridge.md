@@ -4706,3 +4706,17 @@ The matching metadata implementation is neoCLR `1e426ff2` on
 `codex/extended-cli-metadata`; all seven existing native consumers also execute after
 this importer change. The union body initialization fix is separately validated on
 `codex/compiler-fixes-from-neoclr` (`c64181a37`); main has not been merged.
+
+
+Configured unit union execution (2026-10-03): overload argument validation now honors
+an exact resolved RuntimeUnitContract instead of rejecting every SpecialType.System_Void
+argument. Ordinary CLI void stays rejected without the contract. See
+[unit argument resolution](unit-argument-resolution.md). The unit-storage driver now puts
+an out-initialized System.Void into Residual<System.Void>.Present, matches its payload,
+and passes it to a normal function; native verification and execution return 42.
+No metadata/runtime encoding change was needed. This proves inhabited generic payloads,
+not unchanged source Option completion: bootstrap/source ownership remains a separate gap.
+The compiler fix is ca7164aa2 here and fc32e3b9e on the main-based
+codex/compiler-fixes-from-neoclr branch; both pass 16 focused unit-contract tests.
+Main has not been merged. Validation uses neoCLR eb8aab9b's metadata state and the
+explicit core/seed hashes captured by the driver evidence.

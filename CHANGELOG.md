@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Extend the native unit driver with generic union construction and
+  payload matching after out assignment; ordinary compiler commands verify and execute
+  successfully (42). Keep source Option/bootstrap ownership completion tracked separately.
+
 - **2026-10-03:** Honor the explicitly selected RuntimeUnitContract in overload argument
   validation, including generic union constructors. Unconfigured CLI void arguments remain
   rejected. The configured regression fails before the fix; all 16 focused unit-contract
