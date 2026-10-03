@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Lower built-in generic/value unboxing through an explicit target operation.
+  NeoCLR now compiles and separately consumes unchanged query sources, executing OfType,
+  Filter, Map, ToList and Single (42), including shared reference identity. The broad sample
+  next requires array extension receiver support; ordinary .NET emission is unchanged.
+
 - **2026-10-03:** Emit and discover bounded native instance extension declarations using
   the existing CLR-shaped generic-method lowering and standard container marker. A separate
   generic extension library and consumer execute (42). Full query source compilation still

@@ -4835,3 +4835,26 @@ extensions, static extension members and extension properties remain unsupported
 this native declaration path. The next owning-layer work is supported generic unboxing/
 conversion emission, followed by unchanged query and broad-application reassessment.
 No independent binder fix was retained or requires porting to main in this slice.
+
+### Generic unboxing unlocks unchanged query sources (2026-10-03)
+
+Shared lowering now exposes an explicit UnboxAny operation for built-in object/reference
+to generic/value conversions, gated by target capability. The native adapter calls the
+metadata library IL generator; CLI/native writers encode their existing unbox.any operation.
+The ordinary .NET emitter remains unchanged. Runtime Contract and bootstrap selections
+remain explicit and unchanged; no importer state enters emission.
+
+The cumulative unchanged runtime library, including the full Operators and SingleError
+sources, now compiles and imports into a separate native query consumer. OfType, Filter,
+Map, ToList and Single execute (42), checking boxed value extraction and retained object
+identity. Incorrect unboxing faults with InvalidCast. Fifteen focused compiler capability
+and .NET execution tests pass; the metadata library adds CLR generic/value/reference
+execution and negative authoring checks (126 groups). No runtime implementation or native
+format version change was needed.
+
+The unchanged application-order-collections sample now stops in binding at Order[].Filter.
+Array participation in the configured iteration contract's extension receiver inference
+and conversion is the next bounded gap. No sample rewrite is used. Full broad-application
+execution and .NET source-library adapters remain pending. Reproduce with NeoCLR's
+bootstrap `verify_source_unions.py --queries`; the manifest owns the complete query source
+set, and application compilation receives only emitted library references.

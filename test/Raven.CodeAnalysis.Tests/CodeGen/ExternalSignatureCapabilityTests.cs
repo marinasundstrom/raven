@@ -9,6 +9,26 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class ExternalSignatureCapabilityTests
 {
     [Fact]
+    public void GenericUnboxingRequiresExplicitCapability()
+    {
+        var app = Compilation.Create("UnboxingAdmission", [SyntaxTree.ParseText("""
+            public static class Consumer {
+                public static func Extract<T>(value: object) -> T => (T)value
+            }
+            """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(app.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        EmissionCapabilities Capabilities(bool boxing) => new(Enum.GetValues<EmissionPrimitiveType>(),
+            Enum.GetValues<LinearInstructionKind>().Where(kind => boxing || kind != LinearInstructionKind.UnboxAny),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsRootClassSignatures: true, allowsGenericMethods: true, allowsExternalReferenceSignatures: true);
+        var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
+        Assert.False(plan!.TryLowerBody(app, _ => false, out _, out _, Capabilities(false)));
+        Assert.True(plan.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
+    }
+
+    [Fact]
     public void GenericBoxingRequiresExplicitCapability()
     {
         var app = Compilation.Create("BoxingAdmission", [SyntaxTree.ParseText("""
