@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Emit native imported value-type interface implementation calls and
+  configured unit-valued parameters from symbol contracts. Unchanged source Option/Result
+  and iteration contracts now compile as a native library and execute in a separate
+  consumer (42, checked output and residual/copy assertions). Ordinary .NET emission is
+  unchanged; the complete dual-target class-library gate remains open.
+
 - **2026-10-03:** Extend the native unit driver with generic union construction and
   payload matching after out assignment; ordinary compiler commands verify and execute
   successfully (42). Keep source Option/bootstrap ownership completion tracked separately.

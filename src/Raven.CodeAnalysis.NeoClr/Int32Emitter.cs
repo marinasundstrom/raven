@@ -545,20 +545,20 @@ internal static class Int32Emitter
                 if (artifact.Sha256 != binding.NativeArtifactSha256)
                     throw Unsupported("native dependency snapshot differs from semantic reference");
                 var identity = new AssemblyIdentity(artifact.Name, artifact.Version, artifact.Culture, artifact.PublicKeyToken, artifact.Flags);
-                var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType),
+                var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType, result: true),
                     symbol.Parameters.Select(p => MapSymbolOnlyType(p.Type)), callable.GenericParameterNames);
                 return assembly.CreateFunctionReference(identity, binding.CoreLibrary, artifact.Sha256,
                     symbol.ContainingNamespace?.ToMetadataName() ?? "", symbol.MetadataName, contract);
             }
             if (symbol.ContainingType is { } owner && IsSymbolOnlyOwnerDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
-                !symbol.IsOverride && (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : !symbol.IsAbstract && !symbol.IsVirtual) &&
+                !symbol.IsOverride && (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : !symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType)) &&
                 symbol.DeclaredAccessibility == Accessibility.Public && (symbol.IsStatic || symbol.Arity == 0) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, NeoClrCapabilities.Shared) &&
                 IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind is RefKind.None or RefKind.Ref or RefKind.Out && IsSymbolOnlyType(p.Type, false)))
             {
                 _ = ImportExternalType(owner);
                 var declaration = importedTypes[(INamedTypeSymbol)owner.OriginalDefinition];
-                var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType),
+                var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType, result: true),
                     symbol.Parameters.Select(p => p.RefKind == RefKind.None ? MapSymbolOnlyType(p.Type) : SignatureType.ByReference(MapSymbolOnlyType(p.Type))),
                     memberSignature.GenericParameterNames, memberSignature.OutParameters.IsDefault ? [] : memberSignature.OutParameters);
                 return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic);
@@ -566,7 +566,7 @@ internal static class Int32Emitter
             // A native callable must carry a complete supported semantic contract.
             // Do not recover missing emission facts by reopening its reader definition.
             if (symbol.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
-                throw Unsupported("native callable requires a supported symbol-only emission contract");
+                throw Unsupported("native callable requires a supported symbol-only emission contract: " + symbol.ToDisplayString());
             var dependencyMetadata = binding.Definition;
             var types = dependencyMetadata.MainModule.Types.Where(t => symbol.ContainingType is { } owner && t.GenericArity == owner.Arity && MatchesType(t, owner)).Take(2).ToArray();
             if (types.Length != 1) throw Unsupported("dependency type unavailable or ambiguous");
@@ -611,7 +611,11 @@ internal static class Int32Emitter
             (original.BaseType is null || original.BaseType.SpecialType == (original.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object)) &&
             original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None);
 
-        static bool IsSymbolOnlyType(ITypeSymbol type, bool result) =>
+        bool IsRuntimeUnitValue(ITypeSymbol type) => compilation.Options.RuntimeUnitContract is not null &&
+            SymbolEqualityComparer.Default.Equals(type, compilation.GetSpecialType(SpecialType.System_Unit));
+
+        bool IsSymbolOnlyType(ITypeSymbol type, bool result) =>
+            !result && IsRuntimeUnitValue(type) ||
             type is ITypeParameterSymbol ||
             type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
             type.SpecialType is SpecialType.System_Byte or SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean or SpecialType.System_String ||
@@ -619,8 +623,10 @@ internal static class Int32Emitter
             type is INamedTypeSymbol named && IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)named.OriginalDefinition) &&
             named.TypeArguments.All(argument => IsSymbolOnlyType(argument, false));
 
-        SignatureType MapSymbolOnlyType(ITypeSymbol type) => type switch
+        SignatureType MapSymbolOnlyType(ITypeSymbol type, bool result = false) => type switch
         {
+            INamedTypeSymbol when !result && IsRuntimeUnitValue(type) =>
+                ImportExternalType(((UnitTypeSymbol)compilation.GetSpecialType(SpecialType.System_Unit)).RuntimeRepresentation!),
             ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter => SignatureType.MethodParameter(parameter.Ordinal),
             ITypeParameterSymbol parameter => SignatureType.TypeParameter(parameter.Ordinal),
             IArrayTypeSymbol array => SignatureType.ArrayOf(MapSymbolOnlyType(array.ElementType)),
