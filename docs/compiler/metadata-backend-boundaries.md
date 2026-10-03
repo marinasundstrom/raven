@@ -524,3 +524,18 @@ No Runtime Contract, emitter, bootstrap, guest API or encoding changes.
 
 Validation: 109 C# metadata groups and all seven native import/emission/runtime consumers
 pass (42), including generic inherited interface dispatch.
+
+
+## Dual-target driver acceptance baseline (2026-10-03)
+
+NeoClrMetadataProbe --dual-driver <rvnc.dll> <neoclr> <fresh-output> executes ordinary
+compiler commands for both targets. --dual-driver-inventory records failures without
+claiming acceptance. It checks Hello World/helper invocation and a separately compiled
+generic interface/class library with constructor, field, property and alias mutation.
+Library source is removed before consumer compilation. .NET execution uses dotnet exec
+with the explicit net10 compiler runtimeconfig; no reference-only artifact is executed.
+
+Before driver native-import migration: both .NET cases and native Hello pass; the native
+library consumer rejects with NEOMETA001 (undeclared instance field). This is a baseline,
+not a completed dual-target gate. Evidence records command outputs and source/artifact hashes.
+No Runtime Contract or compiler behavior changes in the test-only slice.

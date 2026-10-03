@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Add paired ordinary-driver execution acceptance tests. Baseline passes
+  both .NET cases and native Hello; native separate-library field import remains failing.
+
 - **2026-10-03:** Consume bounded inherited-interface metadata queries instead of native
   importer recursion. Constructed arguments and diamond identity are preserved.
 

@@ -16,6 +16,11 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args.Length == 4 && args[0] is "--dual-driver" or "--dual-driver-inventory")
+{
+    await DualTargetDriverChecks.Run(args[1], args[2], args[3], args[0] == "--dual-driver-inventory"); return;
+}
+
 if (args.Length == 5 && args[0] == "--native-symbols-runtime")
 {
     await NativeSymbolChecks.RunRuntime(args[1], args[2], args[3], args[4]); return;
