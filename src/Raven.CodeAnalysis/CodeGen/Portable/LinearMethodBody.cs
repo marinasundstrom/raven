@@ -638,6 +638,17 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
+        bool LowerBinaryOperand(BoundExpression operand, ITypeSymbol expectedType)
+        {
+            if (!LowerValue(operand)) return false;
+            // Built-in operators retain their promoted operand types even when the
+            // bound operand has no explicit conversion node.
+            if (expectedType.SpecialType == SpecialType.System_Int64 &&
+                operand.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Byte)
+                Add(LinearInstructionKind.Convert64, Syntax(operand));
+            return true;
+        }
+
         bool LowerValue(BoundExpression expression, ITypeSymbol? nullTarget = null)
         {
             if (nullTarget is not null && IsNullLiteral(expression)) return LowerTypedNull(nullTarget, Syntax(expression));
@@ -864,7 +875,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     shift.Operator.LeftType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&
                     shift.Operator.RightType.SpecialType == SpecialType.System_Int32 &&
                     shift.Operator.OperatorKind is OperatorKind.ShiftLeft or OperatorKind.ShiftRight:
-                    if (!LowerValue(shift.Left) || !LowerValue(shift.Right)) return false;
+                    if (!LowerBinaryOperand(shift.Left, shift.Operator.LeftType) || !LowerBinaryOperand(shift.Right, shift.Operator.RightType)) return false;
                     Add(shift.Operator.OperatorKind == OperatorKind.ShiftLeft ? LinearInstructionKind.ShiftLeft : LinearInstructionKind.ShiftRight, Syntax(expression));
                     return true;
                 case BoundBinaryExpression binary when binary.Operator.MethodSymbol is null &&
@@ -879,7 +890,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         OperatorKind.Equality or OperatorKind.LessThan or OperatorKind.GreaterThan or
                         OperatorKind.Inequality or OperatorKind.LessThanOrEqual or OperatorKind.GreaterThanOrEqual))
                         return Reject("binary operator " + binary.Operator.OperatorKind, Syntax(expression));
-                    if (!LowerValue(binary.Left) || !LowerValue(binary.Right)) return false;
+                    if (!LowerBinaryOperand(binary.Left, binary.Operator.LeftType) || !LowerBinaryOperand(binary.Right, binary.Operator.RightType)) return false;
                     Add(binary.Operator.OperatorKind switch
                     {
                         OperatorKind.Addition => LinearInstructionKind.Add,
@@ -903,10 +914,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     TryType(function.DelegateType, false, out var lambdaType) && capabilities.Allows(lambdaType):
                     foreach (var capture in function.CapturedVariables)
                     {
-                        if (capture is not ILocalSymbol { IsMutable: false, Type.IsReferenceType: true } captured ||
+                        if (capture is not ILocalSymbol { IsMutable: false } captured ||
                             capabilities.Allows(LinearInstructionKind.LoadCapture) != true ||
-                            !TryType(captured.Type, false, out var capturedType) || !capabilities.Allows(capturedType))
-                            return Reject("closure capture requires an immutable reference local", Syntax(expression));
+                            !TryType(captured.Type, false, out var capturedType) || !capabilities.Allows(capturedType) ||
+                            !(captured.Type.IsReferenceType || capturedType.Primitive is EmissionPrimitiveType.Int32 or
+                                EmissionPrimitiveType.Int64 or EmissionPrimitiveType.Boolean or EmissionPrimitiveType.Byte))
+                            return Reject("closure capture requires an immutable reference or supported primitive local", Syntax(expression));
                         if (!LowerValue(new BoundLocalAccess(captured))) return false;
                     }
                     functions.Add((function, Syntax(expression)));

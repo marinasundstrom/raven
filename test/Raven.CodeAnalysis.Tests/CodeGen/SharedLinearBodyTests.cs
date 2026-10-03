@@ -639,6 +639,67 @@ public class SharedLinearBodyTests
         Assert.Equal("", choose.Invoke(null, [false]));
     }
 
+    [Theory]
+    [InlineData("int", "42", "let", true)]
+    [InlineData("long", "4294967296", "let", true)]
+    [InlineData("bool", "true", "let", true)]
+    [InlineData("byte", "42", "let", true)]
+    [InlineData("int", "42", "var", false)]
+    public void PrimitiveCaptureAdmissionPreservesOrdinaryExecution(string type, string value, string binding, bool admitted)
+    {
+        var source = $$"""
+            public static class Capture {
+                public static func Run() -> int {
+                    {{binding}} captured: {{type}} = {{value}}
+                    let callback: () -> {{type}} = () => captured
+                    if callback() == {{value}} {
+                        return 42
+                    }
+                    return 1
+                }
+            }
+            """;
+        var compilation = Create(source, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
+            Enum.GetValues<LinearInstructionKind>(), allowsFunctionValues: true);
+        var success = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+            _ => false, out _, out var failure, capabilities);
+        Assert.Equal(admitted, success);
+        if (!admitted)
+            Assert.Equal("closure capture requires an immutable reference or supported primitive local", failure!.Detail);
+        Assert.Equal(42, Emit(compilation).GetType("Capture")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Fact]
+    public void PromotedIntegerOperandsPreserveOrdinaryExecution()
+    {
+        var compilation = Create("""
+            public static class Numbers {
+                public static func Run() -> long {
+                    let wide: long = 4294967296
+                    let small: byte = 42
+                    let signed = -1
+                    if small + wide != 4294967338 { return 1 }
+                    if wide + signed != 4294967295 { return 2 }
+                    if signed < wide { return wide + small }
+                    return 3
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>());
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+            _ => false, out _, out var failure, capabilities), failure?.Detail);
+        Assert.Equal(4294967338L, Emit(compilation).GetType("Numbers")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));

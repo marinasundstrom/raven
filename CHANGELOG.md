@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Admit immutable Int32/Int64/Boolean/Byte locals in native closure
+  frames, preserving escaped and per-iteration captured values. Emit integer widening
+  from built-in operator operand types when conversion nodes are absent. Mutable
+  captures remain rejected; ordinary .NET emission and runtime contracts are unchanged.
+
 - **2026-10-03:** Lower native lambdas capturing immutable reference locals into
   private frames and instance callback methods. Escaped callbacks retain reference
   identity and shared object mutation; mutable/value/parameter captures reject before

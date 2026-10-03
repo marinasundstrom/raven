@@ -5149,3 +5149,24 @@ independent factory state and shared reference mutation; mutable capture rejects
 publishing output. The expanded broad native gate and seven native consumers pass,
 with focused ordinary .NET function tests. The portable operation is a deferred general
 candidate until an independent backend consumer warrants validation on main.
+
+## Primitive local captures and promoted operands (2026-10-04)
+
+The native capture profile now also admits immutable Int32, Int64, Boolean and Byte
+locals, stored by value in the existing fresh frame for each lambda evaluation.
+Reference captures still retain object identity. A consumer of the separately built
+FunctionEqualityComparer/HashMap library exercises a captured integer divisor;
+escaped callbacks and callbacks created in a native array loop retain distinct values.
+Mixed-width capture arithmetic exposed a missing portable emission conversion:
+the adapter-independent plan now uses the bound built-in operator's promoted operand
+types to widen Byte/Int32 to Int64. It does not redo overload resolution or modify
+binding. CLR's ordinary emitter remains unchanged; .NET execution controls and native
+execution cover this promotion, without assertions about exact instructions.
+
+Mutable locals, arbitrary structs, parameters and receiver captures remain rejected;
+no claim is made about repairing the separately tracked ordinary .NET loop-capture
+issue. Existing Runtime Contract, explicit ownership manifest and metadata/runtime
+encodings are unchanged. The full comparer sample still needs StringComparer runtime
+services and primitive CompareTo contracts. The portable promotion fix remains a
+deferred general candidate until an independent backend caller justifies main-based
+validation; this change does not require merging the native target into main.
