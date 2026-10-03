@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Record the separate metadata library's bounded CLI value-ToString
+  override authoring foundation. Native runtime-slot binding and Raven override admission
+  remain pending; no compiler behavior or Runtime Contract configuration changes.
+
 - **2026-10-03:** Admit generated union case constructors and payload getters to
   shared body planning despite their retained case/parameter source locations. Validate
   the owning union anchor and preserve authored method bodies. Core union body lowering

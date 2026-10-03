@@ -4432,9 +4432,26 @@ library APIs are unchanged. No native union execution is claimed from plan admis
 
 Investigation of the next blocker confirms that synthesized ToString must retain a real
 Object virtual-slot contract. It cannot be emitted as an ordinary nonvirtual method.
-The current metadata declaration API cannot author that override; native runtime slot
+The metadata declaration API now authors that override for CLI output; native runtime slot
 validation also needs the explicit retained System.Object dependency and correct target
 identity/name. The generated formatting helper additionally uses object/string/character
 operations. Next add the bounded override/reference contract and formatting dependencies,
 then preserve union/case metadata for native imports. The production union publication
 gate stays closed throughout; supported core bodies are not a complete union contract.
+
+
+## Separate metadata override declaration API (2026-10-03)
+
+The NeoCLR metadata library now supports TypeBuilder.AddOverride and manually authored
+MethodDefinition flags for public value-type ToString() -> String. CLI output reuses the
+Object virtual slot, including an implementation that also satisfies an interface.
+Ordinary and constructed generic values execute through boxed Object.ToString in C#;
+the metadata library reports 118 passing groups.
+
+This does not enable a Raven target capability. Native writing deliberately rejects the
+new override profile until the explicit retained System.Object dependency and runtime
+slot name are bound and validated. No importer objects need to cross the emission
+boundary; future emission must author the override from symbol facts and host identities.
+Runtime Contract selection, bootstrap selection, .NET Reflection/Emit codegen and the
+source-union publication gate remain unchanged. Generated formatting operations and
+native union/case metadata are still required after the native override binding.
