@@ -4059,3 +4059,37 @@ round-trip, and runtime dependency/dispatch verification. Current writer/reader 
 attachment requires owned definitions. Do not simply remove admission checks or duplicate
 contracts into the implementation assembly. No compiler/runtime behavior changes in this
 baseline test slice.
+
+
+### External interface declarations (2026-10-03)
+
+The native target now admits implementation/inheritance edges to separately compiled
+native interfaces through an explicit shared emission capability. Source identity checks
+remain separate from referenced identity checks, and callable/local checks preserve the
+active target capabilities. The ordinary .NET backend remains unchanged.
+
+Raven authors complete external interface contracts from symbols: every direct method,
+property accessor, inherited edge and generic substitution is supplied before completion.
+The metadata writer validates implementations and computes CLI flags. No importer or
+reader definition is reused by this path. The runtime contract still uses explicit
+NeoCLR.CoreProbe bootstrap selection and exact native artifact bindings.
+
+PE emission uses the metadata library's authored-graph binary container overload, so the
+validated projection is retained rather than reconstructed from native bytes without
+dependency contracts. The CLI projection remains reference-only; native format-5 and
+runtime dispatch are unchanged. Reader-only CLI reconstruction for external relationships
+rejects explicitly. Native semantic import has no CLI fallback.
+
+`--dual-driver-external` now builds contracts, an implementation with a generic diamond,
+and a consumer in separate invocations, removing library sources before downstream
+compilation. Both .NET and native execution return 42 and check property/field mutation
+through aliases and interface calls. The original paired driver/rejection checks and
+seven native runtime consumers pass. Focused .NET InterfaceMetadataEmissionTests,
+EmissionBackendTests and NominalLocalEmissionTests pass (11 tests).
+
+Next: canonical bootstrap/source ownership and independently compiled iteration/collection
+sources. The broad source-built application gate is not complete. Capability forwarding
+is a shared-contract change with this feature's dependencies; this slice introduces no
+independent binder fix requiring a separate main-based branch.
+
+Validated metadata dependency: neoCLR `codex/extended-cli-metadata` commit `8c08829e`; runtime executable is unchanged from the recorded `101ab9c8` baseline.

@@ -21,6 +21,15 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
         ((INamedTypeSymbol)type.OriginalDefinition).TypeParameters.All(p => p.Variance == VarianceKind.None &&
             p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty);
 
+    internal static bool HasSupportedRelationship(INamedTypeSymbol target, IAssemblySymbol owner, EmissionCapabilities? capabilities)
+    {
+        if (SymbolEqualityComparer.Default.Equals(target.ContainingAssembly, owner)) return HasSupportedIdentity(target);
+        return capabilities?.AllowsExternalInterfaceDeclarations == true && target.TypeKind == TypeKind.Interface &&
+            target.ContainingType is null && target.DeclaredAccessibility == Accessibility.Public &&
+            ((INamedTypeSymbol)target.OriginalDefinition).TypeParameters.All(p => p.Variance == VarianceKind.None &&
+                p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty);
+    }
+
     internal static bool TryCreate(INamedTypeSymbol type, EmissionCapabilities capabilities, out SourceInterfacePlan? plan)
     {
         plan = null;
@@ -33,9 +42,8 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
             syntax.AttributeLists.Count != 0 || syntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword)))
             return false;
         if (!type.Interfaces.IsEmpty && (!capabilities.Allows(EmissionDeclarationKind.InterfaceInheritance) ||
-            type.Interfaces.Any(b => !HasSupportedIdentity(b) || b.Arity != 0 && (!capabilities.AllowsConstructedInterfaceInheritance ||
-                !CallableSignature.TryType(b, false, out var inherited, capabilities) || !capabilities.Allows(inherited)) ||
-                !SymbolEqualityComparer.Default.Equals(b.ContainingAssembly, type.ContainingAssembly)))) return false;
+            type.Interfaces.Any(b => !HasSupportedRelationship(b, type.ContainingAssembly, capabilities) || b.Arity != 0 && (!capabilities.AllowsConstructedInterfaceInheritance ||
+                !CallableSignature.TryType(b, false, out var inherited, capabilities) || !capabilities.Allows(inherited))))) return false;
         foreach (var member in syntax.Members)
         {
             if (member is MethodDeclarationSyntax { Body: null, ExpressionBody: null } method && method.AttributeLists.Count == 0 &&

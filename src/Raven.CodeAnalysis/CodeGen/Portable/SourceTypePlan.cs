@@ -31,9 +31,8 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         // Check relationship identity here. Arguments are mapped by the adapter; recursively
         // admitting their source owners would loop for shapes such as C<T> : I<C<T>>.
         if (!type.Interfaces.IsEmpty && (type.Arity != 0 && capabilities is not null && !capabilities.AllowsConstructedInterfaceImplementations || capabilities is not null && !capabilities.Allows(EmissionDeclarationKind.InterfaceImplementation) ||
-            type.Interfaces.Any(i => !SourceInterfacePlan.HasSupportedIdentity(i) ||
-                i.Arity != 0 && capabilities is not null && !capabilities.AllowsConstructedInterfaceImplementations ||
-                !SymbolEqualityComparer.Default.Equals(i.ContainingAssembly, type.ContainingAssembly)))) return false;
+            type.Interfaces.Any(i => !SourceInterfacePlan.HasSupportedRelationship(i, type.ContainingAssembly, capabilities) ||
+                i.Arity != 0 && capabilities is not null && !capabilities.AllowsConstructedInterfaceImplementations))) return false;
         var fullName = type.ToFullyQualifiedMetadataName();
         // MetadataName may already be qualified on synthesized owners. Split the
         // normalized full name instead of subtracting a potentially qualified name.

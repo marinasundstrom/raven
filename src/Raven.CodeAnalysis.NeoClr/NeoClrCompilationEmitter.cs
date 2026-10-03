@@ -26,7 +26,7 @@ public static class NeoClrCompilationEmitter
         return new(result.Success, result.Diagnostics);
     }
 
-    internal static NeoClrEmitResult EmitPrepared(Compilation compilation, Stream output, NeoClrEmitOptions options)
+    internal static NeoClrEmitResult EmitPrepared(Compilation compilation, Stream output, NeoClrEmitOptions options, bool metadataAssembly = false)
     {
         ArgumentNullException.ThrowIfNull(output);
         if (!output.CanWrite) throw new ArgumentException("Output must be writable", nameof(output));
@@ -74,7 +74,7 @@ public static class NeoClrCompilationEmitter
             bindings.Add((symbol, dependency));
         }
         byte[] image;
-        try { image = Int32Emitter.Emit(compilation, options, bindings); }
+        try { image = Int32Emitter.Emit(compilation, options, bindings, metadataAssembly); }
         catch (UnsupportedInputException error) { return Fail(Unsupported, error.Message, error.Location); }
         catch (InvalidDataException error) { return Fail(Encoding, error.Message); }
         catch (ArgumentException error) { return Fail(Encoding, error.Message); }
@@ -100,19 +100,7 @@ public static class NeoClrCompilationEmitter
 
     internal static NeoClrEmitResult EmitPreparedMetadataAssembly(Compilation compilation, Stream output, NeoClrEmitOptions options)
     {
-        ArgumentNullException.ThrowIfNull(output);
-        if (!output.CanWrite) throw new ArgumentException("Output must be writable", nameof(output));
-        using var native = new MemoryStream();
-        var result = EmitPrepared(compilation, native, options);
-        if (!result.Success) return result;
-        byte[] image;
-        try { image = NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(native.ToArray(), options.CoreLibrary); }
-        catch (Exception error) when (error is InvalidDataException or ArgumentException)
-        {
-            return new(false, result.Diagnostics.Add(Diagnostic.Create(Encoding, Location.None, error.Message)));
-        }
-        output.Write(image);
-        return result;
+        return EmitPrepared(compilation, output, options, metadataAssembly: true);
     }
 
     private static DiagnosticDescriptor Descriptor(string id, string title, string message)

@@ -28,10 +28,12 @@ internal static class DualTargetDriverChecks
             namespace DriverContracts
             public interface Value<T> { val Current: T { get; } }
             public interface MutableValue<T> : Value<T> { func Set(value: T) }
+            public interface ReadableValue<T> : Value<T> { }
             """;
         const string externalImplementation = """
             namespace DriverContracts
-            public class Box<T> : MutableValue<T> {
+            public interface CombinedValue<T> : MutableValue<T>, ReadableValue<T> { }
+            public class Box<T> : CombinedValue<T> {
                 public field stored: T
                 public init(value: T) { stored = value }
                 public val Current: T => stored

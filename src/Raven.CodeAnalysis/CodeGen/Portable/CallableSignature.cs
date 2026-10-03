@@ -30,7 +30,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(Nominal: external); return true; }
         if (type is INamedTypeSymbol { TypeKind: TypeKind.Interface } contract && SourceInterfacePlan.HasSupportedIdentity(contract))
         { value = new(Nominal: contract); return true; }
-        if (type is INamedTypeSymbol named && SourceTypePlan.TryCreate(named, out var plan) && !plan!.IsStatic)
+        if (type is INamedTypeSymbol named && SourceTypePlan.TryCreate(named, out var plan, capabilities) && !plan!.IsStatic)
         { value = new(Nominal: named); return true; }
         if (type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } array && TryType(array.ElementType, false, out _, capabilities, depth + 1))
         { value = new(Array: array); return true; }
@@ -77,7 +77,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
     {
         signature = null!;
         if ((method.IsGenericMethod && method.TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty)) || method.IsExtensionMethod && (capabilities?.AllowsLoweredExtensionCalls != true || !method.IsStatic) || method.IsAsync || !TryType(method.ReturnType, true, out var result, capabilities)) return false;
-        if (method.ContainingType is { Arity: > 0 } owner && ((!SourceTypePlan.TryCreate(owner, out _) && !(capabilities?.AllowsConstructedInterfaceInheritance == true && SourceInterfacePlan.HasSupportedIdentity(owner)) && !(capabilities?.AllowsExternalReferenceSignatures == true && IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) && !(capabilities?.AllowsExternalValueSignatures == true && IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true))) || owner.TypeArguments.Any(t => !TryType(t, false, out _, capabilities)))) return false;
+        if (method.ContainingType is { Arity: > 0 } owner && ((!SourceTypePlan.TryCreate(owner, out _, capabilities) && !(capabilities?.AllowsConstructedInterfaceInheritance == true && SourceInterfacePlan.HasSupportedIdentity(owner)) && !(capabilities?.AllowsExternalReferenceSignatures == true && IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) && !(capabilities?.AllowsExternalValueSignatures == true && IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true))) || owner.TypeArguments.Any(t => !TryType(t, false, out _, capabilities)))) return false;
         if (method.IsGenericMethod && method.TypeArguments.Any(t => !TryType(t, false, out _, capabilities))) return false;
         var parameters = ImmutableArray.CreateBuilder<EmissionType>(method.Parameters.Length);
         foreach (var parameter in method.Parameters)

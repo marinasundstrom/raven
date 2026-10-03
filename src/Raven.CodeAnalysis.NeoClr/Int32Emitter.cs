@@ -14,7 +14,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal static class Int32Emitter
 {
     internal static byte[] Emit(Compilation compilation, NeoClrEmitOptions options,
-        IReadOnlyList<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)> dependencies)
+        IReadOnlyList<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)> dependencies, bool metadataAssembly = false)
     {
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
@@ -212,6 +212,23 @@ internal static class Int32Emitter
                         var target = ImportExternalType(contract).ImportedType!;
                         assembly.AddInterfaceConversion(imported, target);
                     }
+                if (original.TypeKind == TypeKind.Interface && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
+                {
+                    // Seal a complete semantic contract, including accessors even when no body calls them.
+                    var members = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+                    foreach (var member in original.GetMembers())
+                    {
+                        if (member is IMethodSymbol method) members.Add(method);
+                        else if (member is IPropertySymbol property)
+                        {
+                            if (property.GetMethod is { } getter) members.Add(getter);
+                            if (property.SetMethod is { } setter) members.Add(setter);
+                        }
+                        else throw Unsupported("external interface member category");
+                    }
+                    foreach (var method in members) _ = Import(method);
+                    assembly.CompleteInterfaceReference(imported);
+                }
             }
             return imported.GenericArity == 0 ? imported : imported.MakeGenericInstance(type.TypeArguments
                 .Select(t => NeoClrTypeMapper.Map(t, owned => nativeTypes[owned], ImportExternalType)).ToArray());
@@ -238,7 +255,11 @@ internal static class Int32Emitter
             var definition = nativeInterfaces[contract.Symbol];
             foreach (var inherited in contract.BaseInterfaces)
             {
-                if (!nativeInterfaces.TryGetValue((INamedTypeSymbol)inherited.OriginalDefinition, out var parent)) throw Unsupported("inherited interface must be an emitted declaration");
+                if (!nativeInterfaces.TryGetValue((INamedTypeSymbol)inherited.OriginalDefinition, out var parent))
+                {
+                    definition.AddBaseInterface(ImportExternalType(inherited).ImportedType!);
+                    continue;
+                }
                 if (inherited.Arity == 0) definition.AddBaseInterface(parent);
                 else definition.AddBaseInterface(parent.MakeGenericInstance(inherited.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
             }
@@ -257,7 +278,10 @@ internal static class Int32Emitter
             foreach (var contract in type.Symbol.Interfaces)
             {
                 if (!nativeInterfaces.TryGetValue((INamedTypeSymbol)contract.OriginalDefinition, out var definition))
-                    throw Unsupported("interface implementation must be emitted");
+                {
+                    nativeTypes[type.Symbol].AddInterfaceImplementation(ImportExternalType(contract).ImportedType!);
+                    continue;
+                }
                 if (contract.Arity == 0) nativeTypes[type.Symbol].AddInterfaceImplementation(definition);
                 else nativeTypes[type.Symbol].AddInterfaceImplementation(definition.MakeGenericInstance(
                     contract.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, owner => nativeTypes[owner], ImportExternalType)).ToArray()));
@@ -382,7 +406,7 @@ internal static class Int32Emitter
             },
                 type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local"), ImportExternalType));
         }
-        return assembly.WriteNativeAssembly();
+        return metadataAssembly ? NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(assembly) : assembly.WriteNativeAssembly();
 
         bool IsCheckedReservation(IMethodSymbol method)
         {
