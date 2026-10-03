@@ -16,6 +16,11 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args.Length == 5 && args[0] is "--dual-driver-external" or "--dual-driver-external-inventory")
+{
+    await DualTargetDriverChecks.Run(args[1], args[2], args[3], args[4], args[0] == "--dual-driver-external-inventory", external: true); return;
+}
+
 if (args.Length == 5 && args[0] == "--driver-controls")
 {
     await DriverChecks.RunRuntime(args[1], args[2], args[3], args[4]); return;

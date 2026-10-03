@@ -7,7 +7,7 @@ namespace NeoClrMetadataProbe;
 // Executes ordinary compiler commands, with no Compilation or emitter API shortcuts.
 internal static class DualTargetDriverChecks
 {
-    internal static async Task Run(string driver, string runtime, string core, string output, bool inventory)
+    internal static async Task Run(string driver, string runtime, string core, string output, bool inventory, bool external = false)
     {
         core = Path.GetFullPath(core);
         driver = Path.GetFullPath(driver); runtime = Path.GetFullPath(runtime); output = Path.GetFullPath(output);
@@ -17,6 +17,20 @@ internal static class DualTargetDriverChecks
             namespace DriverContracts
             public interface Value<T> { val Current: T { get; } }
             public interface MutableValue<T> : Value<T> { func Set(value: T) }
+            public class Box<T> : MutableValue<T> {
+                public field stored: T
+                public init(value: T) { stored = value }
+                public val Current: T => stored
+                public func Set(value: T) { stored = value }
+            }
+            """;
+        const string externalContracts = """
+            namespace DriverContracts
+            public interface Value<T> { val Current: T { get; } }
+            public interface MutableValue<T> : Value<T> { func Set(value: T) }
+            """;
+        const string externalImplementation = """
+            namespace DriverContracts
             public class Box<T> : MutableValue<T> {
                 public field stored: T
                 public init(value: T) { stored = value }
@@ -57,19 +71,29 @@ internal static class DualTargetDriverChecks
                     var app = Path.Combine(directory, scenario + ".dll");
                     File.WriteAllText(mainSource, scenario == "hello" ? hello : consumer);
                     string? dependency = null;
+                    string? implementation = null;
                     if (scenario == "library")
                     {
                         var source = Path.Combine(directory, "Contracts.rvn");
                         dependency = Path.Combine(directory, "Contracts.dll");
-                        File.WriteAllText(source, library);
+                        File.WriteAllText(source, external ? externalContracts : library);
                         await Compile(source, dependency, true, null);
                         File.Delete(source); // The consumer must import the artifact, not reuse source.
+                        if (external)
+                        {
+                            var implementationSource = Path.Combine(directory, "Implementation.rvn");
+                            implementation = Path.Combine(directory, "Implementation.dll");
+                            File.WriteAllText(implementationSource, externalImplementation);
+                            await Compile(implementationSource, implementation, true, dependency);
+                            File.Delete(implementationSource);
+                        }
                     }
-                    await Compile(mainSource, app, false, dependency);
+                    await Compile(mainSource, app, false, dependency, implementation);
+                    var modules = new[] { dependency, implementation }.OfType<string>().SelectMany(p => new[] { "--module", p }).ToArray();
                     if (native)
-                        await Command(runtime, ["verify", app, .. dependency is null ? Array.Empty<string>() : new[] { "--module", dependency }], 0);
+                        await Command(runtime, ["verify", app, .. modules], 0);
                     var result = native
-                        ? await Command(runtime, ["run", app, .. dependency is null ? Array.Empty<string>() : new[] { "--module", dependency }], 42)
+                        ? await Command(runtime, ["run", app, .. modules], 42)
                         : await Command("dotnet", ["exec", "--runtimeconfig", Path.ChangeExtension(driver, ".runtimeconfig.json"), app], 42);
                     var expected = scenario == "hello" ? "Hello World\n" : "";
                     if (result.Stdout.Replace("\r\n", "\n") != expected || result.Stderr != "")
@@ -82,7 +106,7 @@ internal static class DualTargetDriverChecks
                     cases.Add(new { target, scenario, passed = false, error = error.Message });
                 }
             }
-            if (native)
+            if (native && !external)
             {
                 try
                 {
@@ -119,7 +143,7 @@ internal static class DualTargetDriverChecks
                     cases.Add(new { target, scenario = "native-reference-rejections", passed = false, error = error.Message });
                 }
             }
-            async Task Compile(string source, string destination, bool isLibrary, string? reference)
+            async Task Compile(string source, string destination, bool isLibrary, string? reference, string? secondReference = null)
             {
                 var args = new List<string> { driver };
                 if (native)
@@ -127,12 +151,14 @@ internal static class DualTargetDriverChecks
                     args.AddRange(["neoclr", "--core-reference", core]);
                     if (isLibrary) args.Add("--library");
                     if (reference is not null) args.AddRange(["--reference", reference]);
+                    if (secondReference is not null) args.AddRange(["--reference", secondReference]);
                 }
                 else
                 {
                     args.AddRange(["--framework", "net10.0", "--emit-core-types-only"]);
                     if (isLibrary) args.AddRange(["--output-type", "classlib"]);
                     if (reference is not null) args.AddRange(["--refs", reference]);
+                    if (secondReference is not null) args.AddRange(["--refs", secondReference]);
                 }
                 args.AddRange(["-o", destination, source]);
                 await Command("dotnet", args.ToArray(), 0);
@@ -144,7 +170,7 @@ internal static class DualTargetDriverChecks
             driverSha256 = Hash(driver),
             runtimeSha256 = Hash(runtime),
             runtimeConfigSha256 = Hash(Path.ChangeExtension(driver, ".runtimeconfig.json")),
-            sourceSha256 = new { hello = TextHash(hello), library = TextHash(library), consumer = TextHash(consumer) },
+            sourceSha256 = new { hello = TextHash(hello), library = TextHash(library), consumer = TextHash(consumer), externalContracts = TextHash(externalContracts), externalImplementation = TextHash(externalImplementation) },
             bootstrap = "Explicit .NET host core / NeoCLR.CoreProbe bootstrap; no System seed or reference-only control counts as execution",
             cases,
             commands

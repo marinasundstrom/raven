@@ -576,3 +576,19 @@ Runtime Contracts, the bootstrap, or runtime behavior.
 
 Validation: 109/109 C# metadata groups, all seven native semantic/emission/runtime
 consumers (42), paired driver cases on both targets and native driver rejection checks pass.
+
+
+External-interface gate baseline (2026-10-03): the paired harness now also supports
+--dual-driver-external / --dual-driver-external-inventory with the same driver/runtime/core/
+output arguments. Contracts, Box<T> implementation and consumer compile in separate
+invocations; source is removed before downstream compilation. The .NET split executes 42.
+Native Hello passes, but native implementation emission rejects in SourceTypePlan before
+encoding because the interface identity is external. This is a failing future acceptance
+case, not a claim that the external-interface slice is complete.
+
+Required changes span SourceTypePlan/SourceInterfacePlan capability admission, symbol-only
+external relationship authoring in the NeoCLR adapter, metadata relationship validation/
+round-trip, and runtime dependency/dispatch verification. Current writer/reader relationship
+attachment requires owned definitions. Do not simply remove admission checks or duplicate
+contracts into the implementation assembly. No compiler/runtime behavior changes in this
+baseline test slice.

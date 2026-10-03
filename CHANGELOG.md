@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Add a three-assembly generic interface driver baseline. .NET executes
+  successfully; native external implementation admission remains an explicit failing gate.
+
 - **2026-10-03:** Consume metadata accessibility, declaration flags and constructor
   classification in native symbols instead of decoding raw attributes.
 
