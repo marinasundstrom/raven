@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Emit owned nonvirtual reference-instance method-group callbacks
+  with their receiver in the native backend. A separate-library ArrayList.Find consumer
+  preserves receiver mutation after binding. Captured lambda lowering remains open;
+  .NET body emission and runtime configuration are unchanged.
+
 - **2026-10-03:** Import explicit native no-result callbacks without applying the
   inhabited source-unit policy. Admit nested vector signatures and project method
   receivers through configured Array<T> backing. The unchanged array-callback sample

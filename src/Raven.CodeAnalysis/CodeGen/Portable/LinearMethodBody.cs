@@ -898,9 +898,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.FunctionBind, Syntax(expression), Method: lambda, Type: function.DelegateType));
                     return true;
                 case BoundDelegateCreationExpression creation when capabilities?.AllowsFunctionValues == true &&
-                    creation.Method is { IsStatic: true, IsGenericMethod: false } target &&
+                    creation.Method is { IsGenericMethod: false } target &&
+                    (target.IsStatic || target is { IsVirtual: false, IsOverride: false, IsAbstract: false, ContainingType.IsReferenceType: true } && SupportedInstanceCall(target)) &&
                     target.ContainingType?.Arity is not > 0 && !target.DeclaringSyntaxReferences.IsEmpty &&
                     TryType(creation.DelegateType, false, out var functionType) && capabilities.Allows(functionType):
+                    if (!target.IsStatic && !Receiver(creation.Receiver, target.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.FunctionBind, Syntax(expression), Method: target, Type: creation.DelegateType));
                     return true;
                 case BoundInvocationExpression call when capabilities?.AllowsFunctionValues == true &&

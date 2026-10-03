@@ -5101,3 +5101,28 @@ exercise nested vector planning/.NET execution; metadata tests cover CLI/native 
 trips, introspection, generic substitution, malformed elements and nesting limits.
 The portable and factory changes are retained general candidates pending independent
 main-line callers; no ordinary .NET behavior fix is inferred from native support.
+
+### Receiver-bound callback prerequisite (2026-10-03)
+
+Native portable emission now admits method groups bound to an owned, nongeneric,
+nonvirtual reference-instance method. It evaluates and emits the receiver before the
+existing FunctionBind semantic operation. Target-specific builders remain inside the
+native adapter; the importer is not consulted. The metadata library consumes the
+receiver and emits the existing native instance-target bit, or CLR ldftn/newobj with the
+object receiver. Static method-group behavior remains supported.
+
+This supports closure environments as ordinary reference objects without defining their
+compiler lowering yet. The native instance-callback consumer binds Matcher.Matches,
+changes Matcher.Target after binding, and passes the predicate into a separately compiled
+ArrayList.Find. Return 42 confirms current receiver state and mutation through the original
+object. The original list-filter sample remains blocked on captured BoundFunctionExpression;
+it has not been rewritten or substituted. Next work is closure-frame planning/lowering,
+with shared mutable captures and lexical lifetime tests rather than copying all captures.
+
+Runtime Contract/bootstrap choices, ordinary .NET body emission and metadata version are
+unchanged. Value receivers, generic owners/targets, virtual dispatch bindings and imported
+binding targets remain unsupported by this bounded writer path. No structural Function
+feature branch is integrated. Validation: native broad driver gate, 128 metadata groups,
+CLR/native receiver-identity execution, and 31 focused .NET callback/contract tests pass.
+This planner change is a deferred general candidate pending an independent main-line
+caller; it is not a general binder behavior correction.

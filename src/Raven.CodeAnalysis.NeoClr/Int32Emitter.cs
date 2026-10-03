@@ -463,7 +463,7 @@ internal static class Int32Emitter
                 diagnosticSyntax = instruction.Syntax;
                 if (instruction.Kind == LinearInstructionKind.FunctionBind)
                 {
-                    if (!definedMethods.TryGetValue(instruction.Method!, out var target)) throw Unsupported("Function binding requires an owned static target");
+                    if (!definedMethods.TryGetValue(instruction.Method!, out var target)) throw Unsupported("Function binding requires an owned target");
                     output.BindFunction(NeoClrTypeMapper.Map(instruction.Type!, type => nativeTypes[type], ImportExternalType), target);
                 }
                 else if (instruction.Kind == LinearInstructionKind.InterfaceCall && interfaceMethods.TryGetValue(instruction.Method!.OriginalDefinition ?? instruction.Method, out var contract))
