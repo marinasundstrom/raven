@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Make synthesized union bodies explicitly initialize inactive payload
+  fields and assign default output before TryGetValue can return false. This completes
+  the shared bound-body contract used by target emitters. Plain/generic .NET output
+  clearing tests and focused union/emission regressions pass; native integration is
+  validated separately.
+
 - **2026-10-03:** Reuse case-pattern lowering for conditional branches and Boolean
   values, and emit configured inhabited unit literals as nominal defaults. Unchanged
   Option now passes body preflight and reaches the union/case metadata gate. Native
