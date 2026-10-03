@@ -45,6 +45,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   preserving once-only evaluation and early residual returns without loading the unused
   success value. Backport the general fix independently of the NeoCLR emitter;
   all six focused .NET/lowering checks pass on main.
+- **2026-10-03:** Preserve implicit return conversions in expression-bodied methods by
+  emitting the bound return block. Static/instance generic boxing, object identity and
+  null now execute correctly; ten focused tests pass independently on the main-based
+  fixes branch. No experimental target, binding or Runtime Contract change is required.
+
 - **2026-10-02:** Preserve concrete union-case targets in shared lowering: explicit carrier arguments construct the case directly, matching existing .NET emission instead of attempting a second carrier wrapper. Keep binding and Runtime Contracts unchanged. Strengthen the imported constructor regressions to call shared lowering directly before executing empty/payload results; this exposes failures previously hidden by semantic-model fallback. All 25 focused tests pass on the configured .NET 11 target.
 
 - **2026-10-01:** Match concrete union-case parameter targets by case name before overload resolution. Imported carrier construction with None no longer selects a sibling Some constructor; retain carrier-level target typing. Sixteen Debug/Release, syntax and declaration-order regressions plus 323 surrounding tests pass.

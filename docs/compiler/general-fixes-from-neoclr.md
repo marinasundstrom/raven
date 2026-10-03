@@ -108,3 +108,13 @@ Contract tests pass on this isolated branch using its configured .NET 11 target.
 The 16 direct-lowering regressions failed before the fix. An initial .NET 10 override
 could not load the hard-coded .NET 11 contract fixture; the configured-target run
 passes without test or production changes for that harness mismatch.
+
+## Expression-bodied return conversions (2026-10-03)
+
+Independently ported from metadata-consumer `697a093d7`. Ordinary methods used the raw
+arrow expression rather than its bound return block, omitting generic-to-object boxing.
+Top-level functions already used that block. Route ordinary methods through the same
+existing helper; retain async/pattern handling, with no binder or Runtime Contract change.
+Eight existing expression-body tests passed before the fix. Ten tests pass with the fix,
+including static/instance Int32 boxing, reference identity and null. No NeoCLR metadata
+project or target code is required. This branch remains based on main; main is unchanged.

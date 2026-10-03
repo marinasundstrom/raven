@@ -1042,8 +1042,7 @@ internal partial class MethodBodyGenerator
         BoundBlockStatement? boundBody = syntax switch
         {
             MethodDeclarationSyntax m when m.Body != null => semanticModel.GetBoundNode(m.Body, BoundTreeView.Lowered) as BoundBlockStatement,
-            MethodDeclarationSyntax m when m.ExpressionBody is not null &&
-                (MethodSymbol is SourceMethodSymbol { IsAsync: true } || m.ParameterList.Parameters.Any(parameter => parameter.Pattern is not null))
+            MethodDeclarationSyntax m when m.ExpressionBody is not null
                 => GetLoweredArrowExpressionBody(semanticModel, m.ExpressionBody),
             OperatorDeclarationSyntax o when o.Body != null => semanticModel.GetBoundNode(o.Body, BoundTreeView.Lowered) as BoundBlockStatement,
             ConversionOperatorDeclarationSyntax c when c.Body != null => semanticModel.GetBoundNode(c.Body, BoundTreeView.Lowered) as BoundBlockStatement,
