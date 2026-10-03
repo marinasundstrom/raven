@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Add an explicit generic/value-to-object boxing capability to shared
+  lowering and route NeoCLR emission through the metadata IL generator. Generic boxing
+  smoke commands execute on both targets; missing native core registration rejects before
+  publication. Union preflight now reaches generated value-payload addressing; native
+  union publication remains blocked. Conversion diagnostics include source/target types.
+
 - **2026-10-03:** Emit ordinary expression-bodied methods through their bound return
   blocks, preserving implicit generic boxing instead of returning a raw value as object.
   Static and instance methods retain reference identity and null; ten focused conversion

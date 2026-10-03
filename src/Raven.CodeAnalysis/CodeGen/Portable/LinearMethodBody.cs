@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -676,6 +676,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return LowerValue(required.Operand);
                 case BoundParenthesizedExpression parenthesized:
                     return LowerValue(parenthesized.Expression);
+                case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists &&
+                    conversion.Type.GetNonNullableType().SpecialType == SpecialType.System_Object &&
+                    (conversion.IsBoxing || conversion.Expression.Type is ITypeParameterSymbol) &&
+                    capabilities?.Allows(LinearInstructionKind.BoxToObject) == true &&
+                    TryType(conversion.Expression.Type, false, out var boxedType) && capabilities.Allows(boxedType):
+                    if (!LowerValue(conversion.Expression)) return false;
+                    instructions.Add(new(LinearInstructionKind.BoxToObject, Syntax(expression), Type: conversion.Expression.Type));
+                    return true;
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && conversion.Conversion.IsImplicit &&
                     capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true && conversion.Expression.Type.IsReferenceType &&
                     conversion.Type.IsReferenceType && conversion.Type.TypeKind != TypeKind.Delegate &&
@@ -787,6 +795,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundInvocationExpression rejectedCall:
                     return Reject("invocation " + rejectedCall.Method.ToDisplayString(), Syntax(expression));
+                case BoundConversionExpression conversion:
+                    return Reject("lowered expression BoundConversionExpression (" + conversion.Expression.Type.ToDisplayString() + " -> " +
+                        conversion.Type.ToDisplayString() + (conversion.IsBoxing ? "; boxing" : "") + ")", Syntax(expression));
                 default: return Reject("lowered expression " + expression.GetType().Name, Syntax(expression));
             }
         }

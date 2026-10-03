@@ -4530,3 +4530,30 @@ rejection, .NET union execution and return-nullability behavior. Next implement 
 conversion/formatting operations and preserve native union/case contracts; do not publish
 plain structs as completed unions. No binder change or independent main-branch fix is part
 of this slice. NeoCLR metadata dependency: b94bdf79.
+
+## Typed boxing continuation (2026-10-03)
+
+The shared BoxToObject operation carries the compiler-owned input type only. NeoCLR
+explicitly admits it and calls IILGenerator.Box through its adapter. An existing conversion
+from a value or generic parameter to System.Object can require boxing even when IsBoxing
+is false; admission requires an existing non-user-defined conversion and supported input
+signature. .NET keeps the established general conversion generator. No importer object
+or Reflection handle enters the shared instruction. Metadata CoreObjectType belongs to
+the explicitly configured core; native writing requires its matching System binding.
+
+`NeoClrMetadataProbe --boxing-driver <driver> <runtime> <core> <seed> <fresh-output>`
+compiles the same source through both ordinary commands, executes (boxed / 42), and checks
+missing-core-registration rejection without output. This is a discarded-result smoke,
+not proof of boxing semantics: C# metadata tests separately verify CLR method/owner scopes
+and reference/null identity, and the native harness verifies generic value dispatch,
+primitive display and reference identity. The runtime's existing box instruction is used;
+no format or Runtime Contract setting changes. Application metadata import remains native.
+
+The union driver still executes CLR controls and rejects native output; it now reaches
+`union body ToString: value receiver requires an owned local or ref/out parameter`.
+Generated payload addressing, Object virtual calls/formatting and union/case metadata
+preservation remain pending. A direct Object.ToString invocation still rejects explicitly.
+The independent [expression-body conversion fix](expression-body-return-conversions.md)
+was exposed by these checks and validated separately on the main-based fixes branch as
+c96305e50 (ten tests); it is not a dependency on experimental metadata for ordinary .NET.
+Fourteen focused integration tests pass, plus the ten expression-body execution tests.

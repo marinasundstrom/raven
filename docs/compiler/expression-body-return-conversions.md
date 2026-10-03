@@ -10,4 +10,4 @@ C# regressions execute static and instance generic methods with Int32, an object
 identity must be preserved, and null. Together with existing expression-body execution
 checks, ten tests pass (2026-10-03). This is independent of NeoCLR metadata, capabilities
 and Runtime Contract settings. The same code path exists on main; the isolated fix is
-also being validated on codex/compiler-fixes-from-neoclr. No binder behavior changes.
+independently validated on codex/compiler-fixes-from-neoclr as c96305e50 (ten tests). No binder behavior changes.
