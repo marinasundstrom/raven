@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 
 // Native declarations retain their own generic parameter scopes.
 // Keep unsupported categories at the reader boundary rather than manufacturing members.
-internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
+internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
 {
     private readonly Compilation compilation;
     private readonly NeoCLR.Metadata.Experimental.Introspection.NominalTypeInfo view;
@@ -47,6 +47,9 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic => view.IsStatic;
     public bool IsAbstract => view.IsAbstract;
+    public bool IsValueType => view.IsValueType;
+    public bool IsReferenceType => !IsValueType;
+    public bool IsInterface => view.IsInterface;
     public bool IsClosed => view.IsSealed;
     public bool IsNamespace => false;
     public bool IsType => true;

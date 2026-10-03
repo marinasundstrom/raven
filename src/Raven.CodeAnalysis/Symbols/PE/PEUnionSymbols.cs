@@ -7,7 +7,7 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class PEUnionCompanionSymbol : PENamedTypeSymbol
+internal sealed class PEUnionCompanionSymbol : PENamedTypeSymbol, IUnionCompanionSymbol
 {
     private const string RavenUnionCompanionAttributeMetadataName = "Raven.Runtime.CompilerServices.RavenUnionCompanionAttribute";
     private IUnionSymbol? _associatedUnion;
@@ -23,7 +23,7 @@ internal sealed class PEUnionCompanionSymbol : PENamedTypeSymbol
     {
     }
 
-    internal bool TryGetAssociatedUnion(out IUnionSymbol union)
+    public bool TryGetAssociatedUnion(out IUnionSymbol union)
     {
         if (_associatedUnion is null && !_associationResolving)
         {

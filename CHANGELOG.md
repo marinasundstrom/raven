@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Import separately compiled native plain/generic unions through the
+  metadata facade, preserving case names, ordinals, payload parameter names and physical
+  scopes. Emit external value/nested references from symbol contracts. The normal driver
+  supplies an explicit matching primitive bootstrap; malformed union relationships reject
+  before output publication. Paired CLR/NeoCLR consumers and seven existing native consumers execute (42); source Option's
+  residual unit-value/bootstrap dependency remains open.
+
 - **2026-10-03:** Emit owned NeoCLR union/case/companion declarations with the existing
   Raven attribute contract. Plain/generic driver cases execute matching, carrier copies
   and generated display on both targets (42). Remove unreachable portable-plan operations

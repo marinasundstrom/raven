@@ -113,9 +113,12 @@ internal static class NeoClrCommand
                 MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("System.Runtime").Location)
             };
             MetadataReference? bootstrapReference = null;
+            NeoClrPrimitiveBootstrap? primitiveBootstrap = null;
             if (corePath is not null)
             {
-                var primitiveCore = MetadataReference.CreateFromFile(corePath);
+                if (new FileInfo(corePath).Length > 4 * 1024 * 1024) throw new InvalidDataException("Core snapshot exceeds 4 MiB.");
+                primitiveBootstrap = NeoClrPrimitiveBootstrap.ReadAssembly(File.ReadAllBytes(corePath));
+                var primitiveCore = primitiveBootstrap.Reference;
                 references.Clear();
                 references.Add(primitiveCore);
                 console = primitiveCore;
@@ -142,7 +145,7 @@ internal static class NeoClrCommand
                 var bytes = File.ReadAllBytes(path);
                 // Validate executable metadata, then import native declarations without a CLI projection.
                 NativeAssemblyDefinition.ReadAssembly(RuntimeAssemblyContainer.Read(bytes));
-                var reference = NeoClrMetadataReference.ReadAssembly(bytes);
+                var reference = NeoClrMetadataReference.ReadAssembly(bytes, primitiveBootstrap!);
                 references.Add(reference);
                 dependencies.Add(new(reference, core));
             }

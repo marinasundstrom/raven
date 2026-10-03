@@ -1,6 +1,10 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text;
+using System.Text.Json.Nodes;
+using NeoCLR.Metadata.Experimental;
+using NeoCLR.Metadata.Experimental.Model;
 
 namespace NeoClrMetadataProbe;
 
@@ -61,14 +65,68 @@ internal static class UnionDeclarationDriverChecks
             if (attributes.Count(a => a.AttributeType.Name == "UnionAttribute") != 1 ||
                 attributes.Count(a => a.AttributeType.Name == "RavenUnionCaseAttribute") != 2)
                 throw new Exception("union contract missing from native metadata");
+            var librarySource = Path.Combine(output, name + ".Library.rvn");
+            File.WriteAllText(librarySource, $$"""
+                public union {{union}} {
+                    case Some(value: {{payload}})
+                    case None
+                }
+                """);
+            var consumerSource = Path.Combine(output, name + ".Consumer.rvn");
+            File.WriteAllText(consumerSource, $$"""
+                func Read(value: {{valueType}}) -> int {
+                    return match value {
+                        .Some(let payload) => payload
+                        .None => 0
+                        _ => 1
+                    }
+                }
+                func Main() -> int {
+                    var value: {{valueType}} = .Some(42)
+                    let copy = value
+                    value = .None
+                    return Read(copy) + Read(value)
+                }
+                """);
+            foreach (var target in new[] { "dotnet", "native" })
+            {
+                var library = Path.Combine(output, name + ".Library." + target + ".dll");
+                var consumer = Path.Combine(output, name + ".Consumer." + target + ".dll");
+                if (target == "native")
+                {
+                    await Command("dotnet", [driver, "neoclr", "--core-reference", core, "--runtime-seed", seed, "--library", "-o", library, librarySource], 0);
+                    await Command("dotnet", [driver, "neoclr", "--core-reference", core, "--runtime-seed", seed, "--reference", library, "-o", consumer, consumerSource], 0);
+                    await Command(runtime, ["verify", consumer, "--module", library, "--system", seed], 0);
+                    await Command(runtime, ["run", consumer, "--module", library, "--system", seed], 42);
+                    var malformed = JsonNode.Parse(RuntimeAssemblyContainer.Read(File.ReadAllBytes(library)))!;
+                    var declaration = malformed["types"]!.AsArray().Single(t => t!["origin"]!["name"]!.GetValue<string>() == (generic ? "Choice`1" : "Choice"));
+                    var caseAttributes = declaration!["custom_attributes"]!.AsArray().Where(a => a!["arguments"]!.AsArray().Count == 3).ToArray();
+                    caseAttributes[1]!["arguments"]![2]!["Int32"] = 0;
+                    var badLibrary = Path.Combine(output, name + ".InvalidCases.dll");
+                    File.WriteAllBytes(badLibrary, RuntimeAssemblyContainer.WriteBinary(Encoding.UTF8.GetBytes(malformed.ToJsonString()),
+                        AssemblyDefinition.ReadAssembly(File.ReadAllBytes(core), false).Identity));
+                    var rejectedOutput = Path.Combine(output, name + ".Rejected.dll");
+                    var rejection = await Command("dotnet", [driver, "neoclr", "--core-reference", core, "--runtime-seed", seed,
+                        "--reference", badLibrary, "-o", rejectedOutput, consumerSource], 1);
+                    if (!rejection.Stderr.Contains("conflicting native union cases") || File.Exists(rejectedOutput))
+                        throw new Exception("invalid union metadata did not reject before publication");
+                }
+                else
+                {
+                    await Command("dotnet", [driver, "--framework", "net10.0", "--emit-core-types-only", "--output-type", "classlib", "-o", library, librarySource], 0);
+                    await Command("dotnet", [driver, "--framework", "net10.0", "--emit-core-types-only", "--refs", library, "-o", consumer, consumerSource], 0);
+                    await Command("dotnet", ["exec", "--runtimeconfig", Path.ChangeExtension(driver, ".runtimeconfig.json"), consumer], 42);
+                }
+                evidence.Add(new { name, target, librarySourceSha256 = Hash(librarySource), consumerSourceSha256 = Hash(consumerSource), librarySha256 = Hash(library), consumerSha256 = Hash(consumer), separateLibraryExecuted = true });
+            }
             evidence.Add(new { name, sourceSha256 = Hash(source), dotnetAssemblySha256 = Hash(clr), nativeAssemblySha256 = Hash(native), dotnetExecuted = true, nativeExecuted = true });
         }
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
-            scope = "Owned union declaration execution and attribute preservation; separate-library native import remains pending.",
+            scope = "Owned and separately compiled union execution, native semantic import and attribute preservation.",
             driverSha256 = Hash(driver), runtimeSha256 = Hash(runtime), coreSha256 = Hash(core), seedSha256 = Hash(seed), evidence, commands
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
-        Console.WriteLine("PASS plain/generic union execution on CLR and NeoCLR with preserved union/case metadata");
+        Console.WriteLine("PASS owned and separately compiled plain/generic unions on CLR and NeoCLR");
 
         async Task<(string Stdout, string Stderr)> Command(string executable, string[] arguments, int expected)
         {

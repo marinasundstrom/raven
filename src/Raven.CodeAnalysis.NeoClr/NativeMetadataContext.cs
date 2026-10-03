@@ -10,5 +10,7 @@ internal static class NativeMetadataContext
     private static readonly ConditionalWeakTable<Compilation, MetadataLoadContext> contexts = new();
 
     internal static MetadataLoadContext For(Compilation compilation) => contexts.GetValue(compilation,
-        static current => new(current.References.OfType<NeoClrMetadataReference>().Select(reference => reference.Definition)));
+        static current => new(current.References.OfType<NeoClrMetadataReference>().Select(reference => reference.Definition)
+            .Concat(current.References.OfType<NeoClrMetadataReference>().Select(reference => reference.Bootstrap)
+                .OfType<NeoClrPrimitiveBootstrap>().DistinctBy(bootstrap => bootstrap.Sha256).Select(bootstrap => bootstrap.Definition))));
 }

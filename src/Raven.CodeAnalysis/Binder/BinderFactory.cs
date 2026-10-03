@@ -575,7 +575,7 @@ class BinderFactory
 
         static ITypeSymbol GetLogicalImportType(ITypeSymbol type)
         {
-            if (type is PEUnionCompanionSymbol companion &&
+            if (type is IUnionCompanionSymbol companion &&
                 companion.TryGetAssociatedUnion(out var union))
             {
                 return (ITypeSymbol)union;

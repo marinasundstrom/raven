@@ -227,11 +227,21 @@ internal static class Int32Emitter
                     if (artifact.Sha256 != binding.NativeArtifactSha256)
                         throw Unsupported("native dependency snapshot differs from semantic reference");
                     var identity = new AssemblyIdentity(artifact.Name, artifact.Version, artifact.Culture, artifact.PublicKeyToken, artifact.Flags);
-                    imported = original.TypeKind == TypeKind.Interface
+                    var physicalParent = original is IUnionCaseTypeSymbol unionCase ? unionCase.MetadataContainingType : original.ContainingType;
+                    if (physicalParent is not null)
+                    {
+                        _ = ImportExternalType(physicalParent);
+                        imported = assembly.CreateNestedTypeReference(importedTypes[(INamedTypeSymbol)physicalParent.OriginalDefinition],
+                            original.MetadataName, original.Arity, original.IsValueType);
+                    }
+                    else imported = original.TypeKind == TypeKind.Interface
                         ? assembly.CreateInterfaceReference(identity, binding.CoreLibrary, artifact.Sha256,
                             original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName, original.Arity)
-                        : assembly.CreateTypeReference(identity, binding.CoreLibrary, artifact.Sha256,
-                            original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName, original.Arity);
+                        : original.IsValueType
+                            ? assembly.CreateValueTypeReference(identity, binding.CoreLibrary, artifact.Sha256,
+                                original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName, original.Arity)
+                            : assembly.CreateTypeReference(identity, binding.CoreLibrary, artifact.Sha256,
+                                original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName, original.Arity);
                 }
                 else
                 {
@@ -356,7 +366,10 @@ internal static class Int32Emitter
         {
             diagnosticSyntax = plan.Syntax;
             var owner = plan.IsAssemblyFunction ? functions : owners[plan.TypeOwner!];
-            methods.Add((plan, plan.Define(owner), body));
+            var definition = plan.Define(owner);
+            for (var i = 0; i < plan.Symbol.Parameters.Length; i++)
+                definition.SetParameterName(i, plan.Symbol.Parameters[i].Name);
+            methods.Add((plan, definition, body));
         }
         var definedMethods = methods.ToDictionary(m => m.Plan.Symbol, m => m.Method, (IEqualityComparer<IMethodSymbol>)SymbolEqualityComparer.Default);
         foreach (var property in properties)
@@ -591,10 +604,11 @@ internal static class Int32Emitter
         static bool IsSymbolOnlyReferenceDefinition(INamedTypeSymbol original, int depth = 0) =>
             depth < 32 &&
             original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
-            (original.TypeKind == TypeKind.Class || original.TypeKind == TypeKind.Interface) &&
-            !original.IsStatic && original.ContainingType is null && original.DeclaredAccessibility == Accessibility.Public &&
+            (original.TypeKind is TypeKind.Class or TypeKind.Interface or TypeKind.Struct) &&
+            !original.IsStatic && (original.ContainingType is null ||
+                (original is IUnionCaseTypeSymbol unionCase ? unionCase.MetadataContainingType : original.ContainingType) is { Arity: 0 } parent && IsSymbolOnlyOwnerDefinition(parent)) && original.DeclaredAccessibility == Accessibility.Public &&
             original.Interfaces.All(contract => IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)contract.OriginalDefinition, depth + 1)) &&
-            (original.BaseType is null || original.BaseType.SpecialType == SpecialType.System_Object) &&
+            (original.BaseType is null || original.BaseType.SpecialType == (original.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object)) &&
             original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None);
 
         static bool IsSymbolOnlyType(ITypeSymbol type, bool result) =>
