@@ -45,6 +45,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   preserving once-only evaluation and early residual returns without loading the unused
   success value. Backport the general fix independently of the NeoCLR emitter;
   all six focused .NET/lowering checks pass on main.
+- **2026-10-03:** Make synthesized union bodies explicitly initialize inactive payload
+  fields and assign default output before TryGetValue can return false. This completes
+  the shared bound-body contract used by target emitters. Plain/generic .NET output
+  clearing tests and focused union/emission regressions pass on the integration line;
+  independent validation is recorded separately.
+
 - **2026-10-03:** Preserve implicit return conversions in expression-bodied methods by
   emitting the bound return block. Static/instance generic boxing, object identity and
   null now execute correctly; ten focused tests pass independently on the main-based

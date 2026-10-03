@@ -961,7 +961,14 @@ internal static partial class SynthesizedMethodBodyFactory
         SourceUnionSymbol unionSymbol,
         IParameterSymbol targetParameter)
     {
-        var statements = new List<BoundStatement>();
+        var parameterAccess = new BoundParameterAccess(targetParameter);
+        var targetType = targetParameter.GetByRefElementType();
+        var factory = new BoundNodeFactory(compilation);
+        var statements = new List<BoundStatement>
+        {
+            new BoundAssignmentStatement(factory.CreateByRefAssignmentExpression(
+                parameterAccess, targetType, new BoundDefaultValueExpression(targetType)))
+        };
         if (!TryGetUnionPayloadSlot(unionSymbol, targetParameter.Type, out var ordinal, out var payloadFieldSymbol))
         {
             statements.Add(new BoundReturnStatement(CreateBoolLiteral(compilation, false)));
@@ -969,10 +976,7 @@ internal static partial class SynthesizedMethodBodyFactory
         }
 
         var payloadAccess = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), payloadFieldSymbol);
-        var parameterAccess = new BoundParameterAccess(targetParameter);
-        var targetType = targetParameter.GetByRefElementType();
         var convertedPayload = CreateConversion(compilation, payloadAccess, targetType);
-        var factory = new BoundNodeFactory(compilation);
         var successStatements = new List<BoundStatement>
         {
             new BoundAssignmentStatement(
@@ -1014,6 +1018,13 @@ internal static partial class SynthesizedMethodBodyFactory
         var statements = new List<BoundStatement>();
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit)
             ?? throw new InvalidOperationException("Failed to resolve System.Unit.");
+
+        // A union constructor initializes inactive payload storage as well as the
+        // selected case. This is semantic initialization shared by both targets.
+        foreach (var field in unionSymbol.GetMembers().OfType<IFieldSymbol>().Where(field => !field.IsStatic))
+            statements.Add(new BoundAssignmentStatement(new BoundFieldAssignmentExpression(
+                new BoundSelfExpression(method.ContainingType!), field,
+                new BoundDefaultValueExpression(field.Type), unitType)));
 
         if (method.Parameters.Length == 1 &&
             TryGetUnionPayloadSlot(unionSymbol, method.Parameters[0].Type, out var ordinal, out var payloadField))
