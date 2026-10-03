@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Record the target-boundary audit against main: 71 additional execution
+  checks pass on both lines; metadata/import checks expose the same struct-constraint
+  discrepancy on both. Recommend reviewing the second .NET body-emission path while
+  retaining native metadata import/emission; no compiler behavior changes in this audit.
+
 - **2026-10-03:** Add explicit .NET source-void-to-unit mapping to RuntimeUnitContract.
   An ordinary service assembly can own the unit value; declaration/type-expression
   binding and emitted interface/MethodImpl scopes agree. CLR no-result returns and
