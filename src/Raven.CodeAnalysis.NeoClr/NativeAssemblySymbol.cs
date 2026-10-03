@@ -159,12 +159,16 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitModule(this);
 }
 
-internal sealed class NativeNamespaceSymbol : Symbol, INamespaceSymbol
+internal sealed class NativeNamespaceSymbol : Symbol, INamespaceSymbol, INamespaceExtensionLookup
 {
     private readonly List<ISymbol> members = [];
     internal NativeNamespaceSymbol(string name, ISymbol owner, NativeNamespaceSymbol? parent)
         : base(SymbolKind.Namespace, name, owner, null, parent, [], []) { }
     internal void Add(ISymbol member) => members.Add(member);
+    public ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string methodName) =>
+        [.. members.OfType<NativeNamedTypeSymbol>().Where(type => type.IsExtensionContainer &&
+            type.GetMembers(methodName).OfType<IMethodSymbol>().Any(method => method.IsExtensionMethod))];
+
     internal NativeNamespaceSymbol GetOrAddNamespace(string name)
     {
         if (LookupNamespace(name) is NativeNamespaceSymbol found) return found;
@@ -247,7 +251,8 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public bool IsAsync => false;
     public bool IsCheckedBuiltin => false;
     public bool IsDefinition => true;
-    public bool IsExtensionMethod => false;
+    public bool IsExtensionMethod => IsStatic && MethodKind == MethodKind.Ordinary &&
+        ContainingType is NativeNamedTypeSymbol { IsExtensionContainer: true } && !Parameters.IsEmpty;
     public bool IsExtern => false;
     public bool IsUnsafe => false;
     public bool IsGenericMethod => !TypeParameters.IsEmpty;

@@ -14,6 +14,9 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
             Accessibility.Internal => TypeVisibility.Internal,
             _ => throw new InvalidOperationException("Unsupported type visibility")
         };
+        // Binding lifts extension receiver type parameters onto each method,
+        // matching Raven's CLR representation in a nongeneric static container.
+        if (plan.IsExtensionContainer) return assembly.AddType(plan.Namespace, plan.Symbol.Name, visibility);
         if (plan.MetadataOwner is { } parent)
         {
             var owner = resolveOwner(parent);

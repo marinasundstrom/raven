@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Emit and discover bounded native instance extension declarations using
+  the existing CLR-shaped generic-method lowering and standard container marker. A separate
+  generic extension library and consumer execute (42). Full query source compilation still
+  rejects OfType object-to-generic conversion before publication; .NET emission is unchanged.
+
 - **2026-10-03:** Record native separate-library execution for unchanged HashMap and
   comparer policies: collisions, growth, replacement, callback dispatch and shared object
   mutation pass (42) using existing compiler support. The broad dual-target gate remains open.

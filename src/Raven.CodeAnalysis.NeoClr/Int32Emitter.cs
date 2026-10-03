@@ -43,6 +43,24 @@ internal static class Int32Emitter
                     var plan = GetPlan(symbol);
                     plans.Add(plan);
                 }
+                else if (member is ExtensionDeclarationSyntax extension)
+                {
+                    if (extension.AttributeLists.Count != 0 || extension.ConstraintClauses.Count != 0 ||
+                        model.GetDeclaredSymbol(extension) is not INamedTypeSymbol extensionSymbol ||
+                        !SourceTypePlan.TryCreate(extensionSymbol, out var extensionPlan, NeoClrCapabilities.Shared))
+                        throw Unsupported("supported extension container contract");
+                    declaredTypes.TryAdd(extensionSymbol, extensionPlan!);
+                    foreach (var extensionMember in extension.Members)
+                    {
+                        diagnosticSyntax = extensionMember;
+                        if (extensionMember is not MethodDeclarationSyntax method ||
+                            (method.Body is null && method.ExpressionBody is null) || method.AttributeLists.Count != 0 ||
+                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
+                            model.GetDeclaredSymbol(method) is not IMethodSymbol { IsStatic: true, IsExtensionMethod: true, Parameters.IsEmpty: false } symbol)
+                            throw Unsupported("implemented instance extension methods");
+                        plans.Add(GetPlan(symbol));
+                    }
+                }
                 else if (member is UnionDeclarationSyntax unionSyntax)
                 {
                     var union = model.GetDeclaredSymbol(unionSyntax) as SourceUnionSymbol
@@ -288,6 +306,17 @@ internal static class Int32Emitter
             nativeTypes.Add(type.Symbol, definition);
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type], ImportExternalType));
         }
+        var extensionOwners = declaredTypes.Values.Where(t =>
+            t.Symbol.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true }).ToArray();
+        if (extensionOwners.Length != 0)
+        {
+            // Use the same bounded embedded marker representation as native union metadata.
+            var marker = assembly.AddClass("System.Runtime.CompilerServices", "ExtensionAttribute", TypeVisibility.Internal)
+                .AddConstructor(new MethodSignature(PrimitiveType.Void, []));
+            marker.GetILGenerator().Return();
+            foreach (var extension in extensionOwners)
+                nativeTypes[extension.Symbol].AddCustomAttribute(new(marker.Definition, []));
+        }
         if (unions.Count != 0)
             NeoClrUnionMetadata.Emit(assembly, unions, type => nativeTypes[type]);
         var nativeInterfaces = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
@@ -336,7 +365,7 @@ internal static class Int32Emitter
                 else nativeTypes[type.Symbol].AddInterfaceImplementation(definition.MakeGenericInstance(
                     contract.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, owner => nativeTypes[owner], ImportExternalType)).ToArray()));
             }
-        foreach (var type in declaredTypes.Values)
+        foreach (var type in declaredTypes.Values.Where(t => !t.IsExtensionContainer))
             foreach (var parameter in type.Symbol.TypeParameters)
             {
                 foreach (var bound in parameter.ConstraintTypes)
@@ -381,7 +410,8 @@ internal static class Int32Emitter
         }
         var references = new CallableReferenceTable<NeoClrCallableReference>(target =>
         {
-            if (target.ContainingType is { Arity: > 0 } owner)
+            if (target.ContainingType is { Arity: > 0 } owner &&
+                owner.OriginalDefinition is not SourceNamedTypeSymbol { IsExtensionDeclaration: true })
             {
                 if (!definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
                     return NeoClrCallableReference.Create(Import(target.OriginalDefinition ?? target).MakeConstructedReference(

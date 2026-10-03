@@ -40,6 +40,18 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
             .. definition.Properties.Select(property => (ISymbol)new NativePropertySymbol(property, this, methods))];
     }
     internal void AddNestedType(INamedTypeSymbol type) => members = members.Add(type);
+    internal bool IsExtensionContainer
+    {
+        get
+        {
+            var markers = view.GetCustomAttributes().Where(a =>
+                a.Namespace == "System.Runtime.CompilerServices" && a.Name == "ExtensionAttribute").ToArray();
+            if (markers.Length == 0) return false;
+            if (markers.Length != 1 || markers[0].GetArguments().Count != 0 || !IsStatic)
+                throw new InvalidDataException("invalid native extension container marker");
+            return true;
+        }
+    }
     internal TypeDefinition Definition { get; }
     public override string MetadataName => Definition.Name;
     internal ITypeSymbol Map(SignatureType signature) => ((NativeModuleSymbol)ContainingModule).Map(signature, this);

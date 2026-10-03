@@ -4805,3 +4805,33 @@ failure and missing/duplicate ownership publication guards also pass.
 HashMap has no removal API. The full .NET executable class-library adapter, query
 composition and unchanged broad application gate remain pending; these results do not
 claim their completion. The .NET backend and structural Function experiments are unchanged.
+
+### Native generic extension declaration and discovery (2026-10-03)
+
+The native adapter now collects bounded instance extension methods. It follows Raven's
+existing CLR lowering: receiver type parameters are lifted onto each method, and the
+physical container is nongeneric/static. Shared callable/type plans distinguish that
+physical shape from the source container's semantic arity. Emission uses only those
+symbol facts and the existing builder APIs.
+
+The container receives the standard ExtensionAttribute through the bounded native
+embedded marker profile already used for unions. Introspection supplies marker facts;
+NativeNamespaceSymbol implements INamespaceExtensionLookup so Raven's existing binder
+owns discovery filtering, receiver inference and overload selection. No reflection,
+reader-to-emitter coupling or format version change is introduced. The embedded marker
+is a temporary nominal record without CLI Attribute inheritance, as documented for unions.
+
+NeoCLR's `verify_source_unions.py --extensions` builds a cumulative source HashMap library,
+a separate extension library and an independent consumer. Receiver-generic predicates
+and method-generic selectors execute with exit 42 and empty stdout. The library sources
+are absent from consumer compilation. Runtime Contract selection uses the existing
+explicit collection primitive core, ownership manifest and retained seed. The .NET
+Reflection/Emit backend and structural Function experiments remain unchanged.
+
+The unchanged System.Linq Operators source now reaches OfType<U>'s object-to-generic
+conversion, which remains unsupported and rejects before publication. This isolated
+extension regression does not substitute for the runtime source library. Constrained
+extensions, static extension members and extension properties remain unsupported by
+this native declaration path. The next owning-layer work is supported generic unboxing/
+conversion emission, followed by unchanged query and broad-application reassessment.
+No independent binder fix was retained or requires porting to main in this slice.
