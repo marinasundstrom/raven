@@ -146,3 +146,30 @@ loop exposes the lifetime problem. Top-level-function form prints/returns 0 on b
 This is independent of portable .NET emission (Debug also fails). It remains a general
 closure/loop-storage defect plus a shared-lowering behavioral difference; do not restore
 0 and call that a fix. Source/seed adapters do not address it.
+
+
+### Array expansion scoped to portable planning (2026-10-03)
+
+The global vector-for expansion is now disabled for ordinary lowering. LinearMethodBody
+explicitly requests LowerPortableArrayLoops when its profile admits arrays. The pass
+preserves labeled loop ownership and leaves nested function bodies to their own planning.
+It reuses the existing bound calls/locals/branches rather than adding an instruction set,
+metadata representation, public target option or Reflection bridge. Ordinary .NET retains
+its established for-loop emission, including its existing limitations.
+
+Validation: 86 SharedArrayBodyTests, LoopStatementCodeGenTests, SharedEmissionParityTests,
+GenericArrayElementTests, FunctionExpressionCodeGenTests and CollectionExpressionTests
+pass on net11.0 (same serial runsettings as the audit). Rebuilt net10.0 native driver:
+unchanged application-order-collections passes exact stdout/exit 0 against its separately
+compiled library. The first SharedArrayBodyTests program, with labeled nested arrays,
+continue, break, empty arrays and an enclosing while, also compiles, verifies and executes
+on NeoCLR with exit 9. The nominal Array<T> backing contract is unchanged.
+
+The net11.0 class-method capture probe now prints 0, matching main, rather than 333.
+This restores that baseline, not correct capture semantics (expected 123). Investigation:
+DeclareLocals/EnsureSharedMethodClosure allocate one closure for the entire method;
+the ordinary for emitter writes an iteration local while the lambda reads the hoisted
+field. The earlier expansion instead writes that one field, exposing its final value to
+all callbacks. Correct lexical scope lifetimes require independent compiler work,
+including per-iteration storage plus preserved sharing of outer mutable variables.
+Do not fix this by snapshotting all captures or treating main's zero result as success.

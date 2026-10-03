@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Scope vector-loop expansion to explicit portable body planning.
+  Ordinary .NET lowering retains its established for-loop path; native array loops
+  retain their bound-operation expansion. All 86 selected checks and native broad/
+  labeled-loop execution pass. Per-iteration closure capture remains a known main bug.
+
 - **2026-10-03:** Restore one established .NET method-body emission path by removing
   automatic release-only portable emission and its unused adapter. Keep native planning
   and NeoCLR metadata emission. All 94 selected checks pass before/after; the native

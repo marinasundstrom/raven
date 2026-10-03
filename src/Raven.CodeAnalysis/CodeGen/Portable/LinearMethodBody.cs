@@ -106,6 +106,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             var initialization = Lowerer.LowerBlock(source, new BoundBlockStatement(initializers.ToArray()));
             body = new BoundBlockStatement([initialization, body]);
         }
+        if (body is not null && capabilities?.AllowsArrays == true)
+            body = Lowerer.LowerPortableArrayLoops(source, body);
         var success = body is not null ? LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
         if (success && capabilities is not null)
         {

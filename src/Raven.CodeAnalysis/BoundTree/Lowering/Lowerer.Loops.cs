@@ -9,10 +9,34 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer
 {
-    // Ordinary vector iteration lowers once into existing language nodes. Both the
-    // general .NET generator and target-neutral body planner consume this form.
+    // Array expansion belongs to the bounded portable emitter. Ordinary .NET
+    // lowering retains for-loops for its established iteration/closure handling.
+    private bool _lowerPortableArrays;
+
+    internal static BoundBlockStatement LowerPortableArrayLoops(IMethodSymbol owner, BoundBlockStatement body)
+        => (BoundBlockStatement)new PortableArrayLoopRewriter(owner).VisitStatement(body)!;
+
+    private sealed class PortableArrayLoopRewriter(IMethodSymbol owner) : BoundTreeRewriter
+    {
+        private readonly Lowerer lowerer = new(owner, null) { _lowerPortableArrays = true };
+
+        public override BoundNode? VisitForStatement(BoundForStatement node)
+            => lowerer.CanLowerArrayFor(node) ? lowerer.VisitForStatement(node) : base.VisitForStatement(node);
+
+        public override BoundNode? VisitLabeledStatement(BoundLabeledStatement node)
+        {
+            BoundStatement statement = node;
+            while (statement is BoundLabeledStatement labeled) statement = labeled.Statement;
+            return statement is BoundForStatement loop && lowerer.CanLowerArrayFor(loop)
+                ? lowerer.VisitLabeledStatement(node) : base.VisitLabeledStatement(node);
+        }
+
+        // Function bodies are planned separately under their own symbol and scope.
+        public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node) => node;
+    }
+
     private bool CanLowerArrayFor(BoundForStatement node) =>
-        _containingSymbol.ContainingAssembly is SourceAssemblySymbol &&
+        _lowerPortableArrays && _containingSymbol.ContainingAssembly is SourceAssemblySymbol &&
         node.Iteration is { Kind: ForIterationKind.Array, ArrayType: { Rank: 1 } array } &&
         node.Local is { } local && SymbolEqualityComparer.Default.Equals(local.Type, array.ElementType);
 

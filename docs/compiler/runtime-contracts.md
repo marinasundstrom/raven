@@ -3084,3 +3084,11 @@ loop exposes the lifetime problem. Top-level-function form prints/returns 0 on b
 This is independent of portable .NET emission (Debug also fails). It remains a general
 closure/loop-storage defect plus a shared-lowering behavioral difference; do not restore
 0 and call that a fix. Source/seed adapters do not address it.
+
+
+Array-loop boundary update (2026-10-03): vector-for expansion is requested only by the
+portable planner; ordinary .NET lowering retains its established for-loop path. No public
+Runtime Contract, native metadata or nominal Array<T> change. The 86 focused .NET checks,
+native broad application and native labeled-loop execution pass. The known lexical
+closure-lifetime bug remains unresolved; see
+[the parity audit](architecture/neoclr-refactor-parity.md#array-expansion-scoped-to-portable-planning-2026-10-03).
