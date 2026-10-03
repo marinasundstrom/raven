@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -475,6 +475,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     BoundLocalAccess local => LowerReference(new BoundAddressOfExpression(local)),
                     BoundParameterAccess parameter when parameter.Parameter.RefKind is RefKind.Ref or RefKind.Out => LowerReference(parameter),
                     BoundDereferenceExpression dereference => LowerReference(dereference.Reference),
+                    BoundFieldAccess field => FieldAddress(field.Receiver, field.Field, syntax),
+                    BoundMemberAccessExpression { Member: IFieldSymbol field } access => FieldAddress(access.Receiver, field, syntax),
                     _ => Reject("value receiver requires an owned local or ref/out parameter", syntax)
                 };
             }
@@ -518,10 +520,22 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             }
             return true;
         }
+        bool FieldAddress(BoundExpression? receiver, IFieldSymbol field, SyntaxNode syntax)
+        {
+            if (capabilities?.Allows(LinearInstructionKind.FieldAddress) != true || field.IsReadOnly ||
+                field.ContainingType?.OriginalDefinition is not SourceNamedTypeSymbol || !SupportedField(field))
+                return Reject("unsupported mutable source field address", syntax);
+            if (!Receiver(receiver, field.ContainingType, syntax)) return false;
+            instructions.Add(new(LinearInstructionKind.FieldAddress, syntax, Field: field));
+            return true;
+        }
+
         bool LowerReference(BoundExpression expression)
         {
             if (capabilities?.AllowsManagedReferences != true) return Reject("target does not support managed references", Syntax(expression));
             var symbol = expression is BoundAddressOfExpression address ? address.Symbol : expression is BoundParameterAccess parameter ? parameter.Parameter : null;
+            if (symbol is IFieldSymbol field && expression is BoundAddressOfExpression fieldAddress)
+                return FieldAddress(fieldAddress.Storage is BoundFieldAccess access ? access.Receiver : fieldAddress.Receiver, field, Syntax(expression));
             if (symbol is ILocalSymbol local)
             {
                 if (!locals.TryGetValue(local, out var slot))

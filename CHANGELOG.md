@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Lower owned mutable field addresses through an explicit target capability
+  and NeoCLR IL-generator adapter. Nested generic value fields now support mutation via
+  aliased object storage; the same ordinary-command consumer returns 42 on both targets.
+  Imported/readonly addresses remain unsupported. Unchanged Option now reaches its
+  generated formatting comparison, with native output still withheld.
+
 - **2026-10-03:** Add an explicit generic/value-to-object boxing capability to shared
   lowering and route NeoCLR emission through the metadata IL generator. Generic boxing
   smoke commands execute on both targets; missing native core registration rejects before

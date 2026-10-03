@@ -4557,3 +4557,23 @@ The independent [expression-body conversion fix](expression-body-return-conversi
 was exposed by these checks and validated separately on the main-based fixes branch as
 c96305e50 (ten tests); it is not a dependency on experimental metadata for ordinary .NET.
 Fourteen focused integration tests pass, plus the ten expression-body execution tests.
+
+## Owned field-address continuation (2026-10-03)
+
+The FieldAddress shared operation carries IFieldSymbol, while NeoClrFieldReference
+selects the owned definition or constructed metadata reference inside the target adapter.
+Mutable source fields can supply value-type getter/method receivers and explicit addresses;
+recursive receivers borrow the original storage. No temporary value copy is substituted.
+The metadata generator checks initialization, exact receiver types and ownership, then
+emits standard CLI ldflda or the existing native ordinal operation. Imported/readonly
+field addresses reject explicitly; .NET's profile remains on its general backend path.
+No binding or Runtime Contract setting changes, and no importer handle is reused.
+
+`NeoClrMetadataProbe --field-address-driver <driver> <runtime> <core> <seed> <fresh-output>`
+compiles one unchanged source on each target and verifies nested struct mutation through
+two aliases of a generic holder (42). C# capability tests ensure admission is explicit;
+metadata tests verify alias mutation on CLR/NeoCLR and reject uninitialized/temporary
+receivers plus readonly/foreign operands. Ten focused Raven tests and 120 metadata groups
+pass. Unchanged source Option and ordinary/generic unions advance to the generated
+<RavenFormatUnionValue> helper's BoundBinaryExpression/null comparison, still without native
+output. Reference/null operations, remaining formatting and union/case metadata are open.

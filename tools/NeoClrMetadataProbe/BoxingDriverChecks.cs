@@ -6,14 +6,39 @@ namespace NeoClrMetadataProbe;
 
 internal static class BoxingDriverChecks
 {
-    internal static async Task Run(string driver, string runtime, string core, string seed, string output)
+    internal static async Task Run(string driver, string runtime, string core, string seed, string output, bool fieldAddresses = false)
     {
         driver = Path.GetFullPath(driver); runtime = Path.GetFullPath(runtime);
         core = Path.GetFullPath(core); seed = Path.GetFullPath(seed); output = Path.GetFullPath(output);
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
-        var source = Path.Combine(output, "Box.rvn");
-        File.WriteAllText(source, """
+        var stem = fieldAddresses ? "FieldAddress" : "Box";
+        var source = Path.Combine(output, stem + ".rvn");
+        File.WriteAllText(source, fieldAddresses ? """
+            public struct Counter {
+                public field Value: int
+                public init(value: int) {
+                    self.Value = value
+                }
+                func Increment() -> int {
+                    Value = Value + 1
+                    return Value
+                }
+            }
+            public class Holder<T> {
+                public field Value: T
+                public init(value: T) {
+                    self.Value = value
+                }
+            }
+            func Main() -> int {
+                let holder = Holder<Counter>(Counter(40))
+                let alias = holder
+                holder.Value.Increment()
+                alias.Value.Increment()
+                return holder.Value.Value
+            }
+            """ : """
             public static class Converter {
                 static func Box<T>(value: T) -> object => value
             }
@@ -27,7 +52,7 @@ internal static class BoxingDriverChecks
         var commands = new List<object>();
         foreach (var native in new[] { false, true })
         {
-            var assembly = Path.Combine(output, native ? "Box.native.dll" : "Box.clr.dll");
+            var assembly = Path.Combine(output, stem + (native ? ".native.dll" : ".clr.dll"));
             string[] args = native
                 ? [driver, "neoclr", "--core-reference", core, "--runtime-seed", seed, "-o", assembly, source]
                 : [driver, "--framework", "net10.0", "--emit-core-types-only", "-o", assembly, source];
@@ -35,17 +60,20 @@ internal static class BoxingDriverChecks
             if (native) await Command(runtime, ["verify", assembly, "--system", seed], 0);
             await Command(native ? runtime : "dotnet", native
                 ? ["run", assembly, "--system", seed]
-                : ["exec", "--runtimeconfig", Path.ChangeExtension(driver, ".runtimeconfig.json"), assembly], 42, "boxed");
+                : ["exec", "--runtimeconfig", Path.ChangeExtension(driver, ".runtimeconfig.json"), assembly], 42, fieldAddresses ? "" : "boxed");
         }
-        var rejected = Path.Combine(output, "MissingSeed.dll");
-        var error = await Command("dotnet", [driver, "neoclr", "--core-reference", core, "-o", rejected, source], 1);
-        if (!error.Contains("unregistered dependency type: class object") || File.Exists(rejected)) throw new Exception("missing boxing seed was not rejected before publication");
+        if (!fieldAddresses)
+        {
+            var rejected = Path.Combine(output, "MissingSeed.dll");
+            var error = await Command("dotnet", [driver, "neoclr", "--core-reference", core, "-o", rejected, source], 1);
+            if (!error.Contains("unregistered dependency type: class object") || File.Exists(rejected)) throw new Exception("missing boxing seed was not rejected before publication");
+        }
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
-            scope = "Dual-target ordinary-command boxing smoke; detailed value/identity assertions live in C# metadata and CLR conversion tests, not this discarded-result smoke.",
+            scope = fieldAddresses ? "Dual-target nested generic field addresses preserve mutable storage and object aliases (42)." : "Dual-target ordinary-command boxing smoke; detailed value/identity assertions live in C# metadata and CLR conversion tests, not this discarded-result smoke.",
             driverSha256 = Hash(driver), runtimeSha256 = Hash(runtime), coreSha256 = Hash(core), seedSha256 = Hash(seed), sourceSha256 = Hash(source), commands
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
-        Console.WriteLine("PASS dual-target boxing smoke and missing-seed publication guard");
+        Console.WriteLine(fieldAddresses ? "PASS dual-target nested field mutation and alias identity" : "PASS dual-target boxing smoke and missing-seed publication guard");
 
         async Task<string> Command(string executable, string[] arguments, int expected, string? expectedOutput = null)
         {

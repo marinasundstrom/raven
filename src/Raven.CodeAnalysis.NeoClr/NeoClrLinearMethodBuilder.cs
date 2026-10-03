@@ -32,6 +32,7 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             case LinearInstructionKind.StoreElement: method.StoreArrayElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
             case LinearInstructionKind.ArrayLength: method.LoadArrayLength(); break;
             case LinearInstructionKind.Receiver: method.LoadArgument(0); break;
+            case LinearInstructionKind.FieldAddress: resolveField!(instruction.Field!).EmitAddress(method); break;
             case LinearInstructionKind.LoadField: resolveField!(instruction.Field!).Emit(method, false); break;
             case LinearInstructionKind.StoreField: resolveField!(instruction.Field!).Emit(method, true); break;
             case LinearInstructionKind.NewObject:
