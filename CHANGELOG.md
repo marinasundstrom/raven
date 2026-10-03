@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Emit ordinary top-level source structs through an explicit native
+  value declaration capability, including generic inline payloads, constructors and
+  accessors. Shared planning preserves addressed receivers, self copies and synthesized
+  default initialization. Paired driver tests check independent mutation and copies;
+  source union cases and separately imported value emission remain pending.
+
 - **2026-10-03:** Preserve native metadata value declarations as Struct symbols with
   the semantic System.ValueType base and substituted generic payload fields. This uses
   the introspection facade; source-union and external value emission remain pending.

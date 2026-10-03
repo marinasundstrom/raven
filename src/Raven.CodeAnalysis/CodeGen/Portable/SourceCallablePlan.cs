@@ -46,7 +46,7 @@ internal sealed record SourceCallablePlan(
             plan = null; return false;
         }
         if (symbol is { MethodKind: MethodKind.Constructor, IsStatic: false, Parameters.Length: 0 } &&
-            symbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is ClassDeclarationSyntax ownerSyntax)
+            symbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is TypeDeclarationSyntax ownerSyntax && ownerSyntax is ClassDeclarationSyntax or StructDeclarationSyntax)
         {
             plan = new(symbol, ownerSyntax, ownerSyntax, symbol.ContainingType, symbol.MetadataName, signature);
             if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;

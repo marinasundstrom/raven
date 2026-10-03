@@ -14,6 +14,9 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly) : IT
             Accessibility.Internal => TypeVisibility.Internal,
             _ => throw new InvalidOperationException("Unsupported top-level type visibility")
         };
+        if (plan.IsValueType) return plan.Symbol.Arity > 0
+            ? assembly.AddGenericValueType(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility)
+            : assembly.AddValueType(plan.Namespace, plan.Name, visibility);
         if (plan.Symbol.Arity > 0) return plan.IsStatic
             ? assembly.AddGenericType(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility)
             : assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility);

@@ -4228,3 +4228,31 @@ metadata in emission. Source value declarations, nested union cases, the Byte ta
 synthesized members and symbol-authored external value operands remain the next
 compiler work. Runtime-library union sources are unchanged. No format version change,
 CLI projection fallback, runtime implementation change or performance claim is needed.
+
+## Source value declarations for union emission (2026-10-03)
+
+The native adapter now opts into an explicit portable `ValueType` declaration category.
+Top-level ordinary structs, including unconstrained generic owners, map to metadata
+value definitions. Reference classes retain their existing path. Nested declarations,
+value-interface implementations, ref structs and constrained value owners remain outside
+this bounded source profile; no source unions are rewritten into classes or manual carriers.
+
+Shared body planning preserves an addressed receiver for member access and takes a value
+copy when `self` is used as an expression. Synthesized parameterless struct constructors
+zero-initialize fields before declared initializers. The adapter uses the existing metadata
+ILGenerator and value-type builder contracts. There is no metadata format/runtime change,
+new bootstrap selection or importer-to-emitter dependency. Ordinary .NET emission retains
+its existing Reflection/Emit path; its portable profile does not opt into this new category.
+
+The C# `NeoClrMetadataProbe --source-value-driver <rvnc.dll> <neoclr> <core.dll> <fresh-dir>`
+checks ordinary driver compilation and execution on both targets: generic inline payloads,
+explicit/default constructors, accessors, self copies, local field mutation and independent
+copies return 42 with empty stdout/stderr. Unsupported value-interface implementation
+rejects with NEOMETA001 and no output. This is same-compilation source value coverage,
+not separate native library consumption or source Option completion. Source and artifact
+hashes plus command results are recorded by the harness.
+
+Remaining union dependencies include nested case/companion declarations, the Byte tag,
+synthesized union methods/relationships and symbol-authored external value references.
+The source library and broad application gates remain open. No independent binder fix
+was needed here; shared changes add an explicitly selected emission capability.

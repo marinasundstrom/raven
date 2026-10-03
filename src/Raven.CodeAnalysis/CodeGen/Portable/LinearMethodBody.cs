@@ -62,7 +62,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         // Arrow clauses expose their bound statement block in the original view, as
         // consumed by the general generator. Reuse compiler lowering for conversions
         // and Unit expression statements instead of synthesizing backend returns.
-        var body = functionBody is not null ? FunctionBlock(functionBody) : source.MethodKind == MethodKind.Constructor && bodySyntax is ClassDeclarationSyntax
+        var body = functionBody is not null ? FunctionBlock(functionBody) : source.MethodKind == MethodKind.Constructor && bodySyntax is ClassDeclarationSyntax or StructDeclarationSyntax
             ? new BoundBlockStatement([]) : model.Compilation.TryGetSynthesizedMethodBody(source, BoundTreeView.Lowered, out var synthesized) && synthesized is not null
             ? synthesized : bodySyntax is ArrowExpressionClauseSyntax
             ? model.GetBoundNode(bodySyntax, BoundTreeView.Original) is BoundBlockStatement arrowBody
@@ -70,7 +70,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             : model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement;
         if (body is not null && source.MethodKind == MethodKind.Constructor)
         {
-            var initialization = Lowerer.LowerBlock(source, new BoundBlockStatement(FieldInitializationPlan.Create(model.Compilation, source).ToArray()));
+            var initializers = FieldInitializationPlan.Create(model.Compilation, source);
+            // A synthesized struct default constructor zero-initializes storage. Keep this
+            // semantic initialization in the shared body plan, before declared initializers.
+            if (bodySyntax is StructDeclarationSyntax)
+                initializers = source.ContainingType!.GetMembers().OfType<IFieldSymbol>().Where(f => !f.IsStatic)
+                    .Select(field => new BoundAssignmentStatement(new BoundFieldAssignmentExpression(
+                        new BoundSelfExpression(source.ContainingType), field, new BoundDefaultValueExpression(field.Type),
+                        model.Compilation.GetSpecialType(SpecialType.System_Unit))))
+                    .Concat(initializers);
+            var initialization = Lowerer.LowerBlock(source, new BoundBlockStatement(initializers.ToArray()));
             body = new BoundBlockStatement([initialization, body]);
         }
         var success = body is not null ? LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
@@ -331,7 +340,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 if (memberAssignment is BoundFieldAssignmentExpression fieldAssignment)
                 {
-                    if (fieldAssignment.RequiresReceiverAddress || !SupportedField(fieldAssignment.Field) ||
+                    if (!SupportedField(fieldAssignment.Field) ||
                         !Receiver(fieldAssignment.Receiver, fieldAssignment.Field.ContainingType!, Syntax(statement)) || !LowerValue(fieldAssignment.Right))
                         return Reject("unsupported instance field assignment", Syntax(statement));
                     instructions.Add(new(LinearInstructionKind.StoreField, Syntax(statement), Field: fieldAssignment.Field));
@@ -453,7 +462,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         {
             if (owner.IsValueType)
             {
-                if (capabilities?.AllowsExternalValueInstanceCalls != true) return Reject("target does not support value receivers", syntax);
+                if (capabilities?.AllowsManagedReferences != true ||
+                    !(capabilities.Allows(EmissionDeclarationKind.ValueType) && SourceTypePlan.TryCreate(owner, out _, capabilities) || capabilities.AllowsExternalValueInstanceCalls && CallableSignature.IsExternalValue(owner, capabilities.AllowsNestedExternalTypes)))
+                    return Reject("target does not support value receivers", syntax);
+                if (!isStaticBody && SymbolEqualityComparer.Default.Equals(source.ContainingType, owner) &&
+                    receiver is null or BoundSelfExpression)
+                {
+                    Add(LinearInstructionKind.Receiver, syntax); return true;
+                }
                 return receiver switch
                 {
                     BoundLocalAccess local => LowerReference(new BoundAddressOfExpression(local)),
@@ -606,7 +622,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return Reject("constructor " + unsupportedCreation.Constructor.ContainingType?.ToDisplayString() + "." + unsupportedCreation.Constructor.ToDisplayString() +
                         (nestedParameter is null ? "" : " with nested parameter type " + nestedParameter.ContainingType!.ToDisplayString() + "." + nestedParameter.MetadataName), Syntax(expression));
                 case BoundSelfExpression self when !isStaticBody && SymbolEqualityComparer.Default.Equals(self.Type, source.ContainingType):
-                    Add(LinearInstructionKind.Receiver, Syntax(expression)); return true;
+                    Add(LinearInstructionKind.Receiver, Syntax(expression));
+                    if (self.Type.IsValueType) instructions.Add(new(LinearInstructionKind.LoadIndirect, Syntax(expression), Type: self.Type));
+                    return true;
                 case BoundFieldAccess field when SupportedField(field.Field):
                     if (!Receiver(field.Receiver, field.Field.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.LoadField, Syntax(expression), Field: field.Field)); return true;

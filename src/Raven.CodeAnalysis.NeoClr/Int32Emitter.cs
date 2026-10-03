@@ -49,15 +49,15 @@ internal static class Int32Emitter
                         throw Unsupported("only invariant owned interfaces with public abstract instance method contracts");
                     interfaces.Add(interfacePlan!);
                 }
-                else if (member is ClassDeclarationSyntax type)
+                else if (member is TypeDeclarationSyntax type && type is ClassDeclarationSyntax or StructDeclarationSyntax)
                 {
                     if (type.AttributeLists.Count != 0 || type.ParameterList is not null ||
-                        type.PermitsClause is not null ||
+                        type is ClassDeclarationSyntax { PermitsClause: not null } ||
                         type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword)))
-                        throw Unsupported("only public or internal static or root classes without additional contracts");
+                        throw Unsupported("only public or internal static/root classes or value types without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
-                        throw Unsupported("only public or internal unconstrained static or root classes");
+                        throw Unsupported("supported public/internal static classes, root classes or unconstrained value types");
                     // Partial declarations share one semantic identity and one metadata definition.
                     // Still validate every part and collect all of its members.
                     declaredTypes.TryAdd(typeSymbol, typePlan!);
@@ -135,14 +135,14 @@ internal static class Int32Emitter
                         plans.Add(plan);
                     }
                 }
-                else throw Unsupported("only top-level functions and supported source class declarations");
+                else throw Unsupported("only top-level functions and supported source type declarations");
             }
         }
         foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic))
             foreach (var constructor in type.Symbol.GetMembers().OfType<IMethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor))
                 if (!plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol, constructor)))
                 {
-                    if (constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not ClassDeclarationSyntax) throw Unsupported("constructor unavailable");
+                    if (constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not (ClassDeclarationSyntax or StructDeclarationSyntax)) throw Unsupported("constructor unavailable");
                     plans.Add(GetPlan(constructor));
                 }
         var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody Body)>();

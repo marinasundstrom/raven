@@ -7,7 +7,8 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace, string Name)
 {
     internal bool IsStatic => Symbol.IsStatic;
-    internal EmissionDeclarationKind DeclarationKind => IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
+    internal bool IsValueType => Symbol.TypeKind == TypeKind.Struct;
+    internal EmissionDeclarationKind DeclarationKind => IsValueType ? EmissionDeclarationKind.ValueType : IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
 
     internal Accessibility Visibility => Symbol.DeclaredAccessibility;
 
@@ -16,7 +17,8 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
     internal static bool TryCreate(INamedTypeSymbol type, out SourceTypePlan? plan, EmissionCapabilities? capabilities = null)
     {
         plan = null;
-        var kind = type.IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
+        var isValue = type.TypeKind == TypeKind.Struct;
+        var kind = isValue ? EmissionDeclarationKind.ValueType : type.IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
         if (capabilities is not null && (!capabilities.Allows(kind) || !capabilities.AllowsTypeVisibility(type.DeclaredAccessibility))) return false;
         if (type.Arity > 0 && (capabilities is not null && !(type.IsStatic ? capabilities.AllowsGenericStaticOwners : capabilities.AllowsGenericClassOwners) ||
             ((INamedTypeSymbol)type.OriginalDefinition).TypeParameters.Any(p =>
@@ -24,9 +26,12 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
                 (p.ConstraintKind & (TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor)) != 0 && capabilities is not null && !capabilities.AllowsSpecialTypeConstraints ||
                 !p.ConstraintTypes.IsEmpty && (capabilities is not null && !capabilities.AllowsNominalTypeBounds || p.ConstraintTypes.Length != 1 ||
                     p.ConstraintTypes[0] is not INamedTypeSymbol { Arity: 0, IsStatic: false } bound || !TryCreate(bound, out _))))) return false;
-        if (type.TypeKind != TypeKind.Class || type.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal) ||
+        if (isValue && (capabilities?.Allows(EmissionDeclarationKind.ValueType) != true || !type.Interfaces.IsEmpty ||
+            type.OriginalDefinition is SourceNamedTypeSymbol { IsRefLikeType: true } ||
+            ((INamedTypeSymbol)type.OriginalDefinition).TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None))) return false;
+        if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct) || type.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal) ||
             type.ContainingType is not null ||
-            !type.IsStatic && (type.IsAbstract || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false, IsSealedHierarchy: false } || type.BaseType?.SpecialType != SpecialType.System_Object))
+            !type.IsStatic && (type.IsAbstract || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false, IsSealedHierarchy: false } || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object)))
             return false;
         // Check relationship identity here. Arguments are mapped by the adapter; recursively
         // admitting their source owners would loop for shapes such as C<T> : I<C<T>>.

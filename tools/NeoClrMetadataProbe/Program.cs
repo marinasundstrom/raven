@@ -36,6 +36,10 @@ if (args.Length == 5 && args[0] is "--dual-driver" or "--dual-driver-inventory")
     await DualTargetDriverChecks.Run(args[1], args[2], args[3], args[4], args[0] == "--dual-driver-inventory"); return;
 }
 
+if (args.Length == 5 && args[0] == "--source-value-driver")
+{
+    await SourceValueDriverChecks.Run(args[1], args[2], args[3], args[4]); return;
+}
 if (args.Length == 5 && args[0] == "--native-symbols-runtime")
 {
     await NativeSymbolChecks.RunRuntime(args[1], args[2], args[3], args[4]); return;
