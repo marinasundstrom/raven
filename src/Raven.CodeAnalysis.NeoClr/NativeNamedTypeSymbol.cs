@@ -29,11 +29,8 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
         });
         allInterfaces = new(() =>
         {
-            var result = new List<INamedTypeSymbol>();
-            var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-            void Add(INamedTypeSymbol contract) { if (seen.Add(contract)) { result.Add(contract); foreach (var parent in contract.Interfaces) Add(parent); } }
-            foreach (var contract in Interfaces) Add(contract);
-            return [.. result];
+            var module = (NativeModuleSymbol)ContainingModule;
+            return [.. module.TypeView(definition).GetInterfaces().Select(view => (INamedTypeSymbol)module.MapView(view))];
         });
         var methods = definition.Methods.ToDictionary(method => method, method => new NativeMethodSymbol(compilation, method, this));
         members = [.. methods.Values,

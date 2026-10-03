@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Consume bounded inherited-interface metadata queries instead of native
+  importer recursion. Constructed arguments and diamond identity are preserved.
+
 - **2026-10-03:** Consume metadata facade property and direct interface projections,
   removing native importer signature decoding/substitution for those relationships.
   Preserve compiler accessibility, accessor association and inherited-interface traversal.
