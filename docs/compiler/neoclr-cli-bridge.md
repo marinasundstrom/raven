@@ -4610,3 +4610,13 @@ bootstrap binding, not a native application reference fallback. No native format
 `--object-display-driver` executes generic boxed integer and String display on both
 targets (stdout 42/text, exit42). C# capability tests reject other Object virtual calls.
 Native union preflight next stops at get_Value's null literal; no union execution claim.
+
+Typed null continuation (2026-10-03): shared lowering uses the semantic destination
+of reference returns, locals, storage and arguments to emit the existing DefaultValue
+operation for null. Bound reference-null conversions use their target type. No null
+value type, runtime API or metadata encoding is invented; unsupported value destinations
+remain explicit. The .NET backend and Runtime Contract are unchanged. Ordinary commands
+execute null Object/String returns, local assignment and a null parameter on both targets
+(exit42); 11 focused tests pass. Plain/generic union bodies now pass preflight and remain
+blocked by native union/case metadata preservation. Unchanged source Option independently
+reaches a BoundIsPatternExpression in TryGetOutput. These are not union execution claims.

@@ -16,6 +16,10 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args.Length == 6 && args[0] == "--null-literals-driver")
+{
+    await BoxingDriverChecks.Run(args[1], args[2], args[3], args[4], args[5], StorageDriverScenario.NullLiterals); return;
+}
 if (args.Length == 6 && args[0] == "--object-display-driver")
 {
     await BoxingDriverChecks.Run(args[1], args[2], args[3], args[4], args[5], StorageDriverScenario.ObjectDisplay); return;

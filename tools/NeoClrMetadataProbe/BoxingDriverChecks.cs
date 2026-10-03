@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace NeoClrMetadataProbe;
 
-internal enum StorageDriverScenario { Boxing, FieldAddresses, ReferenceOperations, ObjectDisplay }
+internal enum StorageDriverScenario { Boxing, FieldAddresses, ReferenceOperations, ObjectDisplay, NullLiterals }
 
 internal static class BoxingDriverChecks
 {
@@ -15,11 +15,33 @@ internal static class BoxingDriverChecks
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
         var fieldAddresses = scenario == StorageDriverScenario.FieldAddresses;
+        var nulls = scenario == StorageDriverScenario.NullLiterals;
         var display = scenario == StorageDriverScenario.ObjectDisplay;
         var references = scenario == StorageDriverScenario.ReferenceOperations;
-        var stem = display ? "ObjectDisplay" : references ? "References" : fieldAddresses ? "FieldAddress" : "Box";
+        var stem = nulls ? "NullLiterals" : display ? "ObjectDisplay" : references ? "References" : fieldAddresses ? "FieldAddress" : "Box";
         var source = Path.Combine(output, stem + ".rvn");
-        File.WriteAllText(source, display ? """
+        File.WriteAllText(source, nulls ? """
+            func EmptyObject() -> object? => null
+            func EmptyString() -> string? => null
+            func IsMissing(value: string?) -> bool => value == null
+            func Main() -> int {
+                var empty: string? = "initial"
+                empty = null
+                if EmptyObject() != null {
+                    return 1
+                }
+                if EmptyString() != null {
+                    return 2
+                }
+                if empty != null {
+                    return 3
+                }
+                if !IsMissing(null) {
+                    return 4
+                }
+                return 42
+            }
+            """ : display ? """
             func Box<T>(value: T) -> object => value
             func Main() -> int {
                 System.Console.WriteLine(Box(42).ToString())
@@ -102,10 +124,10 @@ internal static class BoxingDriverChecks
         }
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
-            scope = display ? "Dual-target core Object.ToString dispatch on generic boxed integer and string (42)." : references ? "Dual-target reference null checks and discard type tests return 42." : fieldAddresses ? "Dual-target nested generic field addresses preserve mutable storage and object aliases (42)." : "Dual-target ordinary-command boxing smoke; detailed value/identity assertions live in C# metadata and CLR conversion tests, not this discarded-result smoke.",
+            scope = nulls ? "Dual-target typed null returns and initialized local (42)." : display ? "Dual-target core Object.ToString dispatch on generic boxed integer and string (42)." : references ? "Dual-target reference null checks and discard type tests return 42." : fieldAddresses ? "Dual-target nested generic field addresses preserve mutable storage and object aliases (42)." : "Dual-target ordinary-command boxing smoke; detailed value/identity assertions live in C# metadata and CLR conversion tests, not this discarded-result smoke.",
             driverSha256 = Hash(driver), runtimeSha256 = Hash(runtime), coreSha256 = Hash(core), seedSha256 = Hash(seed), sourceSha256 = Hash(source), commands
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
-        Console.WriteLine(display ? "PASS dual-target core Object display dispatch" : references ? "PASS dual-target null checks and type tests" : fieldAddresses ? "PASS dual-target nested field mutation and alias identity" : "PASS dual-target boxing smoke and missing-seed publication guard");
+        Console.WriteLine(nulls ? "PASS dual-target null literals" : display ? "PASS dual-target core Object display dispatch" : references ? "PASS dual-target null checks and type tests" : fieldAddresses ? "PASS dual-target nested field mutation and alias identity" : "PASS dual-target boxing smoke and missing-seed publication guard");
 
         async Task<string> Command(string executable, string[] arguments, int expected, string? expectedOutput = null)
         {

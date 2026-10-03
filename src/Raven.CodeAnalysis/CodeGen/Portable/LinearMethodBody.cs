@@ -318,7 +318,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         else if (variable.Local.Type is (IArrayTypeSymbol or ITypeParameterSymbol) && TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
                             localType = arrayType;
                         else return Reject("target does not support local type " + variable.Local.Type.Name, Syntax(variable));
-                        if (variable.Initializer is not null && !LowerValue(variable.Initializer)) return false;
+                        if (variable.Initializer is not null && !LowerValue(variable.Initializer, variable.Local.Type)) return false;
                         var slot = localTypes.Count;
                         locals.Add(variable.Local, slot);
                         localTypes.Add(localType);
@@ -335,21 +335,21 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (memberAssignment is BoundIndexerAssignmentExpression indexerAssignment)
                 {
                     var access = indexerAssignment.Left;
-                    if (access.Indexer.SetMethod is not { } setter || !LowerIndexerReceiverAndArguments(access, setter, true) || !LowerValue(indexerAssignment.Right))
+                    if (access.Indexer.SetMethod is not { } setter || !LowerIndexerReceiverAndArguments(access, setter, true) || !LowerValue(indexerAssignment.Right, access.Indexer.Type))
                         return Reject("unsupported indexed property assignment", Syntax(statement));
                     Add(InstanceCallKind(setter), Syntax(statement), method: setter);
                     continue;
                 }
                 if (memberAssignment is BoundArrayAssignmentExpression arrayAssignment)
                 {
-                    if (!ArrayReceiverAndIndex(arrayAssignment.Left) || !LowerValue(arrayAssignment.Right)) return false;
+                    if (!ArrayReceiverAndIndex(arrayAssignment.Left) || !LowerValue(arrayAssignment.Right, arrayAssignment.Left.ElementType)) return false;
                     instructions.Add(new(LinearInstructionKind.StoreElement, Syntax(statement), Type: arrayAssignment.Left.ElementType));
                     continue;
                 }
                 if (memberAssignment is BoundFieldAssignmentExpression fieldAssignment)
                 {
                     if (!SupportedField(fieldAssignment.Field) ||
-                        !Receiver(fieldAssignment.Receiver, fieldAssignment.Field.ContainingType!, Syntax(statement)) || !LowerValue(fieldAssignment.Right))
+                        !Receiver(fieldAssignment.Receiver, fieldAssignment.Field.ContainingType!, Syntax(statement)) || !LowerValue(fieldAssignment.Right, fieldAssignment.Field.Type))
                         return Reject("unsupported instance field assignment", Syntax(statement));
                     instructions.Add(new(LinearInstructionKind.StoreField, Syntax(statement), Field: fieldAssignment.Field));
                     continue;
@@ -357,7 +357,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (memberAssignment is BoundPropertyAssignmentExpression propertyAssignment)
                 {
                     if (propertyAssignment.Property.SetMethod is not { } setter || !SupportedPropertyCall(setter) ||
-                        !PropertyReceiver(propertyAssignment.Receiver, setter, Syntax(statement)) || !LowerValue(propertyAssignment.Right))
+                        !PropertyReceiver(propertyAssignment.Receiver, setter, Syntax(statement)) || !LowerValue(propertyAssignment.Right, propertyAssignment.Property.Type))
                         return Reject("unsupported property assignment", Syntax(statement));
                     Add(setter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(setter), Syntax(statement), method: setter);
                     continue;
@@ -383,7 +383,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (assignment is not null)
                 {
                     if (!locals.TryGetValue(assignment.Local, out var slot)) return Reject("undeclared local", Syntax(statement));
-                    if (!LowerValue(assignment.Right)) return false;
+                    if (!LowerValue(assignment.Right, assignment.Local.Type)) return false;
                     Add(LinearInstructionKind.StoreLocal, Syntax(assignment), slot);
                     continue;
                 }
@@ -407,7 +407,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (statement is not BoundReturnStatement { Expression: { } value })
                     return Reject("unsupported lowered statement " + statement.GetType().Name +
                         (statement is BoundExpressionStatement unsupported ? " (" + unsupported.Expression.GetType().Name + ")" : statement is BoundAssignmentStatement assigned ? " (" + assigned.Expression.GetType().Name + ")" : ""), Syntax(statement));
-                if (!LowerValue(value)) return false;
+                if (!LowerValue(value, source.ReturnType)) return false;
                 Add(LinearInstructionKind.Return, Syntax(statement));
             }
             return true;
@@ -527,7 +527,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             {
                 Add(LinearInstructionKind.Duplicate, syntax);
                 Add(LinearInstructionKind.Constant, syntax, i);
-                if (!LowerValue(elements[i])) return false;
+                if (!LowerValue(elements[i], type.ElementType)) return false;
                 instructions.Add(new(LinearInstructionKind.StoreElement, syntax, Type: type.ElementType));
             }
             return true;
@@ -574,8 +574,18 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return Reject("only owned locals or ref/out parameter addresses: " + expression.GetType().Name + " (" + symbol?.ToDisplayString() + ")", Syntax(expression));
         }
 
-        bool LowerValue(BoundExpression expression)
+        bool LowerTypedNull(ITypeSymbol type, SyntaxNode syntax)
         {
+            if (!type.IsReferenceType || !TryType(type, false, out var target) || capabilities?.Allows(target) == false ||
+                capabilities?.Allows(LinearInstructionKind.DefaultValue) == false)
+                return Reject("unsupported null target " + type.ToDisplayString(), syntax);
+            instructions.Add(new(LinearInstructionKind.DefaultValue, syntax, Type: type));
+            return true;
+        }
+
+        bool LowerValue(BoundExpression expression, ITypeSymbol? nullTarget = null)
+        {
+            if (nullTarget is not null && IsNullLiteral(expression)) return LowerTypedNull(nullTarget, Syntax(expression));
             if (capabilities is not null && EmissionPrimitiveTypes.TryGetValueType(expression.Type, out var valueType) && !capabilities.Allows(valueType))
                 return Reject("target does not support value type " + valueType, Syntax(expression));
             switch (expression)
@@ -630,10 +640,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     var alternative = nextLabel++;
                     var joined = nextLabel++;
                     Add(LinearInstructionKind.BranchFalse, Syntax(expression), alternative);
-                    if (!LowerValue(conditional.ThenBranch)) return false;
+                    if (!LowerValue(conditional.ThenBranch, conditional.Type)) return false;
                     Add(LinearInstructionKind.Branch, Syntax(expression), joined);
                     Add(LinearInstructionKind.Label, Syntax(expression), alternative);
-                    if (!LowerValue(conditional.ElseBranch)) return false;
+                    if (!LowerValue(conditional.ElseBranch, conditional.Type)) return false;
                     Add(LinearInstructionKind.Label, Syntax(expression), joined);
                     return true;
                 case BoundObjectCreationExpression creation when creation.Initializer is null && creation.Receiver is null &&
@@ -644,7 +654,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     (capabilities is null || capabilities.Allows(constructorSignature)):
                     var constructorArguments = creation.Arguments.ToArray();
                     if (constructorArguments.Length != creation.Constructor.Parameters.Length) return Reject("optional/expanded constructor arguments", Syntax(expression));
-                    foreach (var argument in constructorArguments) if (!LowerValue(argument)) return false;
+                    for (var i = 0; i < constructorArguments.Length; i++)
+                        if (!LowerValue(constructorArguments[i], creation.Constructor.Parameters[i].Type)) return false;
                     Add(LinearInstructionKind.NewObject, Syntax(expression), method: creation.Constructor); return true;
                 case BoundObjectCreationExpression unsupportedCreation:
                     var nestedParameter = unsupportedCreation.Constructor.Parameters.Select(p => p.Type).OfType<INamedTypeSymbol>().FirstOrDefault(t => t.ContainingType is not null);
@@ -711,6 +722,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return LowerValue(required.Operand);
                 case BoundParenthesizedExpression parenthesized:
                     return LowerValue(parenthesized.Expression);
+                case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && IsNullLiteral(conversion.Expression):
+                    return LowerTypedNull(conversion.Type, Syntax(expression));
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists &&
                     conversion.Type.GetNonNullableType().SpecialType == SpecialType.System_Object &&
                     (conversion.IsBoxing || conversion.Expression.Type is ITypeParameterSymbol) &&
@@ -834,7 +847,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     for (int i = 0; i < arguments.Length; i++)
                     {
                         if (call.Method.Parameters[i].RefKind is RefKind.Ref or RefKind.Out
-                            ? !LowerReference(arguments[i]) : !LowerValue(arguments[i])) return false;
+                            ? !LowerReference(arguments[i]) : !LowerValue(arguments[i], call.Method.Parameters[i].Type)) return false;
                     }
                     Add(call.Method.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(call.Method), Syntax(expression), method: call.Method);
                     return true;

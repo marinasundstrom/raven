@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Lower contextual reference null literals using the existing typed
+  default operation. Dual-target return/local/argument consumers execute; plain and
+  generic unions now reach the native union/case metadata gate. Unchanged Option
+  next reaches its propagation method case pattern. Native union execution is pending.
+
 - **2026-10-03:** Admit core Object.ToString through an explicit NeoCLR display-dispatch
   capability. Ordinary commands execute generic boxed integer/string display on both
   targets; unrelated virtual calls stay rejected. Union preflight next reaches a null literal.
