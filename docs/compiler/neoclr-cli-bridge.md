@@ -5126,3 +5126,26 @@ feature branch is integrated. Validation: native broad driver gate, 128 metadata
 CLR/native receiver-identity execution, and 31 focused .NET callback/contract tests pass.
 This planner change is a deferred general candidate pending an independent main-line
 caller; it is not a general binder behavior correction.
+
+## Native immutable reference captures (2026-10-03)
+
+The portable body plan exposes logical capture loads only under the explicit native
+capability profile. The NeoCLR adapter creates private frame fields, a constructor
+and an instance Invoke method through metadata builders/GetILGenerator. A fresh frame
+is allocated when the lambda is evaluated. It stores the same objects referenced by
+immutable local bindings; object mutations remain visible to all aliases. No importer
+objects or runtime reflection handles participate in emission. Existing instance
+Function bindings carry the frame; metadata and runtime encodings are unchanged.
+
+The current profile rejects mutable bindings, value captures, captured parameters and
+receiver captures before output publication. It does not implement general shared
+variable storage or fix the separately recorded .NET per-iteration scalar closure issue.
+Ordinary .NET body emission is unchanged. Runtime Contract/bootstrap selection remains
+explicit and unchanged; this does not integrate structural Function feature branches.
+
+Validation: unchanged library-list-filters executes with exact output against the
+separately built native source library. A focused consumer tests escaped callbacks,
+independent factory state and shared reference mutation; mutable capture rejects without
+publishing output. The expanded broad native gate and seven native consumers pass,
+with focused ordinary .NET function tests. The portable operation is a deferred general
+candidate until an independent backend consumer warrants validation on main.

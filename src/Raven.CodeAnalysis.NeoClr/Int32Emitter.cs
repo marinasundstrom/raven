@@ -208,6 +208,7 @@ internal static class Int32Emitter
                 throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
             prepared.Add((plan, body!));
         }
+        var closureCaptures = new Dictionary<IMethodSymbol, ILocalSymbol[]>(SymbolEqualityComparer.Default);
         var lambdaSymbols = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         for (var index = 0; index < prepared.Count; index++)
             foreach (var (function, syntax) in prepared[index].Body.Functions)
@@ -215,7 +216,9 @@ internal static class Int32Emitter
                 var symbol = (IMethodSymbol)function.Symbol!;
                 if (!lambdaSymbols.Add(symbol)) continue;
                 if (!CallableSignature.TryCreate(symbol, out var signature, NeoClrCapabilities.Shared)) throw Unsupported("unsupported Function body signature");
-                signature = signature with { IsInstance = false };
+                var captures = function.CapturedVariables.Cast<ILocalSymbol>().ToArray();
+                if (captures.Length != 0) closureCaptures.Add(symbol, captures);
+                signature = signature with { IsInstance = captures.Length != 0 };
                 if (!LinearMethodBody.TryLower(symbol, compilation.GetSemanticModel(syntax.SyntaxTree), syntax, IsConsoleCall,
                     out var body, out var failure, NeoClrCapabilities.Shared, function))
                     throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
@@ -398,12 +401,39 @@ internal static class Int32Emitter
                 throw Unsupported("configured array backing declaration is absent from output");
             assembly.SetArrayBacking(arrayDefinition);
         }
+        var closureFields = new Dictionary<IMethodSymbol, FieldBuilder[]>(SymbolEqualityComparer.Default);
+        var closureConstructors = new Dictionary<IMethodSymbol, MetadataMethod>(SymbolEqualityComparer.Default);
         var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method, LinearMethodBody Body)>();
         foreach (var (plan, body) in prepared)
         {
             diagnosticSyntax = plan.Syntax;
-            var owner = plan.IsAssemblyFunction ? functions : owners[plan.TypeOwner!];
-            var definition = plan.Define(owner);
+            MetadataMethod definition;
+            if (closureCaptures.TryGetValue(plan.Symbol, out var captures))
+            {
+                var frame = assembly.AddClass("", "$closure$" + closureFields.Count, TypeVisibility.Internal);
+                var captureFields = captures.Select((capture, index) => frame.AddField("capture" + index,
+                    NeoClrTypeMapper.Map(capture.Type, type => nativeTypes[type], ImportExternalType), FieldVisibility.Private)).ToArray();
+                var constructor = frame.AddConstructor(new MethodSignature(PrimitiveType.Void, captureFields.Select(field => field.FieldType)));
+                var constructorIl = constructor.GetILGenerator();
+                for (int i = 0; i < captureFields.Length; i++)
+                {
+                    constructorIl.LoadArgument(0);
+                    constructorIl.LoadArgument(i + 1);
+                    constructorIl.StoreField(captureFields[i]);
+                }
+                constructorIl.Return();
+                var signature = plan.Signature;
+                definition = frame.AddInstanceMethod("Invoke", new MethodSignature(
+                    NeoClrTypeMapper.Map(signature.ReturnType, type => nativeTypes[type], ImportExternalType),
+                    signature.ParameterTypes.Select(type => NeoClrTypeMapper.Map(type, owner => nativeTypes[owner], ImportExternalType))));
+                closureFields.Add(plan.Symbol, captureFields);
+                closureConstructors.Add(plan.Symbol, constructor);
+            }
+            else
+            {
+                var owner = plan.IsAssemblyFunction ? functions : owners[plan.TypeOwner!];
+                definition = plan.Define(owner);
+            }
             for (var i = 0; i < plan.Symbol.Parameters.Length; i++)
                 definition.SetParameterName(i, plan.Symbol.Parameters[i].Name);
             methods.Add((plan, definition, body));
@@ -464,7 +494,13 @@ internal static class Int32Emitter
                 if (instruction.Kind == LinearInstructionKind.FunctionBind)
                 {
                     if (!definedMethods.TryGetValue(instruction.Method!, out var target)) throw Unsupported("Function binding requires an owned target");
+                    if (closureConstructors.TryGetValue(instruction.Method!, out var constructor)) output.NewObject(constructor);
                     output.BindFunction(NeoClrTypeMapper.Map(instruction.Type!, type => nativeTypes[type], ImportExternalType), target);
+                }
+                else if (instruction.Kind == LinearInstructionKind.LoadCapture)
+                {
+                    output.LoadArgument(0);
+                    output.LoadField(closureFields[current.Plan.Symbol][instruction.Integer]);
                 }
                 else if (instruction.Kind == LinearInstructionKind.InterfaceCall && interfaceMethods.TryGetValue(instruction.Method!.OriginalDefinition ?? instruction.Method, out var contract))
                 {

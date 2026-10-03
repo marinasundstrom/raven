@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Lower native lambdas capturing immutable reference locals into
+  private frames and instance callback methods. Escaped callbacks retain reference
+  identity and shared object mutation; mutable/value/parameter captures reject before
+  output. Unchanged list-filters now executes against the separate native library.
+  Ordinary .NET emission, metadata encoding and runtime configuration are unchanged.
+
 - **2026-10-03:** Emit owned nonvirtual reference-instance method-group callbacks
   with their receiver in the native backend. A separate-library ArrayList.Find consumer
   preserves receiver mutation after binding. Captured lambda lowering remains open;

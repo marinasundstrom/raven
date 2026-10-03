@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -72,7 +72,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
     internal static bool TryLower(IMethodSymbol source, SemanticModel model, SyntaxNode bodySyntax,
         Func<BoundInvocationExpression, bool> permitsConsoleWrite, out LinearMethodBody? lowered, out LinearBodyFailure? failure, EmissionCapabilities? capabilities = null, BoundFunctionExpression? functionBody = null)
     {
-        var isStaticBody = source.IsStatic || functionBody is not null;
+        var captures = functionBody?.CapturedVariables.ToArray() ?? [];
+        var isStaticBody = functionBody is not null ? captures.Length == 0 : source.IsStatic;
         bool ReturnsValue(IMethodSymbol method) => TryType(method.ReturnType, false, out _);
         bool TryType(ITypeSymbol type, bool result, out EmissionType value) => CallableSignature.TryType(type, result, out value, capabilities);
         bool TrySignature(IMethodSymbol method, out CallableSignature signature) => CallableSignature.TryCreate(method, out signature, capabilities);
@@ -762,6 +763,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundLiteralExpression { Value: int value }:
                     Add(LinearInstructionKind.Constant, Syntax(expression), value); return true;
                 case BoundLocalAccess local:
+                    var captureIndex = Array.FindIndex(captures, capture => SymbolEqualityComparer.Default.Equals(capture, local.Local));
+                    if (captureIndex >= 0)
+                    {
+                        Add(LinearInstructionKind.LoadCapture, Syntax(expression), captureIndex);
+                        return true;
+                    }
                     if (!locals.TryGetValue(local.Local, out var slot)) return Reject("undeclared local", Syntax(expression));
                     Add(LinearInstructionKind.LoadLocal, Syntax(expression), slot); return true;
                 case BoundAddressOfExpression address:
@@ -892,8 +899,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundFunctionExpression function when capabilities?.AllowsFunctionValues == true &&
                     function.Symbol is SourceLambdaSymbol { IsAsync: false, IsIterator: false, IsExpressionTreeLambda: false, IsGenericMethod: false } lambda &&
-                    !function.CapturedVariables.Any() && lambda.ContainingType?.Arity is not > 0 &&
+                    lambda.ContainingType?.Arity is not > 0 &&
                     TryType(function.DelegateType, false, out var lambdaType) && capabilities.Allows(lambdaType):
+                    foreach (var capture in function.CapturedVariables)
+                    {
+                        if (capture is not ILocalSymbol { IsMutable: false, Type.IsReferenceType: true } captured ||
+                            capabilities.Allows(LinearInstructionKind.LoadCapture) != true ||
+                            !TryType(captured.Type, false, out var capturedType) || !capabilities.Allows(capturedType))
+                            return Reject("closure capture requires an immutable reference local", Syntax(expression));
+                        if (!LowerValue(new BoundLocalAccess(captured))) return false;
+                    }
                     functions.Add((function, Syntax(expression)));
                     instructions.Add(new(LinearInstructionKind.FunctionBind, Syntax(expression), Method: lambda, Type: function.DelegateType));
                     return true;
