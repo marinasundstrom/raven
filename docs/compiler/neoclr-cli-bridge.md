@@ -4598,3 +4598,15 @@ remains required for boxed objects and value-type tests; no native-reference fal
 Union declaration controls advance to `union body <RavenFormatUnionValue>: invocation
 virtual func ToString()`, still without native output. The remaining core virtual call,
 formatting and union metadata contracts must execute before removing the publication guard.
+
+Core Object display (2026-10-03): the shared body planner has an explicit
+AllowsObjectDisplayDispatch capability, enabled by NeoCLR only. It admits the
+public concrete instance System.Object.ToString() -> String slot (ignoring reference
+nullability for physical representation). Other nonfinal virtual class methods remain
+unsupported. No binder change or Runtime Contract change; .NET keeps Reflection.Emit.
+The NeoCLR adapter imports the permitted explicit CLI core declaration and validates
+its System runtime slot, then uses the metadata generator's CallVirtual. This is a
+bootstrap binding, not a native application reference fallback. No native format change.
+`--object-display-driver` executes generic boxed integer and String display on both
+targets (stdout 42/text, exit42). C# capability tests reject other Object virtual calls.
+Native union preflight next stops at get_Value's null literal; no union execution claim.

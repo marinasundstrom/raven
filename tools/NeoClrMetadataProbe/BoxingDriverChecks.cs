@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace NeoClrMetadataProbe;
 
-internal enum StorageDriverScenario { Boxing, FieldAddresses, ReferenceOperations }
+internal enum StorageDriverScenario { Boxing, FieldAddresses, ReferenceOperations, ObjectDisplay }
 
 internal static class BoxingDriverChecks
 {
@@ -15,10 +15,18 @@ internal static class BoxingDriverChecks
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
         var fieldAddresses = scenario == StorageDriverScenario.FieldAddresses;
+        var display = scenario == StorageDriverScenario.ObjectDisplay;
         var references = scenario == StorageDriverScenario.ReferenceOperations;
-        var stem = references ? "References" : fieldAddresses ? "FieldAddress" : "Box";
+        var stem = display ? "ObjectDisplay" : references ? "References" : fieldAddresses ? "FieldAddress" : "Box";
         var source = Path.Combine(output, stem + ".rvn");
-        File.WriteAllText(source, references ? """
+        File.WriteAllText(source, display ? """
+            func Box<T>(value: T) -> object => value
+            func Main() -> int {
+                System.Console.WriteLine(Box(42).ToString())
+                System.Console.WriteLine(Box("text").ToString())
+                return 42
+            }
+            """ : references ? """
             func Box<T>(value: T) -> object => value
             func Read(value: object?) -> int {
                 if value == null {
@@ -84,7 +92,7 @@ internal static class BoxingDriverChecks
             if (native) await Command(runtime, ["verify", assembly, "--system", seed], 0);
             await Command(native ? runtime : "dotnet", native
                 ? ["run", assembly, "--system", seed]
-                : ["exec", "--runtimeconfig", Path.ChangeExtension(driver, ".runtimeconfig.json"), assembly], 42, scenario != StorageDriverScenario.Boxing ? "" : "boxed");
+                : ["exec", "--runtimeconfig", Path.ChangeExtension(driver, ".runtimeconfig.json"), assembly], 42, display ? "42\ntext" : scenario != StorageDriverScenario.Boxing ? "" : "boxed");
         }
         if (scenario == StorageDriverScenario.Boxing)
         {
@@ -94,10 +102,10 @@ internal static class BoxingDriverChecks
         }
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
-            scope = references ? "Dual-target reference null checks and discard type tests return 42." : fieldAddresses ? "Dual-target nested generic field addresses preserve mutable storage and object aliases (42)." : "Dual-target ordinary-command boxing smoke; detailed value/identity assertions live in C# metadata and CLR conversion tests, not this discarded-result smoke.",
+            scope = display ? "Dual-target core Object.ToString dispatch on generic boxed integer and string (42)." : references ? "Dual-target reference null checks and discard type tests return 42." : fieldAddresses ? "Dual-target nested generic field addresses preserve mutable storage and object aliases (42)." : "Dual-target ordinary-command boxing smoke; detailed value/identity assertions live in C# metadata and CLR conversion tests, not this discarded-result smoke.",
             driverSha256 = Hash(driver), runtimeSha256 = Hash(runtime), coreSha256 = Hash(core), seedSha256 = Hash(seed), sourceSha256 = Hash(source), commands
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
-        Console.WriteLine(references ? "PASS dual-target null checks and type tests" : fieldAddresses ? "PASS dual-target nested field mutation and alias identity" : "PASS dual-target boxing smoke and missing-seed publication guard");
+        Console.WriteLine(display ? "PASS dual-target core Object display dispatch" : references ? "PASS dual-target null checks and type tests" : fieldAddresses ? "PASS dual-target nested field mutation and alias identity" : "PASS dual-target boxing smoke and missing-seed publication guard");
 
         async Task<string> Command(string executable, string[] arguments, int expected, string? expectedOutput = null)
         {

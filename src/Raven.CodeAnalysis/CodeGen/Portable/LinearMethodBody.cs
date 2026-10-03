@@ -448,7 +448,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             method.DeclaredAccessibility == Accessibility.Public &&
             method.ContainingType is { } owner && CallableSignature.IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && capabilities.Allows(signature);
-        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || capabilities?.Allows(EmissionDeclarationKind.ValueObjectOverride) == true && SourceCallablePlan.ClassifyOverride(method) != EmissionOverrideKind.None || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true)) &&
+        bool SupportedObjectDisplayCall(IMethodSymbol method) => capabilities?.AllowsObjectDisplayDispatch == true &&
+            method is { Name: "ToString", IsStatic: false, IsVirtual: true, IsAbstract: false, IsGenericMethod: false, DeclaredAccessibility: Accessibility.Public } &&
+            method.ContainingType?.SpecialType == SpecialType.System_Object && method.Parameters.Length == 0 &&
+            method.ReturnType.GetNonNullableType().SpecialType == SpecialType.System_String;
+        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || SupportedObjectDisplayCall(method) || capabilities?.Allows(EmissionDeclarationKind.ValueObjectOverride) == true && SourceCallablePlan.ClassifyOverride(method) != EmissionOverrideKind.None || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true)) &&
             method.ContainingType is { } owner && (SourceTypePlan.TryCreate(owner, out _, capabilities) ||
                 capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && (capabilities is null || capabilities.Allows(signature));

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Admit core Object.ToString through an explicit NeoCLR display-dispatch
+  capability. Ordinary commands execute generic boxed integer/string display on both
+  targets; unrelated virtual calls stay rejected. Union preflight next reaches a null literal.
+
 - **2026-10-03:** Add explicit native null-identity and discard type-test operations, and
   admit supported checked reference casts. Keep overload resolution/equality binding and
   .NET's default backend unchanged. Ordinary-command null/type-test cases return 42 on
