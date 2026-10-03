@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Select native nominal vector backing from the explicit iteration
+  contract and output-owned Array<T> declaration. Separately compiled source array
+  indexers/iterators now support interface mutation and query execution (42). Shared
+  symbols and ordinary .NET emission remain unchanged; full dual-target gate is open.
+
 - **2026-10-03:** Record the author-directed nominal Array<T> backing contract and native
   source-array assessment. Library and separate consumer compilation succeed; runtime vector
   interface backing remains a demonstrated blocker. No compiler or .NET behavior changed.

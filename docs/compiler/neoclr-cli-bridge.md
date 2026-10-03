@@ -4879,3 +4879,26 @@ manifest did not opt arrays into Iterable. Separately, leaving propagation unset
 ordinary CLR exception-capturing lowering. These observations do not justify globally
 changing default .NET semantics. The ordinary query success gate remains unchanged;
 this additional nominal-array case is explicitly an assessment, not an execution pass.
+
+### Native vector backing selection (2026-10-03)
+
+The NeoCLR adapter selects the output-owned ArrayShapeTypeName only when the configured
+RuntimeIterationContract.AssemblyName matches the output identity. It passes the owned
+builder to AssemblyBuilder.SetArrayBacking; absent declarations reject before publishing.
+Selection uses source symbol contracts and host configuration, not importer objects.
+
+The matching runtime links the explicit native descriptor identity and dispatches vector
+interfaces through source Array<T>/ArrayIterator<T>. The private vector field aliases
+storage, preserving mutation through MutableSequence<int> and the original array.
+The checked-in separate consumer then calls Filter/ToList and returns 42. Reproduce with
+NeoCLR bootstrap/verify_source_unions.py --arrays. The manifest includes source-owned
+iteration and propagation contracts; primitive storage core and retained seed remain
+explicit. Native metadata library/runtime versions must support the optional array_backing
+execution field; earlier readers reject it. CLI vector encoding and ordinary .NET backend
+are unchanged. Structural-array policy remains deferred. The full broad application and
+.NET source-library adapter gate are still open.
+
+Validated against the NeoCLR nominal-array slice based on ced73e9d, with matching native
+metadata/runtime working changes. The unchanged broad application now rejects before
+publication because the retained seed lacks Console.WriteLine(Int32); this is the next
+bounded runtime-service binding gap, not an array lookup/dispatch failure.

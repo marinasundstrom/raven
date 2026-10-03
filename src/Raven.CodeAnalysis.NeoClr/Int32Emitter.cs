@@ -390,6 +390,14 @@ internal static class Int32Emitter
                 _ => throw Unsupported("unsupported field visibility")
             }, isReadOnly: field.IsReadOnly));
         }
+        if (compilation.Options.RuntimeIterationContract is { ArrayShapeTypeName: { } arrayName } arrayContract &&
+            arrayContract.AssemblyName == options.Identity.Name)
+        {
+            var arrayShape = declaredTypes.Keys.SingleOrDefault(t => t.ToFullyQualifiedMetadataName() == arrayName);
+            if (arrayShape is null || !nativeTypes.TryGetValue(arrayShape, out var arrayDefinition))
+                throw Unsupported("configured array backing declaration is absent from output");
+            assembly.SetArrayBacking(arrayDefinition);
+        }
         var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method, LinearMethodBody Body)>();
         foreach (var (plan, body) in prepared)
         {
