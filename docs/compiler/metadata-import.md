@@ -1046,3 +1046,20 @@ owner's introspection views directly. Property accessor association reuses modul
 method symbols. Reader-definition searches and the extra accessor dictionary are removed;
 Raven retains accessibility policy. Seven native consumers and existing semantic contracts
 pass before/after. See [the boundary inventory](metadata-backend-boundaries.md#nativelegacy-consumer-inventory-2026-10-03).
+
+
+Native callable facade adoption (2026-10-03): NativeMethodSymbol now accepts only the
+metadata library's MethodInfo view. Declared type methods and constructors come from
+GetMethods/GetConstructors, merged by metadata token to preserve declaration order.
+Module functions come from ModuleInfo.GetFunctions, with namespaces supplied by the
+facade. The definition-taking constructor and redundant MethodView helper are removed.
+All methods register once in the module's canonical symbol table before properties bind
+their accessors. Type/union construction still uses definitions in other places; this
+change does not imply a fully definition-free importer or new static-constructor support.
+
+The C# native probe now checks that constructor enumeration and GetMembers return the
+same single constructor symbol with correct ownership and classification. Existing
+namespace overload, generic method/owner substitution, accessor and dependency rejection
+checks pass, and all seven native consumers execute with expected exit 42. This uses the
+same explicit CoreProbe/System bootstrap as the preceding member-facade validation.
+No Runtime Contract, public metadata API, encoding, .NET loader or emitter changes.

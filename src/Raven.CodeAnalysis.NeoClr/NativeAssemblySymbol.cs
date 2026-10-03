@@ -82,10 +82,10 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             foreach (var part in name.Split('.', StringSplitOptions.RemoveEmptyEntries)) ns = ns.GetOrAddNamespace(part);
             return ns;
         }
-        foreach (var method in assembly.Reference.Definition.MainModule.Functions)
+        foreach (var method in metadata.Resolve(assembly.Reference.Definition.Identity).GetModules().Single().GetFunctions())
         {
             var ns = root;
-            foreach (var part in (method.Namespace ?? "").Split('.', StringSplitOptions.RemoveEmptyEntries))
+            foreach (var part in method.Namespace.Split('.', StringSplitOptions.RemoveEmptyEntries))
                 ns = ns.GetOrAddNamespace(part);
             ns.Add(new NativeMethodSymbol(compilation, method, ns));
         }
@@ -106,7 +106,6 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         var external = (NativeAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(input)!;
         return external.Module.typeSymbols[view.MetadataToken];
     }
-    internal NeoCLR.Metadata.Experimental.Introspection.MethodInfo MethodView(MethodDefinition definition) => metadata.Resolve(definition);
     internal NominalTypeInfo TypeView(TypeDefinition definition) => metadata.Resolve(definition.ToReference());
     private readonly Dictionary<uint, NativeMethodSymbol> methodSymbols = [];
     internal void RegisterMethod(uint token, NativeMethodSymbol symbol) => methodSymbols.Add(token, symbol);
@@ -199,10 +198,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
     private readonly Lazy<ITypeSymbol> returnType;
 
-    internal NativeMethodSymbol(Compilation compilation, MethodDefinition definition, ISymbol owner)
-        : this(compilation, ((NativeModuleSymbol)owner.ContainingModule!).MethodView(definition), owner) { }
-
-    private NativeMethodSymbol(Compilation compilation, NeoCLR.Metadata.Experimental.Introspection.MethodInfo methodView, ISymbol owner)
+    internal NativeMethodSymbol(Compilation compilation, NeoCLR.Metadata.Experimental.Introspection.MethodInfo methodView, ISymbol owner)
         : base(SymbolKind.Method, methodView.Name, owner, owner as INamedTypeSymbol, owner as INamespaceSymbol ?? owner.ContainingNamespace, [], [],
             NativeMetadataAccess.Map(methodView.Accessibility))
     {

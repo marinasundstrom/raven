@@ -34,7 +34,8 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
             var module = (NativeModuleSymbol)ContainingModule;
             return [.. module.TypeView(definition).GetInterfaces().Select(view => (INamedTypeSymbol)module.MapView(view))];
         });
-        var methods = definition.Methods.Select(method => new NativeMethodSymbol(compilation, method, this)).ToArray();
+        var methods = view.GetMethods().Concat(view.GetConstructors()).OrderBy(method => method.MetadataToken)
+            .Select(method => new NativeMethodSymbol(compilation, method, this)).ToArray();
         members = [.. methods,
             .. view.GetFields().Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(field, this, ordinal)),
             .. view.GetProperties().Select(property => (ISymbol)new NativePropertySymbol(property, this))];

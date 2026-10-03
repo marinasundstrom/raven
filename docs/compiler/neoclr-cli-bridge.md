@@ -5003,3 +5003,11 @@ lookups from those symbol classes. It adds no CLI transport, Runtime Contract op
 metadata encoding. Native references remain native; the explicit primitive seed and older
 projection probes remain separately configured. All seven native consumers execute after
 the change. See [the caller inventory](metadata-backend-boundaries.md#nativelegacy-consumer-inventory-2026-10-03).
+
+
+Native callable import cleanup (2026-10-03): method/constructor and module-function
+symbols now consume canonical introspection views exclusively. This removes a reader
+wrapper from Raven without changing native namespace-function semantics, primitive
+bootstrap, Runtime Contract configuration or CLI transport. All seven native consumers
+and canonical constructor/accessor checks pass. Ordinary .NET loading and emission stay
+on their existing paths. See [metadata import](metadata-import.md).

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Import native methods, constructors and module functions directly
+  from introspection views. Remove the definition-based NativeMethodSymbol entry point;
+  preserve metadata order and canonical constructor/accessor identity. All seven native
+  consumers and semantic checks pass; ordinary .NET behavior is unchanged.
+
 - **2026-10-03:** Simplify native field/property import to consume introspection views
   directly, reusing the module's canonical accessor symbols. Remove repeated definition
   lookups and the extra per-type accessor dictionary; .NET loading/emission is unchanged.
