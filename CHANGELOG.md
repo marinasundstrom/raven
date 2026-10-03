@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Consume metadata accessibility, declaration flags and constructor
+  classification in native symbols instead of decoding raw attributes.
+
 - **2026-10-03:** Route rvnc neoclr library references through direct native metadata import.
   Native references now require explicit --core-reference NeoCLR.CoreProbe.dll; no CLI
   projection fallback. Paired .NET/native driver execution and native rejection checks pass.

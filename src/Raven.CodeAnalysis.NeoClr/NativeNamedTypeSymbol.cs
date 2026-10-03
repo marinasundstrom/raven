@@ -11,15 +11,17 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
 {
     private readonly Compilation compilation;
+    private readonly NeoCLR.Metadata.Experimental.Introspection.NominalTypeInfo view;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> interfaces;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> allInterfaces;
     private readonly ImmutableArray<ISymbol> members;
     internal NativeNamedTypeSymbol(Compilation compilation, TypeDefinition definition, NativeNamespaceSymbol owner)
         : base(SymbolKind.Type, definition.GenericArity == 0 ? definition.Name : definition.Name[..definition.Name.LastIndexOf('`')], owner, null, owner, [], [],
-            (definition.Attributes & 1) != 0 ? Accessibility.Public : Accessibility.Internal)
+            NativeMetadataAccess.Map(((NativeModuleSymbol)owner.ContainingModule).TypeView(definition).Accessibility))
     {
         this.compilation = compilation;
         Definition = definition;
+        view = ((NativeModuleSymbol)owner.ContainingModule).TypeView(definition);
         TypeParameters = [.. (definition.GenericParameterNames ?? []).Select((name, i) => (ITypeParameterSymbol)new NativeTypeParameterSymbol(name, i, this))];
         TypeArguments = [.. TypeParameters];
         interfaces = new(() =>
@@ -42,12 +44,12 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     internal ITypeSymbol Map(SignatureType signature) => ((NativeModuleSymbol)ContainingModule).Map(signature, this);
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
-    public override bool IsStatic => (Definition.Attributes & 0x180) == 0x180;
-    public bool IsAbstract => (Definition.Attributes & 0x80) != 0;
-    public bool IsClosed => (Definition.Attributes & 0x100) != 0;
+    public override bool IsStatic => view.IsStatic;
+    public bool IsAbstract => view.IsAbstract;
+    public bool IsClosed => view.IsSealed;
     public bool IsNamespace => false;
     public bool IsType => true;
-    public TypeKind TypeKind => (Definition.Attributes & 0x20) != 0 ? TypeKind.Interface : TypeKind.Class;
+    public TypeKind TypeKind => view.IsInterface ? TypeKind.Interface : TypeKind.Class;
     public SpecialType SpecialType => SpecialType.None;
     public INamedTypeSymbol? BaseType => TypeKind == TypeKind.Interface ? null : compilation.GetSpecialType(SpecialType.System_Object) as INamedTypeSymbol;
     public ITypeSymbol OriginalDefinition => this;

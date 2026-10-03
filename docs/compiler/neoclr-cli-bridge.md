@@ -4025,3 +4025,21 @@ execute (42); the consumer has no library source. Duplicate identities, missing 
 dependencies, ordinary CLI references, malformed input and unsupported source reject without
 publishing output. Host .NET runtime execution uses an explicitly hashed runtimeconfig.
 The wider source-library/collections gate remains open; runtime encoding is unchanged.
+
+
+Declaration-fact checkpoint (2026-10-03): metadata views now expose declared accessibility,
+nominal abstract/sealed/static flags, instance/type-initializer classification, and
+constructor enumeration on open/constructed owners. Constructor views share the callable
+cache and substitute owner arguments. Raven maps supported metadata visibility to its own
+accessibility and no longer decodes those type/method/field attribute bits itself.
+
+This follows the existing CLI attribute contract rather than defining new access rules.
+GetConstructors includes non-public instance constructors and type initializers explicitly;
+GetMethods continues to exclude constructors. No invocation or implicit visibility filtering.
+Existing canonical property accessor associations are retained. Supported native parameter
+signatures remain by-value; byref/out, wider constrained/nested/value profiles still reject
+at the reader boundary instead of losing their modes. This slice does not broaden encoding,
+Runtime Contracts, the bootstrap, or runtime behavior.
+
+Validation: 109/109 C# metadata groups, all seven native semantic/emission/runtime
+consumers (42), paired driver cases on both targets and native driver rejection checks pass.

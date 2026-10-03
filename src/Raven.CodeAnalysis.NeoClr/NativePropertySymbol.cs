@@ -12,7 +12,7 @@ internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
     internal NativePropertySymbol(PropertyDefinition definition, NativeNamedTypeSymbol owner,
         IReadOnlyDictionary<MethodDefinition, NativeMethodSymbol> methods)
-        : base(SymbolKind.Property, definition.Name, owner, owner, owner.ContainingNamespace, [], [], AccessibilityFor(definition))
+        : base(SymbolKind.Property, definition.Name, owner, owner, owner.ContainingNamespace, [], [], AccessibilityFor(definition, owner))
     {
         var module = (NativeModuleSymbol)owner.ContainingModule;
         var view = module.TypeView(owner.Definition).GetProperties().Single(p => p.MetadataToken == definition.MetadataToken);
@@ -25,10 +25,12 @@ internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
         (GetMethod as NativeMethodSymbol)?.Associate(this);
         (SetMethod as NativeMethodSymbol)?.Associate(this);
     }
-    private static Accessibility AccessibilityFor(PropertyDefinition definition)
+    private static Accessibility AccessibilityFor(PropertyDefinition definition, NativeNamedTypeSymbol owner)
     {
-        var access = new[] { definition.GetMethod, definition.SetMethod }.Where(m => m is not null).Select(m => m!.Attributes & 7).ToArray();
-        return access.Contains(6) ? Accessibility.Public : access.Contains(3) ? Accessibility.Internal : Accessibility.Private;
+        var module = (NativeModuleSymbol)owner.ContainingModule;
+        var access = new[] { definition.GetMethod, definition.SetMethod }.Where(m => m is not null)
+            .Select(m => NativeMetadataAccess.Map(module.MethodView(m!).Accessibility)).ToArray();
+        return access.Contains(Accessibility.Public) ? Accessibility.Public : access.Contains(Accessibility.Internal) ? Accessibility.Internal : Accessibility.Private;
     }
     public ITypeSymbol Type => type.Value;
     public IMethodSymbol? GetMethod { get; }

@@ -96,11 +96,8 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         return module.methodSymbols[view.MetadataToken].TypeParameters[parameter.Position];
     }
     internal ITypeSymbol Map(SignatureType signature) => MapView(metadata.ResolveSignature(signature));
-    internal ITypeSymbol MapField(NativeNamedTypeSymbol owner, uint token)
-    {
-        var view = metadata.Resolve(owner.Definition.ToReference());
-        return MapView(view.GetFields().Single(field => field.MetadataToken == token).FieldType);
-    }
+    internal NeoCLR.Metadata.Experimental.Introspection.FieldInfo FieldView(NativeNamedTypeSymbol owner, uint token)
+        => TypeView(owner.Definition).GetFields().Single(field => field.MetadataToken == token);
     internal ITypeSymbol MapView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => viewSymbols.GetOrAdd(view, MapViewCore);
     private ITypeSymbol MapViewCore(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => view switch
     {
@@ -165,15 +162,18 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     private readonly Lazy<ITypeSymbol> returnType;
 
     internal NativeMethodSymbol(Compilation compilation, MethodDefinition definition, ISymbol owner)
-        : base(SymbolKind.Method, definition.Name, owner, owner as INamedTypeSymbol, owner as INamespaceSymbol ?? owner.ContainingNamespace, [], [],
-            (definition.Attributes & 7) == 6 ? Accessibility.Public : (definition.Attributes & 7) == 3 ? Accessibility.Internal : Accessibility.Private)
+        : this(compilation, ((NativeModuleSymbol)owner.ContainingModule!).MethodView(definition), owner) { }
+
+    private NativeMethodSymbol(Compilation compilation, NeoCLR.Metadata.Experimental.Introspection.MethodInfo methodView, ISymbol owner)
+        : base(SymbolKind.Method, methodView.Name, owner, owner as INamedTypeSymbol, owner as INamespaceSymbol ?? owner.ContainingNamespace, [], [],
+            NativeMetadataAccess.Map(methodView.Accessibility))
     {
         this.compilation = compilation;
-        IsStatic = definition.IsStatic;
-        IsAbstract = (definition.Attributes & 0x400) != 0;
-        IsVirtual = (definition.Attributes & 0x40) != 0;
+        view = methodView;
+        IsStatic = view.IsStatic;
+        IsAbstract = view.IsAbstract;
+        IsVirtual = view.IsVirtual;
         var module = (NativeModuleSymbol)ContainingModule;
-        view = module.MethodView(definition);
         TypeParameters = [.. view.GenericParameterNames.Select((name, i) => (ITypeParameterSymbol)new NativeTypeParameterSymbol(name, i, this))];
         TypeArguments = [.. TypeParameters];
         module.RegisterMethod(view.MetadataToken, this);
@@ -190,7 +190,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic { get; }
-    public MethodKind MethodKind => Name == ".ctor" ? MethodKind.Constructor : property is null ? MethodKind.Ordinary
+    public MethodKind MethodKind => view.IsConstructor ? MethodKind.Constructor : view.IsStaticConstructor ? MethodKind.StaticConstructor : property is null ? MethodKind.Ordinary
         : ReferenceEquals(property.GetMethod, this) ? MethodKind.PropertyGet : MethodKind.PropertySet;
     public ITypeSymbol ReturnType => returnType.Value;
     public ImmutableArray<IParameterSymbol> Parameters => parameters.Value;

@@ -9,17 +9,20 @@ internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLa
 {
     private readonly Lazy<ITypeSymbol> type;
     internal NativeFieldSymbol(Compilation compilation, FieldDefinition definition, NativeNamedTypeSymbol owner, int instanceStorageOrdinal)
-        : base(SymbolKind.Field, definition.Name, owner, owner, owner.ContainingNamespace, [], [],
-            (definition.Attributes & 7) == 6 ? Accessibility.Public : (definition.Attributes & 7) == 3 ? Accessibility.Internal : Accessibility.Private)
+        : this(((NativeModuleSymbol)owner.ContainingModule).FieldView(owner, definition.MetadataToken), owner, instanceStorageOrdinal) { }
+
+    private NativeFieldSymbol(NeoCLR.Metadata.Experimental.Introspection.FieldInfo view, NativeNamedTypeSymbol owner, int instanceStorageOrdinal)
+        : base(SymbolKind.Field, view.Name, owner, owner, owner.ContainingNamespace, [], [], NativeMetadataAccess.Map(view.Accessibility))
     {
         InstanceStorageOrdinal = instanceStorageOrdinal;
-        IsReadOnly = (definition.Attributes & 0x20) != 0;
-        type = new(() => ((NativeModuleSymbol)owner.ContainingModule).MapField(owner, definition.MetadataToken));
+        IsReadOnly = view.IsReadOnly;
+        IsStatic = view.IsStatic;
+        type = new(() => ((NativeModuleSymbol)owner.ContainingModule).MapView(view.FieldType));
     }
     public ITypeSymbol Type => type.Value;
     public override IModuleSymbol ContainingModule => ContainingType!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingType!.ContainingAssembly!;
-    public override bool IsStatic => false;
+    public override bool IsStatic { get; }
     public bool IsConst => false;
     public bool IsReadOnly { get; }
     public int InstanceStorageOrdinal { get; }
