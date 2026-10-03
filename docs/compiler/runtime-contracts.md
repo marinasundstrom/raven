@@ -173,7 +173,7 @@ Runtime-specific profiles and deviations should remain independently testable.
 
 ## Unit value contract
 
-`RuntimeUnitContract(AssemblyName, TypeName)` selects a top-level, non-generic, empty value type in the
+`RuntimeUnitContract(AssemblyName, TypeName, MapClrVoidToUnit = false)` selects a top-level, non-generic, empty value type in the
 explicitly selected metadata/emission core. For example, a .NET reference set can
 select `System.ValueTuple` from `System.Runtime`:
 
@@ -2110,3 +2110,26 @@ interface-list cache guards required by this regression; the integration branch 
 had those guards. The new test fails before the fixes and all 139 focused conversion/
 generic tests pass afterward on this main-based branch. No experimental backend or
 member/union cache changes are required by this backport.
+### Explicit CLR source-void alias (development, 2026-10-03)
+
+`MapClrVoidToUnit: true` opts a .NET bootstrap compilation into binding source CLR
+`System.Void` type syntax as Raven's unit value. This applies to declarations and type
+expressions, including generic arguments. Imported CLR no-result method returns retain
+void. Unconfigured source binding and native unit profiles remain unchanged.
+
+In this mode, AssemblyName/TypeName may identify a public, nongeneric, fieldless value
+type in an ordinary referenced service assembly; no replacement core library is required.
+CLR System.Void, reference/stateful types, missing selections and incompatible target/core
+combinations reject with RAVT003. A configured target core, if present, must agree with the
+unit assembly. Binary consumers must rebuild for the extended record constructor.
+
+The .NET backend uses its intermediate unit carrier and projects it into the explicitly
+resolved target assembly scope. Locals, stored/generic signatures, interface relationships
+and MethodImpl references use the selected value type. Ordinary no-result returns stay
+CLI void. This extends the existing unit projection rather than making CLR void an
+inhabited CLR type. No runtime reflection layer or native metadata-format extension is added.
+
+Focused C# tests execute an interface with out-unit storage, generic collections and
+no-result calls and inspect the emitted scopes. Existing unit/core-retargeting and imported
+interface tests cover unchanged profiles. Full custom CLR-array interface adaptation is
+separate from this contract.

@@ -25,7 +25,8 @@ internal static class AssemblyReferenceNormalizer
         IReadOnlyDictionary<string, IMethodSymbol>? metadataMethodProxies = null,
         Stream? pdbInput = null,
         Stream? pdbOutput = null,
-        IReadOnlyDictionary<string, IFieldSymbol>? metadataFieldProxies = null)
+        IReadOnlyDictionary<string, IFieldSymbol>? metadataFieldProxies = null,
+        RuntimeUnitContract? unitContract = null)
     {
         if (peInput is null)
             throw new ArgumentNullException(nameof(peInput));
@@ -46,6 +47,12 @@ internal static class AssemblyReferenceNormalizer
         var assembly = AssemblyDefinition.ReadAssembly(peInput, readerParameters);
 
         var module = assembly.MainModule;
+        if (unitContract is { MapClrVoidToUnit: true })
+        {
+            if (targetReferences is null || !targetReferences.TryGetValue(unitContract.AssemblyName, out var unitScope))
+                throw new InvalidOperationException("The configured unit assembly identity is missing.");
+            RuntimeUnitProjection.Apply(module, unitContract, unitScope);
+        }
         var repairedEnumFields = RestoreEnumBackingFieldFlags(module);
         var rewroteMetadataMethods = metadataMethodProxies is { Count: > 0 } || metadataFieldProxies is { Count: > 0 };
         RewriteMetadataMethodProxies(module, metadataMethodProxies, targetReferences);
@@ -57,7 +64,7 @@ internal static class AssemblyReferenceNormalizer
 
         if (coreLibRefs.Length == 0)
         {
-            if (repairedEnumFields || rewroteMetadataMethods || targetReferences is { Count: > 0 })
+            if (repairedEnumFields || rewroteMetadataMethods || unitContract is not null || targetReferences is { Count: > 0 })
             {
                 RetargetAssemblyIdentities(module, targetReferences);
                 assembly.Write(peOutput, CreateWriterParameters(pdbOutput));

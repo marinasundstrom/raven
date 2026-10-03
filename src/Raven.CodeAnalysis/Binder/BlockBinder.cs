@@ -7027,6 +7027,16 @@ partial class BlockBinder : Binder
 
     protected BoundExpression BindTypeSyntaxAsExpression(TypeSyntax syntax)
     {
+        var expression = BindTypeSyntaxAsExpressionCore(syntax);
+        return expression is BoundTypeExpression type &&
+            Compilation.Options.RuntimeUnitContract is { MapClrVoidToUnit: true } &&
+            type.Type.SpecialType == SpecialType.System_Void
+            ? new BoundTypeExpression(Compilation.GetSpecialType(SpecialType.System_Unit))
+            : expression;
+    }
+
+    private BoundExpression BindTypeSyntaxAsExpressionCore(TypeSyntax syntax)
+    {
         if (syntax is NullTypeSyntax)
         {
             return new BoundTypeExpression(Compilation.NullTypeSymbol);

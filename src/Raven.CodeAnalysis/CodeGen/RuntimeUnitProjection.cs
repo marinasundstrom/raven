@@ -82,6 +82,9 @@ internal static class RuntimeUnitProjection
         }
         foreach (var type in module.GetTypes().Where(type => type != unit).ToArray())
         {
+            if (type.BaseType is not null) type.BaseType = Map(type.BaseType, false);
+            foreach (var implementation in type.Interfaces)
+                implementation.InterfaceType = Map(implementation.InterfaceType, false);
             foreach (var field in type.Fields)
                 field.FieldType = Map(field.FieldType);
             foreach (var property in type.Properties)
@@ -89,6 +92,7 @@ internal static class RuntimeUnitProjection
             foreach (var method in type.Methods)
             {
                 MapMethod(method);
+                foreach (var slot in method.Overrides) MapMethod(slot);
                 if (!method.HasBody)
                     continue;
                 var body = method.Body;

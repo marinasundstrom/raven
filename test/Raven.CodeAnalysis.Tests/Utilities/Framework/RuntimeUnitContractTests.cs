@@ -9,6 +9,64 @@ namespace Raven.CodeAnalysis.Tests;
 public class RuntimeUnitContractTests
 {
     [Fact]
+    public void DotNetVoidAliasUsesExternalValueInInterfacesAndPreservesNoResultReturns()
+    {
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithRuntimeUnitContract(new RuntimeUnitContract("System.Runtime", "System.ValueTuple", MapClrVoidToUnit: true));
+        var source = SyntaxTree.ParseText("""
+            import System.Collections.Generic.*
+            public interface Extract<T> { func Read(out value: T) -> bool }
+            public class Box : Extract<System.Void> {
+                func Read(out value: System.Void) -> bool { value = (); return true }
+            }
+            public class Example {
+                public static func Notify() -> System.Void { }
+                public static func Run() -> int {
+                    let items = List<System.Void>()
+                    items.Add(())
+                    let box: Extract<System.Void> = Box()
+                    var value: System.Void = ()
+                    if box.Read(out value) { items.Add(value) }
+                    Notify()
+                    return items.Count
+                }
+            }
+            """);
+        var compilation = Compilation.Create("VoidAlias", [source], references.Select(MetadataReference.CreateFromFile).ToArray(), options);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        output.Position = 0;
+        using (var image = AssemblyDefinition.ReadAssembly(output))
+        {
+            var argument = ((GenericInstanceType)image.MainModule.GetType("Box").Interfaces.Single().InterfaceType).GenericArguments.Single();
+            Assert.Equal("System.ValueTuple", argument.FullName);
+            Assert.Equal("System.Runtime", argument.Scope.Name);
+            Assert.Equal(MetadataType.Void, image.MainModule.GetType("Example").Methods.Single(m => m.Name == "Notify").ReturnType.MetadataType);
+            Assert.Null(image.MainModule.GetType("System.Unit"));
+        }
+        output.Position = 0;
+        using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
+        Assert.Equal(2, loaded.Assembly.GetType("Example")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Theory]
+    [InlineData("System.Void")]
+    [InlineData("System.Int32")]
+    [InlineData("Missing")]
+    public void DotNetVoidAliasRejectsInvalidRepresentation(string name)
+    {
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithRuntimeUnitContract(new RuntimeUnitContract("System.Runtime", name, MapClrVoidToUnit: true));
+        var compilation = Compilation.Create("BadVoidAlias", [SyntaxTree.ParseText("class Example { }")],
+            references.Select(MetadataReference.CreateFromFile).ToArray(), options);
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAVT003");
+    }
+
+    [Fact]
     public void ConfiguredUnitAssemblyIsNotShadowedBySourceType()
     {
         var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
