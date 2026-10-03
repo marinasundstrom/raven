@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Record native separate-library execution for unchanged HashMap and
+  comparer policies: collisions, growth, replacement, callback dispatch and shared object
+  mutation pass (42) using existing compiler support. The broad dual-target gate remains open.
+
 - **2026-10-03:** Load native value-returning callbacks through metadata facade views
   and author their emission operands from symbols. Unchanged ArrayList now compiles as a
   library and executes in a separate consumer, including Find and iteration (42). Explicit

@@ -4785,3 +4785,23 @@ The assessment driver now requires native import success; the previous failure r
 remains historical. Metadata contracts pass 125 groups, all seven existing native consumers
 pass, and the separate source-union gate still passes. The .NET class-library adapter,
 HashMap/comparers, queries and broad application gate remain open.
+
+### Separate native HashMap and comparer library (2026-10-03)
+
+With Raven `5a01a6008` and NeoCLR `a206aaae`, the unchanged runtime comparer policies,
+map contracts and HashMap compile cumulatively with ArrayList and Option/Result. The
+consumer references only that emitted native library, using the same explicit collection
+primitive bootstrap and retained seed. No compiler or runtime modification was necessary.
+The symbol importer and symbol-authored emitter support these signatures as implemented.
+
+NeoCLR commit `e1043b40` adds the `--hashmap` acceptance workflow and ownership manifest
+under `docs/experiments/extended-cli-metadata/bootstrap`. Its recorded
+`hashmap-import-2026-10-03.json` contains commands, source/artifact hashes and revisions.
+Execution checks collisions, growth, duplicate insertion, replacement, missing keys,
+independent key snapshots, equality/hash and ordering callback dispatch, and shared
+object mutation. Expected stdout is empty and exit status is 42. Terminal capacity
+failure and missing/duplicate ownership publication guards also pass.
+
+HashMap has no removal API. The full .NET executable class-library adapter, query
+composition and unchanged broad application gate remain pending; these results do not
+claim their completion. The .NET backend and structural Function experiments are unchanged.
