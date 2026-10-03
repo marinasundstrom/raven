@@ -4455,3 +4455,28 @@ boundary; future emission must author the override from symbol facts and host id
 Runtime Contract selection, bootstrap selection, .NET Reflection/Emit codegen and the
 source-union publication gate remain unchanged. Generated formatting operations and
 native union/case metadata are still required after the native override binding.
+
+
+## Native metadata override binding verified (2026-10-03)
+
+NeoCLR metadata commit `b94bdf79` extends the value ToString declaration profile to
+native encoding, native declaration materialization and imported direct calls. The host
+must register exactly one retained System binding through the existing BindNativeLibrary
+bootstrap bridge. Writing checks the CLI Object slot and native public virtual instance
+String-returning slot, then records the dependency and preserves native override flags and
+slot names. Missing/ambiguous/incompatible bindings fail before bytes are returned.
+
+The C# `--native-value-override` integration mode uses the checked-in CoreProbe and a
+freshly assembled real System bundle. A separate API-produced consumer imports the native
+library and prints `native override`, returning 42. A neoIL harness consumes the same
+unmodified library and checks boxed ordinary/generic Object.ToString dispatch, returning
+42. Native reader/projection flag checks and rejection cases pass, alongside 118 metadata
+groups. The harness supplies boxing instructions; it is not Raven-generated union code.
+Runtime source and native format version are unchanged.
+
+Compiler code/capabilities, Runtime Contract configuration and .NET Reflection/Emit remain
+unchanged. The next Raven slice must represent the bounded override in shared callable
+contracts and the NeoCLR adapter, using symbol facts and explicit host artifact identities.
+Do not reuse importer objects or enable general virtual methods. Generated formatting
+operations and native union/case metadata remain additional gates before source Option
+or the broad application can be declared supported.
