@@ -45,6 +45,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   preserving once-only evaluation and early residual returns without loading the unused
   success value. Backport the general fix independently of the NeoCLR emitter;
   all six focused .NET/lowering checks pass on main.
+- **2026-10-03:** Honor the explicitly selected RuntimeUnitContract in overload argument
+  validation, including generic union constructors. Unconfigured CLI void arguments remain
+  rejected. The configured regression fails before the fix; focused unit-contract tests
+  validate this change independently of the experimental emitter.
+
 - **2026-10-03:** Make synthesized union bodies explicitly initialize inactive payload
   fields and assign default output before TryGetValue can return false. This completes
   the shared bound-body contract used by target emitters. Plain/generic .NET output

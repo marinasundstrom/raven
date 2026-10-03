@@ -9,6 +9,36 @@ public class NeoClrUnitContractTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void GenericUnionAcceptsVoidPayloadOnlyWithExplicitUnitContract(bool selectVoid)
+    {
+        var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+            .WithTargetCoreAssemblyName("System.Runtime");
+        if (selectVoid)
+            options = options.WithRuntimeUnitContract(new RuntimeUnitContract("System.Runtime", "System.Void"));
+        var tree = SyntaxTree.ParseText("""
+            union Residual<T> {
+                case Present(value: T)
+                case Absent
+            }
+            class Consumer {
+                static func Wrap(value: System.Void) -> Residual<System.Void> {
+                    return .Present(value)
+                }
+            }
+            """);
+        var compilation = Compilation.Create("UnitPayload", [tree], references.Select(MetadataReference.CreateFromFile).ToArray(), options);
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        if (selectVoid)
+            Assert.Empty(errors);
+        else
+            Assert.Contains(errors, d => d.Id == "RAV1501");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void UnitStorageUsesSelectedTypeWhileCallsRemainNoResult(bool selectVoid)
     {
         var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net11.0"));
