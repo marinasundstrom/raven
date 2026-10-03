@@ -35,25 +35,25 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     private readonly Compilation compilation;
     private readonly NativeAssemblySymbol assembly;
     private readonly Dictionary<uint, NativeNamedTypeSymbol> typeSymbols;
-    private readonly NeoCLR.Metadata.Experimental.Introspection.MetadataLoadContext metadata;
     private readonly ConcurrentDictionary<NeoCLR.Metadata.Experimental.Introspection.TypeInfo, ITypeSymbol> viewSymbols = new();
     internal NativeModuleSymbol(Compilation compilation, NativeAssemblySymbol assembly)
         : base(SymbolKind.Module, assembly.Reference.Definition.MainModule.Name, assembly, null, null, [], [])
     {
         this.compilation = compilation; this.assembly = assembly;
-        metadata = NativeMetadataContext.For(compilation);
+        var metadata = NativeMetadataContext.For(compilation);
+        var moduleView = metadata.Resolve(assembly.Reference.Definition.Identity).GetModules().Single();
         var root = new NativeNamespaceSymbol("", this, null);
         GlobalNamespace = root;
         typeSymbols = [];
-        var unionContracts = new NativeUnionContracts(assembly.Reference.Definition.MainModule.Types.Select(TypeView));
-        var definitions = assembly.Reference.Definition.MainModule.Types.ToDictionary(type => type.MetadataToken);
+        var definitions = moduleView.GetTypes().ToDictionary(type => type.MetadataToken);
+        var unionContracts = new NativeUnionContracts(definitions.Values);
         var resolving = new HashSet<uint>();
         foreach (var type in definitions.Values) AddType(type);
-        NativeNamedTypeSymbol AddType(TypeDefinition type)
+        NativeNamedTypeSymbol AddType(NominalTypeInfo type)
         {
             if (typeSymbols.TryGetValue(type.MetadataToken, out var existing)) return existing;
             if (!resolving.Add(type.MetadataToken)) throw new InvalidDataException("cyclic native type ownership");
-            var parent = TypeView(type).DeclaringType is { } declaring ? AddType(definitions[declaring.MetadataToken]) : null;
+            var parent = type.DeclaringType is { } declaring ? AddType(definitions[declaring.MetadataToken]) : null;
             var ns = parent is null ? Namespace(type.Namespace) : (NativeNamespaceSymbol)parent.ContainingNamespace!;
             NativeNamedTypeSymbol symbol = unionContracts.Unions.ContainsKey(type.MetadataToken)
                 ? new NativeUnionSymbol(compilation, type, ns, parent)
@@ -72,7 +72,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             var union = (NativeUnionSymbol)typeSymbols[pair.Key];
             union.SetCases(pair.Value.Select(item => (IUnionCaseTypeSymbol)typeSymbols[item.Token]));
             foreach (var item in pair.Value)
-                if (!ReferenceEquals(typeSymbols[item.Token].Definition.DeclaringType, union.Definition))
+                if (!ReferenceEquals(definitions[item.Token].DeclaringType, definitions[pair.Key]))
                     union.AddNestedType(typeSymbols[item.Token]);
         }
         Types = [.. typeSymbols.Values];
@@ -82,7 +82,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             foreach (var part in name.Split('.', StringSplitOptions.RemoveEmptyEntries)) ns = ns.GetOrAddNamespace(part);
             return ns;
         }
-        foreach (var method in metadata.Resolve(assembly.Reference.Definition.Identity).GetModules().Single().GetFunctions())
+        foreach (var method in moduleView.GetFunctions())
         {
             var ns = root;
             foreach (var part in method.Namespace.Split('.', StringSplitOptions.RemoveEmptyEntries))
@@ -91,10 +91,6 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         }
     }
     internal ImmutableArray<NativeNamedTypeSymbol> Types { get; }
-    internal INamedTypeSymbol Resolve(TypeReference reference)
-    {
-        return Resolve(metadata.Resolve(reference));
-    }
     private INamedTypeSymbol Resolve(NominalTypeInfo view)
     {
         if (view.Module.Assembly.Identity.Equals(assembly.Reference.Definition.Identity))
@@ -106,12 +102,9 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         var external = (NativeAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(input)!;
         return external.Module.typeSymbols[view.MetadataToken];
     }
-    internal NominalTypeInfo TypeView(TypeDefinition definition) => metadata.Resolve(definition.ToReference());
     private readonly Dictionary<uint, NativeMethodSymbol> methodSymbols = [];
     internal void RegisterMethod(uint token, NativeMethodSymbol symbol) => methodSymbols.Add(token, symbol);
     internal NativeMethodSymbol GetMethodSymbol(uint token) => methodSymbols[token];
-    internal ITypeSymbol Map(SignatureType signature, NativeNamedTypeSymbol owner) =>
-        MapView(metadata.ResolveSignature(signature, metadata.Resolve(owner.Definition.ToReference()).GetGenericArguments()));
     private ITypeSymbol MapMethodParameter(MethodGenericParameterTypeInfo parameter)
     {
         var view = parameter.DeclaringMethod;
@@ -123,7 +116,6 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         }
         return module.methodSymbols[view.MetadataToken].TypeParameters[parameter.Position];
     }
-    internal ITypeSymbol Map(SignatureType signature) => MapView(metadata.ResolveSignature(signature));
     internal ITypeSymbol MapView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => viewSymbols.GetOrAdd(view, MapViewCore);
     private ITypeSymbol MapViewCore(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => view switch
     {

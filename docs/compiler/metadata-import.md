@@ -1077,3 +1077,17 @@ static-constructor support is added by this cleanup.
 All seven native consumers and their generic scope/identity checks pass; the library's
 127 C# contract groups pass, including native parameter names and the explicit CLI limit.
 No ordinary .NET path, Runtime Contract configuration or output encoding changes.
+
+### Native type materialization cleanup (2026-10-03)
+
+Native type materialization now enumerates ModuleInfo.GetTypes and passes canonical
+NominalTypeInfo views to ordinary type, union, case and companion symbols. Physical
+nesting and Raven union membership remain distinct; ownership checks use canonical
+views rather than reader definitions. Removed unused raw-signature mapping helpers.
+This is importer cleanup only: Runtime Contract configuration, explicit primitive
+bootstrap/runtime seed, emitter operands, metadata encoding and ordinary .NET behavior
+are unchanged. No additional CLI projection or fallback is introduced.
+
+Validation: the source-union driver gate compiles and consumes the native library and
+runs unchanged application-order-collections with exact expected output (exit 0).
+All seven native consumers also pass (exit 42), including semantic and rejection checks.

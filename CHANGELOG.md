@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Construct native types and union transport symbols directly from
+  canonical introspection views; remove unused raw-signature importer helpers.
+  Source-union/broad-application execution and seven native consumers pass.
+  Ordinary .NET loader and emitter paths are unchanged.
+
 - **2026-10-03:** Read native type names, arity, generic parameter names and interface
   relationships through the retained introspection view. Requires the matching metadata
   library's GenericParameterTypeInfo.Name; all seven native consumers pass. Ordinary

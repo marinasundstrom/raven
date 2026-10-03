@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 
 using NeoCLR.Metadata.Experimental.Introspection;
-using NeoCLR.Metadata.Experimental.Model;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -79,8 +78,8 @@ internal sealed class NativeUnionContracts
     }
 }
 
-internal sealed class NativeUnionSymbol(Compilation compilation, TypeDefinition definition, NativeNamespaceSymbol owner, NativeNamedTypeSymbol? parent)
-    : NativeNamedTypeSymbol(compilation, definition, owner, parent), IUnionSymbol
+internal sealed class NativeUnionSymbol(Compilation compilation, NominalTypeInfo view, NativeNamespaceSymbol owner, NativeNamedTypeSymbol? parent)
+    : NativeNamedTypeSymbol(compilation, view, owner, parent), IUnionSymbol
 {
     private ImmutableArray<IUnionCaseTypeSymbol> cases = [];
     internal void SetCases(IEnumerable<IUnionCaseTypeSymbol> values) => cases = [.. values];
@@ -94,9 +93,9 @@ internal sealed class NativeUnionSymbol(Compilation compilation, TypeDefinition 
 
 internal sealed class NativeUnionCaseSymbol : NativeNamedTypeSymbol, IUnionCaseTypeSymbol
 {
-    internal NativeUnionCaseSymbol(Compilation compilation, TypeDefinition definition, NativeNamespaceSymbol owner,
+    internal NativeUnionCaseSymbol(Compilation compilation, NominalTypeInfo view, NativeNamespaceSymbol owner,
         NativeUnionSymbol union, NativeNamedTypeSymbol physicalOwner, NativeUnionContracts.Case contract)
-        : base(compilation, definition, owner, union)
+        : base(compilation, view, owner, union)
     {
         Union = union;
         MetadataContainingType = physicalOwner;
@@ -110,9 +109,9 @@ internal sealed class NativeUnionCaseSymbol : NativeNamedTypeSymbol, IUnionCaseT
     public ImmutableArray<IParameterSymbol> ConstructorParameters => InstanceConstructors.Single().Parameters;
 }
 
-internal sealed class NativeUnionCompanionSymbol(Compilation compilation, TypeDefinition definition, NativeNamespaceSymbol owner,
+internal sealed class NativeUnionCompanionSymbol(Compilation compilation, NominalTypeInfo view, NativeNamespaceSymbol owner,
     NativeNamedTypeSymbol? parent, Func<IUnionSymbol> resolveUnion)
-    : NativeNamedTypeSymbol(compilation, definition, owner, parent), IUnionCompanionSymbol
+    : NativeNamedTypeSymbol(compilation, view, owner, parent), IUnionCompanionSymbol
 {
     public bool TryGetAssociatedUnion(out IUnionSymbol union)
     {

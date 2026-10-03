@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 
-using NeoCLR.Metadata.Experimental.Model;
 using NeoCLR.Metadata.Experimental.Introspection;
 
 using Raven.CodeAnalysis.Symbols;
@@ -16,16 +15,12 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> interfaces;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> allInterfaces;
     private ImmutableArray<ISymbol> members;
-    internal NativeNamedTypeSymbol(Compilation compilation, TypeDefinition definition, NativeNamespaceSymbol owner, NativeNamedTypeSymbol? declaringType = null)
-        : this(compilation, definition, owner, declaringType, ((NativeModuleSymbol)owner.ContainingModule).TypeView(definition)) { }
-
-    private NativeNamedTypeSymbol(Compilation compilation, TypeDefinition definition, NativeNamespaceSymbol owner,
-        NativeNamedTypeSymbol? declaringType, NominalTypeInfo view)
+    internal NativeNamedTypeSymbol(Compilation compilation, NominalTypeInfo view, NativeNamespaceSymbol owner,
+        NativeNamedTypeSymbol? declaringType = null)
         : base(SymbolKind.Type, view.GenericArity == 0 ? view.Name : view.Name[..view.Name.LastIndexOf('`')], declaringType ?? (ISymbol)owner, declaringType, owner, [], [],
             NativeMetadataAccess.Map(view.Accessibility))
     {
         this.compilation = compilation;
-        Definition = definition;
         this.view = view;
         TypeParameters = [.. view.GetGenericArguments().Cast<GenericParameterTypeInfo>()
             .Select(parameter => (ITypeParameterSymbol)new NativeTypeParameterSymbol(parameter.Name, parameter.Position, this))];
@@ -59,9 +54,7 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
             return true;
         }
     }
-    internal TypeDefinition Definition { get; }
     public override string MetadataName => view.Name;
-    internal ITypeSymbol Map(SignatureType signature) => ((NativeModuleSymbol)ContainingModule).Map(signature, this);
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic => view.IsStatic;
