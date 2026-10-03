@@ -256,7 +256,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public bool IsExtern => false;
     public bool IsUnsafe => false;
     public bool IsGenericMethod => !TypeParameters.IsEmpty;
-    public bool IsOverride => false;
+    public bool IsOverride => view.IsVirtual && !view.IsNewSlot;
     public bool IsReadOnly => false;
     public bool IsFinal => false;
     public bool IsVirtual { get; }

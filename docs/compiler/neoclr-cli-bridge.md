@@ -4902,3 +4902,21 @@ Validated against the NeoCLR nominal-array slice based on ced73e9d, with matchin
 metadata/runtime working changes. The unchanged broad application now rejects before
 publication because the retained seed lacks Console.WriteLine(Int32); this is the next
 bounded runtime-service binding gap, not an array lookup/dispatch failure.
+
+### Broad native consumer and imported value overrides (2026-10-03)
+
+Native MethodInfo.IsNewSlot now supplies the declaration bit needed to distinguish a
+virtual inherited-slot method from a new slot. Native method symbols expose IsOverride
+from these metadata facts; the NeoCLR emitter admits the bounded public value override
+contract and passes it to CreateMethodReference. Reference authoring preserves the native
+ToString override name and managed receiver. It uses semantic symbols and host identities,
+without reopening an importer object. Other override categories remain explicitly rejected.
+No shared binder/lowering or ordinary .NET Reflection/Emit behavior changes.
+
+With the retained seed's real Int32 console adapter, unchanged application-order-collections
+compiles against the separately emitted cumulative source library and runs with exact
+expected stdout and exit 0. NeoCLR's bootstrap/verify_source_unions.py --application also
+runs a minimal separate imported union display test (Multiple, 42). Primitive core, source
+ownership and runtime seed remain explicit; native application/library imports use no CLI
+projection fallback. This completes the native side of the broad gate. The equivalent
+.NET source-library execution adapter work remains pending.

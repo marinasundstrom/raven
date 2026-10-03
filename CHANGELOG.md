@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Preserve native inherited-slot metadata in imported method symbols and
+  author bounded value ToString override references from those symbols. Unchanged
+  application-order-collections now compiles against a separately built native library
+  and executes with exact expected output and exit 0. Ordinary .NET emission is unchanged;
+  the paired .NET source-library execution gate remains open.
+
 - **2026-10-03:** Select native nominal vector backing from the explicit iteration
   contract and output-owned Array<T> declaration. Separately compiled source array
   indexers/iterators now support interface mutation and query execution (42). Shared
