@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Honor the explicitly selected RuntimeUnitContract in overload argument
+  validation, including generic union constructors. Unconfigured CLI void arguments remain
+  rejected. The configured regression fails before the fix; all 16 focused unit-contract
+  tests pass afterward. No metadata format or default .NET contract changes are made.
+
 - **2026-10-03:** Import separately compiled native plain/generic unions through the
   metadata facade, preserving case names, ordinals, payload parameter names and physical
   scopes. Emit external value/nested references from symbol contracts. The normal driver

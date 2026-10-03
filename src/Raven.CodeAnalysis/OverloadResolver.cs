@@ -10,6 +10,13 @@ namespace Raven.CodeAnalysis;
 
 internal sealed class OverloadResolver
 {
+    // CLI void supplies no argument value by default. A selected unit contract can
+    // give that exact metadata type a value representation without changing other targets.
+    private static bool IsUninhabitedVoid(ITypeSymbol type, Compilation compilation)
+        => type.SpecialType == SpecialType.System_Void &&
+           !(compilation.GetSpecialType(SpecialType.System_Unit) is UnitTypeSymbol { RuntimeRepresentation: { } unit } &&
+             SymbolEqualityComparer.Default.Equals(type, unit));
+
     public static OverloadResolutionResult ResolveOverload(
         IEnumerable<IMethodSymbol> methods,
         BoundArgument[] arguments,
@@ -2559,7 +2566,7 @@ internal sealed class OverloadResolver
             return TryEvaluateArgument(paramsParameter, argument, RefKind.None, compilation, binder, null, comparisonLog, ref score);
 
         var argumentType = argument.Type;
-        if (argumentType is null || argumentType.SpecialType == SpecialType.System_Void)
+        if (argumentType is null || IsUninhabitedVoid(argumentType, compilation))
         {
             LogComparison(comparisonLog, paramsParameter, argumentType, OverloadArgumentComparisonResult.NullArgumentType, "params element argument has no valid type");
             return false;
@@ -2701,7 +2708,7 @@ internal sealed class OverloadResolver
                 return false;
             }
 
-            if (argType.SpecialType == SpecialType.System_Void)
+            if (IsUninhabitedVoid(argType, compilation))
             {
                 LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.VoidArgument, "argument type is void");
                 return false;
@@ -2709,7 +2716,7 @@ internal sealed class OverloadResolver
 
             if (argument is not BoundAddressOfExpression ||
                 argType is not IAddressTypeSymbol addressType ||
-                argType.SpecialType == SpecialType.System_Void)
+                IsUninhabitedVoid(argType, compilation))
             {
                 LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.RefKindMismatch, "argument is not an address to match ref/out/in");
                 return false;
@@ -2850,7 +2857,7 @@ internal sealed class OverloadResolver
             return false;
         }
 
-        if (argType.SpecialType == SpecialType.System_Void)
+        if (IsUninhabitedVoid(argType, compilation))
         {
             LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.VoidArgument, "argument type is void");
             return false;
