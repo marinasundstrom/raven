@@ -19,6 +19,7 @@ internal static class NeoClrCommand
         if (args.Length == 1 && args[0] is "--help" or "-h")
         {
             Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--core-reference NeoCLR.CoreProbe.dll] [--reference library.dll] source.rvn ...");
+            Console.WriteLine("Optional --bootstrap-ownership manifest.json selects source-library ownership and iteration contracts.");
             Console.WriteLine("Experimental PE/#Neo output. References are imported directly from supported native metadata.");
             Console.WriteLine("Legacy bridge: --system-symbols System.neox --system-method System.Math.Min/2 (repeat explicit selections).");
             Console.WriteLine("Static Int32 callable view only; not a complete core-library import. Run with the matching --system assembly.");
@@ -35,6 +36,7 @@ internal static class NeoClrCommand
             var library = false;
             string? systemPath = null;
             string? corePath = null;
+            BootstrapOwnershipManifest? ownership = null;
             var systemMethods = new List<string>();
             for (var i = 0; i < args.Length; i++)
             {
@@ -43,6 +45,10 @@ internal static class NeoClrCommand
                     case "-o":
                         if (output is not null || ++i == args.Length) throw new ArgumentException("Specify -o once with an output path.");
                         output = Path.GetFullPath(args[i]);
+                        break;
+                    case "--bootstrap-ownership":
+                        if (ownership is not null || ++i == args.Length) throw new ArgumentException("Specify --bootstrap-ownership once with a manifest path.");
+                        ownership = BootstrapOwnershipManifest.Read(args[i]);
                         break;
                     case "--core-reference":
                         if (corePath is not null || ++i == args.Length) throw new ArgumentException("Specify --core-reference once with a CLI primitive core path.");
@@ -137,9 +143,11 @@ internal static class NeoClrCommand
                 systemSymbols = new(reference, identity.Name, system, selected);
             }
             var trees = sources.Select(path => SyntaxTree.ParseText(File.ReadAllText(path), path: path)).ToArray();
-            var compilation = Compilation.Create(name, trees, references.ToArray(),
-                (corePath is null ? new CompilationOptions() : CompilationOptions.NeoCLR)
-                    .WithOutputKind(library ? OutputKind.DynamicallyLinkedLibrary : OutputKind.ConsoleApplication));
+            var compilationOptions = (corePath is null ? new CompilationOptions() : CompilationOptions.NeoCLR)
+                .WithOutputKind(library ? OutputKind.DynamicallyLinkedLibrary : OutputKind.ConsoleApplication);
+            if (ownership is not null) compilationOptions = ownership.Apply(compilationOptions);
+            var compilation = Compilation.Create(name, trees, references.ToArray(), compilationOptions);
+            ownership?.Validate(compilation);
             using var image = new MemoryStream();
             var backend = new NeoClrEmissionBackend(
                 new(new(name, new Version(1, 0, 0, 0)), core, dependencies, systemSymbols is null ? console : null, systemSymbols));

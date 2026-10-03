@@ -4093,3 +4093,40 @@ is a shared-contract change with this feature's dependencies; this slice introdu
 independent binder fix requiring a separate main-based branch.
 
 Validated metadata dependency: neoCLR `codex/extended-cli-metadata` commit `8c08829e`; runtime executable is unchanged from the recorded `101ab9c8` baseline.
+
+
+### Source-library bootstrap ownership (2026-10-03)
+
+Both `rvnc` and `rvnc neoclr` accept `--bootstrap-ownership manifest.json`. This opt-in
+host configuration validates every listed type against the selected source/reference
+catalog before emission: one semantic declaration, in its specified assembly. It does
+not load extra references or change native artifact identity validation. Ordinary command
+behavior is unchanged without the option.
+
+Version 1 contains `libraries` entries (`assemblyName`, `sources`, `types`) and an
+`iteration` RuntimeIterationContract. Optional `typeOf` and `propagation` select their
+existing runtime contracts; null/omitted means the profile does not supply them. Source
+paths are used by acceptance tooling, not automatically compiled by the driver. The
+iteration interface names must have the same declared owner as the contract assembly.
+Unknown JSON members/versions, duplicate owners, missing declarations and conflicting
+core/source declarations fail before publishing output.
+
+neoCLR's `docs/experiments/extended-cli-metadata/bootstrap/iteration-ownership.json`
+selects `NeoCLR.Collections` for seven unchanged library interface sources. Generate the
+small CoreProbe with the bridge's `--reference-primitive-core` mode; the existing expanded
+consumer/bootstrap modes remain available unchanged. That minimal core retains primitives,
+compiler markers and basic Console/Math declarations, but no competing library interfaces.
+The new fixture selects no TypeOf/Propagation dependencies and references no retained
+System seed. This stage does not establish full runtime-library ownership.
+
+`python3 scripts/check-source-iteration.py --raven-root <Raven> --core <primitive-core>
+--output <fresh-directory>` in neoCLR builds a library, removes its source copies, then
+builds and runs a consumer with ordinary compiler commands on both targets. Collection
+iteration, arrays, inherited interfaces, Count/Current/MoveNext/Dispose and alias identity
+execute with exit 42. Negative ownership/version cases leave no output; selecting the
+old expanded CoreProbe is rejected as a duplicate owner. No importer/emitter coupling,
+metadata encoding or runtime behavior changes are introduced.
+
+Next: source/seed ownership for ArrayList dependencies and native Self signature support.
+The existing native Self runtime is not evidence that the Cecil-like metadata signature
+API and native semantic importer already support it.

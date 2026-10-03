@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Add opt-in `--bootstrap-ownership` to both compiler commands.
+  Validate declared source-library ownership before emission and select explicit
+  iteration/typeof/propagation contracts. Source-built collection interfaces and
+  separate consumer compilation now execute on both targets with a minimal core;
+  conflicting bootstrap declarations reject without publishing an output.
+
 - **2026-10-03:** Emit native external interface inheritance and implementations from
   complete symbol contracts. Preserve target capabilities through callable/local checks
   and encode PE directly from the authored metadata graph. The three-assembly generic

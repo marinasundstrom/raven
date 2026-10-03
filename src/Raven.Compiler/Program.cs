@@ -98,6 +98,7 @@ if (args.Length > 0 && string.Equals(args[0], "init", StringComparison.OrdinalIg
     return;
 }
 
+BootstrapOwnershipManifest? bootstrapOwnership = null;
 var sourceFiles = new List<string>();
 var applicationArguments = new List<string>();
 var additionalRefs = new List<string>();
@@ -386,6 +387,18 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--no-framework-references":
             includeFrameworkReferences = false;
+            break;
+        case "--bootstrap-ownership":
+            if (bootstrapOwnership is not null || i + 1 >= args.Length)
+            {
+                Console.Error.WriteLine("Specify --bootstrap-ownership once with a manifest path.");
+                Environment.ExitCode = 1; return;
+            }
+            try { bootstrapOwnership = BootstrapOwnershipManifest.Read(args[++i]); }
+            catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException)
+            {
+                Console.Error.WriteLine(error.Message); Environment.ExitCode = 1; return;
+            }
             break;
         case "--target-core-library":
             if (i + 1 < args.Length)
@@ -1322,6 +1335,7 @@ if (skipDefaultRavenCoreLookup)
 if (targetFrameworkTfm?.StartsWith("netnano", StringComparison.OrdinalIgnoreCase) == true)
     options = options.WithSynthesizeStructuralToString(false);
 
+if (bootstrapOwnership is not null) options = bootstrapOwnership.Apply(options);
 project = project.WithCompilationOptions(options);
 project = AddDefaultAnalyzers(project, options.EnableSuggestions);
 
@@ -1404,6 +1418,11 @@ if (allowConsoleOutputPreBinding && (printSyntaxTree || printSyntaxTreeInternal)
 }
 
 var compilation = workspace.GetCompilation(projectId);
+try { bootstrapOwnership?.Validate(compilation); }
+catch (InvalidDataException error)
+{
+    Console.Error.WriteLine(error.Message); Environment.ExitCode = 1; return;
+}
 
 if (!noEmit && project.CompilerGeneratedFilesOutputPath is { } generatedOutputDirectory)
 {
@@ -2739,6 +2758,7 @@ static void PrintHelp(bool compilerDriverOnly)
     if (compilerDriverOnly)
     {
         Console.WriteLine("Usage: rvnc [compiler-options] <source-files|project-file.rvnproj>");
+        Console.WriteLine("       --bootstrap-ownership <manifest.json>  Select source-library ownership and iteration contracts");
 #if NEOCLR_METADATA
         Console.WriteLine("       rvnc neoclr --help  Experimental native assembly compilation");
 #endif
