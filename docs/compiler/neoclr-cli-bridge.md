@@ -5047,3 +5047,32 @@ and failed native emission preserving pre-existing output bytes and stream posit
 The seven native execution consumers continue to pass (exit 42). Runtime Contract
 configuration, normal .NET loading/emission and native encoding are unchanged. This is
 native-adapter validation, not a general binder fix requiring a main-based port.
+
+### Native array interface receiver emission (2026-10-03)
+
+The unchanged collection-capabilities sample exposed a missing receiver conversion:
+`let values: System.Array<int> = [40, 0]; values.Count` selects the inherited
+Collection<int> accessor while the receiver remains a vector in the bound tree.
+Portable body planning now emits its existing reference-conversion operation for an
+array receiver when the member owner is an interface, the backend admits that operation,
+and Raven classifies the conversion as implicit reference conversion. This uses semantic
+identities only; the native adapter still authors references from symbols/artifact bindings.
+
+Unlike ordinary CLR arrays and their CLR collection interfaces, native vectors use the
+explicit source Array<T> backing and its configured interface graph. That nominal backing
+and runtime ownership manifest remain unchanged. The adjustment supplies the receiver
+representation required by the existing verifier; it adds no format, opcode, bridge,
+reflection handle or structural array semantics. The established .NET body emitter is
+unaffected. This portable-planner fix is a deferred general candidate, not a binder fix:
+independent main-line validation must establish a caller requiring this planner path.
+
+The native driver gate now compiles a minimal Count/mutation regression and unchanged
+Option, Option propagation and collection-capabilities samples against the separately
+built source library. It verifies and executes each, checking exact output/status. The
+unchanged broad order-collections application still passes. Wider sample assessment
+finds separate remaining gaps: no-result callback import, captured function emission,
+and absent Int64.CompareTo/Date bootstrap/library declarations. Do not rewrite samples
+or treat these as successful execution.
+
+Validation also preserves all seven native runtime consumers. Focused C#
+SharedArrayBodyTests and SharedInterfaceDispatchTests pass on the ordinary .NET target.

@@ -533,7 +533,17 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     _ => Reject("value receiver requires an owned local or ref/out parameter", syntax)
                 };
             }
-            if (receiver is not null) return LowerValue(receiver);
+            if (receiver is not null)
+            {
+                if (!LowerValue(receiver)) return false;
+                // Array member projection can select an inherited nominal interface
+                // without adding a bound conversion around the vector receiver.
+                if (receiver.Type is IArrayTypeSymbol && owner.TypeKind == TypeKind.Interface &&
+                    capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true &&
+                    model.Compilation.ClassifyConversion(receiver.Type, owner, includeUserDefined: false) is { IsImplicit: true, IsReference: true })
+                    instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: owner));
+                return true;
+            }
             if (isStaticBody || !SymbolEqualityComparer.Default.Equals(source.ContainingType, owner)) return Reject("implicit receiver unavailable", syntax);
             Add(LinearInstructionKind.Receiver, syntax); return true;
         }

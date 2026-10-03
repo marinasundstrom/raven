@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Emit the existing reference conversion for array receivers of
+  inherited interface members in the portable backend, fixing native Array<int>.Count.
+  Separate-library collection-capabilities and union consumers now join the native
+  broad application gate. No .NET body-emitter or metadata-format changes.
+
 - **2026-10-03:** Report native/primitive-bootstrap metadata identity collisions as
   RAVT003 instead of throwing during catalog creation. C# coverage verifies both
   reference orders and unchanged output bytes/position; seven native consumers pass.
