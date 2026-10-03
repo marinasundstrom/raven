@@ -77,11 +77,22 @@ internal static class NativeSymbolChecks
         var values = new AssemblyBuilder(new("NativeValues", new Version(1, 0, 0, 0)), core);
         var payload = values.AddGenericValueType("Example", "Payload", ["T"]);
         payload.AddField("Value", SignatureType.TypeParameter(0), FieldVisibility.Public);
+        var firstNested = values.AddType("Example", "First").AddNestedValueType("Case");
+        var secondNested = values.AddType("Example", "Second").AddNestedValueType("Case");
+        values.AddClass("Example", "Holder").AddField("Payload", firstNested, FieldVisibility.Public);
         var valueReference = NeoClrMetadataReference.ReadAssembly(RuntimeAssemblyContainer.WriteBinary(values));
         var valueCompilation = Compilation.Create("ValueSymbols", [], [cliCore, valueReference], CompilationOptions.NeoCLR);
         var valueSymbol = valueCompilation.GetTypeByMetadataName("Example.Payload`1")!;
         if (valueSymbol.TypeKind != TypeKind.Struct || valueSymbol.BaseType?.SpecialType != SpecialType.System_ValueType)
             throw new Exception("native value declaration lost struct identity");
+        var firstCase = valueCompilation.GetTypeByMetadataName("Example.First+Case");
+        var secondCase = valueCompilation.GetTypeByMetadataName("Example.Second+Case");
+        if (firstCase is null || secondCase is null || ReferenceEquals(firstCase, secondCase) ||
+            firstCase.ContainingType?.Name != "First" || secondCase.ContainingType?.Name != "Second" ||
+            firstCase.TypeKind != TypeKind.Struct || valueCompilation.GetTypeByMetadataName("Case") is not null ||
+            !ReferenceEquals(firstCase, valueCompilation.GetTypeByMetadataName("Example.First")!.GetMembers("Case").Single()) ||
+            !ReferenceEquals(firstCase, valueCompilation.GetTypeByMetadataName("Example.Holder")!.GetMembers("Payload").OfType<IFieldSymbol>().Single().Type))
+            throw new Exception("native nested declarations lost owner or field identity");
         var intPayload = valueSymbol.Construct(valueCompilation.GetSpecialType(SpecialType.System_Int32));
         if (intPayload.TypeKind != TypeKind.Struct || intPayload.GetMembers("Value").OfType<IFieldSymbol>().Single().Type.SpecialType != SpecialType.System_Int32)
             throw new Exception("native constructed value field lost substitution");

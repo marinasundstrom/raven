@@ -14,9 +14,9 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     private readonly NeoCLR.Metadata.Experimental.Introspection.NominalTypeInfo view;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> interfaces;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> allInterfaces;
-    private readonly ImmutableArray<ISymbol> members;
-    internal NativeNamedTypeSymbol(Compilation compilation, TypeDefinition definition, NativeNamespaceSymbol owner)
-        : base(SymbolKind.Type, definition.GenericArity == 0 ? definition.Name : definition.Name[..definition.Name.LastIndexOf('`')], owner, null, owner, [], [],
+    private ImmutableArray<ISymbol> members;
+    internal NativeNamedTypeSymbol(Compilation compilation, TypeDefinition definition, NativeNamespaceSymbol owner, NativeNamedTypeSymbol? declaringType = null)
+        : base(SymbolKind.Type, definition.GenericArity == 0 ? definition.Name : definition.Name[..definition.Name.LastIndexOf('`')], declaringType ?? (ISymbol)owner, declaringType, owner, [], [],
             NativeMetadataAccess.Map(((NativeModuleSymbol)owner.ContainingModule).TypeView(definition).Accessibility))
     {
         this.compilation = compilation;
@@ -39,6 +39,7 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
             .. definition.Fields.Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(compilation, field, this, ordinal)),
             .. definition.Properties.Select(property => (ISymbol)new NativePropertySymbol(property, this, methods))];
     }
+    internal void AddNestedType(INamedTypeSymbol type) => members = members.Add(type);
     internal TypeDefinition Definition { get; }
     public override string MetadataName => Definition.Name;
     internal ITypeSymbol Map(SignatureType signature) => ((NativeModuleSymbol)ContainingModule).Map(signature, this);
@@ -67,9 +68,9 @@ internal sealed class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     public INamedTypeSymbol? UnderlyingTupleType => null;
     public ImmutableArray<IFieldSymbol> TupleElements => [];
     public ImmutableArray<ISymbol> GetMembers() => members;
-    public ImmutableArray<ISymbol> GetMembers(string name) => [.. members.Where(member => member.Name == name)];
-    public ITypeSymbol? LookupType(string name) => null;
-    public bool IsMemberDefined(string name, out ISymbol? symbol) { symbol = members.FirstOrDefault(member => member.Name == name); return symbol is not null; }
+    public ImmutableArray<ISymbol> GetMembers(string name) => [.. GetMembers().Where(member => member.Name == name)];
+    public ITypeSymbol? LookupType(string name) => members.OfType<INamedTypeSymbol>().SingleOrDefault(t => t.Name == name);
+    public bool IsMemberDefined(string name, out ISymbol? symbol) { symbol = GetMembers().FirstOrDefault(member => member.Name == name); return symbol is not null; }
     public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => typeArguments.Length == 0 && Arity == 0 ? this : new ConstructedNamedTypeSymbol(this, [.. typeArguments]);
     public override void Accept(SymbolVisitor visitor) => visitor.VisitNamedType(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitNamedType(this);

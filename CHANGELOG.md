@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Import native nested class/value declarations under their actual
+  enclosing symbols, preserving same-named case and field identities. Namespace and
+  simple-name lookup no longer receive flattened nested declarations. Native nested
+  emission remains outside the symbol-authored backend profile; .NET behavior is unchanged.
+
 - **2026-10-03:** Emit ordinary top-level source structs through an explicit native
   value declaration capability, including generic inline payloads, constructors and
   accessors. Shared planning preserves addressed receivers, self copies and synthesized

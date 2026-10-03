@@ -24,7 +24,7 @@ internal sealed class NativeAssemblySymbol : Symbol, IImportedAssemblySymbol
     public INamespaceSymbol GlobalNamespace => Module.GlobalNamespace;
     public IEnumerable<IModuleSymbol> Modules => [Module];
     public INamedTypeSymbol? GetTypeByMetadataName(string name) => Module.Types.SingleOrDefault(t => ((ITypeSymbol)t).ToFullyQualifiedMetadataName() == name);
-    public INamedTypeSymbol? GetTypeBySimpleName(string name, int arity) => Module.Types.Where(t => t.Name == name && t.Arity == arity).Take(2).ToArray() is [var only] ? only : null;
+    public INamedTypeSymbol? GetTypeBySimpleName(string name, int arity) => Module.Types.Where(t => t.ContainingType is null && t.Name == name && t.Arity == arity).Take(2).ToArray() is [var only] ? only : null;
     public ImmutableArray<INamedTypeSymbol> GetExtensionConversionContainers() => [];
     public override void Accept(SymbolVisitor visitor) => visitor.VisitAssembly(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitAssembly(this);
@@ -44,13 +44,16 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         metadata = NativeMetadataContext.For(compilation);
         var root = new NativeNamespaceSymbol("", this, null);
         GlobalNamespace = root;
-        Types = [.. assembly.Reference.Definition.MainModule.Types.Select(type => {
-            var ns = Namespace(type.Namespace);
-            var symbol = new NativeNamedTypeSymbol(compilation, type, ns);
-            ns.Add(symbol);
-            return symbol;
-        })];
-        typeSymbols = Types.ToDictionary(type => type.Definition.MetadataToken);
+        typeSymbols = [];
+        foreach (var type in assembly.Reference.Definition.MainModule.Types)
+        {
+            var parent = TypeView(type).DeclaringType is { } declaring ? typeSymbols[declaring.MetadataToken] : null;
+            var ns = parent is null ? Namespace(type.Namespace) : (NativeNamespaceSymbol)parent.ContainingNamespace!;
+            var symbol = new NativeNamedTypeSymbol(compilation, type, ns, parent);
+            typeSymbols.Add(type.MetadataToken, symbol);
+            if (parent is null) ns.Add(symbol); else parent.AddNestedType(symbol);
+        }
+        Types = [.. typeSymbols.Values];
         NativeNamespaceSymbol Namespace(string name)
         {
             var ns = root;
