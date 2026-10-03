@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Read native type names, arity, generic parameter names and interface
+  relationships through the retained introspection view. Requires the matching metadata
+  library's GenericParameterTypeInfo.Name; all seven native consumers pass. Ordinary
+  .NET loading/emission and native metadata encoding remain unchanged.
+
 - **2026-10-03:** Import native methods, constructors and module functions directly
   from introspection views. Remove the definition-based NativeMethodSymbol entry point;
   preserve metadata order and canonical constructor/accessor identity. All seven native

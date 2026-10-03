@@ -5011,3 +5011,10 @@ wrapper from Raven without changing native namespace-function semantics, primiti
 bootstrap, Runtime Contract configuration or CLI transport. All seven native consumers
 and canonical constructor/accessor checks pass. Ordinary .NET loading and emission stay
 on their existing paths. See [metadata import](metadata-import.md).
+
+
+Native type declaration cleanup (2026-10-03) consumes the retained introspection view
+for names, generic parameters and interface relationships. This requires the matching
+host-only GenericParameterTypeInfo.Name member, not new CLI transport or native encoding.
+The existing explicit bootstrap is unchanged. Seven native consumers pass; .NET behavior
+is unaffected. Remaining type/union definition uses are documented in metadata-import.md.

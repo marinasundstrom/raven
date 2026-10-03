@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 
 using NeoCLR.Metadata.Experimental.Model;
+using NeoCLR.Metadata.Experimental.Introspection;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -11,28 +12,33 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
 {
     private readonly Compilation compilation;
-    private readonly NeoCLR.Metadata.Experimental.Introspection.NominalTypeInfo view;
+    private readonly NominalTypeInfo view;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> interfaces;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> allInterfaces;
     private ImmutableArray<ISymbol> members;
     internal NativeNamedTypeSymbol(Compilation compilation, TypeDefinition definition, NativeNamespaceSymbol owner, NativeNamedTypeSymbol? declaringType = null)
-        : base(SymbolKind.Type, definition.GenericArity == 0 ? definition.Name : definition.Name[..definition.Name.LastIndexOf('`')], declaringType ?? (ISymbol)owner, declaringType, owner, [], [],
-            NativeMetadataAccess.Map(((NativeModuleSymbol)owner.ContainingModule).TypeView(definition).Accessibility))
+        : this(compilation, definition, owner, declaringType, ((NativeModuleSymbol)owner.ContainingModule).TypeView(definition)) { }
+
+    private NativeNamedTypeSymbol(Compilation compilation, TypeDefinition definition, NativeNamespaceSymbol owner,
+        NativeNamedTypeSymbol? declaringType, NominalTypeInfo view)
+        : base(SymbolKind.Type, view.GenericArity == 0 ? view.Name : view.Name[..view.Name.LastIndexOf('`')], declaringType ?? (ISymbol)owner, declaringType, owner, [], [],
+            NativeMetadataAccess.Map(view.Accessibility))
     {
         this.compilation = compilation;
         Definition = definition;
-        view = ((NativeModuleSymbol)owner.ContainingModule).TypeView(definition);
-        TypeParameters = [.. (definition.GenericParameterNames ?? []).Select((name, i) => (ITypeParameterSymbol)new NativeTypeParameterSymbol(name, i, this))];
+        this.view = view;
+        TypeParameters = [.. view.GetGenericArguments().Cast<GenericParameterTypeInfo>()
+            .Select(parameter => (ITypeParameterSymbol)new NativeTypeParameterSymbol(parameter.Name, parameter.Position, this))];
         TypeArguments = [.. TypeParameters];
         interfaces = new(() =>
         {
             var module = (NativeModuleSymbol)ContainingModule;
-            return [.. module.TypeView(definition).GetDeclaredInterfaces().Select(view => (INamedTypeSymbol)module.MapView(view))];
+            return [.. view.GetDeclaredInterfaces().Select(view => (INamedTypeSymbol)module.MapView(view))];
         });
         allInterfaces = new(() =>
         {
             var module = (NativeModuleSymbol)ContainingModule;
-            return [.. module.TypeView(definition).GetInterfaces().Select(view => (INamedTypeSymbol)module.MapView(view))];
+            return [.. view.GetInterfaces().Select(view => (INamedTypeSymbol)module.MapView(view))];
         });
         var methods = view.GetMethods().Concat(view.GetConstructors()).OrderBy(method => method.MetadataToken)
             .Select(method => new NativeMethodSymbol(compilation, method, this)).ToArray();
@@ -54,7 +60,7 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
         }
     }
     internal TypeDefinition Definition { get; }
-    public override string MetadataName => Definition.Name;
+    public override string MetadataName => view.Name;
     internal ITypeSymbol Map(SignatureType signature) => ((NativeModuleSymbol)ContainingModule).Map(signature, this);
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
@@ -71,7 +77,7 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     public INamedTypeSymbol? BaseType => TypeKind == TypeKind.Interface ? null : compilation.GetSpecialType(view.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) as INamedTypeSymbol;
     public ITypeSymbol OriginalDefinition => this;
     public ITypeSymbol ConstructedFrom => this;
-    public int Arity => Definition.GenericArity;
+    public int Arity => view.GenericArity;
     public bool IsGenericType => Arity != 0;
     public bool IsUnboundGenericType => false;
     public ImmutableArray<ITypeSymbol> TypeArguments { get; }

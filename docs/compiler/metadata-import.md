@@ -1063,3 +1063,17 @@ namespace overload, generic method/owner substitution, accessor and dependency r
 checks pass, and all seven native consumers execute with expected exit 42. This uses the
 same explicit CoreProbe/System bootstrap as the preceding member-facade validation.
 No Runtime Contract, public metadata API, encoding, .NET loader or emitter changes.
+
+
+Native type declaration facade adoption (2026-10-03): the symbol constructor resolves
+its NominalTypeInfo once and uses it for metadata name, arity, accessibility, generic
+parameter names/positions and interface traversal. GenericParameterTypeInfo.Name is the
+matching metadata library addition; it preserves declared names and reports unsupported
+CLI name materialization explicitly. Raven's native path uses supported native snapshots.
+Definitions remain for type identity/materialization and union signature transport, rather
+than being reopened for these declaration facts. No constraint, base-type, variance or
+static-constructor support is added by this cleanup.
+
+All seven native consumers and their generic scope/identity checks pass; the library's
+127 C# contract groups pass, including native parameter names and the explicit CLI limit.
+No ordinary .NET path, Runtime Contract configuration or output encoding changes.
