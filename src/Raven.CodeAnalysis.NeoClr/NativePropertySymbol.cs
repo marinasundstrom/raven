@@ -14,10 +14,11 @@ internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
         IReadOnlyDictionary<MethodDefinition, NativeMethodSymbol> methods)
         : base(SymbolKind.Property, definition.Name, owner, owner, owner.ContainingNamespace, [], [], AccessibilityFor(definition))
     {
-        if (!definition.TryGetSignature(out var signature, out var indices, out var isStatic)) throw new InvalidDataException("unsupported native property signature");
-        IsStatic = isStatic;
-        IsIndexer = indices.Count != 0;
-        type = new(() => owner.Map(signature!));
+        var module = (NativeModuleSymbol)owner.ContainingModule;
+        var view = module.TypeView(owner.Definition).GetProperties().Single(p => p.MetadataToken == definition.MetadataToken);
+        IsStatic = view.IsStatic;
+        IsIndexer = view.IndexParameterTypes.Count != 0;
+        type = new(() => module.MapView(view.PropertyType));
         GetMethod = definition.GetMethod is { } getter ? methods[getter] : null;
         SetMethod = definition.SetMethod is { } setter ? methods[setter] : null;
         parameters = new(() => !IsIndexer ? [] : GetMethod?.Parameters ?? [.. SetMethod!.Parameters.Take(SetMethod.Parameters.Length - 1)]);

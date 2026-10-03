@@ -476,3 +476,29 @@ relationship views remain next; generic method construction is not yet a facade 
 109 C# groups pass, including mixed owner/method scopes, generic function vectors,
 constructed-owner returns, canonical method identity and invalid/foreign scopes.
 All seven Raven native consumers compile and execute (42).
+
+
+Property/interface facade checkpoint (2026-10-03): nominal and constructed views now
+expose declared properties and directly declared interface relationships. Property
+result/index types and interface arguments use the facade's simultaneous owner-scope
+substitution; accessors share canonical method views. Indexed metadata excludes the
+setter value parameter, including setter-only properties. Missing dependencies fail
+explicitly, and CLI interface materialization remains unsupported rather than empty.
+
+Raven consumes projected property types and direct interface views. Accessibility,
+accessor association, parameter symbols and inherited-interface traversal remain compiler
+responsibilities for this slice. Compared with .NET Reflection's property inspection,
+this API has no get/set invocation or visibility filtering: it reports declaration data
+and index types only. GetDeclaredInterfaces intentionally promises direct edges, not
+Reflection's transitive GetInterfaces behavior. This keeps substitution reusable without
+silently choosing compiler member-lookup or inheritance policies.
+
+No Runtime Contract configuration, CLI primitive-core/translated-System bootstrap,
+emission contract, guest API or serialized/runtime format changes. Native external
+interface declarations and CLI relationship decoding remain separate gaps. Generic
+method construction, constructor-specific views and bounded transitive metadata traversal
+remain follow-up work. No performance claim is made.
+
+Validation: the targeted NeoClrMetadataProbe build and all seven native semantic/emission/runtime
+consumers pass (exit 42), including generic inherited interfaces and indexed properties.
+The host metadata library passes 109/109 C# groups.

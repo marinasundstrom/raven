@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Consume metadata facade property and direct interface projections,
+  removing native importer signature decoding/substitution for those relationships.
+  Preserve compiler accessibility, accessor association and inherited-interface traversal.
+  Seven native consumers execute (42); host C# metadata contracts pass 109/109.
+
 - **2026-10-02:** Add metadata method/parameter views with distinct owner and method scopes.
   Raven consumes them instead of recursive signature projection and per-signature generic
   caches. All 109 C# groups and seven native consumers pass (42); no encoding change.

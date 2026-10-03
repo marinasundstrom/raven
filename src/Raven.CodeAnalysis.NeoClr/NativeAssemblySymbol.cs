@@ -79,6 +79,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         return external.Module.typeSymbols[view.MetadataToken];
     }
     internal NeoCLR.Metadata.Experimental.Introspection.MethodInfo MethodView(MethodDefinition definition) => metadata.Resolve(definition);
+    internal NominalTypeInfo TypeView(TypeDefinition definition) => metadata.Resolve(definition.ToReference());
     private readonly Dictionary<uint, NativeMethodSymbol> methodSymbols = [];
     internal void RegisterMethod(uint token, NativeMethodSymbol symbol) => methodSymbols.Add(token, symbol);
     internal ITypeSymbol Map(SignatureType signature, NativeNamedTypeSymbol owner) =>
