@@ -4169,3 +4169,31 @@ Negative bootstrap cases leave no output. This closes a host-configuration gap; 
 not claim ArrayList or broad application completion. The unchanged Option/Propagatable
 subset compiles on .NET; native interface out-parameter admission is next, with Fail and
 callback bootstrap gaps separately visible in the ArrayList inventory.
+
+
+## Native ref/out interface step (2026-10-03)
+
+The existing native `ByRef` signatures and `out_parameters` indices now survive declaration
+materialization and metadata-only introspection. ParameterInfo exposes element type plus
+an explicit Value/Ref/Out mode. Raven imports those facts into parameter symbols and authors
+member references from them. The portable interface plan admits writable ref/out only when
+the target's managed-reference capability allows it; readonly variants remain unsupported.
+Complete external contracts retain output indices when substituting generic owner arguments.
+No runtime/schema change, importer-object emission dependency or new Runtime Contract option
+is introduced. Ordinary .NET Reflection/Emit remains in place. Native semantics match the
+existing CLR ref/out calling contract: out must be assigned before normal return; ref input
+must already be initialized. CLI In metadata is not silently treated as writable ref.
+
+A C# driver fixture compiles contracts, implementation and consumer independently, removes
+library sources, then executes generic inherited interface out assignment and ref mutation
+on both targets (42). Incompatible ref/out implementations reject without output publication.
+Reproduce with NeoClrMetadataProbe `--dual-driver-parameter-modes <rvnc.dll> <neoclr>
+<CoreProbe.dll> <fresh-output>`. C# metadata tests cover both containers, definition/builder
+parity, mode conflicts, readonly rejection and open/constructed signature substitution.
+Evidence is recorded in neoCLR `docs/experiments/extended-cli-metadata/parameter-modes-2026-10-03.json`.
+
+The unchanged source Propagatable interface now emits with the source-owned collection
+contracts. Option no longer fails interface admission; it now reaches the native source
+union/declaration emission rejection. This is the next source-library gate, alongside the
+previously recorded Fail/callback bootstrap dependencies for ArrayList. No source stubs or
+manual union carriers replace the runtime library, and broad application completion remains open.

@@ -7,7 +7,7 @@ namespace NeoClrMetadataProbe;
 // Executes ordinary compiler commands, with no Compilation or emitter API shortcuts.
 internal static class DualTargetDriverChecks
 {
-    internal static async Task Run(string driver, string runtime, string core, string output, bool inventory, bool external = false)
+    internal static async Task Run(string driver, string runtime, string core, string output, bool inventory, bool external = false, bool parameterModes = false)
     {
         core = Path.GetFullPath(core);
         driver = Path.GetFullPath(driver); runtime = Path.GetFullPath(runtime); output = Path.GetFullPath(output);
@@ -24,13 +24,13 @@ internal static class DualTargetDriverChecks
                 public func Set(value: T) { stored = value }
             }
             """;
-        const string externalContracts = """
+        string externalContracts = """
             namespace DriverContracts
             public interface Value<T> { val Current: T { get; } }
             public interface MutableValue<T> : Value<T> { func Set(value: T) }
             public interface ReadableValue<T> : Value<T> { }
             """;
-        const string externalImplementation = """
+        string externalImplementation = """
             namespace DriverContracts
             public interface CombinedValue<T> : MutableValue<T>, ReadableValue<T> { }
             public class Box<T> : CombinedValue<T> {
@@ -40,7 +40,7 @@ internal static class DualTargetDriverChecks
                 public func Set(value: T) { stored = value }
             }
             """;
-        const string consumer = """
+        string consumer = """
             import DriverContracts.*
             func Read(value: Value<int>) -> int => value.Current
             func Main() -> int {
@@ -54,6 +54,40 @@ internal static class DualTargetDriverChecks
                 return Read(mutable)
             }
             """;
+        if (parameterModes)
+        {
+            externalContracts = """
+                namespace DriverContracts
+                public interface Output<T> {
+                    func Read(out value: T) -> bool
+                    func Bump(ref value: T)
+                }
+                public interface Values<T> : Output<T> { }
+                """;
+            externalImplementation = """
+                namespace DriverContracts
+                public class Box : Values<int> {
+                    public init() { }
+                    public func Read(out value: int) -> bool {
+                        value = 40
+                        return true
+                    }
+                    public func Bump(ref value: int) { value = value + 2 }
+                }
+                """;
+            consumer = """
+                import DriverContracts.*
+                func Main() -> int {
+                    let box: Output<int> = Box()
+                    var value = 0
+                    if box.Read(out value) {
+                        box.Bump(ref value)
+                        return value
+                    }
+                    return 0
+                }
+                """;
+        }
         const string hello = """
             func Greet() { System.Console.WriteLine("Hello World") }
             func Main() -> int { Greet(); return 42 }
@@ -106,6 +140,26 @@ internal static class DualTargetDriverChecks
                 {
                     passed = false;
                     cases.Add(new { target, scenario, passed = false, error = error.Message });
+                }
+            }
+            if (parameterModes)
+            {
+                try
+                {
+                    var source = Path.Combine(directory, "InvalidMode.rvn");
+                    var rejected = Path.Combine(directory, "InvalidMode.dll");
+                    File.WriteAllText(source, externalImplementation.Replace("Bump(ref value: int) { value = value + 2 }", "Bump(out value: int) { value = 2 }"));
+                    string[] modeArguments = native
+                        ? [driver, "neoclr", "--core-reference", core, "--library", "--reference", Path.Combine(directory, "Contracts.dll")]
+                        : [driver, "--framework", "net10.0", "--emit-core-types-only", "--output-type", "classlib", "--refs", Path.Combine(directory, "Contracts.dll")];
+                    await Command("dotnet", [.. modeArguments, "-o", rejected, source], 1);
+                    if (File.Exists(rejected)) throw new Exception("incompatible parameter mode published output");
+                    cases.Add(new { target, scenario = "incompatible-parameter-mode", passed = true });
+                }
+                catch (Exception error)
+                {
+                    passed = false;
+                    cases.Add(new { target, scenario = "incompatible-parameter-mode", passed = false, error = error.Message });
                 }
             }
             if (native && !external)

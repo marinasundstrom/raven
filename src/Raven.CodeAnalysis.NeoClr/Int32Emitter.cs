@@ -491,12 +491,13 @@ internal static class Int32Emitter
                 !symbol.IsOverride && (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : !symbol.IsAbstract && !symbol.IsVirtual) &&
                 symbol.DeclaredAccessibility == Accessibility.Public && (symbol.IsStatic || symbol.Arity == 0) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, NeoClrCapabilities.Shared) &&
-                IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind == RefKind.None && IsSymbolOnlyType(p.Type, false)))
+                IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind is RefKind.None or RefKind.Ref or RefKind.Out && IsSymbolOnlyType(p.Type, false)))
             {
                 _ = ImportExternalType(owner);
                 var declaration = importedTypes[(INamedTypeSymbol)owner.OriginalDefinition];
                 var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType),
-                    symbol.Parameters.Select(p => MapSymbolOnlyType(p.Type)), memberSignature.GenericParameterNames);
+                    symbol.Parameters.Select(p => p.RefKind == RefKind.None ? MapSymbolOnlyType(p.Type) : SignatureType.ByReference(MapSymbolOnlyType(p.Type))),
+                    memberSignature.GenericParameterNames, memberSignature.OutParameters.IsDefault ? [] : memberSignature.OutParameters);
                 return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic);
             }
             // A native callable must carry a complete supported semantic contract.

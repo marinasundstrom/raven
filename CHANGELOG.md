@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Preserve native ref/out parameter facts in imported symbols and
+  symbol-authored member references. Admit writable interface parameters through target
+  capabilities; separately compiled inherited generic interface dispatch executes on
+  .NET and neoCLR, while incompatible implementations reject before output publication.
+
 - **2026-10-03:** Add `rvnc neoclr --bootstrap-intrinsics` to explicitly select the
   registered `--core-reference` for existing checked-storage reservation. Separate
   native helper/consumer execution preserves alias mutation and uninitialized-read

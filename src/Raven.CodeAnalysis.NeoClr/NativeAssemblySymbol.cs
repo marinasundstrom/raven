@@ -178,7 +178,14 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         TypeArguments = [.. TypeParameters];
         module.RegisterMethod(view.MetadataToken, this);
         returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : module.MapView(view.ReturnType));
-        parameters = new(() => [.. view.GetParameters().Select(p => (IParameterSymbol)new NativeParameterSymbol(p.Position, module.MapView(p.ParameterType), this))]);
+        parameters = new(() => [.. view.GetParameters().Select(p => (IParameterSymbol)new NativeParameterSymbol(p.Position, module.MapView(p.ParameterType), this,
+            p.PassingMode switch
+            {
+                NeoCLR.Metadata.Experimental.Introspection.ParameterPassingMode.Value => RefKind.None,
+                NeoCLR.Metadata.Experimental.Introspection.ParameterPassingMode.Ref => RefKind.Ref,
+                NeoCLR.Metadata.Experimental.Introspection.ParameterPassingMode.Out => RefKind.Out,
+                _ => throw new InvalidDataException("unsupported native parameter passing mode")
+            }))]);
     }
     private NativePropertySymbol? property;
     internal void Associate(NativePropertySymbol value)
@@ -223,12 +230,12 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
 
 internal sealed class NativeParameterSymbol : Symbol, IParameterSymbol
 {
-    internal NativeParameterSymbol(int ordinal, ITypeSymbol type, NativeMethodSymbol method)
-        : base(SymbolKind.Parameter, "$arg" + ordinal, method, null, method.ContainingNamespace, [], []) => Type = type;
+    internal NativeParameterSymbol(int ordinal, ITypeSymbol type, NativeMethodSymbol method, RefKind refKind)
+        : base(SymbolKind.Parameter, "$arg" + ordinal, method, null, method.ContainingNamespace, [], []) { Type = type; RefKind = refKind; }
     public ITypeSymbol Type { get; }
     public bool HasImplicitName => true;
     public bool IsVarParams => false;
-    public RefKind RefKind => RefKind.None;
+    public RefKind RefKind { get; }
     public bool IsMutable => false;
     public bool HasExplicitDefaultValue => false;
     public object? ExplicitDefaultValue => null;

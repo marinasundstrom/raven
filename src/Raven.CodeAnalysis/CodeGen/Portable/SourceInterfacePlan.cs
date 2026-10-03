@@ -72,12 +72,13 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
             var parameters = ImmutableArray.CreateBuilder<EmissionType>();
             foreach (var parameter in method.Parameters)
             {
-                if (parameter.RefKind != RefKind.None || parameter.HasExplicitDefaultValue || parameter.IsVarParams ||
+                if (parameter.RefKind != RefKind.None && (!capabilities.AllowsManagedReferences || parameter.RefKind is not (RefKind.Ref or RefKind.Out)) || parameter.HasExplicitDefaultValue || parameter.IsVarParams ||
                     !CallableSignature.TryType(parameter.Type, false, out var value, capabilities) || !capabilities.Allows(value)) return false;
-                parameters.Add(value);
+                parameters.Add(value with { IsByReference = parameter.RefKind != RefKind.None });
             }
             if (!capabilities.Allows(result)) return false;
-            methods.Add(new(method, new(result, parameters.ToImmutable(), IsInstance: true, DeclaringTypeArity: type.Arity)));
+            methods.Add(new(method, new(result, parameters.ToImmutable(), IsInstance: true, DeclaringTypeArity: type.Arity,
+                OutParameters: method.Parameters.Select((p, i) => (p, i)).Where(x => x.p.RefKind == RefKind.Out).Select(x => x.i).ToImmutableArray())));
             return true;
         }
         foreach (var member in type.GetMembers())
