@@ -30,7 +30,7 @@ internal sealed record SourceCallablePlan(
 
     internal bool IsAssemblyFunction => TypeOwner is null;
 
-    internal static bool TryCreate(IMethodSymbol symbol, out SourceCallablePlan? plan, EmissionCapabilities? capabilities = null)
+    internal static bool TryCreate(IMethodSymbol symbol, out SourceCallablePlan? plan, EmissionCapabilities? capabilities = null, SyntaxNode? synthesizedAnchor = null)
     {
         plan = null;
         if (symbol.IsExtern ||
@@ -49,6 +49,16 @@ internal sealed record SourceCallablePlan(
             symbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is TypeDeclarationSyntax ownerSyntax && ownerSyntax is ClassDeclarationSyntax or StructDeclarationSyntax)
         {
             plan = new(symbol, ownerSyntax, ownerSyntax, symbol.ContainingType, symbol.MetadataName, signature);
+            if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
+            plan = null; return false;
+        }
+        if (symbol is SourceMethodSymbol && symbol.DeclaringSyntaxReferences.IsEmpty &&
+            symbol.ContainingType is SourceUnionSymbol or SourceUnionCaseTypeSymbol &&
+            synthesizedAnchor is UnionDeclarationSyntax)
+        {
+            // The anchor supplies diagnostics and the semantic model. The body still
+            // comes from Compilation.TryGetSynthesizedMethodBody during lowering.
+            plan = new(symbol, synthesizedAnchor, synthesizedAnchor, symbol.ContainingType, symbol.MetadataName, signature);
             if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
             plan = null; return false;
         }

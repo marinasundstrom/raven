@@ -36,6 +36,10 @@ if (args.Length == 5 && args[0] is "--dual-driver" or "--dual-driver-inventory")
     await DualTargetDriverChecks.Run(args[1], args[2], args[3], args[4], args[0] == "--dual-driver-inventory"); return;
 }
 
+if (args.Length == 4 && args[0] == "--union-declaration-driver")
+{
+    await UnionDeclarationDriverChecks.Run(args[1], args[2], args[3]); return;
+}
 if (args.Length == 5 && args[0] == "--byte-discriminator-driver")
 {
     await SourceValueDriverChecks.Run(args[1], args[2], args[3], args[4], byteDiscriminator: true); return;

@@ -42,6 +42,36 @@ internal static class Int32Emitter
                     var plan = GetPlan(symbol);
                     plans.Add(plan);
                 }
+                else if (member is UnionDeclarationSyntax unionSyntax)
+                {
+                    var union = model.GetDeclaredSymbol(unionSyntax) as SourceUnionSymbol
+                        ?? throw Unsupported("union symbol unavailable");
+                    var declarations = SourceUnionDeclarationPlan.Create(union);
+                    foreach (var unionType in declarations.Types)
+                    {
+                        if (!SourceTypePlan.TryCreate(unionType.Symbol, out _, NeoClrCapabilities.Shared))
+                            throw Unsupported("union type contract: " + unionType.Symbol.ToDisplayString());
+                        foreach (var field in unionType.Fields)
+                        {
+                            if (field.IsStatic || field.IsConst || field.RefKind != RefKind.None ||
+                                !CallableSignature.TryType(field.Type, false, out _, NeoClrCapabilities.Shared))
+                                throw Unsupported("union field contract: " + field.ToDisplayString());
+                        }
+                        foreach (var property in unionType.Properties)
+                        {
+                            if (property is not SourcePropertySymbol)
+                                throw Unsupported("union property contract: " + property.ToDisplayString());
+                        }
+                        foreach (var method in unionType.Methods)
+                        {
+                            if (!SourceCallablePlan.TryCreate(method, out _, NeoClrCapabilities.Shared, unionSyntax))
+                                throw Unsupported("union callable contract: " + method.ToDisplayString());
+                        }
+                    }
+                    // Discovery is complete, but writing an ordinary struct would lose
+                    // the union/case contract needed by a separately compiled consumer.
+                    throw Unsupported("native union/case metadata contract");
+                }
                 else if (member is InterfaceDeclarationSyntax interfaceSyntax)
                 {
                     if (model.GetDeclaredSymbol(interfaceSyntax) is not INamedTypeSymbol interfaceSymbol ||

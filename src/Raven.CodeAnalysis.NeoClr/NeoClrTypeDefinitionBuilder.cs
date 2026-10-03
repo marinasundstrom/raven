@@ -14,7 +14,7 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
             Accessibility.Internal => TypeVisibility.Internal,
             _ => throw new InvalidOperationException("Unsupported type visibility")
         };
-        if (plan.Symbol.ContainingType is { } parent)
+        if (plan.MetadataOwner is { } parent)
         {
             var owner = resolveOwner(parent);
             return plan.IsValueType

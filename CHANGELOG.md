@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Discover complete source-union declaration graphs for portable
+  emission, preserve physical case ownership, and admit anchored synthesized body
+  lookup. Native preflight names remaining unsupported contracts and keeps publication
+  blocked until union semantics can round-trip. .NET generic/nongeneric union controls
+  execute; native ToString overrides and Option value-interface contracts remain gaps.
+
 - **2026-10-03:** Add explicit native Byte signature/import and numeric narrowing
   emission support through the metadata IL generator. Paired driver tests execute
   source byte fields and a separately compiled byte-returning library with its source

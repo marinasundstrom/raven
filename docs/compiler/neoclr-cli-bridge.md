@@ -4342,3 +4342,40 @@ driver/source-absent import execution (42), and eight focused Raven emission/ope
 regressions. Source union collection, synthesized union members and external value/case
 operands remain pending. The pre-existing API snapshot regeneration blocker remains
 recorded in neoCLR's api-docs/README.md; manual host API/XML documentation is updated.
+
+## Source union declaration graph (2026-10-03)
+
+The portable planning layer now discovers the complete bound union declaration graph:
+carrier, optional nongeneric companion, case types, fields, properties and generated
+methods. Accessor methods are deduplicated by symbol identity. Discovery includes unused
+members rather than depending on application calls. Metadata owners are recorded
+separately from semantic owners: generic union cases belong to the existing nongeneric
+companion, including constructed case signatures. The native type adapter consumes that
+physical owner without changing the language symbol's containing type.
+
+Generated union callables with no source body may use the union declaration as a
+syntax/model anchor. Their body still comes from Compilation.TryGetSynthesizedMethodBody;
+the target adapter does not synthesize alternative language semantics. Ordinary .NET
+Reflection/Emit remains unchanged and no Runtime Contract or bootstrap setting changes.
+
+Native emission now preflights these declarations and reports the unsupported type,
+field or callable contract. This is **discovery and admission groundwork**, not native
+union emission. A final explicit gate prevents treating the carrier as an ordinary struct
+and losing the union/case contract required by future native symbol imports. No metadata
+format, public metadata API or runtime change is included in this slice.
+
+`NeoClrMetadataProbe --union-declaration-driver <rvnc.dll> <core.dll> <fresh-dir>`
+executes generic and nongeneric source union construction/pattern extraction on .NET (42),
+then checks native NEOMETA001 rejection without publication. Both minimal native cases
+now reach the synthesized ToString override contract. Unchanged source Option<T> instead
+rejects its value-type interface relationship (Propagatable). This test labels native
+execution as pending; a rejection check does not satisfy the end-to-end gate.
+
+Next: value-type interface contracts/dispatch for Option, supported synthesized override
+and display contracts, and native union/case metadata round trips through introspection
+and Raven symbols. Do not omit unused generated members or turn off structural display
+implicitly to bypass these gaps. The existing explicit CLI primitive bootstrap remains.
+Seven focused declaration/backend tests cover scoped ownership, constructed cases,
+canonical accessor enumeration, synthesized body lookup and backend validation; paired
+ordinary-driver controls establish the current executable boundary. This is target
+integration groundwork, not a demonstrated independent .NET bug fix.
