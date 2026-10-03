@@ -4958,3 +4958,33 @@ custom array-query path terminates with signal 10 on this macOS host. CLR arrays
 implement the selected custom interfaces merely because semantic metadata says they do.
 Next is an explicit .NET array adapter conversion (or rejection before emission when
 unavailable); no full paired broad-application pass is claimed.
+
+
+### Established .NET method emission restored (2026-10-03)
+
+.NET MethodGenerator now always uses its established MethodBodyGenerator. Remove the
+release-only ReflectionEmitLinearMethodBuilder and automatic portable-path selection.
+The native LinearMethodBody planner, symbol operands, NeoCLR builder adapter and metadata
+library remain in use; remaining ReflectionEmit capability/declaration helpers support
+bounded comparison tests and are not automatic .NET body-emitter selection.
+
+This reduces competing .NET paths rather than replacing its backend. Shared lowering is
+unchanged in this slice, so this is not a complete return to the main implementation.
+No Runtime Contract option changes. Native and .NET library identities remain distinct.
+
+Validation: the same 94 tests pass before and after, with collection parallelism disabled:
+SharedEmissionParityTests, SharedGenericBodyTests, SharedArrayBodyTests,
+SharedInterfaceDispatchTests, PdbSequencePointTests (including matching macro PDB tests),
+AsyncGenericCaptureTests, TryExpressionCodeGenTests and FunctionExpressionCodeGenTests.
+These cover Debug/Release cases, calls, arrays, generic methods, callbacks, async capture,
+exceptions and debug information. The rebuilt net10.0 native-enabled compiler also compiles
+and runs unchanged application-order-collections with its separately built native library,
+exact output and exit 0. No performance improvement is claimed.
+
+The class-method loop-capture reproducer still distinguishes the two existing lines:
+main `46491585e` prints 0, integration before this removal prints 333, expected 123. A
+List<Func<int>> stores callbacks capturing each item in [1,2,3]; invoking them after the
+loop exposes the lifetime problem. Top-level-function form prints/returns 0 on both.
+This is independent of portable .NET emission (Debug also fails). It remains a general
+closure/loop-storage defect plus a shared-lowering behavioral difference; do not restore
+0 and call that a fix. Source/seed adapters do not address it.

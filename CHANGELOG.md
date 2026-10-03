@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Restore one established .NET method-body emission path by removing
+  automatic release-only portable emission and its unused adapter. Keep native planning
+  and NeoCLR metadata emission. All 94 selected checks pass before/after; the native
+  broad application still executes with its separately built library. Loop capture remains open.
+
 - **2026-10-03:** Correct the struct-constraint round-trip test to distinguish written
   source flags from imported CLI flags, which include the implied constructor constraint.
   No compiler or metadata behavior changes; focused constraint checks pass.

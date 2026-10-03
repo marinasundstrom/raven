@@ -799,11 +799,8 @@ internal class MethodGenerator
 
         try
         {
-            if (!Portable.ReflectionEmitLinearMethodBuilder.TryEmit(this))
-            {
-                var bodyGenerator = new MethodBodyGenerator(this);
-                bodyGenerator.Emit();
-            }
+            var bodyGenerator = new MethodBodyGenerator(this);
+            bodyGenerator.Emit();
         }
         finally
         {
