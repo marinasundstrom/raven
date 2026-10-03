@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Report native/primitive-bootstrap metadata identity collisions as
+  RAVT003 instead of throwing during catalog creation. C# coverage verifies both
+  reference orders and unchanged output bytes/position; seven native consumers pass.
+
 - **2026-10-03:** Construct native types and union transport symbols directly from
   canonical introspection views; remove unused raw-signature importer helpers.
   Source-union/broad-application execution and seven native consumers pass.

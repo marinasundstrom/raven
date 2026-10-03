@@ -1091,3 +1091,18 @@ are unchanged. No additional CLI projection or fallback is introduced.
 Validation: the source-union driver gate compiles and consumes the native library and
 runs unchanged application-order-collections with exact expected output (exit 0).
 All seven native consumers also pass (exit 42), including semantic and rejection checks.
+
+### Native catalog rejection (2026-10-03)
+
+Native metadata catalog construction participates in configuration diagnostic translation.
+A native snapshot that claims the explicit CLI primitive bootstrap's exact identity now
+produces RAVT003 (conflicting metadata snapshots), rather than an uncaught exception
+before semantic setup. The introspection context remains responsible for exact-identity
+validation; Raven converts its InvalidDataException/NotSupportedException into the
+existing native-reference diagnostics. No fallback or identity rewriting is introduced.
+
+The C# NativeCatalogChecks regression verifies both reference orders, GetDiagnostics,
+and failed native emission preserving pre-existing output bytes and stream position.
+The seven native execution consumers continue to pass (exit 42). Runtime Contract
+configuration, normal .NET loading/emission and native encoding are unchanged. This is
+native-adapter validation, not a general binder fix requiring a main-based port.

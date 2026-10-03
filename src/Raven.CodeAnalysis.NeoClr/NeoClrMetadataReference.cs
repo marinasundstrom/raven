@@ -56,9 +56,9 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         foreach (var dependency in Definition.MainModule.AssemblyReferences)
             if (Bootstrap?.Definition.Identity.Equals(dependency.Identity) != true && supplied.Count(r => r.Definition.Identity.Equals(dependency.Identity)) != 1)
                 return "missing or mismatched native dependency: " + dependency.Identity.Name;
-        var metadata = NativeMetadataContext.For(compilation);
         try
         {
+            var metadata = NativeMetadataContext.For(compilation);
             foreach (var reference in Definition.MainModule.TypeReferences) _ = metadata.Resolve(reference);
             _ = new NativeUnionContracts(Definition.MainModule.Types.Select(type => metadata.Resolve(type.ToReference())));
         }
