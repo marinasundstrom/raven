@@ -4745,3 +4745,22 @@ exit 42, and checks copies, output initialization and residuals. Missing-library
 seed ownership tests reject without output. This does not complete the executable .NET
 adapter, broader collections or application-order-collections gates. See the reproducible
 evidence in neoCLR docs/experiments/extended-cli-metadata/source-unions-2026-10-03.json.
+
+
+### ArrayList source assessment (2026-10-03)
+
+The next bounded bootstrap adds existing CLI callback declarations and the System.Fail
+namespace marker to primitive symbols. The executable seed extends the union seed with
+terminal failure; no collection implementation is replaced. Unchanged ArrayList and its
+internal iterator now compile alongside the source union/iteration library. Source-included
+execution passes alias mutation, copy independence, iteration and Find callback checks
+(exit 42), and negative capacity terminates with its expected error.
+
+The separate consumer still fails before publication: native declaration materialization
+rejects the callback function-signature category used by ArrayList.Find and related methods.
+This is the next reader/facade/importer task. The source-included run is a diagnostic control,
+not a completed native-reference gate or the dual-target application gate. The existing
+separate Option/Result consumer still passes. See the bootstrap README and
+`docs/experiments/extended-cli-metadata/arraylist-source-assessment-2026-10-03.json` in neoCLR.
+The CLI callback declarations are existing bridge transport; no new Function semantics or
+integration of the separate structural Function branches is claimed.

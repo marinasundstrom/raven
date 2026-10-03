@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Record the next NeoCLR integration assessment: the bounded collection
+  bootstrap enables unchanged ArrayList source execution, but separate native import still
+  rejects callback signatures. This is a diagnosed importer gap, not completion of the
+  ArrayList library-consumer gate; no compiler behavior changes in this documentation slice.
+
 - **2026-10-03:** Emit native imported value-type interface implementation calls and
   configured unit-valued parameters from symbol contracts. Unchanged source Option/Result
   and iteration contracts now compile as a native library and execute in a separate
