@@ -45,6 +45,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   preserving once-only evaluation and early residual returns without loading the unused
   success value. Backport the general fix independently of the NeoCLR emitter;
   all six focused .NET/lowering checks pass on main.
+- **2026-10-03:** Allow method overrides to strengthen a nullable reference return to
+  the same nonnullable reference type, including Object.ToString. Retain rejection of
+  weaker reference promises, unrelated types and nullable value-storage mismatches.
+  This revises the previous exact-nullability binding rule independently of NeoCLR.
+
 - **2026-10-03:** Honor the explicitly selected RuntimeUnitContract in overload argument
   validation, including generic union constructors. Unconfigured CLI void arguments remain
   rejected. The configured regression fails before the fix; focused unit-contract tests

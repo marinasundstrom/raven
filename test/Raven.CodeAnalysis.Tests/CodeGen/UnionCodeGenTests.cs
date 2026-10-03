@@ -1415,8 +1415,10 @@ union Message(string | int)
         Assert.Equal("Message(\"a\\\"b\")", value!.ToString());
     }
 
-    [Fact]
-    public void Union_ToStringOverride_UsesDeclaredImplementation()
+    [Theory]
+    [InlineData("string?")]
+    [InlineData("string")]
+    public void Union_ToStringOverride_UsesDeclaredImplementation(string returnType)
     {
         const string code = """
 union class Result {
@@ -1433,7 +1435,7 @@ class Runner {
 }
 """;
 
-        var syntaxTree = SyntaxTree.ParseText(code);
+        var syntaxTree = SyntaxTree.ParseText(code.Replace("override func ToString() -> string?", "override func ToString() -> " + returnType));
         var compilation = Compilation.Create(
             "union-tostring-override",
             [syntaxTree],

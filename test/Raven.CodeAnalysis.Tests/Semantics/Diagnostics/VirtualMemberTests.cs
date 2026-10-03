@@ -9,7 +9,7 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class VirtualMemberTests : CompilationTestBase
 {
     [Fact]
-    public void OverrideWithDifferentReturnNullability_ProducesDiagnostic()
+    public void OverrideWithStrongerReferenceReturnNullability_IsAccepted()
     {
         const string source = """
 record ItemId(Value: int) {
@@ -19,9 +19,27 @@ record ItemId(Value: int) {
 
         var tree = SyntaxTree.ParseText(source);
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
-        var diagnostic = Assert.Single(compilation.GetDiagnostics());
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var type = compilation.GetTypeByMetadataName("ItemId")!;
+        var method = Assert.IsType<SourceMethodSymbol>(Assert.Single(type.GetMembers("ToString").OfType<IMethodSymbol>().Where(m => !m.IsImplicitlyDeclared)));
+        Assert.NotNull(method.OverriddenMethod);
+        Assert.True(method.OverriddenMethod!.ReturnType.IsNullable);
+        Assert.False(method.ReturnType.IsNullable);
+    }
 
-        Assert.Equal(CompilerDiagnostics.OverrideMemberNotFound.Id, diagnostic.Descriptor.Id);
+    [Fact]
+    public void OverrideWithWeakerReferenceReturnNullability_IsRejected()
+    {
+        const string source = """
+open class Base {
+    virtual func Value() -> string => "base"
+}
+class Derived : Base {
+    override func Value() -> string? => null
+}
+""";
+        var compilation = CreateCompilation(SyntaxTree.ParseText(source), new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.OverrideMemberNotFound);
     }
 
     [Fact]
