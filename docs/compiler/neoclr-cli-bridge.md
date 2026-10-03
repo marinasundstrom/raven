@@ -4938,3 +4938,23 @@ instantiation. The CLR cannot use its void marker as a stored/generic value. Exp
 source-unit to CLR unit-value projection is the next requirement; array backing adaptation
 also needs executable proof. No source rewriting or CLI-projection fallback is counted as
 success. The driver harness records failing stages as failures.
+
+### Explicit .NET unit storage closes imported union loading (2026-10-03)
+
+Bootstrap ownership manifests may now carry an optional Unit contract. The .NET manifest
+selects NeoCLR.DotNetServices/System.Runtime.CompilerServices.UnitValue and sets
+MapClrVoidToUnit=true. Source System.Void binds to the language unit in declarations and
+type expressions, while ordinary imported no-result returns keep CLR void. The target
+value assembly is independent of the core; its exact artifact identity supplies emission
+scope. Unconfigured and native unit profiles remain unchanged. Library sources are not
+rewritten, and there is no metadata projection fallback during native import.
+
+The shared API/binding/projection change is isolated on the main-based fix branch as
+eb5df24b1. All 22 focused unit-contract tests pass there and on the integration line.
+The native broad application still passes. Separate .NET union, ArrayList, HashMap and
+query consumers now execute with their expected output and exit 42. The full .NET
+application compiles and prints the expected prefix through PrintPending (303), then the
+custom array-query path terminates with signal 10 on this macOS host. CLR arrays do not
+implement the selected custom interfaces merely because semantic metadata says they do.
+Next is an explicit .NET array adapter conversion (or rejection before emission when
+unavailable); no full paired broad-application pass is claimed.

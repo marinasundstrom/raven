@@ -33,9 +33,11 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
         if (Options.RuntimeUnitContract is { } unit &&
             (string.IsNullOrWhiteSpace(unit.AssemblyName) ||
              string.IsNullOrWhiteSpace(unit.TypeName) ||
-             Options.TargetCoreAssemblyName != unit.AssemblyName))
+             (!unit.MapClrVoidToUnit && Options.TargetCoreAssemblyName != unit.AssemblyName) ||
+             (unit.MapClrVoidToUnit && (Options.TargetPlatform != TargetPlatform.DotNet ||
+                 Options.TargetCoreAssemblyName is { } selectedCore && selectedCore != unit.AssemblyName))))
         {
-            return "the unit contract requires its explicitly configured target core assembly and type";
+            return "the unit contract requires an explicit target core, or the .NET void-to-unit bootstrap policy";
         }
 
         if (Options.RuntimeTypeOfContract is { } typeOf &&
@@ -65,9 +67,9 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
         if (Options.RuntimeUnitContract is { } unit)
         {
             var type = compilation.GetTypeByMetadataName(unit.TypeName, unit.AssemblyName);
-            if (type is null || !type.IsValueType || type.Arity != 0 || type.ContainingType is not null || type.ContainingAssembly?.Name != unit.AssemblyName
+            if (type is null || unit.MapClrVoidToUnit && (type.SpecialType == SpecialType.System_Void || type.DeclaredAccessibility != Accessibility.Public) || !type.IsValueType || type.Arity != 0 || type.ContainingType is not null || type.ContainingAssembly?.Name != unit.AssemblyName
                 || type.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic))
-                return "the unit contract must name an empty value type in the target core";
+                return "the unit contract must name a public empty non-void value type in its configured assembly";
         }
 
         if (Options.TargetCoreAssemblyName is { } name && Options.UsesDiscoveredTargetCore && metadataCoreName != name)

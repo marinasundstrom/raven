@@ -158,6 +158,10 @@ internal abstract partial class Binder
             _ => Fail(syntax, TypeResolutionFailureKind.UnsupportedTypeSyntax)
         };
 
+        if (result.Success && result.ResolvedType.SpecialType == SpecialType.System_Void &&
+            Compilation.Options.RuntimeUnitContract is { MapClrVoidToUnit: true })
+            result = result with { ResolvedType = Compilation.GetSpecialType(SpecialType.System_Unit) };
+
         if (!Compilation.Options.AllowNullableValueTypes && result.Success &&
             IsNullableValueType(result.ResolvedType))
             return Fail(syntax, TypeResolutionFailureKind.NullableValueTypesNotAllowed);

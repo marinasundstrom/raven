@@ -7,7 +7,7 @@ namespace Raven;
 
 // Host configuration only: it selects semantic contracts and checks ownership, not metadata representation.
 internal sealed record BootstrapSourceLibrary(string AssemblyName, string[] Sources, string[] Types);
-internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLibrary[] Libraries, RuntimeIterationContract Iteration, RuntimeTypeOfContract? TypeOf = null, RuntimePropagationContract? Propagation = null)
+internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLibrary[] Libraries, RuntimeIterationContract Iteration, RuntimeTypeOfContract? TypeOf = null, RuntimePropagationContract? Propagation = null, RuntimeUnitContract? Unit = null)
 {
     internal static BootstrapOwnershipManifest Read(string path)
     {
@@ -44,9 +44,12 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
         return manifest;
     }
 
-    internal CompilationOptions Apply(CompilationOptions options) => options.WithRuntimeIterationContract(Iteration)
-        .WithRuntimeTypeOfContract(TypeOf)
-        .WithRuntimePropagationContract(Propagation);
+    internal CompilationOptions Apply(CompilationOptions options)
+    {
+        var configured = options.WithRuntimeIterationContract(Iteration)
+            .WithRuntimeTypeOfContract(TypeOf).WithRuntimePropagationContract(Propagation);
+        return Unit is null ? configured : configured.WithRuntimeUnitContract(Unit);
+    }
 
     internal void Validate(Compilation compilation)
     {

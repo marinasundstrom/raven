@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Add explicit .NET source-void-to-unit mapping to RuntimeUnitContract.
+  An ordinary service assembly can own the unit value; declaration/type-expression
+  binding and emitted interface/MethodImpl scopes agree. CLR no-result returns and
+  unconfigured/native unit behavior remain unchanged. Binary API consumers must rebuild.
+
 - **2026-10-03:** Allow method overrides to strengthen a nullable reference return to
   the same nonnullable reference type, including Object.ToString. Retain rejection of
   weaker reference promises, unrelated types and nullable value-storage mismatches.
