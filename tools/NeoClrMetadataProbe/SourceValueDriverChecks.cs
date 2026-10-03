@@ -7,7 +7,7 @@ namespace NeoClrMetadataProbe;
 // Declaration/receiver prerequisite for source unions, not a source-union completion gate.
 internal static class SourceValueDriverChecks
 {
-    internal static async Task Run(string driver, string runtime, string core, string output, bool nested = false, bool byteDiscriminator = false)
+    internal static async Task Run(string driver, string runtime, string core, string output, bool nested = false, bool byteDiscriminator = false, bool valueInterface = false)
     {
         driver = Path.GetFullPath(driver); runtime = Path.GetFullPath(runtime); core = Path.GetFullPath(core);
         output = Path.GetFullPath(output);
@@ -112,6 +112,21 @@ internal static class SourceValueDriverChecks
                 return wrapped
             }
             """;
+        if (valueInterface) source = """
+            public interface Counter { func Next() -> int }
+            public struct ValueCounter : Counter {
+                private var count: int
+                init(value: int) { count = value }
+                func Next() -> int { count = count + 1; return count }
+            }
+            func Main() -> int {
+                var original = ValueCounter(40)
+                var copy = original
+                if original.Next() != 41 { return 1 }
+                if copy.Next() != 41 { return 2 }
+                return original.Next()
+            }
+            """;
         var commands = new List<object>();
         var results = new List<object>();
         foreach (var native in new[] { false, true })
@@ -169,10 +184,10 @@ internal static class SourceValueDriverChecks
         }
         var rejectedSource = Path.Combine(output, "Rejected.rvn");
         var rejectedOutput = Path.Combine(output, "Rejected.dll");
-        File.WriteAllText(rejectedSource, "public interface Value { func Read() -> int }\npublic struct Box : Value { func Read() -> int => 42 }\nfunc Main() -> int => 0");
+        File.WriteAllText(rejectedSource, "public interface Value { func Read() -> int }\npublic struct Box : Value { func Read() -> int => 42 }\nfunc Main() -> int { let value: Value = Box(); return value.Read() }");
         var rejection = await Command("dotnet", [driver, "neoclr", "--core-reference", core, "-o", rejectedOutput, rejectedSource], 1);
         if (!rejection.Error.Contains("NEOMETA001")) throw new Exception("missing capability diagnostic");
-        if (File.Exists(rejectedOutput)) throw new Exception("unsupported value interface published output");
+        if (File.Exists(rejectedOutput)) throw new Exception("unsupported value boxing published output");
         if (nested)
         {
             File.WriteAllText(rejectedSource, "public class Outer<T> { struct Case { } }\nfunc Main() -> int => 0");
@@ -182,7 +197,7 @@ internal static class SourceValueDriverChecks
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
             passed = true,
-            scope = byteDiscriminator ? "Ordinary-driver Byte signatures, fields, literals and numeric conversions execute on both targets. Source unions remain pending." : "Ordinary-driver source value declarations, inline payloads, constructors, accessors, mutation and self copies. Not separate library import or source union emission.",
+            scope = valueInterface ? "Ordinary-driver value-type interface declarations and concrete addressed calls, not boxed interface conversion." : byteDiscriminator ? "Ordinary-driver Byte signatures, fields, literals and numeric conversions execute on both targets. Source unions remain pending." : "Ordinary-driver source value declarations, inline payloads, constructors, accessors, mutation and self copies. Not separate library import or source union emission.",
             driverSha256 = Hash(driver),
             runtimeSha256 = Hash(runtime),
             coreSha256 = Hash(core),

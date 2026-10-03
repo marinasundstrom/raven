@@ -4379,3 +4379,37 @@ Seven focused declaration/backend tests cover scoped ownership, constructed case
 canonical accessor enumeration, synthesized body lookup and backend validation; paired
 ordinary-driver controls establish the current executable boundary. This is target
 integration groundwork, not a demonstrated independent .NET bug fix.
+
+## Value-interface declarations and constrained metadata calls (2026-10-03)
+
+Raven's native adapter now opts into the compiler-owned ValueInterfaceImplementation
+category. Ordinary source value types can declare the supported owned/external interface
+relationships; concrete calls retain addressed value receivers. The .NET portable adapter
+does not opt into this category and ordinary Reflection/Emit behavior remains the default.
+No importer objects are used to author relationships, and Runtime Contracts/bootstrap
+selection are unchanged. The old negative value-interface fixture is now a negative
+boxed-conversion case, since a struct implementing an interface is no longer unsupported.
+
+Separately, the metadata library's IILGenerator now exposes CallConstrained(receiverType,
+target) and Emit(Callvirt, receiverType, target). This bounded profile admits owned
+nongeneric value receivers and owned nongeneric interface targets. It emits CLI
+constrained./callvirt and native borrowed callself, preserving exact addressed storage
+without boxing. Definition and builder interface authoring share validation; native
+snapshots/introspection retain value relationships and generic owner arguments. The
+existing runtime executes the emitted assembly; no runtime or schema change is required.
+Raven's general constrained-call lowering, external/constructed constrained targets,
+open receiver parameters and boxed interface conversions remain future work.
+
+Validation: 117 metadata C# groups; CLI/native constrained dispatch returns 42 while
+checking mutation and independent copies; wrong addresses, unsupported operands,
+unboxed virtual receivers and incomplete implementations reject. The ordinary
+`--value-interface-driver` paired case compiles and executes source interface/struct
+relationships with concrete calls on both targets (42), and rejects boxed conversion
+before publication. Eleven focused Raven declaration/backend/local-emission tests pass.
+The explicit primitive bootstrap is unchanged; no independently reproduced .NET binder
+regression is claimed. API manual/XML coverage is current, while the previously documented
+RavenDoc snapshot regeneration blocker remains.
+
+Unchanged source Option now passes the value-interface declaration boundary and reaches
+its synthesized ToString override. Next address generated override/display contracts and
+native union/case metadata preservation; this slice does not complete source union emission.

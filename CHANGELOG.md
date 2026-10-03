@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Opt native emission into value-type interface declarations, preserving
+  concrete addressed calls. Paired source fixtures execute on both targets; boxed
+  conversion remains unsupported and rejects before publication. Option now reaches
+  synthesized ToString admission. The separate metadata IL generator provides bounded
+  constrained dispatch; general compiler constrained-call lowering remains pending.
+
 - **2026-10-03:** Discover complete source-union declaration graphs for portable
   emission, preserve physical case ownership, and admit anchored synthesized body
   lookup. Native preflight names remaining unsupported contracts and keeps publication

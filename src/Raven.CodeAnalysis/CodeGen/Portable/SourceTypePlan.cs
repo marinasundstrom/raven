@@ -29,7 +29,7 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
                 (p.ConstraintKind & (TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor)) != 0 && capabilities is not null && !capabilities.AllowsSpecialTypeConstraints ||
                 !p.ConstraintTypes.IsEmpty && (capabilities is not null && !capabilities.AllowsNominalTypeBounds || p.ConstraintTypes.Length != 1 ||
                     p.ConstraintTypes[0] is not INamedTypeSymbol { Arity: 0, IsStatic: false } bound || !TryCreate(bound, out _))))) return false;
-        if (isValue && (capabilities?.Allows(EmissionDeclarationKind.ValueType) != true || !type.Interfaces.IsEmpty ||
+        if (isValue && (capabilities?.Allows(EmissionDeclarationKind.ValueType) != true || !type.Interfaces.IsEmpty && capabilities?.Allows(EmissionDeclarationKind.ValueInterfaceImplementation) != true ||
             type.OriginalDefinition is SourceNamedTypeSymbol { IsRefLikeType: true } ||
             ((INamedTypeSymbol)type.OriginalDefinition).TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None))) return false;
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct) || type.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal) ||
