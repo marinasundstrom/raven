@@ -7,13 +7,13 @@ namespace NeoClrMetadataProbe;
 // Declaration/receiver prerequisite for source unions, not a source-union completion gate.
 internal static class SourceValueDriverChecks
 {
-    internal static async Task Run(string driver, string runtime, string core, string output)
+    internal static async Task Run(string driver, string runtime, string core, string output, bool nested = false)
     {
         driver = Path.GetFullPath(driver); runtime = Path.GetFullPath(runtime); core = Path.GetFullPath(core);
         output = Path.GetFullPath(output);
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
-        const string source = """
+        var source = """
             public struct Payload<T> {
                 private var stored: T
                 init(value: T) { stored = value }
@@ -54,6 +54,45 @@ internal static class SourceValueDriverChecks
                 return first.Value + second.Value
             }
             """;
+        if (nested) source = """
+            public static class First {
+                struct Payload<T> {
+                    private var stored: T
+                    init(value: T) { stored = value }
+                    val Value: T => stored
+                    func Set(value: T) { stored = value }
+                    func Copy() -> First.Payload<T> { return self }
+                }
+            }
+            public static class Second {
+                internal struct Payload {
+                    private var stored: int
+                    init(value: int) { stored = value }
+                    val Value: int => stored
+                }
+                class Reference {
+                    private var stored: int
+                    init(value: int) { stored = value }
+                    val Value: int => stored
+                }
+                struct Empty {
+                    private var number: int
+                    val Number: int => number
+                }
+            }
+            func Main() -> int {
+                var original = First.Payload<int>(40)
+                let copy = original.Copy()
+                original.Set(9)
+                let other = Second.Payload(2)
+                let empty = Second.Empty()
+                let reference = Second.Reference(42)
+                if empty.Number != 0 { return 1 }
+                if reference.Value != 42 { return 2 }
+                if original.Value != 9 { return 3 }
+                return copy.Value + other.Value
+            }
+            """;
         var commands = new List<object>();
         var results = new List<object>();
         foreach (var native in new[] { false, true })
@@ -64,7 +103,19 @@ internal static class SourceValueDriverChecks
             File.WriteAllText(path, source);
             string[] flags = native ? ["neoclr", "--core-reference", core] : ["--framework", "net10.0", "--emit-core-types-only"];
             await Command("dotnet", [driver, .. flags, "-o", assembly, path], 0);
-            if (native) await Command(runtime, ["verify", assembly], 0);
+            if (native)
+            {
+                await Command(runtime, ["verify", assembly], 0);
+                if (nested)
+                {
+                    var snapshot = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition.ReadNativeAssembly(File.ReadAllBytes(assembly));
+                    var cases = snapshot.MainModule.Types.Where(t => t.Name is "Payload`1" or "Payload").ToArray();
+                    if (cases.Length != 2 || cases.Any(t => t.DeclaringType is null) ||
+                        cases.Single(t => t.Name == "Payload`1").DeclaringType!.Name != "First" ||
+                        cases.Single(t => t.Name == "Payload").DeclaringType!.Name != "Second")
+                        throw new Exception("emitted cases lost lexical ownership");
+                }
+            }
             var execution = native ? await Command(runtime, ["run", assembly], 42)
                 : await Command("dotnet", ["exec", "--runtimeconfig", Path.ChangeExtension(driver, ".runtimeconfig.json"), assembly], 42);
             if (execution.Output != "" || execution.Error != "") throw new Exception("unexpected program output");
@@ -76,6 +127,12 @@ internal static class SourceValueDriverChecks
         var rejection = await Command("dotnet", [driver, "neoclr", "--core-reference", core, "-o", rejectedOutput, rejectedSource], 1);
         if (!rejection.Error.Contains("NEOMETA001")) throw new Exception("missing capability diagnostic");
         if (File.Exists(rejectedOutput)) throw new Exception("unsupported value interface published output");
+        if (nested)
+        {
+            File.WriteAllText(rejectedSource, "public class Outer<T> { struct Case { } }\nfunc Main() -> int => 0");
+            var genericOwner = await Command("dotnet", [driver, "neoclr", "--core-reference", core, "-o", rejectedOutput, rejectedSource], 1);
+            if (!genericOwner.Error.Contains("NEOMETA001") || File.Exists(rejectedOutput)) throw new Exception("generic enclosing owner was not rejected before publication");
+        }
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
             passed = true,

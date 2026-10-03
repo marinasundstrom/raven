@@ -86,4 +86,24 @@ public class NominalLocalEmissionTests
         Assert.True(emitted.Success, string.Join("; ", emitted.Diagnostics));
         Assert.Equal(42, Assembly.Load(output.ToArray()).EntryPoint!.Invoke(null, null));
     }
+
+    [Fact]
+    public void SourceNestedValuesRequireExplicitOwnershipCapability()
+    {
+        var tree = SyntaxTree.ParseText("public static class Cases { public struct Payload<T> { } }");
+        var compilation = Compilation.Create("NestedValues", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>().Single();
+        var symbol = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
+        EmissionCapabilities Profile(bool nesting) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>().Where(k => nesting || k != EmissionDeclarationKind.NestedType),
+            [Accessibility.Public, Accessibility.Internal], allowsGenericClassOwners: true);
+        Assert.False(SourceTypePlan.TryCreate(symbol, out _, Profile(false)));
+        Assert.False(SourceTypePlan.TryCreate(symbol, out _, ReflectionEmitCapabilities.Shared));
+        Assert.True(SourceTypePlan.TryCreate(symbol, out var plan, Profile(true)));
+        Assert.Equal("Payload`1", plan!.Name);
+        Assert.Equal("", plan.Namespace);
+        Assert.Equal("Cases", plan.Symbol.ContainingType!.Name);
+    }
 }

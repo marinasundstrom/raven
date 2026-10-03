@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Emit supported nested source classes and structs with an explicit
+  ownership capability and existing metadata nested builders. Resolve substituted
+  nongeneric accessors back to their source declarations. Paired driver tests check
+  scoped payload identity, construction and copies; generic enclosing owners reject
+  before publication. Generated union collection and byte discriminators remain pending.
+
 - **2026-10-03:** Import native nested class/value declarations under their actual
   enclosing symbols, preserving same-named case and field identities. Namespace and
   simple-name lookup no longer receive flattened nested declarations. Native nested

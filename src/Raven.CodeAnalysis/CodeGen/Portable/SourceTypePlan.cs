@@ -30,7 +30,8 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
             type.OriginalDefinition is SourceNamedTypeSymbol { IsRefLikeType: true } ||
             ((INamedTypeSymbol)type.OriginalDefinition).TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None))) return false;
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct) || type.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal) ||
-            type.ContainingType is not null ||
+            type.ContainingType is { } parent && (capabilities?.Allows(EmissionDeclarationKind.NestedType) != true ||
+                parent.Arity != 0 || type.IsStatic || !isValue && type.Arity != 0 || !TryCreate(parent, out _, capabilities)) ||
             !type.IsStatic && (type.IsAbstract || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false, IsSealedHierarchy: false } || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object)))
             return false;
         // Check relationship identity here. Arguments are mapped by the adapter; recursively
@@ -38,6 +39,11 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         if (!type.Interfaces.IsEmpty && (type.Arity != 0 && capabilities is not null && !capabilities.AllowsConstructedInterfaceImplementations || capabilities is not null && !capabilities.Allows(EmissionDeclarationKind.InterfaceImplementation) ||
             type.Interfaces.Any(i => !SourceInterfacePlan.HasSupportedRelationship(i, type.ContainingAssembly, capabilities) ||
                 i.Arity != 0 && capabilities is not null && !capabilities.AllowsConstructedInterfaceImplementations))) return false;
+        if (type.ContainingType is not null)
+        {
+            plan = new(type, "", type.MetadataName);
+            return true;
+        }
         var fullName = type.ToFullyQualifiedMetadataName();
         // MetadataName may already be qualified on synthesized owners. Split the
         // normalized full name instead of subtracting a potentially qualified name.

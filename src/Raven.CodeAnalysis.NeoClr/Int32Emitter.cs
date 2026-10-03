@@ -64,6 +64,7 @@ internal static class Int32Emitter
                     foreach (var typeMember in type.Members)
                     {
                         diagnosticSyntax = typeMember;
+                        if (typeMember is ClassDeclarationSyntax or StructDeclarationSyntax) continue;
                         if (!typeSymbol.IsStatic && typeMember is FieldDeclarationSyntax fieldSyntax)
                         {
                             if (fieldSyntax.AttributeLists.Count != 0 ||
@@ -173,8 +174,8 @@ internal static class Int32Emitter
             if (binding.NativeImplementation is { } implementation)
                 assembly.BindNativeLibrary(binding.Definition, implementation, binding.CoreLibrary);
         var owners = new Dictionary<INamedTypeSymbol, NeoClrCallableDefinitionBuilder>(SymbolEqualityComparer.Default);
-        var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly);
         var nativeTypes = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
+        var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly, type => nativeTypes[type]);
         var importedTypes = new Dictionary<INamedTypeSymbol, ImportedTypeReference>(SymbolEqualityComparer.Default);
         SignatureType ImportExternalType(INamedTypeSymbol type)
         {
@@ -346,6 +347,10 @@ internal static class Int32Emitter
                     NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray();
                 return NeoClrCallableReference.Create(Import(target.OriginalDefinition ?? target).MakeGenericInstance(arguments));
             }
+            // Nested member lookup may expose a substituted method even under a
+            // nongeneric owner. Reuse its declaration identity before resolving imports.
+            if (definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var declared))
+                return NeoClrCallableReference.Create(declared);
             var systemFunction = ImportSystem(target);
             return systemFunction is not null
                 ? NeoClrCallableReference.Create(systemFunction)
@@ -433,7 +438,13 @@ internal static class Int32Emitter
                 {
                     foreach (var child in Flatten(ns.Members)) yield return child;
                 }
-                else yield return member;
+                else
+                {
+                    yield return member;
+                    if (member is TypeDeclarationSyntax type && type is ClassDeclarationSyntax or StructDeclarationSyntax)
+                        foreach (var nested in Flatten(type.Members.Where(m => m is ClassDeclarationSyntax or StructDeclarationSyntax)))
+                            yield return nested;
+                }
             }
         }
 
@@ -471,7 +482,7 @@ internal static class Int32Emitter
         ImportedMethodReference Import(IMethodSymbol symbol)
         {
             var binding = dependencies.SingleOrDefault(d => SymbolEqualityComparer.Default.Equals(d.Symbol, symbol.ContainingAssembly)).Dependency
-                ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name);
+                ?? throw Unsupported("unregistered dependency: " + symbol.ContainingAssembly?.Name + " for " + symbol.ContainingType?.ToDisplayString() + "." + symbol.ToDisplayString());
             // This bounded profile uses only compiler symbols and host artifact values.
             // Nominal identities use the same symbol-only root-class authoring path.
             if (symbol.IsStatic && symbol.ContainingType is null &&

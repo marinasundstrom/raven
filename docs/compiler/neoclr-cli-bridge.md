@@ -4282,3 +4282,33 @@ This is a reader/importer prerequisite for union cases, not source union complet
 Nested types that capture generic enclosing parameters remain unsupported. Source union
 declaration collection, nested definition emission, Byte discriminators and complete
 synthesized union contracts remain pending. Existing immutable snapshot behavior is unchanged.
+
+## Nested source declaration emission (2026-10-03)
+
+The NeoCLR adapter now opts into the compiler-owned `NestedType` declaration capability.
+It collects nested class/struct declarations in owner-first order and calls the metadata
+library's existing nested builders with empty child namespaces and lexical ownership.
+Supported children are nongeneric root classes and unconstrained generic/nongeneric
+values under nongeneric supported owners. Static children, generic enclosing-type
+capture and generic nested reference classes remain explicit unsupported categories.
+The ordinary .NET Reflection/Emit backend does not opt into the new portable category.
+
+Nested lookup may provide a substituted accessor under a nongeneric owner. The native
+callable resolver now reuses its original source declaration before considering external
+references. This uses compiler symbols only, with no name-based member matching or
+importer access. It is part of the new native emission capability; no independently
+reproduced .NET regression or binder fix is claimed.
+
+`NeoClrMetadataProbe --nested-value-driver <rvnc.dll> <neoclr> <core.dll> <fresh-dir>`
+compiles equivalent sources through ordinary commands on both targets and executes 42
+with empty output. It checks two same-named payloads with different owners, a generic
+nested value, nested class construction, zero default storage and independent value
+copies. It reads the emitted native snapshot to verify enclosing identities and rejects
+generic enclosing owners and value-interface implementations without publishing output.
+The explicit CoreProbe bootstrap is unchanged; no metadata schema or runtime change is
+required. Existing library IILGenerator remains behind Raven's emitter boundary.
+
+Generated union declaration collection, Byte discriminators, full synthesized union
+contracts and symbol-authored external value/case operands remain pending. This test
+contains ordinary nested declarations; it does not claim that unchanged Option or the
+broad class-library consumer compiles yet.
