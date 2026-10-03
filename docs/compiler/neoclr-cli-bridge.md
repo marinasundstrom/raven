@@ -4146,3 +4146,26 @@ type substitution/callself emission remain required. Do not treat metadata loadi
 contract-only fixture as Raven Self dispatch support. The library test fixture loads and
 verifies in NeoCLR, with an independent entry point returning 42; 111 C# metadata groups
 pass. The separate expanded API snapshot still has its recorded source-union refresh blocker.
+
+### Ordinary-driver checked-storage bootstrap (2026-10-03)
+
+`rvnc neoclr --bootstrap-intrinsics --core-reference <core>` now explicitly selects the
+registered core reference as `NeoClrEmitOptions.BootstrapReference`. Missing core and
+repeated flags reject before emission; omitting the flag keeps bootstrap intrinsics disabled.
+The existing semantic signature checks restrict this to checked-storage reservation.
+This does not change ordinary .NET codegen, metadata import or other Runtime Contracts.
+The matching neoCLR bridge offers `--reference-storage-core` with only primitive/compiler
+contracts and CheckedStorage, avoiding duplicate source collection/union owners.
+
+The native adapter emits array.reserve; CLR newarr instead provides initialized default
+values. The metadata-only bootstrap method body must never execute on either target.
+A real .NET runtime-service adapter remains necessary for the unchanged ArrayList sources.
+No runtime or metadata format change is introduced here.
+
+neoCLR's `scripts/check-source-storage.py` runs the paired source-iteration regressions,
+then ordinary driver commands compile a generic helper library, delete its source and
+compile independent native consumers. Alias mutation returns 42 and an unread slot faults.
+Negative bootstrap cases leave no output. This closes a host-configuration gap; it does
+not claim ArrayList or broad application completion. The unchanged Option/Propagatable
+subset compiles on .NET; native interface out-parameter admission is next, with Fail and
+callback bootstrap gaps separately visible in the ArrayList inventory.

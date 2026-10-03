@@ -19,6 +19,7 @@ internal static class NeoClrCommand
         if (args.Length == 1 && args[0] is "--help" or "-h")
         {
             Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--core-reference NeoCLR.CoreProbe.dll] [--reference library.dll] source.rvn ...");
+            Console.WriteLine("Optional --bootstrap-intrinsics authorizes checked storage from the explicitly selected --core-reference.");
             Console.WriteLine("Optional --bootstrap-ownership manifest.json selects source-library ownership and iteration contracts.");
             Console.WriteLine("Experimental PE/#Neo output. References are imported directly from supported native metadata.");
             Console.WriteLine("Legacy bridge: --system-symbols System.neox --system-method System.Math.Min/2 (repeat explicit selections).");
@@ -34,6 +35,7 @@ internal static class NeoClrCommand
             var referencePaths = new List<string>();
             string? output = null;
             var library = false;
+            var bootstrapIntrinsics = false;
             string? systemPath = null;
             string? corePath = null;
             BootstrapOwnershipManifest? ownership = null;
@@ -49,6 +51,10 @@ internal static class NeoClrCommand
                     case "--bootstrap-ownership":
                         if (ownership is not null || ++i == args.Length) throw new ArgumentException("Specify --bootstrap-ownership once with a manifest path.");
                         ownership = BootstrapOwnershipManifest.Read(args[i]);
+                        break;
+                    case "--bootstrap-intrinsics":
+                        if (bootstrapIntrinsics) throw new ArgumentException("Specify --bootstrap-intrinsics once.");
+                        bootstrapIntrinsics = true;
                         break;
                     case "--core-reference":
                         if (corePath is not null || ++i == args.Length) throw new ArgumentException("Specify --core-reference once with a CLI primitive core path.");
@@ -84,6 +90,8 @@ internal static class NeoClrCommand
             if (sources.Distinct(StringComparer.OrdinalIgnoreCase).Count() != sources.Count ||
                 referencePaths.Distinct(StringComparer.OrdinalIgnoreCase).Count() != referencePaths.Count)
                 throw new ArgumentException("Duplicate input path.");
+            if (bootstrapIntrinsics && corePath is null)
+                throw new ArgumentException("--bootstrap-intrinsics requires an explicit --core-reference.");
             if (referencePaths.Count > 0 && corePath is null)
                 throw new ArgumentException("Direct native references require --core-reference NeoCLR.CoreProbe.dll.");
             if (corePath is not null && string.Equals(corePath, output, StringComparison.OrdinalIgnoreCase))
@@ -96,12 +104,14 @@ internal static class NeoClrCommand
                 MetadataReference.CreateFromFile(typeof(object).Assembly.Location), console,
                 MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("System.Runtime").Location)
             };
+            MetadataReference? bootstrapReference = null;
             if (corePath is not null)
             {
                 var primitiveCore = MetadataReference.CreateFromFile(corePath);
                 references.Clear();
                 references.Add(primitiveCore);
                 console = primitiveCore;
+                if (bootstrapIntrinsics) bootstrapReference = primitiveCore;
             }
             var dependencies = new List<NeoClrMetadataDependency>();
             foreach (var path in referencePaths)
@@ -150,7 +160,7 @@ internal static class NeoClrCommand
             ownership?.Validate(compilation);
             using var image = new MemoryStream();
             var backend = new NeoClrEmissionBackend(
-                new(new(name, new Version(1, 0, 0, 0)), core, dependencies, systemSymbols is null ? console : null, systemSymbols));
+                new(new(name, new Version(1, 0, 0, 0)), core, dependencies, systemSymbols is null ? console : null, systemSymbols, bootstrapReference));
             var result = compilation.Emit(image, null, new EmitOptions().WithBackend(backend));
             foreach (var diagnostic in result.Diagnostics) Console.Error.WriteLine(diagnostic);
             if (!result.Success) return 1;
