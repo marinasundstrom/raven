@@ -37,6 +37,7 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
     {
         EmissionPrimitiveType.String => PrimitiveType.String,
         EmissionPrimitiveType.Int32 => PrimitiveType.Int32,
+        EmissionPrimitiveType.Byte => PrimitiveType.Byte,
         EmissionPrimitiveType.Int64 => PrimitiveType.Int64,
         EmissionPrimitiveType.Boolean => PrimitiveType.Boolean,
         EmissionPrimitiveType.NoResult => PrimitiveType.Void,

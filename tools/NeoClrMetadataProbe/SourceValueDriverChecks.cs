@@ -7,7 +7,7 @@ namespace NeoClrMetadataProbe;
 // Declaration/receiver prerequisite for source unions, not a source-union completion gate.
 internal static class SourceValueDriverChecks
 {
-    internal static async Task Run(string driver, string runtime, string core, string output, bool nested = false)
+    internal static async Task Run(string driver, string runtime, string core, string output, bool nested = false, bool byteDiscriminator = false)
     {
         driver = Path.GetFullPath(driver); runtime = Path.GetFullPath(runtime); core = Path.GetFullPath(core);
         output = Path.GetFullPath(output);
@@ -93,6 +93,25 @@ internal static class SourceValueDriverChecks
                 return copy.Value + other.Value
             }
             """;
+        if (byteDiscriminator) source = """
+            public struct Tagged {
+                private var tag: byte
+                init(value: byte) { tag = value }
+                val Tag: byte => tag
+            }
+            func Echo(value: byte) -> byte => value
+            func Narrow(value: int) -> byte => (byte)value
+            func NarrowLong(value: long) -> byte => (byte)value
+            func Main() -> int {
+                let value = Tagged(255b)
+                if value.Tag != 255 { return 1 }
+                if Narrow(-1) != 255 { return 2 }
+                if Narrow(256) != 0 { return 3 }
+                if NarrowLong(-1L) != 255 { return 4 }
+                let wrapped = Echo(Narrow(298))
+                return wrapped
+            }
+            """;
         var commands = new List<object>();
         var results = new List<object>();
         foreach (var native in new[] { false, true })
@@ -119,6 +138,33 @@ internal static class SourceValueDriverChecks
             var execution = native ? await Command(runtime, ["run", assembly], 42)
                 : await Command("dotnet", ["exec", "--runtimeconfig", Path.ChangeExtension(driver, ".runtimeconfig.json"), assembly], 42);
             if (execution.Output != "" || execution.Error != "") throw new Exception("unexpected program output");
+            if (byteDiscriminator)
+            {
+                var librarySource = Path.Combine(output, target + "Tags.rvn");
+                var library = Path.ChangeExtension(librarySource, ".dll");
+                File.WriteAllText(librarySource, """
+                    public static class Tags {
+                        static func Narrow(value: int) -> byte => (byte)value
+                    }
+                    """);
+                var librarySourceHash = Hash(librarySource);
+                string[] libraryFlags = native ? ["--library"] : ["--output-type", "classlib"];
+                await Command("dotnet", [driver, .. flags, .. libraryFlags, "-o", library, librarySource], 0);
+                File.Delete(librarySource);
+                var consumerSource = Path.Combine(output, target + "Consumer.rvn");
+                var consumer = Path.ChangeExtension(consumerSource, ".dll");
+                File.WriteAllText(consumerSource, """
+                    func Main() -> int {
+                        if Tags.Narrow(-1) != 255 { return 1 }
+                        return Tags.Narrow(298)
+                    }
+                    """);
+                await Command("dotnet", [driver, .. flags, native ? "--reference" : "--refs", library, "-o", consumer, consumerSource], 0);
+                var consumed = native ? await Command(runtime, ["run", consumer, "--module", library], 42)
+                    : await Command("dotnet", ["exec", "--runtimeconfig", Path.ChangeExtension(driver, ".runtimeconfig.json"), consumer], 42);
+                if (consumed.Output != "" || consumed.Error != "") throw new Exception("unexpected imported byte output");
+                results.Add(new { target, scenario = "imported-byte", librarySourceSha256 = librarySourceHash, librarySha256 = Hash(library), consumerSha256 = Hash(consumer), sourceSha256 = Hash(consumerSource) });
+            }
             results.Add(new { target, passed = true, assemblySha256 = Hash(assembly), sourceSha256 = Hash(path) });
         }
         var rejectedSource = Path.Combine(output, "Rejected.rvn");
@@ -136,14 +182,14 @@ internal static class SourceValueDriverChecks
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
             passed = true,
-            scope = "Ordinary-driver source value declarations, inline payloads, constructors, accessors, mutation and self copies. Not separate library import or source union emission.",
+            scope = byteDiscriminator ? "Ordinary-driver Byte signatures, fields, literals and numeric conversions execute on both targets. Source unions remain pending." : "Ordinary-driver source value declarations, inline payloads, constructors, accessors, mutation and self copies. Not separate library import or source union emission.",
             driverSha256 = Hash(driver),
             runtimeSha256 = Hash(runtime),
             coreSha256 = Hash(core),
             results,
             commands
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
-        Console.WriteLine("PASS source value declarations and independent inline copies execute on both targets");
+        Console.WriteLine(byteDiscriminator ? "PASS Byte discriminator storage and conversions execute on both targets" : "PASS source value declarations and independent inline copies execute on both targets");
 
         async Task<(string Output, string Error)> Command(string executable, string[] arguments, int expected)
         {

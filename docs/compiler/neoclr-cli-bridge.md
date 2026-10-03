@@ -4312,3 +4312,33 @@ Generated union declaration collection, Byte discriminators, full synthesized un
 contracts and symbol-authored external value/case operands remain pending. This test
 contains ordinary nested declarations; it does not claim that unchanged Option or the
 broad class-library consumer compiles yet.
+
+## Byte discriminator prerequisite (2026-10-03)
+
+The native adapter opts into compiler-owned Byte signatures and the ConvertByte
+operation. Introspection's Byte view maps to the semantic System.Byte; emitted
+references use those symbols, never importer handles. Byte fields, parameters,
+returns and literals retain unsigned 8-bit identity. Numeric narrowing selects the
+metadata library's `IILGenerator.Emit(OpCode.Conv_U1)`; widening uses existing integer
+operations. The .NET portable adapter does not opt into Byte and retains its ordinary
+Reflection/Emit path. No Runtime Contract or bootstrap selection changes are required.
+
+This follows CLI unsigned small-integer storage with Int32 evaluation-stack values.
+The metadata writer normalizes stack categories without equating `ref Byte` and
+`ref Int32`. Existing native Byte storage and `conv.u1` implement truncation and zero
+extension; no native format or runtime code change is needed. This does not add
+floating-point narrowing, overflow-checked conversions or complete source-union support.
+
+`NeoClrMetadataProbe --byte-discriminator-driver <rvnc.dll> <neoclr> <core.dll> <fresh-dir>`
+checks ordinary source struct tags, byte literals, Int32/Int64 narrowing and widening,
+then builds a byte-returning library, deletes its source and executes a separate
+consumer using the emitted reference on each target. All programs return 42 with empty
+output; -1 → 255 and 256 → 0 boundary assertions execute. Native library references use
+the direct metadata path, with the explicit existing CLI primitive bootstrap retained.
+The metadata C# checks additionally cover array/local truncation and exact byref identity.
+
+Validation: 116 metadata test groups, native metadata fixture execution (42), paired
+driver/source-absent import execution (42), and eight focused Raven emission/operator
+regressions. Source union collection, synthesized union members and external value/case
+operands remain pending. The pre-existing API snapshot regeneration blocker remains
+recorded in neoCLR's api-docs/README.md; manual host API/XML documentation is updated.

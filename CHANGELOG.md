@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Add explicit native Byte signature/import and numeric narrowing
+  emission support through the metadata IL generator. Paired driver tests execute
+  source byte fields and a separately compiled byte-returning library with its source
+  removed. Preserve the ordinary .NET backend; generated union declarations remain
+  pending. Eight focused .NET emission/operator regressions pass.
+
 - **2026-10-03:** Emit supported nested source classes and structs with an explicit
   ownership capability and existing metadata nested builders. Resolve substituted
   nongeneric accessors back to their source declarations. Paired driver tests check

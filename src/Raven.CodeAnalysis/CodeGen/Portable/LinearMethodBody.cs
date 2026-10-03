@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -643,6 +643,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.Boolean, Syntax(expression), boolean ? 1 : 0); return true;
                 case BoundLiteralExpression { Value: long value64 }:
                     instructions.Add(new(LinearInstructionKind.Constant64, Syntax(expression), Long: value64)); return true;
+                case BoundLiteralExpression { Value: byte valueByte }:
+                    Add(LinearInstructionKind.Constant, Syntax(expression), valueByte); return true;
                 case BoundLiteralExpression { Value: int value }:
                     Add(LinearInstructionKind.Constant, Syntax(expression), value); return true;
                 case BoundLocalAccess local:
@@ -689,10 +691,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundConversionExpression { IsIdentity: true } conversion:
                     return LowerValue(conversion.Expression);
                 case BoundConversionExpression conversion when conversion.Conversion.IsNumeric && !conversion.IsUserDefined &&
-                    conversion.Expression.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&
-                    conversion.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64:
+                    conversion.Expression.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Byte &&
+                    conversion.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Byte:
                     if (!LowerValue(conversion.Expression)) return false;
-                    Add(conversion.Type.SpecialType == SpecialType.System_Int64 ? LinearInstructionKind.Convert64 : LinearInstructionKind.Convert32, Syntax(expression));
+                    Add(conversion.Type.SpecialType == SpecialType.System_Byte ? LinearInstructionKind.ConvertByte : conversion.Type.SpecialType == SpecialType.System_Int64 ? LinearInstructionKind.Convert64 : LinearInstructionKind.Convert32, Syntax(expression));
                     return true;
                 case BoundBinaryExpression logical when logical.Operator.MethodSymbol is null &&
                     logical.Operator.LeftType.SpecialType == SpecialType.System_Boolean &&

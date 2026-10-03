@@ -112,6 +112,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         PrimitiveTypeInfo primitive => compilation.GetSpecialType(primitive.Kind switch
         {
             PrimitiveType.Int32 => SpecialType.System_Int32,
+            PrimitiveType.Byte => SpecialType.System_Byte,
             PrimitiveType.Int64 => SpecialType.System_Int64,
             PrimitiveType.Boolean => SpecialType.System_Boolean,
             PrimitiveType.String => SpecialType.System_String,
