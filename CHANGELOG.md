@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Admit the exact Object.GetHashCode virtual contract under an
+  explicit native capability and emit bound static binary operator calls. Source-built
+  StringComparer executes against its selected primitive bootstrap, including ordinal
+  and folded hashes. Ordinary .NET emission remains unchanged; range loops still block
+  the full comparer sample.
+
 - **2026-10-04:** Admit immutable Int32/Int64/Boolean/Byte locals in native closure
   frames, preserving escaped and per-iteration captured values. Emit integer widening
   from built-in operator operand types when conversion nodes are absent. Mutable

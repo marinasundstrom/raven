@@ -700,6 +700,51 @@ public class SharedLinearBodyTests
         Assert.Equal(4294967338L, Emit(compilation).GetType("Numbers")!.GetMethod("Run")!.Invoke(null, null));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ObjectHashDispatchRequiresExplicitCapability(bool enabled)
+    {
+        var compilation = Create("""
+            public static class Hashes {
+                public static func Hash(value: object) -> int { return value.GetHashCode() }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            allowsRootClassSignatures: true, allowsExternalReferenceSignatures: true, allowsExternalInstanceCalls: true, allowsObjectHashDispatch: enabled);
+        var success = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, model, syntax.Body!,
+            _ => false, out _, out var failure, capabilities);
+        Assert.True(success == enabled, failure?.Detail);
+
+        var input = new object();
+        Assert.Equal(input.GetHashCode(), Emit(compilation).GetType("Hashes")!.GetMethod("Hash")!.Invoke(null, [input]));
+    }
+
+    [Fact]
+    public void BoundStringEqualityOperatorPreservesContentSemantics()
+    {
+        var compilation = Create("""
+            public static class TextEquality {
+                public static func Equal(left: string, right: string) -> bool {
+                    return left == right
+                }
+            }
+            """, OptimizationLevel.Release);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>());
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+            _ => false, out _, out var failure, capabilities), failure?.Detail);
+        var equal = Emit(compilation).GetType("TextEquality")!.GetMethod("Equal")!;
+        Assert.Equal(true, equal.Invoke(null, ["café", new string("café".ToCharArray())]));
+        Assert.Equal(false, equal.Invoke(null, ["A", "a"]));
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));

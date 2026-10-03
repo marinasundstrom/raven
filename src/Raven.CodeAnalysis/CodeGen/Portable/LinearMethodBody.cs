@@ -494,7 +494,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             method is { Name: "ToString", IsStatic: false, IsVirtual: true, IsAbstract: false, IsGenericMethod: false, DeclaredAccessibility: Accessibility.Public } &&
             method.ContainingType?.SpecialType == SpecialType.System_Object && method.Parameters.Length == 0 &&
             method.ReturnType.GetNonNullableType().SpecialType == SpecialType.System_String;
-        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || SupportedObjectDisplayCall(method) || capabilities?.Allows(EmissionDeclarationKind.ValueObjectOverride) == true && SourceCallablePlan.ClassifyOverride(method) != EmissionOverrideKind.None || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true)) &&
+        bool SupportedObjectHashCall(IMethodSymbol method) => capabilities?.AllowsObjectHashDispatch == true &&
+            method is { Name: "GetHashCode", IsStatic: false, IsVirtual: true, IsAbstract: false, IsGenericMethod: false, DeclaredAccessibility: Accessibility.Public } &&
+            method.ContainingType?.SpecialType == SpecialType.System_Object && method.Parameters.Length == 0 &&
+            method.ReturnType.SpecialType == SpecialType.System_Int32;
+        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || SupportedObjectDisplayCall(method) || SupportedObjectHashCall(method) || capabilities?.Allows(EmissionDeclarationKind.ValueObjectOverride) == true && SourceCallablePlan.ClassifyOverride(method) != EmissionOverrideKind.None || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true)) &&
             method.ContainingType is { } owner && (SourceTypePlan.TryCreate(owner, out _, capabilities) ||
                 capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && (capabilities is null || capabilities.Allows(signature));
@@ -845,6 +849,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     conversion.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Byte:
                     if (!LowerValue(conversion.Expression)) return false;
                     Add(conversion.Type.SpecialType == SpecialType.System_Byte ? LinearInstructionKind.ConvertByte : conversion.Type.SpecialType == SpecialType.System_Int64 ? LinearInstructionKind.Convert64 : LinearInstructionKind.Convert32, Syntax(expression));
+                    return true;
+                case BoundBinaryExpression { Operator.MethodSymbol: { IsStatic: true } binaryMethod } binary when
+                    binaryMethod.Parameters.Length == 2 && binaryMethod.Parameters.All(p => p.RefKind == RefKind.None) &&
+                    TrySignature(binaryMethod, out var binarySignature) && SupportedTypeArguments(binaryMethod) &&
+                    (capabilities is null || capabilities.Allows(binarySignature)):
+                    if (!LowerValue(binary.Left, binaryMethod.Parameters[0].Type) ||
+                        !LowerValue(binary.Right, binaryMethod.Parameters[1].Type)) return false;
+                    Add(LinearInstructionKind.Call, Syntax(expression), method: binaryMethod);
                     return true;
                 case BoundBinaryExpression logical when logical.Operator.MethodSymbol is null &&
                     logical.Operator.LeftType.SpecialType == SpecialType.System_Boolean &&

@@ -740,3 +740,28 @@ encodings are unchanged. The full comparer sample still needs StringComparer run
 services and primitive CompareTo contracts. The portable promotion fix remains a
 deferred general candidate until an independent backend caller justifies main-based
 validation; this change does not require merging the native target into main.
+
+## Native comparer bootstrap and source ownership (2026-10-04)
+
+The explicit native profile now admits public virtual Object.GetHashCode() -> Int32,
+with no generic arguments or parameters. Other class virtual methods remain bounded by
+existing capabilities. The portable plan also emits binary operators already bound to
+static method symbols; it does not perform new operator selection. Ordinary .NET body
+emission remains unchanged. C# capability controls and ordinary content-equality/hash
+execution pass alongside the native driver gate.
+
+NeoCLR's comparer-ownership manifest adds unchanged System.StringComparer.rvn to the
+separately built library. Primitive String/Int32/Object declarations and executable
+runtime-service adapters remain explicitly bootstrap-owned; the host selects the new
+comparer-storage core and comparer seed. The metadata adapter validates exact primitive
+owner/receiver signatures and the Object hash slot. No importer objects cross Raven's
+emission boundary, and no implicit CLI fallback is added for native library references.
+
+The focused consumer covers ordinal/folded equality, content hashes, Object hash
+agreement, Unicode scalar ordering, map replacement and overflow-free Int32.CompareTo.
+The entire unchanged library-comparers sample now stops at integer-range loop lowering;
+this focused consumer does not replace that gate. Full primitive source ownership and
+runtime-service source compilation remain future work. Existing UTF-8 scalar ordering
+intentionally differs from .NET UTF-16 ordinal ordering; this slice adds no new semantics.
+The static operator emission fix is a deferred general candidate until another backend
+caller justifies independent validation on main.
