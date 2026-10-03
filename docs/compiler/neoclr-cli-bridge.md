@@ -4130,3 +4130,19 @@ metadata encoding or runtime behavior changes are introduced.
 Next: source/seed ownership for ArrayList dependencies and native Self signature support.
 The existing native Self runtime is not evidence that the Cecil-like metadata signature
 API and native semantic importer already support it.
+
+### Native Self metadata foundation (2026-10-03)
+
+The separate host metadata library now preserves a distinct Self signature node and
+canonical interface-scoped introspection view for bodyless instance-interface members,
+including generic/vector signatures and canonical property accessors. It consumes no
+VAR/MVAR slot. PE/#Neo native readers retain that signature directly; reference-only CLI
+projection uses the existing fieldless Self marker in the explicitly supplied core scope.
+Executable CLI emission rejects native Self signatures.
+
+Raven Runtime Contract configuration, native symbol materialization and emission are
+unchanged in this slice. Native mapping of these new views and symbol-owned implementing
+type substitution/callself emission remain required. Do not treat metadata loading of a
+contract-only fixture as Raven Self dispatch support. The library test fixture loads and
+verifies in NeoCLR, with an independent entry point returning 42; 111 C# metadata groups
+pass. The separate expanded API snapshot still has its recorded source-union refresh blocker.

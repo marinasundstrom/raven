@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Document the separate metadata library's native Self contract/view
+  foundation and temporary reference-only CLI marker. Raven native Self symbol/emitter
+  integration remains pending; compiler behavior and Runtime Contracts are unchanged.
+
 - **2026-10-03:** Add opt-in `--bootstrap-ownership` to both compiler commands.
   Validate declared source-library ownership before emission and select explicit
   iteration/typeof/propagation contracts. Source-built collection interfaces and
