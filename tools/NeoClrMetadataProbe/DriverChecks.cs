@@ -4,7 +4,25 @@ namespace NeoClrMetadataProbe;
 
 internal static class DriverChecks
 {
-    internal static async Task Run(string driver, string directory, Func<int, string[], Task<string>> runtime)
+    internal static async Task RunRuntime(string driver, string runtime, string core, string directory)
+    {
+        if (Directory.Exists(directory)) throw new IOException("output must be fresh");
+        Directory.CreateDirectory(directory);
+        await Run(Path.GetFullPath(driver), Path.GetFullPath(core), Path.GetFullPath(directory), async (expected, arguments) =>
+        {
+            var start = new ProcessStartInfo(Path.GetFullPath(runtime)) { RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var argument in arguments) start.ArgumentList.Add(argument);
+            using var process = Process.Start(start)!;
+            var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            try { await process.WaitForExitAsync(timeout.Token); }
+            catch (OperationCanceledException) { process.Kill(true); throw new TimeoutException("driver runtime check timed out"); }
+            var text = await stdout + await stderr;
+            Check(process.ExitCode == expected, $"runtime exit {process.ExitCode}, expected {expected}: {text}");
+            return text;
+        });
+    }
+    internal static async Task Run(string driver, string core, string directory, Func<int, string[], Task<string>> runtime)
     {
         var librarySource = Path.Combine(directory, "DriverLibrary.rvn");
         var mainSource = Path.Combine(directory, "DriverMain.rvn");
@@ -64,6 +82,11 @@ internal static class DriverChecks
             var start = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true };
             start.ArgumentList.Add(driver);
             start.ArgumentList.Add("neoclr");
+            if (!args.Contains("--help"))
+            {
+                start.ArgumentList.Add("--core-reference");
+                start.ArgumentList.Add(core);
+            }
             foreach (var argument in args) start.ArgumentList.Add(argument);
             using var process = Process.Start(start)!;
             var stdout = process.StandardOutput.ReadToEndAsync();

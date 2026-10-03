@@ -7,8 +7,9 @@ namespace NeoClrMetadataProbe;
 // Executes ordinary compiler commands, with no Compilation or emitter API shortcuts.
 internal static class DualTargetDriverChecks
 {
-    internal static async Task Run(string driver, string runtime, string output, bool inventory)
+    internal static async Task Run(string driver, string runtime, string core, string output, bool inventory)
     {
+        core = Path.GetFullPath(core);
         driver = Path.GetFullPath(driver); runtime = Path.GetFullPath(runtime); output = Path.GetFullPath(output);
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
@@ -81,12 +82,49 @@ internal static class DualTargetDriverChecks
                     cases.Add(new { target, scenario, passed = false, error = error.Message });
                 }
             }
+            if (native)
+            {
+                try
+                {
+                    var source = Path.Combine(directory, "Rejected.rvn");
+                    var rejected = Path.Combine(directory, "Rejected.dll");
+                    var dependency = Path.Combine(directory, "Contracts.dll");
+                    File.WriteAllText(source, "func Main() -> int => 0");
+                    async Task Reject(string[] extra, string? message = null)
+                    {
+                        var result = await Command("dotnet", [driver, "neoclr", "--core-reference", core, .. extra, "-o", rejected, source], 1);
+                        if (File.Exists(rejected) || message is not null && !(result.Stdout + result.Stderr).Contains(message))
+                            throw new Exception("rejection published output or lost diagnostic: " + result.Stdout + result.Stderr);
+                    }
+                    var duplicate = Path.Combine(directory, "Duplicate.dll");
+                    File.Copy(dependency, duplicate);
+                    await Reject(["--reference", dependency, "--reference", duplicate], "duplicate native assembly identity");
+                    await Reject(["--reference", typeof(object).Assembly.Location]);
+                    var malformed = Path.Combine(directory, "Malformed.dll");
+                    File.WriteAllText(malformed, "not an assembly");
+                    await Reject(["--reference", malformed]);
+                    var relaySource = Path.Combine(directory, "Relay.rvn");
+                    var relay = Path.Combine(directory, "Relay.dll");
+                    File.WriteAllText(relaySource, "import DriverContracts.*\npublic func Create() -> Box<int> => Box<int>(42)");
+                    await Compile(relaySource, relay, true, dependency);
+                    File.Delete(relaySource);
+                    await Reject(["--reference", relay], "missing or mismatched native dependency");
+                    File.WriteAllText(source, "func Main() -> int { return (int)(double)42 }");
+                    await Reject([], "NEOMETA001");
+                    cases.Add(new { target, scenario = "native-reference-rejections", passed = true });
+                }
+                catch (Exception error)
+                {
+                    passed = false;
+                    cases.Add(new { target, scenario = "native-reference-rejections", passed = false, error = error.Message });
+                }
+            }
             async Task Compile(string source, string destination, bool isLibrary, string? reference)
             {
                 var args = new List<string> { driver };
                 if (native)
                 {
-                    args.Add("neoclr");
+                    args.AddRange(["neoclr", "--core-reference", core]);
                     if (isLibrary) args.Add("--library");
                     if (reference is not null) args.AddRange(["--reference", reference]);
                 }
@@ -107,7 +145,7 @@ internal static class DualTargetDriverChecks
             runtimeSha256 = Hash(runtime),
             runtimeConfigSha256 = Hash(Path.ChangeExtension(driver, ".runtimeconfig.json")),
             sourceSha256 = new { hello = TextHash(hello), library = TextHash(library), consumer = TextHash(consumer) },
-            bootstrap = "Explicit host .NET primitive core; no System seed or reference-only control counts as execution",
+            bootstrap = "Explicit .NET host core / NeoCLR.CoreProbe bootstrap; no System seed or reference-only control counts as execution",
             cases,
             commands
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
@@ -120,7 +158,9 @@ internal static class DualTargetDriverChecks
             foreach (var argument in arguments) start.ArgumentList.Add(argument);
             using var process = Process.Start(start)!;
             var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
-            await process.WaitForExitAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            try { await process.WaitForExitAsync(timeout.Token); }
+            catch (OperationCanceledException) { process.Kill(true); throw new TimeoutException("driver acceptance command timed out"); }
             var text = await stdout; var errors = await stderr;
             commands.Add(new { executable, arguments, expectedExitCode = expected, exitCode = process.ExitCode, stdout = text, stderr = errors });
             if (process.ExitCode != expected) throw new Exception($"{executable} exit {process.ExitCode}, expected {expected}: {text}{errors}");

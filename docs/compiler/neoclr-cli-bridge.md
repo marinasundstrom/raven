@@ -4006,3 +4006,22 @@ Before driver native-import migration: both .NET cases and native Hello pass; th
 library consumer rejects with NEOMETA001 (undeclared instance field). This is a baseline,
 not a completed dual-target gate. Evidence records command outputs and source/artifact hashes.
 No Runtime Contract or compiler behavior changes in the test-only slice.
+
+
+## Direct native compiler command (2026-10-03)
+
+`rvnc neoclr --core-reference NeoCLR.CoreProbe.dll --reference Library.dll -o App.dll App.rvn`
+now imports API-produced native assemblies using NeoClrMetadataReference and artifact-only
+emission bindings. It selects CompilationOptions.NeoCLR and its explicit primitive/runtime
+contracts. Native references never fall back to CLI projection. The core reference is
+required when --reference is supplied; this is an experimental command compatibility change.
+Without native references/core selection, the existing host primitive bootstrap remains
+available. --system-symbols/--system-method is labelled legacy and remains an explicit
+partial callable projection, not a native library import fallback.
+
+Paired driver acceptance now uses `--dual-driver <rvnc.dll> <neoclr> <NeoCLR.CoreProbe.dll>
+<fresh-output>`. Both .NET and NeoCLR Hello/helper and separate generic library consumers
+execute (42); the consumer has no library source. Duplicate identities, missing transitive
+dependencies, ordinary CLI references, malformed input and unsupported source reject without
+publishing output. Host .NET runtime execution uses an explicitly hashed runtimeconfig.
+The wider source-library/collections gate remains open; runtime encoding is unchanged.

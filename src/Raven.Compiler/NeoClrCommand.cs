@@ -18,11 +18,12 @@ internal static class NeoClrCommand
     {
         if (args.Length == 1 && args[0] is "--help" or "-h")
         {
-            Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--reference library.dll] source.rvn ...");
-            Console.WriteLine("Experimental PE/#Neo output; Int32/Unit static subset. References must be native PE/#Neo assemblies.");
-            Console.WriteLine("Optional: --system-symbols System.neox --system-method System.Math.Min/2 (repeat explicit selections).");
+            Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--core-reference NeoCLR.CoreProbe.dll] [--reference library.dll] source.rvn ...");
+            Console.WriteLine("Experimental PE/#Neo output. References are imported directly from supported native metadata.");
+            Console.WriteLine("Legacy bridge: --system-symbols System.neox --system-method System.Math.Min/2 (repeat explicit selections).");
             Console.WriteLine("Static Int32 callable view only; not a complete core-library import. Run with the matching --system assembly.");
-            Console.WriteLine("Uses host .NET primitive references for binding. No project, publish, PDB or managed execution support.");
+            Console.WriteLine("Native references require --core-reference; without references the legacy host primitive bootstrap remains available.");
+            Console.WriteLine("Uses explicitly selected CLI primitive references for binding. No project, publish, PDB or managed execution support.");
             return 0;
         }
         string? projectionPath = null;
@@ -33,6 +34,7 @@ internal static class NeoClrCommand
             string? output = null;
             var library = false;
             string? systemPath = null;
+            string? corePath = null;
             var systemMethods = new List<string>();
             for (var i = 0; i < args.Length; i++)
             {
@@ -41,6 +43,10 @@ internal static class NeoClrCommand
                     case "-o":
                         if (output is not null || ++i == args.Length) throw new ArgumentException("Specify -o once with an output path.");
                         output = Path.GetFullPath(args[i]);
+                        break;
+                    case "--core-reference":
+                        if (corePath is not null || ++i == args.Length) throw new ArgumentException("Specify --core-reference once with a CLI primitive core path.");
+                        corePath = Path.GetFullPath(args[i]);
                         break;
                     case "--reference":
                         if (++i == args.Length) throw new ArgumentException("--reference requires a native assembly path.");
@@ -72,25 +78,35 @@ internal static class NeoClrCommand
             if (sources.Distinct(StringComparer.OrdinalIgnoreCase).Count() != sources.Count ||
                 referencePaths.Distinct(StringComparer.OrdinalIgnoreCase).Count() != referencePaths.Count)
                 throw new ArgumentException("Duplicate input path.");
+            if (referencePaths.Count > 0 && corePath is null)
+                throw new ArgumentException("Direct native references require --core-reference NeoCLR.CoreProbe.dll.");
+            if (corePath is not null && string.Equals(corePath, output, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Output must differ from the primitive core input.");
             var name = Path.GetFileNameWithoutExtension(output);
-            var host = typeof(object).Assembly.GetName();
+            var host = corePath is null ? typeof(object).Assembly.GetName() : System.Reflection.AssemblyName.GetAssemblyName(corePath);
             var core = new AssemblyIdentity(host.Name!, host.Version!, host.CultureName ?? "", Convert.ToHexString(host.GetPublicKeyToken() ?? []));
             var console = MetadataReference.CreateFromFile(typeof(Console).Assembly.Location);
             var references = new List<MetadataReference> {
                 MetadataReference.CreateFromFile(typeof(object).Assembly.Location), console,
                 MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("System.Runtime").Location)
             };
+            if (corePath is not null)
+            {
+                var primitiveCore = MetadataReference.CreateFromFile(corePath);
+                references.Clear();
+                references.Add(primitiveCore);
+                console = primitiveCore;
+            }
             var dependencies = new List<NeoClrMetadataDependency>();
             foreach (var path in referencePaths)
             {
                 if (new FileInfo(path).Length > 4 * 1024 * 1024) throw new InvalidDataException("Native PE reference exceeds 4 MiB: " + path);
                 var bytes = File.ReadAllBytes(path);
-                // Validate the native execution contract before exposing the reference-only CLI view.
+                // Validate executable metadata, then import native declarations without a CLI projection.
                 NativeAssemblyDefinition.ReadAssembly(RuntimeAssemblyContainer.Read(bytes));
-                var definition = RuntimeAssemblyContainer.ReadCliProjection(bytes);
-                var reference = MetadataReference.CreateFromFile(path);
+                var reference = NeoClrMetadataReference.ReadAssembly(bytes);
                 references.Add(reference);
-                dependencies.Add(new(reference, definition, core));
+                dependencies.Add(new(reference, core));
             }
             NeoClrSystemSymbols? systemSymbols = null;
             if ((systemPath is null) != (systemMethods.Count == 0)) throw new ArgumentException("Use --system-symbols with explicit --system-method selections.");
@@ -98,7 +114,7 @@ internal static class NeoClrCommand
             {
                 // Host facades can forward System.Math back to host implementations.
                 // This partial native mode retains only the primitive core bootstrap.
-                references.RemoveRange(1, 2);
+                if (corePath is null) references.RemoveRange(1, 2);
                 if (new FileInfo(systemPath).Length > 8 * 1024 * 1024) throw new InvalidDataException("System image exceeds 8 MiB.");
                 var system = NativeLibraryDefinition.ReadAssembly(File.ReadAllBytes(systemPath));
                 if (system.ModuleName != "System") throw new InvalidDataException("System symbol input must declare module System.");
@@ -122,7 +138,8 @@ internal static class NeoClrCommand
             }
             var trees = sources.Select(path => SyntaxTree.ParseText(File.ReadAllText(path), path: path)).ToArray();
             var compilation = Compilation.Create(name, trees, references.ToArray(),
-                new CompilationOptions(library ? OutputKind.DynamicallyLinkedLibrary : OutputKind.ConsoleApplication));
+                (corePath is null ? new CompilationOptions() : CompilationOptions.NeoCLR)
+                    .WithOutputKind(library ? OutputKind.DynamicallyLinkedLibrary : OutputKind.ConsoleApplication));
             using var image = new MemoryStream();
             var backend = new NeoClrEmissionBackend(
                 new(new(name, new Version(1, 0, 0, 0)), core, dependencies, systemSymbols is null ? console : null, systemSymbols));

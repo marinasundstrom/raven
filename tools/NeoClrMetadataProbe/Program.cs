@@ -16,9 +16,14 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
-if (args.Length == 4 && args[0] is "--dual-driver" or "--dual-driver-inventory")
+if (args.Length == 5 && args[0] == "--driver-controls")
 {
-    await DualTargetDriverChecks.Run(args[1], args[2], args[3], args[0] == "--dual-driver-inventory"); return;
+    await DriverChecks.RunRuntime(args[1], args[2], args[3], args[4]); return;
+}
+
+if (args.Length == 5 && args[0] is "--dual-driver" or "--dual-driver-inventory")
+{
+    await DualTargetDriverChecks.Run(args[1], args[2], args[3], args[4], args[0] == "--dual-driver-inventory"); return;
 }
 
 if (args.Length == 5 && args[0] == "--native-symbols-runtime")
@@ -215,8 +220,8 @@ if (args.Length == 5 && args[0] == "--system-symbols")
     return;
 }
 
-if (args.Length is < 2 or > 4 || (args.Length == 3 && args[2] != "--hello-only") || (args.Length == 4 && args[2] != "--driver"))
-    throw new ArgumentException("Usage: NeoClrMetadataProbe <neoclr executable> <fresh output directory> [--hello-only | --driver rvnc.dll]");
+if (args.Length is < 2 or > 5 || args.Length == 4 || (args.Length == 3 && args[2] != "--hello-only") || (args.Length == 5 && args[2] != "--driver"))
+    throw new ArgumentException("Usage: NeoClrMetadataProbe <neoclr executable> <fresh output directory> [--hello-only | --driver rvnc.dll primitive-core.dll]");
 var runtime = Path.GetFullPath(args[0]);
 var output = Path.GetFullPath(args[1]);
 if (Directory.Exists(output)) throw new IOException("output directory must be fresh");
@@ -349,7 +354,7 @@ await SharedLoweringChecks.Run(core, output, Command);
 await IntegerArithmeticChecks.Run(core, output, Command);
 await PartialTypeChecks.Run(core, output, Command);
 await PrimitiveSignatureChecks.Run(core, output, Command);
-if (args.Length == 4) await DriverChecks.Run(Path.GetFullPath(args[3]), output, Command);
+if (args.Length == 5) await DriverChecks.Run(Path.GetFullPath(args[3]), Path.GetFullPath(args[4]), output, Command);
 File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
 {
     date = "2026-10-01",
