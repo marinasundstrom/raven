@@ -5,6 +5,24 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class NeoClrFunctionTypeTests : CompilationTestBase
 {
     [Theory]
+    [InlineData(null)]
+    [InlineData("NeoCLR.CoreProbe")]
+    public void ImportedNoResultFunctionsPreserveTheirContract(string? targetCore)
+    {
+        var compilation = CreateCompilation(new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithTargetCoreAssemblyName(targetCore));
+        Assert.NotNull(compilation.GetTypeByMetadataName("System.Object"));
+        var parameter = compilation.GetSpecialType(SpecialType.System_Int32);
+        var noResult = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            compilation.CreateNoResultFunctionTypeSymbol([parameter]));
+        Assert.Equal("Action", noResult.Name);
+        Assert.Single(noResult.TypeArguments);
+        Assert.True(SymbolEqualityComparer.Default.Equals(parameter, noResult.TypeArguments[0]));
+        var sourceUnit = compilation.CreateFunctionTypeSymbol([parameter], compilation.GetSpecialType(SpecialType.System_Unit));
+        Assert.Equal(targetCore is null, SymbolEqualityComparer.Default.Equals(noResult, sourceUnit));
+    }
+
+    [Theory]
     [InlineData(null, false)]
     [InlineData("System.Runtime", false)]
     [InlineData("OrdinaryLibrary", false)]

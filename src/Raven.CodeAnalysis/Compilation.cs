@@ -2279,6 +2279,14 @@ public partial class Compilation
         return new PointerTypeSymbol(pointedAtType);
     }
     public ITypeSymbol CreateFunctionTypeSymbol(ITypeSymbol[] parameterTypes, ITypeSymbol returnType)
+        => CreateFunctionTypeSymbol(parameterTypes, returnType, applyRuntimeResultPolicy: true);
+
+    // Metadata no-result signatures must retain their ABI even when source unit
+    // callbacks use an inhabited result under the selected runtime contract.
+    internal ITypeSymbol CreateNoResultFunctionTypeSymbol(ITypeSymbol[] parameterTypes)
+        => CreateFunctionTypeSymbol(parameterTypes, GetSpecialType(SpecialType.System_Void), applyRuntimeResultPolicy: false);
+
+    private ITypeSymbol CreateFunctionTypeSymbol(ITypeSymbol[] parameterTypes, ITypeSymbol returnType, bool applyRuntimeResultPolicy)
     {
         var systemNamespace = SymbolLookup.GetNamespace("System");
 
@@ -2286,7 +2294,7 @@ public partial class Compilation
         bool isAction = returnType.SpecialType == SpecialType.System_Void || returnType.SpecialType == SpecialType.System_Unit;
         // The neoCLR nominal delegate ABI uses an inhabited unit result too.
         // This transport rule does not introduce structural function semantics.
-        if (isAction && _target.RuntimeContract.UsesInhabitedDelegateResults)
+        if (isAction && applyRuntimeResultPolicy && _target.RuntimeContract.UsesInhabitedDelegateResults)
         {
             returnType = GetSpecialType(SpecialType.System_Unit);
             isAction = false;

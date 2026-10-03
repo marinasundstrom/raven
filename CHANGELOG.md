@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Import explicit native no-result callbacks without applying the
+  inhabited source-unit policy. Admit nested vector signatures and project method
+  receivers through configured Array<T> backing. The unchanged array-callback sample
+  and nested-vector mutation now compile and execute against the source-built library.
+
 - **2026-10-03:** Emit the existing reference conversion for array receivers of
   inherited interface members in the portable backend, fixing native Array<int>.Count.
   Separate-library collection-capabilities and union consumers now join the native

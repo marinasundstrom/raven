@@ -7,6 +7,32 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class SharedArrayBodyTests
 {
+    [Fact]
+    public void NestedVectorsPreserveElementIdentityAndMutation()
+    {
+        var tree = SyntaxTree.ParseText("""
+            public static class Nested {
+                public static func Run() -> int {
+                    let first: int[] = [40]
+                    let rows: int[][] = [first, [0]]
+                    rows[0][0] = rows[0][0] + 2
+                    return first[0]
+                }
+            }
+            """);
+        var compilation = Compilation.Create("NestedArrays", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        Assert.True(SourceCallablePlan.TryCreate(method, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        Assert.Equal(42, Assembly.Load(image.ToArray()).GetType("Nested")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
     [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]
@@ -135,7 +161,6 @@ public class SharedArrayBodyTests
     [InlineData("public static func Read(items: int[]) -> int { items[0] }", false)]
     [InlineData("public static func Read() -> int { let items: int[] = [42]; return items[0] }", false)]
     [InlineData("public static func Read(items: int[2]) -> int { 42 }", true)]
-    [InlineData("public static func Read(items: int[][]) -> int { 42 }", true)]
     [InlineData("public static func Read(items: int[]) -> int { let copy: int[] = [...items]; return copy[0] }", true)]
     public void ArrayCapabilitiesAndUnsupportedShapesRejectAPlan(string method, bool arrays)
     {

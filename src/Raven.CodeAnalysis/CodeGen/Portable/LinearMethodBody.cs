@@ -536,11 +536,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             if (receiver is not null)
             {
                 if (!LowerValue(receiver)) return false;
-                // Array member projection can select an inherited nominal interface
-                // without adding a bound conversion around the vector receiver.
-                if (receiver.Type is IArrayTypeSymbol && owner.TypeKind == TypeKind.Interface &&
+                // Projected members use the configured nominal backing or one of
+                // its interfaces; the bound receiver can still be a vector.
+                if (receiver.Type is IArrayTypeSymbol array &&
                     capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true &&
-                    model.Compilation.ClassifyConversion(receiver.Type, owner, includeUserDefined: false) is { IsImplicit: true, IsReference: true })
+                    (owner.TypeKind == TypeKind.Interface &&
+                     model.Compilation.ClassifyConversion(receiver.Type, owner, includeUserDefined: false) is { IsImplicit: true, IsReference: true } ||
+                     model.Compilation.IsRuntimeArrayShape(owner) && owner.TypeArguments.Length == 1 &&
+                     SymbolEqualityComparer.Default.Equals(array.ElementType, owner.TypeArguments[0])))
                     instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: owner));
                 return true;
             }

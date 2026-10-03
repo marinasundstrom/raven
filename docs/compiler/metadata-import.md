@@ -1106,3 +1106,28 @@ and failed native emission preserving pre-existing output bytes and stream posit
 The seven native execution consumers continue to pass (exit 42). Runtime Contract
 configuration, normal .NET loading/emission and native encoding are unchanged. This is
 native-adapter validation, not a general binder fix requiring a main-based port.
+
+### Imported no-result callbacks and nested vectors (2026-10-03)
+
+Native Function signatures marked no_result now enter Raven through an internal explicit
+no-result factory. It preserves Action-shaped callable transport instead of applying the
+source runtime policy that selects an inhabited Func<..., Unit>. Ordinary source function
+construction and .NET target defaults remain unchanged. Native emission consumes the
+resulting symbols; it never reopens the importer. This extends the existing callback
+transport and does not integrate structural Function feature branches.
+
+Portable emission admits recursively nested one-dimensional vectors within the existing
+signature depth limit. Projected array receivers also convert to the exact configured
+nominal Array<T> backing, not only its interfaces. The runtime accepts that exact backing
+view without allocating or copying array storage. No covariance, rectangular arrays,
+new opcode or metadata version is introduced; the writer uses nested CLI SZARRAY/native
+ArrayRef signatures. Existing unsupported malformed/by-reference elements remain rejected.
+
+The native driver gate now executes unchanged library-array-callbacks (7, 42, First,
+Second), including its empty nested vector, and a nonempty nested-vector callback that
+mutates the original inner arrays and returns 42. The broad application remains passing.
+C# tests distinguish imported no-result and inhabited source callback identities and
+exercise nested vector planning/.NET execution; metadata tests cover CLI/native round
+trips, introspection, generic substitution, malformed elements and nesting limits.
+The portable and factory changes are retained general candidates pending independent
+main-line callers; no ordinary .NET behavior fix is inferred from native support.

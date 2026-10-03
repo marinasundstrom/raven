@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Symbols;
+
 using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.CodeGen.Portable;
@@ -33,7 +34,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(Nominal: contract); return true; }
         if (type is INamedTypeSymbol named && SourceTypePlan.TryCreate(named, out var plan, capabilities) && !plan!.IsStatic)
         { value = new(Nominal: named); return true; }
-        if (type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } array && TryType(array.ElementType, false, out _, capabilities, depth + 1))
+        if (type is IArrayTypeSymbol { Rank: 1, FixedLength: null } array && TryType(array.ElementType, false, out _, capabilities, depth + 1))
         { value = new(Array: array); return true; }
         return false;
     }
