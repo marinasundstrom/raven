@@ -8,6 +8,41 @@ namespace Raven.CodeAnalysis.Tests;
 
 public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
 {
+    [Fact]
+    public void CaseTestsLowerInConditionalBranchesAndBooleanReturns()
+    {
+        var (compilation, _) = CreateCompilation("""
+            union Choice<T> {
+                case Some(value: T)
+                case None
+                func TryRead(out output: T) -> bool {
+                    output = default
+                    if self is Some(let value) {
+                        output = value
+                        return true
+                    }
+                    return false
+                }
+                func IsEmpty() -> bool => self is None
+            }
+            """, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees.Single();
+        var declaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
+        var union = (SourceUnionSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
+        EmissionCapabilities Capabilities(bool patterns) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsRootClassSignatures: true, allowsRootClassLocals: true, allowsManagedReferences: true,
+            allowsConstructedFieldReferences: true, allowsGenericInstanceMethods: true,
+            allowsGenericStaticOwners: true, allowsGenericClassOwners: true, allowsCasePatterns: patterns);
+        foreach (var method in union.GetMembers().OfType<IMethodSymbol>().Where(m => m.Name is "TryRead" or "IsEmpty"))
+        {
+            Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true), declaration));
+            Assert.False(plan!.TryLowerBody(compilation, _ => false, out _, out _, Capabilities(false)));
+            Assert.True(plan.TryLowerBody(compilation, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
+        }
+    }
+
     [Theory]
     [InlineData("class Display { override func ToString() -> string? => \"display\" }")]
     [InlineData("struct Display { override func GetHashCode() -> int => 42 }")]

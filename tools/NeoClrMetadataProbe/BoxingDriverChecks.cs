@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace NeoClrMetadataProbe;
 
-internal enum StorageDriverScenario { Boxing, FieldAddresses, ReferenceOperations, ObjectDisplay, NullLiterals }
+internal enum StorageDriverScenario { Boxing, FieldAddresses, ReferenceOperations, ObjectDisplay, NullLiterals, RuntimeUnitStorage }
 
 internal static class BoxingDriverChecks
 {
@@ -15,12 +15,26 @@ internal static class BoxingDriverChecks
         if (Directory.Exists(output)) throw new IOException("output must be fresh");
         Directory.CreateDirectory(output);
         var fieldAddresses = scenario == StorageDriverScenario.FieldAddresses;
+        var unit = scenario == StorageDriverScenario.RuntimeUnitStorage;
         var nulls = scenario == StorageDriverScenario.NullLiterals;
         var display = scenario == StorageDriverScenario.ObjectDisplay;
         var references = scenario == StorageDriverScenario.ReferenceOperations;
-        var stem = nulls ? "NullLiterals" : display ? "ObjectDisplay" : references ? "References" : fieldAddresses ? "FieldAddress" : "Box";
+        var stem = unit ? "UnitStorage" : nulls ? "NullLiterals" : display ? "ObjectDisplay" : references ? "References" : fieldAddresses ? "FieldAddress" : "Box";
         var source = Path.Combine(output, stem + ".rvn");
-        File.WriteAllText(source, nulls ? """
+        File.WriteAllText(source, unit ? """
+            func Fill(out residual: System.Void) -> bool {
+                residual = ()
+                return true
+            }
+            func Consume(residual: System.Void) -> int => 42
+            func Main() -> int {
+                var residual: System.Void = default
+                if !Fill(out residual) {
+                    return 1
+                }
+                return Consume(residual)
+            }
+            """ : nulls ? """
             func EmptyObject() -> object? => null
             func EmptyString() -> string? => null
             func IsMissing(value: string?) -> bool => value == null
@@ -104,7 +118,7 @@ internal static class BoxingDriverChecks
             }
             """);
         var commands = new List<object>();
-        foreach (var native in new[] { false, true })
+        foreach (var native in unit ? new[] { true } : new[] { false, true })
         {
             var assembly = Path.Combine(output, stem + (native ? ".native.dll" : ".clr.dll"));
             string[] args = native
@@ -124,10 +138,15 @@ internal static class BoxingDriverChecks
         }
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
-            scope = nulls ? "Dual-target typed null returns and initialized local (42)." : display ? "Dual-target core Object.ToString dispatch on generic boxed integer and string (42)." : references ? "Dual-target reference null checks and discard type tests return 42." : fieldAddresses ? "Dual-target nested generic field addresses preserve mutable storage and object aliases (42)." : "Dual-target ordinary-command boxing smoke; detailed value/identity assertions live in C# metadata and CLR conversion tests, not this discarded-result smoke.",
-            driverSha256 = Hash(driver), runtimeSha256 = Hash(runtime), coreSha256 = Hash(core), seedSha256 = Hash(seed), sourceSha256 = Hash(source), commands
+            scope = unit ? "Native ordinary-command configured inhabited unit storage/out argument executes42; not a dual-target case." : nulls ? "Dual-target typed null returns and initialized local (42)." : display ? "Dual-target core Object.ToString dispatch on generic boxed integer and string (42)." : references ? "Dual-target reference null checks and discard type tests return 42." : fieldAddresses ? "Dual-target nested generic field addresses preserve mutable storage and object aliases (42)." : "Dual-target ordinary-command boxing smoke; detailed value/identity assertions live in C# metadata and CLR conversion tests, not this discarded-result smoke.",
+            driverSha256 = Hash(driver),
+            runtimeSha256 = Hash(runtime),
+            coreSha256 = Hash(core),
+            seedSha256 = Hash(seed),
+            sourceSha256 = Hash(source),
+            commands
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
-        Console.WriteLine(nulls ? "PASS dual-target null literals" : display ? "PASS dual-target core Object display dispatch" : references ? "PASS dual-target null checks and type tests" : fieldAddresses ? "PASS dual-target nested field mutation and alias identity" : "PASS dual-target boxing smoke and missing-seed publication guard");
+        Console.WriteLine(unit ? "PASS native configured unit storage" : nulls ? "PASS dual-target null literals" : display ? "PASS dual-target core Object display dispatch" : references ? "PASS dual-target null checks and type tests" : fieldAddresses ? "PASS dual-target nested field mutation and alias identity" : "PASS dual-target boxing smoke and missing-seed publication guard");
 
         async Task<string> Command(string executable, string[] arguments, int expected, string? expectedOutput = null)
         {

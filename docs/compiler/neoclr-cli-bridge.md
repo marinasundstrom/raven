@@ -4620,3 +4620,25 @@ execute null Object/String returns, local assignment and a null parameter on bot
 (exit42); 11 focused tests pass. Plain/generic union bodies now pass preflight and remain
 blocked by native union/case metadata preservation. Unchanged source Option independently
 reaches a BoundIsPatternExpression in TryGetOutput. These are not union execution claims.
+
+Option body continuation (2026-10-03): conditional gotos and Boolean case-test values
+reuse the existing shared pattern traversal and semantic TryGet methods. Branches retain
+success-only payload assignment paths; no new case encoding is introduced. A BoundUnit
+literal with an explicit RuntimeUnitContract emits a nominal default of that contract's
+semantic RuntimeRepresentation. NoResult remains separate; ordinary unconfigured .NET
+emission is unchanged. The existing NeoCLR adapter maps configured System.Void storage
+to inhabited native Void; no new metadata operation is needed.
+
+Validation: 14 existing/focused tests passed, then the corrected explicit-core setup for
+the added configured unit test passed separately (15 total). The new .NET test executes
+an out ValueTuple assignment. `--unit-storage-driver` executes native System.Void storage,
+out assignment and a value argument (42); it is labelled native-only, not a paired test.
+Unchanged Option/Propagatable sources now reach `native union/case metadata contract`
+with no output. All source bodies passing preflight does not prove encoding or execution.
+
+Next writer work preserves the existing .NET union attribute contract: UnionAttribute,
+RavenUnionCaseAttribute's physical case name/logical name/ordinal, and
+RavenUnionCompanionAttribute's generic carrier link. These need ordinary custom-attribute
+model/writer/reader/introspection coverage and native symbol reconstruction. Reuse the
+runtime's existing custom_attributes representation and constructor validation. Do not
+remove the publication guard or replace these relationships with an unmarked struct.

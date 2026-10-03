@@ -283,6 +283,21 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 if (statement is BoundConditionalGotoStatement conditional)
                 {
+                    if (conditional.Condition is BoundIsPatternExpression caseTest && capabilities?.AllowsCasePatterns == true)
+                    {
+                        if (!conditional.JumpIfTrue)
+                        {
+                            if (!LowerPattern(caseTest.Expression, caseTest.Pattern, Label(conditional.Target), Syntax(statement))) return false;
+                        }
+                        else
+                        {
+                            var failed = nextLabel++;
+                            if (!LowerPattern(caseTest.Expression, caseTest.Pattern, failed, Syntax(statement))) return false;
+                            Add(LinearInstructionKind.Branch, Syntax(statement), Label(conditional.Target));
+                            Add(LinearInstructionKind.Label, Syntax(statement), failed);
+                        }
+                        continue;
+                    }
                     if (!LowerValue(conditional.Condition)) return false;
                     Add(conditional.JumpIfTrue ? LinearInstructionKind.BranchTrue : LinearInstructionKind.BranchFalse,
                         Syntax(statement), Label(conditional.Target));
@@ -590,6 +605,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return Reject("target does not support value type " + valueType, Syntax(expression));
             switch (expression)
             {
+                case BoundUnitExpression { Type: UnitTypeSymbol { RuntimeRepresentation: { } representation } } when TryType(representation, false, out var unitType) &&
+                    unitType.Nominal is not null && capabilities?.Allows(unitType) == true &&
+                    capabilities.Allows(LinearInstructionKind.DefaultValue):
+                    instructions.Add(new(LinearInstructionKind.DefaultValue, Syntax(expression), Type: representation)); return true;
                 case BoundDefaultValueExpression value when TryType(value.Type, false, out var defaultType) &&
                     (capabilities is null || capabilities.Allows(defaultType)):
                     instructions.Add(new(LinearInstructionKind.DefaultValue, Syntax(expression), Type: value.Type)); return true;
@@ -682,6 +701,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     TryType(tested.DeclaredType, false, out var testedType) && capabilities.Allows(testedType):
                     if (!LowerValue(typeTest.Expression)) return false;
                     instructions.Add(new(LinearInstructionKind.TypeTest, Syntax(expression), Type: tested.DeclaredType));
+                    return true;
+                case BoundIsPatternExpression caseTest when capabilities?.AllowsCasePatterns == true:
+                    var failedPattern = nextLabel++;
+                    var completedPattern = nextLabel++;
+                    if (!LowerPattern(caseTest.Expression, caseTest.Pattern, failedPattern, Syntax(expression))) return false;
+                    Add(LinearInstructionKind.Boolean, Syntax(expression), 1);
+                    Add(LinearInstructionKind.Branch, Syntax(expression), completedPattern);
+                    Add(LinearInstructionKind.Label, Syntax(expression), failedPattern);
+                    Add(LinearInstructionKind.Boolean, Syntax(expression), 0);
+                    Add(LinearInstructionKind.Label, Syntax(expression), completedPattern);
                     return true;
                 case BoundLiteralExpression { Value: string text }:
                     Add(LinearInstructionKind.String, Syntax(expression), text: text); return true;

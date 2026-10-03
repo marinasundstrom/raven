@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Reuse case-pattern lowering for conditional branches and Boolean
+  values, and emit configured inhabited unit literals as nominal defaults. Unchanged
+  Option now passes body preflight and reaches the union/case metadata gate. Native
+  unit out-parameter execution and configured .NET unit execution pass.
+
 - **2026-10-03:** Lower contextual reference null literals using the existing typed
   default operation. Dual-target return/local/argument consumers execute; plain and
   generic unions now reach the native union/case metadata gate. Unchanged Option
