@@ -68,9 +68,9 @@ if (args.Length == 5 && args[0] == "--value-interface-driver")
 {
     await SourceValueDriverChecks.Run(args[1], args[2], args[3], args[4], valueInterface: true); return;
 }
-if (args.Length == 4 && args[0] == "--union-declaration-driver")
+if (args.Length == 6 && args[0] == "--union-declaration-driver")
 {
-    await UnionDeclarationDriverChecks.Run(args[1], args[2], args[3]); return;
+    await UnionDeclarationDriverChecks.Run(args[1], args[2], args[3], args[4], args[5]); return;
 }
 if (args.Length == 5 && args[0] == "--byte-discriminator-driver")
 {

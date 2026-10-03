@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Emit owned NeoCLR union/case/companion declarations with the existing
+  Raven attribute contract. Plain/generic driver cases execute matching, carrier copies
+  and generated display on both targets (42). Remove unreachable portable-plan operations
+  and resolve arity-zero cases through their physical original definition. Native imported
+  union reconstruction remains pending; the explicit core/runtime seed is still required.
+
 - **2026-10-03:** Make synthesized union bodies explicitly initialize inactive payload
   fields and assign default output before TryGetValue can return false. This completes
   the shared bound-body contract used by target emitters. Plain/generic .NET output

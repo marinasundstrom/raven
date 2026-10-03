@@ -24,7 +24,9 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
             return SignatureType.Function(new MethodSignature(Map(shape.ReturnType, resolveClass, resolveExternal), shape.ParameterTypes.Select(t => Map(t, resolveClass, resolveExternal))));
         if (resolveExternal is not null && (CallableSignature.IsExternalReference(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes) || CallableSignature.IsExternalValue(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes))) return resolveExternal(named);
         if (named.Arity > 0) return resolveClass((INamedTypeSymbol)named.OriginalDefinition).MakeGenericInstance(named.TypeArguments.Select(t => Map(t, resolveClass, resolveExternal)).ToArray());
-        return resolveClass(named);
+        // A payload-free case can be projected through a constructed generic union
+        // while its physical case type still has arity zero.
+        return resolveClass((INamedTypeSymbol)named.OriginalDefinition);
     }
 
     internal static SignatureType Map(ITypeSymbol type, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<INamedTypeSymbol, SignatureType>? resolveExternal = null)

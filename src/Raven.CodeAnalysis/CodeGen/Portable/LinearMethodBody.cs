@@ -45,6 +45,30 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
     internal static bool ReturnsValue(IMethodSymbol method)
         => CallableSignature.TryType(method.ReturnType, false, out _);
 
+    // Lowered match/conditional bodies can retain jumps after a terminating arm.
+    // Keep label identities stable, but do not emit instructions with no incoming path.
+    private static ImmutableArray<LinearInstruction> ReachableInstructions(ImmutableArray<LinearInstruction> instructions)
+    {
+        if (instructions.IsEmpty) return instructions;
+        var labels = new Dictionary<int, int>();
+        for (var i = 0; i < instructions.Length; i++)
+            if (instructions[i].Kind == LinearInstructionKind.Label) labels.Add(instructions[i].Integer, i);
+        var reachable = new bool[instructions.Length];
+        var pending = new Stack<int>();
+        pending.Push(0);
+        while (pending.TryPop(out var index))
+        {
+            if (index >= instructions.Length || reachable[index]) continue;
+            reachable[index] = true;
+            var instruction = instructions[index];
+            if (instruction.Kind is LinearInstructionKind.Branch or LinearInstructionKind.BranchTrue or LinearInstructionKind.BranchFalse)
+                pending.Push(labels[instruction.Integer]);
+            if (instruction.Kind is not (LinearInstructionKind.Branch or LinearInstructionKind.Return or LinearInstructionKind.CompilerFailure))
+                pending.Push(index + 1);
+        }
+        return [.. instructions.Where((instruction, index) => reachable[index] || instruction.Kind == LinearInstructionKind.Label)];
+    }
+
     internal static bool TryLower(IMethodSymbol source, SemanticModel model, SyntaxNode bodySyntax,
         Func<BoundInvocationExpression, bool> permitsConsoleWrite, out LinearMethodBody? lowered, out LinearBodyFailure? failure, EmissionCapabilities? capabilities = null, BoundFunctionExpression? functionBody = null)
     {
@@ -94,7 +118,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
             }
         }
-        lowered = success ? new(instructions.ToImmutable(), localTypes.ToImmutable(), nextLabel, functions.ToImmutable()) : null;
+        lowered = success ? new(ReachableInstructions(instructions.ToImmutable()), localTypes.ToImmutable(), nextLabel, functions.ToImmutable()) : null;
         failure = rejected;
         return success;
 

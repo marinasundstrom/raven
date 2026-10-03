@@ -19,6 +19,7 @@ internal static class Int32Emitter
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
         var interfaces = new List<SourceInterfacePlan>();
+        var unions = new List<SourceUnionDeclarationPlan>();
         var properties = new List<SourcePropertySymbol>();
         var storageFields = new List<IFieldSymbol>();
         var declaredTypes = new Dictionary<INamedTypeSymbol, SourceTypePlan>(SymbolEqualityComparer.Default);
@@ -47,32 +48,36 @@ internal static class Int32Emitter
                     var union = model.GetDeclaredSymbol(unionSyntax) as SourceUnionSymbol
                         ?? throw Unsupported("union symbol unavailable");
                     var declarations = SourceUnionDeclarationPlan.Create(union);
+                    unions.Add(declarations);
                     foreach (var unionType in declarations.Types)
                     {
-                        if (!SourceTypePlan.TryCreate(unionType.Symbol, out _, NeoClrCapabilities.Shared))
+                        if (!SourceTypePlan.TryCreate(unionType.Symbol, out var unionTypePlan, NeoClrCapabilities.Shared))
                             throw Unsupported("union type contract: " + unionType.Symbol.ToDisplayString());
+                        declaredTypes.TryAdd(unionType.Symbol, unionTypePlan!);
                         foreach (var field in unionType.Fields)
                         {
                             if (field.IsStatic || field.IsConst || field.RefKind != RefKind.None ||
                                 !CallableSignature.TryType(field.Type, false, out _, NeoClrCapabilities.Shared))
                                 throw Unsupported("union field contract: " + field.ToDisplayString());
+                            storageFields.Add(field);
                         }
                         foreach (var property in unionType.Properties)
                         {
-                            if (property is not SourcePropertySymbol)
+                            if (property is not SourcePropertySymbol sourceProperty)
                                 throw Unsupported("union property contract: " + property.ToDisplayString());
+                            properties.Add(sourceProperty);
                         }
                         foreach (var method in unionType.Methods)
                         {
                             if (!SourceCallablePlan.TryCreate(method, out var unionCallable, NeoClrCapabilities.Shared, unionSyntax))
                                 throw Unsupported("union callable contract: " + method.ToDisplayString());
+                            plans.Add(unionCallable!);
                             if (!unionCallable!.TryLowerBody(compilation, IsConsoleCall, out _, out var unionFailure, NeoClrCapabilities.Shared))
                                 throw new UnsupportedInputException("union body " + method.Name + ": " + unionFailure!.Detail, unionFailure.Syntax.GetLocation());
                         }
                     }
-                    // Discovery is complete, but writing an ordinary struct would lose
-                    // the union/case contract needed by a separately compiled consumer.
-                    throw Unsupported("native union/case metadata contract");
+                    // The full declaration graph, including uncalled synthesized members,
+                    // is emitted with the union attributes below.
                 }
                 else if (member is InterfaceDeclarationSyntax interfaceSyntax)
                 {
@@ -273,6 +278,8 @@ internal static class Int32Emitter
             nativeTypes.Add(type.Symbol, definition);
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type], ImportExternalType));
         }
+        if (unions.Count != 0)
+            NeoClrUnionMetadata.Emit(assembly, unions, type => nativeTypes[type]);
         var nativeInterfaces = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
         foreach (var contract in interfaces)
         {
@@ -441,7 +448,7 @@ internal static class Int32Emitter
                     throw Unsupported("native field requires a supported symbol-only emission contract and layout");
                 throw Unsupported("undeclared instance field");
             },
-                type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local"), ImportExternalType));
+                type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local: " + type.ToDisplayString() + " (" + type.GetType().Name + ")"), ImportExternalType));
         }
         return metadataAssembly ? NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(assembly) : assembly.WriteNativeAssembly();
 

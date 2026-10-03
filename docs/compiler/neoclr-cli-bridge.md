@@ -4642,3 +4642,26 @@ RavenUnionCompanionAttribute's generic carrier link. These need ordinary custom-
 model/writer/reader/introspection coverage and native symbol reconstruction. Reuse the
 runtime's existing custom_attributes representation and constructor validation. Do not
 remove the publication guard or replace these relationships with an unmarked struct.
+
+
+Owned union execution (2026-10-03): native emission now collects every union/case/companion
+member and authors UnionAttribute, RavenUnionCaseAttribute and RavenUnionCompanionAttribute
+from source symbol facts. The metadata API writes existing attribute records and CLI blobs;
+no importer objects enter emission. Output-owned native marker constructors are metadata
+records without CLI System.Attribute inheritance, a current bounded native limitation.
+The initial embedded profile does not add the backend-synthesized CLI IUnion interface;
+that introspection interface is separate from case construction/matching and remains open.
+
+The normal command requires --core-reference and --runtime-seed for generated boxing/display.
+Exact core String static methods and Char type operands use validated canonical primitive
+native mappings (metadata revision bf8be1f9); the .NET backend remains Reflection/Emit.
+Portable lowering omits operations unreachable from the method entry while retaining label
+identities. Arity-zero physical cases resolve through OriginalDefinition even when projected
+through a generic semantic carrier. Union bound-body initialization is recorded separately
+in [the compiler note](union-body-initialization.md).
+
+`--union-declaration-driver <rvnc> <neoclr> <core> <seed> <fresh-output>` now executes both
+plain/generic cases on both targets: exact stdout `Choice.Some(42)` / `Choice.None`, exit42,
+matching both cases and retaining a copy after reassignment. Native attribute inspection
+checks union/case preservation. Twenty-one focused .NET tests pass. Separate-library native
+union import remains pending; this does not claim unchanged Option/Result completion.
