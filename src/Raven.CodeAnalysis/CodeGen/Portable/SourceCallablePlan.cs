@@ -3,6 +3,8 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
+internal enum EmissionOverrideKind { None, ObjectToString }
+
 // A source declaration, not a backend definition. In particular, an assembly function
 // has no logical type owner even when the CLI symbol model supplies a carrier type.
 internal sealed record SourceCallablePlan(
@@ -18,7 +20,19 @@ internal sealed record SourceCallablePlan(
             names.Push(scope.Name);
         return string.Join(".", names);
     }
-    internal EmissionDeclarationKind DeclarationKind => IsAssemblyFunction
+    internal EmissionOverrideKind Override { get; } = ClassifyOverride(Symbol);
+    // Reference nullability does not change this physical slot; binding still owns
+    // Raven's override compatibility rules and supplies the resolved target.
+    internal static EmissionOverrideKind ClassifyOverride(IMethodSymbol method)
+        => method.OriginalDefinition is SourceMethodSymbol { IsOverride: true, IsStatic: false, IsAbstract: false, MethodKind: MethodKind.Ordinary,
+            DeclaredAccessibility: Accessibility.Public, ContainingType.IsValueType: true,
+            Name: "ToString", Parameters.Length: 0, TypeParameters.Length: 0, ReturnType: var result,
+            OverriddenMethod: { IsStatic: false, IsVirtual: true, IsAbstract: false, Name: "ToString", Parameters.Length: 0,
+                TypeParameters.Length: 0, ContainingType.SpecialType: SpecialType.System_Object, ReturnType: var slotResult } } &&
+            result.GetNonNullableType().SpecialType == SpecialType.System_String && slotResult.GetNonNullableType().SpecialType == SpecialType.System_String
+            ? EmissionOverrideKind.ObjectToString : EmissionOverrideKind.None;
+
+    internal EmissionDeclarationKind DeclarationKind => Override != EmissionOverrideKind.None ? EmissionDeclarationKind.ValueObjectOverride : IsAssemblyFunction
         ? Namespace.Length == 0 ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.NamespacedAssemblyFunction
         : Symbol.MethodKind == MethodKind.Constructor ? EmissionDeclarationKind.Constructor
         : Symbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
@@ -35,7 +49,8 @@ internal sealed record SourceCallablePlan(
         plan = null;
         if (symbol.IsExtern ||
             !CallableSignature.TryCreate(symbol, out var signature, capabilities)) return false;
-        if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet) || symbol.IsVirtual || symbol.IsOverride || symbol.IsAbstract ||
+        if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet) || symbol.IsAbstract || (symbol.IsVirtual || symbol.IsOverride) &&
+            (ClassifyOverride(symbol) == EmissionOverrideKind.None || capabilities?.Allows(EmissionDeclarationKind.ValueObjectOverride) != true) ||
             symbol.ContainingType is not { } receiver || !SourceTypePlan.TryCreate(receiver, out _, capabilities))) return false;
         if (symbol.ContainingSymbol is SourcePropertySymbol { IsAutoProperty: true, IsStatic: false, BackingField: { } } property &&
             symbol.DeclaringSyntaxReferences.IsEmpty && property.DeclaringSyntaxReferences.Length == 1)

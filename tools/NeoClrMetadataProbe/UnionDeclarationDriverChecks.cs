@@ -43,14 +43,14 @@ internal static class UnionDeclarationDriverChecks
             if (executed.Stdout != "" || executed.Stderr != "") throw new Exception("unexpected CLR output");
             var native = Path.Combine(output, name + ".native.dll");
             var rejected = await Command("dotnet", [driver, "neoclr", "--core-reference", core, "-o", native, source], 1);
-            if (!rejected.Stderr.Contains("NEOMETA001") || !rejected.Stderr.Contains("union callable contract:") ||
-                !rejected.Stderr.Contains("ToString") || File.Exists(native))
+            if (!rejected.Stderr.Contains("NEOMETA001") || !rejected.Stderr.Contains("union body ToString:") ||
+                !rejected.Stderr.Contains("BoundConversionExpression") || File.Exists(native))
                 throw new Exception("native union gate changed; reassess contracts before updating this expectation");
             evidence.Add(new { name, sourceSha256 = Hash(source), dotnetAssemblySha256 = Hash(clr), dotnetExecuted = true, nativeExecuted = false, nativeOutputPublished = false });
         }
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
-            scope = "Union declaration discovery baseline; native union execution remains blocked by synthesized override contracts.",
+            scope = "Union declaration discovery baseline; native union execution remains blocked by generated display conversion lowering.",
             driverSha256 = Hash(driver), coreSha256 = Hash(core), evidence, commands
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS CLR union execution and explicit native rejection without publication; native execution remains pending");

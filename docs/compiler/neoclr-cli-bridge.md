@@ -4480,3 +4480,53 @@ contracts and the NeoCLR adapter, using symbol facts and explicit host artifact 
 Do not reuse importer objects or enable general virtual methods. Generated formatting
 operations and native union/case metadata remain additional gates before source Option
 or the broad application can be declared supported.
+
+
+## Raven value Object overrides and explicit runtime seed (2026-10-03)
+
+The shared callable plan now carries an ObjectToString override category derived from
+bound source-symbol facts: a public nongeneric instance method on a value type, the
+resolved virtual System.Object.ToString target, no parameters and a String result.
+Reference-nullability annotations do not change the physical slot. Binding still owns
+language compatibility. General virtual methods, class overrides and other Object slots
+remain outside this target capability. The .NET adapter's default profile is unchanged.
+The NeoCLR adapter calls the separate metadata library's AddOverride; bodies still flow
+through Raven's portable instructions and the metadata IILGenerator. Direct addressed
+calls on local ordinary/constructed generic values are supported; compiler boxing and
+symbol-authored external override references are not established by this slice.
+
+The normal driver accepts:
+
+```text
+rvnc neoclr --core-reference NeoCLR.CoreProbe.dll --runtime-seed System.neox -o App.dll Display.rvn
+```
+
+The optional seed is an explicit legacy bootstrap-to-runtime binding, not a semantic
+import of the seed or fallback for native application references. It requires a core path,
+module System, bounded images, a distinct output, and no --system-symbols selection.
+The metadata writer validates the selected Object slot. If --bootstrap-ownership is
+present, source-owned type names cannot also occur in the seed. Generic arities/nested
+names are normalized to the retained native naming convention for this inventory check.
+A full System seed consequently cannot accompany a manifest that rebuilds its collection
+contracts; a filtered retained seed is required. Runtime Contract settings and intrinsic
+opt-in remain separate and unchanged. Configuration/binding/encoding failures publish no
+output. Supply the same seed to the runtime using --system.
+
+The C# --value-override-driver check executes ordinary/generic Raven-authored struct
+ToString implementations on neoCLR (stdout `native override`, exit 42), rereads native
+slot flags and checks missing seed/core and conflicting ownership rejection. The same
+source is attempted on .NET and its existing RAV0307 nullability diagnostic is recorded:
+host Object.ToString returns string?, while this retained bootstrap says string. Raven
+intentionally requires matching override return nullability; that rule was not changed
+or hidden by rewriting the control source. This fixture is native execution evidence,
+not a completed dual-target gate. Existing .NET union executions remain successful.
+
+Union preflight now admits the generated override declarations and checks their shared
+lowered bodies before the final publication guard. Ordinary/generic driver unions and
+unchanged Option reach `union body ToString: lowered expression BoundConversionExpression`.
+The --union-declaration-driver control still executes on .NET and checks explicit native
+rejection/no output. Twelve focused tests cover planning/capabilities, other override
+rejection, .NET union execution and return-nullability behavior. Next implement the required
+conversion/formatting operations and preserve native union/case contracts; do not publish
+plain structs as completed unions. No binder change or independent main-branch fix is part
+of this slice. NeoCLR metadata dependency: b94bdf79.

@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Emit bounded value Object.ToString overrides through a symbol-derived
+  callable capability and the NeoCLR metadata adapter, including direct generic value
+  calls. Add explicit --runtime-seed bootstrap binding with core/ownership checks.
+  Native driver cases execute; the CLR control's existing return-nullability mismatch
+  is recorded separately. Union declarations now reach generated display conversion
+  lowering; full union publication remains blocked. .NET defaults and binding rules
+  are unchanged.
+
 - **2026-10-03:** Record the separate metadata library's bounded CLI value-ToString
   override authoring foundation and subsequent native slot binding (`b94bdf79`). Native
   reader/import and boxed runtime dispatch now pass against the explicit retained System

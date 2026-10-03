@@ -19,6 +19,7 @@ internal static class NeoClrCommand
         if (args.Length == 1 && args[0] is "--help" or "-h")
         {
             Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--core-reference NeoCLR.CoreProbe.dll] [--reference library.dll] source.rvn ...");
+            Console.WriteLine("Optional --runtime-seed System.neox binds the explicitly selected CLI core bootstrap to retained runtime services; it imports no additional symbols.");
             Console.WriteLine("Optional --bootstrap-intrinsics authorizes checked storage from the explicitly selected --core-reference.");
             Console.WriteLine("Optional --bootstrap-ownership manifest.json selects source-library ownership and iteration contracts.");
             Console.WriteLine("Experimental PE/#Neo output. References are imported directly from supported native metadata.");
@@ -37,6 +38,7 @@ internal static class NeoClrCommand
             var library = false;
             var bootstrapIntrinsics = false;
             string? systemPath = null;
+            string? runtimeSeedPath = null;
             string? corePath = null;
             BootstrapOwnershipManifest? ownership = null;
             var systemMethods = new List<string>();
@@ -55,6 +57,10 @@ internal static class NeoClrCommand
                     case "--bootstrap-intrinsics":
                         if (bootstrapIntrinsics) throw new ArgumentException("Specify --bootstrap-intrinsics once.");
                         bootstrapIntrinsics = true;
+                        break;
+                    case "--runtime-seed":
+                        if (runtimeSeedPath is not null || ++i == args.Length) throw new ArgumentException("Specify --runtime-seed once with an explicit native System path.");
+                        runtimeSeedPath = Path.GetFullPath(args[i]);
                         break;
                     case "--core-reference":
                         if (corePath is not null || ++i == args.Length) throw new ArgumentException("Specify --core-reference once with a CLI primitive core path.");
@@ -90,6 +96,8 @@ internal static class NeoClrCommand
             if (sources.Distinct(StringComparer.OrdinalIgnoreCase).Count() != sources.Count ||
                 referencePaths.Distinct(StringComparer.OrdinalIgnoreCase).Count() != referencePaths.Count)
                 throw new ArgumentException("Duplicate input path.");
+            if (runtimeSeedPath is not null && (corePath is null || systemPath is not null || string.Equals(runtimeSeedPath, output, StringComparison.OrdinalIgnoreCase)))
+                throw new ArgumentException("--runtime-seed requires --core-reference, a distinct output and no legacy --system-symbols selection.");
             if (bootstrapIntrinsics && corePath is null)
                 throw new ArgumentException("--bootstrap-intrinsics requires an explicit --core-reference.");
             if (referencePaths.Count > 0 && corePath is null)
@@ -114,6 +122,20 @@ internal static class NeoClrCommand
                 if (bootstrapIntrinsics) bootstrapReference = primitiveCore;
             }
             var dependencies = new List<NeoClrMetadataDependency>();
+            if (runtimeSeedPath is not null)
+            {
+                if (new FileInfo(runtimeSeedPath).Length > 8 * 1024 * 1024 || new FileInfo(corePath!).Length > 4 * 1024 * 1024)
+                    throw new InvalidDataException("Runtime seed or core snapshot exceeds its image limit.");
+                var seed = NativeLibraryDefinition.ReadAssembly(File.ReadAllBytes(runtimeSeedPath));
+                if (seed.ModuleName != "System") throw new InvalidDataException("Runtime seed must declare module System.");
+                foreach (var type in ownership?.Libraries.SelectMany(library => library.Types) ?? [])
+                {
+                    var nativeName = System.Text.RegularExpressions.Regex.Replace(type.Replace('+', '.'), @"`\d+", "");
+                    if (seed.TypeNames.Contains(nativeName))
+                        throw new InvalidDataException("Runtime seed duplicates a source-owned declaration: " + type);
+                }
+                dependencies.Add(new(references[0], AssemblyDefinition.ReadAssembly(File.ReadAllBytes(corePath!), expectedExtended: false), core, seed));
+            }
             foreach (var path in referencePaths)
             {
                 if (new FileInfo(path).Length > 4 * 1024 * 1024) throw new InvalidDataException("Native PE reference exceeds 4 MiB: " + path);

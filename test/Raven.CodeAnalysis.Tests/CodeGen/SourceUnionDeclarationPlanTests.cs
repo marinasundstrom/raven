@@ -9,6 +9,19 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
 {
     [Theory]
+    [InlineData("class Display { override func ToString() -> string? => \"display\" }")]
+    [InlineData("struct Display { override func GetHashCode() -> int => 42 }")]
+    public void OtherVirtualContractsRemainOutsideTheValueToStringCapability(string source)
+    {
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees.Single();
+        var declaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
+        Assert.Equal(EmissionOverrideKind.None, SourceCallablePlan.ClassifyOverride(method));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void CompleteGraphPreservesPhysicalCaseOwnersAndUnusedContracts(bool generic)
@@ -29,8 +42,9 @@ public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
         Assert.All(union.DeclaredCaseTypes, @case => Assert.Contains(carrier.Fields, field => field.MetadataName == UnionFieldUtilities.GetPayloadFieldName(@case.Name)));
         Assert.Contains(carrier.Methods, m => m.Name == "TryGetValue");
         Assert.Contains(carrier.Methods, m => m.Name == "ToString");
-        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
-            Enum.GetValues<EmissionDeclarationKind>(), [Accessibility.Public, Accessibility.Internal],
+        var capabilities = Capabilities(true);
+        EmissionCapabilities Capabilities(bool overrides) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>().Where(kind => overrides || kind != EmissionDeclarationKind.ValueObjectOverride), [Accessibility.Public, Accessibility.Internal],
             [Accessibility.Public, Accessibility.Internal, Accessibility.Private],
             allowsRootClassSignatures: true, allowsRootClassLocals: true, allowsManagedReferences: true,
             allowsConstructedFieldReferences: true, allowsGenericInstanceMethods: true,
@@ -49,6 +63,13 @@ public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
                 Assert.True(SourceTypePlan.TryCreate(constructed, out var constructedPlan, capabilities));
                 Assert.Same(plannedCase.MetadataOwner, constructedPlan!.MetadataOwner);
             }
+        }
+        foreach (var display in plan.Types.SelectMany(t => t.Methods).Where(m => m.Name == "ToString"))
+        {
+            Assert.True(SourceCallablePlan.TryCreate(display, out var displayPlan, capabilities, declaration), display.ToDisplayString());
+            Assert.Equal(EmissionOverrideKind.ObjectToString, displayPlan!.Override);
+            Assert.Equal(EmissionDeclarationKind.ValueObjectOverride, displayPlan.DeclarationKind);
+            Assert.False(SourceCallablePlan.TryCreate(display, out _, Capabilities(false), declaration));
         }
         var helper = carrier.Methods.First(m => m.Name == "TryGetValue");
         Assert.False(SourceCallablePlan.TryCreate(helper, out _, capabilities));

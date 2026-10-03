@@ -64,8 +64,10 @@ internal static class Int32Emitter
                         }
                         foreach (var method in unionType.Methods)
                         {
-                            if (!SourceCallablePlan.TryCreate(method, out _, NeoClrCapabilities.Shared, unionSyntax))
+                            if (!SourceCallablePlan.TryCreate(method, out var unionCallable, NeoClrCapabilities.Shared, unionSyntax))
                                 throw Unsupported("union callable contract: " + method.ToDisplayString());
+                            if (!unionCallable!.TryLowerBody(compilation, IsConsoleCall, out _, out var unionFailure, NeoClrCapabilities.Shared))
+                                throw new UnsupportedInputException("union body " + method.Name + ": " + unionFailure!.Detail, unionFailure.Syntax.GetLocation());
                         }
                     }
                     // Discovery is complete, but writing an ordinary struct would lose
@@ -158,7 +160,7 @@ internal static class Int32Emitter
                         }
                         if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null) || method.AttributeLists.Count != 0 ||
                             method.ExplicitInterfaceSpecifier is not null || method.ConstraintClauses.Count != 0 ||
-                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)))
+                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword or SyntaxKind.OverrideKeyword)))
                             throw Unsupported("only ordinary primitive methods, explicit constructors and auto-properties");
                         var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
 
