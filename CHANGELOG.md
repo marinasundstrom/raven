@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-03:** Emit ordinary expression-bodied methods through their bound return
+  blocks, preserving implicit generic boxing instead of returning a raw value as object.
+  Static and instance methods retain reference identity and null; ten focused conversion
+  and expression-body execution tests pass. No language or Runtime Contract change.
+
 - **2026-10-03:** Emit bounded value Object.ToString overrides through a symbol-derived
   callable capability and the NeoCLR metadata adapter, including direct generic value
   calls. Add explicit --runtime-seed bootstrap binding with core/ownership checks.
