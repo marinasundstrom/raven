@@ -7611,9 +7611,6 @@ public partial class SemanticModel
 
     private static bool RequiresInterfacePropertyImplementation(IPropertySymbol interfaceProperty)
     {
-        if (interfaceProperty.IsStatic)
-            return false;
-
         return interfaceProperty.GetMethod is { IsAbstract: true } ||
                interfaceProperty.SetMethod is { IsAbstract: true } ||
                IsSourceInterfacePropertyWithoutImplementation(interfaceProperty);
@@ -7688,7 +7685,7 @@ public partial class SemanticModel
     {
         foreach (var candidate in EnumerateTypeAndBaseProperties(typeSymbol))
         {
-            if (candidate.IsStatic)
+            if (candidate.IsStatic != interfaceProperty.IsStatic)
                 continue;
 
             if (candidate.ExplicitInterfaceImplementations.Any(implementation =>

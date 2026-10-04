@@ -2078,3 +2078,15 @@ in a selected reference core, and need no Runtime Contract switch. Floating `~`
 remains invalid. Existing .NET emission is retained. This general correction is
 independent of native metadata support; focused primitive lookup, numeric comparison
 and integral conversion tests validate it separately from NeoCLR integration.
+
+
+### Static abstract property conformance (2026-10-04)
+
+Imported static abstract interface properties require an implementation during ordinary
+binding, just like instance properties. Matching includes static/instance identity and
+existing property/accessor signature checks. Missing, instance-only and wrong-return-type
+implementations report RAV0330. This needs no target policy or Runtime Contract setting.
+The defect reproduced independently on main with a .NET-emitted interface and a separate
+consumer: three invalid variants previously produced no errors, while the valid static
+property passed. The fix applies to .NET and native metadata symbols through the shared
+semantic model; metadata writer validation remains a separate defensive boundary.
