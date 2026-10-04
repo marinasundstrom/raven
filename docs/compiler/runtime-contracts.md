@@ -3132,3 +3132,13 @@ selection affects semantic symbols for both .NET and NeoCLR; it adds no runtime 
 or emitted instruction. A synthetic alternate CLI core alongside System.Runtime provides
 an independent .NET regression. Unsupported/missing core configuration is still subject
 to the existing target validation.
+
+
+### Predefined floating unary operators (2026-10-04)
+
+Single/Double unary `+` and `-` are predefined operations in binding, retaining the
+operand's primitive result type. They do not require static operator declarations
+in a selected reference core, and need no Runtime Contract switch. Floating `~`
+remains invalid. Existing .NET emission is retained. This general correction is
+independent of native metadata support; focused primitive lookup, numeric comparison
+and integral conversion tests validate it separately from NeoCLR integration.
