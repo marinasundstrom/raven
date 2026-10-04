@@ -38,6 +38,7 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
         if (plan.Symbol.Arity > 0) return plan.IsStatic
             ? assembly.AddGenericType(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility)
             : assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility);
+        if (plan.ClassBase is { } baseType) return assembly.AddClass(plan.Namespace, plan.Name, resolveOwner(baseType), visibility);
         return plan.IsStatic ? assembly.AddType(plan.Namespace, plan.Name, visibility) : assembly.AddClass(plan.Namespace, plan.Name, visibility);
     }
 }

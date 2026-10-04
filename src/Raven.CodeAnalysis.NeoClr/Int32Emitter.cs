@@ -356,14 +356,18 @@ internal static class Int32Emitter
                 .Select(t => NeoClrTypeMapper.Map(t, owned => nativeTypes[owned], ImportExternalType)).ToArray());
         }
         var functions = new NeoClrCallableDefinitionBuilder(assembly, resolveClass: type => nativeTypes[type], resolveExternal: ImportExternalType);
-        foreach (var type in declaredTypes.Values)
+        void DefineClass(SourceTypePlan type)
         {
+            if (nativeTypes.ContainsKey(type.Symbol)) return;
+            if (type.ClassBase is { } parent) DefineClass(declaredTypes[parent]);
+            if (type.MetadataOwner is { } container) DefineClass(declaredTypes[container]);
             var definition = type.Define(typeDefinitions);
             if (primitiveOwners.TryGetValue(type.Symbol, out var primitive)) definition.SetNativePrimitive(primitive);
             if (SymbolEqualityComparer.Default.Equals(type.Symbol, graphemeOwner)) definition.SetNativeGrapheme();
             nativeTypes.Add(type.Symbol, definition);
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type], ImportExternalType));
         }
+        foreach (var type in declaredTypes.Values) DefineClass(type);
         var extensionOwners = declaredTypes.Values.Where(t =>
             t.Symbol.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true }).ToArray();
         if (extensionOwners.Length != 0)
@@ -607,7 +611,9 @@ internal static class Int32Emitter
             current.Body.Emit(new NeoClrLinearMethodBuilder(current.Method.GetILGenerator(), (instruction, output) =>
             {
                 diagnosticSyntax = instruction.Syntax;
-                if (instruction.Kind == LinearInstructionKind.FunctionBind)
+                if (instruction.Kind == LinearInstructionKind.BaseConstructorCall)
+                    output.Call(definedMethods[instruction.Method!.OriginalDefinition]);
+                else if (instruction.Kind == LinearInstructionKind.FunctionBind)
                 {
                     var symbol = instruction.Method!;
                     if (!definedMethods.TryGetValue(symbol.OriginalDefinition, out var target) && !interfaceMethods.TryGetValue(symbol.OriginalDefinition, out target))

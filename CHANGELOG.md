@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Emit local nongeneric class inheritance for NeoCLR through explicit
+  semantic base identities and base-constructor operations. Preserve declaration
+  ordering, constructor arguments, field initialization and inherited mutation;
+  ordinary .NET retains its existing backend. A paired driver consumer executes on
+  both runtimes. Closed/protected, external and virtual class contracts remain open.
+
 - **2026-10-04:** Resolve explicit base constructor calls after source members are registered and
   retain canonical constructor symbols across binder re-entry. Forward declaration
   order no longer silently drops base initialization on .NET; invalid calls reject

@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble }
+internal enum LinearInstructionKind { BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -112,7 +112,23 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         }
         if (body is not null && (capabilities?.AllowsArrays == true || capabilities?.AllowsRangeEnumeration == true))
             body = Lowerer.LowerPortableLoops(source, body, capabilities!.AllowsArrays, capabilities.AllowsRangeEnumeration);
-        var success = body is not null ? LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
+        var success = body is not null ? LowerBaseInitializer() && LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
+        bool LowerBaseInitializer()
+        {
+            if (source.MethodKind != MethodKind.Constructor || source.ContainingType is not { IsReferenceType: true, BaseType: { SpecialType: not SpecialType.System_Object } parent }) return true;
+            if (capabilities?.AllowsLocalClassInheritance != true) return Reject("class base initialization", bodySyntax);
+            var initializer = (source as SourceMethodSymbol)?.ConstructorInitializer;
+            var target = initializer?.Constructor ?? parent.GetMembers().OfType<IMethodSymbol>()
+                .SingleOrDefault(m => m.MethodKind == MethodKind.Constructor && m.Parameters.Length == 0 && !m.IsStatic);
+            if (target is null || !SymbolEqualityComparer.Default.Equals(target.ContainingType, parent)) return Reject("direct base constructor unavailable", bodySyntax);
+            var arguments = initializer?.Arguments.ToArray() ?? [];
+            if (arguments.Length != target.Parameters.Length) return Reject("base constructor argument shape", bodySyntax);
+            Add(LinearInstructionKind.Receiver, bodySyntax);
+            for (int i = 0; i < arguments.Length; i++)
+                if (!LowerValue(arguments[i], target.Parameters[i].Type)) return false;
+            Add(LinearInstructionKind.BaseConstructorCall, bodySyntax, method: target);
+            return true;
+        }
         if (success && capabilities is not null)
         {
             foreach (var instruction in instructions)

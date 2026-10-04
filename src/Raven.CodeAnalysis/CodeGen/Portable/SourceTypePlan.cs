@@ -17,6 +17,8 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
     internal bool IsValueType => Symbol.TypeKind is TypeKind.Struct or TypeKind.Enum;
     internal EmissionDeclarationKind DeclarationKind => IsEnum ? EmissionDeclarationKind.Enum : IsValueType ? EmissionDeclarationKind.ValueType : IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
 
+    internal INamedTypeSymbol? ClassBase => !IsStatic && !IsValueType && Symbol.BaseType is { SpecialType: not SpecialType.System_Object } parent ? parent : null;
+
     internal Accessibility Visibility => Symbol.DeclaredAccessibility;
 
     internal string FullName => Namespace.Length == 0 ? Name : Namespace + "." + Name;
@@ -49,7 +51,9 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct) || type.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal) ||
             GetMetadataOwner(type) is { } parent && (capabilities?.Allows(EmissionDeclarationKind.NestedType) != true ||
                 parent.Arity != 0 || isStatic || !isValue && type.Arity != 0 || !TryCreate(parent, out _, capabilities)) ||
-            !isStatic && (type.IsAbstract || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false, IsSealedHierarchy: false } || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object)))
+            !isStatic && (type.IsAbstract || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false, IsSealedHierarchy: false } || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object) &&
+                !(capabilities?.AllowsLocalClassInheritance == true && !isValue && type.Arity == 0 && type.ContainingType is null &&
+                  type.BaseType is { Arity: 0, ContainingType: null } baseType && SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, type.ContainingAssembly) && TryCreate(baseType, out _, capabilities))))
             return false;
         // Check relationship identity here. Arguments are mapped by the adapter; recursively
         // admitting their source owners would loop for shapes such as C<T> : I<C<T>>.

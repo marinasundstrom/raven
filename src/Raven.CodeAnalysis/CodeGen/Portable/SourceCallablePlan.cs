@@ -98,7 +98,9 @@ internal sealed record SourceCallablePlan(
                 plan = new(symbol, syntax, (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody, symbol.ContainingType, symbol.MetadataName, signature);
                 if (plan.Body is not null && (capabilities is null || plan.IsSupportedBy(capabilities))) return true;
                 plan = null; return false;
-            case ConstructorDeclarationSyntax constructor when HasRootInitialization(symbol, constructor) && symbol.ContainingType is { } constructorOwner:
+            case ConstructorDeclarationSyntax constructor when (HasRootInitialization(symbol, constructor) || capabilities?.AllowsLocalClassInheritance == true &&
+                symbol is SourceMethodSymbol { ConstructorInitializer: { } initializer } &&
+                SymbolEqualityComparer.Default.Equals(initializer.Constructor.ContainingType, symbol.ContainingType?.BaseType)) && symbol.ContainingType is { } constructorOwner:
                 plan = new(symbol, syntax, (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody, constructorOwner, symbol.MetadataName, signature);
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
                 plan = null; return false;

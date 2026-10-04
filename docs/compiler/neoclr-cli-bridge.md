@@ -6012,3 +6012,37 @@ whole-stream I/O, byte counts, leaveOpen, EOF, read bounds and invalid UTF-8. Th
 match-return consumer checks both early-return and ordinary-result paths. Ordinary
 .NET EmissionCapabilityTests include corresponding observable control-flow coverage.
 See neoCLR docs/experiments/extended-cli-metadata/source-text-streams-2026-10-04.md.
+
+## Local class bases and constructor calls (2026-10-04)
+
+The native adapter opts into `AllowsLocalClassInheritance`, bounded to ordinary
+nongeneric source classes in the same output. The shared type plan carries the
+semantic base identity; declarations are ordered by dependencies rather than source
+order. Shared lowering carries `BaseConstructorCall` with the bound constructor and
+argument expressions, before field initializers. The native adapter resolves its
+own output method builder and emits Call through IILGenerator; it does not consult
+metadata loader objects. Root Object initialization remains adapter policy.
+
+The metadata library encodes CLI TypeDef.Extends and the existing native base
+relationship. Native declared field slots include ancestor storage; CLI operands
+remain field tokens. This adds no projection fallback or bootstrap mapping. Existing
+primitive-core/seed/source-ownership configuration is unchanged. The ordinary .NET
+backend retains its general generator and does not enable this portable capability.
+
+The accompanying compiler fix resolves explicit constructor initializers after
+source member registration and preserves canonical source constructor symbols.
+It also fixes a .NET defect reproduced on main and is isolated independently; see
+[constructor binding](constructor-initializers.md).
+
+`bootstrap/verify_class_bases.py` in neoCLR provides the paired driver gate for
+forward declarations, base and derived field initialization, inherited mutation and
+alias identity. External/constructed class bases, abstract/virtual class contracts,
+protected constructors and Raven closed-family metadata are not enabled by this
+capability. Unsupported shapes must still reject before publication; JSON remains
+outside this checkpoint.
+
+Verified with metadata library `f02f893d`: both paired driver processes return 42,
+including base-typed alias mutation, and the existing five-source text-stream library
+and artifact-only consumers still pass. The integration branch also passes 34 focused
+.NET 11 emission/constructor tests. Compiler/runtime binaries and bootstrap artifacts
+are hashed in neoCLR's `class-base-driver-2026-10-04.json` evidence.
