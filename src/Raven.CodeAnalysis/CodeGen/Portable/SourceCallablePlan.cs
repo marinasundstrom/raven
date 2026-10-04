@@ -3,7 +3,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
-internal enum EmissionOverrideKind { None, ObjectToString }
+internal enum EmissionOverrideKind { None, ObjectToString, ObjectHashCode, ObjectEquals }
 
 // A source declaration, not a backend definition. In particular, an assembly function
 // has no logical type owner even when the CLI symbol model supplies a carrier type.
@@ -24,21 +24,33 @@ internal sealed record SourceCallablePlan(
     // Reference nullability does not change this physical slot; binding still owns
     // Raven's override compatibility rules and supplies the resolved target.
     internal static EmissionOverrideKind ClassifyOverride(IMethodSymbol method)
-        => method.OriginalDefinition is SourceMethodSymbol
-        {
-            IsOverride: true, IsStatic: false, IsAbstract: false, MethodKind: MethodKind.Ordinary,
-            DeclaredAccessibility: Accessibility.Public, ContainingType.IsValueType: true,
-            Name: "ToString", Parameters.Length: 0, TypeParameters.Length: 0, ReturnType: var result,
-            OverriddenMethod:
+    {
+        if (method.OriginalDefinition is not SourceMethodSymbol
             {
-                IsStatic: false, IsVirtual: true, IsAbstract: false, Name: "ToString", Parameters.Length: 0,
-                TypeParameters.Length: 0, ContainingType.SpecialType: SpecialType.System_Object, ReturnType: var slotResult
-            }
-        } &&
-            result.GetNonNullableType().SpecialType == SpecialType.System_String && slotResult.GetNonNullableType().SpecialType == SpecialType.System_String
-            ? EmissionOverrideKind.ObjectToString : EmissionOverrideKind.None;
+                IsOverride: true, IsStatic: false, IsAbstract: false, MethodKind: MethodKind.Ordinary,
+                DeclaredAccessibility: Accessibility.Public, TypeParameters.Length: 0
+            } source) return EmissionOverrideKind.None;
+        IMethodSymbol? slot = source.OverriddenMethod;
+        for (int depth = 0; depth < 16 && slot is SourceMethodSymbol { IsOverride: true } inherited; depth++) slot = inherited.OverriddenMethod;
+        if (slot is not
+            {
+                IsStatic: false, IsVirtual: true, IsAbstract: false, TypeParameters.Length: 0,
+                ContainingType.SpecialType: SpecialType.System_Object
+            } || slot.Name != source.Name ||
+            slot.Parameters.Length != source.Parameters.Length) return EmissionOverrideKind.None;
+        bool Result(SpecialType type) => source.ReturnType.GetNonNullableType().SpecialType == type && slot.ReturnType.GetNonNullableType().SpecialType == type;
+        return source.Name switch
+        {
+            "ToString" when source.Parameters.IsEmpty && Result(SpecialType.System_String) => EmissionOverrideKind.ObjectToString,
+            "GetHashCode" when source.Parameters.IsEmpty && Result(SpecialType.System_Int32) => EmissionOverrideKind.ObjectHashCode,
+            "Equals" when source.Parameters is [{ RefKind: RefKind.None, Type: var value }] &&
+                value.GetNonNullableType().SpecialType == SpecialType.System_Object &&
+                slot.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object && Result(SpecialType.System_Boolean) => EmissionOverrideKind.ObjectEquals,
+            _ => EmissionOverrideKind.None
+        };
+    }
 
-    internal EmissionDeclarationKind DeclarationKind => Override != EmissionOverrideKind.None ? EmissionDeclarationKind.ValueObjectOverride : IsAssemblyFunction
+    internal EmissionDeclarationKind DeclarationKind => Override != EmissionOverrideKind.None ? Symbol.ContainingType.IsValueType ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride : IsAssemblyFunction
         ? Namespace.Length == 0 ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.NamespacedAssemblyFunction
         : Symbol.MethodKind == MethodKind.Constructor ? EmissionDeclarationKind.Constructor
         : Symbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
@@ -55,10 +67,10 @@ internal sealed record SourceCallablePlan(
     internal static bool TryCreate(IMethodSymbol symbol, out SourceCallablePlan? plan, EmissionCapabilities? capabilities = null, SyntaxNode? synthesizedAnchor = null)
     {
         plan = null;
-        if (symbol.IsExtern ||
+        if (symbol.IsExtern || symbol.IsOverride && symbol.ContainingType is { IsReferenceType: true, Arity: > 0 } ||
             !CallableSignature.TryCreate(symbol, out var signature, capabilities)) return false;
         if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet) || symbol.IsAbstract || (symbol.IsVirtual || symbol.IsOverride) &&
-            (ClassifyOverride(symbol) == EmissionOverrideKind.None || capabilities?.Allows(EmissionDeclarationKind.ValueObjectOverride) != true) ||
+            (ClassifyOverride(symbol) == EmissionOverrideKind.None || capabilities?.Allows(symbol.ContainingType?.IsValueType == true ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride) != true) ||
             symbol.ContainingType is not { } receiver || !SourceTypePlan.TryCreate(receiver, out _, capabilities))) return false;
         if (symbol.ContainingSymbol is SourcePropertySymbol { IsAutoProperty: true, IsStatic: false, BackingField: { } } property &&
             symbol.DeclaringSyntaxReferences.IsEmpty && property.DeclaringSyntaxReferences.Length == 1)

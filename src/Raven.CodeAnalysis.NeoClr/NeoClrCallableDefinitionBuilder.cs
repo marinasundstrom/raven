@@ -20,7 +20,7 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
         var method = owner is null
             ? assembly.AddFunction(plan.Namespace, metadataName, ToOwnedMetadata(plan.Signature), visibility)
             : plan.Symbol.MethodKind == MethodKind.Constructor ? owner.AddConstructor(ToOwnedMetadata(plan.Signature), visibility)
-            : plan.Override == EmissionOverrideKind.ObjectToString ? owner.AddOverride(metadataName, ToOwnedMetadata(plan.Signature))
+            : plan.Override != EmissionOverrideKind.None ? owner.AddOverride(metadataName, ToOwnedMetadata(plan.Signature))
             : plan.Symbol.IsStatic ? owner.AddMethod(metadataName, ToOwnedMetadata(plan.Signature), visibility)
             : owner.AddInstanceMethod(metadataName, ToOwnedMetadata(plan.Signature), visibility);
         foreach (var parameter in plan.Symbol.TypeParameters)

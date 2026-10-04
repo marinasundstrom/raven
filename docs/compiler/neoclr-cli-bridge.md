@@ -6245,3 +6245,28 @@ materialization before JSON object mapping is complete.
 Validation: 46 focused .NET static-extension and sealed-hierarchy tests pass. Native
 metadata/runtime prerequisite commit: `44df0c27`. This admission is target-specific;
 no general compiler fix needs a main backport.
+
+### Reference Object slots (2026-10-05)
+
+ReferenceObjectOverride is an explicit native admission category. Source overrides must
+resolve to the real System.Object Equals/GetHashCode/ToString slot and have the exact
+supported signature. Imported overrides use equivalent semantic declaration facts; the
+adapter constructs output-owned references and preserves virtual dispatch. Metadata
+writers validate the host's System runtime binding, including the Equals slot newly
+added to the retained seed. Generic reference owners/arbitrary virtual slots remain
+unsupported. Base-qualified ordinary virtual calls are outside this portable profile.
+
+The metadata CLI encoder now uses ELEMENT_TYPE_OBJECT for the configured core Object
+signature; C# execution exposed the incorrect CLASS encoding of Equals parameters. This
+is a metadata library fix, not a change to Raven's .NET Reflection/Emit backend.
+Native reproduction/evidence: neoCLR
+`docs/experiments/extended-cli-metadata/reference-object-overrides-2026-10-05.md`.
+
+Validation: the separate native consumer returns 42, including inherited and overridden
+slots, equality and display. 43 of 44 focused .NET override tests pass. The remaining
+`Emit_StaticInterfaceImplementation_EmitsMethodOverrideMapping` test also fails on
+unmodified integration HEAD `1a1759d43`, before this slice, with RAV1503 for returning
+nullable `default` as Factory<T>. Main `e1df355a2` accepts that same test. The pre-existing
+arrow-body binding difference in SemanticModel remains a separately assessable general
+compiler candidate; it must not be reported as fixed or caused by native Object slots.
+The next JSON blocker is preserving Flags enum metadata, then descriptor materialization.

@@ -34,13 +34,13 @@ internal abstract record NeoClrCallableReference
         internal override void EmitCall(IILGenerator body) => body.Call(Method);
     }
 
-    internal static NeoClrCallableReference Create(MethodBuilder method) => new Defined(method);
+    internal static NeoClrCallableReference Create(MethodBuilder method, bool virtualDispatch = false) => new Defined(method, virtualDispatch);
     internal static NeoClrCallableReference Create(ImportedMethodReference method) => new Imported(method);
     internal static NeoClrCallableReference Create(NativeFunctionDefinition method) => new Native(method);
 
-    private sealed record Defined(MethodBuilder Method) : NeoClrCallableReference
+    private sealed record Defined(MethodBuilder Method, bool VirtualDispatch) : NeoClrCallableReference
     {
-        internal override void EmitCall(IILGenerator body) => body.Emit(Method.IsConstructor ? OpCode.Newobj : OpCode.Call, Method);
+        internal override void EmitCall(IILGenerator body) => body.Emit(Method.IsConstructor ? OpCode.Newobj : VirtualDispatch ? OpCode.Callvirt : OpCode.Call, Method);
     }
 
     private sealed record Imported(ImportedMethodReference Method) : NeoClrCallableReference

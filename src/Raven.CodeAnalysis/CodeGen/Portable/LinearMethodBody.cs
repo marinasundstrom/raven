@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 
+using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
@@ -689,7 +690,20 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             method is { Name: "GetHashCode", IsStatic: false, IsVirtual: true, IsAbstract: false, IsGenericMethod: false, DeclaredAccessibility: Accessibility.Public } &&
             method.ContainingType?.SpecialType == SpecialType.System_Object && method.Parameters.Length == 0 &&
             method.ReturnType.SpecialType == SpecialType.System_Int32;
-        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || SupportedObjectDisplayCall(method) || SupportedObjectHashCall(method) || capabilities?.Allows(EmissionDeclarationKind.ValueObjectOverride) == true && SourceCallablePlan.ClassifyOverride(method) != EmissionOverrideKind.None || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true)) &&
+        bool SupportedObjectEqualsCall(IMethodSymbol method) => capabilities?.Allows(EmissionDeclarationKind.ReferenceObjectOverride) == true &&
+            method is { Name: "Equals", IsStatic: false, IsVirtual: true, IsAbstract: false, IsGenericMethod: false, DeclaredAccessibility: Accessibility.Public } &&
+            method.ContainingType?.SpecialType == SpecialType.System_Object && method.Parameters is [{ RefKind: RefKind.None, Type: var argument }] &&
+            argument.GetNonNullableType().SpecialType == SpecialType.System_Object && method.ReturnType.SpecialType == SpecialType.System_Boolean;
+        bool SupportedObjectOverrideCall(IMethodSymbol method) =>
+            capabilities?.Allows(method.ContainingType?.IsValueType == true ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride) == true &&
+            (SourceCallablePlan.ClassifyOverride(method) != EmissionOverrideKind.None ||
+             method.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
+             method is { IsOverride: true, IsStatic: false, IsAbstract: false, IsGenericMethod: false, DeclaredAccessibility: Accessibility.Public } &&
+             (method.Name == "ToString" && method.Parameters.IsEmpty && method.ReturnType.SpecialType == SpecialType.System_String ||
+              method.Name == "GetHashCode" && method.Parameters.IsEmpty && method.ReturnType.SpecialType == SpecialType.System_Int32 ||
+              method.Name == "Equals" && method.Parameters is [{ RefKind: RefKind.None, Type: var parameter }] &&
+              parameter.GetNonNullableType().SpecialType == SpecialType.System_Object && method.ReturnType.SpecialType == SpecialType.System_Boolean));
+        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || SupportedObjectDisplayCall(method) || SupportedObjectHashCall(method) || SupportedObjectEqualsCall(method) || SupportedObjectOverrideCall(method) || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true)) &&
             method.ContainingType is { } owner && (SourceTypePlan.TryCreate(owner, out _, capabilities) ||
                 capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && (capabilities is null || capabilities.Allows(signature));

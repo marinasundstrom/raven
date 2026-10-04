@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Emit bounded Object Equals/GetHashCode/ToString overrides for native
+  nongeneric reference classes. Preserve virtual dispatch through local and imported
+  symbols and actual class inheritance; ordinary .NET generation remains unchanged.
+  A separately compiled native library/consumer verifies and returns 42.
+
 - **2026-10-05:** Admit nongeneric sealed interfaces through an explicit NeoCLR
   capability, preserving native closure and direct-family relationships. Admit static
   extension methods and lower the configured core TypeHandle<T>() intrinsic through

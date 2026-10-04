@@ -560,7 +560,7 @@ internal static class Int32Emitter
             // Nested member lookup may expose a substituted method even under a
             // nongeneric owner. Reuse its declaration identity before resolving imports.
             if (definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var declared))
-                return NeoClrCallableReference.Create(declared);
+                return NeoClrCallableReference.Create(declared, target.IsVirtual && target.ContainingType?.IsValueType == false);
             if (options.BootstrapReference is { } bootstrap && target.ContainingType is { } bootstrapOwner &&
                 SymbolEqualityComparer.Default.Equals(target.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(bootstrap)))
             {
@@ -599,7 +599,7 @@ internal static class Int32Emitter
         });
         foreach (var declaration in methods)
             if (!declaration.Plan.Symbol.IsGenericMethod && declaration.Plan.Symbol.ContainingType?.Arity is not > 0)
-                references.Declare(declaration.Plan.Symbol, NeoClrCallableReference.Create(declaration.Method));
+                references.Declare(declaration.Plan.Symbol, NeoClrCallableReference.Create(declaration.Method, declaration.Plan.Symbol.IsVirtual && declaration.Plan.Symbol.ContainingType?.IsValueType == false));
         if (compilation.Options.OutputKind == OutputKind.ConsoleApplication)
         {
             var entry = compilation.GetEntryPoint() ?? throw Unsupported("entry point unavailable");
@@ -820,7 +820,7 @@ internal static class Int32Emitter
                     symbol.ContainingNamespace?.ToMetadataName() ?? "", symbol.MetadataName, contract);
             }
             if (symbol.ContainingType is { } owner && IsSymbolOnlyOwnerDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
-                (!symbol.IsOverride || owner.IsValueType) && (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : !symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType)) &&
+                (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : !symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride)) &&
                 symbol.DeclaredAccessibility == Accessibility.Public && (symbol.IsStatic || symbol.Arity == 0) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, NeoClrCapabilities.Shared) &&
                 IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind is RefKind.None or RefKind.Ref or RefKind.Out && IsSymbolOnlyType(p.Type, false)))
