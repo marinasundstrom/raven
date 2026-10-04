@@ -244,6 +244,8 @@ internal static class Int32Emitter
         var importedTypes = new Dictionary<INamedTypeSymbol, ImportedTypeReference>(SymbolEqualityComparer.Default);
         SignatureType ImportExternalType(INamedTypeSymbol type)
         {
+            // The configured semantic marker is transport only; native metadata keeps Self.
+            if (RuntimeSelfTypes.IsSelf(compilation, type)) return SignatureType.Self;
             var original = (INamedTypeSymbol)type.OriginalDefinition;
             if (!importedTypes.TryGetValue(original, out var imported))
             {
@@ -746,6 +748,7 @@ internal static class Int32Emitter
             SymbolEqualityComparer.Default.Equals(named.ContainingAssembly, compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly);
 
         bool IsSymbolOnlyType(ITypeSymbol type, bool result) =>
+            RuntimeSelfTypes.IsSelf(compilation, type) ||
             type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType && CallableSignature.TryFunction(functionType, out _, NeoClrCapabilities.Shared) ||
             !result && IsRuntimeUnitValue(type) || IsRuntimeErasedValue(type) ||
             type is ITypeParameterSymbol ||
@@ -757,6 +760,7 @@ internal static class Int32Emitter
 
         SignatureType MapSymbolOnlyType(ITypeSymbol type, bool result = false) => type switch
         {
+            _ when RuntimeSelfTypes.IsSelf(compilation, type) => SignatureType.Self,
             INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType when CallableSignature.TryFunction(functionType, out var shape, NeoClrCapabilities.Shared) =>
                 SignatureType.Function(new MethodSignature(
                     NeoClrTypeMapper.Map(shape.ReturnType, owned => nativeTypes[owned], ImportExternalType),

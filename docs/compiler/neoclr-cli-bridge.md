@@ -5652,3 +5652,33 @@ Reproduction and artifact/source hashes are in neoCLR's bootstrap `verify_tasks.
 `tasks-native-2026-10-04.json`; the matching runtime/metadata branch is
 `codex/extended-cli-metadata` (parent 055d9928). Full System compilation remains blocked
 by incomplete service coverage, canonical primitive/Self ownership and wider capabilities.
+
+
+## Native Self declaration/import gate (2026-10-04)
+
+The version-1 bootstrap ownership manifest accepts optional `self` with `assemblyName`
+and `typeName`, selecting the existing RuntimeSelfTypeContract. A selected marker must
+resolve in that exact assembly; a missing or wrong marker fails before publication.
+Omitting it preserves the old opt-in behavior. .NET defaults are unchanged.
+
+Native introspection `SelfTypeInfo` maps to the configured semantic marker already used
+by Raven's Self binding/substitution rules. Emission recognizes that exact symbol identity
+and writes `SignatureType.Self`; it does not re-open the loader or emit a nominal marker
+as native type identity. The marker is only bootstrap semantic transport. Introspection
+retains the scoped contract; this slice does not replace Raven's existing marker-based
+Self model or introduce generic arity for Self.
+
+The actual System.Clonable source is compiled separately, then Counter implements it
+from that artifact, and a third source-free consumer clones/mutates Counter and exits 42.
+The metadata writer substitutes the implementing owner when checking local/external
+interface obligations. It retains symbolic Self in the contract and concrete class
+signatures in the implementation. Native encoding remains SelfType; executable CLI
+Self contracts are still unsupported by the metadata library. Existing .NET behavior
+and experimental CLI Self tests remain separate controls.
+
+Reproduce with neoCLR's `bootstrap/verify_self.py` and the matching
+`--reference-comparer-storage-core` bootstrap, now including its Self marker. This gate
+uses concrete method calls: erased interface calls, constrained generic Self dispatch,
+static Number contracts and source primitive ownership remain subsequent work. Validation:
+16 existing Self compiler tests, 134 metadata groups, seven native consumers and driver
+negative publication checks. See neoCLR `self-native-2026-10-04.json` for artifact hashes.

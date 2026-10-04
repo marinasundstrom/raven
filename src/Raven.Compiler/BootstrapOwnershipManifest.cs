@@ -7,7 +7,7 @@ namespace Raven;
 
 // Host configuration only: it selects semantic contracts and checks ownership, not metadata representation.
 internal sealed record BootstrapSourceLibrary(string AssemblyName, string[] Sources, string[] Types);
-internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLibrary[] Libraries, RuntimeIterationContract Iteration, RuntimeTypeOfContract? TypeOf = null, RuntimePropagationContract? Propagation = null, RuntimeUnitContract? Unit = null)
+internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLibrary[] Libraries, RuntimeIterationContract Iteration, RuntimeTypeOfContract? TypeOf = null, RuntimePropagationContract? Propagation = null, RuntimeUnitContract? Unit = null, RuntimeSelfTypeContract? Self = null)
 {
     internal static BootstrapOwnershipManifest Read(string path)
     {
@@ -47,7 +47,8 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
     internal CompilationOptions Apply(CompilationOptions options)
     {
         var configured = options.WithRuntimeIterationContract(Iteration)
-            .WithRuntimeTypeOfContract(TypeOf).WithRuntimePropagationContract(Propagation);
+            .WithRuntimeTypeOfContract(TypeOf).WithRuntimePropagationContract(Propagation)
+            .WithRuntimeSelfTypeContract(Self);
         return Unit is null ? configured : configured.WithRuntimeUnitContract(Unit);
     }
 
@@ -56,6 +57,8 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
         // Force normal symbol setup before enumerating the selected input catalog.
         _ = compilation.GetSpecialType(SpecialType.System_Object);
         var assemblies = compilation.ReferencedAssemblySymbols.Prepend(compilation.Assembly).ToArray();
+        if (Self is not null && compilation.ResolveRuntimeSelfType() is null)
+            throw new InvalidDataException("Bootstrap Self contract requires its exact configured marker identity.");
         foreach (var library in Libraries)
             foreach (var name in library.Types)
             {

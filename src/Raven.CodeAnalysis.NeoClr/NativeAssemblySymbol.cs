@@ -119,6 +119,8 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     internal ITypeSymbol MapView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => viewSymbols.GetOrAdd(view, MapViewCore);
     private ITypeSymbol MapViewCore(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => view switch
     {
+        SelfTypeInfo => compilation.ResolveRuntimeSelfType()
+            ?? throw new InvalidDataException("native Self signatures require an explicit runtime Self contract"),
         NominalTypeInfo nominal => Resolve(nominal),
         ConstructedTypeInfo constructed => Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(MapView).ToArray()),
         FunctionTypeInfo { NoResult: true } function => compilation.CreateNoResultFunctionTypeSymbol(function.ParameterTypes.Select(MapView).ToArray()),

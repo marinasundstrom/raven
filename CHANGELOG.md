@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Connect explicit bootstrap Self configuration to native metadata
+  import and emission. Preserve symbolic Self in interface contracts and concrete
+  implementation signatures. A three-assembly Clonable case executes with independent
+  clone mutation; wrong/missing marker contracts and incompatible implementations fail
+  before publication. Generic constrained Self dispatch remains outside this slice.
+
 - **2026-10-04:** Compile source Tasks/Concurrency through native generic/interface
   callback bindings, unit-result adapters and nullable/union pattern lowering. Preserve
   native structural function identity and explicit target capabilities. A separately
