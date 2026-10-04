@@ -52,6 +52,43 @@ public class PropagationCodeGenTests
         Assert.Equal(true, loaded.Assembly.GetType("Harness")!.GetMethod("Check")!.Invoke(null, [fail]));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LocalAssignmentPropagationEvaluatesOnceAndReturnsBeforeFollowingMutation(bool fail)
+    {
+        const string code = """
+            import System.*
+            class Harness {
+                private static var count: int = 0
+                private static func Read(fail: bool) -> Result<int, string> {
+                    count += 1
+                    if fail { return .Error("failed") }
+                    return .Ok(7)
+                }
+                private static func Run(fail: bool) -> Result<int, string> {
+                    var value = 3
+                    value = value + Read(fail)?
+                    count += 10
+                    return .Ok(value)
+                }
+                public static func Check(fail: bool) -> bool {
+                    let result = Run(fail)
+                    if fail { return count == 1 && result is .Error("failed") }
+                    return count == 11 && result is .Ok(10)
+                }
+            }
+            """;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
+        var compilation = Compilation.Create("assignment-propagation", [SyntaxTree.ParseText(code)], references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var pe = new MemoryStream();
+        var result = compilation.Emit(pe);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(pe, references);
+        Assert.Equal(true, loaded.Assembly.GetType("Harness")!.GetMethod("Check")!.Invoke(null, [fail]));
+    }
+
     [Fact]
     public void DiscardedPropagationEvaluatesOnceAndStopsOnError()
     {

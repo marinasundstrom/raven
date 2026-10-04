@@ -36,3 +36,19 @@ Short-circuit operators, propagation within arbitrary invocation arguments and o
 expression categories are not extended by this slice; it is not a general expression
 spilling pass. Focused tests cover both operand positions, nested arithmetic,
 once-only side effects and early failure. No Runtime Contract or metadata change.
+
+## Local assignment propagation (2026-10-04)
+
+Shared lowering also expands direct and eager-binary propagation on the right-hand
+side of a local assignment. A failure returns before storing the success value or
+executing following statements; success evaluates the operand once and performs the
+assignment. Local targets have no receiver/index side effects to spill. Property,
+field, array and parameter assignments are not extended by this bounded change.
+
+The ordinary .NET backend remains unchanged. Native emission consumes the same
+statement-level checks, with no new Runtime Contract configuration or metadata
+encoding. Focused lowering coverage checks that the unsupported propagation node is
+eliminated; executable .NET tests check success, failure and side effects.
+
+Validation on the isolated main-based branch: 24 focused propagation, Runtime
+Contract and async propagation tests pass on .NET 11.

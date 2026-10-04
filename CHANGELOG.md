@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Normalize propagation in local assignment right-hand sides through
+  shared lowering, preserving once-only evaluation and early failure returns. Cover
+  direct and eager-binary expressions without changing target contracts or metadata.
+
 - **2026-10-04:** Integrate the remaining independently validated compiler fixes into main;
   148 focused .NET 11 regressions pass together. Record the explicit unit-contract
   extension separately from default behavior and retire integrated local fix branches.
