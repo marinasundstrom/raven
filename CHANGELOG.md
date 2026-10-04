@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Honor the explicitly selected metadata core when resolving primitive
+  symbols, even when another reference declares the same System types. Keep System.Runtime
+  as the default preference when no core is configured. Regression reproduced independently
+  on main with ordinary .NET metadata references.
+
 - **2026-10-04:** Avoid caching absent source array shapes during declaration lookup,
   and defer array interface caches until target declarations are complete. Imported
   vectors retain source-owned nominal interface conversions after early member access.

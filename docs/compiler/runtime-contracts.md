@@ -2056,3 +2056,15 @@ cases pass afterward using a focused test project linking the checked-in test fi
 and the freshly built main-based compiler (no native backend). The integration
 branch additionally passes 65 array/provider/unit/signature tests and seven native
 consumers.
+
+
+### Primitive lookup with overlapping reference declarations (2026-10-04)
+
+Special-type lookup prefers `MetadataImportOptions.CoreAssemblyName` when supplied;
+without an explicit selection, the existing System.Runtime preference remains. A
+referenced library's same-named System.Boolean/Int32/etc. declaration must not replace
+this canonical primitive identity merely because of metadata lookup ordering. This
+selection affects semantic symbols for both .NET and NeoCLR; it adds no runtime mapping
+or emitted instruction. A synthetic alternate CLI core alongside System.Runtime provides
+an independent .NET regression. Unsupported/missing core configuration is still subject
+to the existing target validation.
