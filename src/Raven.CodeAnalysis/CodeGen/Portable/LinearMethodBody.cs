@@ -197,6 +197,27 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return PatternValue(input.Type, pattern, fail, syntax);
         }
 
+        static string? GraphemeText(object? value) => value switch
+        {
+            GraphemeLiteralValue grapheme => grapheme.Text,
+            char character => character.ToString(),
+            System.Text.Rune scalar => scalar.ToString(),
+            _ => null
+        };
+
+        bool LowerGrapheme(string text, SyntaxNode syntax)
+        {
+            var owner = model.Compilation.GetSpecialType(SpecialType.System_Char);
+            var factories = owner.GetMembers("FromString").OfType<IMethodSymbol>().Where(m =>
+                m.IsStatic && m.Arity == 0 && m.Parameters is [{ RefKind: RefKind.None, Type.SpecialType: SpecialType.System_String }] &&
+                m.ReturnType.SpecialType == SpecialType.System_Char && m.DeclaredAccessibility == Accessibility.Public).ToArray();
+            if (!model.Compilation.Options.UseGraphemeChar || factories.Length != 1 || !TrySignature(factories[0], out var signature) ||
+                capabilities?.Allows(signature) != true) return Reject("grapheme construction contract unavailable", syntax);
+            Add(LinearInstructionKind.String, syntax, text: text);
+            Add(LinearInstructionKind.Call, syntax, method: factories[0]);
+            return true;
+        }
+
         bool PatternValue(ITypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
         {
             if (pattern is BoundDiscardPattern) { Add(LinearInstructionKind.Pop, syntax); return true; }
@@ -228,6 +249,25 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 constant.Designator is null or BoundDiscardDesignator && capabilities?.Allows(LinearInstructionKind.ReferenceIsNull) == true)
             {
                 Add(LinearInstructionKind.ReferenceIsNull, syntax);
+                Add(LinearInstructionKind.BranchFalse, syntax, fail);
+                return true;
+            }
+            if (pattern is BoundConstantPattern character && input.SpecialType == SpecialType.System_Char &&
+                character.Designator is null or BoundDiscardDesignator &&
+                model.Compilation.Options.UseGraphemeChar &&
+                GraphemeText(character.LiteralType?.ConstantValue ?? (character.Expression as BoundLiteralExpression)?.Value) is { } graphemeText)
+            {
+                var equals = ((INamedTypeSymbol)input).GetMembers("Equals").OfType<IMethodSymbol>().SingleOrDefault(m =>
+                    !m.IsStatic && m.Arity == 0 && m.Parameters is [{ RefKind: RefKind.None, Type.SpecialType: SpecialType.System_Char }] &&
+                    m.ReturnType.SpecialType == SpecialType.System_Boolean);
+                if (equals is null || !SupportedInstanceCall(equals) || !TryType(input, false, out var characterType))
+                    return Reject("grapheme equality contract unavailable", syntax);
+                var characterReceiver = localTypes.Count;
+                localTypes.Add(characterType);
+                Add(LinearInstructionKind.StoreLocal, syntax, characterReceiver);
+                instructions.Add(new(LinearInstructionKind.LocalAddress, syntax, characterReceiver, Type: input));
+                if (!LowerGrapheme(graphemeText, syntax)) return false;
+                Add(LinearInstructionKind.ValueInstanceCall, syntax, method: equals);
                 Add(LinearInstructionKind.BranchFalse, syntax, fail);
                 return true;
             }
@@ -910,6 +950,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.Boolean, Syntax(expression), 0);
                     Add(LinearInstructionKind.Label, Syntax(expression), completedPattern);
                     return true;
+                case BoundLiteralExpression { Value: System.Text.Rune scalar } when model.Compilation.Options.UseGraphemeChar:
+                    return LowerGrapheme(scalar.ToString(), Syntax(expression));
+                case BoundLiteralExpression { Value: char character } when model.Compilation.Options.UseGraphemeChar:
+                    return LowerGrapheme(character.ToString(), Syntax(expression));
+                case BoundLiteralExpression { Value: GraphemeLiteralValue grapheme }:
+                    return LowerGrapheme(grapheme.Text, Syntax(expression));
                 case BoundLiteralExpression { Value: string text }:
                     Add(LinearInstructionKind.String, Syntax(expression), text: text); return true;
                 case BoundLiteralExpression { Value: bool boolean }:
@@ -974,6 +1020,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return LowerValue(parenthesized.Expression);
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && IsNullLiteral(conversion.Expression):
                     return LowerTypedNull(conversion.Type, Syntax(expression));
+                case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && conversion.IsBoxing &&
+                    conversion.Type.GetNonNullableType().TypeKind == TypeKind.Interface &&
+                    capabilities?.Allows(LinearInstructionKind.BoxToObject) == true && capabilities.Allows(LinearInstructionKind.ReferenceConvert) &&
+                    TryType(conversion.Expression.Type, false, out var interfaceValue) && capabilities.Allows(interfaceValue) &&
+                    TryType(conversion.Type, false, out var interfaceTarget) && capabilities.Allows(interfaceTarget):
+                    if (!LowerValue(conversion.Expression)) return false;
+                    instructions.Add(new(LinearInstructionKind.BoxToObject, Syntax(expression), Type: conversion.Expression.Type));
+                    instructions.Add(new(LinearInstructionKind.ReferenceConvert, Syntax(expression), Type: conversion.Type));
+                    return true;
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists &&
                     conversion.Type.GetNonNullableType().SpecialType == SpecialType.System_Object &&
                     (conversion.IsBoxing || conversion.Expression.Type is ITypeParameterSymbol) &&
@@ -1024,6 +1079,25 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!LowerValue(binary.Left, binaryMethod.Parameters[0].Type) ||
                         !LowerValue(binary.Right, binaryMethod.Parameters[1].Type)) return false;
                     Add(LinearInstructionKind.Call, Syntax(expression), method: binaryMethod);
+                    return true;
+                case BoundBinaryExpression characterComparison when model.Compilation.Options.UseGraphemeChar &&
+                    characterComparison.Operator.MethodSymbol is null &&
+                    characterComparison.Left.Type.SpecialType == SpecialType.System_Char &&
+                    characterComparison.Right.Type.SpecialType == SpecialType.System_Char &&
+                    characterComparison.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality:
+                    var characterOwner = model.Compilation.GetSpecialType(SpecialType.System_Char);
+                    var characterEquals = characterOwner.GetMembers("Equals").OfType<IMethodSymbol>().SingleOrDefault(m =>
+                        !m.IsStatic && m.Arity == 0 && m.Parameters is [{ RefKind: RefKind.None, Type.SpecialType: SpecialType.System_Char }] &&
+                        m.ReturnType.SpecialType == SpecialType.System_Boolean);
+                    if (characterEquals is null || !SupportedInstanceCall(characterEquals) || !TryType(characterOwner, false, out var characterStorage))
+                        return Reject("grapheme equality contract unavailable", Syntax(expression));
+                    var characterSlot = localTypes.Count; localTypes.Add(characterStorage);
+                    if (!LowerValue(characterComparison.Left)) return false;
+                    Add(LinearInstructionKind.StoreLocal, Syntax(expression), characterSlot);
+                    instructions.Add(new(LinearInstructionKind.LocalAddress, Syntax(expression), characterSlot, Type: characterOwner));
+                    if (!LowerValue(characterComparison.Right)) return false;
+                    Add(LinearInstructionKind.ValueInstanceCall, Syntax(expression), method: characterEquals);
+                    if (characterComparison.Operator.OperatorKind == OperatorKind.Inequality) Add(LinearInstructionKind.Not, Syntax(expression));
                     return true;
                 case BoundBinaryExpression logical when logical.Operator.MethodSymbol is null &&
                     logical.Operator.LeftType.SpecialType == SpecialType.System_Boolean &&

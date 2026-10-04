@@ -1777,3 +1777,9 @@ ImportedInterfacePropertyTests test emits a private explicit int getter/setter a
 an external generic C# contract and observes mutation through that contract. The paired
 ordinary driver workflow also returns 42. No Runtime Contract or native dependency is
 needed for this fix. Keep it isolated for independent validation on main.
+
+2026-10-04 text gate: portable value/interface boxing and grapheme literal/pattern/equality
+lowering are now exercised by separate native consumers. These portable components are
+absent from main, so no independent cherry-pick is claimed validated. Keep them as explicit
+reconciliation candidates; native storage/provider policy stays in the NeoCLR adapter.
+No default Reflection/Emit changes or new main backport are required by this slice.

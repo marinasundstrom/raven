@@ -62,7 +62,7 @@ public sealed class NeoClrMetadataDependency
 public sealed class NeoClrEmitOptions
 {
     /// <summary>Copies the supplied bindings into an immutable configuration.</summary>
-    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null, MetadataReference? bootstrapReference = null, IEnumerable<PrimitiveType>? primitiveImplementations = null)
+    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null, MetadataReference? bootstrapReference = null, IEnumerable<PrimitiveType>? primitiveImplementations = null, bool implementsGrapheme = false)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(coreLibrary);
@@ -73,6 +73,7 @@ public sealed class NeoClrEmitOptions
         SystemSymbols = systemSymbols;
         BootstrapReference = bootstrapReference;
         PrimitiveImplementations = primitiveImplementations?.ToImmutableHashSet() ?? ImmutableHashSet<PrimitiveType>.Empty;
+        ImplementsGrapheme = implementsGrapheme;
         Dependencies = dependencies.ToImmutableArray();
         if (Dependencies.Any(d => d is null)) throw new ArgumentException("Null dependency", nameof(dependencies));
     }
@@ -82,6 +83,8 @@ public sealed class NeoClrEmitOptions
     /// <summary>Gets host-selected canonical numeric or String declarations implemented by this output.</summary>
     /// <remarks>The native emitter validates exact System names and sole private primitive m_value storage.</remarks>
     public ImmutableHashSet<PrimitiveType> PrimitiveImplementations { get; }
+    /// <summary>Whether this output implements canonical System.Char using runtime grapheme storage.</summary>
+    public bool ImplementsGrapheme { get; }
     /// <summary>Gets the unsigned output identity; its name must match the compilation.</summary>
     public AssemblyIdentity Identity { get; }
     /// <summary>Gets the explicit core-library identity for primitive contracts.</summary>

@@ -22,7 +22,7 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     {
         this.compilation = compilation;
         this.view = view;
-        SpecialType = view.NativePrimitive is { } primitive ? Enum.Parse<SpecialType>("System_" + primitive) : SpecialType.None;
+        SpecialType = view.NativeGrapheme ? SpecialType.System_Char : view.NativePrimitive is { } primitive ? Enum.Parse<SpecialType>("System_" + primitive) : SpecialType.None;
         TypeParameters = [.. view.GetGenericArguments().Cast<GenericParameterTypeInfo>()
             .Select(parameter => (ITypeParameterSymbol)new NativeTypeParameterSymbol(parameter.Name, parameter.Position, this))];
         TypeArguments = [.. TypeParameters];

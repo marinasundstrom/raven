@@ -622,3 +622,38 @@ companion verifies the reference receiver and preserves byref readonly dispatch.
 This is a native execution gate, not a claim of full dual-target source-library parity.
 The text model is Unicode text; UTF-8 is native storage, not the semantic text model.
 No rune type is introduced, and source-owned Char and imported nullability remain open.
+
+## Source-owned Char and String (2026-10-04)
+
+NeoClrEmitOptions adds optional `bool implementsGrapheme = false` and read-only
+`ImplementsGrapheme`. This selects canonical System.Char with sole private char m_value
+storage and no explicit constructor. It is separate from PrimitiveImplementations:
+there is no numeric PrimitiveType.Char. The native metadata facade's NativeGrapheme
+fact becomes System_Char on the compiler symbol. External emission uses the symbol
+and host artifact identity/digest, never the importing facade instance.
+
+MetadataImportOptions.PrimitiveAssemblies accepts System_Char alongside numeric types
+and String; providers remain copied, explicit and NeoCLR-only. The historical host
+`nativePrimitives` ownership dictionary may select System.Char, but the driver dispatches
+it to ImplementsGrapheme rather than parsing a PrimitiveType. Missing, incompatible and
+duplicate providers reject before output. The primitive CLI core is still required.
+
+String primitive implementations may declare instance constructors. m_value reads use
+the immutable receiver directly; assignment is admitted only in a constructor and replaces
+its private receiver slot. Native .ctor/newobj metadata and execution return the completed
+String. Char and numeric implementations still reject constructors. No ordinary .NET
+Reflection/Emit path, runtime loading policy or metadata format version changes.
+
+Portable lowering handles Char literals (including supplementary scalars and graphemes),
+literal patterns and ==/!= through validated FromString/Equals symbol contracts. Value to
+interface boxing now emits the supported box/reference conversion. These remain logical
+compiler operations; target metadata builders and ILGenerator stay inside the adapter.
+
+The source-owned text gate executes unchanged grapheme, String comparison, UTF-8 slice
+and sequence-construction samples against separately compiled native libraries. It also
+checks interface dispatch, interning/alias identity, mutable-input copying, numeric controls
+and failed publication. Evidence is recorded in NeoCLR's
+`docs/experiments/extended-cli-metadata/source-text-2026-10-04.md` and JSON beside it.
+Validation: 39 focused .NET Char/import tests, 143 C# metadata groups, explicit bootstrap
+String binding, 15 native boxed-interface/construction tests and the driver text gate.
+Full-System compilation and replacing the .NET backend are not claimed complete.

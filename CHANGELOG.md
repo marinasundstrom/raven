@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Complete source-owned NeoCLR Char/String compilation and native reimport:
+  preserve grapheme storage independently of numeric primitives; lower character literals,
+  patterns and equality through Char methods, and boxed interface conversions through the
+  portable contract. Support String's source sequence constructor over native immutable
+  storage. Existing grapheme, comparison, UTF-8 slicing and construction consumers execute
+  separately from library sources; focused ordinary .NET Char/import tests pass.
+
 - **2026-10-04:** Admit explicitly configured native String providers and emit source
   String with intrinsic immutable reference storage. Bootstrap member signatures resolve
   to the selected native provider, with no fallback. Separate instance/collection consumers

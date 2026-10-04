@@ -5959,3 +5959,20 @@ Count-property rejection. Char source emission alone is not evidence of intrinsi
 storage/member ownership. Implement accessor emission and native primitive ownership
 instead of projecting application/library references into CLI metadata. No importer,
 emitter or metadata library implementation was changed by this service-catalog slice.
+
+### Native text ownership replaces the remaining text bridge behavior (2026-10-04)
+
+For the source-owned text gate, the host removes String and Char from the retained seed.
+Application/library references use native introspection and native emission. Only the
+explicit primitive core/service signatures remain CLI bootstrap metadata. Their CLI Char
+elements map to the configured native grapheme owner; they do not define runtime UTF-16
+semantics. Unbound CLI Char continues to denote a code unit.
+
+The old bridge synthesized String(Sequence<char>) and redirected its allocation to a
+factory. String now declares that constructor in Raven source. The metadata API encodes
+ordinary instance .ctor facts and newobj; the runtime executes construction through private
+String storage. The unchanged sequence sample verifies named arguments, immutable copying
+and merged grapheme boundaries. Source Char likewise supplies its real methods; native
+symbol import retains its special type and the adapter uses explicit grapheme definitions.
+No consumer stubs, competing seed copies or application CLI projection remain in this gate.
+See [native emission contracts](api/neoclr-emission.md#source-owned-char-and-string-2026-10-04).

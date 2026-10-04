@@ -217,12 +217,26 @@ internal static class Int32Emitter
             if (symbol.IsValueType != (primitive != PrimitiveType.String) || symbol.Arity != 0 || symbol.ContainingType is not null || fieldsForType.Length != 1 ||
                 fieldsForType[0] is not { Name: "m_value", DeclaredAccessibility: Accessibility.Private, IsStatic: false, IsReadOnly: false } field ||
                 field.Type.SpecialType.ToString() != "System_" + primitive ||
-                plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol.ContainingType, symbol) && p.Symbol.MethodKind == MethodKind.Constructor))
-                throw Unsupported("primitive implementation requires canonical primitive storage and no explicit constructors: " + primitive);
+                primitive != PrimitiveType.String && plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol.ContainingType, symbol) && p.Symbol.MethodKind == MethodKind.Constructor))
+                throw Unsupported("primitive implementation requires canonical storage; only String admits constructors: " + primitive);
             primitiveOwners.Add(symbol, primitive);
             primitiveFields.Add(field, primitive);
         }
-        foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic && !primitiveOwners.ContainsKey(t.Symbol)))
+        INamedTypeSymbol? graphemeOwner = null;
+        IFieldSymbol? graphemeField = null;
+        if (options.ImplementsGrapheme)
+        {
+            graphemeOwner = declaredTypes.Keys.SingleOrDefault(t => t.ToFullyQualifiedMetadataName() == "System.Char")
+                ?? throw Unsupported("selected grapheme implementation is missing: System.Char");
+            var storage = storageFields.Where(f => SymbolEqualityComparer.Default.Equals(f.ContainingType, graphemeOwner)).ToArray();
+            if (!graphemeOwner.IsValueType || graphemeOwner.Arity != 0 || graphemeOwner.ContainingType is not null || storage.Length != 1 ||
+                storage[0] is not { Name: "m_value", DeclaredAccessibility: Accessibility.Private, IsStatic: false, IsReadOnly: false } field ||
+                field.Type.SpecialType != SpecialType.System_Char ||
+                plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol.ContainingType, graphemeOwner) && p.Symbol.MethodKind == MethodKind.Constructor))
+                throw Unsupported("grapheme implementation requires canonical Char storage and no explicit constructors");
+            graphemeField = field;
+        }
+        foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic && !primitiveOwners.ContainsKey(t.Symbol) && !SymbolEqualityComparer.Default.Equals(t.Symbol, graphemeOwner)))
             foreach (var constructor in type.Symbol.GetMembers().OfType<IMethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor))
                 if (!plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol, constructor)))
                 {
@@ -267,6 +281,8 @@ internal static class Int32Emitter
         {
             // The configured semantic marker is transport only; native metadata keeps Self.
             if (RuntimeSelfTypes.IsSelf(compilation, type)) return SignatureType.Self;
+            if (type.SpecialType == SpecialType.System_Char && graphemeOwner is not null)
+                return nativeTypes[graphemeOwner];
             var original = (INamedTypeSymbol)type.OriginalDefinition;
             if (!importedTypes.TryGetValue(original, out var imported))
             {
@@ -308,6 +324,8 @@ internal static class Int32Emitter
                     imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
                 }
                 importedTypes.Add(original, imported);
+                if (original.SpecialType == SpecialType.System_Char && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    assembly.SetNativeGrapheme(imported);
                 if (original.SpecialType is (SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_String) && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
                     assembly.SetNativePrimitive(imported, NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(original.SpecialType.ToString()[7..])));
                 if (IsSymbolOnlyReferenceDefinition(original) || IsSymbolOnlyOwnerDefinition(original) && original.IsValueType)
@@ -342,6 +360,7 @@ internal static class Int32Emitter
         {
             var definition = type.Define(typeDefinitions);
             if (primitiveOwners.TryGetValue(type.Symbol, out var primitive)) definition.SetNativePrimitive(primitive);
+            if (SymbolEqualityComparer.Default.Equals(type.Symbol, graphemeOwner)) definition.SetNativeGrapheme();
             nativeTypes.Add(type.Symbol, definition);
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type], ImportExternalType));
         }
@@ -419,7 +438,7 @@ internal static class Int32Emitter
         var importedFields = new Dictionary<IFieldSymbol, NeoClrFieldReference>(SymbolEqualityComparer.Default);
         foreach (var field in storageFields)
         {
-            if (primitiveFields.ContainsKey(field)) continue;
+            if (primitiveFields.ContainsKey(field) || SymbolEqualityComparer.Default.Equals(field, graphemeField)) continue;
             CallableSignature.TryType(field.Type, false, out var fieldType, NeoClrCapabilities.Shared);
             var storageType = NeoClrTypeMapper.Map(fieldType, type => nativeTypes[type], ImportExternalType);
             fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, storageType, field.DeclaredAccessibility switch
@@ -535,7 +554,7 @@ internal static class Int32Emitter
                     if (members.Length != 1) throw Unsupported("selected native primitive member is missing or ambiguous: " + target);
                     return NeoClrCallableReference.Create(Import(members[0]));
                 }
-                var implementation = primitiveOwners.Keys.SingleOrDefault(t =>
+                var implementation = primitiveOwners.Keys.Concat(graphemeOwner is null ? [] : new[] { graphemeOwner }).SingleOrDefault(t =>
                     t.ToFullyQualifiedMetadataName() == bootstrapOwner.ToFullyQualifiedMetadataName());
                 if (implementation is not null)
                 {
@@ -639,7 +658,8 @@ internal static class Int32Emitter
                 else references.Resolve(instruction.Method!).EmitCall(output);
             }, field =>
             {
-                if (primitiveFields.TryGetValue(field, out var primitive)) return new NeoClrFieldReference(null, IntrinsicStorage: primitive);
+                if (SymbolEqualityComparer.Default.Equals(field, graphemeField)) return new NeoClrFieldReference(null, GraphemeStorage: nativeTypes[graphemeOwner!]);
+                if (primitiveFields.TryGetValue(field, out var primitive)) return new NeoClrFieldReference(null, IntrinsicStorage: primitive, StringConstructorStorage: current.Plan.Symbol.MethodKind == MethodKind.Constructor);
                 if (fields.TryGetValue(field, out var definition)) return new NeoClrFieldReference(definition);
                 if (field is SubstitutedFieldSymbol substituted && field.ContainingType is { Arity: > 0 } owner && fields.TryGetValue(substituted.OriginalField, out definition))
                     return new NeoClrFieldReference(definition, definition.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
@@ -766,7 +786,7 @@ internal static class Int32Emitter
                 var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType, result: true),
                     symbol.Parameters.Select(p => p.RefKind == RefKind.None ? MapSymbolOnlyType(p.Type) : SignatureType.ByReference(MapSymbolOnlyType(p.Type))),
                     memberSignature.GenericParameterNames, memberSignature.OutParameters.IsDefault ? [] : memberSignature.OutParameters);
-                return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic, isOverride: symbol.IsOverride, nativePrimitive: owner.SpecialType is not SpecialType.None && owner.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null }
+                return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic, isOverride: symbol.IsOverride, nativePrimitive: owner.SpecialType is not (SpecialType.None or SpecialType.System_Char) && owner.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null }
                     ? NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(owner.SpecialType.ToString()[7..])) : null);
             }
             // A native callable must carry a complete supported semantic contract.

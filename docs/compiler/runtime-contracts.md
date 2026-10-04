@@ -3168,3 +3168,14 @@ Focused C# regression coverage warms a conversion during declaration binding and
 checks its completed answer; source-order and existing conversion/generic controls cover
 ordinary .NET behavior. General declaration-order problems outside this conversion
 cache are not claimed solved.
+
+### Explicit native text providers (2026-10-04)
+
+The NeoCLR host ownership manifest can assign System.String and System.Char to the
+source-built library. Its nativePrimitives map feeds explicit MetadataImportOptions
+provider selection; Char is a grapheme storage category, not a numeric primitive enum.
+The retained seed excludes both declarations and keeps only required runtime services.
+The existing iteration contract names the same source library for Sequence/Iterator and
+array shape. Binding, emitted signatures and native linking therefore share text/collection
+identities. Ordinary .NET defaults are unchanged. See the
+[native text API configuration and validation](api/neoclr-emission.md#source-owned-char-and-string-2026-10-04).
