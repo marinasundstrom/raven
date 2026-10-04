@@ -5875,3 +5875,19 @@ external-method-bounds-2026-10-04.json for artifact/revision evidence. The legac
 projection explicitly rejects these bounds; native references use the direct importer.
 
 Tested with metadata commit `a2450bfc`; this probe slice is based on Raven `b2a99bccd`.
+
+
+### Open constrained-call prerequisite (2026-10-04)
+
+The metadata IL generator now authors static calls through a method type parameter with
+an owned interface bound, including inherited interfaces. Its separate typed/raw APIs
+substitute native Self with that parameter. Standard CLI constrained./call and native
+callself execute the focused generic fixtures with exit 42, without runtime changes.
+This does not yet enable Raven constrained emission: CallableSignature.TryCreate still
+rejects method constraints. External target operands, semantic bound authoring and the
+portable open-call operation must be supported before admission changes. Runtime Contract
+configuration and the default .NET Reflection/Emit backend remain unchanged. Validation
+is recorded in neoCLR's open-constrained-methods-2026-10-04.json; no compiler fix or main
+backport is claimed by this documentation slice.
+
+Verified metadata implementation: `812417c7`; Raven implementation remains `56cfefbc0`.

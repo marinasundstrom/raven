@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Record the metadata IL-generator prerequisite for open static
+  interface calls through bounded method parameters. CLI and native API fixtures
+  execute; Raven's method-constraint emission guard remains unchanged.
+
 - **2026-10-04:** Validate external native method interface bounds against a separately
   emitted contracts assembly. Canonical symbol identity and generic argument rejection
   use the introspection catalog without CLI projection; constrained emission remains open.
