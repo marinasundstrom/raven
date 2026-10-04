@@ -3098,6 +3098,7 @@ public partial class SemanticModel
                         ResolveSealedHierarchyPermits(typeDeclaration, typeSymbol, classBinder);
                     RegisterClassMembers(typeDeclaration, classBinder);
                     classBinder.EnsureDefaultConstructor();
+                    BindClassConstructorInitializers(typeSymbol, classBinder);
                     return typeSymbol;
                 }
 
@@ -3417,6 +3418,14 @@ public partial class SemanticModel
             classBinder.EnsureDefaultConstructor();
         }
 
+        // Resolve explicit constructor calls only after every source class has its
+        // member signatures. A forward-declared base may have no constructors yet
+        // while a derived constructor declaration is being registered.
+        var initializedClasses = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        foreach (var (_, classBinder) in classBinders)
+            if (initializedClasses.Add((INamedTypeSymbol)classBinder.ContainingSymbol))
+                BindClassConstructorInitializers((INamedTypeSymbol)classBinder.ContainingSymbol, classBinder);
+
         foreach (var (unionDecl, unionBinder, unionSymbol, _) in unionBinders)
             ReportMissingInterfaceMembers(unionSymbol, unionDecl, unionBinder.Diagnostics);
 
@@ -3432,6 +3441,22 @@ public partial class SemanticModel
             ReportIncompletePartialMembers(classSymbol, classBinder.Diagnostics);
         }
 
+    }
+
+    private void BindClassConstructorInitializers(INamedTypeSymbol type, Binder parent)
+    {
+        foreach (var constructor in type.GetMembers().OfType<SourceMethodSymbol>())
+        {
+            if (constructor.IsStatic || constructor.MethodKind != MethodKind.Constructor ||
+                constructor.DeclaringSyntaxReferences.FirstOrDefault()?.SyntaxTree != SyntaxTree ||
+                constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not ConstructorDeclarationSyntax { Initializer: { } syntax }) continue;
+            var binder = new ConstructorInitializerBinder(constructor, new MethodBinder(constructor, parent));
+            constructor.SetConstructorInitializer(binder.Bind(syntax));
+            foreach (var diagnostic in binder.Diagnostics.AsEnumerable())
+                parent.Diagnostics.Report(diagnostic);
+        }
+        foreach (var nested in type.GetTypeMembers())
+            BindClassConstructorInitializers(nested, new TypeMemberBinder(parent, nested));
     }
 
     private void BindNominalTypeDeclaration(

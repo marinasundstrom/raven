@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Resolve explicit base constructor calls after source members are registered and
+  retain canonical constructor symbols across binder re-entry. Forward declaration
+  order no longer silently drops base initialization on .NET; invalid calls reject
+  before output. Add executable declaration-order and failed-publication regressions.
+
 - **2026-10-04:** Preserve early returns in portable match initializers by exposing
   statement-level blocks and return expressions, without admitting exits across live
   expression operands. Source-built NeoCLR text streams now compile and execute through
