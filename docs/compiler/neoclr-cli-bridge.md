@@ -5976,3 +5976,21 @@ and merged grapheme boundaries. Source Char likewise supplies its real methods; 
 symbol import retains its special type and the adapter uses explicit grapheme definitions.
 No consumer stubs, competing seed copies or application CLI projection remain in this gate.
 See [native emission contracts](api/neoclr-emission.md#source-owned-char-and-string-2026-10-04).
+
+### Source encoding layer (2026-10-04)
+
+Seven unchanged neoCLR encoding sources compile against the emitted native Char/String
+library, then a source-free consumer incrementally encodes/decodes UTF-8 and checks
+ASCII and malformed-input errors. Reference-field stores in the shared portable plan
+now spill their receiver before evaluating the RHS and reload it with the result. This
+preserves once-only, receiver-first evaluation and permits terminal failure in a branch
+without a stray receiver on the evaluation stack. Value-type managed receiver stores
+are unchanged. No new runtime contract, opcode, metadata encoding or CLI projection.
+
+Validation: 20 EmissionCapabilityTests pass on .NET 11; native encoding, field-order and
+terminal-failure consumers execute. Rebuilt native Char/String acceptance passes.
+Runtime evidence: neoCLR `docs/experiments/extended-cli-metadata/source-encoding-2026-10-04.md`.
+The cumulative source build still binds String through the limited primitive bootstrap;
+this gate builds a separate encoding library against the completed native provider.
+StreamReader/Writer next reject a BoundRequiredResultExpression statement; JSON and
+ordinary class inheritance remain subsequent work.

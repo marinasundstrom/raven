@@ -498,9 +498,28 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 if (memberAssignment is BoundFieldAssignmentExpression fieldAssignment)
                 {
+                    var owner = fieldAssignment.Field.ContainingType!;
                     if (!SupportedField(fieldAssignment.Field) ||
-                        !Receiver(fieldAssignment.Receiver, fieldAssignment.Field.ContainingType!, Syntax(statement)) || !LowerValue(fieldAssignment.Right, fieldAssignment.Field.Type))
+                        !Receiver(fieldAssignment.Receiver, owner, Syntax(statement)))
                         return Reject("unsupported instance field assignment", Syntax(statement));
+                    if (owner.IsReferenceType)
+                    {
+                        // Preserve receiver-before-value evaluation without keeping a receiver
+                        // on the stack across control flow (including terminal failure) in the RHS.
+                        if (!TryType(owner, false, out var receiverType) ||
+                            !TryType(fieldAssignment.Field.Type, false, out var valueType))
+                            return Reject("unsupported field assignment storage", Syntax(statement));
+                        var receiverSlot = localTypes.Count;
+                        localTypes.Add(receiverType);
+                        Add(LinearInstructionKind.StoreLocal, Syntax(statement), receiverSlot);
+                        if (!LowerValue(fieldAssignment.Right, fieldAssignment.Field.Type)) return false;
+                        var valueSlot = localTypes.Count;
+                        localTypes.Add(valueType);
+                        Add(LinearInstructionKind.StoreLocal, Syntax(statement), valueSlot);
+                        Add(LinearInstructionKind.LoadLocal, Syntax(statement), receiverSlot);
+                        Add(LinearInstructionKind.LoadLocal, Syntax(statement), valueSlot);
+                    }
+                    else if (!LowerValue(fieldAssignment.Right, fieldAssignment.Field.Type)) return false;
                     instructions.Add(new(LinearInstructionKind.StoreField, Syntax(statement), Field: fieldAssignment.Field));
                     continue;
                 }

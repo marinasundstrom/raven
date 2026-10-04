@@ -1783,3 +1783,8 @@ lowering are now exercised by separate native consumers. These portable componen
 absent from main, so no independent cherry-pick is claimed validated. Keep them as explicit
 reconciliation candidates; native storage/provider policy stays in the NeoCLR adapter.
 No default Reflection/Emit changes or new main backport are required by this slice.
+
+2026-10-04 encoding gate: reference-field receiver spilling is a general portable-emission
+correctness fix with .NET evaluation-order coverage. The portable component is absent
+from main; retain it for shared-line reconciliation, rather than copying a new emission
+subsystem onto main merely to backport this fix. No default .NET defect is demonstrated.

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Preserve receiver-before-value evaluation for portable reference-field
+  assignments while keeping the receiver off the stack across RHS control flow and
+  terminal failure. Unlock unchanged native encoding-library emission; observable .NET
+  and native regressions cover evaluation order and failure behavior.
+
 - **2026-10-04:** Complete source-owned NeoCLR Char/String compilation and native reimport:
   preserve grapheme storage independently of numeric primitives; lower character literals,
   patterns and equality through Char methods, and boxed interface conversions through the

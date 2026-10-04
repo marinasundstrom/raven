@@ -10,6 +10,41 @@ public class EmissionCapabilityTests
     [Theory]
     [InlineData(OptimizationLevel.Debug)]
     [InlineData(OptimizationLevel.Release)]
+    public void FieldAssignmentEvaluatesReceiverOnceBeforeBranchingValue(OptimizationLevel optimization)
+    {
+        var compilation = Create("""
+            public class Holder {
+                public field Value: int = 0
+                private var trace: int = 0
+                public init() {}
+                public func Next() -> Holder {
+                    trace = trace * 10 + 1
+                    return self
+                }
+                public func Read() -> int {
+                    trace = trace * 10 + 2
+                    return 40
+                }
+                public func Run() -> int {
+                    Next().Value = if Read() == 40 { 42 } else { 0 }
+                    if trace != 12 { return -1 }
+                    return Value
+                }
+            }
+            """, optimization);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        foreach (var method in Methods(compilation))
+            Assert.True(Lower(compilation, method, ReflectionEmitCapabilities.Shared, out _, out var failure), method.Identifier.Text + ": " + failure?.Detail);
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var type = Assembly.Load(output.ToArray()).GetType("Holder")!;
+        Assert.Equal(42, type.GetMethod("Run")!.Invoke(Activator.CreateInstance(type), null));
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Debug)]
+    [InlineData(OptimizationLevel.Release)]
     public void RefAndOutUseSharedEmissionAndPreserveMutation(OptimizationLevel optimization)
     {
         var compilation = Create("""
