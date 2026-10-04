@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Validate external native method interface bounds against a separately
+  emitted contracts assembly. Canonical symbol identity and generic argument rejection
+  use the introspection catalog without CLI projection; constrained emission remains open.
+
 - **2026-10-04:** Import native method interface constraints through metadata
   introspection into canonical type-parameter symbols, including inherited interfaces.
   Existing binding checks reject incompatible arguments. Constrained callable emission

@@ -5862,3 +5862,16 @@ Validation: NativeGenericSymbolChecks checks canonical bounds, inherited interfa
 valid/invalid binding and failed output publication. Seven existing native consumers
 execute. Metadata C# tests and native bounded-method execution are recorded in neoCLR's
 method-interface-bounds-2026-10-04.json, with metadata 43c1a96b and this compiler slice above Raven 3787f15fb. Generic Number execution remains the next goal.
+
+
+External nongeneric method bounds now resolve through the same facade and compiler
+mapping, with a separate contracts artifact in the explicit reference catalog. The
+native probe checks canonical dependency symbol identity, valid/invalid arguments and
+missing dependency diagnostics. Seven native consumers still execute. No Raven
+production adapter or ordinary .NET change was needed for this extension; no general
+fix is being backported. The metadata fixture itself executes on .NET and NeoCLR with
+exit 42. Open constrained-call emission is still rejected. See neoCLR's
+external-method-bounds-2026-10-04.json for artifact/revision evidence. The legacy CLI
+projection explicitly rejects these bounds; native references use the direct importer.
+
+Tested with metadata commit `a2450bfc`; this probe slice is based on Raven `b2a99bccd`.

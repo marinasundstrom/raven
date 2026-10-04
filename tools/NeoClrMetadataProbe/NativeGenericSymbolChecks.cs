@@ -11,6 +11,7 @@ internal static class NativeGenericSymbolChecks
     internal static void Run(MetadataReference coreReference, AssemblyIdentity core, string output)
     {
         CheckMethodBounds(coreReference, core);
+        CheckExternalMethodBounds(coreReference, core);
         const string librarySource = """
             namespace Generics
             public func CreateBox(value: int) -> Box<int> => Box<int>(value)
@@ -221,6 +222,34 @@ internal static class NativeGenericSymbolChecks
         var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(valid, output,
             new(new("BoundConsumer", new Version(1, 0, 0, 0)), core, [new(reference, core)]));
         Check(!emitted.Success && output.Length == 0, "unsupported constrained callable fails before publication");
+    }
+    private static void CheckExternalMethodBounds(MetadataReference coreReference, AssemblyIdentity core)
+    {
+        var contracts = new AssemblyBuilder(new("MethodBoundContracts", new Version(1, 0, 0, 0)), core);
+        contracts.AddInterface("ExternalBounds", "Number");
+        var contractImage = NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(contracts);
+        var contractReference = NeoClrMetadataReference.ReadAssembly(contractImage);
+        var graph = new AssemblyBuilder(new("ExternalMethodBounds", new Version(1, 0, 0, 0)), core);
+        var bound = graph.CreateInterfaceReference(contracts.Identity, core,
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(contractImage)), "ExternalBounds", "Number");
+        graph.CompleteInterfaceReference(bound);
+        var value = graph.AddValueType("ExternalBounds", "Count");
+        value.AddInterfaceImplementation(bound);
+        var method = graph.AddFunction("Answer", new(PrimitiveType.Int32, [], ["T"]));
+        method.AddInterfaceConstraint(0, bound);
+        method.GetILGenerator().LoadConstant(42); method.GetILGenerator().Return();
+        var reference = NeoClrMetadataReference.ReadAssembly(NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(graph));
+        Compilation Bind(string argument) => Compilation.Create("ExternalBoundConsumer",
+            [SyntaxTree.ParseText($"func Main() -> int => Answer<{argument}>()")], [coreReference, contractReference, reference], CompilationOptions.NeoCLR);
+        var valid = Bind("ExternalBounds.Count");
+        Check(!valid.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("; ", valid.GetDiagnostics()));
+        var assembly = (IAssemblySymbol)valid.GetAssemblyOrModuleSymbol(reference)!;
+        var dependency = (IAssemblySymbol)valid.GetAssemblyOrModuleSymbol(contractReference)!;
+        var parameter = assembly.GlobalNamespace.GetMembers("Answer").OfType<IMethodSymbol>().Single().TypeParameters.Single();
+        Check(ReferenceEquals(parameter.ConstraintTypes.Single(), dependency.GetTypeByMetadataName("ExternalBounds.Number")), "canonical external method bound");
+        Check(Bind("int").GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "external method bound rejects incompatible argument");
+        var missing = Compilation.Create("MissingBoundContract", [SyntaxTree.ParseText("func Main() -> int => 0")], [coreReference, reference], CompilationOptions.NeoCLR);
+        Check(missing.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "external method bound dependency is required");
     }
     private static void Check(bool value, string message) { if (!value) throw new Exception(message); }
 }
