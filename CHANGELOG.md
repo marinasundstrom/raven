@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Validate static abstract interface properties during conformance
+  checking, including imported contracts. Require matching static/instance identity
+  and property/accessor signatures; reject missing, instance or wrong-return-type
+  implementations with RAV0330 before emission.
+
 - **2026-10-04:** Import and emit Single/Double through the native metadata target,
   including numeric literals/conversions, fields, arrays and generic calls. Ordered
   <=/>= use unordered comparisons before negation so NaN remains false. A separate
