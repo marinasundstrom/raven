@@ -209,7 +209,9 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         IsAbstract = view.IsAbstract;
         IsVirtual = view.IsVirtual;
         var module = (NativeModuleSymbol)ContainingModule;
-        TypeParameters = [.. view.GenericParameterNames.Select((name, i) => (ITypeParameterSymbol)new NativeTypeParameterSymbol(name, i, this))];
+        TypeParameters = [.. view.GenericParameterNames.Select((name, i) => (ITypeParameterSymbol)new NativeTypeParameterSymbol(name, i, this,
+            () => [.. ((NeoCLR.Metadata.Experimental.Introspection.MethodGenericParameterTypeInfo)view.GetGenericArguments()[i])
+                .GetInterfaceConstraints().Select(module.MapView)]))];
         TypeArguments = [.. TypeParameters];
         module.RegisterMethod(view.MetadataToken, this);
         returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : module.MapView(view.ReturnType));

@@ -6,15 +6,21 @@ namespace Raven.CodeAnalysis.NeoClr;
 
 internal sealed class NativeTypeParameterSymbol : Symbol, ITypeParameterSymbol
 {
-    internal NativeTypeParameterSymbol(string name, int ordinal, ISymbol owner)
-        : base(SymbolKind.TypeParameter, name, owner, owner as INamedTypeSymbol ?? owner.ContainingType, owner.ContainingNamespace, [], []) => Ordinal = ordinal;
+    private readonly Lazy<ImmutableArray<ITypeSymbol>> constraintTypes;
+
+    internal NativeTypeParameterSymbol(string name, int ordinal, ISymbol owner, Func<ImmutableArray<ITypeSymbol>>? getConstraints = null)
+        : base(SymbolKind.TypeParameter, name, owner, owner as INamedTypeSymbol ?? owner.ContainingType, owner.ContainingNamespace, [], [])
+    {
+        Ordinal = ordinal;
+        constraintTypes = new(getConstraints ?? (() => []));
+    }
 
     public int Ordinal { get; }
     public TypeParameterOwnerKind OwnerKind => ContainingSymbol is IMethodSymbol ? TypeParameterOwnerKind.Method : TypeParameterOwnerKind.Type;
     public INamedTypeSymbol? DeclaringTypeParameterOwner => ContainingSymbol as INamedTypeSymbol;
     public IMethodSymbol? DeclaringMethodParameterOwner => ContainingSymbol as IMethodSymbol;
-    public TypeParameterConstraintKind ConstraintKind => TypeParameterConstraintKind.None;
-    public ImmutableArray<ITypeSymbol> ConstraintTypes => [];
+    public TypeParameterConstraintKind ConstraintKind => ConstraintTypes.IsEmpty ? TypeParameterConstraintKind.None : TypeParameterConstraintKind.TypeConstraint;
+    public ImmutableArray<ITypeSymbol> ConstraintTypes => constraintTypes.Value;
     public VarianceKind Variance => VarianceKind.None;
     public SpecialType SpecialType => SpecialType.None;
     public TypeKind TypeKind => TypeKind.TypeParameter;
@@ -24,8 +30,22 @@ internal sealed class NativeTypeParameterSymbol : Symbol, ITypeParameterSymbol
     public bool IsValueType => false;
     public INamedTypeSymbol? BaseType => null;
     public ITypeSymbol? OriginalDefinition => this;
-    public ImmutableArray<INamedTypeSymbol> Interfaces => [];
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => [];
+    public ImmutableArray<INamedTypeSymbol> Interfaces => [.. ConstraintTypes.OfType<INamedTypeSymbol>().Where(t => t.TypeKind == TypeKind.Interface)];
+    public ImmutableArray<INamedTypeSymbol> AllInterfaces
+    {
+        get
+        {
+            var result = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+            var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            foreach (var bound in Interfaces)
+            {
+                if (seen.Add(bound)) result.Add(bound);
+                foreach (var inherited in bound.AllInterfaces)
+                    if (seen.Add(inherited)) result.Add(inherited);
+            }
+            return result.ToImmutable();
+        }
+    }
     public ImmutableArray<ISymbol> GetMembers() => [];
     public ImmutableArray<ISymbol> GetMembers(string name) => [];
     public ITypeSymbol? LookupType(string name) => null;

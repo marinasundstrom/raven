@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Import native method interface constraints through metadata
+  introspection into canonical type-parameter symbols, including inherited interfaces.
+  Existing binding checks reject incompatible arguments. Constrained callable emission
+  remains explicitly unsupported and publishes no output; the .NET backend is unchanged.
+
 - **2026-10-04:** Document the verified metadata-generator static constrained-call
   prerequisite and remaining method-bound/open-call work for native Number generics.
   Raven's constrained-generic emission rejection remains unchanged.

@@ -10,6 +10,7 @@ internal static class NativeGenericSymbolChecks
 {
     internal static void Run(MetadataReference coreReference, AssemblyIdentity core, string output)
     {
+        CheckMethodBounds(coreReference, core);
         const string librarySource = """
             namespace Generics
             public func CreateBox(value: int) -> Box<int> => Box<int>(value)
@@ -192,6 +193,34 @@ internal static class NativeGenericSymbolChecks
         Check(missing.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "missing external generic dependency diagnoses");
         File.WriteAllText(Path.Combine(output, "NativeGenericConsumer.rvn"), source);
         Console.WriteLine("PASS direct native generic symbols, inference, substitution and emission");
+    }
+    private static void CheckMethodBounds(MetadataReference coreReference, AssemblyIdentity core)
+    {
+        var graph = new AssemblyBuilder(new("NativeMethodBounds", new Version(1, 0, 0, 0)), core);
+        var parent = graph.AddInterface("Bounds", "Parent");
+        var bound = graph.AddInterface("Bounds", "Number");
+        bound.AddBaseInterface(parent);
+        var value = graph.AddValueType("Bounds", "Count");
+        value.AddInterfaceImplementation(bound);
+        var method = graph.AddFunction("Answer", new(PrimitiveType.Int32, [], ["T"]));
+        method.AddInterfaceConstraint(0, bound);
+        method.GetILGenerator().LoadConstant(42);
+        method.GetILGenerator().Return();
+        var reference = NeoClrMetadataReference.ReadAssembly(NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(graph));
+        Compilation Bind(string argument) => Compilation.Create("BoundConsumer",
+            [SyntaxTree.ParseText($"func Main() -> int => Answer<{argument}>()")], [coreReference, reference], CompilationOptions.NeoCLR);
+        var valid = Bind("Bounds.Count");
+        Check(!valid.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("; ", valid.GetDiagnostics()));
+        var assembly = (IAssemblySymbol)valid.GetAssemblyOrModuleSymbol(reference)!;
+        var answer = assembly.GlobalNamespace.GetMembers("Answer").OfType<IMethodSymbol>().Single();
+        var parameter = answer.TypeParameters.Single();
+        Check(ReferenceEquals(parameter.ConstraintTypes.Single(), assembly.GetTypeByMetadataName("Bounds.Number")), "canonical native method bound");
+        Check(parameter.Interfaces.Length == 1 && parameter.AllInterfaces.Length == 2, "native bound inherited interfaces");
+        Check(Bind("int").GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "native method bound rejects incompatible argument");
+        using var output = new MemoryStream();
+        var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(valid, output,
+            new(new("BoundConsumer", new Version(1, 0, 0, 0)), core, [new(reference, core)]));
+        Check(!emitted.Success && output.Length == 0, "unsupported constrained callable fails before publication");
     }
     private static void Check(bool value, string message) { if (!value) throw new Exception(message); }
 }

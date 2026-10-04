@@ -5840,3 +5840,25 @@ metadata writer/reader/introspection path and open constrained call operands are
 The remaining sequence is recorded in neoCLR's system-compilation-strategy.md, with
 static-constrained-2026-10-04.json as the concrete-dispatch evidence. The .NET backend
 and compiler importer/emitter boundaries are unchanged.
+
+
+### Native method-bound import (2026-10-04)
+
+The NeoCLR adapter now obtains owned nongeneric method interface bounds through
+MethodGenericParameterTypeInfo.GetInterfaceConstraints. Lazy compiler-owned symbols
+retain canonical ConstraintTypes, TypeConstraint flags, Interfaces and AllInterfaces.
+Raven's existing binder accepts a conforming native value type and rejects an unrelated
+primitive argument; no inference or accessibility policy moves into metadata resolution.
+Runtime Contract and explicit bootstrap/seed selection are unchanged.
+
+The metadata library writes standard CLI GenericParamConstraint and existing native
+TypeBound records. Its legacy reference-only CLI projection preserves the same bounds,
+while the probe uses direct native semantic import. This introduces no bridge fallback.
+External/constructed method bounds and open constrained emission remain unsupported;
+portable callable admission still rejects constrained calls before publishing bytes.
+No general .NET change or main backport is needed for this native adapter change.
+
+Validation: NativeGenericSymbolChecks checks canonical bounds, inherited interfaces,
+valid/invalid binding and failed output publication. Seven existing native consumers
+execute. Metadata C# tests and native bounded-method execution are recorded in neoCLR's
+method-interface-bounds-2026-10-04.json, with metadata 43c1a96b and this compiler slice above Raven 3787f15fb. Generic Number execution remains the next goal.
