@@ -92,6 +92,51 @@ internal sealed partial class Lowerer
         if (expression is BoundPropagateExpression propagate)
             return RewritePropagateExpression(propagate);
 
+        if (expression is BoundBlockExpression block && block.LocalsToDispose.IsEmpty)
+        {
+            var items = block.Statements.ToArray();
+            if (items.LastOrDefault() is BoundExpressionStatement last
+                && !items.OfType<BoundLocalDeclarationStatement>().Any(declaration => declaration.IsUsing)
+                && RewritePropagatingInitializer(last.Expression) is { } tail)
+            {
+                var prefix = (BoundBlockStatement)VisitBlockStatement(
+                    new BoundBlockStatement(items.Take(items.Length - 1)))!;
+                var expanded = prefix.Statements.ToList();
+                expanded.AddRange(tail.Statements);
+                return new PropagateLowering(expanded, tail.SuccessExpression);
+            }
+            return null;
+        }
+
+        if (expression is BoundIfExpression { ElseBranch: not null } conditional)
+        {
+            var then = RewritePropagatingInitializer(conditional.ThenBranch);
+            var otherwise = RewritePropagatingInitializer(conditional.ElseBranch);
+            if (then is null && otherwise is null)
+                return null;
+
+            var result = CreateTempLocal("propagateConditional", conditional.Type, isMutable: true);
+            BoundBlockStatement Branch(BoundExpression original, PropagateLowering? lowering)
+            {
+                var branch = lowering?.Statements ?? new List<BoundStatement>();
+                var value = lowering?.SuccessExpression ?? VisitExpression(original)!;
+                branch.Add(new BoundAssignmentStatement(new BoundLocalAssignmentExpression(
+                    result, new BoundLocalAccess(result),
+                    ApplyConversionIfNeeded(value, conditional.Type, GetCompilation()),
+                    GetCompilation().UnitTypeSymbol)));
+                return new BoundBlockStatement(branch);
+            }
+
+            // Keep each residual return inside its selected branch, with no live
+            // surrounding expression operands on the evaluation stack.
+            return new PropagateLowering(new List<BoundStatement>
+            {
+                new BoundLocalDeclarationStatement([new BoundVariableDeclarator(result, null)]),
+                new BoundIfStatement(VisitExpression(conditional.Condition)!,
+                    Branch(conditional.ThenBranch, then), Branch(conditional.ElseBranch, otherwise))
+            }, new BoundLocalAccess(result));
+        }
+
         if (expression is not BoundBinaryExpression binary ||
             binary.Operator.OperatorKind is BinaryOperatorKind.LogicalAnd or BinaryOperatorKind.LogicalOr)
             return null;

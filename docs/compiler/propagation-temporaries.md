@@ -52,3 +52,20 @@ eliminated; executable .NET tests check success, failure and side effects.
 
 Validation on the isolated main-based branch: 24 focused propagation, Runtime
 Contract and async propagation tests pass on .NET 11.
+
+
+## Conditional propagation initializers (2026-10-04)
+
+Propagation in either branch of a value-producing conditional initializer now lowers
+into a statement-level conditional and a shared result temporary. Only the selected
+branch executes; its prefix statements run before its propagation operand, and failure
+returns without evaluating following operands or statements. Eager binary initializers
+retain their existing left-to-right spilling around the conditional.
+
+This extends shared lowering, without target metadata handles or a Runtime Contract
+change. Branch blocks with disposal/using declarations are deliberately excluded from
+this rewrite until their lifetime can be preserved. Arbitrary argument and receiver
+spilling is not part of this change. Ordinary .NET keeps its existing emitter.
+
+Validation: 29 focused lowering, executable propagation, Runtime Contract and async
+propagation tests pass on the isolated main-based branch using .NET 11.
