@@ -36,6 +36,25 @@ public sealed class ArrayTypeProviderTests
     }
 
     [Fact]
+    public void ProvisionalInterfacesAreRecomputedUntilDeclarationsComplete()
+    {
+        var compilation = Compilation.Create("test", [], TestMetadataReferences.Default);
+        var element = compilation.GetSpecialType(SpecialType.System_Int32);
+        var provider = new ProviderType(compilation) { AreInterfacesComplete = false };
+        var array = new ArrayTypeSymbol(provider, element, compilation.Assembly, null,
+            compilation.SourceGlobalNamespace, []);
+        Assert.Empty(array.Interfaces);
+        Assert.Empty(array.AllInterfaces);
+
+        var contract = new SourceNamedTypeSymbol("ArrayView", null!, TypeKind.Interface, compilation.Assembly,
+            null, compilation.SourceGlobalNamespace, [], [], addAsMember: false);
+        provider.Contracts = [contract];
+        provider.AreInterfacesComplete = true;
+        Assert.Same(contract, Assert.Single(array.Interfaces));
+        Assert.Same(contract, Assert.Single(array.AllInterfaces));
+    }
+
+    [Fact]
     public void MissingProviderDoesNotInventDotNetCollectionInterfaces()
     {
         var compilation = Compilation.Create("test", [], TestMetadataReferences.Default);
@@ -58,6 +77,7 @@ public sealed class ArrayTypeProviderTests
         : SourceNamedTypeSymbol("ArrayBase", compilation.GetSpecialType(SpecialType.System_Object), TypeKind.Class,
             compilation.Assembly, null, compilation.SourceGlobalNamespace, [], [], addAsMember: false), IArrayTypeProvider
     {
+        public bool AreInterfacesComplete { get; set; } = true;
         internal ImmutableArray<INamedTypeSymbol> Contracts { get; set; } = [];
         internal ImmutableArray<ISymbol> Members { get; set; } = [];
         internal IArrayTypeSymbol? RequestedArray { get; private set; }

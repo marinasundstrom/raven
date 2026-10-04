@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Avoid caching absent source array shapes during declaration lookup,
+  and defer array interface caches until target declarations are complete. Imported
+  vectors retain source-owned nominal interface conversions after early member access.
+
 - **2026-10-04:** Select the explicit schema-3 native library PE profile for `neoclr
   --library`, with validated native references up to 16 MiB. Applications retain schema 2.
   Combined 53-source stream/broad execution and a >4 MiB native library consumer pass;

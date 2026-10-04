@@ -3092,3 +3092,31 @@ Runtime Contract, native metadata or nominal Array<T> change. The 86 focused .NE
 native broad application and native labeled-loop execution pass. The known lexical
 closure-lifetime bug remains unresolved; see
 [the parity audit](architecture/neoclr-refactor-parity.md#array-expansion-scoped-to-portable-planning-2026-10-03).
+
+### Source-owned array declaration caches (2026-10-04)
+
+A configured `RuntimeIterationContract.ArrayShapeTypeName` may belong to the
+current source assembly. Reentrant metadata-name lookup during declarations must
+not permanently cache its absence. Array interface projection stays provisional
+until source declarations complete, using an internal provider readiness contract;
+finished compilations retain normal caching. The default .NET array interfaces and
+Reflection/Emit backend are unchanged. No metadata encoding or runtime change is
+required.
+
+The focused regression reads an imported vector's `Length` in an inferred static
+initializer, then converts an imported vector to a source-owned interface in a
+method. Provider tests also cover provisional empty interface sets. Direct
+conversion inside an early static initializer remains a separate binding issue
+(`RAV1504`); this fix does not promise declaration-order-independent initializer
+conversions.
+
+Native evidence: 57 unchanged System sources compile into one library; source-free
+UTF-8/file consumers execute with exit 42 and expected file mutation, and unchanged
+`application-order-collections` matches its expected output. Bootstrap ownership
+and core/seed contracts remain explicit.
+
+Validation: 65 focused array/provider/unit/external-signature tests and all seven
+native semantic consumers pass on the integration branch.
+
+The isolated fix was reproduced on main and validated with 22 iteration-contract
+tests, then integrated as `340fdb759`. No experimental backend is required.

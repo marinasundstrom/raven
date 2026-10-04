@@ -5582,3 +5582,13 @@ Adding four more IO/UTF-8 sources to the same compilation exposes byte[] -> Sequ
 binding with a source-owned Array<T>, though those sources already execute in a separate
 library. Investigate interface readiness/caching next rather than rewriting Utf8 source.
 Full System and full dual-target library completion remain open.
+
+### Combined UTF-8 library import (2026-10-04)
+
+Source-owned nominal `Array<T>` interface projection now survives early imported
+vector member lookup during declarations. This is a compiler caching correction,
+not a structural-array change or a new bridge representation. The primitive CLI
+core still declares service signatures; native libraries and consumers use native
+metadata with the selected ownership manifest. The combined 57-source gate includes
+UTF-8 and file streams and executes separate consumers plus the broad application.
+Full System compilation and early-initializer interface conversions remain open.
