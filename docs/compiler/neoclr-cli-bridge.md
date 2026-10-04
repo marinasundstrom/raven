@@ -5423,3 +5423,29 @@ The next sample inventory identifies missing source-owned Clock/SystemClock and
 time-zone/instant contracts. Those are library coverage gaps, not evidence of new
 compiler failures. Full .NET calendar-library parity and array-element receiver
 addresses remain open. No performance improvement is claimed.
+
+## Source-owned Instant and clock integration (2026-10-04)
+
+The native library ownership manifest now includes OverflowError, Instant, Clock and
+SystemClock (47 sources cumulatively). The comparer primitive declaration core adds
+only RuntimeServices.UnixTimeTicks; its matching retained seed forwards to the existing
+host service. Regenerate the comparer-storage core and seed together. Old cores reject
+the missing declaration; old seeds reject the missing method contract before output.
+
+Instant.ToLocalDateTime now calls the source-owned internal
+LocalDateTime.FromUnixTimeTicks directly. The old bridge-only RuntimeServices.LocalDateTime
+alias already translated to that same factory. This removes a bootstrap declaration
+that would otherwise reference a rebuilt-library type; it does not change the public
+API or local-time semantics. Primitive bootstrap and imported library ownership remain
+separate. No Raven compiler, metadata format or runtime instruction change is needed.
+
+The unchanged library-clock sample runs through native Clock interface dispatch and
+prints six valid local date/time components. A separate native consumer implements the
+imported Clock contract, checks Instant value copies, signed extrema and Add overflow,
+and invokes SystemClock through the interface. Full .NET clock/calendar execution is
+not established; the paired Duration control remains the .NET source-library gate.
+
+Legacy translated snapshot regeneration was attempted but --reference-library-core
+fails in SourceUnionReferences.Project with RAV0103 ('None' is not in scope). No legacy
+generated output or hashes were rewritten; its Instant source digest is now stale.
+Native artifacts are rebuilt directly from source and do not consume that snapshot.

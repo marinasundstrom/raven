@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Document source-owned native Instant/Clock/SystemClock integration,
+  explicit UnixTimeTicks bootstrap binding and direct local-time factory ownership.
+  Compiler behavior is unchanged; legacy bridge snapshot regeneration remains blocked
+  by its union-reference build, while native source compilation and clock execution pass.
+
 - **2026-10-04:** Record successful native globalization execution with neoCLR's
   explicit instruction budget and the unchanged source-built calendar library.
   Compiler behavior is unchanged; Clock/SystemClock and wider time-zone source
