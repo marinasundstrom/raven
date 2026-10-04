@@ -52,3 +52,21 @@ eliminated; executable .NET tests check success, failure and side effects.
 The isolated fix is integrated into main as `9faabb1a2`, with 24 focused .NET
 propagation/Runtime Contract/async tests passing. Native integration passes 16 focused
 tests and executes the reduced success/failure consumer with return 42.
+
+
+## Conditional propagation initializers (2026-10-04)
+
+Propagation in either branch of a value-producing conditional initializer now lowers
+into a statement-level conditional and a shared result temporary. Only the selected
+branch executes; its prefix statements run before its propagation operand, and failure
+returns without evaluating following operands or statements. Eager binary initializers
+retain their existing left-to-right spilling around the conditional.
+
+This extends shared lowering, without target metadata handles or a Runtime Contract
+change. Branch blocks with disposal/using declarations are deliberately excluded from
+this rewrite until their lifetime can be preserved. Arbitrary argument and receiver
+spilling is not part of this change. Ordinary .NET keeps its existing emitter.
+
+Validation: 21 focused tests pass on the integration branch. The independent fix
+is integrated into main as `e1df355a2` with 29 focused propagation, Runtime Contract
+and async tests passing on .NET 11; the temporary fix branch is removed.

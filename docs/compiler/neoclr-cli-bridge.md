@@ -6109,3 +6109,20 @@ main at `9faabb1a2` (24 focused .NET tests); this branch passes 16 focused tests
 The unchanged JSON group still rejects a remaining nested propagation expression and
 publishes no output. This is partial lowering coverage, not JSON completion.
 See neoCLR `local-assignment-propagation-2026-10-04.json` for executable evidence.
+
+
+### Conditional propagation and source JSON library (2026-10-04)
+
+Shared lowering now exposes branch-local propagation checks at statement boundaries
+for conditional initializers, including eager binary operands. The main-based fix is
+integrated as `e1df355a2` with 29 focused .NET tests; this branch passes 21 focused tests.
+The native four-outcome consumer returns 42. No Runtime Contract, primitive mapping,
+bootstrap ownership or metadata encoding change is required.
+
+The five unchanged JSON document/syntax/value/error sources now compile into a native
+library and pass runtime verification. A separate artifact-only consumer returns 42,
+checking numeric parsing, duplicate-field rejection and collection alias mutation.
+The public serializer/object mapper remains outside this gate: adding those unchanged
+sources to the same catalog fails because introspection types and reflection runtime
+services are absent; cascading diagnostics are not independent compiler bugs.
+See neoCLR `conditional-propagation-json-2026-10-04.json` for commands and hashes.

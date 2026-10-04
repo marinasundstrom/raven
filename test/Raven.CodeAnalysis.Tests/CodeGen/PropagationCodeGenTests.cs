@@ -89,6 +89,54 @@ public class PropagationCodeGenTests
         Assert.Equal(true, loaded.Assembly.GetType("Harness")!.GetMethod("Check")!.Invoke(null, [fail]));
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ConditionalPropagationPreservesSelectedBranchAndEarlyReturn(bool chooseFirst, bool fail)
+    {
+        const string code = """
+            import System.*
+            class Harness {
+                private static var count: int = 0
+                private static func Read(fail: bool, value: int) -> Result<int, string> {
+                    count = count * 10 + value
+                    if fail { return .Error("failed") }
+                    return .Ok(value)
+                }
+                private static func Run(chooseFirst: bool, fail: bool) -> Result<int, string> {
+                    let value = 10 + if chooseFirst {
+                        count = 1
+                        Read(fail, 2)?
+                    } else {
+                        count = 3
+                        Read(fail, 4)?
+                    }
+                    count = count * 10 + 5
+                    return .Ok(value)
+                }
+                public static func Check(chooseFirst: bool, fail: bool) -> bool {
+                    let result = Run(chooseFirst, fail)
+                    if fail {
+                        let expected = if chooseFirst { 12 } else { 34 }
+                        return count == expected && result is .Error("failed")
+                    }
+                    if chooseFirst { return count == 125 && result is .Ok(12) }
+                    return count == 345 && result is .Ok(14)
+                }
+            }
+            """;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
+        var compilation = Compilation.Create("conditional-propagation", [SyntaxTree.ParseText(code)], references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var pe = new MemoryStream();
+        var result = compilation.Emit(pe);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(pe, references);
+        Assert.Equal(true, loaded.Assembly.GetType("Harness")!.GetMethod("Check")!.Invoke(null, [chooseFirst, fail]));
+    }
+
     [Fact]
     public void DiscardedPropagationEvaluatesOnceAndStopsOnError()
     {

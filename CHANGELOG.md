@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Normalize propagation in conditional value initializers through
+  shared lowering, preserving branch selection, side effects and early error returns.
+  Disposal scopes and arbitrary argument spilling remain outside this bounded change.
+
 - **2026-10-04:** Normalize propagation in local assignment right-hand sides through
   shared lowering, preserving once-only evaluation and early failure returns. Cover
   direct and eager-binary expressions without changing target contracts or metadata.
