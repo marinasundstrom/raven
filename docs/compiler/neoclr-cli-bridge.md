@@ -5497,3 +5497,37 @@ ownership and does not remove that tracked whole-library size limitation.
 These portable-contract changes depend on the integration architecture absent from
 main; they are recorded as integration work, not an independently cherry-pickable
 .NET compiler fix. No application/native library reference uses CLI projection.
+
+
+### Erased Value import/emission and unit regression closure (2026-10-04)
+
+The NeoCLR emitter admits the selected core's top-level nongeneric System.Value struct
+as a symbol-only native signature operand. Identity is checked against the selected core,
+not just a name. Metadata import/export maps it to the existing runtime erased carrier;
+CLI declaration projection remains nominal and non-executable. No loader reader object
+is reused by emission, and ordinary .NET mappings are unchanged.
+
+The comparer bootstrap now includes exact IsValue<T>/UnpackValue<T> contracts plus the
+representative ParseInt64 service. Generic seed methods use existing value.is/value.unpack
+instructions, so Raven emits ordinary calls rather than introducing intrinsic-specific
+compiler lowering. The separate ErasedContracts library/consumer verifies Int64 success,
+Byte format/overflow status and runtime wrong-kind failure. Rebuild core, seed and dependent
+libraries together; no mismatched dependency artifact is accepted as a fallback.
+
+System.Value's intended role includes nominal and structural values outside Object's
+hierarchy for metadata/introspection APIs. This slice proves the existing scalar outcome
+boundary only. Runtime payload identity, storage, depth and lifetime checks still apply.
+Universal payload conversion and full introspection integration are not claimed.
+
+The cumulative native gate found two unit-related regressions after explicit storage
+admission: transported function callbacks use their substituted result convention, and
+an explicitly discarded no-result invocation must not pop an inhabited unit value that
+was never returned. Both are corrected in the portable planner. Generic method T returns
+remain value-bearing; callback tests, the discard-propagation consumer and the separate
+unit array/storage consumer pass. 39 focused C#/.NET controls pass. These portable fixes
+remain dependent on integration code absent from main.
+
+Native evidence: /tmp/value-offset-final-1004/validation.json (including broad application),
+/tmp/stream-value-final-1004/validation.json and /tmp/erased-gate-1004/validation.json.
+The independent metadata library passes 130 groups plus explicit alias/round-trip checks.
+The shared service ABI catalog is next; the seed helpers are not a complete service layer.

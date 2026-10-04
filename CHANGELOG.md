@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Preserve the selected core System.Value identity when emitting imported
+  native callable contracts. Native erased outcome consumers now compile and execute
+  through generic helpers. Correct portable unit callback and discarded no-result call
+  classification; cumulative native execution and 39 focused .NET tests pass.
+
 - **2026-10-04:** Admit explicitly configured inhabited unit values in portable signatures,
   generic arguments and locals, while keeping no-result calls separate from generic
   value returns. Separate native MemoryStream and generic-unit consumers execute;

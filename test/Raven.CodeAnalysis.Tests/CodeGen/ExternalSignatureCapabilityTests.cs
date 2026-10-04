@@ -9,6 +9,22 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class ExternalSignatureCapabilityTests
 {
     [Fact]
+    public void TransportedUnitCallbackUsesSubstitutedResultConvention()
+    {
+        var app = Compilation.Create("UnitCallbackAdmission", [SyntaxTree.ParseText("""
+            public static class Consumer {
+                public static func Apply(action: (int) -> unit) { action(42) }
+            }
+            """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(app.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var callback = (INamedTypeSymbol)method.Parameters[0].Type;
+        var invoke = callback.GetMembers("Invoke").OfType<IMethodSymbol>().Single();
+        Assert.False(LinearMethodBody.ReturnsValue(invoke));
+    }
+
+    [Fact]
     public void ExplicitUnitContractSupportsValuesWithoutChangingVoidCalls()
     {
         var app = Compilation.Create("UnitAdmission", [SyntaxTree.ParseText("""
