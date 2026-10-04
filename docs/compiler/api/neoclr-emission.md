@@ -546,3 +546,5 @@ number-generic-end-to-end-2026-10-04.json for exact commands, revisions and arti
 No independent general binding fix was introduced, so no main backport is claimed.
 This completes the bounded Number feature, not the full runtime-library gate. Structural
 Function work, wider constraint categories and a .NET backend replacement remain separate.
+
+Verified pair: Raven implementation `41b2573fa` and neoCLR metadata `ea7fdf77`.

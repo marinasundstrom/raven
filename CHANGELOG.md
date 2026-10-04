@@ -8,26 +8,27 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   instance calls through explicit shared capabilities. A separately compiled generic
   library and native consumer execute every Number member across all ten source-built
   numeric types, including generic forwarding. Invalid arguments fail without output;
-  ordinary .NET Reflection/Emit behavior remains unchanged.
+  ordinary .NET Reflection/Emit behavior remains unchanged. Verified with neoCLR
+  metadata `ea7fdf77` and compiler implementation `41b2573fa`.
 
 - **2026-10-04:** Validate external native method interface bounds against a separately
   emitted contracts assembly. Canonical symbol identity and generic argument rejection
-  use the introspection catalog without CLI projection; constrained emission remains open.
+  use the introspection catalog without CLI projection.
 
 - **2026-10-04:** Import native method interface constraints through metadata
   introspection into canonical type-parameter symbols, including inherited interfaces.
-  Existing binding checks reject incompatible arguments. Constrained callable emission
-  remains explicitly unsupported and publishes no output; the .NET backend is unchanged.
+  Existing binding checks reject incompatible arguments; invalid calls publish no output.
+  The .NET backend is unchanged.
 
 - **2026-10-04:** Document the verified metadata-generator static constrained-call
   prerequisite and remaining method-bound/open-call work for native Number generics.
-  Raven's constrained-generic emission rejection remains unchanged.
+  The later Number integration gate now exercises native constrained generic emission.
 
 - **2026-10-04:** Bind explicit primitive-provider source members to their output-owned
   definitions when rebuilding the runtime-library subset. Validate the primitive
   bootstrap through Object rather than assuming Int32 remains bootstrap-owned.
   The native numeric consumer now executes all ten source implementations against
-  the rebuilt subset; generic Number-constrained calls remain open.
+  the rebuilt subset; generic Number-constrained calls now pass the artifact-only integration gate.
 
 - **2026-10-04:** Select native numeric declaration providers explicitly through bootstrap ownership. Compile unchanged Single/Double Number implementations with intrinsic scalar storage, then import their properties, instance methods and Result-returning parsers into a separate native consumer. Missing providers fail without output; ordinary .NET selection remains unchanged. Generic Number-constrained calls remain open.
 
