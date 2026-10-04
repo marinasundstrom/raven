@@ -2574,6 +2574,10 @@ public partial class Compilation
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
         EnsureSetup();
+        if (Options.MetadataImportOptions is { PrimitiveAssemblies.Count: > 0 } imports)
+            foreach (var special in imports.PrimitiveAssemblies.Keys)
+                if (_target.RuntimeContract.GetSpecialTypeMetadataName(special) == metadataName)
+                    return GetSpecialType(special) is { TypeKind: not TypeKind.Error } selected ? selected : null;
 
         if (_metadataTypeCache.TryGetValue(metadataName, out var cached))
             return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamedTypeSymbol)cached;
@@ -2748,6 +2752,11 @@ public partial class Compilation
     private INamedTypeSymbol ResolveSpecialType(SpecialType specialType)
     {
         var metadataName = _target.RuntimeContract.GetSpecialTypeMetadataName(specialType);
+        if (Options.MetadataImportOptions?.PrimitiveAssemblies.TryGetValue(specialType, out var provider) == true)
+        {
+            var selected = GetTypeByMetadataName(metadataName, provider);
+            return selected?.SpecialType == specialType ? selected : (INamedTypeSymbol)ErrorTypeSymbol;
+        }
         var preferredAssembly = _target.RuntimeContract.PreferredSpecialTypeAssemblyName;
 
         var type = TryGetMetadataReferenceTypeByMetadataName(metadataName);

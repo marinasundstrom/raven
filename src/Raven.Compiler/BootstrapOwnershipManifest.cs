@@ -7,7 +7,7 @@ namespace Raven;
 
 // Host configuration only: it selects semantic contracts and checks ownership, not metadata representation.
 internal sealed record BootstrapSourceLibrary(string AssemblyName, string[] Sources, string[] Types);
-internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLibrary[] Libraries, RuntimeIterationContract Iteration, RuntimeTypeOfContract? TypeOf = null, RuntimePropagationContract? Propagation = null, RuntimeUnitContract? Unit = null, RuntimeSelfTypeContract? Self = null)
+internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLibrary[] Libraries, RuntimeIterationContract Iteration, RuntimeTypeOfContract? TypeOf = null, RuntimePropagationContract? Propagation = null, RuntimeUnitContract? Unit = null, RuntimeSelfTypeContract? Self = null, Dictionary<string, string>? NativePrimitives = null)
 {
     internal static BootstrapOwnershipManifest Read(string path)
     {
@@ -41,15 +41,39 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
             !types.TryGetValue(manifest.Iteration.IteratorTypeName, out var iteratorOwner) ||
             iterableOwner != manifest.Iteration.AssemblyName || iteratorOwner != manifest.Iteration.AssemblyName)
             throw new InvalidDataException("Iteration contracts must belong to their declared source library.");
+        foreach (var (name, owner) in manifest.NativePrimitives ?? [])
+            if (!types.TryGetValue(name, out var declaredOwner) || declaredOwner != owner || !NumericSpecialType(name, out _))
+                throw new InvalidDataException("Native primitive must name its declared source-library owner: " + name);
         return manifest;
     }
 
-    internal CompilationOptions Apply(CompilationOptions options)
+    internal CompilationOptions Apply(CompilationOptions options, string? outputAssemblyName = null, string? primitiveCoreAssemblyName = null)
     {
         var configured = options.WithRuntimeIterationContract(Iteration)
             .WithRuntimeTypeOfContract(TypeOf).WithRuntimePropagationContract(Propagation)
             .WithRuntimeSelfTypeContract(Self);
+        if (NativePrimitives is { Count: > 0 })
+        {
+            if (options.TargetPlatform != TargetPlatform.NeoCLR || primitiveCoreAssemblyName is null || outputAssemblyName is null)
+                throw new InvalidDataException("Native primitive providers require an explicit NeoCLR core and output identity.");
+            // Source implementations bind primitive spellings through the declared bootstrap.
+            // Consumers select the completed native declaration, with no fallback on failure.
+            var providers = NativePrimitives.Where(p => p.Value != outputAssemblyName).ToDictionary(p =>
+            {
+                NumericSpecialType(p.Key, out var special); return special;
+            }, p => p.Value);
+            configured = configured.WithMetadataImportOptions(new MetadataImportOptions(primitiveCoreAssemblyName, providers));
+        }
         return Unit is null ? configured : configured.WithRuntimeUnitContract(Unit);
+    }
+
+    internal static bool NumericSpecialType(string name, out SpecialType special)
+    {
+        special = SpecialType.None;
+        return name.StartsWith("System.", StringComparison.Ordinal) && Enum.TryParse(name.Replace('.', '_'), out special) &&
+            special is SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or
+                SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 or
+                SpecialType.System_Single or SpecialType.System_Double;
     }
 
     internal void Validate(Compilation compilation)
@@ -59,13 +83,25 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
         var assemblies = compilation.ReferencedAssemblySymbols.Prepend(compilation.Assembly).ToArray();
         if (Self is not null && compilation.ResolveRuntimeSelfType() is null)
             throw new InvalidDataException("Bootstrap Self contract requires its exact configured marker identity.");
+        foreach (var (name, owner) in NativePrimitives ?? [])
+        {
+            NumericSpecialType(name, out var special);
+            if (owner != compilation.Assembly.Name && compilation.GetSpecialType(special) is var selected &&
+                (selected.TypeKind == TypeKind.Error || selected.SpecialType != special || selected.ContainingAssembly?.Name != owner))
+                throw new InvalidDataException("Missing or incompatible native primitive provider: " + name + " in " + owner);
+        }
         foreach (var library in Libraries)
             foreach (var name in library.Types)
             {
                 _ = compilation.GetTypeByMetadataName(name);
-                var matches = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+                var matches = new HashSet<INamedTypeSymbol>(NativePrimitives?.ContainsKey(name) == true
+                    ? ReferenceEqualityComparer.Instance : SymbolEqualityComparer.Default);
                 foreach (var assembly in assemblies)
-                    if (assembly.GetTypeByMetadataName(name) is { } type) matches.Add(type);
+                {
+                    if (assembly.GetTypeByMetadataName(name) is not { } type) continue;
+                    if (NativePrimitives?.ContainsKey(name) == true && type.ContainingAssembly?.Name == compilation.Options.MetadataImportOptions?.CoreAssemblyName) continue;
+                    matches.Add(type);
+                }
                 if (matches.Count != 1 || matches.Single().ContainingAssembly?.Name != library.AssemblyName)
                     throw new InvalidDataException($"Bootstrap ownership for '{name}' requires exactly one declaration in '{library.AssemblyName}'; found " +
                         (matches.Count == 0 ? "none." : string.Join(", ", matches.Select(t => t.ContainingAssembly?.Name).Order()) + "."));

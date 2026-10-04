@@ -22,6 +22,7 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     {
         this.compilation = compilation;
         this.view = view;
+        SpecialType = view.NativePrimitive is { } primitive ? Enum.Parse<SpecialType>("System_" + primitive) : SpecialType.None;
         TypeParameters = [.. view.GetGenericArguments().Cast<GenericParameterTypeInfo>()
             .Select(parameter => (ITypeParameterSymbol)new NativeTypeParameterSymbol(parameter.Name, parameter.Position, this))];
         TypeArguments = [.. TypeParameters];
@@ -67,7 +68,7 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     public bool IsType => true;
     public ITypeSymbol? EnumUnderlyingType => view.IsEnum ? compilation.GetSpecialType(SpecialType.System_Int32) : null;
     public TypeKind TypeKind => view.IsEnum ? TypeKind.Enum : view.IsInterface ? TypeKind.Interface : view.IsValueType ? TypeKind.Struct : TypeKind.Class;
-    public SpecialType SpecialType => SpecialType.None;
+    public SpecialType SpecialType { get; }
     public INamedTypeSymbol? BaseType => TypeKind == TypeKind.Interface ? null : compilation.GetSpecialType(view.IsEnum ? SpecialType.System_Enum : view.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) as INamedTypeSymbol;
     public ITypeSymbol OriginalDefinition => this;
     public ITypeSymbol ConstructedFrom => this;

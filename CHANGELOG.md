@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Select native numeric declaration providers explicitly through bootstrap ownership. Compile unchanged Single/Double Number implementations with intrinsic scalar storage, then import their properties, instance methods and Result-returning parsers into a separate native consumer. Missing providers fail without output; ordinary .NET selection remains unchanged. Generic Number-constrained calls remain open.
+
 - **2026-10-04:** Extend native primitive contracts to all eight fixed-width integer
   types, with exact import and unsigned operator/conversion selection. Separate
   integer libraries and consumers execute on .NET and NeoCLR. Reflection.Emit

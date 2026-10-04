@@ -6,6 +6,20 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class MetadataImportOptionsTests
 {
+    [Fact]
+    public void PrimitiveProvidersAreCopiedAndRestrictedToNumericDeclarations()
+    {
+        var providers = new Dictionary<SpecialType, string> { [SpecialType.System_Single] = "Numbers" };
+        var options = new MetadataImportOptions("Core", providers);
+        providers[SpecialType.System_Single] = "Changed";
+        Assert.Equal("Numbers", options.PrimitiveAssemblies[SpecialType.System_Single]);
+        Assert.Empty(new MetadataImportOptions("Core").PrimitiveAssemblies);
+        Assert.Throws<ArgumentException>(() => new MetadataImportOptions("Core",
+            new Dictionary<SpecialType, string> { [SpecialType.System_Object] = "Numbers" }));
+        Assert.Throws<ArgumentException>(() => new MetadataImportOptions("Core",
+            new Dictionary<SpecialType, string> { [SpecialType.System_Double] = " " }));
+    }
+
     private const string Source = """
         import System.Console.*
         func Main() { WriteLine("test") }

@@ -180,12 +180,13 @@ internal static class NeoClrCommand
             var trees = sources.Select(path => SyntaxTree.ParseText(File.ReadAllText(path), path: path)).ToArray();
             var compilationOptions = (corePath is null ? new CompilationOptions() : CompilationOptions.NeoCLR)
                 .WithOutputKind(library ? OutputKind.DynamicallyLinkedLibrary : OutputKind.ConsoleApplication);
-            if (ownership is not null) compilationOptions = ownership.Apply(compilationOptions);
+            if (ownership is not null) compilationOptions = ownership.Apply(compilationOptions, name, core.Name);
             var compilation = Compilation.Create(name, trees, references.ToArray(), compilationOptions);
             ownership?.Validate(compilation);
             using var image = new MemoryStream();
             var backend = new NeoClrEmissionBackend(
-                new(new(name, new Version(1, 0, 0, 0)), core, dependencies, systemSymbols is null ? console : null, systemSymbols, bootstrapReference));
+                new(new(name, new Version(1, 0, 0, 0)), core, dependencies, systemSymbols is null ? console : null, systemSymbols, bootstrapReference,
+                    ownership?.NativePrimitives?.Where(p => p.Value == name).Select(p => Enum.Parse<PrimitiveType>(p.Key[7..]))));
             var result = compilation.Emit(image, null, new EmitOptions().WithBackend(backend));
             foreach (var diagnostic in result.Diagnostics) Console.Error.WriteLine(diagnostic);
             if (!result.Success) return 1;

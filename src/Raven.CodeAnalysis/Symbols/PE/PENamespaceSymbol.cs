@@ -65,18 +65,22 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol, IN
         */
     }
 
+    private bool IsSelectedDeclaration(ISymbol symbol) => symbol is not ITypeSymbol type ||
+        _reflectionTypeLoader.Compilation.Options.MetadataImportOptions?.PrimitiveAssemblies.TryGetValue(type.SpecialType, out var provider) != true ||
+        type.ContainingAssembly?.Name == provider;
+
     public ImmutableArray<ISymbol> GetMembers()
     {
         EnsureMembersLoaded();
         lock (_membersGate)
-            return _members.ToImmutableArray();
+            return _members.Where(IsSelectedDeclaration).ToImmutableArray();
     }
 
     public ImmutableArray<ISymbol> GetMembers(string name)
     {
         EnsureMemberWithNameLoaded(name);
         lock (_membersGate)
-            return _members.Where(m => m.Name == name).ToImmutableArray();
+            return _members.Where(m => m.Name == name && IsSelectedDeclaration(m)).ToImmutableArray();
     }
 
     public INamespaceSymbol? LookupNamespace(string name)
@@ -91,21 +95,22 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol, IN
         EnsureMemberWithNameLoaded(name);
         ImmutableArray<ITypeSymbol> candidates;
         lock (_membersGate)
-            candidates = _members.OfType<ITypeSymbol>().Where(t => t.Name == name).ToImmutableArray();
+            candidates = _members.OfType<ITypeSymbol>().Where(t => t.Name == name && IsSelectedDeclaration(t)).ToImmutableArray();
 
         var type = TypeLookupUtilities.SelectBestTypeByName(candidates);
         if (type != null)
             return type;
 
         var fullName = string.IsNullOrEmpty(MetadataName) ? name : MetadataName + "." + name;
-        return (ContainingAssembly as PEAssemblySymbol)?.GetTypeByMetadataName(fullName);
+        var fallback = (ContainingAssembly as PEAssemblySymbol)?.GetTypeByMetadataName(fullName);
+        return fallback is not null && IsSelectedDeclaration(fallback) ? fallback : null;
     }
 
     public bool IsMemberDefined(string name, out ISymbol? symbol)
     {
         EnsureMemberWithNameLoaded(name);
         lock (_membersGate)
-            symbol = _members.FirstOrDefault(m => m.Name == name);
+            symbol = _members.FirstOrDefault(m => m.Name == name && IsSelectedDeclaration(m));
         return symbol is not null;
     }
 

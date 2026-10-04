@@ -3,12 +3,12 @@ using System.Reflection;
 using NeoCLR.Metadata.Experimental.Model;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Metadata;
 using Raven.CodeAnalysis.Targets;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-// Bind through the existing CLI symbol importer, but validate the selected core before
-// translating primitive identities to native signatures. This is not a native importer.
+// Validate explicit bootstrap and native primitive providers before emission.
 internal static class NeoClrBindingContract
 {
     internal static string? GetError(Compilation compilation, NeoClrEmitOptions options)
@@ -22,12 +22,28 @@ internal static class NeoClrBindingContract
         if (options.CoreLibrary.Name != compilation.Options.TargetCoreAssemblyName)
             return "native core identity must match the selected binding core";
 
+        if (compilation.Options.MetadataImportOptions is { } imports)
+            foreach (var (special, provider) in imports.PrimitiveAssemblies)
+            {
+                var primitive = compilation.GetSpecialType(special);
+                if (primitive.SpecialType != special || primitive.ContainingAssembly?.Name != provider ||
+                    primitive.ContainingAssembly is not IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    return "native primitive does not match its selected provider";
+            }
+
         IAssemblySymbol? core = null;
         foreach (var special in new[] { SpecialType.System_Object, SpecialType.System_Int32,
                      SpecialType.System_Int64, SpecialType.System_Boolean, SpecialType.System_String,
                      SpecialType.System_Unit })
         {
             var type = compilation.GetSpecialType(special);
+            if (compilation.Options.MetadataImportOptions?.PrimitiveAssemblies.TryGetValue(special, out var provider) == true)
+            {
+                if (type.SpecialType != special || type.ContainingAssembly?.Name != provider ||
+                    type.ContainingAssembly is not IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    return "native primitive does not match its selected provider";
+                continue;
+            }
             if (type.TypeKind == TypeKind.Error || type.ContainingAssembly is not PEAssemblySymbol imported)
                 return "native binding requires imported primitive and Unit declarations";
             var identity = new AssemblyName(imported.FullName);

@@ -207,7 +207,22 @@ internal static class Int32Emitter
                 else throw Unsupported("only top-level functions and supported source type declarations");
             }
         }
-        foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic))
+        var primitiveOwners = new Dictionary<INamedTypeSymbol, PrimitiveType>(SymbolEqualityComparer.Default);
+        var primitiveFields = new Dictionary<IFieldSymbol, PrimitiveType>(SymbolEqualityComparer.Default);
+        foreach (var primitive in options.PrimitiveImplementations)
+        {
+            var symbol = declaredTypes.Keys.SingleOrDefault(t => t.ToFullyQualifiedMetadataName() == "System." + primitive)
+                ?? throw Unsupported("selected primitive implementation is missing: " + primitive);
+            var fieldsForType = storageFields.Where(f => SymbolEqualityComparer.Default.Equals(f.ContainingType, symbol)).ToArray();
+            if (!symbol.IsValueType || symbol.Arity != 0 || symbol.ContainingType is not null || fieldsForType.Length != 1 ||
+                fieldsForType[0] is not { Name: "m_value", DeclaredAccessibility: Accessibility.Private, IsStatic: false, IsReadOnly: false } field ||
+                field.Type.SpecialType.ToString() != "System_" + primitive ||
+                plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol.ContainingType, symbol) && p.Symbol.MethodKind == MethodKind.Constructor))
+                throw Unsupported("primitive implementation requires canonical numeric storage and no explicit constructors: " + primitive);
+            primitiveOwners.Add(symbol, primitive);
+            primitiveFields.Add(field, primitive);
+        }
+        foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic && !primitiveOwners.ContainsKey(t.Symbol)))
             foreach (var constructor in type.Symbol.GetMembers().OfType<IMethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor))
                 if (!plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol, constructor)))
                 {
@@ -324,6 +339,7 @@ internal static class Int32Emitter
         foreach (var type in declaredTypes.Values)
         {
             var definition = type.Define(typeDefinitions);
+            if (primitiveOwners.TryGetValue(type.Symbol, out var primitive)) definition.SetNativePrimitive(primitive);
             nativeTypes.Add(type.Symbol, definition);
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type], ImportExternalType));
         }
@@ -401,6 +417,7 @@ internal static class Int32Emitter
         var importedFields = new Dictionary<IFieldSymbol, NeoClrFieldReference>(SymbolEqualityComparer.Default);
         foreach (var field in storageFields)
         {
+            if (primitiveFields.ContainsKey(field)) continue;
             CallableSignature.TryType(field.Type, false, out var fieldType, NeoClrCapabilities.Shared);
             var storageType = NeoClrTypeMapper.Map(fieldType, type => nativeTypes[type], ImportExternalType);
             fields.Add(field, nativeTypes[field.ContainingType!].AddField(field.MetadataName, storageType, field.DeclaredAccessibility switch
@@ -567,6 +584,7 @@ internal static class Int32Emitter
                 else references.Resolve(instruction.Method!).EmitCall(output);
             }, field =>
             {
+                if (primitiveFields.TryGetValue(field, out var primitive)) return new NeoClrFieldReference(null, IntrinsicStorage: primitive);
                 if (fields.TryGetValue(field, out var definition)) return new NeoClrFieldReference(definition);
                 if (field is SubstitutedFieldSymbol substituted && field.ContainingType is { Arity: > 0 } owner && fields.TryGetValue(substituted.OriginalField, out definition))
                     return new NeoClrFieldReference(definition, definition.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
@@ -693,7 +711,8 @@ internal static class Int32Emitter
                 var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType, result: true),
                     symbol.Parameters.Select(p => p.RefKind == RefKind.None ? MapSymbolOnlyType(p.Type) : SignatureType.ByReference(MapSymbolOnlyType(p.Type))),
                     memberSignature.GenericParameterNames, memberSignature.OutParameters.IsDefault ? [] : memberSignature.OutParameters);
-                return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic, isOverride: symbol.IsOverride);
+                return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic, isOverride: symbol.IsOverride, nativePrimitive: owner.SpecialType is not SpecialType.None && owner.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null }
+                    ? NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(owner.SpecialType.ToString()[7..])) : null);
             }
             // A native callable must carry a complete supported semantic contract.
             // Do not recover missing emission facts by reopening its reader definition.
@@ -776,7 +795,7 @@ internal static class Int32Emitter
             ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter => SignatureType.MethodParameter(parameter.Ordinal),
             ITypeParameterSymbol parameter => SignatureType.TypeParameter(parameter.Ordinal),
             IArrayTypeSymbol array => SignatureType.ArrayOf(MapSymbolOnlyType(array.ElementType)),
-            INamedTypeSymbol named when named.SpecialType == SpecialType.System_Char || IsRuntimeErasedValue(named) || IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)named.OriginalDefinition) => ImportExternalType(named),
+            INamedTypeSymbol named when named.SpecialType == SpecialType.System_Char || IsRuntimeErasedValue(named) || named.SpecialType == SpecialType.None && IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)named.OriginalDefinition) => ImportExternalType(named),
             _ => type.SpecialType switch
             {
                 SpecialType.System_Int32 => PrimitiveType.Int32,

@@ -5775,3 +5775,34 @@ constrained generic calls remain open. See neoCLR's
 Validation: 31 focused .NET static-interface/Self/operator controls and the existing
 paired floating gate pass. Target-only capability expansion has no independent main
 backport; general binder behavior was not changed.
+
+
+### Explicit native numeric providers (2026-10-04)
+
+The ownership manifest optionally declares `nativePrimitives`, for example
+`{"System.Single":"FloatingNumbers","System.Double":"FloatingNumbers"}`.
+Each entry must have the same owner in the existing library/type catalog. While
+building that owner, primitive spellings use the explicit CLI bootstrap; the native
+adapter validates a nongeneric top-level value declaration with exactly one private,
+mutable `m_value` field of the matching primitive and no explicit constructors. It
+marks the metadata definition as a native primitive, omits the pseudo-field and
+implicit constructor, and emits scalar managed receiver loads/stores/addresses.
+No field storage is lost: the runtime scalar is the entire representation.
+
+Consumers use `MetadataImportOptions(coreAssemblyName, primitiveAssemblies)` to select
+numeric special-type providers. The immutable map admits only numeric special types.
+Keyword, metadata-name and namespace lookup select the same native declarations;
+missing providers cannot fall back to bootstrap copies. Other primitive/Unit bootstrap
+bindings remain explicit. The ordinary .NET target rejects native provider maps and
+retains its Reflection/Emit backend. Native symbols derive primitive identity from
+introspection facts. Emission authors primitive member contracts from symbol facts
+and dependency identity/digest, without reopening reader definitions.
+
+`NeoClrEmitOptions.PrimitiveImplementations` is the explicit output-owned primitive
+set. This configuration is target-specific, not a general rule that every System-named
+struct has special storage. Actual source Single/Double and NumberParseError now build
+and execute via `bootstrap/verify_native_floating.py` in neoCLR. The artifact-only
+consumer checks identities, scalar methods, parsing payloads/errors, NaN ordering and
+arrays. Its missing-reference control publishes no file. Numeric source ownership for
+remaining types and generic Number-constrained static dispatch remain open. The
+native metadata API is kept separate; this does not replace .NET primitive types.

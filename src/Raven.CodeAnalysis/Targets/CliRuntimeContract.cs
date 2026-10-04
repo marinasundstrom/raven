@@ -23,6 +23,9 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
         if (GetPlatformConfigurationError() is { } platformError)
             return platformError;
 
+        if (Options.MetadataImportOptions is { PrimitiveAssemblies.Count: > 0 } && Options.TargetPlatform != TargetPlatform.NeoCLR)
+            return "native primitive providers require the NeoCLR target";
+
         if (Options.TargetCoreAssemblyName is { } coreName &&
             (string.IsNullOrWhiteSpace(coreName) ||
              (!Options.UsesDiscoveredTargetCore && Options.MetadataImportOptions?.CoreAssemblyName != coreName)))
