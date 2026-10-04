@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Lower discarded propagation through the existing once-only residual
+  return path and emit ordinary discard assignments in the portable planner. Native
+  success/error side effects and 18 focused .NET tests pass. The general lowering fix
+  is independently validated on the main-based fix branch (`8e0f88eda`, six tests).
+  Propagation nested inside larger expressions remains a native emission gap.
+
 - **2026-10-04:** Admit configured core Char in native imported callable signatures.
   Separately compiled grapheme indexing/text round trips execute without changing .NET
   emission. Date passes binding and reaches a discard-assignment emission gap; native

@@ -5346,3 +5346,25 @@ BoundPatternAssignmentExpression emission (discard assignments after propagation
 A separate character-array receiver test explicitly rejects before publication: the
 portable emitter still lacks array-element addresses. The successful character consumer
 does not claim that capability. Both gaps remain visible; next is the Date discard path.
+
+## Discard and propagation emission (2026-10-04)
+
+The portable planner now evaluates supported discard assignment operands and drops their
+values, without popping a no-result call or emitting a discarded unit literal. General
+lowering normalizes `_ = operand?` into the existing once-only operand/check/residual
+return sequence; the unused success value is not loaded. This avoids teaching the target
+emitter propagation semantics. Other pattern assignments remain unsupported in this path.
+
+The focused native consumer imports the separately built Result library and checks that
+success continues, failure returns early and side effects occur exactly once. The expanded
+native application/character/calendar gate and paired Duration consumers pass. Eighteen
+focused .NET/planner/propagation tests pass. The independent lowerer change and its tests
+also pass six checks and are committed as `8e0f88eda` on the main-based
+`codex/compiler-fixes-from-neoclr` branch; no experimental backend is needed for that fix.
+The portable discard planner remains on the target integration line.
+
+Unchanged Date/calendar sources move past discarded propagation but still reject an
+unlowered propagation expression. A minimal `let value = Read()? + 1` reproduces that
+remaining gap before output publication. Nested expression propagation is the next bounded
+slice; Date execution and full-library completion are not yet established. No metadata,
+runtime, bootstrap or public API changes accompany this slice.

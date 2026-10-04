@@ -8,6 +8,41 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class PropagationCodeGenTests
 {
+    [Fact]
+    public void DiscardedPropagationEvaluatesOnceAndStopsOnError()
+    {
+        const string code = """
+            import System.*
+            class Harness {
+                private static var count: int = 0
+                private static func Read(fail: bool) -> Result<int, string> {
+                    count += 1
+                    if fail { return .Error("failed") }
+                    return .Ok(7)
+                }
+                private static func Run(fail: bool) -> Result<int, string> {
+                    _ = Read(fail)?
+                    count += 10
+                    return .Ok(42)
+                }
+                public static func Check() -> bool {
+                    let ok = Run(false)
+                    if count != 11 || !(ok is .Ok(42)) { return false }
+                    let error = Run(true)
+                    return count == 12 && error is .Error("failed")
+                }
+            }
+            """;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
+        var compilation = Compilation.Create("discard-propagation", [SyntaxTree.ParseText(code)], references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var pe = new MemoryStream();
+        var result = compilation.Emit(pe);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(pe, references);
+        Assert.Equal(true, loaded.Assembly.GetType("Harness")!.GetMethod("Check")!.Invoke(null, null));
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

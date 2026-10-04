@@ -374,6 +374,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     BoundExpressionStatement { Expression: BoundAssignmentExpression expression } => expression,
                     _ => null
                 };
+                if (memberAssignment is BoundPatternAssignmentExpression { Pattern: BoundDiscardPattern } discard)
+                {
+                    if (discard.Right is BoundUnitExpression) continue;
+                    if (!LowerValue(discard.Right)) return false;
+                    if (TryType(discard.Right.Type, false, out _))
+                        Add(LinearInstructionKind.Pop, Syntax(statement));
+                    else if (discard.Right is not BoundInvocationExpression discardedCall || ReturnsValue(discardedCall.Method))
+                        return Reject("unsupported discarded result", Syntax(statement));
+                    continue;
+                }
                 if (memberAssignment is BoundIndexerAssignmentExpression indexerAssignment)
                 {
                     var access = indexerAssignment.Left;

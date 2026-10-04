@@ -812,6 +812,33 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).GetType("CopyTest")!.GetMethod("Run")!.Invoke(null, null));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void ExplicitDiscardsEvaluateValuesAndNoResultCalls(OptimizationLevel optimization)
+    {
+        var compilation = Create("""
+            public static class Discards {
+                public static func Main() -> int {
+                    _ = Number()
+                    _ = Predicate()
+                    _ = Finish()
+                    _ = ()
+                    _ = "discarded"
+                    return 42
+                }
+                public static func Number() -> int { return 7 }
+                public static func Predicate() -> bool { return true }
+                public static func Finish() { }
+            }
+            """, optimization);
+        var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
+        var model = compilation.GetSemanticModel(declaration.SyntaxTree);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+            model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail);
+        Assert.Equal(42, Emit(compilation).GetType("Discards")!.GetMethod("Main")!.Invoke(null, null));
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));

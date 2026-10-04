@@ -63,6 +63,25 @@ class C {
         Assert.IsType<BoundReturnStatement>(statements.Last());
     }
 
+    [Fact]
+    public void Lowerer_DiscardedPropagation_RemovesPropagationAndKeepsEarlyReturn()
+    {
+        const string source = """
+            import System.*
+            class C {
+                func Test() -> Result<int, string> {
+                    _ = Parse()?
+                    return .Ok(42)
+                }
+                func Parse() -> Result<int, string> => .Error("failed")
+            }
+            """;
+        var (method, body) = BindMethodBody(source, "Test");
+        var lowered = Lowerer.LowerBlock(method, body);
+        Assert.Empty(CollectPropagateExpressions(lowered));
+        Assert.True(CollectReturnStatements(lowered).Count() >= 2);
+    }
+
     private (IMethodSymbol Method, BoundBlockStatement Body) BindMethodBody(string source, string methodName)
     {
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);

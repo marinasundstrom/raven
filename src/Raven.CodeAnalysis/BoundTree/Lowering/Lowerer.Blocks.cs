@@ -16,6 +16,19 @@ internal sealed partial class Lowerer
 
         foreach (var statement in node.Statements)
         {
+            var discardedPropagation = statement switch
+            {
+                BoundAssignmentStatement { Expression: BoundPatternAssignmentExpression { Pattern: BoundDiscardPattern, Right: BoundPropagateExpression propagation } } => propagation,
+                BoundExpressionStatement { Expression: BoundPatternAssignmentExpression { Pattern: BoundDiscardPattern, Right: BoundPropagateExpression propagation } } => propagation,
+                _ => null
+            };
+            if (discardedPropagation is not null && RewritePropagateExpression(discardedPropagation) is { } discarded)
+            {
+                // Keep evaluation and the residual return, but do not load the unused success value.
+                statements.AddRange(discarded.Statements);
+                continue;
+            }
+
             if (statement is BoundLocalDeclarationStatement localDeclarationWithInitializer
                 && TryRewriteObjectInitializerLocalDeclaration(localDeclarationWithInitializer, out var rewrittenObjectInitializerStatements))
             {
