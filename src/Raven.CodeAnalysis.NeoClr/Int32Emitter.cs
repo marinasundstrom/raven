@@ -18,6 +18,7 @@ internal static class Int32Emitter
     {
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
+        var runtimeServices = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         var interfaces = new List<SourceInterfacePlan>();
         var unions = new List<SourceUnionDeclarationPlan>();
         var properties = new List<SourcePropertySymbol>();
@@ -36,10 +37,18 @@ internal static class Int32Emitter
                 if (member is GlobalStatementSyntax { Statement: FunctionStatementSyntax declaration })
                 {
                     diagnosticSyntax = declaration;
+                    var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
+                    if (symbol.IsExtern)
+                    {
+                        if (!NeoClrRuntimeServiceDeclaration.TryCreate(compilation, symbol, declaration, out var service))
+                            throw Unsupported("runtime services require internal nongeneric bodyless functions in neoCLR.Runtime with the core MethodImpl(InternalCall) attribute");
+                        runtimeServices.Add(symbol);
+                        plans.Add(service!);
+                        continue;
+                    }
                     if ((declaration.Body is null && declaration.ExpressionBody is null) || declaration.AttributeLists.Count != 0 ||
                         declaration.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword)))
                         throw Unsupported("only top-level functions with block or expression bodies");
-                    var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
                     var plan = GetPlan(symbol);
                     plans.Add(plan);
                 }
@@ -242,9 +251,14 @@ internal static class Int32Emitter
                     if (constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not (ClassDeclarationSyntax or StructDeclarationSyntax)) throw Unsupported("constructor unavailable");
                     plans.Add(GetPlan(constructor));
                 }
-        var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody Body)>();
+        var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody? Body)>();
         foreach (var plan in plans)
         {
+            if (runtimeServices.Contains(plan.Symbol))
+            {
+                prepared.Add((plan, null));
+                continue;
+            }
             if (!plan.TryLowerBody(compilation, IsConsoleCall, out var body, out var failure, NeoClrCapabilities.Shared))
                 throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
             prepared.Add((plan, body!));
@@ -252,7 +266,7 @@ internal static class Int32Emitter
         var closureCaptures = new Dictionary<IMethodSymbol, ILocalSymbol[]>(SymbolEqualityComparer.Default);
         var lambdaSymbols = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         for (var index = 0; index < prepared.Count; index++)
-            foreach (var (function, syntax) in prepared[index].Body.Functions)
+            foreach (var (function, syntax) in prepared[index].Body?.Functions ?? [])
             {
                 var symbol = (IMethodSymbol)function.Symbol!;
                 if (!lambdaSymbols.Add(symbol)) continue;
@@ -464,7 +478,7 @@ internal static class Int32Emitter
         }
         var closureFields = new Dictionary<IMethodSymbol, FieldBuilder[]>(SymbolEqualityComparer.Default);
         var closureConstructors = new Dictionary<IMethodSymbol, MetadataMethod>(SymbolEqualityComparer.Default);
-        var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method, LinearMethodBody Body)>();
+        var methods = new List<(SourceCallablePlan Plan, MetadataMethod Method, LinearMethodBody? Body)>();
         foreach (var (plan, body) in prepared)
         {
             diagnosticSyntax = plan.Syntax;
@@ -495,6 +509,7 @@ internal static class Int32Emitter
                 var owner = plan.IsAssemblyFunction ? functions : owners[plan.TypeOwner!];
                 definition = plan.Define(owner);
             }
+            if (runtimeServices.Contains(plan.Symbol)) definition.SetInternalCall();
             for (var i = 0; i < plan.Symbol.Parameters.Length; i++)
                 definition.SetParameterName(i, plan.Symbol.Parameters[i].Name);
             methods.Add((plan, definition, body));
@@ -608,6 +623,7 @@ internal static class Int32Emitter
         }
         foreach (var current in methods)
         {
+            if (current.Body is null) continue;
             diagnosticSyntax = current.Plan.Syntax;
             current.Body.Emit(new NeoClrLinearMethodBuilder(current.Method.GetILGenerator(), (instruction, output) =>
             {

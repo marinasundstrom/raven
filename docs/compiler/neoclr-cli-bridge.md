@@ -6180,3 +6180,41 @@ This target adapter fix does not affect the ordinary .NET generator and is not a
 independent compiler-main backport candidate. Public System.Introspection descriptors
 and JSON object mapping remain open; the provider is only a focused boundary fixture.
 See neoCLR's native-handle-reflection-2026-10-04 integration record for commands/hashes.
+
+
+### Source-owned runtime-service declarations (2026-10-05)
+
+The NeoCLR adapter now admits internal, nongeneric, bodyless assembly functions in
+`neoCLR.Runtime`, explicitly marked `[MethodImpl(MethodImplOptions.InternalCall)]`.
+The attribute must belong to the selected primitive core assembly; its single bound
+argument must be exactly 0x1000 and it must have no named arguments or other attributes.
+Only `internal`/`extern` modifiers are accepted. This is an explicit native adapter
+contract, not a new default interpretation of extern or a change to .NET P/Invoke.
+The ordinary parser, attribute binder and semantic method symbols remain authoritative.
+No syntax, bound-model or editor grammar change is involved.
+
+The adapter makes bodyless metadata definitions through SetInternalCall, skips IL
+lowering for these declarations, and resolves local callers from the normal compiler
+symbol table. It does not reopen importer objects. Public wrappers remain ordinary
+source methods and can be consumed through native metadata in another compilation.
+Public or type-owned runtime-service declarations and generic services are deliberately
+outside this slice. Keeping services internal avoids promising cross-assembly runtime
+service imports through symbol contracts that do not yet retain implementation flags.
+
+The matching bootstrap supplies only the compiler-facing MethodImplAttribute and
+MethodImplOptions declarations. Their marker becomes the implementation flag, not a
+runtime custom attribute or an executable bootstrap method. The runtime library owns
+`runtime/raven/native/RuntimeHandleServices.rvn`; its declarations use existing Object
+and opaque RuntimeTypeHandle identities. No duplicate descriptor types are introduced.
+Host configuration still supplies core identity, explicit seed and ownership manifest.
+Runtime name/signature binding rejects unknown services, even when unused.
+
+Validation: neoCLR's `bootstrap/verify_internal_calls.py` compiles those unchanged
+runtime-library declarations with a provider, then compiles an artifact-only consumer;
+verify succeeds and execution returns 42 without stdout. Six invalid declaration cases
+reject without an output file. Unknown runtime binding rejects at runtime verification.
+The existing four .NET extern/PInvoke semantic/emission tests pass. The runtime fixture
+uses an explicit Object/RuntimeTypeHandle seed; it does not prove production bootstrap
+ownership. Production descriptor factories, snapshot/vector ABI and JSON object mapping
+remain open. Services and seed callers must move together: seed code cannot call an
+internal service owned by another assembly.

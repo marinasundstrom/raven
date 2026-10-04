@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Admit explicit internal, nongeneric NeoCLR runtime-service functions
+  marked by the configured core's MethodImpl(InternalCall) attribute. Emit bodyless
+  metadata declarations beside their source-owned callers, preserving ordinary .NET
+  extern/PInvoke behavior. Reject unmarked externs, unsupported flags and declaration
+  shapes before publishing output. A separately compiled native consumer executes the
+  runtime library's handle-service declarations and returns 42.
+
 - **2026-10-04:** Admit the selected core Object in symbol-authored native dependency
   signatures. A separate native consumer now executes object-type lookup and real
   reflection construction across an imported provider, preserving initialized state.

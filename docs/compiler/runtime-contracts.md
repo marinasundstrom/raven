@@ -3179,3 +3179,9 @@ The existing iteration contract names the same source library for Sequence/Itera
 array shape. Binding, emitted signatures and native linking therefore share text/collection
 identities. Ordinary .NET defaults are unchanged. See the
 [native text API configuration and validation](api/neoclr-emission.md#source-owned-char-and-string-2026-10-04).
+
+
+Native bodyless service declarations are a bounded adapter contract, documented in
+[the NeoCLR integration](neoclr-cli-bridge.md#source-owned-runtime-service-declarations-2026-10-05).
+They consume the selected core's explicit MethodImpl marker and do not change ordinary
+.NET extern/PInvoke semantics or the Runtime Contract defaults.
