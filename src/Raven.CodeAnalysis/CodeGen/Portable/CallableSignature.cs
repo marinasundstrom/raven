@@ -81,6 +81,11 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         type.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty && type.TypeKind is TypeKind.Class or TypeKind.Interface &&
         type.IsReferenceType && !type.IsStatic && (type.ContainingType is null || allowNested) && type.DeclaredAccessibility == Accessibility.Public;
 
+    internal static bool AllowsParameterArray(IMethodSymbol method, IParameterSymbol parameter, EmissionCapabilities? capabilities) =>
+        !parameter.IsVarParams || capabilities?.AllowsParameterArrays == true && parameter.RefKind == RefKind.None &&
+        parameter.Type is IArrayTypeSymbol { Rank: 1, FixedLength: null } &&
+        SymbolEqualityComparer.Default.Equals(parameter, method.Parameters.LastOrDefault());
+
     internal static bool TryCreate(IMethodSymbol method, out CallableSignature signature, EmissionCapabilities? capabilities = null)
     {
         signature = null!;
@@ -97,7 +102,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         var parameters = ImmutableArray.CreateBuilder<EmissionType>(method.Parameters.Length);
         foreach (var parameter in method.Parameters)
         {
-            if ((parameter.RefKind != RefKind.None && (capabilities?.AllowsManagedReferences != true || parameter.RefKind is not (RefKind.Ref or RefKind.Out))) || parameter.HasExplicitDefaultValue || parameter.IsVarParams || !TryType(parameter.Type, false, out var type, capabilities)) return false;
+            if ((parameter.RefKind != RefKind.None && (capabilities?.AllowsManagedReferences != true || parameter.RefKind is not (RefKind.Ref or RefKind.Out))) || parameter.HasExplicitDefaultValue || !AllowsParameterArray(method, parameter, capabilities) || !TryType(parameter.Type, false, out var type, capabilities)) return false;
             parameters.Add(type with { IsByReference = parameter.RefKind != RefKind.None });
         }
         signature = new(result, parameters.MoveToImmutable(), method.TypeParameters.Select(p => p.Name).ToImmutableArray(), !method.IsStatic, method.ContainingType?.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true } ? 0 : method.ContainingType?.Arity ?? 0, method.ContainingType is { } physicalOwner && SourceTypePlan.IsStaticContainer(physicalOwner), method.ContainingType is { } declaring && ((INamedTypeSymbol)declaring.OriginalDefinition).TypeParameters.Any(p => !p.ConstraintTypes.IsEmpty),

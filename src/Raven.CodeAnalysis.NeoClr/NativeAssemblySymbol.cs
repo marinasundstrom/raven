@@ -223,7 +223,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
                 NeoCLR.Metadata.Experimental.Introspection.ParameterPassingMode.Ref => RefKind.Ref,
                 NeoCLR.Metadata.Experimental.Introspection.ParameterPassingMode.Out => RefKind.Out,
                 _ => throw new InvalidDataException("unsupported native parameter passing mode")
-            }))]);
+            }, p.IsParameterArray))]);
     }
     private NativePropertySymbol? property;
     internal void Associate(NativePropertySymbol value)
@@ -270,11 +270,11 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
 
 internal sealed class NativeParameterSymbol : Symbol, IParameterSymbol
 {
-    internal NativeParameterSymbol(int ordinal, string? name, ITypeSymbol type, NativeMethodSymbol method, RefKind refKind)
-        : base(SymbolKind.Parameter, name ?? "$arg" + ordinal, method, null, method.ContainingNamespace, [], []) { Type = type; RefKind = refKind; HasImplicitName = name is null; }
+    internal NativeParameterSymbol(int ordinal, string? name, ITypeSymbol type, NativeMethodSymbol method, RefKind refKind, bool isParameterArray)
+        : base(SymbolKind.Parameter, name ?? "$arg" + ordinal, method, null, method.ContainingNamespace, [], []) { Type = type; RefKind = refKind; HasImplicitName = name is null; IsVarParams = isParameterArray; }
     public ITypeSymbol Type { get; }
     public bool HasImplicitName { get; }
-    public bool IsVarParams => false;
+    public bool IsVarParams { get; }
     public RefKind RefKind { get; }
     public bool IsMutable => false;
     public bool HasExplicitDefaultValue => false;

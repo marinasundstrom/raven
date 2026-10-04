@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Import and emit final by-value native parameter arrays through
+  introspection and symbol contracts. Separate-library consumers execute empty, expanded
+  and existing-array calls. Native metadata retains the standard ParamArrayAttribute;
+  the .NET backend is unchanged.
+
 - **2026-10-05:** Preserve native flags enums and project their Flags attribute into
   compiler symbols. Emit Int32 enum bitwise operations through existing storage
   conversions. The unchanged runtime BindingFlags source and separate consumer execute;

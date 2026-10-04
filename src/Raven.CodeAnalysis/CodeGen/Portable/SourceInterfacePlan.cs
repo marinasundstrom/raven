@@ -78,7 +78,7 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
             var parameters = ImmutableArray.CreateBuilder<EmissionType>();
             foreach (var parameter in method.Parameters)
             {
-                if (parameter.RefKind != RefKind.None && (!capabilities.AllowsManagedReferences || parameter.RefKind is not (RefKind.Ref or RefKind.Out)) || parameter.HasExplicitDefaultValue || parameter.IsVarParams ||
+                if (parameter.RefKind != RefKind.None && (!capabilities.AllowsManagedReferences || parameter.RefKind is not (RefKind.Ref or RefKind.Out)) || parameter.HasExplicitDefaultValue || !CallableSignature.AllowsParameterArray(method, parameter, capabilities) ||
                     !CallableSignature.TryType(parameter.Type, false, out var value, capabilities) || !capabilities.Allows(value)) return false;
                 parameters.Add(value with { IsByReference = parameter.RefKind != RefKind.None });
             }

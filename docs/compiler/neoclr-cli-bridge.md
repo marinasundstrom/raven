@@ -6287,3 +6287,18 @@ attribute identity. 12 ordinary .NET EnumCodeGenTests pass. Reproduction and cro
 hashes: neoCLR `docs/experiments/extended-cli-metadata/flags-enums-2026-10-05.md`.
 Next production blocker: params-array declaration facts and import for reflection
 extensions. JSON object mapping remains in progress.
+
+### Native parameter arrays (2026-10-05)
+
+NeoCLR admits final by-value vector `params` parameters through an explicit capability.
+The metadata facade supplies IsParameterArray; native symbol import sets IsVarParams,
+and emission authors the final parameter marker from symbols. Normal call-site lowering
+performs expansion, including zero arguments, while existing arrays retain their identity.
+The configured primitive core and native seed must expose the canonical ParamArrayAttribute.
+CLI Param rows/attributes and existing native parameter target_token attributes carry the
+same semantic fact; no new physical calling convention or importer reuse is introduced.
+
+Validation: the runtime repository's verify_parameter_arrays.py compiles an artifact-only
+provider/consumer, verifies and executes to 42; 151 C# metadata groups and focused native
+roundtrip/projection checks pass. JSON mapping remains in progress. .NET Reflection/Emit
+behavior is unchanged.

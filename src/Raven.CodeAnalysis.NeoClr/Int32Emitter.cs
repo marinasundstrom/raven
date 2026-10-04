@@ -437,7 +437,15 @@ internal static class Int32Emitter
                 contractMethods.Add(method.Symbol, definition.AddInterfaceMethod(method.Symbol.MetadataName, new MethodSignature(
                     NeoClrTypeMapper.Map(method.Signature.ReturnType, type => nativeTypes[type], ImportExternalType),
                     method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)), outParameters: method.Signature.OutParameters.IsDefault ? [] : method.Signature.OutParameters), method.Symbol.IsStatic));
-            foreach (var pair in contractMethods) interfaceMethods.Add(pair.Key, pair.Value);
+            foreach (var pair in contractMethods)
+            {
+                for (var i = 0; i < pair.Key.Parameters.Length; i++)
+                {
+                    pair.Value.SetParameterName(i, pair.Key.Parameters[i].Name);
+                    if (pair.Key.Parameters[i].IsVarParams) pair.Value.SetParameterArray(i);
+                }
+                interfaceMethods.Add(pair.Key, pair.Value);
+            }
             foreach (var property in contract.Properties)
                 definition.AddProperty(property.Symbol.MetadataName, NeoClrTypeMapper.Map(property.Type, type => nativeTypes[type], ImportExternalType),
                     property.Symbol.GetMethod is { } get ? contractMethods[get] : null,
@@ -524,7 +532,10 @@ internal static class Int32Emitter
             }
             if (runtimeServices.Contains(plan.Symbol)) definition.SetInternalCall();
             for (var i = 0; i < plan.Symbol.Parameters.Length; i++)
+            {
                 definition.SetParameterName(i, plan.Symbol.Parameters[i].Name);
+                if (plan.Symbol.Parameters[i].IsVarParams) definition.SetParameterArray(i);
+            }
             methods.Add((plan, definition, body));
         }
         var definedMethods = methods.ToDictionary(m => m.Plan.Symbol, m => m.Method, (IEqualityComparer<IMethodSymbol>)SymbolEqualityComparer.Default);
