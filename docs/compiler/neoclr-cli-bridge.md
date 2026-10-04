@@ -5241,3 +5241,34 @@ source contract must preserve those distinctions explicitly. Application/library
 remain native, and metadata/runtime encoding and both compiler backends are unchanged.
 No new .NET regression run is needed for this bootstrap-only slice; the preceding
 55 focused tests remain the compiler baseline. The full dual-target library gate stays open.
+
+## Native value-result receivers (2026-10-04)
+
+The portable body planner now gives supported value-returning property/indexer getters
+and ordinary calls a temporary local address for instance calls. It evaluates the
+receiver once, before arguments, and never writes the copy back. Existing local,
+parameter and field receivers retain their storage addresses; parenthesized receivers
+preserve that distinction. Existing managed-reference/local-address capabilities govern
+admission. Byref results and other unsupported expressions are not guessed into copies.
+No importer objects or target-specific builders enter the shared plan. The established
+.NET body emitter is unchanged; C# controls verify getter-copy versus field mutation.
+
+NeoCLR's explicit primitive bootstrap now includes Int64.CompareTo with exact-width
+readonly byref receiver validation. CLI uses the ordinary Int64 member reference and
+native output uses the existing primitive owner form; no format or VM changes. This is
+not source-built Int64 and does not add arbitrary primitive virtual dispatch. Hosts must
+regenerate the comparer core and matching retained System seed together. Native library
+and application references still use direct metadata import.
+
+The new value-result-consumer executes against the separately compiled native collection
+library: ArrayList<long> copy/indexer behavior, getter/call evaluation order, signed
+extreme comparisons, and mutable-struct copy versus stored-field mutation all pass.
+Expanded application acceptance, seven native consumers, 129 metadata groups, dedicated
+native binding execution/rejection checks, three new C#/.NET checks and 26 existing
+range/function checks pass. The unchanged full library-generic-collections sample now
+rejects only because Date is absent, before output publication. Date's source depends on
+larger globalization contracts; no stub or modified sample substitutes for it.
+
+This portable planner extension is a deferred general candidate for independent
+main-based validation when another backend consumes it. The current .NET emitter
+already implements temporary receiver behavior; no .NET repair is claimed.

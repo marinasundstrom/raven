@@ -516,6 +516,21 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 ? receiver is null or BoundTypeExpression || Reject("static property receiver must be a type", syntax)
                 : Receiver(receiver, accessor.ContainingType!, syntax);
 
+        bool TemporaryReceiver(BoundExpression receiver, SyntaxNode syntax)
+        {
+            // Value-returning getters and calls produce copies. Evaluate once before
+            // the call arguments and give only that copy an address; never write it back.
+            if (!TryType(receiver.Type, false, out var type) || type.IsByReference ||
+                capabilities?.Allows(type) != true || !capabilities.Allows(LinearInstructionKind.LocalAddress))
+                return Reject("target does not support temporary value receiver storage", syntax);
+            if (!LowerValue(receiver)) return false;
+            var slot = localTypes.Count;
+            localTypes.Add(type);
+            Add(LinearInstructionKind.StoreLocal, syntax, slot);
+            Add(LinearInstructionKind.LocalAddress, syntax, slot);
+            return true;
+        }
+
         bool Receiver(BoundExpression? receiver, INamedTypeSymbol owner, SyntaxNode syntax)
         {
             if (owner.IsValueType)
@@ -530,12 +545,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 return receiver switch
                 {
+                    BoundParenthesizedExpression parenthesized => Receiver(parenthesized.Expression, owner, syntax),
                     BoundLocalAccess local => LowerReference(new BoundAddressOfExpression(local)),
                     BoundParameterAccess parameter => LowerReference(parameter),
                     BoundDereferenceExpression dereference => LowerReference(dereference.Reference),
                     BoundFieldAccess field => FieldAddress(field.Receiver, field.Field, syntax),
                     BoundMemberAccessExpression { Member: IFieldSymbol field } access => FieldAddress(access.Receiver, field, syntax),
-                    _ => Reject("value receiver requires addressable local, parameter or field storage", syntax)
+                    BoundIndexerAccessExpression or BoundPropertyAccess or BoundInvocationExpression => TemporaryReceiver(receiver, syntax),
+                    BoundMemberAccessExpression { Member: IPropertySymbol } => TemporaryReceiver(receiver, syntax),
+                    _ => Reject("value receiver requires addressable storage or a supported value result", syntax)
                 };
             }
             if (receiver is not null)

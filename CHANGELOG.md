@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Address value-returning getters/indexers/calls through temporary
+  storage in the portable emission plan, preserving evaluation order and copy semantics.
+  Native ArrayList<long> consumption executes with explicit Int64 bootstrap support;
+  ordinary .NET emission remains unchanged. Date still blocks the full collection sample.
+
 - **2026-10-04:** Record native integer-sample acceptance with explicit primitive
   Equals/ToString bootstrap contracts. Compiler code is unchanged; this does not
   claim source-built Int32 or virtual boxed dispatch support.

@@ -745,6 +745,73 @@ public class SharedLinearBodyTests
         Assert.Equal(false, equal.Invoke(null, ["A", "a"]));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ValueResultReceiversRequireManagedStorage(bool managedStorage)
+    {
+        var compilation = Create("""
+            public static class ValueResults {
+                public static func Compare(text: string) -> int {
+                    return text.Length.CompareTo(4)
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            allowsExternalReferenceSignatures: true, allowsExternalInstanceCalls: true,
+            declarations: [EmissionDeclarationKind.PropertyAccessor],
+            allowsExternalValueSignatures: true, allowsExternalValueInstanceCalls: true, allowsManagedReferences: managedStorage);
+        var success = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+            _ => false, out _, out var failure, capabilities);
+        Assert.True(success == managedStorage, failure?.Detail);
+        var compare = Emit(compilation).GetType("ValueResults")!.GetMethod("Compare")!;
+        Assert.Equal(0, compare.Invoke(null, ["four"]));
+        Assert.Equal(-1, compare.Invoke(null, ["one"]));
+        Assert.Equal(1, compare.Invoke(null, ["longer"]));
+    }
+
+    [Fact]
+    public void ValueGetterReceiverMutationDoesNotWriteBackOnDotNet()
+    {
+        var compilation = Create("""
+            struct Counter {
+                var Value: int = 0
+                func Bump() -> int {
+                    Value += 1
+                    return Value
+                }
+            }
+            class Copies {
+                field Stored: Counter = default(Counter)
+                var Reads: int = 0
+                val Copy: Counter {
+                    get {
+                        Reads += 1
+                        return Stored
+                    }
+                }
+            }
+            public static class CopyTest {
+                public static func Run() -> int {
+                    let copies = Copies()
+                    if copies.Copy.Bump() != 1 || copies.Reads != 1 || copies.Stored.Value != 0 {
+                        return 1
+                    }
+                    if copies.Stored.Bump() != 1 || copies.Stored.Value != 1 {
+                        return 2
+                    }
+                    return 42
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        Assert.Equal(42, Emit(compilation).GetType("CopyTest")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
