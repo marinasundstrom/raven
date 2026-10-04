@@ -5603,3 +5603,22 @@ native helper library schedules a bound receiver and its consumer observes count
 42 after draining. The 57-source combined native gate still passes. There is no
 compiler special case or CLR Object erasure. Source Tasks/Workers, TaskState enum
 emission and source queue ownership remain the next integration gates.
+
+### Native Int32 enum category (2026-10-04)
+
+NeoCLR capabilities admit nongeneric top-level Int32 enums. Native symbol import takes
+IsEnum/IsLiteral/Constant from the metadata introspection facade. Emission constructs
+references from compiler symbols and host artifact identities, without reopening imported
+metadata. Shared linear bodies represent integer-to-enum and enum-to-integer conversions;
+the NeoCLR adapter delegates to metadata IILGenerator helpers. CLI enum encoding uses
+System.Enum/value__/literal constants; native output uses its existing nominal enum
+representation and instructions. No format version change is required.
+
+The ordinary .NET Reflection/Emit backend is retained. Flags, other underlying widths
+and nested enum declarations remain unsupported in the native capability profile.
+The paired `verify_enums.py` gate in neoCLR compiles unchanged TaskState and a helper
+library, imports only its artifact into a separate consumer, and executes both targets
+with exit 42/no stdout. It covers mutation, arrays, named comparisons and unnamed integer
+round trips. Metadata C# tests cover declaration authoring, round trips and rejection.
+This is a prerequisite for source Tasks/Workers, whose queue ownership integration is
+still open. Runtime Contract bootstrap ownership and primitive identities are unchanged.

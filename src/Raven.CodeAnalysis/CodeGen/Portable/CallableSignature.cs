@@ -28,6 +28,8 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(MethodParameter: parameter); return true; }
         if (type is ITypeParameterSymbol { DeclaringTypeParameterOwner: not null } ownerParameter)
         { value = new(OwnerParameter: ownerParameter); return true; }
+        if (capabilities?.Allows(EmissionDeclarationKind.Enum) == true && type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 } enumType)
+        { value = new(Nominal: enumType); return true; }
         if (capabilities?.AllowsExternalValueSignatures == true && type is INamedTypeSymbol externalValue && IsExternalValue(externalValue, capabilities?.AllowsNestedExternalTypes == true) &&
             externalValue.TypeArguments.All(t => TryType(t, false, out _, capabilities, depth + 1)))
         { value = new(Nominal: externalValue); return true; }

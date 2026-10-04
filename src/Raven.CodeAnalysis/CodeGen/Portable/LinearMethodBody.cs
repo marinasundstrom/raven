@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress }
+internal enum LinearInstructionKind { EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -789,6 +789,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.Receiver, Syntax(expression));
                     if (self.Type.IsValueType) instructions.Add(new(LinearInstructionKind.LoadIndirect, Syntax(expression), Type: self.Type));
                     return true;
+                case BoundFieldAccess { Field: { IsConst: true, Type.TypeKind: TypeKind.Enum } enumField } when
+                    capabilities?.Allows(EmissionDeclarationKind.Enum) == true && enumField.GetConstantValue() is int enumValue:
+                    Add(LinearInstructionKind.Constant, Syntax(expression), enumValue);
+                    instructions.Add(new(LinearInstructionKind.EnumFromInt32, Syntax(expression), Type: enumField.Type)); return true;
+                case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true, Type.TypeKind: TypeKind.Enum } enumMember } when
+                    capabilities?.Allows(EmissionDeclarationKind.Enum) == true && enumMember.GetConstantValue() is int enumMemberValue:
+                    Add(LinearInstructionKind.Constant, Syntax(expression), enumMemberValue);
+                    instructions.Add(new(LinearInstructionKind.EnumFromInt32, Syntax(expression), Type: enumMember.Type)); return true;
                 case BoundFieldAccess field when SupportedField(field.Field):
                     if (!Receiver(field.Receiver, field.Field.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.LoadField, Syntax(expression), Field: field.Field)); return true;
@@ -825,6 +833,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.Constant64, Syntax(expression), Long: value64)); return true;
                 case BoundLiteralExpression { Value: byte valueByte }:
                     Add(LinearInstructionKind.Constant, Syntax(expression), valueByte); return true;
+                case BoundLiteralExpression { Value: int enumLiteral, Type.TypeKind: TypeKind.Enum } when capabilities?.Allows(EmissionDeclarationKind.Enum) == true:
+                    Add(LinearInstructionKind.Constant, Syntax(expression), enumLiteral);
+                    instructions.Add(new(LinearInstructionKind.EnumFromInt32, Syntax(expression), Type: expression.Type)); return true;
                 case BoundLiteralExpression { Value: int value }:
                     Add(LinearInstructionKind.Constant, Syntax(expression), value); return true;
                 case BoundLocalAccess local:
@@ -892,6 +903,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     capabilities?.AllowsInterfaceDispatch == true && conversion.Type.GetNonNullableType() is INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } target &&
                     SourceInterfacePlan.HasSupportedIdentity(target) && TryType(conversion.Expression.Type, false, out var from) && capabilities.Allows(from):
                     return LowerValue(conversion.Expression);
+                case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && capabilities?.Allows(EmissionDeclarationKind.Enum) == true &&
+                    conversion.Expression.Type.SpecialType == SpecialType.System_Int32 && conversion.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 }:
+                    if (!LowerValue(conversion.Expression)) return false;
+                    instructions.Add(new(LinearInstructionKind.EnumFromInt32, Syntax(expression), Type: conversion.Type)); return true;
+                case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && capabilities?.Allows(EmissionDeclarationKind.Enum) == true &&
+                    conversion.Type.SpecialType == SpecialType.System_Int32 && conversion.Expression.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 }:
+                    if (!LowerValue(conversion.Expression)) return false;
+                    instructions.Add(new(LinearInstructionKind.EnumToInt32, Syntax(expression), Type: conversion.Expression.Type)); return true;
                 case BoundConversionExpression { IsIdentity: true } conversion:
                     return LowerValue(conversion.Expression);
                 case BoundConversionExpression conversion when conversion.Conversion.IsNumeric && !conversion.IsUserDefined &&
@@ -932,6 +951,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!LowerValue(reference)) return false;
                     Add(LinearInstructionKind.ReferenceIsNull, Syntax(expression));
                     if (comparison.Operator.OperatorKind == OperatorKind.Inequality) Add(LinearInstructionKind.Not, Syntax(expression));
+                    return true;
+                case BoundBinaryExpression enumComparison when enumComparison.Operator.MethodSymbol is null &&
+                    capabilities?.Allows(EmissionDeclarationKind.Enum) == true && enumComparison.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality &&
+                    enumComparison.Left.Type.TypeKind == TypeKind.Enum && SymbolEqualityComparer.Default.Equals(enumComparison.Left.Type, enumComparison.Right.Type):
+                    if (!LowerValue(enumComparison.Left)) return false;
+                    instructions.Add(new(LinearInstructionKind.EnumToInt32, Syntax(expression), Type: enumComparison.Left.Type));
+                    if (!LowerValue(enumComparison.Right)) return false;
+                    instructions.Add(new(LinearInstructionKind.EnumToInt32, Syntax(expression), Type: enumComparison.Right.Type));
+                    Add(LinearInstructionKind.Equal, Syntax(expression));
+                    if (enumComparison.Operator.OperatorKind == OperatorKind.Inequality) Add(LinearInstructionKind.Not, Syntax(expression));
                     return true;
                 case BoundBinaryExpression shift when shift.Operator.MethodSymbol is null &&
                     shift.Operator.LeftType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&

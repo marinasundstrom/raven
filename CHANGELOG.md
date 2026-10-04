@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Admit ordinary top-level Int32 enums in the explicit NeoCLR target
+  capability. Import enum/literal facts through introspection and emit declarations,
+  comparisons and integer conversions through output-owned metadata/IL adapters.
+  A separate TaskState library/consumer executes on both targets with mutation and
+  array storage. Ordinary .NET Reflection/Emit behavior is retained.
+
 - **2026-10-04:** Document native ScheduleTask no-result callback transport and
   separately compiled receiver-mutation execution. Compiler behavior is unchanged;
   source Tasks/Workers still require enum and queue-ownership support.

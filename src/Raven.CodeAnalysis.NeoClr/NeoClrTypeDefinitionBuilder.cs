@@ -14,6 +14,13 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
             Accessibility.Internal => TypeVisibility.Internal,
             _ => throw new InvalidOperationException("Unsupported type visibility")
         };
+        if (plan.IsEnum)
+        {
+            var type = assembly.AddEnum(plan.Namespace, plan.Name, visibility);
+            foreach (var field in plan.Symbol.GetMembers().OfType<IFieldSymbol>().Where(f => f.IsConst))
+                type.AddEnumMember(field.MetadataName, (int)field.GetConstantValue()!);
+            return type;
+        }
         // Binding lifts extension receiver type parameters onto each method,
         // matching Raven's CLR representation in a nongeneric static container.
         if (plan.IsExtensionContainer) return assembly.AddType(plan.Namespace, plan.Symbol.Name, visibility);

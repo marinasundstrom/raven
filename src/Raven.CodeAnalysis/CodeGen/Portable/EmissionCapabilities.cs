@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical source ownership/categories. Physical CLI carrier types are adapter policy.
-internal enum EmissionDeclarationKind { AssemblyFunction, NamespacedAssemblyFunction, StaticMethod, StaticType, RootClass, ValueType, NestedType, InstanceMethod, Constructor, PropertyAccessor, IndexerAccessor, Interface, InterfaceMethod, InterfaceProperty, InterfaceIndexer, InterfaceInheritance, InterfaceImplementation, ValueInterfaceImplementation, ValueObjectOverride }
+internal enum EmissionDeclarationKind { Enum, AssemblyFunction, NamespacedAssemblyFunction, StaticMethod, StaticType, RootClass, ValueType, NestedType, InstanceMethod, Constructor, PropertyAccessor, IndexerAccessor, Interface, InterfaceMethod, InterfaceProperty, InterfaceIndexer, InterfaceInheritance, InterfaceImplementation, ValueInterfaceImplementation, ValueObjectOverride }
 
 // Admission for the bounded shared plan, not a description of an entire runtime.
 // Each adapter explicitly opts into supported logical operations and built-in types.
@@ -71,9 +71,10 @@ internal sealed class EmissionCapabilities(
     internal bool Allows(LinearInstructionKind instruction) => instructions.Contains(instruction);
     internal bool Allows(EmissionType type)
     {
+        if (type.IsByReference) return AllowsManagedReferences && Allows(type with { IsByReference = false });
         if (type.Nominal is { TypeKind: TypeKind.Delegate } function)
             return AllowsFunctionValues && CallableSignature.TryFunction(function, out var shape, this) && Allows(shape);
-        if (type.IsByReference) return AllowsManagedReferences && Allows(type with { IsByReference = false });
+        if (type.Nominal is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 }) return Allows(EmissionDeclarationKind.Enum);
         if (type.Nominal is { } externalValue && AllowsExternalValueSignatures && CallableSignature.IsExternalValue(externalValue, AllowsNestedExternalTypes))
             return externalValue.Arity == 0 || AllowsGenericClassOwners && externalValue.TypeArguments.All(t => CallableSignature.TryType(t, false, out var argument, this) && Allows(argument));
         if (type.Nominal is { } external && AllowsExternalReferenceSignatures && CallableSignature.IsExternalReference(external, AllowsNestedExternalTypes))

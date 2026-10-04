@@ -61,6 +61,13 @@ internal static class Int32Emitter
                         plans.Add(GetPlan(symbol));
                     }
                 }
+                else if (member is EnumDeclarationSyntax enumeration)
+                {
+                    if (enumeration.AttributeLists.Count != 0 || model.GetDeclaredSymbol(enumeration) is not INamedTypeSymbol enumSymbol ||
+                        !SourceTypePlan.TryCreate(enumSymbol, out var enumPlan, NeoClrCapabilities.Shared))
+                        throw Unsupported("top-level public/internal Int32 enum without attributes");
+                    declaredTypes.TryAdd(enumSymbol, enumPlan!);
+                }
                 else if (member is UnionDeclarationSyntax unionSyntax)
                 {
                     var union = model.GetDeclaredSymbol(unionSyntax) as SourceUnionSymbol
@@ -258,6 +265,9 @@ internal static class Int32Emitter
                     else imported = original.TypeKind == TypeKind.Interface
                         ? assembly.CreateInterfaceReference(identity, binding.CoreLibrary, artifact.Sha256,
                             original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName, original.Arity)
+                        : original.TypeKind == TypeKind.Enum
+                            ? assembly.CreateEnumReference(identity, binding.CoreLibrary, artifact.Sha256,
+                                original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName)
                         : original.IsValueType
                             ? assembly.CreateValueTypeReference(identity, binding.CoreLibrary, artifact.Sha256,
                                 original.ContainingNamespace?.ToMetadataName() ?? "", original.MetadataName, original.Arity)
@@ -682,11 +692,11 @@ internal static class Int32Emitter
         static bool IsSymbolOnlyReferenceDefinition(INamedTypeSymbol original, int depth = 0) =>
             depth < 32 &&
             original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
-            (original.TypeKind is TypeKind.Class or TypeKind.Interface or TypeKind.Struct) &&
+            (original.TypeKind is TypeKind.Class or TypeKind.Interface or TypeKind.Struct or TypeKind.Enum) &&
             !original.IsStatic && (original.ContainingType is null ||
                 (original is IUnionCaseTypeSymbol unionCase ? unionCase.MetadataContainingType : original.ContainingType) is { Arity: 0 } parent && IsSymbolOnlyOwnerDefinition(parent)) && original.DeclaredAccessibility == Accessibility.Public &&
             original.Interfaces.All(contract => IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)contract.OriginalDefinition, depth + 1)) &&
-            (original.BaseType is null || original.BaseType.SpecialType == (original.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object)) &&
+            (original.BaseType is null || original.BaseType.SpecialType == (original.TypeKind == TypeKind.Enum ? SpecialType.System_Enum : original.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object)) &&
             original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None);
 
         bool IsRuntimeUnitValue(ITypeSymbol type) => compilation.Options.RuntimeUnitContract is not null &&

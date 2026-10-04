@@ -22,7 +22,7 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
         var named = type.Nominal!;
         if (named.TypeKind == TypeKind.Delegate && CallableSignature.TryFunction(named, out var shape, NeoClrCapabilities.Shared))
             return SignatureType.Function(new MethodSignature(Map(shape.ReturnType, resolveClass, resolveExternal), shape.ParameterTypes.Select(t => Map(t, resolveClass, resolveExternal))));
-        if (resolveExternal is not null && (CallableSignature.IsExternalReference(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes) || CallableSignature.IsExternalValue(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes))) return resolveExternal(named);
+        if (resolveExternal is not null && (named.TypeKind == TypeKind.Enum && named.DeclaringSyntaxReferences.IsEmpty || CallableSignature.IsExternalReference(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes) || CallableSignature.IsExternalValue(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes))) return resolveExternal(named);
         if (named.Arity > 0) return resolveClass((INamedTypeSymbol)named.OriginalDefinition).MakeGenericInstance(named.TypeArguments.Select(t => Map(t, resolveClass, resolveExternal)).ToArray());
         // A payload-free case can be projected through a constructed generic union
         // while its physical case type still has arity zero.

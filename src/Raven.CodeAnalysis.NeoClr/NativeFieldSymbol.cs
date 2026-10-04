@@ -12,6 +12,7 @@ internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLa
         : base(SymbolKind.Field, view.Name, owner, owner, owner.ContainingNamespace, [], [], NativeMetadataAccess.Map(view.Accessibility))
     {
         InstanceStorageOrdinal = instanceStorageOrdinal;
+        IsConst = view.IsLiteral; constant = view.Constant;
         IsReadOnly = view.IsReadOnly;
         IsStatic = view.IsStatic;
         type = new(() => ((NativeModuleSymbol)owner.ContainingModule).MapView(view.FieldType));
@@ -20,11 +21,12 @@ internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLa
     public override IModuleSymbol ContainingModule => ContainingType!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingType!.ContainingAssembly!;
     public override bool IsStatic { get; }
-    public bool IsConst => false;
+    private readonly int? constant;
+    public bool IsConst { get; }
     public bool IsReadOnly { get; }
     public int InstanceStorageOrdinal { get; }
     public bool IsRequired => false;
-    public object? GetConstantValue() => null;
+    public object? GetConstantValue() => constant;
     public override void Accept(SymbolVisitor visitor) => visitor.VisitField(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitField(this);
 }

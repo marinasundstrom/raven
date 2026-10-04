@@ -13,8 +13,9 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
     internal bool IsStatic => IsStaticContainer(Symbol);
     internal static bool IsStaticContainer(INamedTypeSymbol type) => type.IsStatic ||
         type.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true };
-    internal bool IsValueType => Symbol.TypeKind == TypeKind.Struct;
-    internal EmissionDeclarationKind DeclarationKind => IsValueType ? EmissionDeclarationKind.ValueType : IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
+    internal bool IsEnum => Symbol.TypeKind == TypeKind.Enum;
+    internal bool IsValueType => Symbol.TypeKind is TypeKind.Struct or TypeKind.Enum;
+    internal EmissionDeclarationKind DeclarationKind => IsEnum ? EmissionDeclarationKind.Enum : IsValueType ? EmissionDeclarationKind.ValueType : IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
 
     internal Accessibility Visibility => Symbol.DeclaredAccessibility;
 
@@ -23,6 +24,14 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
     internal static bool TryCreate(INamedTypeSymbol type, out SourceTypePlan? plan, EmissionCapabilities? capabilities = null)
     {
         plan = null;
+        if (type.TypeKind == TypeKind.Enum)
+        {
+            if (capabilities?.Allows(EmissionDeclarationKind.Enum) != true || type.EnumUnderlyingType?.SpecialType != SpecialType.System_Int32 ||
+                type.ContainingType is not null || type.Arity != 0 || !capabilities.AllowsTypeVisibility(type.DeclaredAccessibility)) return false;
+            plan = new(type, type.ContainingNamespace?.ToMetadataName() ?? "", type.MetadataName);
+            return true;
+        }
+
         var isStatic = IsStaticContainer(type);
         if (!type.IsStatic && isStatic && capabilities?.AllowsLoweredExtensionCalls != true) return false;
         var isValue = type.TypeKind == TypeKind.Struct;
