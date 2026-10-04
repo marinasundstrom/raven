@@ -5390,3 +5390,21 @@ success, failure skipping the right operand and following statements, and a fiel
 whose original value must survive a mutation in the right operand. Date/calendar
 compilation now reaches a verifier error in Date.ToString (local loaded before store
 on some path); Date execution remains unproved.
+
+## Terminal runtime calls in portable bodies (2026-10-04)
+
+The portable planner now preserves the existing semantic terminal-call fact for the
+configured legacy System.Fail namespace function. It emits the original call, evaluating
+its message normally, followed by a compiler-failure guard if that call unexpectedly
+returns. Ordinary void signatures in CLI metadata do not express non-returning behavior;
+the guard closes that control-flow path without inventing defaults for pattern locals
+or weakening the metadata verifier. Correct runtime calls preserve their original fault.
+
+The existing assembly/namespace/signature identity check is unchanged; unrelated methods
+named Fail remain ordinary calls. No new importer/emitter coupling, public API,
+Runtime Contract setting, metadata format or runtime behavior is introduced.
+The identity/control-flow and shared planner .NET tests pass (60 cases). Native
+reference-only let-else consumers exercise successful binding and dynamic-message faults.
+The unchanged Date/calendar/globalization source closure now emits; a separate consumer
+executes leap-day creation, invariant formatting and AddDays through the native artifact.
+This does not establish .NET execution of the complete calendar subset.

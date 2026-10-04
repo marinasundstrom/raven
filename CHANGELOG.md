@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Preserve terminal System.Fail control flow in portable emission:
+  retain the call and dynamic message, then guard an impossible return. Native let-else
+  pattern locals now verify without default initialization; unchanged Date/calendar
+  sources compile and a separate formatting/arithmetic consumer executes. Sixty focused
+  .NET checks pass. No metadata format, runtime or terminal identity policy change.
+
 - **2026-10-04:** Lower propagation nested in eager binary local initializers into
   statement-level checks. Preserve left-to-right evaluation, snapshots of earlier
   operands and early failure returns. Other expression categories and short-circuit

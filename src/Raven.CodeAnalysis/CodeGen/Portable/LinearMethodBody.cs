@@ -449,6 +449,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     }
                     if (!LowerValue(call)) return false;
                     if (ReturnsValue(call.Method)) Add(LinearInstructionKind.Pop, Syntax(statement));
+                    // CLI void signatures cannot express a terminal call. Preserve the
+                    // call (and its dynamic message), then guard its impossible return.
+                    if (BoundNodeFacts.IsTerminalRuntimeFault(call.Method))
+                        Add(LinearInstructionKind.CompilerFailure, Syntax(statement),
+                            text: "A terminal runtime failure unexpectedly returned.");
                     continue;
                 }
                 if (statement is BoundReturnStatement { Expression: null or BoundUnitExpression } && !ReturnsValue(source))
