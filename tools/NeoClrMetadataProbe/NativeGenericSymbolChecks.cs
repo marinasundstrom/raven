@@ -221,7 +221,7 @@ internal static class NativeGenericSymbolChecks
         using var output = new MemoryStream();
         var emitted = NeoClrCompilationEmitter.EmitMetadataAssembly(valid, output,
             new(new("BoundConsumer", new Version(1, 0, 0, 0)), core, [new(reference, core)]));
-        Check(!emitted.Success && output.Length == 0, "unsupported constrained callable fails before publication");
+        Check(emitted.Success && output.Length > 0, "imported bounded callable emits from semantic facts");
     }
     private static void CheckExternalMethodBounds(MetadataReference coreReference, AssemblyIdentity core)
     {

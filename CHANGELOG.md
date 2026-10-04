@@ -4,9 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-04:** Record the metadata IL-generator prerequisite for open static
-  interface calls through bounded method parameters. CLI and native API fixtures
-  execute; Raven's method-constraint emission guard remains unchanged.
+- **2026-10-04:** Emit native method interface bounds and constrained static/constructed
+  instance calls through explicit shared capabilities. A separately compiled generic
+  library and native consumer execute every Number member across all ten source-built
+  numeric types, including generic forwarding. Invalid arguments fail without output;
+  ordinary .NET Reflection/Emit behavior remains unchanged.
 
 - **2026-10-04:** Validate external native method interface bounds against a separately
   emitted contracts assembly. Canonical symbol identity and generic argument rejection

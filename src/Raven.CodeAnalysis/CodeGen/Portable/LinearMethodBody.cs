@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble }
+internal enum LinearInstructionKind { ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -148,7 +148,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return false;
         }
         void Add(LinearInstructionKind kind, SyntaxNode syntax, int integer = 0, IMethodSymbol? method = null, string? text = null)
-            => instructions.Add(new(kind, syntax, integer, method, text));
+        {
+            if (kind == LinearInstructionKind.Call && capabilities?.Allows(LinearInstructionKind.ConstrainedCall) == true &&
+                method is NativeSelfMethodSymbol { IsStatic: true, ImplementingType: ITypeParameterSymbol } self)
+                instructions.Add(new(LinearInstructionKind.ConstrainedCall, syntax, Method: self.AdapterMethod, Type: self.ImplementingType));
+            else instructions.Add(new(kind, syntax, integer, method, text));
+        }
 
         SyntaxNode Syntax(BoundNode node) => model.GetSyntax(node) ?? bodySyntax;
 
@@ -1124,6 +1129,18 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (call.Arguments.Count() != shape.ParameterCount || !LowerValue(call.Receiver)) return false;
                     foreach (var argument in call.Arguments) if (!LowerValue(argument)) return false;
                     instructions.Add(new(LinearInstructionKind.FunctionInvoke, Syntax(expression), Type: function));
+                    return true;
+                case BoundInvocationExpression call when capabilities?.Allows(LinearInstructionKind.ConstrainedCall) == true &&
+                    call.Method is { IsStatic: false, IsAbstract: true, IsGenericMethod: false, ContainingType.TypeKind: TypeKind.Interface } &&
+                    call.Receiver?.Type is ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } receiverParameter:
+                    var constrainedArguments = call.Arguments.ToArray();
+                    if (!TrySignature(call.Method, out var constrainedSignature) || !capabilities.Allows(constrainedSignature) ||
+                        constrainedArguments.Length != call.Method.Parameters.Length || call.Method.Parameters.Any(p => p.RefKind != RefKind.None))
+                        return Reject("unsupported constrained instance signature", Syntax(expression));
+                    if (!LowerReference(call.Receiver)) return false;
+                    for (int i = 0; i < constrainedArguments.Length; i++)
+                        if (!LowerValue(constrainedArguments[i], call.Method.Parameters[i].Type)) return false;
+                    instructions.Add(new(LinearInstructionKind.ConstrainedCall, Syntax(expression), Method: call.Method is NativeSelfMethodSymbol projectedCall ? projectedCall.AdapterMethod : call.Method, Type: receiverParameter));
                     return true;
                 case BoundInvocationExpression call when call.ExtensionReceiver is null &&
                     (call.Method.IsStatic && call.Receiver is null or BoundTypeExpression ||

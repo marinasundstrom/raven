@@ -308,7 +308,9 @@ internal static class Int32Emitter
                     imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
                 }
                 importedTypes.Add(original, imported);
-                if (IsSymbolOnlyReferenceDefinition(original))
+                if (original.SpecialType is (SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double) && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    assembly.SetNativePrimitive(imported, NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(original.SpecialType.ToString()[7..])));
+                if (IsSymbolOnlyReferenceDefinition(original) || IsSymbolOnlyOwnerDefinition(original) && original.IsValueType)
                     foreach (var contract in original.Interfaces)
                     {
                         var target = ImportExternalType(contract).ImportedType!;
@@ -496,6 +498,8 @@ internal static class Int32Emitter
             }
             if (target.IsGenericMethod)
             {
+                foreach (var argument in target.TypeArguments.OfType<INamedTypeSymbol>().Where(t => t.SpecialType is not SpecialType.None && t.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null }))
+                    _ = ImportExternalType(argument);
                 if (definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var definition))
                     return NeoClrCallableReference.Create(definition.MakeGenericInstance(target.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
                 var arguments = target.TypeArguments.Select(t =>
@@ -586,6 +590,16 @@ internal static class Int32Emitter
                         else { output.NewObject(adapter.Constructor.MakeConstructedReference(parameters)); output.BindFunction(shape, adapter.Invoke.MakeConstructedReference(parameters)); }
                     }
                     else Bind(shape);
+                }
+                else if (instruction.Kind == LinearInstructionKind.ConstrainedCall)
+                {
+                    var implementing = NeoClrTypeMapper.Map(instruction.Type!, type => nativeTypes[type], ImportExternalType);
+                    if (interfaceMethods.TryGetValue(instruction.Method!.OriginalDefinition ?? instruction.Method, out var ownedContract))
+                        output.CallConstrained(implementing, ownedContract);
+                    else if (instruction.Method!.ContainingType is { Arity: > 0 } constrainedOwner)
+                        output.CallConstrained(implementing, Import(instruction.Method.OriginalDefinition ?? instruction.Method).MakeConstructedReference(
+                            constrainedOwner.TypeArguments.Select(t => NeoClrTypeMapper.Map(RuntimeSelfTypes.Substitute(compilation, t, instruction.Type!), type => nativeTypes[type], ImportExternalType))));
+                    else output.CallConstrained(implementing, Import(instruction.Method!));
                 }
                 else if (instruction.Kind == LinearInstructionKind.LoadCapture)
                 {

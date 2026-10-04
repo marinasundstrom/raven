@@ -84,7 +84,14 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
     internal static bool TryCreate(IMethodSymbol method, out CallableSignature signature, EmissionCapabilities? capabilities = null)
     {
         signature = null!;
-        if ((method.IsGenericMethod && method.TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty)) || method.IsExtensionMethod && (capabilities?.AllowsLoweredExtensionCalls != true || !method.IsStatic) || method.IsAsync || !TryType(method.ReturnType, true, out var result, capabilities)) return false;
+        bool UnsupportedConstraint(ITypeParameterSymbol parameter) =>
+            (parameter.ConstraintKind != TypeParameterConstraintKind.None || !parameter.ConstraintTypes.IsEmpty) &&
+            (capabilities?.AllowsMethodInterfaceBounds != true ||
+             (parameter.ConstraintKind & ~TypeParameterConstraintKind.TypeConstraint) != 0 ||
+             parameter.ConstraintTypes.Any(t => t is not INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 }));
+        if (method.IsGenericMethod && method.TypeParameters.Any(UnsupportedConstraint) ||
+            method.IsExtensionMethod && (capabilities?.AllowsLoweredExtensionCalls != true || !method.IsStatic) ||
+            method.IsAsync || !TryType(method.ReturnType, true, out var result, capabilities)) return false;
         if (method.ContainingType is { Arity: > 0 } owner && ((!SourceTypePlan.TryCreate(owner, out _, capabilities) && !(capabilities?.AllowsConstructedInterfaceInheritance == true && SourceInterfacePlan.HasSupportedIdentity(owner)) && !(capabilities?.AllowsExternalReferenceSignatures == true && IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) && !(capabilities?.AllowsExternalValueSignatures == true && IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true))) || owner.TypeArguments.Any(t => !TryType(t, false, out _, capabilities)))) return false;
         if (method.IsGenericMethod && method.TypeArguments.Any(t => !TryType(t, false, out _, capabilities))) return false;
         var parameters = ImmutableArray.CreateBuilder<EmissionType>(method.Parameters.Length);

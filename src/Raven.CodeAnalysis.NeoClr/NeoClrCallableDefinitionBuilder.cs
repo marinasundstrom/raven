@@ -16,12 +16,20 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
             Accessibility.Private => MethodVisibility.Private,
             _ => throw new InvalidOperationException("Unsupported native callable visibility")
         };
-        return owner is null
+        var method = owner is null
             ? assembly.AddFunction(plan.Namespace, metadataName, ToOwnedMetadata(plan.Signature), visibility)
             : plan.Symbol.MethodKind == MethodKind.Constructor ? owner.AddConstructor(ToOwnedMetadata(plan.Signature), visibility)
             : plan.Override == EmissionOverrideKind.ObjectToString ? owner.AddOverride(metadataName, ToOwnedMetadata(plan.Signature))
             : plan.Symbol.IsStatic ? owner.AddMethod(metadataName, ToOwnedMetadata(plan.Signature), visibility)
             : owner.AddInstanceMethod(metadataName, ToOwnedMetadata(plan.Signature), visibility);
+        foreach (var parameter in plan.Symbol.TypeParameters)
+            foreach (var constraint in parameter.ConstraintTypes.Cast<INamedTypeSymbol>())
+            {
+                if (constraint.DeclaringSyntaxReferences.IsEmpty)
+                    method.AddInterfaceConstraint(parameter.Ordinal, resolveExternal!(constraint).ImportedType!);
+                else method.AddInterfaceConstraint(parameter.Ordinal, resolveClass!(constraint));
+            }
+        return method;
     }
     private MethodSignature ToOwnedMetadata(CallableSignature signature)
     {

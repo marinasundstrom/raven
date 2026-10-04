@@ -5891,3 +5891,34 @@ is recorded in neoCLR's open-constrained-methods-2026-10-04.json; no compiler fi
 backport is claimed by this documentation slice.
 
 Verified metadata implementation: `812417c7`; Raven implementation remains `56cfefbc0`.
+
+
+### Generic Number integration completed (2026-10-04)
+
+The native target explicitly enables method interface bounds and compiler-owned
+ConstrainedCall operands. Callable admission accepts supported nongeneric interface
+constraints; class, constructor, value/reference special constraints and generic interface
+method bounds remain rejected. The default .NET capability selection is unchanged.
+NeoClrCallableDefinitionBuilder authors bounds from semantic symbols. Lowering retains
+the implementing method parameter and the abstract declaration for NativeSelf static
+operators/accessors, plus a managed receiver for supported inherited instance calls.
+The metadata adapter selects the local/external/constructed IL-generator overload.
+External numeric scalar ownership and interface conversions are registered from semantic
+facts and host artifact identities. Emission does not reopen the native importer.
+
+The checked-in native-number-algorithms.rvn and native-number-generic-consumer.rvn in
+neoCLR are now part of verify_native_numbers.py. The driver rebuilds the cumulative
+source subset and all ten numeric types, compiles the generic library against Numbers.dll,
+then compiles the consumer against those two artifacts without their sources. NeoCLR
+verifies and executes every Number member: arithmetic, Zero/One, inherited CompareTo and
+generic forwarding. Exit 42 and empty stdout are required; the concrete numeric consumer
+still returns 99. Sum<string> diagnoses RAV0320 and publishes no assembly.
+
+Runtime Contract configuration retains the explicit primitive core, numeric runtime
+seed, native Self contract and bootstrap ownership manifest. No runtime format change or
+new numeric semantics were required. The seven native consumers, 140 C# metadata groups
+and 122 focused .NET generic/Self/static-interface/type-constraint tests pass. See neoCLR's
+number-generic-end-to-end-2026-10-04.json for exact commands, revisions and artifact hashes.
+No independent general binding fix was introduced, so no main backport is claimed.
+This completes the bounded Number feature, not the full runtime-library gate. Structural
+Function work, wider constraint categories and a .NET backend replacement remain separate.
