@@ -7,6 +7,9 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PENamedTypeSymbol
 {
+    bool IArrayTypeProvider.AreInterfacesComplete =>
+        Compilation.Options.RuntimeIterationContract is null || Compilation.SourceDeclarationsComplete;
+
     ImmutableArray<ISymbol> IArrayTypeProvider.GetMembers(IArrayTypeSymbol array)
     {
         var members = GetMembers();

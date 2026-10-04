@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Avoid caching absent source array shapes during declaration lookup,
+  and defer array interface caches until target declarations are complete. Imported
+  vectors retain source-owned nominal interface conversions after early member access.
+
 - **2026-10-04:** Lower propagation nested in eager binary local initializers into
   statement-level checks. Preserve left-to-right evaluation, snapshots of earlier
   operands and early failure returns. Other expression categories and short-circuit

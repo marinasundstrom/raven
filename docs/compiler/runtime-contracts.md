@@ -2035,3 +2035,24 @@ neoCLR-only semantic policy. Existing .NET and CLI-bridge emission remain unchan
 Alternate emitters must reject unsupported flags/operators rather than infer behavior
 from syntax. The independent neoCLR metadata library remains outside compiler symbols
 and bound nodes; a consumer adapter owns the conversion into its builder objects.
+
+### Source-owned array declaration caches (2026-10-04)
+
+A configured `RuntimeIterationContract.ArrayShapeTypeName` can belong to the source
+assembly. Reentrant declaration lookup must not cache its temporary absence, and
+array interfaces remain provisional until declarations complete. The internal
+array provider exposes readiness so completed compilations retain caching without
+introducing loader dependencies into the array symbol. Default .NET collection
+interfaces and Reflection/Emit behavior are unchanged; metadata encoding is unchanged.
+
+A main-based regression first reads an imported array's Length in an inferred
+static initializer, then converts that array to a source-owned interface in a
+method. Main rejected the conversion with RAV1503 before this correction. Direct
+interface conversion within the early initializer itself is a separate unresolved
+binding issue. This fix requires no NeoCLR backend or metadata library.
+
+Validation: the new case failed on main before the fix; all 22 iteration-contract
+cases pass afterward using a focused test project linking the checked-in test file
+and the freshly built main-based compiler (no native backend). The integration
+branch additionally passes 65 array/provider/unit/signature tests and seven native
+consumers.

@@ -68,10 +68,15 @@ internal partial class ArrayTypeSymbol : Symbol, IArrayTypeSymbol
 
     public ITypeSymbol? OriginalDefinition { get; }
 
+    private bool AreInterfacesComplete =>
+        BaseType is not IArrayTypeProvider provider || provider.AreInterfacesComplete;
+
     public ImmutableArray<INamedTypeSymbol> Interfaces =>
+        !AreInterfacesComplete ? ComputeInterfaces() :
         !_interfaces.IsDefault ? _interfaces : _interfaces = ComputeInterfaces();
 
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
+        !AreInterfacesComplete ? ComputeAllInterfaces() :
         !_allInterfaces.IsDefault ? _allInterfaces : _allInterfaces = ComputeAllInterfaces();
 
     public ImmutableArray<ISymbol> GetMembers()
@@ -123,11 +128,17 @@ internal partial class ArrayTypeSymbol : Symbol, IArrayTypeSymbol
     }
 
     private ImmutableArray<INamedTypeSymbol> GetArraySpecificInterfaces()
-        => !_arraySpecificInterfaces.IsDefault
-            ? _arraySpecificInterfaces
-            : _arraySpecificInterfaces = BaseType is IArrayTypeProvider provider
-                ? provider.GetAdditionalInterfaces(this)
-                : ImmutableArray<INamedTypeSymbol>.Empty;
+    {
+        if (!_arraySpecificInterfaces.IsDefault)
+            return _arraySpecificInterfaces;
+
+        var interfaces = BaseType is IArrayTypeProvider provider
+            ? provider.GetAdditionalInterfaces(this)
+            : ImmutableArray<INamedTypeSymbol>.Empty;
+        if (AreInterfacesComplete)
+            _arraySpecificInterfaces = interfaces;
+        return interfaces;
+    }
 
     private static void AddUnique(ImmutableArray<INamedTypeSymbol>.Builder builder, INamedTypeSymbol symbol)
     {

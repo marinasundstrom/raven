@@ -2582,7 +2582,9 @@ public partial class Compilation
             return metadataType;
         }
 
-        _metadataTypeCache.TryAdd(metadataName, s_missingMetadataType);
+        // Reentrant declaration lookup excludes source types; absence is provisional.
+        if (!_isDeclaringSourceTypes)
+            _metadataTypeCache.TryAdd(metadataName, s_missingMetadataType);
         return null;
     }
 

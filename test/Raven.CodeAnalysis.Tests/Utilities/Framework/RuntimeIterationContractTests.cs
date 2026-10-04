@@ -117,6 +117,37 @@ public class RuntimeIterationContractTests
     }
 
     [Fact]
+    public void SourceOwnedArrayShapeProjectsInterfacesForImportedArrayResults()
+    {
+        WithContracts("bool", (references, _) =>
+        {
+            var compilation = Compilation.Create("OwnedShapes", [SyntaxTree.ParseText("""
+                namespace Owned
+                public class Early {
+                    static val Count = Contracts.Factory.Values().Length
+                }
+                public interface Iterable<T> {
+                    func GetIterator() -> Iterator<T>
+                }
+                public interface Iterator<T> {
+                    func MoveNext() -> bool
+                    val Current: T { get }
+                }
+                public interface View<T> : Iterable<T> { }
+                public abstract class ArrayShape<T> : View<T> {
+                    private var buffer: T[]
+                    abstract func GetIterator() -> Iterator<T>
+                }
+                func Read() -> View<int> { return Contracts.Factory.Values() }
+                """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                    runtimeIterationContract: new RuntimeIterationContract("OwnedShapes",
+                        "Owned.Iterable`1", "Owned.Iterator`1")
+                    { ArrayShapeTypeName = "Owned.ArrayShape`1", ArraysImplementIterable = true }));
+            Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        });
+    }
+
+    [Fact]
     public void ConfiguredArrayShapeAndVectorShareSourceAndMetadataSemantics()
     {
         WithContracts("bool", (references, _) =>
