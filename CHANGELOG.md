@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Document the verified metadata-generator static constrained-call
+  prerequisite and remaining method-bound/open-call work for native Number generics.
+  Raven's constrained-generic emission rejection remains unchanged.
+
 - **2026-10-04:** Bind explicit primitive-provider source members to their output-owned
   definitions when rebuilding the runtime-library subset. Validate the primitive
   bootstrap through Object rather than assuming Int32 remains bootstrap-owned.

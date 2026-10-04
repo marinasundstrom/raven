@@ -5826,3 +5826,17 @@ canonical names; native interface matching preserves exact signature/access chec
 Evidence: neoCLR `numeric-source-family-2026-10-04.json`. Generic Number constraints and
 static dispatch through type parameters remain the next compiler gap. These are target
 integration changes; no independent general .NET fix was identified for backport.
+
+
+### Number generic-call prerequisite (2026-10-04)
+
+The independent metadata IL generator now supports static CallConstrained/Emit(Call)
+for concrete owned class/value implementations and owned nongeneric interfaces, with
+Self stack-signature substitution. CLI output uses constrained./call and native output
+uses nonborrowed callself; both execute in focused C# and native tests. This does not
+change Raven's callable admission. A generic Sum<T> constrained by native Number binds
+but still rejects at emission. Preserve that rejection until method bounds survive the
+metadata writer/reader/introspection path and open constrained call operands are supported.
+The remaining sequence is recorded in neoCLR's system-compilation-strategy.md, with
+static-constrained-2026-10-04.json as the concrete-dispatch evidence. The .NET backend
+and compiler importer/emitter boundaries are unchanged.
