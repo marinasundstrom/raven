@@ -42,7 +42,7 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
             iterableOwner != manifest.Iteration.AssemblyName || iteratorOwner != manifest.Iteration.AssemblyName)
             throw new InvalidDataException("Iteration contracts must belong to their declared source library.");
         foreach (var (name, owner) in manifest.NativePrimitives ?? [])
-            if (!types.TryGetValue(name, out var declaredOwner) || declaredOwner != owner || !NumericSpecialType(name, out _))
+            if (!types.TryGetValue(name, out var declaredOwner) || declaredOwner != owner || !NativePrimitiveSpecialType(name, out _))
                 throw new InvalidDataException("Native primitive must name its declared source-library owner: " + name);
         return manifest;
     }
@@ -60,20 +60,20 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
             // Consumers select the completed native declaration, with no fallback on failure.
             var providers = NativePrimitives.Where(p => p.Value != outputAssemblyName).ToDictionary(p =>
             {
-                NumericSpecialType(p.Key, out var special); return special;
+                NativePrimitiveSpecialType(p.Key, out var special); return special;
             }, p => p.Value);
             configured = configured.WithMetadataImportOptions(new MetadataImportOptions(primitiveCoreAssemblyName, providers));
         }
         return Unit is null ? configured : configured.WithRuntimeUnitContract(Unit);
     }
 
-    internal static bool NumericSpecialType(string name, out SpecialType special)
+    internal static bool NativePrimitiveSpecialType(string name, out SpecialType special)
     {
         special = SpecialType.None;
         return name.StartsWith("System.", StringComparison.Ordinal) && Enum.TryParse(name.Replace('.', '_'), out special) &&
             special is SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or
                 SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 or
-                SpecialType.System_Single or SpecialType.System_Double;
+                SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_String;
     }
 
     internal void Validate(Compilation compilation)
@@ -85,7 +85,7 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
             throw new InvalidDataException("Bootstrap Self contract requires its exact configured marker identity.");
         foreach (var (name, owner) in NativePrimitives ?? [])
         {
-            NumericSpecialType(name, out var special);
+            NativePrimitiveSpecialType(name, out var special);
             if (owner != compilation.Assembly.Name && compilation.GetSpecialType(special) is var selected &&
                 (selected.TypeKind == TypeKind.Error || selected.SpecialType != special || selected.ContainingAssembly?.Name != owner))
                 throw new InvalidDataException("Missing or incompatible native primitive provider: " + name + " in " + owner);

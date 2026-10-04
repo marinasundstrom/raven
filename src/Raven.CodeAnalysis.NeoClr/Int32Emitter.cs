@@ -214,11 +214,11 @@ internal static class Int32Emitter
             var symbol = declaredTypes.Keys.SingleOrDefault(t => t.ToFullyQualifiedMetadataName() == "System." + primitive)
                 ?? throw Unsupported("selected primitive implementation is missing: " + primitive);
             var fieldsForType = storageFields.Where(f => SymbolEqualityComparer.Default.Equals(f.ContainingType, symbol)).ToArray();
-            if (!symbol.IsValueType || symbol.Arity != 0 || symbol.ContainingType is not null || fieldsForType.Length != 1 ||
+            if (symbol.IsValueType != (primitive != PrimitiveType.String) || symbol.Arity != 0 || symbol.ContainingType is not null || fieldsForType.Length != 1 ||
                 fieldsForType[0] is not { Name: "m_value", DeclaredAccessibility: Accessibility.Private, IsStatic: false, IsReadOnly: false } field ||
                 field.Type.SpecialType.ToString() != "System_" + primitive ||
                 plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol.ContainingType, symbol) && p.Symbol.MethodKind == MethodKind.Constructor))
-                throw Unsupported("primitive implementation requires canonical numeric storage and no explicit constructors: " + primitive);
+                throw Unsupported("primitive implementation requires canonical primitive storage and no explicit constructors: " + primitive);
             primitiveOwners.Add(symbol, primitive);
             primitiveFields.Add(field, primitive);
         }
@@ -308,7 +308,7 @@ internal static class Int32Emitter
                     imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
                 }
                 importedTypes.Add(original, imported);
-                if (original.SpecialType is (SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double) && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
+                if (original.SpecialType is (SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_String) && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
                     assembly.SetNativePrimitive(imported, NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(original.SpecialType.ToString()[7..])));
                 if (IsSymbolOnlyReferenceDefinition(original) || IsSymbolOnlyOwnerDefinition(original) && original.IsValueType)
                     foreach (var contract in original.Interfaces)
@@ -523,6 +523,18 @@ internal static class Int32Emitter
             if (options.BootstrapReference is { } bootstrap && target.ContainingType is { } bootstrapOwner &&
                 SymbolEqualityComparer.Default.Equals(target.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(bootstrap)))
             {
+                if (compilation.Options.MetadataImportOptions?.PrimitiveAssemblies.ContainsKey(bootstrapOwner.SpecialType) == true &&
+                    compilation.GetSpecialType(bootstrapOwner.SpecialType) is INamedTypeSymbol provider &&
+                    !SymbolEqualityComparer.Default.Equals(provider.ContainingAssembly, bootstrapOwner.ContainingAssembly))
+                {
+                    var members = provider.GetMembers().OfType<IMethodSymbol>().Where(m =>
+                        m.MetadataName == target.MetadataName && m.IsStatic == target.IsStatic && m.Arity == target.Arity &&
+                        SymbolEqualityComparer.Default.Equals(m.ReturnType, target.ReturnType) &&
+                        m.Parameters.Length == target.Parameters.Length && m.Parameters.Zip(target.Parameters).All(p =>
+                            p.First.RefKind == p.Second.RefKind && SymbolEqualityComparer.Default.Equals(p.First.Type, p.Second.Type))).ToArray();
+                    if (members.Length != 1) throw Unsupported("selected native primitive member is missing or ambiguous: " + target);
+                    return NeoClrCallableReference.Create(Import(members[0]));
+                }
                 var implementation = primitiveOwners.Keys.SingleOrDefault(t =>
                     t.ToFullyQualifiedMetadataName() == bootstrapOwner.ToFullyQualifiedMetadataName());
                 if (implementation is not null)

@@ -7,12 +7,15 @@ namespace Raven.CodeAnalysis.Tests;
 public class MetadataImportOptionsTests
 {
     [Fact]
-    public void PrimitiveProvidersAreCopiedAndRestrictedToNumericDeclarations()
+    public void PrimitiveProvidersAreCopiedAndRestrictedToSupportedDeclarations()
     {
-        var providers = new Dictionary<SpecialType, string> { [SpecialType.System_Single] = "Numbers" };
+        var providers = new Dictionary<SpecialType, string> { [SpecialType.System_Single] = "Numbers", [SpecialType.System_String] = "Text" };
         var options = new MetadataImportOptions("Core", providers);
         providers[SpecialType.System_Single] = "Changed";
         Assert.Equal("Numbers", options.PrimitiveAssemblies[SpecialType.System_Single]);
+        Assert.Equal("Text", options.PrimitiveAssemblies[SpecialType.System_String]);
+        Assert.Throws<ArgumentException>(() => new MetadataImportOptions("Core",
+            new Dictionary<SpecialType, string> { [SpecialType.System_Char] = "Text" }));
         Assert.Empty(new MetadataImportOptions("Core").PrimitiveAssemblies);
         Assert.Throws<ArgumentException>(() => new MetadataImportOptions("Core",
             new Dictionary<SpecialType, string> { [SpecialType.System_Object] = "Numbers" }));

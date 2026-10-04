@@ -11,6 +11,11 @@ internal sealed record NeoClrFieldReference(FieldBuilder? Definition, Constructe
     {
         if (IntrinsicStorage is { } primitive)
         {
+            if (primitive == PrimitiveType.String)
+            {
+                if (code != OpCode.Ldfld) throw new NotSupportedException("Runtime String storage is immutable and has no field address.");
+                return; // The reference receiver itself is the intrinsic storage value.
+            }
             if (code == OpCode.Ldflda) return; // The checked receiver already is the scalar address.
             body.Emit(code == OpCode.Stfld ? OpCode.Stobj : OpCode.Ldobj, (SignatureType)primitive);
         }

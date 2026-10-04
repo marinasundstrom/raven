@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Admit explicitly configured native String providers and emit source
+  String with intrinsic immutable reference storage. Bootstrap member signatures resolve
+  to the selected native provider, with no fallback. Separate instance/collection consumers
+  execute against a source-built library; ordinary .NET behavior is unchanged.
+
 - **2026-10-04:** Lower pattern conditions in portable if-expressions directly to their
   failure branch, preserving pattern-variable assignment on the success path. Native
   String.Concat source now emits; paired pattern consumers execute null/non-null cases.

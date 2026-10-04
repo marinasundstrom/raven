@@ -597,3 +597,28 @@ emits. This is not yet proof of canonical primitive ownership or runtime storage
 The fixture's null case is internal to its implementation library: native imported nullable
 reference annotations currently lose nullability (direct null argument rejects RAV1503/
 RAV1509). This remains an explicit loader/metadata gap, not a claimed fix in this slice.
+
+
+### Source-owned String (2026-10-04)
+
+MetadataImportOptions.PrimitiveAssemblies and the driver's nativePrimitives ownership
+catalog now permit System_String alongside numeric primitives. Char remains excluded:
+its native grapheme representation is not a numeric CLI char. This explicit configuration
+applies only to NeoCLR; default .NET reflection and emission paths are unchanged.
+
+String source has the checked private m_value intrinsic declaration but no emitted field.
+Reads leave the reference receiver on the stack; stores and field addresses reject.
+Native metadata designates String reference storage. If a remaining bootstrap signature
+selects a primitive method, the emitter resolves the exact configured native provider's
+matching semantic method and authors an output-owned reference. Missing or ambiguous
+members reject rather than falling back or reopening an importer object.
+
+The retained System seed excludes String. The checked native source-string gate builds
+String with the numeric subset, imports only artifacts into the consumer, and executes
+grapheme count, UTF-8 byte count, casing, equality, explicit collection Count and iteration.
+Char.ToString remains a seed service. 19 focused .NET tests pass; the metadata/runtime
+companion verifies the reference receiver and preserves byref readonly dispatch.
+
+This is a native execution gate, not a claim of full dual-target source-library parity.
+The text model is Unicode text; UTF-8 is native storage, not the semantic text model.
+No rune type is introduced, and source-owned Char and imported nullability remain open.
