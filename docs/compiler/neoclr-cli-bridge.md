@@ -5467,3 +5467,33 @@ runs through the native metadata adapter as part of the offset consumer.
 This change belongs to the shared portable contract, which is absent on current main;
 it cannot be cherry-picked independently without that abstraction. No binder or general
 .NET behavior fix is deferred by this slice. Metadata, runtime and public APIs are unchanged.
+
+
+### Inhabited unit in shared emission (2026-10-04)
+
+The portable planner now resolves a UnitTypeSymbol in value position through its
+explicit RuntimeUnitContract representation, subject to external-value capabilities.
+It admits the same representation for locals and recursive generic arguments.
+Callable unit results remain no-result; a return whose original signature is a generic
+parameter remains value-bearing even when instantiated with unit. This distinction
+prevents both a spurious pop after a void call and a missing pop after Echo<unit>.
+
+The native stream gate selects NeoCLR.CoreProbe/System.Void as the inhabited value
+and uses the existing native Void representation. No new format or reflection API is
+introduced. Ordinary .NET uses its existing emission path; the C# control selects
+System.Runtime/System.ValueTuple and executes, while existing default-unit tests remain.
+38 focused ExternalSignatureCapability/RuntimeUnitContract/NeoClrUnitContract tests pass.
+
+The neoCLR verify_source_streams.py gate compiles five unchanged stream sources into
+Streams.dll, imports them into a consumer with sources absent, and executes read/write,
+shared cursor/interface identity, Flush success and closed error. A second separately
+compiled library exercises generic unit arguments/returns, discarded results, local
+storage and arrays. Both consumers verify and exit 42 with empty stdout. Inputs and
+commands are hashed in its validation.json. The source calendar/collections dependency
+remains the prior native artifact. Combining all 53 sources into one PE reaches the
+existing 1 MiB schema-2 envelope limit; splitting source libraries preserves explicit
+ownership and does not remove that tracked whole-library size limitation.
+
+These portable-contract changes depend on the integration architecture absent from
+main; they are recorded as integration work, not an independently cherry-pickable
+.NET compiler fix. No application/native library reference uses CLI projection.

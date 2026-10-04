@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Admit explicitly configured inhabited unit values in portable signatures,
+  generic arguments and locals, while keeping no-result calls separate from generic
+  value returns. Separate native MemoryStream and generic-unit consumers execute;
+  38 focused C#/.NET controls pass. Ordinary .NET emission remains unchanged.
+
 - **2026-10-04:** Admit static properties on imported value types through the explicit
   external-value capability, preserving separate reference-owner admission. This enables
   native TimeOffset.Zero without rewriting source consumers. Add C# capability and

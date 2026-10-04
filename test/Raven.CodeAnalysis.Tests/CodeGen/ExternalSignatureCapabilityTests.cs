@@ -8,6 +8,48 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class ExternalSignatureCapabilityTests
 {
+    [Fact]
+    public void ExplicitUnitContractSupportsValuesWithoutChangingVoidCalls()
+    {
+        var app = Compilation.Create("UnitAdmission", [SyntaxTree.ParseText("""
+            public static class Consumer {
+                public static func Notify() { }
+                public static func Accept(value: unit) -> int {
+                    Notify()
+                    let copy = ()
+                    return 42
+                }
+            }
+            """)], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+                .WithTargetCoreAssemblyName("System.Runtime")
+                .WithRuntimeUnitContract(new RuntimeUnitContract("System.Runtime", "System.ValueTuple")));
+        Assert.DoesNotContain(app.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var methods = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Select(s => (IMethodSymbol)app.GetSemanticModel(s.SyntaxTree).GetDeclaredSymbol(s)!).ToArray();
+        var values = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsExternalValueSignatures: true);
+        var accept = methods.Single(m => m.Name == "Accept");
+        Assert.False(CallableSignature.TryCreate(accept, out _, ReflectionEmitCapabilities.Shared));
+        Assert.True(SourceCallablePlan.TryCreate(accept, out var plan, values));
+        Assert.True(plan!.TryLowerBody(app, _ => false, out _, out var failure, values), failure?.Detail);
+        Assert.True(CallableSignature.TryCreate(methods.Single(m => m.Name == "Notify"), out var signature, values));
+        Assert.False(signature.ReturnsValue);
+        using var image = new MemoryStream();
+        var result = app.Emit(image);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var context = new AssemblyLoadContext("unit-admission", true);
+        try
+        {
+            image.Position = 0;
+            var loaded = context.LoadFromStream(image);
+            Assert.Equal(42, loaded.GetType("Consumer")!.GetMethod("Accept")!.Invoke(null, [new ValueTuple()]));
+        }
+        finally { context.Unload(); }
+    }
+
     [Theory]
     [InlineData("struct", true)]
     [InlineData("class", false)]

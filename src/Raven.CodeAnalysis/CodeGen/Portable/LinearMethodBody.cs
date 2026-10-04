@@ -43,7 +43,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         => CallableSignature.TryCreate(method, out _);
 
     internal static bool ReturnsValue(IMethodSymbol method)
-        => CallableSignature.TryType(method.ReturnType, false, out _);
+        => (method.OriginalDefinition ?? method).ReturnType is ITypeParameterSymbol ||
+            CallableSignature.TryType(method.ReturnType, true, out var result) && result.Primitive != EmissionPrimitiveType.NoResult;
 
     // Lowered match/conditional bodies can retain jumps after a terminating arm.
     // Keep label identities stable, but do not emit instructions with no incoming path.
@@ -74,7 +75,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
     {
         var captures = functionBody?.CapturedVariables.ToArray() ?? [];
         var isStaticBody = functionBody is not null ? captures.Length == 0 : source.IsStatic;
-        bool ReturnsValue(IMethodSymbol method) => TryType(method.ReturnType, false, out _);
+        bool ReturnsValue(IMethodSymbol method) =>
+            (method.OriginalDefinition ?? method).ReturnType is ITypeParameterSymbol ||
+            TryType(method.ReturnType, true, out var result) && result.Primitive != EmissionPrimitiveType.NoResult;
         bool TryType(ITypeSymbol type, bool result, out EmissionType value) => CallableSignature.TryType(type, result, out value, capabilities);
         bool TrySignature(IMethodSymbol method, out CallableSignature signature) => CallableSignature.TryCreate(method, out signature, capabilities);
         var functions = ImmutableArray.CreateBuilder<(BoundFunctionExpression, SyntaxNode)>();
@@ -343,6 +346,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                             if (capabilities is not null && !capabilities.Allows(primitive)) return Reject("target does not support local type " + primitive, Syntax(variable));
                             localType = new(Primitive: primitive);
                         }
+                        else if (variable.Local.Type is UnitTypeSymbol { RuntimeRepresentation: not null } &&
+                            TryType(variable.Local.Type, false, out var unitType) && capabilities?.Allows(unitType) == true)
+                            localType = unitType;
                         else if (variable.Local.Type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } &&
                             TryType(variable.Local.Type, false, out var callableType) && capabilities?.Allows(callableType) == true)
                             localType = callableType;

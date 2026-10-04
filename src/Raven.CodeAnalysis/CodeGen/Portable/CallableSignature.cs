@@ -18,6 +18,10 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             type = type.GetNonNullableType();
         if ((result ? EmissionPrimitiveTypes.TryGetReturnType(type, out var primitive) : EmissionPrimitiveTypes.TryGetValueType(type, out primitive)))
         { value = new(Primitive: primitive); return true; }
+        // Callable unit results remain no-result above. In value positions the
+        // explicit runtime contract supplies an inhabited nominal representation.
+        if (!result && type is UnitTypeSymbol { RuntimeRepresentation: { } representation })
+            return TryType(representation, false, out value, capabilities, depth + 1);
         if (capabilities?.AllowsFunctionValues == true && type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } function && TryFunction(function, out _, capabilities, depth + 1))
         { value = new(Nominal: function); return true; }
         if (type is ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter)
