@@ -227,7 +227,8 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic { get; }
-    public MethodKind MethodKind => view.IsConstructor ? MethodKind.Constructor : view.IsStaticConstructor ? MethodKind.StaticConstructor : property is null ? MethodKind.Ordinary
+    public MethodKind MethodKind => view.IsConstructor ? MethodKind.Constructor : view.IsStaticConstructor ? MethodKind.StaticConstructor : property is null ? Name.StartsWith("op_Implicit", StringComparison.Ordinal) || Name.StartsWith("op_Explicit", StringComparison.Ordinal) ? MethodKind.Conversion
+        : Name.StartsWith("op_", StringComparison.Ordinal) ? MethodKind.UserDefinedOperator : MethodKind.Ordinary
         : ReferenceEquals(property.GetMethod, this) ? MethodKind.PropertyGet : MethodKind.PropertySet;
     public ITypeSymbol ReturnType => returnType.Value;
     public ImmutableArray<IParameterSymbol> Parameters => parameters.Value;

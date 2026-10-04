@@ -24,11 +24,17 @@ internal sealed record SourceCallablePlan(
     // Reference nullability does not change this physical slot; binding still owns
     // Raven's override compatibility rules and supplies the resolved target.
     internal static EmissionOverrideKind ClassifyOverride(IMethodSymbol method)
-        => method.OriginalDefinition is SourceMethodSymbol { IsOverride: true, IsStatic: false, IsAbstract: false, MethodKind: MethodKind.Ordinary,
+        => method.OriginalDefinition is SourceMethodSymbol
+        {
+            IsOverride: true, IsStatic: false, IsAbstract: false, MethodKind: MethodKind.Ordinary,
             DeclaredAccessibility: Accessibility.Public, ContainingType.IsValueType: true,
             Name: "ToString", Parameters.Length: 0, TypeParameters.Length: 0, ReturnType: var result,
-            OverriddenMethod: { IsStatic: false, IsVirtual: true, IsAbstract: false, Name: "ToString", Parameters.Length: 0,
-                TypeParameters.Length: 0, ContainingType.SpecialType: SpecialType.System_Object, ReturnType: var slotResult } } &&
+            OverriddenMethod:
+            {
+                IsStatic: false, IsVirtual: true, IsAbstract: false, Name: "ToString", Parameters.Length: 0,
+                TypeParameters.Length: 0, ContainingType.SpecialType: SpecialType.System_Object, ReturnType: var slotResult
+            }
+        } &&
             result.GetNonNullableType().SpecialType == SpecialType.System_String && slotResult.GetNonNullableType().SpecialType == SpecialType.System_String
             ? EmissionOverrideKind.ObjectToString : EmissionOverrideKind.None;
 
@@ -95,6 +101,10 @@ internal sealed record SourceCallablePlan(
             case ConstructorDeclarationSyntax constructor when HasRootInitialization(symbol, constructor) && symbol.ContainingType is { } constructorOwner:
                 plan = new(symbol, syntax, (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody, constructorOwner, symbol.MetadataName, signature);
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
+                plan = null; return false;
+            case OperatorDeclarationSyntax op when symbol.IsStatic && symbol.MethodKind == MethodKind.UserDefinedOperator:
+                plan = new(symbol, syntax, (SyntaxNode?)op.Body ?? op.ExpressionBody, symbol.ContainingType, symbol.MetadataName, signature);
+                if (plan.Body is not null && (capabilities is null || plan.IsSupportedBy(capabilities))) return true;
                 plan = null; return false;
             case MethodDeclarationSyntax method when symbol.ContainingType is { } owner:
                 plan = new(symbol, syntax, (SyntaxNode?)method.Body ?? method.ExpressionBody, owner, symbol.MetadataName, signature);

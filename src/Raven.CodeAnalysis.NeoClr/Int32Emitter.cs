@@ -108,7 +108,7 @@ internal static class Int32Emitter
                 {
                     if (model.GetDeclaredSymbol(interfaceSyntax) is not INamedTypeSymbol interfaceSymbol ||
                         !SourceInterfacePlan.TryCreate(interfaceSymbol, NeoClrCapabilities.Shared, out var interfacePlan))
-                        throw Unsupported("only invariant owned interfaces with public abstract instance method contracts");
+                        throw Unsupported("only invariant owned interfaces with public abstract method contracts");
                     interfaces.Add(interfacePlan!);
                 }
                 else if (member is TypeDeclarationSyntax type && type is ClassDeclarationSyntax or StructDeclarationSyntax)
@@ -186,6 +186,12 @@ internal static class Int32Emitter
                                 constructor.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)))
                                 throw Unsupported("only explicit root constructors with a block or expression body");
                             plans.Add(GetPlan((IMethodSymbol)model.GetDeclaredSymbol(constructor)!));
+                            continue;
+                        }
+                        if (typeMember is OperatorDeclarationSyntax op && (op.Body is not null || op.ExpressionBody is not null) &&
+                            op.AttributeLists.Count == 0 && op.Modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword))
+                        {
+                            plans.Add(GetPlan((IMethodSymbol)model.GetDeclaredSymbol(op)!));
                             continue;
                         }
                         if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null) || method.AttributeLists.Count != 0 ||
@@ -361,7 +367,7 @@ internal static class Int32Emitter
             foreach (var method in contract.Methods)
                 contractMethods.Add(method.Symbol, definition.AddInterfaceMethod(method.Symbol.MetadataName, new MethodSignature(
                     NeoClrTypeMapper.Map(method.Signature.ReturnType, type => nativeTypes[type], ImportExternalType),
-                    method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)), outParameters: method.Signature.OutParameters.IsDefault ? [] : method.Signature.OutParameters)));
+                    method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)), outParameters: method.Signature.OutParameters.IsDefault ? [] : method.Signature.OutParameters), method.Symbol.IsStatic));
             foreach (var pair in contractMethods) interfaceMethods.Add(pair.Key, pair.Value);
             foreach (var property in contract.Properties)
                 definition.AddProperty(property.Symbol.MetadataName, NeoClrTypeMapper.Map(property.Type, type => nativeTypes[type], ImportExternalType),

@@ -5727,3 +5727,30 @@ contract groups, seven existing native consumers and seven focused .NET operator
 conversion tests pass. Metadata changes expose existing clt.un/cgt.un operations;
 no runtime instruction or format-version change is required. These tests do not
 establish out-of-range numeric conversion parity or full primitive source ownership.
+
+
+### Number declarations and operator import (2026-10-04)
+
+The native adapter selects the StaticInterfaceMethod declaration capability. Shared
+interface plans retain static/instance identity, static property accessors and operator
+contracts; ordinary .NET capabilities keep their prior admission. Source operators
+reuse callable body plans. Native imports classify op_ metadata names consistently
+with the existing CLI importer. No loader object is reused during emission.
+
+With explicit RuntimeSelfTypeContract configuration in the bootstrap manifest,
+unchanged Number.rvn emits static identities/operators and ComparableTo<Self> inheritance.
+Metadata introspection supplies Self scope and declaration facts; writers validate
+complete static/instance implementations and author CLI static MethodImpl rows.
+A separate Scalar struct and source-free consumer execute direct arithmetic and ordering.
+This validates Number contracts, not replacement of numeric primitives. The actual
+Single source now reaches `missing public interface implementation: get_Zero`: binder
+Self substitution selects primitive float, while metadata still treats the owner as a
+nominal struct. An explicit intrinsic primitive representation/ownership contract is
+required. Generic Number callself emission is still unimplemented.
+
+Validation: 136 metadata C# groups, a CLI constrained-static dispatch test, the native
+three-assembly Number gate, and 29 focused .NET static-interface/Self/operator tests. The imported static property
+conformance correction was independently validated with 27 tests and integrated into
+local main as b88a8d19d; native invalid implementations now fail in binding.
+The numeric feature's completion gate remains all ten actual source primitive types,
+parsing and constrained algorithms; the Scalar fixture is not a replacement library.

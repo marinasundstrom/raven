@@ -44,13 +44,15 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
         if (!type.Interfaces.IsEmpty && (!capabilities.Allows(EmissionDeclarationKind.InterfaceInheritance) ||
             type.Interfaces.Any(b => !HasSupportedRelationship(b, type.ContainingAssembly, capabilities) || b.Arity != 0 && (!capabilities.AllowsConstructedInterfaceInheritance ||
                 !CallableSignature.TryType(b, false, out var inherited, capabilities) || !capabilities.Allows(inherited))))) return false;
+        bool AllowsModifier(SyntaxToken modifier) => modifier.Kind is SyntaxKind.PublicKeyword or SyntaxKind.AbstractKeyword ||
+            modifier.Kind == SyntaxKind.StaticKeyword && capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod);
         foreach (var member in syntax.Members)
         {
             if (member is MethodDeclarationSyntax { Body: null, ExpressionBody: null } method && method.AttributeLists.Count == 0 &&
-                method.ExplicitInterfaceSpecifier is null && method.Modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.AbstractKeyword)) continue;
+                method.ExplicitInterfaceSpecifier is null && method.Modifiers.All(AllowsModifier)) continue;
             if (member is PropertyDeclarationSyntax { ExpressionBody: null, Initializer: null, AccessorList: { } accessors } property &&
                 property.AttributeLists.Count == 0 && property.ExplicitInterfaceSpecifier is null &&
-                property.Modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.AbstractKeyword) &&
+                property.Modifiers.All(AllowsModifier) &&
                 accessors.Accessors.All(a => a.Kind is SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration &&
                     a.Body is null && a.ExpressionBody is null && a.AttributeLists.Count == 0 && a.Modifiers.Count == 0)) continue;
             if (member is IndexerDeclarationSyntax { ExpressionBody: null, AccessorList: { } indexAccessors } indexer &&
@@ -58,6 +60,9 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
                 indexer.Modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.AbstractKeyword) &&
                 indexAccessors.Accessors.All(a => a.Kind is SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration &&
                     a.Body is null && a.ExpressionBody is null && a.AttributeLists.Count == 0 && a.Modifiers.Count == 0)) continue;
+            if (member is OperatorDeclarationSyntax { Body: null, ExpressionBody: null } op &&
+                capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod) && op.AttributeLists.Count == 0 &&
+                op.Modifiers.All(AllowsModifier)) continue;
             return false;
         }
         var methods = ImmutableArray.CreateBuilder<SourceInterfaceMethod>();
@@ -66,8 +71,8 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
         bool AddMethod(IMethodSymbol method)
         {
             if (!seen.Add(method)) return true;
-            if (method.IsStatic || method.IsGenericMethod || !method.IsAbstract ||
-                method.MethodKind is not (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet) ||
+            if (method.IsStatic && !capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod) || method.IsGenericMethod || !method.IsAbstract ||
+                method.MethodKind is not (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.UserDefinedOperator) ||
                 method.DeclaredAccessibility != Accessibility.Public || !CallableSignature.TryType(method.ReturnType, true, out var result, capabilities)) return false;
             var parameters = ImmutableArray.CreateBuilder<EmissionType>();
             foreach (var parameter in method.Parameters)
@@ -77,14 +82,14 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
                 parameters.Add(value with { IsByReference = parameter.RefKind != RefKind.None });
             }
             if (!capabilities.Allows(result)) return false;
-            methods.Add(new(method, new(result, parameters.ToImmutable(), IsInstance: true, DeclaringTypeArity: type.Arity,
+            methods.Add(new(method, new(result, parameters.ToImmutable(), IsInstance: !method.IsStatic, DeclaringTypeArity: type.Arity,
                 OutParameters: method.Parameters.Select((p, i) => (p, i)).Where(x => x.p.RefKind == RefKind.Out).Select(x => x.i).ToImmutableArray())));
             return true;
         }
         foreach (var member in type.GetMembers())
         {
             if (member is IMethodSymbol method) { if (!AddMethod(method)) return false; }
-            else if (member is IPropertySymbol { IsStatic: false } property &&
+            else if (member is IPropertySymbol property && (!property.IsStatic || capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod)) &&
                 capabilities.Allows(property.IsIndexer ? EmissionDeclarationKind.InterfaceIndexer : EmissionDeclarationKind.InterfaceProperty) && property.DeclaredAccessibility == Accessibility.Public &&
                 CallableSignature.TryType(property.Type, false, out var value, capabilities) && capabilities.Allows(value))
             {

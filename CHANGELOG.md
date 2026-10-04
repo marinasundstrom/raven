@@ -9,6 +9,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   and property/accessor signatures; reject missing, instance or wrong-return-type
   implementations with RAV0330 before emission.
 
+- **2026-10-04:** Admit target-selected static interface declarations and ordinary
+  source operators for NeoCLR, preserving imported operator classification and accessor
+  associations. Actual Number source and a separate struct/consumer execute direct
+  arithmetic and ordering; intrinsic primitive ownership and generic Self dispatch
+  remain open. Existing .NET emission stays the default.
+
 - **2026-10-04:** Import and emit Single/Double through the native metadata target,
   including numeric literals/conversions, fields, arrays and generic calls. Ordered
   <=/>= use unordered comparisons before negation so NaN remains false. A separate
