@@ -64,12 +64,16 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     public bool IsReferenceType => !IsValueType;
     public bool IsInterface => view.IsInterface;
     public bool IsClosed => view.IsSealed;
+    public bool IsSealedHierarchy => view.IsClosedHierarchy;
+    public ImmutableArray<INamedTypeSymbol> PermittedDirectSubtypes => [.. view.GetPermittedDirectSubtypes()
+        .Select(type => (INamedTypeSymbol)((NativeModuleSymbol)ContainingModule).MapView(type))];
     public bool IsNamespace => false;
     public bool IsType => true;
     public ITypeSymbol? EnumUnderlyingType => view.IsEnum ? compilation.GetSpecialType(SpecialType.System_Int32) : null;
     public TypeKind TypeKind => view.IsEnum ? TypeKind.Enum : view.IsInterface ? TypeKind.Interface : view.IsValueType ? TypeKind.Struct : TypeKind.Class;
     public SpecialType SpecialType { get; }
-    public INamedTypeSymbol? BaseType => TypeKind == TypeKind.Interface ? null : compilation.GetSpecialType(view.IsEnum ? SpecialType.System_Enum : view.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) as INamedTypeSymbol;
+    public INamedTypeSymbol? BaseType => TypeKind == TypeKind.Interface ? null : view.BaseType is { } baseType ?
+        (INamedTypeSymbol)((NativeModuleSymbol)ContainingModule).MapView(baseType) : compilation.GetSpecialType(view.IsEnum ? SpecialType.System_Enum : view.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) as INamedTypeSymbol;
     public ITypeSymbol OriginalDefinition => this;
     public ITypeSymbol ConstructedFrom => this;
     public int Arity => view.GenericArity;

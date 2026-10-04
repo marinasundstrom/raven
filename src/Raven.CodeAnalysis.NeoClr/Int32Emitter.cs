@@ -114,8 +114,7 @@ internal static class Int32Emitter
                 else if (member is TypeDeclarationSyntax type && type is ClassDeclarationSyntax or StructDeclarationSyntax)
                 {
                     if (type.AttributeLists.Count != 0 || type.ParameterList is not null ||
-                        type is ClassDeclarationSyntax { PermitsClause: not null } ||
-                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword)))
+                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword or SyntaxKind.SealedKeyword)))
                         throw Unsupported("only public or internal static/root classes or value types without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
@@ -183,7 +182,7 @@ internal static class Int32Emitter
                         if (!typeSymbol.IsStatic && typeMember is ConstructorDeclarationSyntax constructor)
                         {
                             if ((constructor.Body is null && constructor.ExpressionBody is null) || constructor.AttributeLists.Count != 0 ||
-                                constructor.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)))
+                                constructor.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.ProtectedKeyword)))
                                 throw Unsupported("only explicit root constructors with a block or expression body");
                             plans.Add(GetPlan((IMethodSymbol)model.GetDeclaredSymbol(constructor)!));
                             continue;
@@ -324,6 +323,8 @@ internal static class Int32Emitter
                     imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
                 }
                 importedTypes.Add(original, imported);
+                if (original.TypeKind == TypeKind.Class && original.BaseType is { SpecialType: not SpecialType.System_Object } classBase)
+                    assembly.DeclareClassBase(imported, ImportExternalType(classBase).ImportedType!);
                 if (original.SpecialType == SpecialType.System_Char && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
                     assembly.SetNativeGrapheme(imported);
                 if (original.SpecialType is (SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_String) && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
@@ -840,7 +841,9 @@ internal static class Int32Emitter
             !original.IsStatic && (original.ContainingType is null ||
                 (original is IUnionCaseTypeSymbol unionCase ? unionCase.MetadataContainingType : original.ContainingType) is { Arity: 0 } parent && IsSymbolOnlyOwnerDefinition(parent)) && original.DeclaredAccessibility == Accessibility.Public &&
             original.Interfaces.All(contract => IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)contract.OriginalDefinition, depth + 1)) &&
-            (original.BaseType is null || original.BaseType.SpecialType == (original.TypeKind == TypeKind.Enum ? SpecialType.System_Enum : original.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object)) &&
+            (original.BaseType is null || original.BaseType.SpecialType == (original.TypeKind == TypeKind.Enum ? SpecialType.System_Enum : original.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) ||
+                original.TypeKind == TypeKind.Class && original.Arity == 0 && original.BaseType is { Arity: 0, ContainingType: null } parentClass &&
+                SymbolEqualityComparer.Default.Equals(original.ContainingAssembly, parentClass.ContainingAssembly) && IsSymbolOnlyReferenceDefinition(parentClass, depth + 1)) &&
             original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None);
 
         bool IsRuntimeUnitValue(ITypeSymbol type) => compilation.Options.RuntimeUnitContract is not null &&

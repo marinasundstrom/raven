@@ -10,6 +10,7 @@ internal static class NativeMetadataAccess
         MetadataAccessibility.Public => Accessibility.Public,
         MetadataAccessibility.Assembly => Accessibility.Internal,
         MetadataAccessibility.Private => Accessibility.Private,
+        MetadataAccessibility.Family => Accessibility.ProtectedAndProtected,
         _ => throw new InvalidDataException("unsupported native accessibility: " + accessibility)
     };
 }

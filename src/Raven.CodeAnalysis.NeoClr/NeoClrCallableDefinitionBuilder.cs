@@ -14,6 +14,7 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
             Accessibility.Public => MethodVisibility.Public,
             Accessibility.Internal => MethodVisibility.Internal,
             Accessibility.Private => MethodVisibility.Private,
+            Accessibility.ProtectedAndProtected when plan.Symbol.MethodKind == MethodKind.Constructor => MethodVisibility.Protected,
             _ => throw new InvalidOperationException("Unsupported native callable visibility")
         };
         var method = owner is null

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Admit bounded native closed class families and protected constructors
+  through explicit emission capabilities. Import actual base/family facts through
+  introspection and author dependency-local reference conversions from symbols.
+  Paired direct and separate-library cases execute on .NET/NeoCLR; external closed
+  children reject before output. Preserve .NET defaults; JSON next reaches propagation lowering.
+
 - **2026-10-04:** Record independent compiler-fix integration into main (`4f95db536`,
   148 focused .NET tests) and the runtime-only protected-constructor/closed-family
   prerequisite. Native metadata authoring and Raven admission remain pending.

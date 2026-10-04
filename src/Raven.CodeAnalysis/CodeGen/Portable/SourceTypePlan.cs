@@ -13,6 +13,7 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
     internal bool IsStatic => IsStaticContainer(Symbol);
     internal static bool IsStaticContainer(INamedTypeSymbol type) => type.IsStatic ||
         type.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true };
+    internal bool IsClosedHierarchy => Symbol.IsSealedHierarchy;
     internal bool IsEnum => Symbol.TypeKind == TypeKind.Enum;
     internal bool IsValueType => Symbol.TypeKind is TypeKind.Struct or TypeKind.Enum;
     internal EmissionDeclarationKind DeclarationKind => IsEnum ? EmissionDeclarationKind.Enum : IsValueType ? EmissionDeclarationKind.ValueType : IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
@@ -37,6 +38,8 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         var isStatic = IsStaticContainer(type);
         if (!type.IsStatic && isStatic && capabilities?.AllowsLoweredExtensionCalls != true) return false;
         var isValue = type.TypeKind == TypeKind.Struct;
+        var closedFamily = type.IsSealedHierarchy && type.IsAbstract && !isValue && type.Arity == 0 && type.ContainingType is null &&
+            type.BaseType?.SpecialType == SpecialType.System_Object && capabilities?.AllowsClosedClassFamilies == true;
         var kind = isValue ? EmissionDeclarationKind.ValueType : isStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
         if (capabilities is not null && (!capabilities.Allows(kind) || !capabilities.AllowsTypeVisibility(type.DeclaredAccessibility))) return false;
         if (type.Arity > 0 && (capabilities is not null && !(isStatic ? capabilities.AllowsGenericStaticOwners : capabilities.AllowsGenericClassOwners) ||
@@ -51,7 +54,7 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct) || type.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal) ||
             GetMetadataOwner(type) is { } parent && (capabilities?.Allows(EmissionDeclarationKind.NestedType) != true ||
                 parent.Arity != 0 || isStatic || !isValue && type.Arity != 0 || !TryCreate(parent, out _, capabilities)) ||
-            !isStatic && (type.IsAbstract || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false, IsSealedHierarchy: false } || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object) &&
+            !isStatic && (type.IsAbstract && !closedFamily || type.IsSealedHierarchy && !closedFamily || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false } || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object) &&
                 !(capabilities?.AllowsLocalClassInheritance == true && !isValue && type.Arity == 0 && type.ContainingType is null &&
                   type.BaseType is { Arity: 0, ContainingType: null } baseType && SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, type.ContainingAssembly) && TryCreate(baseType, out _, capabilities))))
             return false;

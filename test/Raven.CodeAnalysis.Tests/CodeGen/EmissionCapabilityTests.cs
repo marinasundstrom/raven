@@ -7,6 +7,42 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class EmissionCapabilityTests
 {
+    [Fact]
+    public void ClosedFamilyAdmissionIsExplicitAndOrdinaryDotNetStillExecutes()
+    {
+        var compilation = Create("""
+            public sealed class Root {
+                public field Number: int
+                protected init(number: int) { Number = number }
+            }
+            public class Child : Root {
+                public init(): base(42) {}
+                public func Read() -> int => Number
+            }
+            """);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var root = compilation.GetTypeByMetadataName("Root")!;
+        Assert.False(SourceTypePlan.TryCreate(root, out _, ReflectionEmitCapabilities.Shared));
+        var enabled = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), [],
+            [EmissionDeclarationKind.RootClass, EmissionDeclarationKind.Constructor],
+            [Accessibility.Public], [Accessibility.Public], [],
+            allowsRootClassSignatures: true, allowsLocalClassInheritance: true,
+            allowsClosedClassFamilies: true, allowsProtectedConstructors: true);
+        Assert.True(SourceTypePlan.TryCreate(root, out var plan, enabled));
+        Assert.True(plan!.IsClosedHierarchy);
+        Assert.True(SourceCallablePlan.TryCreate(root.InstanceConstructors.Single(), out _, enabled));
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var assembly = Assembly.Load(output.ToArray());
+        var emittedRoot = assembly.GetType("Root")!;
+        Assert.True(emittedRoot.IsAbstract);
+        Assert.False(emittedRoot.IsSealed);
+        Assert.True(emittedRoot.GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance).Single().IsFamily);
+        var child = assembly.GetType("Child")!;
+        Assert.Equal(42, child.GetMethod("Read")!.Invoke(Activator.CreateInstance(child), null));
+    }
+
     [Theory]
     [InlineData(false, 42)]
     [InlineData(true, 17)]

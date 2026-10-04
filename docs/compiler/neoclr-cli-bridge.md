@@ -6063,3 +6063,37 @@ validation only: native metadata builder/facade support and Raven capability adm
 remain pending, with JSON still rejected before output. Source-file/permits validation
 belongs to Raven. No importer-to-emitter coupling, bridge fallback, primitive-core or
 source-ownership configuration change is introduced.
+
+### Closed families and protected constructors (2026-10-04)
+
+The native adapter now opts into separate closed-family and protected-constructor
+capabilities. Source type plans admit nongeneric top-level closed roots; syntax gates
+permit sealed/permits declarations, while binding retains source-file/permits rules.
+Protected admission applies only to constructors. Ordinary .NET portable defaults
+remain unchanged and its full Reflection/Emit backend still executes the case.
+
+The metadata library preserves CLI Family access, Abstract roots and the existing
+native closed-family flag. Native introspection supplies direct-family members and
+actual BaseType identities to symbols. The emitter declares bounded dependency-local
+class-base conversion facts from those symbols and explicit artifact identities; it
+does not reopen importer objects. These facts authorize writer stack conversions,
+while native verification checks actual linked definitions. No new source class can
+yet derive from an external assembly through this authoring path.
+
+Closed native PE carries closure in its authoritative native payload. Its nonexecutable
+CLI projection currently carries Abstract but no closed-family attribute; metadata
+library executable CLI Write rejects that unsupported representation. Raven's ordinary
+.NET emitter retains its existing closed-family attributes. The author requested a
+later design pass on richer direct closed-family metadata encoding. No opcode or format
+fork is introduced in this slice. Primitive bootstrap, retained seed and ownership
+configuration remain unchanged; native application/library references never fall back
+to the CLI projection.
+
+Validation: 35 focused .NET 11 capability/constructor tests, 146 metadata groups and
+the existing 55-test runtime prerequisite pass. The paired driver builds a direct
+program and separate library/consumer for both targets: all return 42, preserve mutation
+and alias identity, and reject an external direct child before output. See neoCLR
+`closed-family-driver-2026-10-04.json` for commands, revisions and hashes. The unchanged
+JSON source group next rejects BoundPropagateExpression during emission, without output.
+General protected members, class virtual methods, generic/nested closed roots, external
+base declarations and JSON execution remain open.

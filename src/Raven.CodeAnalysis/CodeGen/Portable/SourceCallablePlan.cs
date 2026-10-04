@@ -46,7 +46,9 @@ internal sealed record SourceCallablePlan(
         : Symbol.IsStatic ? EmissionDeclarationKind.StaticMethod : EmissionDeclarationKind.InstanceMethod;
     internal Accessibility Visibility => IsSynthesizedStatic ? Accessibility.Internal : Symbol.DeclaredAccessibility;
     internal bool IsSupportedBy(EmissionCapabilities capabilities) => capabilities.Allows(DeclarationKind) && capabilities.Allows(Signature) &&
-        (IsAssemblyFunction ? capabilities.AllowsFunctionVisibility(Visibility) : capabilities.AllowsMethodVisibility(Visibility));
+        (IsAssemblyFunction ? capabilities.AllowsFunctionVisibility(Visibility) :
+            Visibility == Accessibility.ProtectedAndProtected ? Symbol.MethodKind == MethodKind.Constructor && capabilities.AllowsProtectedConstructors :
+            capabilities.AllowsMethodVisibility(Visibility));
 
     internal bool IsAssemblyFunction => TypeOwner is null;
 
