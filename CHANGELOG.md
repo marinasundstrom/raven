@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Bind primitive Single/Double unary plus and minus without requiring
+  operator declarations on the reference core. Complement remains invalid for floating
+  types. Focused operator and conversion regressions preserve ordinary .NET behavior.
+
 - **2026-10-04:** Honor the explicitly selected metadata core when resolving primitive
   symbols, even when another reference declares the same System types. Keep System.Runtime
   as the default preference when no core is configured. Regression reproduced independently

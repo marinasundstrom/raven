@@ -60,6 +60,14 @@ internal partial class BoundUnaryOperator
             }
         }
 
+        if (operandType.SpecialType is SpecialType.System_Single or SpecialType.System_Double &&
+            kind is SyntaxKind.PlusToken or SyntaxKind.MinusToken)
+        {
+            op = new BoundUnaryOperator(kind == SyntaxKind.PlusToken
+                ? BoundUnaryOperatorKind.UnaryPlus : BoundUnaryOperatorKind.UnaryMinus, operandType, operandType);
+            return true;
+        }
+
         var candidates = new[]
         {
             new BoundUnaryOperator(BoundUnaryOperatorKind.UnaryPlus, intType, intType),
