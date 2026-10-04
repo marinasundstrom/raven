@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Admit static properties on imported value types through the explicit
+  external-value capability, preserving separate reference-owner admission. This enables
+  native TimeOffset.Zero without rewriting source consumers. Add C# capability and
+  ordinary .NET execution controls; the existing .NET backend is unchanged.
+
 - **2026-10-04:** Document source-owned native Instant/Clock/SystemClock integration,
   explicit UnixTimeTicks bootstrap binding and direct local-time factory ownership.
   Compiler behavior is unchanged; legacy bridge snapshot regeneration remains blocked

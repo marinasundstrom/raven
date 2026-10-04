@@ -522,7 +522,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             (method.IsStatic
                 ? method.ContainingType is { } owner && (SourceTypePlan.TryCreate(owner, out _, capabilities) ||
                   capabilities?.AllowsExternalReferenceSignatures == true &&
-                  CallableSignature.IsExternalReference(owner, capabilities.AllowsNestedExternalTypes)) &&
+                  CallableSignature.IsExternalReference(owner, capabilities.AllowsNestedExternalTypes) ||
+                  capabilities?.AllowsExternalValueSignatures == true &&
+                  CallableSignature.IsExternalValue(owner, capabilities.AllowsNestedExternalTypes)) &&
                   TrySignature(method, out var signature) && SupportedTypeArguments(method) &&
                   (capabilities is null || capabilities.Allows(signature))
                 : SupportedInstanceCall(method));

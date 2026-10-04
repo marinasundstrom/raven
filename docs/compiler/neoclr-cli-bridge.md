@@ -5449,3 +5449,21 @@ Legacy translated snapshot regeneration was attempted but --reference-library-co
 fails in SourceUnionReferences.Project with RAV0103 ('None' is not in scope). No legacy
 generated output or hashes were rewritten; its Instant source digest is now stale.
 Native artifacts are rebuilt directly from source and do not consume that snapshot.
+
+## Imported value-type static properties (2026-10-04)
+
+The portable planner admits a static property on an imported value type when the
+adapter explicitly enables external value signatures, in addition to the existing
+property-accessor and signature checks. Reference-type owners retain their separate
+external-reference capability. This matches the already supported static-call shape;
+there is no receiver or importer handle to pass to emission. The ordinary .NET backend
+is unchanged.
+
+This closes the TimeOffset.Zero gap exposed by the independently built native fixed-offset
+library consumer. C# contract tests cover separately emitted value/reference owners,
+disabled/mismatched capabilities, and ordinary .NET execution. The regression also
+runs through the native metadata adapter as part of the offset consumer.
+
+This change belongs to the shared portable contract, which is absent on current main;
+it cannot be cherry-picked independently without that abstraction. No binder or general
+.NET behavior fix is deferred by this slice. Metadata, runtime and public APIs are unchanged.
