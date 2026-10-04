@@ -28,6 +28,7 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             case LinearInstructionKind.LoadCapture:
             case LinearInstructionKind.FunctionBind: emitCall(instruction, method); break;
             case LinearInstructionKind.FunctionInvoke: method.InvokeFunction(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
+            case LinearInstructionKind.ArgumentAddress: method.LoadArgumentAddress(instruction.Integer); break;
             case LinearInstructionKind.LocalAddress: method.Emit(OpCode.Ldloca, instruction.Integer); break;
             case LinearInstructionKind.LoadIndirect: method.LoadObject(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
             case LinearInstructionKind.StoreIndirect: method.StoreObject(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;

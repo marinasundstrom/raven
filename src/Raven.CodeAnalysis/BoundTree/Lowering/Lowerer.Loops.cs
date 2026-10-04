@@ -9,31 +9,34 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer
 {
-    // Array expansion belongs to the bounded portable emitter. Ordinary .NET
+    // Array and signed-range expansion belong to the bounded portable emitter. Ordinary .NET
     // lowering retains for-loops for its established iteration/closure handling.
     private bool _lowerPortableArrays;
+    private bool _lowerPortableRanges;
 
-    internal static BoundBlockStatement LowerPortableArrayLoops(IMethodSymbol owner, BoundBlockStatement body)
-        => (BoundBlockStatement)new PortableArrayLoopRewriter(owner).VisitStatement(body)!;
+    internal static BoundBlockStatement LowerPortableLoops(IMethodSymbol owner, BoundBlockStatement body, bool arrays, bool ranges)
+        => (BoundBlockStatement)new PortableLoopRewriter(owner, arrays, ranges).VisitStatement(body)!;
 
-    private sealed class PortableArrayLoopRewriter(IMethodSymbol owner) : BoundTreeRewriter
+    private sealed class PortableLoopRewriter(IMethodSymbol owner, bool arrays, bool ranges) : BoundTreeRewriter
     {
-        private readonly Lowerer lowerer = new(owner, null) { _lowerPortableArrays = true };
+        private readonly Lowerer lowerer = new(owner, null) { _lowerPortableArrays = arrays, _lowerPortableRanges = ranges };
 
         public override BoundNode? VisitForStatement(BoundForStatement node)
-            => lowerer.CanLowerArrayFor(node) ? lowerer.VisitForStatement(node) : base.VisitForStatement(node);
+            => lowerer.CanLowerPortableFor(node) ? lowerer.VisitForStatement(node) : base.VisitForStatement(node);
 
         public override BoundNode? VisitLabeledStatement(BoundLabeledStatement node)
         {
             BoundStatement statement = node;
             while (statement is BoundLabeledStatement labeled) statement = labeled.Statement;
-            return statement is BoundForStatement loop && lowerer.CanLowerArrayFor(loop)
+            return statement is BoundForStatement loop && lowerer.CanLowerPortableFor(loop)
                 ? lowerer.VisitLabeledStatement(node) : base.VisitLabeledStatement(node);
         }
 
         // Function bodies are planned separately under their own symbol and scope.
         public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node) => node;
     }
+
+    private bool CanLowerPortableFor(BoundForStatement node) => CanLowerArrayFor(node) || CanLowerRangeFor(node);
 
     private bool CanLowerArrayFor(BoundForStatement node) =>
         _lowerPortableArrays && _containingSymbol.ContainingAssembly is SourceAssemblySymbol &&
@@ -42,7 +45,7 @@ internal sealed partial class Lowerer
 
     public override BoundNode? VisitForStatement(BoundForStatement node)
     {
-        if (!CanLowerArrayFor(node))
+        if (!CanLowerPortableFor(node))
         {
             // A loop retained for general codegen owns its unlabeled transfers.
             // Do not redirect them into an enclosing lowered while/vector loop.
@@ -50,7 +53,9 @@ internal sealed partial class Lowerer
             try { return base.VisitForStatement(node); }
             finally { _loopStack.Pop(); }
         }
-        return LowerArrayForStatement(node, CreateLabel("for_break"), CreateLabel("for_continue"));
+        return CanLowerRangeFor(node)
+            ? LowerRangeForStatement(node, CreateLabel("range_break"), CreateLabel("range_continue"))
+            : LowerArrayForStatement(node, CreateLabel("for_break"), CreateLabel("for_continue"));
     }
 
     private BoundStatement LowerArrayForStatement(BoundForStatement node, ILabelSymbol breakLabel, ILabelSymbol continueLabel)
@@ -159,6 +164,8 @@ internal sealed partial class Lowerer
 
         BoundStatement? loweredLoop = current switch
         {
+            BoundForStatement rangeStatement when CanLowerRangeFor(rangeStatement) => LowerLabeledLoop(labels, "range", rangeStatement, static (lowerer, statement, breakLabel, continueLabel) =>
+                lowerer.LowerRangeForStatement(statement, breakLabel, continueLabel)),
             BoundForStatement forStatement when CanLowerArrayFor(forStatement) => LowerLabeledLoop(labels, "for", forStatement, static (lowerer, statement, breakLabel, continueLabel) =>
                 lowerer.LowerArrayForStatement(statement, breakLabel, continueLabel)),
             BoundWhileStatement whileStatement => LowerLabeledLoop(labels, "while", whileStatement, static (lowerer, statement, breakLabel, continueLabel) =>

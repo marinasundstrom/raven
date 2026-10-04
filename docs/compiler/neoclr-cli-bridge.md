@@ -5195,3 +5195,30 @@ runtime-service source compilation remain future work. Existing UTF-8 scalar ord
 intentionally differs from .NET UTF-16 ordinal ordering; this slice adds no new semantics.
 The static operator emission fix is a deferred general candidate until another backend
 caller justifies independent validation on main.
+
+## Signed ranges and value-parameter receivers (2026-10-04)
+
+The native profile explicitly enables signed Int32/Int64 range expansion using the
+binder's start/end/step expressions and inclusive/exclusive flag. Bounds and step are
+evaluated once in source order. Zero step skips the body, as in the existing .NET path;
+positive/negative steps use the corresponding bound comparison. The portable lowerer
+reuses ordinary locals, arithmetic and branches and preserves labeled/unlabeled loop
+transfers. Each iteration's immutable local can be captured by the existing frame
+profile. Increment uses existing signed add behavior; this adds no overflow policy.
+Other range element categories remain unsupported by the native profile. Ordinary
+.NET lowering retains its established range emitter and wider supported numeric types.
+
+Owned by-value parameter receivers now use a logical argument-address operation when
+explicitly admitted. The NeoCLR adapter emits IILGenerator.LoadArgumentAddress; it does
+not copy the parameter into unrelated storage. Receiver offsets account for instance
+and captured-lambda frames. Captured parameters remain outside this closure profile.
+Metadata imports also retain the CLI Object signature's explicit core identity, enabling
+Object.ReferenceEquals in the unchanged comparer consumer. No importer objects cross
+emission boundaries, and Runtime Contract/bootstrap ownership is unchanged.
+
+The unchanged library-comparers source now runs with exact output against the separate
+source-built library. Focused range execution covers bound evaluation order, descending
+and exclusive ranges, zero/empty loops, nested labeled continue, break, immutable loop
+captures and Int64 bounds. 55 focused .NET tests and native acceptance pass. New generic
+portable lowering remains a deferred general candidate until an independent backend
+caller merits main-based validation; no .NET emitter refactor is required.

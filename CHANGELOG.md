@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Lower bound signed Int32/Int64 ranges behind an explicit native
+  capability, preserving endpoint rules, evaluation order and loop transfers. Emit
+  addresses for ordinary value parameters through the native metadata IL generator.
+  Unchanged library-comparers now compiles and executes against the separate native
+  class library. Ordinary .NET loop/body emission remains unchanged.
+
 - **2026-10-04:** Admit the exact Object.GetHashCode virtual contract under an
   explicit native capability and emit bound static binary operator calls. Source-built
   StringComparer executes against its selected primitive bootstrap, including ordinal

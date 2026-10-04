@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture }
+internal enum LinearInstructionKind { Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -107,8 +107,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             var initialization = Lowerer.LowerBlock(source, new BoundBlockStatement(initializers.ToArray()));
             body = new BoundBlockStatement([initialization, body]);
         }
-        if (body is not null && capabilities?.AllowsArrays == true)
-            body = Lowerer.LowerPortableArrayLoops(source, body);
+        if (body is not null && (capabilities?.AllowsArrays == true || capabilities?.AllowsRangeEnumeration == true))
+            body = Lowerer.LowerPortableLoops(source, body, capabilities!.AllowsArrays, capabilities.AllowsRangeEnumeration);
         var success = body is not null ? LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
         if (success && capabilities is not null)
         {
@@ -531,11 +531,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return receiver switch
                 {
                     BoundLocalAccess local => LowerReference(new BoundAddressOfExpression(local)),
-                    BoundParameterAccess parameter when parameter.Parameter.RefKind is RefKind.Ref or RefKind.Out => LowerReference(parameter),
+                    BoundParameterAccess parameter => LowerReference(parameter),
                     BoundDereferenceExpression dereference => LowerReference(dereference.Reference),
                     BoundFieldAccess field => FieldAddress(field.Receiver, field.Field, syntax),
                     BoundMemberAccessExpression { Member: IFieldSymbol field } access => FieldAddress(access.Receiver, field, syntax),
-                    _ => Reject("value receiver requires an owned local or ref/out parameter", syntax)
+                    _ => Reject("value receiver requires addressable local, parameter or field storage", syntax)
                 };
             }
             if (receiver is not null)
@@ -623,6 +623,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     localTypes.Add(localType);
                 }
                 Add(LinearInstructionKind.LocalAddress, Syntax(expression), slot); return true;
+            }
+            if (symbol is IParameterSymbol value && value.RefKind == RefKind.None && capabilities.Allows(LinearInstructionKind.ArgumentAddress))
+            {
+                int ordinal = source.Parameters.IndexOf(value, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
+                if (ordinal < 0) return Reject("captured value parameter address", Syntax(expression));
+                Add(LinearInstructionKind.ArgumentAddress, Syntax(expression), ordinal + (isStaticBody ? 0 : 1)); return true;
             }
             if (symbol is IParameterSymbol reference && reference.RefKind is RefKind.Ref or RefKind.Out)
             {
