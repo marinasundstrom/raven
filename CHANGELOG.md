@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Record the NeoCLR text-service bootstrap gate: separate native
+  libraries execute grapheme/scalar vectors, UTF-8 outcomes and unchanged UnicodeScalar.
+  No compiler implementation changed. Source String now reaches the explicit-interface
+  property emission limitation; source-owned String/Char primitive storage remains open.
+
 - **2026-10-04:** Do not cache provisional type conversions during source declaration
   binding. A query made before generic interface relationships are complete no longer
   poisons later initializer/assignment checks or makes them depend on input ordering.

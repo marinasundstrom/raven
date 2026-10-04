@@ -5940,3 +5940,22 @@ Tasks/Concurrency sources also compiles and its artifact-only consumer exits 42.
 Incompatible generic arguments still report RAV0320 without output publication.
 The focused ordinary .NET conversion/generic suite passes 139 tests. This is a shared
 binding correction, not new CLI bridge behavior or completion of the entire library.
+
+
+### Native text-service bootstrap prerequisite (2026-10-04)
+
+NeoCLR's checked service inventory now selects the existing text-service family, with
+Char/UInt32 and their vectors. Rebuild the explicit CLI primitive core and native seed
+as a matched pair, then rebuild library artifacts; old incomplete cores reject missing
+members before output. Runtime Contract settings and native semantic import remain
+unchanged. The CLI core supplies signatures only; native calls execute the existing
+Unicode grapheme/UTF-8 implementation. It does not imply .NET UTF-16 char parity.
+
+With compiler 459856a71, a separate native library containing unchanged UnicodeScalar
+and a text-service contract test executes through a source-free consumer (exit 42).
+The numeric gate still executes using the expanded seed. Canonical source String/Char
+ownership is not complete: String source reaches the adapter's explicit interface
+Count-property rejection. Char source emission alone is not evidence of intrinsic
+storage/member ownership. Implement accessor emission and native primitive ownership
+instead of projecting application/library references into CLI metadata. No importer,
+emitter or metadata library implementation was changed by this service-catalog slice.
