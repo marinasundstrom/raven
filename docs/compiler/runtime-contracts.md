@@ -3120,3 +3120,15 @@ native semantic consumers pass on the integration branch.
 
 The isolated fix was reproduced on main and validated with 22 iteration-contract
 tests, then integrated as `340fdb759`. No experimental backend is required.
+
+
+### Primitive lookup with overlapping reference declarations (2026-10-04)
+
+Special-type lookup prefers `MetadataImportOptions.CoreAssemblyName` when supplied;
+without an explicit selection, the existing System.Runtime preference remains. A
+referenced library's same-named System.Boolean/Int32/etc. declaration must not replace
+this canonical primitive identity merely because of metadata lookup ordering. This
+selection affects semantic symbols for both .NET and NeoCLR; it adds no runtime mapping
+or emitted instruction. A synthetic alternate CLI core alongside System.Runtime provides
+an independent .NET regression. Unsupported/missing core configuration is still subject
+to the existing target validation.

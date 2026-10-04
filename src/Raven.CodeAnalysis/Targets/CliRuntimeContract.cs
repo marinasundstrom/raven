@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.Targets;
 // runtime contract. Platform policy is supplied by the selected concrete contract.
 internal abstract partial class CliRuntimeContract(CompilationOptions options)
 {
-    internal string PreferredSpecialTypeAssemblyName => "System.Runtime";
+    internal string PreferredSpecialTypeAssemblyName => Options.MetadataImportOptions?.CoreAssemblyName ?? "System.Runtime";
 
     protected CompilationOptions Options { get; } = options;
 

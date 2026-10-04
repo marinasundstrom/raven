@@ -5682,3 +5682,23 @@ uses concrete method calls: erased interface calls, constrained generic Self dis
 static Number contracts and source primitive ownership remain subsequent work. Validation:
 16 existing Self compiler tests, 134 metadata groups, seven native consumers and driver
 negative publication checks. See neoCLR `self-native-2026-10-04.json` for artifact hashes.
+
+
+## Parsing family and primitive core ownership (2026-10-04)
+
+The neoCLR bootstrap catalog now includes all eleven existing Boolean/integer/floating
+parsers as String -> System.Value service contracts. This does not imply support for
+emitting every primitive payload type. A separate actual Boolean/BooleanParseError
+source library imports natively into a consumer that executes Boolean success/failure,
+byte/Int32/Int64 boundaries and the other parsers' invalid-format outcomes.
+
+Primitive symbols now prefer the explicitly selected metadata core, retaining
+System.Runtime as the unconfigured default. Named library declarations remain separately
+addressable; System.Boolean in a rebuilt library no longer displaces the core's bool
+identity. The shared one-line policy fix and two regression cases were independently
+validated on main as f749c1a75 (20 focused .NET tests). Seven native consumer controls and
+the parsing gate pass. No native format, instruction or runtime parsing behavior changed.
+Full numeric-source compilation still requires wider primitives, static Number/Self
+contracts and additional checked service coverage; do not conflate catalog admission
+with support for every source method. Reproduction: neoCLR bootstrap/verify_parsing.py;
+artifact/source hashes: parsing-native-2026-10-04.json.

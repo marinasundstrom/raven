@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Honor the configured metadata core for primitive symbols even when
+  a native library also declares System.Boolean. The actual Boolean source library now
+  imports and executes through the native target. This shared fix was independently
+  reproduced and validated on main (`f749c1a75`); ordinary .NET defaults are unchanged.
+
 - **2026-10-04:** Connect explicit bootstrap Self configuration to native metadata
   import and emission. Preserve symbolic Self in interface contracts and concrete
   implementation signatures. A three-assembly Clonable case executes with independent
