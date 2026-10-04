@@ -2090,3 +2090,23 @@ The defect reproduced independently on main with a .NET-emitted interface and a 
 consumer: three invalid variants previously produced no errors, while the valid static
 property passed. The fix applies to .NET and native metadata symbols through the shared
 semantic model; metadata writer validation remains a separate defensive boundary.
+
+
+### Conversion queries during declaration binding (2026-10-04)
+
+Source declaration binding can query conversions before base/interface relationships
+are complete. Those provisional answers are no longer retained in the compilation's
+conversion cache; completed declarations retain normal caching. Subsequent semantic
+queries and initializer/assignment checks therefore use the completed relationships,
+including inherited constructed generic interfaces. This is shared compiler behavior,
+with no Runtime Contract option, new syntax, metadata representation or backend change.
+Focused C# regression coverage warms a conversion during declaration binding and then
+checks its completed answer; source-order and existing conversion/generic controls cover
+ordinary .NET behavior. General declaration-order problems outside this conversion
+cache are not claimed solved.
+
+The independently validated main-based fix also carries the source and constructed
+interface-list cache guards required by this regression; the integration branch already
+had those guards. The new test fails before the fixes and all 139 focused conversion/
+generic tests pass afterward on this main-based branch. No experimental backend or
+member/union cache changes are required by this backport.

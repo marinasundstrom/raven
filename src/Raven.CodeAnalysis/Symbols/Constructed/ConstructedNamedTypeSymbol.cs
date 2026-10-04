@@ -1088,9 +1088,13 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
     public bool IsGenericType => _originalDefinition.IsGenericType;
     public bool IsUnboundGenericType => false;
     public ImmutableArray<INamedTypeSymbol> Interfaces =>
- _interfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.Interfaces);
+        HasIncompleteSourceDeclarationState()
+            ? BuildSubstitutedInterfaceSet(_originalDefinition.Interfaces)
+            : _interfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.Interfaces);
     public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
-       _allInterfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.AllInterfaces);
+        HasIncompleteSourceDeclarationState()
+            ? BuildSubstitutedInterfaceSet(_originalDefinition.AllInterfaces)
+            : _allInterfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.AllInterfaces);
     public ImmutableArray<ITypeSymbol> Variants
     {
         get
@@ -1179,6 +1183,9 @@ internal sealed class ConstructedNamedTypeSymbol : INamedTypeSymbol, IUnionSymbo
             return _discriminatorField;
         }
     }
+
+    private bool HasIncompleteSourceDeclarationState()
+        => _originalDefinition.ContainingAssembly is SourceAssemblySymbol { Compilation.SourceDeclarationsComplete: false };
 
     private bool ShouldCacheMutableSourceUnionState()
         => _originalDefinition is SourceUnionSymbol or SourceUnionCaseTypeSymbol;

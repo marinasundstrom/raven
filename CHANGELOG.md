@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Do not cache provisional type conversions during source declaration
+  binding. A query made before generic interface relationships are complete no longer
+  poisons later initializer/assignment checks or makes them depend on input ordering.
+  This shared semantic fix requires no Runtime Contract or target-specific policy.
+
 - **2026-10-04:** Validate static abstract interface properties during conformance
   checking, including imported contracts. Require matching static/instance identity
   and property/accessor signatures; reject missing, instance or wrong-return-type
