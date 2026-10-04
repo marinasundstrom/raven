@@ -2049,6 +2049,9 @@ internal partial class TypeMemberBinder : Binder
 
     public MethodBinder BindConstructorDeclaration(ConstructorDeclarationSyntax ctorDecl)
     {
+        var existing = _containingType.GetMembers().OfType<SourceMethodSymbol>().FirstOrDefault(method =>
+            method.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor &&
+            method.DeclaringSyntaxReferences.Any(reference => reference.SyntaxTree == ctorDecl.SyntaxTree && reference.Span == ctorDecl.Span));
         ReportPartialModifierNotSupported(ctorDecl.Modifiers, "constructor", _containingType.Name);
         ReportRedundantPublicModifierIfNeeded(ctorDecl.Modifiers);
         var isStatic = ctorDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
@@ -2123,7 +2126,7 @@ internal partial class TypeMemberBinder : Binder
 
         CheckForDuplicateSignature(constructorMetadataName, _containingType.Name, paramInfos.Select(p => (p.type, p.refKind)).ToArray(), ctorDecl.GetLocation(), ctorDecl);
 
-        var ctorSymbol = new SourceMethodSymbol(
+        var ctorSymbol = existing ?? new SourceMethodSymbol(
             constructorMetadataName,
             Compilation.GetSpecialType(SpecialType.System_Unit),
             ImmutableArray<SourceParameterSymbol>.Empty,
@@ -2184,16 +2187,8 @@ internal partial class TypeMemberBinder : Binder
             {
                 _diagnostics.ReportConstructorInitializerNotAllowedOnStaticConstructor(initializerSyntax.Keyword.GetLocation());
             }
-            else
-            {
-                var initializerBinder = new ConstructorInitializerBinder(ctorSymbol, methodBinder);
-                var boundInitializer = initializerBinder.Bind(initializerSyntax);
-
-                foreach (var diagnostic in initializerBinder.Diagnostics.AsEnumerable())
-                    _diagnostics.Report(diagnostic);
-
-                ctorSymbol.SetConstructorInitializer(boundInitializer);
-            }
+            // Instance initializer overload resolution runs after member registration, when
+            // source base members have been declared (including forward declarations).
         }
 
         return methodBinder;
