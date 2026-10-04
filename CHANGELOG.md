@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Resolve imported constructed interface method overrides using substituted
+  parameter types. Explicit generic property setters now receive their required MethodImpl
+  mapping and load/execute on .NET. Add a focused observable execution regression.
+
 - **2026-10-04:** Do not cache provisional type conversions during source declaration
   binding. A query made before generic interface relationships are complete no longer
   poisons later initializer/assignment checks or makes them depend on input ordering.

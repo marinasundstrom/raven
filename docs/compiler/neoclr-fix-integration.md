@@ -1766,3 +1766,14 @@ runtime bridge qualification is claimed by this slice.
 Validation: 109 focused configuration/project/compatibility tests passed on .NET 11;
 compiler builds passed for .NET 10/11. The runtime repository's MSBuild integration
 notes and changelog record the new development preset without changing its props.
+
+
+### Constructed external interface setter lookup (2026-10-04)
+
+The three-assembly explicit property control revealed a general .NET emission issue:
+lookup on Counted<int> used the open setter parameter T, so no MethodImpl was emitted.
+Use the constructed interface method's substituted parameter types. The focused
+ImportedInterfacePropertyTests test emits a private explicit int getter/setter against
+an external generic C# contract and observes mutation through that contract. The paired
+ordinary driver workflow also returns 42. No Runtime Contract or native dependency is
+needed for this fix. Keep it isolated for independent validation on main.
