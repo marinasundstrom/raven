@@ -35,19 +35,8 @@ internal sealed partial class Lowerer
 
         foreach (var declarator in node.Declarators)
         {
-            if (declarator.Initializer is BoundPropagateExpression propagate)
+            if (RewritePropagatingInitializer(declarator.Initializer) is { } lowering)
             {
-                var lowering = RewritePropagateExpression(propagate);
-                if (lowering is null)
-                {
-                    var visitedInitializer = VisitExpression(propagate) ?? propagate;
-                    declarators.Add(ReferenceEquals(visitedInitializer, propagate)
-                        ? declarator
-                        : new BoundVariableDeclarator(declarator.Local, visitedInitializer));
-                    changed |= !ReferenceEquals(visitedInitializer, propagate);
-                    continue;
-                }
-
                 if (declarators.Count > 0)
                 {
                     statements.Add(new BoundLocalDeclarationStatement(declarators.ToImmutable(), node.IsUsing));
@@ -78,6 +67,38 @@ internal sealed partial class Lowerer
             statements.Add(new BoundLocalDeclarationStatement(declarators.ToImmutable(), node.IsUsing));
 
         return true;
+    }
+
+    // Keep early returns at statement boundaries, rather than inside an expression
+    // evaluated with preceding operands on the evaluation stack.
+    private PropagateLowering? RewritePropagatingInitializer(BoundExpression? expression)
+    {
+        if (expression is BoundPropagateExpression propagate)
+            return RewritePropagateExpression(propagate);
+
+        if (expression is not BoundBinaryExpression binary ||
+            binary.Operator.OperatorKind is BinaryOperatorKind.LogicalAnd or BinaryOperatorKind.LogicalOr)
+            return null;
+
+        var left = RewritePropagatingInitializer(binary.Left);
+        var right = RewritePropagatingInitializer(binary.Right);
+        if (left is null && right is null)
+            return null;
+
+        var statements = left?.Statements ?? new List<BoundStatement>();
+        var leftValue = left?.SuccessExpression ?? VisitExpression(binary.Left)!;
+        var leftLocal = CreateTempLocal("propagateLeft", leftValue.Type, isMutable: false);
+        // Even a local read must precede the right operand: that operand can mutate it.
+        statements.Add(new BoundLocalDeclarationStatement(new[]
+        {
+            new BoundVariableDeclarator(leftLocal, leftValue)
+        }));
+        if (right is not null)
+            statements.AddRange(right.Statements);
+
+        return new PropagateLowering(statements, binary.Update(
+            new BoundLocalAccess(leftLocal), binary.Operator,
+            right?.SuccessExpression ?? VisitExpression(binary.Right)!));
     }
 
     private bool TryRewritePropagateExpressionStatement(BoundExpressionStatement node, out List<BoundStatement> statements)

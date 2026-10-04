@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Lower propagation nested in eager binary local initializers into
+  statement-level checks. Preserve left-to-right evaluation, snapshots of earlier
+  operands and early failure returns. Other expression categories and short-circuit
+  operators retain their existing paths; no metadata or Runtime Contract change.
+
 - **2026-10-04:** Normalize discarded propagation statements during lowering,
   preserving once-only evaluation and early residual returns without loading the unused
   success value. Backport the general fix independently of the NeoCLR emitter;
