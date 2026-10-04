@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress }
+internal enum LinearInstructionKind { EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -744,6 +744,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             if (expectedType.SpecialType == SpecialType.System_Int64 &&
                 operand.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Byte)
                 Add(LinearInstructionKind.Convert64, Syntax(operand));
+            if (expectedType.SpecialType != operand.Type.SpecialType && expectedType.SpecialType is SpecialType.System_Single or SpecialType.System_Double)
+                Add(expectedType.SpecialType == SpecialType.System_Single ? LinearInstructionKind.ConvertSingle : LinearInstructionKind.ConvertDouble, Syntax(operand));
             return true;
         }
 
@@ -873,6 +875,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.String, Syntax(expression), text: text); return true;
                 case BoundLiteralExpression { Value: bool boolean }:
                     Add(LinearInstructionKind.Boolean, Syntax(expression), boolean ? 1 : 0); return true;
+                case BoundLiteralExpression { Value: float single }:
+                    instructions.Add(new(LinearInstructionKind.ConstantSingle, Syntax(expression), Integer: BitConverter.SingleToInt32Bits(single))); return true;
+                case BoundLiteralExpression { Value: double floating }:
+                    instructions.Add(new(LinearInstructionKind.ConstantDouble, Syntax(expression), Long: BitConverter.DoubleToInt64Bits(floating))); return true;
                 case BoundLiteralExpression { Value: long value64 }:
                     instructions.Add(new(LinearInstructionKind.Constant64, Syntax(expression), Long: value64)); return true;
                 case BoundLiteralExpression { Value: byte valueByte }:
@@ -907,7 +913,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundUnaryExpression { Operator.OperatorKind: BoundUnaryOperatorKind.LogicalNot } unary:
                     if (!LowerValue(unary.Operand)) return false;
                     Add(LinearInstructionKind.Not, Syntax(expression)); return true;
-                case BoundUnaryExpression unary when unary.Operator.OperandType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&
+                case BoundUnaryExpression unary when unary.Operator.OperandType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double &&
                     unary.Operator.OperatorKind is BoundUnaryOperatorKind.UnaryPlus or BoundUnaryOperatorKind.UnaryMinus or BoundUnaryOperatorKind.BitwiseNot:
                     if (!LowerValue(unary.Operand)) return false;
                     if (unary.Operator.OperatorKind != BoundUnaryOperatorKind.UnaryPlus)
@@ -958,10 +964,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundConversionExpression { IsIdentity: true } conversion:
                     return LowerValue(conversion.Expression);
                 case BoundConversionExpression conversion when conversion.Conversion.IsNumeric && !conversion.IsUserDefined &&
-                    conversion.Expression.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Byte &&
-                    conversion.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Byte:
+                    conversion.Expression.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Byte or SpecialType.System_Single or SpecialType.System_Double &&
+                    conversion.Type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Byte or SpecialType.System_Single or SpecialType.System_Double:
                     if (!LowerValue(conversion.Expression)) return false;
-                    Add(conversion.Type.SpecialType == SpecialType.System_Byte ? LinearInstructionKind.ConvertByte : conversion.Type.SpecialType == SpecialType.System_Int64 ? LinearInstructionKind.Convert64 : LinearInstructionKind.Convert32, Syntax(expression));
+                    Add(conversion.Type.SpecialType == SpecialType.System_Single ? LinearInstructionKind.ConvertSingle : conversion.Type.SpecialType == SpecialType.System_Double ? LinearInstructionKind.ConvertDouble : conversion.Type.SpecialType == SpecialType.System_Byte ? LinearInstructionKind.ConvertByte : conversion.Type.SpecialType == SpecialType.System_Int64 ? LinearInstructionKind.Convert64 : LinearInstructionKind.Convert32, Syntax(expression));
                     return true;
                 case BoundBinaryExpression { Operator.MethodSymbol: { IsStatic: true } binaryMethod } binary when
                     binaryMethod.Parameters.Length == 2 && binaryMethod.Parameters.All(p => p.RefKind == RefKind.None) &&
@@ -1014,7 +1020,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(shift.Operator.OperatorKind == OperatorKind.ShiftLeft ? LinearInstructionKind.ShiftLeft : LinearInstructionKind.ShiftRight, Syntax(expression));
                     return true;
                 case BoundBinaryExpression binary when binary.Operator.MethodSymbol is null &&
-                    ((binary.Operator.LeftType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&
+                    ((binary.Operator.LeftType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double &&
                       binary.Operator.RightType.SpecialType == binary.Operator.LeftType.SpecialType) ||
                      (binary.Operator.LeftType.SpecialType == SpecialType.System_Boolean &&
                       binary.Operator.RightType.SpecialType == SpecialType.System_Boolean &&
@@ -1037,6 +1043,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         OperatorKind.BitwiseOr => LinearInstructionKind.BitwiseOr,
                         OperatorKind.BitwiseXor => LinearInstructionKind.BitwiseXor,
                         OperatorKind.Equality or OperatorKind.Inequality => LinearInstructionKind.Equal,
+                        OperatorKind.GreaterThanOrEqual when binary.Operator.LeftType.SpecialType is SpecialType.System_Single or SpecialType.System_Double => LinearInstructionKind.LessOrUnordered,
+                        OperatorKind.LessThanOrEqual when binary.Operator.LeftType.SpecialType is SpecialType.System_Single or SpecialType.System_Double => LinearInstructionKind.GreaterOrUnordered,
                         OperatorKind.LessThan or OperatorKind.GreaterThanOrEqual => LinearInstructionKind.Less,
                         _ => LinearInstructionKind.Greater
                     }, Syntax(expression));
@@ -1053,7 +1061,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                             capabilities.Allows(LinearInstructionKind.LoadCapture) != true ||
                             !TryType(captured.Type, false, out var capturedType) || !capabilities.Allows(capturedType) ||
                             !(captured.Type.IsReferenceType || capturedType.Primitive is EmissionPrimitiveType.Int32 or
-                                EmissionPrimitiveType.Int64 or EmissionPrimitiveType.Boolean or EmissionPrimitiveType.Byte))
+                                EmissionPrimitiveType.Int64 or EmissionPrimitiveType.Single or EmissionPrimitiveType.Double or EmissionPrimitiveType.Boolean or EmissionPrimitiveType.Byte))
                             return Reject("closure capture requires an immutable reference or supported primitive local", Syntax(expression));
                         if (!LowerValue(new BoundLocalAccess(captured))) return false;
                     }

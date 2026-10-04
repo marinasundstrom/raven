@@ -41,6 +41,8 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
         EmissionPrimitiveType.Int32 => PrimitiveType.Int32,
         EmissionPrimitiveType.Byte => PrimitiveType.Byte,
         EmissionPrimitiveType.Int64 => PrimitiveType.Int64,
+        EmissionPrimitiveType.Single => PrimitiveType.Single,
+        EmissionPrimitiveType.Double => PrimitiveType.Double,
         EmissionPrimitiveType.Boolean => PrimitiveType.Boolean,
         EmissionPrimitiveType.NoResult => PrimitiveType.Void,
         _ => throw new ArgumentOutOfRangeException(nameof(type))

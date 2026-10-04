@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal static class NeoClrCapabilities
 {
     internal static EmissionCapabilities Shared { get; } = new(
-        [EmissionPrimitiveType.NoResult, EmissionPrimitiveType.Int32, EmissionPrimitiveType.Int64, EmissionPrimitiveType.Boolean, EmissionPrimitiveType.String, EmissionPrimitiveType.Byte],
+        [EmissionPrimitiveType.NoResult, EmissionPrimitiveType.Int32, EmissionPrimitiveType.Int64, EmissionPrimitiveType.Boolean, EmissionPrimitiveType.String, EmissionPrimitiveType.Byte, EmissionPrimitiveType.Single, EmissionPrimitiveType.Double],
         [
             LinearInstructionKind.EnumFromInt32, LinearInstructionKind.EnumToInt32, LinearInstructionKind.LoadCapture, LinearInstructionKind.UnboxAny, LinearInstructionKind.ReferenceIsNull, LinearInstructionKind.TypeTest, LinearInstructionKind.FieldAddress, LinearInstructionKind.BoxToObject, LinearInstructionKind.ReferenceConvert, LinearInstructionKind.FunctionBind, LinearInstructionKind.FunctionInvoke, LinearInstructionKind.Constant, LinearInstructionKind.Argument, LinearInstructionKind.Add,
             LinearInstructionKind.Subtract, LinearInstructionKind.Multiply, LinearInstructionKind.Call,
@@ -15,6 +15,7 @@ internal static class NeoClrCapabilities
             LinearInstructionKind.Not, LinearInstructionKind.Equal, LinearInstructionKind.Less,
             LinearInstructionKind.Greater, LinearInstructionKind.Label, LinearInstructionKind.Branch,
             LinearInstructionKind.BranchTrue, LinearInstructionKind.BranchFalse, LinearInstructionKind.Pop,
+            LinearInstructionKind.ConstantSingle, LinearInstructionKind.ConstantDouble, LinearInstructionKind.ConvertSingle, LinearInstructionKind.ConvertDouble, LinearInstructionKind.LessOrUnordered, LinearInstructionKind.GreaterOrUnordered,
             LinearInstructionKind.Constant64, LinearInstructionKind.Convert64, LinearInstructionKind.Convert32, LinearInstructionKind.ConvertByte,
             LinearInstructionKind.Negate, LinearInstructionKind.Complement, LinearInstructionKind.Divide, LinearInstructionKind.Remainder,
             LinearInstructionKind.BitwiseAnd, LinearInstructionKind.BitwiseOr, LinearInstructionKind.BitwiseXor,

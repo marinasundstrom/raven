@@ -5702,3 +5702,28 @@ Full numeric-source compilation still requires wider primitives, static Number/S
 contracts and additional checked service coverage; do not conflate catalog admission
 with support for every source method. Reproduction: neoCLR bootstrap/verify_parsing.py;
 artifact/source hashes: parsing-native-2026-10-04.json.
+
+
+### Native floating-point integration (2026-10-04)
+
+The native profile now maps selected-core Single/Double symbols to the metadata
+library's primitive signatures in both import and independent emission. Portable
+literal operands preserve IEEE bits; numeric promotions/conversions and unordered
+comparison operations are compiler-owned and translated by the native adapter's
+IILGenerator. `<=`/`>=` invert cgt.un/clt.un to retain NaN semantics. .NET keeps its
+existing general Reflection/Emit body path; this slice does not replace that backend.
+
+The primitive CLI bootstrap remains explicit and temporary, not a fallback for
+native libraries. No Runtime Contract switch is added. Source-owned Single/Double
+classes and static Number/Self dispatch remain open. The general unary primitive
+binding fix was validated independently and fast-forwarded into local main as
+`87ba62572` (integration `1c519d338`).
+
+The neoCLR `bootstrap/verify_floating.py` driver compiles a separate library and
+artifact-only consumer on both targets, then a native parser-payload consumer.
+All exit 42 with empty output; coverage includes field/array mutation, generic calls,
+casts, signed zero and NaN in both comparison operand positions. The 135 metadata
+contract groups, seven existing native consumers and seven focused .NET operator/
+conversion tests pass. Metadata changes expose existing clt.un/cgt.un operations;
+no runtime instruction or format-version change is required. These tests do not
+establish out-of-range numeric conversion parity or full primitive source ownership.

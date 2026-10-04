@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Import and emit Single/Double through the native metadata target,
+  including numeric literals/conversions, fields, arrays and generic calls. Ordered
+  <=/>= use unordered comparisons before negation so NaN remains false. A separate
+  library and artifact-only consumer execute on both targets; native parser payloads
+  also execute. Keep the existing .NET emitter and explicit primitive bootstrap.
+
 - **2026-10-04:** Bind primitive Single/Double unary plus and minus without requiring
   operator declarations on the reference core. Complement remains invalid for floating
   types. Focused operator and conversion regressions preserve ordinary .NET behavior.

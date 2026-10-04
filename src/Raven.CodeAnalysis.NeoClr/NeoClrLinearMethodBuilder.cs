@@ -48,6 +48,12 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             case LinearInstructionKind.InterfaceCall:
             case LinearInstructionKind.ValueInstanceCall:
             case LinearInstructionKind.InstanceCall: emitCall(instruction, method); break;
+            case LinearInstructionKind.ConstantSingle: method.Emit(OpCode.Ldc_R4, BitConverter.Int32BitsToSingle(instruction.Integer)); break;
+            case LinearInstructionKind.ConstantDouble: method.Emit(OpCode.Ldc_R8, BitConverter.Int64BitsToDouble(instruction.Long)); break;
+            case LinearInstructionKind.ConvertSingle: method.Emit(OpCode.Conv_R4); break;
+            case LinearInstructionKind.ConvertDouble: method.Emit(OpCode.Conv_R8); break;
+            case LinearInstructionKind.LessOrUnordered: method.Emit(OpCode.Clt_Un); break;
+            case LinearInstructionKind.GreaterOrUnordered: method.Emit(OpCode.Cgt_Un); break;
             case LinearInstructionKind.Constant64: method.Emit(OpCode.Ldc_I8, instruction.Long); break;
             case LinearInstructionKind.Convert64: method.Emit(OpCode.Conv_I8); break;
             case LinearInstructionKind.ConvertByte: method.Emit(OpCode.Conv_U1); break;

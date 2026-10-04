@@ -753,7 +753,7 @@ internal static class Int32Emitter
             !result && IsRuntimeUnitValue(type) || IsRuntimeErasedValue(type) ||
             type is ITypeParameterSymbol ||
             type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
-            type.SpecialType is SpecialType.System_Byte or SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char ||
+            type.SpecialType is SpecialType.System_Byte or SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char ||
             result && type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void ||
             type is INamedTypeSymbol named && IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)named.OriginalDefinition) &&
             named.TypeArguments.All(argument => IsSymbolOnlyType(argument, false));
@@ -775,6 +775,8 @@ internal static class Int32Emitter
             {
                 SpecialType.System_Int32 => PrimitiveType.Int32,
                 SpecialType.System_Int64 => PrimitiveType.Int64,
+                SpecialType.System_Single => PrimitiveType.Single,
+                SpecialType.System_Double => PrimitiveType.Double,
                 SpecialType.System_Byte => PrimitiveType.Byte,
                 SpecialType.System_Boolean => PrimitiveType.Boolean,
                 SpecialType.System_String => PrimitiveType.String,
