@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Emit NeoCLR explicit interface property accessor mappings from symbol
+  contracts. Separate contracts, implementation and consumer execute getter/setter and
+  shared mutation on both targets; no bridge fallback or Runtime Contract change.
+
 - **2026-10-04:** Resolve imported constructed interface method overrides using substituted
   parameter types. Explicit generic property setters now receive their required MethodImpl
   mapping and load/execute on .NET. Add a focused observable execution regression.

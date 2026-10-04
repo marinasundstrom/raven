@@ -162,7 +162,7 @@ internal static class Int32Emitter
                         }
                         if (typeMember is PropertyDeclarationSyntax propertySyntax)
                         {
-                            if (propertySyntax.AttributeLists.Count != 0 || propertySyntax.ExplicitInterfaceSpecifier is not null ||
+                            if (propertySyntax.AttributeLists.Count != 0 ||
                                 propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)) ||
                                 model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol property ||
                                 property.IsStatic && (property.BackingField is not null || propertySyntax.Initializer is not null) ||
@@ -476,6 +476,16 @@ internal static class Int32Emitter
             methods.Add((plan, definition, body));
         }
         var definedMethods = methods.ToDictionary(m => m.Plan.Symbol, m => m.Method, (IEqualityComparer<IMethodSymbol>)SymbolEqualityComparer.Default);
+        foreach (var (plan, definition, _) in methods)
+            foreach (var implementation in plan.Symbol.ExplicitInterfaceImplementations)
+            {
+                var contract = implementation.ContainingType!;
+                if (contract.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty)
+                    definition.AddExplicitInterfaceImplementation(ImportExternalType(contract).ImportedType!, implementation.MetadataName);
+                else
+                    definition.AddExplicitInterfaceImplementation(nativeTypes[(INamedTypeSymbol)contract.OriginalDefinition], implementation.MetadataName,
+                        contract.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray());
+            }
         foreach (var property in properties)
         {
             CallableSignature.TryType(property.Type, false, out var propertyType, NeoClrCapabilities.Shared);

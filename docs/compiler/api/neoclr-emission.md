@@ -564,3 +564,20 @@ Tasks/Concurrency sources also compiles and its artifact-only consumer exits 42.
 Incompatible generic arguments still report RAV0320 without output publication.
 The focused ordinary .NET conversion/generic suite passes 139 tests. This is a shared
 binding correction, not new CLI bridge behavior or completion of the entire library.
+
+
+### Explicit interface properties (2026-10-04)
+
+The native adapter now admits explicit instance properties and maps each accessor using
+its semantic ExplicitInterfaceImplementations facts. Output-owned local/constructed/external
+interface references go to the metadata builder's mapping API; IL remains on GetILGenerator.
+The emitter does not reopen imported metadata. Complete interface contracts and artifact
+identities are still supplied through the existing host configuration. No Runtime Contract
+change or CLI projection fallback is introduced. Generic explicit methods and explicit
+indexer categories outside the existing emitter profile remain unsupported.
+
+Matching NeoCLR metadata emits standard MethodImpl for CLI and existing scoped native
+mappings. The checked verify_explicit_properties.py three-assembly driver gate returns 42
+on both targets and proves shared getter/setter mutation. Seven focused .NET regressions
+pass, including the independent setter-lookup fix 5f431d6c3. Actual String source now reaches
+String.Concat local definite-assignment validation; source primitive ownership is not complete.
