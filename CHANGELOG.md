@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Lower pattern conditions in portable if-expressions directly to their
+  failure branch, preserving pattern-variable assignment on the success path. Native
+  String.Concat source now emits; paired pattern consumers execute null/non-null cases.
+
 - **2026-10-04:** Emit NeoCLR explicit interface property accessor mappings from symbol
   contracts. Separate contracts, implementation and consumer execute getter/setter and
   shared mutation on both targets; no bridge fallback or Runtime Contract change.

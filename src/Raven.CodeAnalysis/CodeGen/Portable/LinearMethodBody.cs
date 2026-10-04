@@ -838,10 +838,17 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     (capabilities is null || capabilities.Allows(conditionalType)) &&
                     SymbolEqualityComparer.Default.Equals(conditional.ThenBranch.Type, conditional.Type) &&
                     SymbolEqualityComparer.Default.Equals(conditional.ElseBranch.Type, conditional.Type):
-                    if (!LowerValue(conditional.Condition)) return false;
                     var alternative = nextLabel++;
                     var joined = nextLabel++;
-                    Add(LinearInstructionKind.BranchFalse, Syntax(expression), alternative);
+                    if (conditional.Condition is BoundIsPatternExpression conditionalPattern && capabilities?.AllowsCasePatterns == true)
+                    {
+                        if (!LowerPattern(conditionalPattern.Expression, conditionalPattern.Pattern, alternative, Syntax(expression))) return false;
+                    }
+                    else
+                    {
+                        if (!LowerValue(conditional.Condition)) return false;
+                        Add(LinearInstructionKind.BranchFalse, Syntax(expression), alternative);
+                    }
                     if (!LowerValue(conditional.ThenBranch, conditional.Type)) return false;
                     Add(LinearInstructionKind.Branch, Syntax(expression), joined);
                     Add(LinearInstructionKind.Label, Syntax(expression), alternative);

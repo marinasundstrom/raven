@@ -14,6 +14,23 @@ public class PortablePatternBodyTests
             init(value: int) { Value = value }
         }
         public static class Consumer {
+            public static func Read(input: Cell?) -> int {
+                let first = if input is Cell value { value.Value } else { 1 }
+                let second = if input is Cell value { value.Value } else { 1 }
+                return first + second
+            }
+            public static func Run() -> int {
+                if Read(null) != 2 { return 0 }
+                return Read(Cell(21))
+            }
+        }
+        """)]
+    [InlineData("""
+        public class Cell {
+            val Value: int
+            init(value: int) { Value = value }
+        }
+        public static class Consumer {
             public static func Read(value: Cell?) -> int {
                 let copy: Cell? = value
                 if copy is not null {

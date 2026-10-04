@@ -581,3 +581,19 @@ mappings. The checked verify_explicit_properties.py three-assembly driver gate r
 on both targets and proves shared getter/setter mutation. Seven focused .NET regressions
 pass, including the independent setter-lookup fix 5f431d6c3. Actual String source now reaches
 String.Concat local definite-assignment validation; source primitive ownership is not complete.
+
+
+### Pattern variables in value-producing if expressions (2026-10-04)
+
+Portable if-expressions now use the same direct pattern failure branch as if-statements.
+Materializing a boolean first merged assigned/unassigned paths before reading the extracted
+value. The metadata verifier correctly rejected that control flow. No verifier relaxation,
+zero initialization workaround, format extension or Runtime Contract change is needed.
+The paired pattern-expression scenario tests two same-named pattern variables and both
+null/non-null paths through separately compiled libraries; both targets return 42.
+Unchanged source String.Concat passes emission, and the cumulative String/Char library
+emits. This is not yet proof of canonical primitive ownership or runtime storage.
+
+The fixture's null case is internal to its implementation library: native imported nullable
+reference annotations currently lose nullability (direct null argument rejects RAV1503/
+RAV1509). This remains an explicit loader/metadata gap, not a claimed fix in this slice.
