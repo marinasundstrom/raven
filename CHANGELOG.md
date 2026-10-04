@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Admit configured core Char in native imported callable signatures.
+  Separately compiled grapheme indexing/text round trips execute without changing .NET
+  emission. Date passes binding and reaches a discard-assignment emission gap; native
+  array-element receiver addresses remain explicitly unsupported.
+
 - **2026-10-04:** Document native calendar service and grapheme-length bootstrap
   acceptance. Date's remaining binding errors concern string indexing; correct the
   preceding scalar-indexing wording to the existing grapheme-based platform contract.

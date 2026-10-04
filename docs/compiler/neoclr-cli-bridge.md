@@ -5322,3 +5322,27 @@ The unchanged Date/calendar/globalization inventory now has only two string-inde
 binding errors; the missing services and cascading array-index errors are resolved.
 Later emission/runtime gaps remain unassessed while binding fails. No compiler, metadata
 or runtime implementation changed, and ordinary .NET emission is untouched.
+
+## Direct native grapheme character imports (2026-10-04)
+
+The native emitter now admits the configured core Char in imported native callable
+signatures and resolves it through the explicit host artifact binding. This keeps
+character signatures in the symbol-to-emitter path; no importer object is reused.
+Metadata decodes/encodes canonical CLI CHAR while native output uses the existing
+grapheme Char representation, including the intrinsic method owner. The primitive
+core/seed expose String's indexer and Char.ToString; regenerate the comparer core.
+
+A separately compiled CharacterContracts library returns and accepts char. Its separate
+consumer indexes combining and emoji ZWJ graphemes and preserves their full text through
+native import, calls and ToString. The broad native gate, paired Duration controls,
+seven native consumers and 130 C# metadata groups pass; a dedicated C# native execution
+check covers reimport, projection and invalid character aliases/receiver contracts.
+CLI C# controls preserve UTF-16 code units, including surrogates. The ordinary .NET
+emitter and runtime are unchanged; CLI declaration projections cannot carry native
+multi-scalar grapheme values as executable CLR char values.
+
+The unchanged Date dependency inventory now passes binding and reaches unsupported
+BoundPatternAssignmentExpression emission (discard assignments after propagation).
+A separate character-array receiver test explicitly rejects before publication: the
+portable emitter still lacks array-element addresses. The successful character consumer
+does not claim that capability. Both gaps remain visible; next is the Date discard path.
