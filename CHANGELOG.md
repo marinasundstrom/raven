@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Normalize discarded propagation statements during lowering,
+  preserving once-only evaluation and early residual returns without loading the unused
+  success value. Backport the general fix independently of the NeoCLR emitter;
+  all six focused .NET/lowering checks pass on main.
+
 - **2026-10-01:** Match concrete union-case parameter targets by case name before overload resolution. Imported carrier construction with None no longer selects a sibling Some constructor; retain carrier-level target typing. Sixteen Debug/Release, syntax and declaration-order regressions plus 323 surrounding tests pass.
 
 - **2026-10-01:** Record independent regression evidence for six compiler fixes extracted from neoCLR work: 23 focused and 174 surrounding cases pass; retain broader lowering work and the unresolved Option constructor mismatch as separate candidates.
