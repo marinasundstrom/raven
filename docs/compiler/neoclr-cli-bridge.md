@@ -6046,3 +6046,20 @@ including base-typed alias mutation, and the existing five-source text-stream li
 and artifact-only consumers still pass. The integration branch also passes 34 focused
 .NET 11 emission/constructor tests. Compiler/runtime binaries and bootstrap artifacts
 are hashed in neoCLR's `class-base-driver-2026-10-04.json` evidence.
+
+### Runtime hierarchy prerequisite and main reconciliation (2026-10-04)
+
+Raven main now contains the independently validated constructor-binding fix and the
+remaining isolated shared fixes at `4f95db536`; 148 focused .NET 11 tests passed on
+the merged code. Integrated fix branches were retired; the experimental native backend
+remains separate. The opt-in CLR source-void alias is documented as a Runtime Contract
+extension and leaves ordinary .NET defaults unchanged.
+
+The corresponding neoCLR runtime continuation admits `protected` instance constructors
+and checks caller ancestry by resolved identity across binary dependencies. Closed class
+roots require abstract/nonsealed reference representation and same-assembly/revision
+direct children. An open local child remains extensible externally. This is runtime
+validation only: native metadata builder/facade support and Raven capability admission
+remain pending, with JSON still rejected before output. Source-file/permits validation
+belongs to Raven. No importer-to-emitter coupling, bridge fallback, primitive-core or
+source-ownership configuration change is introduced.

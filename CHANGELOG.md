@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Record independent compiler-fix integration into main (`4f95db536`,
+  148 focused .NET tests) and the runtime-only protected-constructor/closed-family
+  prerequisite. Native metadata authoring and Raven admission remain pending.
+
 - **2026-10-04:** Emit local nongeneric class inheritance for NeoCLR through explicit
   semantic base identities and base-constructor operations. Preserve declaration
   ordering, constructor arguments, field initialization and inherited mutation;
