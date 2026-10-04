@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Record successful native globalization execution with neoCLR's
+  explicit instruction budget and the unchanged source-built calendar library.
+  Compiler behavior is unchanged; Clock/SystemClock and wider time-zone source
+  ownership remain the next library-expansion gaps.
+
 - **2026-10-04:** Preserve terminal System.Fail control flow in portable emission:
   retain the call and dynamic message, then guard an impossible return. Native let-else
   pattern locals now verify without default initialization; unchanged Date/calendar

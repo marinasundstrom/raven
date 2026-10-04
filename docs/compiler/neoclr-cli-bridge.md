@@ -5408,3 +5408,18 @@ reference-only let-else consumers exercise successful binding and dynamic-messag
 The unchanged Date/calendar/globalization source closure now emits; a separate consumer
 executes leap-day creation, invariant formatting and AddDays through the native artifact.
 This does not establish .NET execution of the complete calendar subset.
+
+## Native globalization execution budget (2026-10-04)
+
+The unchanged library-globalization sample now executes against the independently
+compiled native calendar library using neoCLR run --instructions 1000000. The normal
+100,000-instruction default is unchanged. This exposes existing host Limits through
+the CLI; no compiler, importer, metadata encoding or runtime instruction semantics
+changed. The native --calendar acceptance driver checks deterministic formatting,
+host-locale line shapes and the final contract-success message, alongside its existing
+application and paired .NET/NeoCLR Duration cases.
+
+The next sample inventory identifies missing source-owned Clock/SystemClock and
+time-zone/instant contracts. Those are library coverage gaps, not evidence of new
+compiler failures. Full .NET calendar-library parity and array-element receiver
+addresses remain open. No performance improvement is claimed.
