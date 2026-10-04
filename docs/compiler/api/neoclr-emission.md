@@ -548,3 +548,19 @@ This completes the bounded Number feature, not the full runtime-library gate. St
 Function work, wider constraint categories and a .NET backend replacement remain separate.
 
 Verified pair: Raven implementation `41b2573fa` and neoCLR metadata `ea7fdf77`.
+
+
+### Source-order conversion stability (2026-10-04)
+
+The source-built numeric/stream library previously failed assigning ArrayList<byte>
+to List<byte> when an empty file preceded its sources. Shared binding had cached a
+provisional failed conversion before interface declarations were complete. Such queries
+now bypass conversion caching until declarations complete; target policies, Runtime
+Contract configuration, importer/emitter boundaries and metadata encodings are unchanged.
+The 70-source library builds with the empty file first and in reverse source order.
+Separate native consumers execute numeric checks (99), generic Number dispatch (42)
+and unchanged application-order-collections (exact output, exit 0). Adding the six
+Tasks/Concurrency sources also compiles and its artifact-only consumer exits 42.
+Incompatible generic arguments still report RAV0320 without output publication.
+The focused ordinary .NET conversion/generic suite passes 139 tests. This is a shared
+binding correction, not new CLI bridge behavior or completion of the entire library.

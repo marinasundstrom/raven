@@ -19,6 +19,11 @@ public partial class Compilation
         if (source is null || destination is null)
             return Conversion.None;
 
+        // Declaration binding can query conversions before source base/interface
+        // relationships are complete. Do not retain those provisional answers.
+        if (!SourceDeclarationsComplete)
+            return ClassifyConversionCore(source, destination, includeUserDefined);
+
         var key = new ConversionCacheKey(source, destination, includeUserDefined);
         if (_conversionCache.TryGetValue(key, out var cached))
             return cached;
