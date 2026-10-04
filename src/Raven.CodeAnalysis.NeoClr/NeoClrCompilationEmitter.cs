@@ -44,7 +44,7 @@ public static class NeoClrCompilationEmitter
         if (options.BootstrapReference is { } bootstrap &&
             (!compilation.References.Any(r => ReferenceEquals(r, bootstrap)) ||
              compilation.GetAssemblyOrModuleSymbol(bootstrap) is not IAssemblySymbol bootstrapAssembly ||
-             !SymbolEqualityComparer.Default.Equals(bootstrapAssembly, compilation.GetSpecialType(SpecialType.System_Int32).ContainingAssembly)))
+             !SymbolEqualityComparer.Default.Equals(bootstrapAssembly, compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly)))
             return Fail(Configuration, "bootstrap reference must be the registered primitive core reference");
         if (options.ConsoleReference is { } console &&
             (!compilation.References.Any(r => ReferenceEquals(r, console)) || compilation.GetAssemblyOrModuleSymbol(console) is not IAssemblySymbol))

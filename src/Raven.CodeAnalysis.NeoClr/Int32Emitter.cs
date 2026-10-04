@@ -506,6 +506,25 @@ internal static class Int32Emitter
             // nongeneric owner. Reuse its declaration identity before resolving imports.
             if (definedMethods.TryGetValue(target.OriginalDefinition ?? target, out var declared))
                 return NeoClrCallableReference.Create(declared);
+            if (options.BootstrapReference is { } bootstrap && target.ContainingType is { } bootstrapOwner &&
+                SymbolEqualityComparer.Default.Equals(target.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(bootstrap)))
+            {
+                var implementation = primitiveOwners.Keys.SingleOrDefault(t =>
+                    t.ToFullyQualifiedMetadataName() == bootstrapOwner.ToFullyQualifiedMetadataName());
+                if (implementation is not null)
+                {
+                    var candidates = definedMethods.Where(pair =>
+                        SymbolEqualityComparer.Default.Equals(pair.Key.ContainingType, implementation) &&
+                        pair.Key.MetadataName == target.MetadataName && pair.Key.IsStatic == target.IsStatic &&
+                        pair.Key.Arity == target.Arity &&
+                        SymbolEqualityComparer.Default.Equals(pair.Key.ReturnType, target.ReturnType) &&
+                        pair.Key.Parameters.Length == target.Parameters.Length &&
+                        pair.Key.Parameters.Zip(target.Parameters).All(p => p.First.RefKind == p.Second.RefKind &&
+                            SymbolEqualityComparer.Default.Equals(p.First.Type, p.Second.Type))).ToArray();
+                    if (candidates.Length != 1) throw Unsupported("selected primitive source member is missing or ambiguous: " + target);
+                    return NeoClrCallableReference.Create(candidates[0].Value);
+                }
+            }
             var systemFunction = ImportSystem(target);
             return systemFunction is not null
                 ? NeoClrCallableReference.Create(systemFunction)

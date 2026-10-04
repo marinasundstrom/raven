@@ -5806,3 +5806,23 @@ consumer checks identities, scalar methods, parsing payloads/errors, NaN orderin
 arrays. Its missing-reference control publishes no file. Numeric source ownership for
 remaining types and generic Number-constrained static dispatch remain open. The
 native metadata API is kept separate; this does not replace .NET primitive types.
+
+
+The next numeric slice rebuilds the cumulative source subset and Number plus all ten
+numeric types under one native assembly owner. Earlier artifacts that called seed-owned
+Int32/Int64 members must be rebuilt; dependency visibility is not relaxed to redirect
+them into an unreferenced library. During provider compilation, exact bootstrap member
+contracts resolve to the selected output-owned source member; missing or ambiguous
+matches reject. The bootstrap reference is validated against Object, which remains in
+the explicit core, rather than the replaceable Int32 provider. Default .NET is unchanged.
+
+neoCLR's `numeric-seed.neoil` excludes Int32/Int64 declarations. Regenerate the comparer
+storage core and service seed with the current checked catalog (which adds the existing
+Int32ToString/Int64ToString services). `verify_native_numbers.py` rebuilds the cumulative
+source library from its ownership manifest, then compiles a consumer with no library
+sources. It checks all ten numeric identities, parsing boundaries, ordering, formatting,
+checked division and arrays, returning 99 with no stdout. Runtime primitive members use
+canonical names; native interface matching preserves exact signature/access checks.
+Evidence: neoCLR `numeric-source-family-2026-10-04.json`. Generic Number constraints and
+static dispatch through type parameters remain the next compiler gap. These are target
+integration changes; no independent general .NET fix was identified for backport.
