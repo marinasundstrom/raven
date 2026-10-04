@@ -1229,6 +1229,19 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.ReferenceIsNull, Syntax(expression));
                     if (comparison.Operator.OperatorKind == OperatorKind.Inequality) Add(LinearInstructionKind.Not, Syntax(expression));
                     return true;
+                case BoundBinaryExpression enumBits when capabilities?.Allows(EmissionDeclarationKind.Enum) == true &&
+                    enumBits.Operator.MethodSymbol is null && enumBits.Operator.OperatorKind is OperatorKind.BitwiseAnd or OperatorKind.BitwiseOr or OperatorKind.BitwiseXor &&
+                    enumBits.Left.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 } &&
+                    SymbolEqualityComparer.Default.Equals(enumBits.Left.Type, enumBits.Right.Type) &&
+                    SymbolEqualityComparer.Default.Equals(enumBits.Left.Type, enumBits.Type):
+                    if (!LowerValue(enumBits.Left)) return false;
+                    instructions.Add(new(LinearInstructionKind.EnumToInt32, Syntax(expression), Type: enumBits.Left.Type));
+                    if (!LowerValue(enumBits.Right)) return false;
+                    instructions.Add(new(LinearInstructionKind.EnumToInt32, Syntax(expression), Type: enumBits.Right.Type));
+                    instructions.Add(new(enumBits.Operator.OperatorKind == OperatorKind.BitwiseAnd ? LinearInstructionKind.BitwiseAnd :
+                        enumBits.Operator.OperatorKind == OperatorKind.BitwiseOr ? LinearInstructionKind.BitwiseOr : LinearInstructionKind.BitwiseXor, Syntax(expression)));
+                    instructions.Add(new(LinearInstructionKind.EnumFromInt32, Syntax(expression), Type: enumBits.Type));
+                    return true;
                 case BoundBinaryExpression enumComparison when enumComparison.Operator.MethodSymbol is null &&
                     capabilities?.Allows(EmissionDeclarationKind.Enum) == true && enumComparison.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality &&
                     enumComparison.Left.Type.TypeKind == TypeKind.Enum && SymbolEqualityComparer.Default.Equals(enumComparison.Left.Type, enumComparison.Right.Type):

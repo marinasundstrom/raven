@@ -6270,3 +6270,20 @@ nullable `default` as Factory<T>. Main `e1df355a2` accepts that same test. The p
 arrow-body binding difference in SemanticModel remains a separately assessable general
 compiler candidate; it must not be reported as fixed or caused by native Object slots.
 The next JSON blocker is preserving Flags enum metadata, then descriptor materialization.
+
+### Flags enum declarations and import (2026-10-05)
+
+The native adapter accepts the configured core's argument-free FlagsAttribute on an
+Int32 enum. Other attributes still reject explicitly. Metadata keeps the standard CLI
+marker in its reference projection and the existing native enum-info flag in execution
+metadata. NativeNamedTypeSymbol obtains IsFlagsEnum from introspection and projects
+AttributeData using the configured core's actual marker/constructor; emitters do not
+inspect importer state. Int32 enum and/or/xor use portable enum/storage conversions and
+existing integer instructions. Native representation remains nominal.
+
+The production System.Introspection.BindingFlags source compiles unchanged, then its
+artifact-only consumer returns 42. C# NeoClrMetadataProbe --flags-symbols checks semantic
+attribute identity. 12 ordinary .NET EnumCodeGenTests pass. Reproduction and cross-repo
+hashes: neoCLR `docs/experiments/extended-cli-metadata/flags-enums-2026-10-05.md`.
+Next production blocker: params-array declaration facts and import for reflection
+extensions. JSON object mapping remains in progress.

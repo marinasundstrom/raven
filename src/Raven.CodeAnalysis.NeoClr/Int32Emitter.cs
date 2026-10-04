@@ -20,6 +20,7 @@ internal static class Int32Emitter
         var plans = new List<SourceCallablePlan>();
         var runtimeServices = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         var interfaces = new List<SourceInterfacePlan>();
+        var flagsEnums = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
         var unions = new List<SourceUnionDeclarationPlan>();
         var properties = new List<SourcePropertySymbol>();
         var storageFields = new List<IFieldSymbol>();
@@ -73,9 +74,18 @@ internal static class Int32Emitter
                 }
                 else if (member is EnumDeclarationSyntax enumeration)
                 {
-                    if (enumeration.AttributeLists.Count != 0 || model.GetDeclaredSymbol(enumeration) is not INamedTypeSymbol enumSymbol ||
+                    if (model.GetDeclaredSymbol(enumeration) is not INamedTypeSymbol enumSymbol ||
                         !SourceTypePlan.TryCreate(enumSymbol, out var enumPlan, NeoClrCapabilities.Shared))
-                        throw Unsupported("top-level public/internal Int32 enum without attributes");
+                        throw Unsupported("top-level public/internal Int32 enum");
+                    var attributes = enumSymbol.GetAttributes();
+                    if (!attributes.IsEmpty)
+                    {
+                        var core = compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly;
+                        if (attributes.Length != 1 || attributes[0] is not { AttributeClass: { } attributeType, ConstructorArguments.IsEmpty: true, NamedArguments.IsEmpty: true } ||
+                            attributeType.ToFullyQualifiedMetadataName() != "System.FlagsAttribute" || !SymbolEqualityComparer.Default.Equals(attributeType.ContainingAssembly, core))
+                            throw Unsupported("only the configured core FlagsAttribute on native enums");
+                        flagsEnums.Add(enumSymbol);
+                    }
                     declaredTypes.TryAdd(enumSymbol, enumPlan!);
                 }
                 else if (member is UnionDeclarationSyntax unionSyntax)
@@ -380,6 +390,7 @@ internal static class Int32Emitter
             var definition = type.Define(typeDefinitions);
             if (primitiveOwners.TryGetValue(type.Symbol, out var primitive)) definition.SetNativePrimitive(primitive);
             if (SymbolEqualityComparer.Default.Equals(type.Symbol, graphemeOwner)) definition.SetNativeGrapheme();
+            if (flagsEnums.Contains(type.Symbol)) definition.SetEnumFlags();
             nativeTypes.Add(type.Symbol, definition);
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type], ImportExternalType));
         }

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Preserve native flags enums and project their Flags attribute into
+  compiler symbols. Emit Int32 enum bitwise operations through existing storage
+  conversions. The unchanged runtime BindingFlags source and separate consumer execute;
+  12 focused .NET enum tests pass.
+
 - **2026-10-05:** Emit bounded Object Equals/GetHashCode/ToString overrides for native
   nongeneric reference classes. Preserve virtual dispatch through local and imported
   symbols and actual class inheritance; ordinary .NET generation remains unchanged.

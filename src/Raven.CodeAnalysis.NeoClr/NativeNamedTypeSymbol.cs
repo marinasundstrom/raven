@@ -42,6 +42,16 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
             .. view.GetFields().Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(field, this, ordinal)),
             .. view.GetProperties().Select(property => (ISymbol)new NativePropertySymbol(property, this))];
     }
+    public override ImmutableArray<AttributeData> GetAttributes()
+    {
+        if (!view.IsFlagsEnum) return [];
+        var core = compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly;
+        var marker = core.GetTypeByMetadataName("System.FlagsAttribute") as INamedTypeSymbol
+            ?? throw new InvalidDataException("The configured core must declare System.FlagsAttribute for flags enums.");
+        var constructor = marker.Constructors.SingleOrDefault(m => !m.IsStatic && m.Parameters.IsEmpty && m.DeclaredAccessibility == Accessibility.Public)
+            ?? throw new InvalidDataException("The configured core FlagsAttribute requires a public parameterless constructor.");
+        return [new AttributeData(marker, constructor, [], [], null)];
+    }
     internal void AddNestedType(INamedTypeSymbol type) => members = members.Add(type);
     internal bool IsExtensionContainer
     {
