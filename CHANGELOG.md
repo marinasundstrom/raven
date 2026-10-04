@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Admit the selected core Object in symbol-authored native dependency
+  signatures. A separate native consumer now executes object-type lookup and real
+  reflection construction across an imported provider, preserving initialized state.
+  This changes only the NeoCLR adapter; .NET defaults remain unchanged.
+
 - **2026-10-04:** Add an explicit portable type-token operation for configured native
   typeof contracts. NeoCLR maps semantic operands and RuntimeTypeHandle signatures
   through its metadata adapter; ordinary .NET typeof remains on its existing generator.

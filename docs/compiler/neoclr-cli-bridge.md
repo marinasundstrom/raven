@@ -6160,3 +6160,23 @@ replacement implementation of System.Introspection. The reproducible driver is n
 17 focused C# typeof tests cover portable capability admission and existing .NET
 configured/default behavior. The metadata suite separately exercises standard CLI
 local/constructed type tokens and native PE execution.
+
+
+### Native reflection handle-service signatures (2026-10-04)
+
+The symbol-only native callable signature path now admits the selected core
+System.Object alongside RuntimeTypeHandle. Object remains an output-owned nominal
+reference resolved through the explicit core binding; it is not treated as an opaque
+primitive or an erased System.Value. No arbitrary special type is admitted.
+
+The native integration gate imports a separate provider whose GetObjectType accepts
+Object and whose Create returns Object. Real runtime services recover type identity
+and invoke a parameterless constructor; the consumer checks initialized state and
+identity against typeof. Generic handle arguments, equality, shape, display names and
+metadata tokens also execute. Missing constructors and unsupported constructed-generic
+creation report existing runtime statuses; an invalid argument index faults.
+
+This target adapter fix does not affect the ordinary .NET generator and is not an
+independent compiler-main backport candidate. Public System.Introspection descriptors
+and JSON object mapping remain open; the provider is only a focused boundary fixture.
+See neoCLR's native-handle-reflection-2026-10-04 integration record for commands/hashes.

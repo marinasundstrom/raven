@@ -862,7 +862,7 @@ internal static class Int32Emitter
             !result && IsRuntimeUnitValue(type) || IsRuntimeErasedValue(type) ||
             type is ITypeParameterSymbol ||
             type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
-            type.SpecialType is SpecialType.System_RuntimeTypeHandle or SpecialType.System_SByte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_Byte or SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char ||
+            type.SpecialType is SpecialType.System_Object or SpecialType.System_RuntimeTypeHandle or SpecialType.System_SByte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_Byte or SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char ||
             result && type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void ||
             type is INamedTypeSymbol named && IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)named.OriginalDefinition) &&
             named.TypeArguments.All(argument => IsSymbolOnlyType(argument, false));
@@ -879,7 +879,7 @@ internal static class Int32Emitter
             ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter => SignatureType.MethodParameter(parameter.Ordinal),
             ITypeParameterSymbol parameter => SignatureType.TypeParameter(parameter.Ordinal),
             IArrayTypeSymbol array => SignatureType.ArrayOf(MapSymbolOnlyType(array.ElementType)),
-            INamedTypeSymbol named when named.SpecialType == SpecialType.System_Char || IsRuntimeErasedValue(named) || named.SpecialType == SpecialType.None && IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)named.OriginalDefinition) => ImportExternalType(named),
+            INamedTypeSymbol named when named.SpecialType is SpecialType.System_Char or SpecialType.System_Object || IsRuntimeErasedValue(named) || named.SpecialType == SpecialType.None && IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)named.OriginalDefinition) => ImportExternalType(named),
             _ => type.SpecialType switch
             {
                 SpecialType.System_Int32 => PrimitiveType.Int32,
