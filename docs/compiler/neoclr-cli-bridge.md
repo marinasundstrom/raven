@@ -6218,3 +6218,30 @@ uses an explicit Object/RuntimeTypeHandle seed; it does not prove production boo
 ownership. Production descriptor factories, snapshot/vector ABI and JSON object mapping
 remain open. Services and seed callers must move together: seed code cannot call an
 internal service owned by another assembly.
+
+### Descriptor prerequisites (2026-10-05)
+
+NeoCLR admits nongeneric source sealed interfaces through AllowsClosedInterfaceFamilies.
+The metadata adapter authors native closed interface definitions; ordinary CLI interface
+flags remain Abstract/Interface. Runtime linking enforces direct-family ownership, and
+reader introspection supplies permitted direct children to the symbol loader. .NET
+sealed-hierarchy emission stays on its existing path. Generic sealed interfaces remain
+unsupported in this native profile.
+
+Static extension methods use ordinary existing semantic calls and output-owned methods.
+The exact configured bootstrap RuntimeServices.TypeHandle<T>() declaration is a native
+intrinsic: one unconstrained method parameter, public static nongeneric owner, no value
+parameters, RuntimeTypeHandle result. Lowering emits the portable type token for the
+semantic type argument, including open method parameters. No executable bootstrap stub
+or reflection/importer object is used. The temporary CLI marker needs eventual
+source-built core replacement.
+
+The paired native prerequisites return 42 (sealed interface dispatch and generic token
+equality/static extension calls). Reproduction and hashes live in neoCLR's
+`docs/experiments/extended-cli-metadata/introspection-prerequisites-2026-10-05.md`.
+The production build still needs reference-class Object overrides and descriptor
+materialization before JSON object mapping is complete.
+
+Validation: 46 focused .NET static-extension and sealed-hierarchy tests pass. Native
+metadata/runtime prerequisite commit: `44df0c27`. This admission is target-specific;
+no general compiler fix needs a main backport.

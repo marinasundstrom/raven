@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Admit nongeneric sealed interfaces through an explicit NeoCLR
+  capability, preserving native closure and direct-family relationships. Admit static
+  extension methods and lower the configured core TypeHandle<T>() intrinsic through
+  semantic type-token operands. Focused native cases execute; production descriptor
+  and JSON mapping support remain in progress.
+
 - **2026-10-05:** Admit explicit internal, nongeneric NeoCLR runtime-service functions
   marked by the configured core's MethodImpl(InternalCall) attribute. Emit bodyless
   metadata declarations beside their source-owned callers, preserving ordinary .NET

@@ -39,7 +39,8 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
             type.Arity > 0 && !capabilities.AllowsGenericInterfaceDeclarations ||
             type.TypeParameters.Any(p => p.Variance != VarianceKind.None || p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty) ||
             type.DeclaringSyntaxReferences.Length != 1 || type.DeclaringSyntaxReferences[0].GetSyntax() is not InterfaceDeclarationSyntax syntax ||
-            syntax.AttributeLists.Count != 0 || syntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword)))
+            syntax.AttributeLists.Count != 0 || syntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword) &&
+                !(m.Kind == SyntaxKind.SealedKeyword && capabilities.AllowsClosedInterfaceFamilies && type.Arity == 0)))
             return false;
         if (!type.Interfaces.IsEmpty && (!capabilities.Allows(EmissionDeclarationKind.InterfaceInheritance) ||
             type.Interfaces.Any(b => !HasSupportedRelationship(b, type.ContainingAssembly, capabilities) || b.Arity != 0 && (!capabilities.AllowsConstructedInterfaceInheritance ||

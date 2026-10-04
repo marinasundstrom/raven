@@ -64,9 +64,10 @@ internal static class Int32Emitter
                         diagnosticSyntax = extensionMember;
                         if (extensionMember is not MethodDeclarationSyntax method ||
                             (method.Body is null && method.ExpressionBody is null) || method.AttributeLists.Count != 0 ||
-                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
-                            model.GetDeclaredSymbol(method) is not IMethodSymbol { IsStatic: true, IsExtensionMethod: true, Parameters.IsEmpty: false } symbol)
-                            throw Unsupported("implemented instance extension methods");
+                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)) ||
+                            model.GetDeclaredSymbol(method) is not IMethodSymbol { IsStatic: true } symbol ||
+                            !method.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) && (!symbol.IsExtensionMethod || symbol.Parameters.IsEmpty))
+                            throw Unsupported("implemented static or instance extension methods");
                         plans.Add(GetPlan(symbol));
                     }
                 }
@@ -401,7 +402,8 @@ internal static class Int32Emitter
         {
             var symbol = contract.Symbol;
             var visibility = symbol.DeclaredAccessibility == Accessibility.Public ? TypeVisibility.Public : TypeVisibility.Internal;
-            nativeInterfaces.Add(symbol, symbol.Arity == 0 ? assembly.AddInterface(contract.Namespace, contract.Name, visibility)
+            nativeInterfaces.Add(symbol, symbol.IsSealedHierarchy ? assembly.AddClosedInterface(contract.Namespace, contract.Name, visibility)
+                : symbol.Arity == 0 ? assembly.AddInterface(contract.Namespace, contract.Name, visibility)
                 : assembly.AddGenericInterface(contract.Namespace, symbol.Name, symbol.TypeParameters.Select(p => p.Name), visibility));
         }
         foreach (var pair in nativeInterfaces) nativeTypes.Add(pair.Key, pair.Value);
@@ -676,6 +678,8 @@ internal static class Int32Emitter
                         output.CallVirtual(contract.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType))));
                     else output.CallVirtual(contract);
                 }
+                else if (instruction.Kind == LinearInstructionKind.Call && IsTypeHandleIntrinsic(instruction.Method!))
+                    output.LoadTypeToken(NeoClrTypeMapper.Map(instruction.Method!.TypeArguments[0], type => nativeTypes[type], ImportExternalType));
                 else if (instruction.Kind == LinearInstructionKind.Call && IsCheckedReservation(instruction.Method!))
                     output.ReserveArray(NeoClrTypeMapper.Map(instruction.Method!.TypeArguments[0], type => nativeTypes[type], ImportExternalType));
                 else references.Resolve(instruction.Method!).EmitCall(output);
@@ -712,6 +716,23 @@ internal static class Int32Emitter
                 ? NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteLibraryBinary(assembly)
                 : NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(assembly)
             : assembly.WriteNativeAssembly();
+
+        bool IsTypeHandleIntrinsic(IMethodSymbol method)
+        {
+            if (options.BootstrapReference is null ||
+                !SymbolEqualityComparer.Default.Equals(method.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(options.BootstrapReference)) ||
+                method.ContainingType?.ToFullyQualifiedMetadataName() != "System.Runtime.CompilerServices.RuntimeServices" || method.Name != "TypeHandle")
+                return false;
+            var definition = method.OriginalDefinition;
+            if (definition.ContainingType?.IsStatic != true || !definition.IsStatic || definition.IsVirtual ||
+                definition.DeclaredAccessibility != Accessibility.Public || definition.TypeParameters.Length != 1 ||
+                method.TypeArguments.Length != 1 || !definition.Parameters.IsEmpty ||
+                definition.TypeParameters[0].ConstraintKind != TypeParameterConstraintKind.None || !definition.TypeParameters[0].ConstraintTypes.IsEmpty ||
+                definition.ReturnType.SpecialType != SpecialType.System_RuntimeTypeHandle ||
+                method.TypeArguments[0] is INamedTypeSymbol { IsUnboundGenericType: true })
+                throw Unsupported("invalid bootstrap type-handle contract");
+            return true;
+        }
 
         bool IsCheckedReservation(IMethodSymbol method)
         {
