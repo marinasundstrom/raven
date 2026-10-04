@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Document native calendar service and grapheme-length bootstrap
+  acceptance. Date's remaining binding errors concern string indexing; correct the
+  preceding scalar-indexing wording to the existing grapheme-based platform contract.
+  Compiler implementation and ordinary .NET emission are unchanged.
+
 - **2026-10-04:** Record successful separate-library Duration foundation execution
   on .NET and NeoCLR using unchanged runtime sources. No compiler implementation change;
   Date/globalization still needs explicit string-indexing and runtime-service contracts.

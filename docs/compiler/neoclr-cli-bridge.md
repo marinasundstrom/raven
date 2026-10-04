@@ -5295,4 +5295,30 @@ RuntimeServices.UnixTimeToLocal. The latter produces cascading invalid-index dia
 No output is published. These are the first observed blockers, not an exhaustive list of
 emission/runtime gaps. Date is not replaced with a stub or a source-edited approximation.
 Next work must give those primitive/service contracts explicit owners and executable
-adapters while preserving Unicode scalar semantics; existing .NET behavior is the control.
+adapters while preserving the shipped grapheme-based Char/indexing contract; existing .NET behavior is the control.
+
+## Native calendar service and grapheme-length bootstrap (2026-10-04)
+
+The comparer-storage declaration core and retained seed now expose the existing
+RuntimeServices.SystemCultureName() and UnixTimeToLocal(long) contracts. The latter
+returns the runtime's legacy Int32 value array; the seed adapter copies its eight fields
+into a fresh nominal array reference, following the existing translated-library adapter.
+That explicit conversion costs one allocation and eight element copies per call; no
+performance improvement is claimed. The primitive core contains metadata-only declarations,
+while execution calls the real runtime services. Rebuild the core and seed together.
+
+The base seed also implements String.get_Length through StringGraphemeCount. Native
+String.Length counts extended grapheme clusters, unlike .NET's UTF-16 code-unit length.
+The preceding Duration integration note's reference to preserving scalar indexing was
+incorrect: the shipped Char/indexing contract is grapheme-based. Scalar traversal is a
+separate API. This slice does not yet add String's indexer or native Char signature support.
+
+The calendar-foundation consumer checks combining/ZWJ grapheme length, host culture
+service invocation without assuming a locale, eight date/time fields, positive and
+negative fractional Unix ticks, fresh independent array storage and the unchanged
+out-of-range fault. Expanded native application acceptance and paired .NET/NeoCLR Duration
+consumption pass. An old seed fails member validation before output publication.
+The unchanged Date/calendar/globalization inventory now has only two string-indexing
+binding errors; the missing services and cascading array-index errors are resolved.
+Later emission/runtime gaps remain unassessed while binding fails. No compiler, metadata
+or runtime implementation changed, and ordinary .NET emission is untouched.
