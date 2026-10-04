@@ -82,6 +82,26 @@ class C {
         Assert.True(CollectReturnStatements(lowered).Count() >= 2);
     }
 
+    [Theory]
+    [InlineData("Parse()? + 1")]
+    [InlineData("1 + Parse()?")]
+    [InlineData("Parse()? + Parse()? * 2")]
+    public void Lowerer_BinaryPropagationInitializer_RemovesPropagation(string initializer)
+    {
+        var source = $$"""
+            import System.*
+            class C {
+                func Test() -> Result<int, string> {
+                    let value = {{initializer}}
+                    return .Ok(value)
+                }
+                func Parse() -> Result<int, string> => .Ok(1)
+            }
+            """;
+        var (method, body) = BindMethodBody(source, "Test");
+        Assert.Empty(CollectPropagateExpressions(Lowerer.LowerBlock(method, body)));
+    }
+
     private (IMethodSymbol Method, BoundBlockStatement Body) BindMethodBody(string source, string methodName)
     {
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);

@@ -8,6 +8,50 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class PropagationCodeGenTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void BinaryPropagationPreservesEvaluationAndEarlyReturn(bool fail)
+    {
+        const string code = """
+            import System.*
+            class Harness {
+                private static var count: int = 0
+                private static func Left() -> int {
+                    count = count * 10 + 1
+                    return 10
+                }
+                private static func Read(fail: bool) -> Result<int, string> {
+                    count = count * 10 + 2
+                    if fail { return .Error("failed") }
+                    return .Ok(7)
+                }
+                private static func Right() -> int {
+                    count = count * 10 + 3
+                    return 2
+                }
+                private static func Run(fail: bool) -> Result<int, string> {
+                    let value = Left() + Read(fail)? * Right()
+                    count = count * 10 + 4
+                    return .Ok(value)
+                }
+                public static func Check(fail: bool) -> bool {
+                    let result = Run(fail)
+                    if fail { return count == 12 && result is .Error("failed") }
+                    return count == 1234 && result is .Ok(24)
+                }
+            }
+            """;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
+        var compilation = Compilation.Create("binary-propagation", [SyntaxTree.ParseText(code)], references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var pe = new MemoryStream();
+        var result = compilation.Emit(pe);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(pe, references);
+        Assert.Equal(true, loaded.Assembly.GetType("Harness")!.GetMethod("Check")!.Invoke(null, [fail]));
+    }
+
     [Fact]
     public void DiscardedPropagationEvaluatesOnceAndStopsOnError()
     {
