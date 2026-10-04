@@ -5222,3 +5222,22 @@ and exclusive ranges, zero/empty loops, nested labeled continue, break, immutabl
 captures and Int64 bounds. 55 focused .NET tests and native acceptance pass. New generic
 portable lowering remains a deferred general candidate until an independent backend
 caller merits main-based validation; no .NET emitter refactor is required.
+
+## Native integer sample bootstrap (2026-10-04)
+
+With compiler `1fb1bbd45`, unchanged `library-integers.rvn` now compiles and executes
+through the ordinary native driver. The comparer-storage primitive core explicitly
+adds `Int32.Equals(Int32)` and a nonvirtual `Int32.ToString()` declaration. The retained
+seed supplies readonly byref receivers: equality uses `ceq`, formatting calls the existing
+Int32ToString runtime service. The sample checks local and parameter receivers, equality,
+comparison and formatting at both signed extrema. The expanded `--comparers` acceptance
+gate requires exact stdout and exit 0, alongside the separate native library/application.
+
+This is explicit primitive bootstrap ownership, not compilation of `System/Int32.rvn`.
+As with existing bootstrap primitive methods, ToString is a concrete direct member;
+it does not establish .NET's virtual Object-slot override or boxed dispatch semantics.
+Declaration-only CLI placeholder bodies never execute. The eventual native primitive
+source contract must preserve those distinctions explicitly. Application/library references
+remain native, and metadata/runtime encoding and both compiler backends are unchanged.
+No new .NET regression run is needed for this bootstrap-only slice; the preceding
+55 focused tests remain the compiler baseline. The full dual-target library gate stays open.

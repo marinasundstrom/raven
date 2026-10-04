@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Record native integer-sample acceptance with explicit primitive
+  Equals/ToString bootstrap contracts. Compiler code is unchanged; this does not
+  claim source-built Int32 or virtual boxed dispatch support.
+
 - **2026-10-04:** Lower bound signed Int32/Int64 ranges behind an explicit native
   capability, preserving endpoint rules, evaluation order and loop transfers. Emit
   addresses for ordinary value parameters through the native metadata IL generator.
