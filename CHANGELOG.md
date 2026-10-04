@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Resolve imported constructed interface method overrides using substituted
+  parameter types. Explicit generic property setters now receive their required MethodImpl
+  mapping and load/execute on .NET. Add a focused observable execution regression.
+
 - **2026-10-04:** Record the NeoCLR text-service bootstrap gate: separate native
   libraries execute grapheme/scalar vectors, UTF-8 outcomes and unchanged UnicodeScalar.
   No compiler implementation changed. Source String now reaches the explicit-interface

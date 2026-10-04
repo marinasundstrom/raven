@@ -2681,7 +2681,7 @@ internal class TypeGenerator
             // Normal runtime constructed generic types (e.g. typeof(IEnumerable<int>))
             if (constructedIfaceClr.IsGenericType)
             {
-                var parms = definitionMethod.Parameters.Select(p => GetParameterClrType(p)).ToArray();
+                var parms = interfaceMethod.Parameters.Select(p => GetParameterClrType(p)).ToArray();
                 var flags = BindingFlags.Public | BindingFlags.NonPublic |
                             (definitionMethod.IsStatic ? BindingFlags.Static : BindingFlags.Instance);
 
