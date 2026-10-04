@@ -102,6 +102,26 @@ class C {
         Assert.Empty(CollectPropagateExpressions(Lowerer.LowerBlock(method, body)));
     }
 
+    [Theory]
+    [InlineData("Parse()?")]
+    [InlineData("1 + Parse()?")]
+    public void Lowerer_LocalAssignmentPropagation_RemovesPropagation(string value)
+    {
+        var source = $$"""
+            import System.*
+            class C {
+                func Test() -> Result<int, string> {
+                    var result = 0
+                    result = {{value}}
+                    return .Ok(result)
+                }
+                func Parse() -> Result<int, string> => .Ok(1)
+            }
+            """;
+        var (method, body) = BindMethodBody(source, "Test");
+        Assert.Empty(CollectPropagateExpressions(Lowerer.LowerBlock(method, body)));
+    }
+
     private (IMethodSymbol Method, BoundBlockStatement Body) BindMethodBody(string source, string methodName)
     {
         var (compilation, tree) = CreateCompilation(source, references: TestMetadataReferences.DefaultWithRavenCore);

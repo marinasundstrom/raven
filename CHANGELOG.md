@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Normalize propagation in local assignment right-hand sides through
+  shared lowering, preserving once-only evaluation and early failure returns. Cover
+  direct and eager-binary expressions without changing target contracts or metadata.
+
 - **2026-10-04:** Admit bounded native closed class families and protected constructors
   through explicit emission capabilities. Import actual base/family facts through
   introspection and author dependency-local reference conversions from symbols.

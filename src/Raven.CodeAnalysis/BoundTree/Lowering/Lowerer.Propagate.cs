@@ -27,6 +27,22 @@ internal sealed partial class Lowerer
         return base.VisitExpression(node);
     }
 
+    public override BoundNode? VisitAssignmentStatement(BoundAssignmentStatement node)
+    {
+        // A local target has no receiver or index evaluation to preserve before
+        // the right-hand side. Keep residual returns outside its assignment.
+        if (node.Expression is BoundLocalAssignmentExpression assignment
+            && RewritePropagatingInitializer(assignment.Right) is { } lowering)
+        {
+            lowering.Statements.Add(new BoundAssignmentStatement(
+                new BoundLocalAssignmentExpression(assignment.Local, assignment.Left,
+                    lowering.SuccessExpression, assignment.UnitType)));
+            return new BoundBlockStatement(lowering.Statements);
+        }
+
+        return base.VisitAssignmentStatement(node);
+    }
+
     private bool TryRewritePropagateLocalDeclaration(BoundLocalDeclarationStatement node, out List<BoundStatement> statements)
     {
         statements = new List<BoundStatement>();

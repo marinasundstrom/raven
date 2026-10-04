@@ -6097,3 +6097,15 @@ and alias identity, and reject an external direct child before output. See neoCL
 JSON source group next rejects BoundPropagateExpression during emission, without output.
 General protected members, class virtual methods, generic/nested closed roots, external
 base declarations and JSON execution remain open.
+
+
+### Local assignment propagation (2026-10-04)
+
+Shared lowering now normalizes direct/eager-binary local assignment propagation
+before either target emitter. Native execution of the reduced success/failure consumer
+returns 42 against the existing source-built libraries; no Runtime Contract, ownership,
+bootstrap mapping or metadata change is needed. The independently validated fix is on
+main at `9faabb1a2` (24 focused .NET tests); this branch passes 16 focused tests.
+The unchanged JSON group still rejects a remaining nested propagation expression and
+publishes no output. This is partial lowering coverage, not JSON completion.
+See neoCLR `local-assignment-propagation-2026-10-04.json` for executable evidence.
