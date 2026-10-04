@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Document native ScheduleTask no-result callback transport and
+  separately compiled receiver-mutation execution. Compiler behavior is unchanged;
+  source Tasks/Workers still require enum and queue-ownership support.
+
 - **2026-10-04:** Avoid caching absent source array shapes during declaration lookup,
   and defer array interface caches until target declarations are complete. Imported
   vectors retain source-owned nominal interface conversions after early member access.

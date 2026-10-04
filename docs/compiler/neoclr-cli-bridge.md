@@ -5592,3 +5592,14 @@ core still declares service signatures; native libraries and consumers use nativ
 metadata with the selected ownership manifest. The combined 57-source gate includes
 UTF-8 and file streams and executes separate consumers plus the broad application.
 Full System compilation and early-initializer interface conversions remain open.
+
+### No-result scheduling callbacks (2026-10-04)
+
+The selected native primitive core now offers ScheduleTask(Action) and
+DrainEntryTasks(). Existing function transport represents Action as
+`fn<noresult Void>`, distinct from inhabited `fn<Void>`; runtime scheduling accepts
+either explicitly and checks the exact callback target. A separately compiled
+native helper library schedules a bound receiver and its consumer observes count
+42 after draining. The 57-source combined native gate still passes. There is no
+compiler special case or CLR Object erasure. Source Tasks/Workers, TaskState enum
+emission and source queue ownership remain the next integration gates.
