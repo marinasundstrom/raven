@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Add an explicit portable type-token operation for configured native
+  typeof contracts. NeoCLR maps semantic operands and RuntimeTypeHandle signatures
+  through its metadata adapter; ordinary .NET typeof remains on its existing generator.
+  Open generic operands and virtual context resolvers remain outside this native slice.
+  A separate native test provider/consumer executes generic and external nominal typeof
+  through the real type-name service. Production descriptor/bootstrap integration is
+  still required before native JSON mapping.
+
 - **2026-10-04:** Normalize propagation in conditional value initializers through
   shared lowering, preserving branch selection, side effects and early error returns.
   Disposal scopes and arbitrary argument spilling remain outside this bounded change.

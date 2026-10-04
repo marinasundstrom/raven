@@ -862,7 +862,7 @@ internal static class Int32Emitter
             !result && IsRuntimeUnitValue(type) || IsRuntimeErasedValue(type) ||
             type is ITypeParameterSymbol ||
             type is IArrayTypeSymbol { Rank: 1, FixedLength: null, ElementType: not IArrayTypeSymbol } vector && IsSymbolOnlyType(vector.ElementType, false) ||
-            type.SpecialType is SpecialType.System_SByte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_Byte or SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char ||
+            type.SpecialType is SpecialType.System_RuntimeTypeHandle or SpecialType.System_SByte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_Byte or SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char ||
             result && type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void ||
             type is INamedTypeSymbol named && IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)named.OriginalDefinition) &&
             named.TypeArguments.All(argument => IsSymbolOnlyType(argument, false));
@@ -892,6 +892,7 @@ internal static class Int32Emitter
                 SpecialType.System_UInt16 => PrimitiveType.UInt16,
                 SpecialType.System_UInt32 => PrimitiveType.UInt32,
                 SpecialType.System_UInt64 => PrimitiveType.UInt64,
+                SpecialType.System_RuntimeTypeHandle => PrimitiveType.RuntimeTypeHandle,
                 SpecialType.System_Boolean => PrimitiveType.Boolean,
                 SpecialType.System_String => PrimitiveType.String,
                 SpecialType.System_Unit or SpecialType.System_Void => PrimitiveType.Void,

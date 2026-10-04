@@ -20,6 +20,7 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
             return SignatureType.ArrayOf(Map(element, resolveClass, resolveExternal));
         }
         var named = type.Nominal!;
+        if (named.SpecialType == SpecialType.System_RuntimeTypeHandle) return PrimitiveType.RuntimeTypeHandle;
         if (named.TypeKind == TypeKind.Delegate && CallableSignature.TryFunction(named, out var shape, NeoClrCapabilities.Shared))
             return SignatureType.Function(new MethodSignature(Map(shape.ReturnType, resolveClass, resolveExternal), shape.ParameterTypes.Select(t => Map(t, resolveClass, resolveExternal))));
         if (resolveExternal is not null && (named.TypeKind == TypeKind.Enum && named.DeclaringSyntaxReferences.IsEmpty || CallableSignature.IsExternalReference(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes) || CallableSignature.IsExternalValue(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes))) return resolveExternal(named);

@@ -6126,3 +6126,37 @@ The public serializer/object mapper remains outside this gate: adding those unch
 sources to the same catalog fails because introspection types and reflection runtime
 services are absent; cascading diagnostics are not independent compiler bugs.
 See neoCLR `conditional-propagation-json-2026-10-04.json` for commands and hashes.
+
+
+### Native typeof emission contract (2026-10-04)
+
+The portable plan now has an explicitly enabled LoadTypeToken operation whose operand
+is a Raven type symbol. A configured RuntimeTypeOfContract lowers typeof through its
+Current getter, the type token and its nonvirtual GetTypeInfoFromHandle resolver.
+Signatures and operands must pass the target profile; unbound generic operands and
+virtual/override resolvers reject. sizeof is not admitted by this path.
+
+The NeoCLR adapter maps RuntimeTypeHandle to the metadata API's opaque primitive and
+forwards the token to IILGenerator.LoadTypeToken. It authors from symbols and explicit
+artifact identities, without reopening importer objects. The metadata dependency is
+neoCLR `ad375d0b` on codex/extended-cli-metadata. CLI encoding uses the standard core
+value-type reference and ldtoken; native encoding uses the existing runtime operation.
+No new runtime format version is involved. .NET's Reflection/Emit implementation and
+unconfigured typeof behavior are unchanged.
+
+This enables the emission boundary, not a default introspection provider. Host-owned
+bootstrap catalogs must still supply the real handle services, descriptor/context
+identities and dependency ownership. No implicit projection/fallback is introduced.
+The native JSON object-mapping gate remains open until those services and unchanged
+source descriptors/mapper execute together. This target-specific slice is not an
+independent main-branch compiler-fix candidate.
+
+The focused contract provider now compiles as a native library, then an ordinary
+artifact-only consumer executes typeof on a method type parameter and an external
+nominal type through its interface. The real runtime TypeName binding supplies names;
+verification passes and execution returns 42. The provider is a test fixture, not a
+replacement implementation of System.Introspection. The reproducible driver is neoCLR's
+`docs/experiments/extended-cli-metadata/bootstrap/verify_type_handles.py`.
+17 focused C# typeof tests cover portable capability admission and existing .NET
+configured/default behavior. The metadata suite separately exercises standard CLI
+local/constructed type tokens and native PE execution.

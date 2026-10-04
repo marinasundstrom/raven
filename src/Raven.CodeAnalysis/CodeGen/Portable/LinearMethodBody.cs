@@ -8,7 +8,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble }
+internal enum LinearInstructionKind { BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -1027,6 +1027,19 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.Label, Syntax(expression), failedPattern);
                     Add(LinearInstructionKind.Boolean, Syntax(expression), 0);
                     Add(LinearInstructionKind.Label, Syntax(expression), completedPattern);
+                    return true;
+                case BoundTypeOfExpression typeOf when typeOf.SystemType.SpecialType != SpecialType.System_Int32 &&
+                    capabilities?.Allows(LinearInstructionKind.LoadTypeToken) == true &&
+                    model.Compilation.ResolveRuntimeTypeOfContract() is { } typeOfBinding:
+                    if (typeOfBinding.Resolver.IsVirtual || typeOfBinding.Resolver.IsOverride ||
+                        typeOf.OperandType is INamedTypeSymbol { IsUnboundGenericType: true } ||
+                        !TryType(typeOf.OperandType, false, out var tokenType) || !capabilities.Allows(tokenType) ||
+                        !TrySignature(typeOfBinding.CurrentGetter, out var currentSignature) || !capabilities.Allows(currentSignature) ||
+                        !TrySignature(typeOfBinding.Resolver, out var resolverSignature) || !capabilities.Allows(resolverSignature))
+                        return Reject("unsupported runtime typeof contract or operand", Syntax(expression));
+                    Add(LinearInstructionKind.Call, Syntax(expression), method: typeOfBinding.CurrentGetter);
+                    instructions.Add(new(LinearInstructionKind.LoadTypeToken, Syntax(expression), Type: typeOf.OperandType));
+                    Add(InstanceCallKind(typeOfBinding.Resolver), Syntax(expression), method: typeOfBinding.Resolver);
                     return true;
                 case BoundLiteralExpression { Value: System.Text.Rune scalar } when model.Compilation.Options.UseGraphemeChar:
                     return LowerGrapheme(scalar.ToString(), Syntax(expression));

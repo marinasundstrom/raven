@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.Loader;
 
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.CodeGen.Portable;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -45,6 +46,36 @@ public class Sample {
         return Compilation.Create("test", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
                 .WithRuntimeTypeOfContract(contract))
             .AddSyntaxTrees(tree).AddReferences(TestMetadataReferences.Default);
+    }
+
+    [Theory]
+    [InlineData("int", true)]
+    [InlineData("string[]", true)]
+    [InlineData("System.Collections.Generic.List<>", false)]
+    public void PortableTypeOfRequiresExplicitCapabilityAndCompleteOperand(string operand, bool supported)
+    {
+        var compilation = Create(operand, Contract);
+        var tree = compilation.SyntaxTrees.Single();
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.ValueText == "Run");
+        var model = compilation.GetSemanticModel(tree);
+        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+        var capabilities = new EmissionCapabilities(
+            [EmissionPrimitiveType.Int32, EmissionPrimitiveType.String],
+            [LinearInstructionKind.Call, LinearInstructionKind.InstanceCall, LinearInstructionKind.Return, LinearInstructionKind.LoadTypeToken],
+            declarations: [EmissionDeclarationKind.RootClass], typeVisibilities: [Accessibility.Public],
+            allowsRootClassSignatures: true, allowsInterfaceSignatures: true,
+            allowsExternalValueSignatures: true, allowsArrays: true);
+        var success = LinearMethodBody.TryLower(symbol, model, method.Body!, _ => false,
+            out var body, out var failure, capabilities);
+        Assert.True(success == supported, failure?.Detail);
+        if (supported)
+        {
+            Assert.NotNull(body);
+            Assert.Null(failure);
+        }
+        Assert.False(LinearMethodBody.TryLower(symbol, model, method.Body!, _ => false,
+            out _, out _, new EmissionCapabilities([], [])));
     }
 
     [Theory]

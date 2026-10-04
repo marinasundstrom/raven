@@ -18,6 +18,7 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
     {
         switch (instruction.Kind)
         {
+            case LinearInstructionKind.LoadTypeToken: method.LoadTypeToken(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
             case LinearInstructionKind.EnumFromInt32: method.ConvertToEnum(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
             case LinearInstructionKind.EnumToInt32: method.ConvertFromEnum(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal)); break;
             case LinearInstructionKind.ReferenceIsNull: method.IsNull(); break;
