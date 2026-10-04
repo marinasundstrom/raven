@@ -141,10 +141,10 @@ internal static class NeoClrCommand
             }
             foreach (var path in referencePaths)
             {
-                if (new FileInfo(path).Length > 4 * 1024 * 1024) throw new InvalidDataException("Native PE reference exceeds 4 MiB: " + path);
+                if (new FileInfo(path).Length > 16 * 1024 * 1024) throw new InvalidDataException("Native PE reference exceeds 16 MiB: " + path);
                 var bytes = File.ReadAllBytes(path);
                 // Validate executable metadata, then import native declarations without a CLI projection.
-                NativeAssemblyDefinition.ReadAssembly(RuntimeAssemblyContainer.Read(bytes));
+                _ = RuntimeAssemblyContainer.Read(bytes);
                 var reference = NeoClrMetadataReference.ReadAssembly(bytes, primitiveBootstrap!);
                 references.Add(reference);
                 dependencies.Add(new(reference, core));

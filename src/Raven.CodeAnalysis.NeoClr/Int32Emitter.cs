@@ -537,7 +537,11 @@ internal static class Int32Emitter
             },
                 type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local: " + type.ToDisplayString() + " (" + type.GetType().Name + ")"), ImportExternalType));
         }
-        return metadataAssembly ? NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(assembly) : assembly.WriteNativeAssembly();
+        return metadataAssembly
+            ? compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary
+                ? NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteLibraryBinary(assembly)
+                : NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(assembly)
+            : assembly.WriteNativeAssembly();
 
         bool IsCheckedReservation(IMethodSymbol method)
         {

@@ -5557,3 +5557,28 @@ bootstrap authoring/tooling, not the compiler. Source TaskQueue ownership/comple
 callbacks, enum emission and the single-PE 1 MiB envelope remain concrete blockers.
 See neoCLR's system-compilation-strategy.md and the new catalog audit; raw diagnostic
 counts remain unsuitable as a completion score. No projection fallback is added.
+
+
+### Explicit library PE transport profile (2026-10-04)
+
+`neoclr --library` now selects the metadata API's WriteLibraryBinary profile (required
+schema 3). Applications continue using WriteBinary/schema 2. Native PE reference
+preflight permits up to 16 MiB and delegates actual envelope/declaration validation to
+RuntimeAssemblyContainer.Read, which retains 4 MiB PE/1 MiB envelope limits for legacy
+schema 1/2. The redundant second 4 MiB JSON decode was removed; no permissive fallback
+or importer/emitter sharing was introduced. Primitive CLI core bounds remain 4 MiB.
+
+The library profile carries at most an 8 MiB envelope/32 MiB host JSON with existing row,
+storage and depth constraints. Runtime must be rebuilt with schema-3 PE admission; old
+readers reject the required schema. No .NET backend or CLI instruction behavior changed.
+
+The combined 53-source native library now emits in one >1 MiB PE and its independent
+MemoryStream and unchanged broad application consumers execute. A >4 MiB API-produced
+library also imports through rvnc and executes (exit 42). C# metadata tests: 131 groups,
+plus linked large-library execution; runtime envelope test passes. Evidence resides in
+neoCLR's bootstrap README and /tmp/combined-library53-gate-1004/validation.json.
+
+Adding four more IO/UTF-8 sources to the same compilation exposes byte[] -> Sequence<byte>
+binding with a source-owned Array<T>, though those sources already execute in a separate
+library. Investigate interface readiness/caching next rather than rewriting Utf8 source.
+Full System and full dual-target library completion remain open.

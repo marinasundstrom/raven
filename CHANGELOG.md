@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Select the explicit schema-3 native library PE profile for `neoclr
+  --library`, with validated native references up to 16 MiB. Applications retain schema 2.
+  Combined 53-source stream/broad execution and a >4 MiB native library consumer pass;
+  matching metadata library/runtime is required. Ordinary .NET output is unchanged.
+
 - **2026-10-04:** Document the checked native bootstrap service catalog and separate
   UTF-8/file-stream/worker-callback execution. Core/seed generation now shares its
   signature inventory; queue ownership and completion callback conventions remain
