@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Extend native primitive contracts to all eight fixed-width integer
+  types, with exact import and unsigned operator/conversion selection. Separate
+  integer libraries and consumers execute on .NET and NeoCLR. Reflection.Emit
+  admission stays unchanged; source primitive Number ownership and constrained
+  static dispatch remain open.
+
 - **2026-10-04:** Validate static abstract interface properties during conformance
   checking, including imported contracts. Require matching static/instance identity
   and property/accessor signatures; reject missing, instance or wrong-return-type

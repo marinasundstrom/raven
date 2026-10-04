@@ -132,6 +132,11 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         {
             PrimitiveType.Int32 => SpecialType.System_Int32,
             PrimitiveType.Byte => SpecialType.System_Byte,
+            PrimitiveType.SByte => SpecialType.System_SByte,
+            PrimitiveType.Int16 => SpecialType.System_Int16,
+            PrimitiveType.UInt16 => SpecialType.System_UInt16,
+            PrimitiveType.UInt32 => SpecialType.System_UInt32,
+            PrimitiveType.UInt64 => SpecialType.System_UInt64,
             PrimitiveType.Int64 => SpecialType.System_Int64,
             PrimitiveType.Single => SpecialType.System_Single,
             PrimitiveType.Double => SpecialType.System_Double,

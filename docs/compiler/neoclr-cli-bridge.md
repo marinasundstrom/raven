@@ -5754,3 +5754,24 @@ conformance correction was independently validated with 27 tests and integrated 
 local main as b88a8d19d; native invalid implementations now fail in binding.
 The numeric feature's completion gate remains all ten actual source primitive types,
 parsing and constrained algorithms; the Scalar fixture is not a replacement library.
+
+
+### Native integer widths (2026-10-04)
+
+The explicit native backend imports and emits all eight fixed-width integer
+signatures. Compiler-owned operands distinguish unsigned division/remainder, shifts,
+comparisons and floating conversion. The adapter selects standard CLI-equivalent
+instructions; Int32/Int64 evaluation bits do not decide signedness. Signed Int32 to
+UInt64 sign-extends, UInt32 to Int64 zero-extends. Field, property, vector and signature
+types survive native import. Ordinary .NET capability admission stays unchanged.
+
+The neoCLR `bootstrap/verify_integers.py` gate compiles a library and artifact-only
+consumer on each target; both return 42 with empty stdout. Runtime Contract selection
+remains the explicit primitive CLI bootstrap and retained runtime seed. Library
+references use native import, with no projection fallback. This does not establish
+canonical source primitive ownership; Number implementation identity/storage and
+constrained generic calls remain open. See neoCLR's
+`docs/experiments/extended-cli-metadata/integer-dual-2026-10-04.json` for commands/hashes.
+Validation: 31 focused .NET static-interface/Self/operator controls and the existing
+paired floating gate pass. Target-only capability expansion has no independent main
+backport; general binder behavior was not changed.

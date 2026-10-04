@@ -56,6 +56,17 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             case LinearInstructionKind.GreaterOrUnordered: method.Emit(OpCode.Cgt_Un); break;
             case LinearInstructionKind.Constant64: method.Emit(OpCode.Ldc_I8, instruction.Long); break;
             case LinearInstructionKind.Convert64: method.Emit(OpCode.Conv_I8); break;
+            case LinearInstructionKind.ConvertSByte: method.Emit(OpCode.Conv_I1); break;
+            case LinearInstructionKind.ConvertInt16: method.Emit(OpCode.Conv_I2); break;
+            case LinearInstructionKind.ConvertUInt16: method.Emit(OpCode.Conv_U2); break;
+            case LinearInstructionKind.ConvertUInt32: method.Emit(OpCode.Conv_U4); break;
+            case LinearInstructionKind.ConvertUInt64: method.Emit(OpCode.Conv_U8); break;
+            case LinearInstructionKind.UnsignedDivide: method.Emit(OpCode.Div_Un); break;
+            case LinearInstructionKind.UnsignedRemainder: method.Emit(OpCode.Rem_Un); break;
+            case LinearInstructionKind.UnsignedShiftRight: method.Emit(OpCode.Shr_Un); break;
+            case LinearInstructionKind.UnsignedLess: method.Emit(OpCode.Clt_Un); break;
+            case LinearInstructionKind.UnsignedGreater: method.Emit(OpCode.Cgt_Un); break;
+            case LinearInstructionKind.UnsignedConvertDouble: method.Emit(OpCode.Conv_R_Un); break;
             case LinearInstructionKind.ConvertByte: method.Emit(OpCode.Conv_U1); break;
             case LinearInstructionKind.Convert32: method.Emit(OpCode.Conv_I4); break;
             case LinearInstructionKind.Negate: method.Emit(OpCode.Neg); break;
