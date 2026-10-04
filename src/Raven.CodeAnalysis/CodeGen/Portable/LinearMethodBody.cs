@@ -163,12 +163,50 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return index;
         }
 
+        static BoundStatement NormalizeStatementExpression(BoundStatement statement)
+        {
+            if (statement is BoundExpressionStatement expressionStatement)
+            {
+                var expression = expressionStatement.Expression;
+                while (expression is BoundRequiredResultExpression required)
+                    expression = required.Operand;
+                if (expression is BoundReturnExpression returned)
+                    return new BoundReturnStatement(returned.Expression);
+                // At a statement boundary the expression is discarded; wrappers used
+                // by match lowering must not hide blocks, calls or assignments.
+                if (!ReferenceEquals(expression, expressionStatement.Expression))
+                    return new BoundExpressionStatement(expression);
+            }
+            return statement;
+        }
+
         IEnumerable<BoundStatement> Flatten(BoundStatement statement)
         {
+            statement = NormalizeStatementExpression(statement);
             if (statement is BoundBlockStatement block && block.LocalsToDispose.IsEmpty)
             {
                 foreach (var child in block.Statements)
                     foreach (var nested in Flatten(child)) yield return nested;
+            }
+            else if (statement is BoundLocalDeclarationStatement { IsUsing: false } declaration &&
+                declaration.Declarators.Any(variable => variable.Initializer is BoundBlockExpression))
+            {
+                foreach (var variable in declaration.Declarators)
+                {
+                    if (variable.FixedAddressInitializer is null && variable.FixedPinnedLocal is null &&
+                        variable.Initializer is BoundBlockExpression { LocalsToDispose.IsEmpty: true } initializer &&
+                        initializer.Statements.ToImmutableArray() is var parts && !parts.IsEmpty &&
+                        parts[^1] is BoundExpressionStatement trailing)
+                    {
+                        // An initializer is a statement evaluation boundary. Hoist its
+                        // lowered prefix so early returns do not live inside a value block.
+                        foreach (var prefix in parts.AsSpan()[..^1].ToArray())
+                            foreach (var nested in Flatten(prefix)) yield return nested;
+                        yield return new BoundLocalDeclarationStatement([
+                            new BoundVariableDeclarator(variable.Local, trailing.Expression)]);
+                    }
+                    else yield return new BoundLocalDeclarationStatement([variable]);
+                }
             }
             else
             {
@@ -580,7 +618,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 if (statement is not BoundReturnStatement { Expression: { } value })
                     return Reject("unsupported lowered statement " + statement.GetType().Name +
-                        (statement is BoundExpressionStatement unsupported ? " (" + unsupported.Expression.GetType().Name + ")" : statement is BoundAssignmentStatement assigned ? " (" + assigned.Expression.GetType().Name + ")" : ""), Syntax(statement));
+                        (statement is BoundExpressionStatement unsupported ? " (" + unsupported.Expression.GetType().Name +
+                            (unsupported.Expression is BoundRequiredResultExpression required ? "/" + required.Operand.GetType().Name : "") + ") in " + source.Name : statement is BoundAssignmentStatement assigned ? " (" + assigned.Expression.GetType().Name + ")" : ""), Syntax(statement));
                 if (!LowerValue(value, source.ReturnType)) return false;
                 Add(LinearInstructionKind.Return, Syntax(statement));
             }
@@ -589,10 +628,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
 
         static IEnumerable<BoundStatement> WalkStatements(BoundStatement statement)
         {
+            statement = NormalizeStatementExpression(statement);
             yield return statement;
             IEnumerable<BoundStatement> children = statement switch
             {
                 BoundBlockStatement block => block.Statements,
+                BoundLocalDeclarationStatement declaration => declaration.Declarators
+                    .Select(variable => variable.Initializer).OfType<BoundBlockExpression>()
+                    .SelectMany(initializer => initializer.Statements),
                 BoundExpressionStatement { Expression: BoundBlockExpression block } => block.Statements,
                 BoundIfStatement conditional => conditional.ElseNode is { } alternative
                     ? [conditional.ThenNode, alternative] : [conditional.ThenNode],

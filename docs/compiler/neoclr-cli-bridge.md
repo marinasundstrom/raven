@@ -5994,3 +5994,21 @@ The cumulative source build still binds String through the limited primitive boo
 this gate builds a separate encoding library against the completed native provider.
 StreamReader/Writer next reject a BoundRequiredResultExpression statement; JSON and
 ordinary class inheritance remain subsequent work.
+
+### Text stream control flow (2026-10-04)
+
+The portable body adapter now unwraps required-result expressions at statement
+boundaries and normalizes return expressions to return statements. Local initializer
+blocks without disposal/fixed storage are expanded into their ordered prefix statements
+and final initialization. This admits early returns in match initializers, as used by
+StreamReader.ReadPart, and discarded match blocks in StreamWriter.Pump. A nested value
+block with earlier live operands still rejects before output; control-flow scanning
+includes initializer blocks and wrapped returns. No importer, runtime contract, format
+or opcode changes are needed. Full arbitrary expression-exit normalization remains open.
+
+Five unchanged stream sources compile separately against native Encoding.dll and the
+source-owned text/collection library. Consumer execution verifies Unicode line and
+whole-stream I/O, byte counts, leaveOpen, EOF, read bounds and invalid UTF-8. The minimal
+match-return consumer checks both early-return and ordinary-result paths. Ordinary
+.NET EmissionCapabilityTests include corresponding observable control-flow coverage.
+See neoCLR docs/experiments/extended-cli-metadata/source-text-streams-2026-10-04.md.

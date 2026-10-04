@@ -1788,3 +1788,8 @@ No default Reflection/Emit changes or new main backport are required by this sli
 correctness fix with .NET evaluation-order coverage. The portable component is absent
 from main; retain it for shared-line reconciliation, rather than copying a new emission
 subsystem onto main merely to backport this fix. No default .NET defect is demonstrated.
+
+2026-10-04 text-stream gate: match initializer/statement-wrapper normalization is in
+the existing shared portable body adapter. Main does not contain this component. Keep
+the independently tested .NET control-flow fixture and the fix as reconciliation
+candidates; no default binder or Reflection/Emit defect requiring a backport is shown.

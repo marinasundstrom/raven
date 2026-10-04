@@ -8,6 +8,35 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class EmissionCapabilityTests
 {
     [Theory]
+    [InlineData(false, 42)]
+    [InlineData(true, 17)]
+    public void MatchInitializerEarlyReturnPreservesMethodControlFlow(bool present, int expected)
+    {
+        var compilation = Create("""
+            public union Choice {
+                case Item(value: int)
+                case Missing
+            }
+            public static class Choices {
+                public static func Run(present: bool) -> int {
+                    let choice: Choice = if present { .Item(16) } else { .Missing }
+                    let value = match choice {
+                        .Item(let item) => item
+                        .Missing => return 42
+                    }
+                    return value + 1
+                }
+            }
+            """);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var type = Assembly.Load(output.ToArray()).GetType("Choices")!;
+        Assert.Equal(expected, type.GetMethod("Run")!.Invoke(null, [present]));
+    }
+
+    [Theory]
     [InlineData(OptimizationLevel.Debug)]
     [InlineData(OptimizationLevel.Release)]
     public void FieldAssignmentEvaluatesReceiverOnceBeforeBranchingValue(OptimizationLevel optimization)
