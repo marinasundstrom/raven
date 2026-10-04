@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Compile source Tasks/Concurrency through native generic/interface
+  callback bindings, unit-result adapters and nullable/union pattern lowering. Preserve
+  native structural function identity and explicit target capabilities. A separately
+  emitted library executes cancellation, continuations, workers and entry draining;
+  focused .NET regressions preserve ordinary results. Full async lowering remains open.
+
 - **2026-10-04:** Admit ordinary top-level Int32 enums in the explicit NeoCLR target
   capability. Import enum/literal facts through introspection and emit declarations,
   comparisons and integer conversions through output-owned metadata/IL adapters.

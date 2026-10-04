@@ -495,6 +495,23 @@ internal static class Int32Emitter
             assembly.EntryPoint = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Plan.Symbol, entry)).Method
                 ?? throw Unsupported("entry must be a declared Int32/Unit function or static method");
         }
+        var unitAdapters = new Dictionary<int, (MethodBuilder Constructor, MethodBuilder Invoke)>();
+        (MethodBuilder Constructor, MethodBuilder Invoke) UnitAdapter(int arity, SignatureType unit)
+        {
+            if (unitAdapters.TryGetValue(arity, out var existing)) return existing;
+            var owner = arity == 0 ? assembly.AddClass("Raven.Generated", "UnitCallback", TypeVisibility.Internal)
+                : assembly.AddGenericClass("Raven.Generated", "UnitCallback", Enumerable.Range(0, arity).Select(i => "Argument" + i), TypeVisibility.Internal);
+            var parameters = Enumerable.Range(0, arity).Select(SignatureType.TypeParameter).ToArray();
+            var input = SignatureType.Function(new MethodSignature(PrimitiveType.Void, parameters));
+            var callback = owner.AddField("callback", input, FieldVisibility.Private);
+            var constructor = owner.AddConstructor(new MethodSignature(PrimitiveType.Void, [input]));
+            var body = constructor.GetILGenerator(); body.LoadArgument(0); body.LoadArgument(1); body.StoreField(callback); body.Return();
+            var invoke = owner.AddInstanceMethod("Invoke", new MethodSignature(unit, parameters));
+            body = invoke.GetILGenerator(); body.LoadArgument(0); body.LoadField(callback);
+            for (int i = 0; i < arity; i++) body.LoadArgument(i + 1);
+            body.InvokeFunction(input); body.LoadDefault(unit); body.Return();
+            return unitAdapters[arity] = (constructor, invoke);
+        }
         foreach (var current in methods)
         {
             diagnosticSyntax = current.Plan.Syntax;
@@ -503,9 +520,28 @@ internal static class Int32Emitter
                 diagnosticSyntax = instruction.Syntax;
                 if (instruction.Kind == LinearInstructionKind.FunctionBind)
                 {
-                    if (!definedMethods.TryGetValue(instruction.Method!, out var target)) throw Unsupported("Function binding requires an owned target");
-                    if (closureConstructors.TryGetValue(instruction.Method!, out var constructor)) output.NewObject(constructor);
-                    output.BindFunction(NeoClrTypeMapper.Map(instruction.Type!, type => nativeTypes[type], ImportExternalType), target);
+                    var symbol = instruction.Method!;
+                    if (!definedMethods.TryGetValue(symbol.OriginalDefinition, out var target) && !interfaceMethods.TryGetValue(symbol.OriginalDefinition, out target))
+                        throw Unsupported("Function binding requires an owned target");
+                    if (closureConstructors.TryGetValue(symbol, out var constructor)) output.NewObject(constructor);
+                    var shape = NeoClrTypeMapper.Map(instruction.Type!, type => nativeTypes[type], ImportExternalType);
+                    void Bind(SignatureType bindingShape)
+                    {
+                        if (symbol.ContainingType is { Arity: > 0 } owner)
+                            output.BindFunction(bindingShape, target.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType))));
+                        else output.BindFunction(bindingShape, target);
+                    }
+                    if (target.Signature.ReturnType.Primitive == PrimitiveType.Void && !shape.FunctionSignature!.NoResult)
+                    {
+                        var unit = NeoClrTypeMapper.Map(compilation.UnitTypeSymbol, type => nativeTypes[type], ImportExternalType);
+                        if (shape.FunctionSignature.ReturnType != unit) throw Unsupported("callback result requires an explicit conversion");
+                        var parameters = shape.FunctionSignature.ParameterTypes;
+                        Bind(SignatureType.Function(new MethodSignature(PrimitiveType.Void, parameters)));
+                        var adapter = UnitAdapter(parameters.Count, unit);
+                        if (parameters.Count == 0) { output.NewObject(adapter.Constructor); output.BindFunction(shape, adapter.Invoke); }
+                        else { output.NewObject(adapter.Constructor.MakeConstructedReference(parameters)); output.BindFunction(shape, adapter.Invoke.MakeConstructedReference(parameters)); }
+                    }
+                    else Bind(shape);
                 }
                 else if (instruction.Kind == LinearInstructionKind.LoadCapture)
                 {

@@ -43,7 +43,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         => CallableSignature.TryCreate(method, out _);
 
     internal static bool ReturnsValue(IMethodSymbol method)
-        => method.ContainingType?.TypeKind != TypeKind.Delegate && (method.OriginalDefinition ?? method).ReturnType is ITypeParameterSymbol ||
+        => (method.ContainingType?.TypeKind != TypeKind.Delegate || method.ContainingType.Name == "Func") && (method.OriginalDefinition ?? method).ReturnType is ITypeParameterSymbol ||
             CallableSignature.TryType(method.ReturnType, true, out var result) && result.Primitive != EmissionPrimitiveType.NoResult;
 
     // Lowered match/conditional bodies can retain jumps after a terminating arm.
@@ -76,7 +76,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         var captures = functionBody?.CapturedVariables.ToArray() ?? [];
         var isStaticBody = functionBody is not null ? captures.Length == 0 : source.IsStatic;
         bool ReturnsValue(IMethodSymbol method) =>
-            method.ContainingType?.TypeKind != TypeKind.Delegate && (method.OriginalDefinition ?? method).ReturnType is ITypeParameterSymbol ||
+            (method.ContainingType?.TypeKind != TypeKind.Delegate || method.ContainingType.Name == "Func") && (method.OriginalDefinition ?? method).ReturnType is ITypeParameterSymbol ||
             TryType(method.ReturnType, true, out var result) && result.Primitive != EmissionPrimitiveType.NoResult;
         bool TryType(ITypeSymbol type, bool result, out EmissionType value) => CallableSignature.TryType(type, result, out value, capabilities);
         bool TrySignature(IMethodSymbol method, out CallableSignature signature) => CallableSignature.TryCreate(method, out signature, capabilities);
@@ -195,6 +195,37 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool PatternValue(ITypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
         {
             if (pattern is BoundDiscardPattern) { Add(LinearInstructionKind.Pop, syntax); return true; }
+            if (pattern is BoundNotPattern negated && !negated.GetDesignators().Any())
+            {
+                var accepted = nextLabel++;
+                if (!PatternValue(input, negated.Pattern, accepted, syntax)) return false;
+                Add(LinearInstructionKind.Branch, syntax, fail);
+                Add(LinearInstructionKind.Label, syntax, accepted);
+                return true;
+            }
+            if (pattern is BoundDeclarationPattern { Designator: BoundSingleVariableDesignator } referencePattern &&
+                input.IsReferenceType && referencePattern.DeclaredType.IsReferenceType && referencePattern.DeclaredType.TypeKind != TypeKind.Delegate &&
+                capabilities?.Allows(LinearInstructionKind.TypeTest) == true && capabilities.Allows(LinearInstructionKind.ReferenceConvert) &&
+                TryType(input, false, out var inputReferenceType) && capabilities.Allows(inputReferenceType) &&
+                TryType(referencePattern.DeclaredType, false, out var referenceType) && capabilities.Allows(referenceType))
+            {
+                var extractedReference = localTypes.Count; localTypes.Add(inputReferenceType);
+                Add(LinearInstructionKind.StoreLocal, syntax, extractedReference);
+                Add(LinearInstructionKind.LoadLocal, syntax, extractedReference);
+                instructions.Add(new(LinearInstructionKind.TypeTest, syntax, Type: referencePattern.DeclaredType));
+                Add(LinearInstructionKind.BranchFalse, syntax, fail);
+                Add(LinearInstructionKind.LoadLocal, syntax, extractedReference);
+                instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: referencePattern.DeclaredType));
+                return PatternDesignator(referencePattern.Designator, referencePattern.DeclaredType, syntax);
+            }
+            if (pattern is BoundConstantPattern constant && input.IsReferenceType &&
+                (constant.LiteralType is { ConstantValue: null } || constant.Expression is { } value && IsNullLiteral(value)) &&
+                constant.Designator is null or BoundDiscardDesignator && capabilities?.Allows(LinearInstructionKind.ReferenceIsNull) == true)
+            {
+                Add(LinearInstructionKind.ReferenceIsNull, syntax);
+                Add(LinearInstructionKind.BranchFalse, syntax, fail);
+                return true;
+            }
             if (pattern is BoundDeclarationPattern { Designator: BoundDiscardDesignator } tested &&
                 capabilities?.Allows(LinearInstructionKind.TypeTest) == true && input.IsReferenceType &&
                 TryType(tested.DeclaredType, false, out var testedType) && capabilities.Allows(testedType))
@@ -205,7 +236,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             }
             if (pattern is BoundDeclarationPattern declaration && CallableSignature.SameStorageType(input, declaration.DeclaredType))
                 return PatternDesignator(declaration.Designator, input, syntax);
-            var tryGet = pattern switch { BoundCasePattern c => c.TryGetMethod, BoundUnionMemberPattern m => m.TryGetMethod, _ => null };
+            var tryGet = pattern switch
+            {
+                BoundCasePattern c => c.TryGetMethod,
+                BoundUnionMemberPattern m => m.TryGetMethod,
+                BoundDeclarationPattern d when input.TryGetUnion() is not null && input is INamedTypeSymbol union =>
+                    union.GetMembers("TryGetValue").OfType<IMethodSymbol>().SingleOrDefault(m => !m.IsStatic && m.Parameters is [{ RefKind: RefKind.Out } p] &&
+                        m.ReturnType.SpecialType == SpecialType.System_Boolean && CallableSignature.SameStorageType(p.GetByRefElementType(), d.DeclaredType)),
+                _ => null
+            };
             if (tryGet is null || !SymbolEqualityComparer.Default.Equals(input, tryGet.ContainingType) ||
                 !SupportedInstanceCall(tryGet) || tryGet.Parameters is not [{ RefKind: RefKind.Out } output] ||
                 !TryType(input, false, out var inputType) || !TryType(output.Type, false, out var caseType) ||
@@ -222,6 +261,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             {
                 Add(LinearInstructionKind.LoadLocal, syntax, payload);
                 return PatternValue(output.Type, member.Pattern, fail, syntax);
+            }
+            if (pattern is BoundDeclarationPattern extracted)
+            {
+                Add(LinearInstructionKind.LoadLocal, syntax, payload);
+                return PatternDesignator(extracted.Designator, output.Type, syntax);
             }
             var casePattern = (BoundCasePattern)pattern;
             if (casePattern.Arguments.Length != casePattern.CaseSymbol.ConstructorParameters.Length)
@@ -358,7 +402,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         else if (variable.Local.Type.GetNonNullableType() is INamedTypeSymbol external && capabilities?.AllowsExternalReferenceSignatures == true &&
                             CallableSignature.IsExternalReference(external, capabilities?.AllowsNestedExternalTypes == true) && TryType(external, false, out var externalType) && capabilities.Allows(externalType))
                             localType = externalType;
-                        else if (variable.Local.Type is INamedTypeSymbol nominal && SourceTypePlan.TryCreate(nominal, out var typePlan, capabilities) && !typePlan!.IsStatic && capabilities?.AllowsRootClassLocals == true)
+                        else if (variable.Local.Type.GetNonNullableType() is INamedTypeSymbol nominal && (!variable.Local.Type.IsNullable || nominal.IsReferenceType) && SourceTypePlan.TryCreate(nominal, out var typePlan, capabilities) && !typePlan!.IsStatic && capabilities?.AllowsRootClassLocals == true)
                             localType = new(Nominal: nominal);
                         else if (variable.Local.Type.GetNonNullableType() is INamedTypeSymbol { TypeKind: TypeKind.Interface } &&
                             TryType(variable.Local.Type, false, out var contractType) && capabilities?.Allows(contractType) == true)
@@ -1018,8 +1062,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundDelegateCreationExpression creation when capabilities?.AllowsFunctionValues == true &&
                     creation.Method is { IsGenericMethod: false } target &&
-                    (target.IsStatic || target is { IsVirtual: false, IsOverride: false, IsAbstract: false, ContainingType.IsReferenceType: true } && SupportedInstanceCall(target)) &&
-                    target.ContainingType?.Arity is not > 0 && !target.DeclaringSyntaxReferences.IsEmpty &&
+                    (target.IsStatic || target is { IsVirtual: false, IsOverride: false, IsAbstract: false, ContainingType.IsReferenceType: true } && SupportedInstanceCall(target)
+                        || target.ContainingType?.TypeKind == TypeKind.Interface && capabilities.AllowsInterfaceDispatch) &&
+                    (target.ContainingType?.Arity is not > 0 || capabilities.AllowsGenericClassOwners) &&
+                    !target.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty &&
                     TryType(creation.DelegateType, false, out var functionType) && capabilities.Allows(functionType):
                     if (!target.IsStatic && !Receiver(creation.Receiver, target.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.FunctionBind, Syntax(expression), Method: target, Type: creation.DelegateType));

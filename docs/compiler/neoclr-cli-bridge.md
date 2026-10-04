@@ -5622,3 +5622,33 @@ with exit 42/no stdout. It covers mutation, arrays, named comparisons and unname
 round trips. Metadata C# tests cover declaration authoring, round trips and rejection.
 This is a prerequisite for source Tasks/Workers, whose queue ownership integration is
 still open. Runtime Contract bootstrap ownership and primitive identities are unchanged.
+
+
+## Source Tasks/Concurrency callbacks (2026-10-04)
+
+The native target now compiles the six actual Tasks/Concurrency files into a separate
+library consumed without source files. The gate covers generic continuations, interface
+state-machine callbacks, cancellation, worker results and entry draining; it does not
+claim full async language lowering. Primitive declarations still use the explicit CLI
+core bootstrap, while application/library references use native introspection.
+
+Portable lowering admits source-owned methods on constructed generic reference owners
+and interfaces through explicit target capabilities. Emission creates output-owned
+method references from symbols, without reopening importer objects. `Func<unit>` retains
+its configured RuntimeUnitContract value result; Action remains no-result. For an
+otherwise no-result target the native adapter emits a small callback wrapper producing
+unit after invocation. The wrapper preserves receiver identity but allocates; it does
+not merge the two native function signatures. Native function identity consists of
+parameter/result identities and return convention, never nominal Func/Action identity.
+
+Nullable reference locals, null/negated patterns, named reference patterns and bare
+union cases now lower through shared semantic operands. The default .NET Reflection/Emit
+backend remains unchanged; focused .NET execution regressions cover the affected patterns.
+The queue ABI uses exact generic runtime-service signatures and source-owned TaskQueue
+identity. A mismatched queue type or second registration faults rather than silently
+substituting the seed's nominal type. Legacy service entry points remain supported.
+
+Reproduction and artifact/source hashes are in neoCLR's bootstrap `verify_tasks.py` and
+`tasks-native-2026-10-04.json`; the matching runtime/metadata branch is
+`codex/extended-cli-metadata` (parent 055d9928). Full System compilation remains blocked
+by incomplete service coverage, canonical primitive/Self ownership and wider capabilities.

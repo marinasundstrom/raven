@@ -54,7 +54,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             type.Name is not ("Func" or "Action") ||
             !SymbolEqualityComparer.Default.Equals(type.ContainingAssembly, type.BaseType?.ContainingAssembly) || type.GetDelegateInvokeMethod() is not { } invoke ||
             invoke.Parameters.Any(p => p.RefKind != RefKind.None) || invoke.Parameters.Length > 16 ||
-            !TryType(invoke.ReturnType, true, out var result, capabilities, depth + 1)) return false;
+            !TryType(invoke.ReturnType, type.Name == "Action", out var result, capabilities, depth + 1)) return false;
         var parameters = ImmutableArray.CreateBuilder<EmissionType>();
         foreach (var parameter in invoke.Parameters)
         {

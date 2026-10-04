@@ -9,6 +9,32 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class ExternalSignatureCapabilityTests
 {
     [Fact]
+    public void FuncUnitRetainsItsValueResultWhileActionRemainsNoResult()
+    {
+        var app = Compilation.Create("FunctionUnitShapes", [SyntaxTree.ParseText("""
+            import System.*
+            public static class Consumer {
+                public static func Use(callback: Func<unit>, action: Action) { }
+            }
+            """)], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+                .WithTargetCoreAssemblyName("System.Runtime")
+                .WithRuntimeUnitContract(new RuntimeUnitContract("System.Runtime", "System.ValueTuple")));
+        Assert.DoesNotContain(app.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsFunctionValues: true, allowsExternalValueSignatures: true);
+        Assert.True(CallableSignature.TryFunction((INamedTypeSymbol)method.Parameters[0].Type, out var function, capabilities));
+        Assert.True(function.ReturnsValue);
+        Assert.True(CallableSignature.TryFunction((INamedTypeSymbol)method.Parameters[1].Type, out var action, capabilities));
+        Assert.False(action.ReturnsValue);
+        Assert.True(LinearMethodBody.ReturnsValue(((INamedTypeSymbol)method.Parameters[0].Type).GetMembers("Invoke").OfType<IMethodSymbol>().Single()));
+    }
+
+    [Fact]
     public void TransportedUnitCallbackUsesSubstitutedResultConvention()
     {
         var app = Compilation.Create("UnitCallbackAdmission", [SyntaxTree.ParseText("""
