@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Document the checked native bootstrap service catalog and separate
+  UTF-8/file-stream/worker-callback execution. Core/seed generation now shares its
+  signature inventory; queue ownership and completion callback conventions remain
+  explicit unsupported categories. Compiler behavior is unchanged in this slice.
+
 - **2026-10-04:** Preserve the selected core System.Value identity when emitting imported
   native callable contracts. Native erased outcome consumers now compile and execute
   through generic helpers. Correct portable unit callback and discarded no-result call

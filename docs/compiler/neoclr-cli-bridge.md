@@ -5531,3 +5531,29 @@ Native evidence: /tmp/value-offset-final-1004/validation.json (including broad a
 /tmp/stream-value-final-1004/validation.json and /tmp/erased-gate-1004/validation.json.
 The independent metadata library passes 130 groups plus explicit alias/round-trip checks.
 The shared service ABI catalog is next; the seed helpers are not a complete service layer.
+
+
+### Checked native bootstrap service profile (2026-10-04)
+
+neoCLR's NativeServiceCatalog now derives comparer-core declarations and generated
+service-seed.neoil from the same RuntimeServiceBindings inventory. Twenty explicitly
+selected host services plus IsValue/UnpackValue have exact binding checks. Scalar,
+erased-value, byte/int vector-result adapters and string worker callbacks are covered.
+Unselected inventory members are not implicitly exposed. Source-owned nominal results,
+wider numbers and inhabited-Void completion callbacks reject during catalog selection.
+In particular, Action/no-result and fn<Void> must not be treated as identical signatures.
+
+Offset ownership now explicitly selects NeoCLR.CoreProbe/System.Void as the inhabited
+unit contract. Rebuild core, seed and dependent artifacts together. Nine unchanged source
+IO/Text files compile into another native library; a source-free consumer executes UTF-8,
+invalid bytes and real file create/write/flush/read/position with actual byte verification.
+A separate worker-contract library exercises a string callback and erased result. This
+is a service boundary test, not substitute source Tasks/Workers implementation.
+
+The cumulative application/calendar/collection gate remains passing. Twenty-two C#
+metadata binding checks and negative catalog-selection tests pass; earlier 39 .NET and
+seven native semantic controls remain the shared compiler baseline. This slice changes
+bootstrap authoring/tooling, not the compiler. Source TaskQueue ownership/completion
+callbacks, enum emission and the single-PE 1 MiB envelope remain concrete blockers.
+See neoCLR's system-compilation-strategy.md and the new catalog audit; raw diagnostic
+counts remain unsuitable as a completion score. No projection fallback is added.
