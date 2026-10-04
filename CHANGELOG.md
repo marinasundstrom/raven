@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Record successful separate-library Duration foundation execution
+  on .NET and NeoCLR using unchanged runtime sources. No compiler implementation change;
+  Date/globalization still needs explicit string-indexing and runtime-service contracts.
+
 - **2026-10-04:** Address value-returning getters/indexers/calls through temporary
   storage in the portable emission plan, preserving evaluation order and copy semantics.
   Native ArrayList<long> consumption executes with explicit Int64 bootstrap support;

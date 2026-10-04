@@ -5272,3 +5272,27 @@ larger globalization contracts; no stub or modified sample substitutes for it.
 This portable planner extension is a deferred general candidate for independent
 main-based validation when another backend consumes it. The current .NET emitter
 already implements temporary receiver behavior; no .NET repair is claimed.
+
+## Source-built Duration foundation on both targets (2026-10-04)
+
+The native acceptance tool now provides `--calendar-foundation`, which extends the
+comparer ownership manifest with unchanged `ComparableTo<T>`, `EquatableTo<T>` and
+`Duration` sources. These declarations belong to the source-built library; the retained
+seed and primitive core are unchanged. A native consumer imports only the emitted
+library and exercises ArrayList<Duration> storage, default values, copying, iteration,
+equality and signed-extreme comparison. The existing broad native application still runs.
+
+The same value-contract consumer also compiles and executes on ordinary .NET against
+an independently emitted library containing those three unchanged sources. The .NET
+control uses the net10 targeting pack and installed Microsoft.NETCore.App with embedded
+compiler shims, no reference-only runtime service stubs. Both consumers return 42 with
+empty stdout. This validates a bounded common source subset, not full collection-library
+parity. No compiler, metadata, runtime or guest API implementation changed in this slice.
+
+A compile inventory of unchanged Date/calendar/globalization dependencies reaches
+binding errors for missing string indexing, RuntimeServices.SystemCultureName and
+RuntimeServices.UnixTimeToLocal. The latter produces cascading invalid-index diagnostics.
+No output is published. These are the first observed blockers, not an exhaustive list of
+emission/runtime gaps. Date is not replaced with a stub or a source-edited approximation.
+Next work must give those primitive/service contracts explicit owners and executable
+adapters while preserving Unicode scalar semantics; existing .NET behavior is the control.
