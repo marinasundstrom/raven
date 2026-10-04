@@ -124,3 +124,21 @@ Constraint round-trip test reconciliation (2026-10-03): source struct flags rema
 ValueType; imported CLI flags include the implied Constructor. Correct the existing
 round-trip expectation without changing importer or emitter behavior. Seven focused
 round-trip/CLR-flag checks pass on this main-based branch.
+
+## Main integration audit (2026-10-04)
+
+The remaining seven isolated commits from `codex/compiler-fixes-from-neoclr` were
+replayed onto main after constructor-binding fix `2416a1646`. This includes shared
+union lowering/initialization, expression-body conversions, explicit unit contracts,
+reference-return nullability and the source/imported struct-constraint test correction.
+The opt-in CLR source-void alias is a Runtime Contract extension, not a default language
+change. Discarded propagation was already integrated as `22539952c` and was not repeated.
+
+The combined focused .NET 11 test run passed **148/148** tests on `0d3e5376f`, including
+constructor chaining/initializer, union constructors/output, virtual members, unit
+contracts and nullable-attribute emission. This run uses the ordinary compiler without
+the experimental native backend. Older historical validation statements above retain
+their original dates and scope. The native target remains on its integration branch.
+
+Old fix branches may be deleted after this fast-forward; their code is preserved in
+main. No remote publication or full-platform test claim follows from this local merge.

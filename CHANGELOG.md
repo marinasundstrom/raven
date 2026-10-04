@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-04:** Integrate the remaining independently validated compiler fixes into main;
+  148 focused .NET 11 regressions pass together. Record the explicit unit-contract
+  extension separately from default behavior and retire integrated local fix branches.
+
 - **2026-10-04:** Resolve explicit base constructor calls after source members are registered and
   retain canonical constructor symbols across binder re-entry. Forward declaration
   order no longer silently drops base initialization on .NET; invalid calls reject
