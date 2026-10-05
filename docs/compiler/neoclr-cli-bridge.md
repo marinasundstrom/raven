@@ -6566,3 +6566,15 @@ navigation and diagnostics, reference-change invalidation, and an editor-trigger
 build/run with source-built library references. Preserve ordinary .NET editor behavior.
 A read-only disassembler is a release candidate to assess, not a committed release gate.
 These are recorded requirements, not claims of implemented editor support.
+
+### Source Object root selection prerequisite (2026-10-05)
+
+The runtime root investigation (neoCLR `object-root-ownership-2026-10-05.md`) shows
+that matching a method to any loaded declaration named System.Object is insufficient:
+it grants intrinsic hashing to an application lookalike. That runtime experiment was
+reverted; no compiler or .NET backend behavior changes in this slice. The next contract
+must select one root explicitly through bootstrap ownership, resolve keyword/named
+Object and implicit bases consistently, and author boxing/slots from that identity.
+The runtime must receive the same selection before the retained seed root can be
+removed. Keep source Object compilation marked incomplete. Existing source-handle and
+Object-service gates do not establish root replacement.
