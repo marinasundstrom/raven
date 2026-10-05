@@ -13,7 +13,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   nested state-machine ownership and private receiver access. Generic async methods and
   async entry completion remain unsupported. Preserve default .NET behavior and output
   streams on rejected emission. Capture immutable hoisted locals from their async
-  state-machine fields so pending callbacks preserve reference identity.
+  state-machine fields so pending callbacks preserve reference identity. Preserve empty-
+  stack propagation boundaries and distinct lowered local storage, and reload generated
+  self receivers after awaits. Unchanged native HTTP client/server samples compile
+  and execute a localhost JSON round trip; async Main remains pending.
 
 - **2026-10-05:** Add `rvnc neoclr --source-object-root` for explicit core-backed
   library bootstrap builds. Preserve configured primitive providers; require an explicit

@@ -6820,3 +6820,32 @@ control-flow gap; they are not yet executable through the native compiler path.
 
 Class-method validation: 38 focused .NET async and portable declaration tests pass,
 plus native reader ownership/rejection checks and the pending receiver-mutation consumer.
+
+
+### Native async propagation and HTTP execution (2026-10-05)
+
+Portable field assignment preserves empty-stack statement context after spilling an
+ordinary reference receiver. Return/branch exits from value blocks remain rejected when
+prior operands are on the stack. Compiler-generated heap-machine self receivers are
+instead loaded after the right-hand side: async dispatch may resume inside that expression
+and must not depend on an earlier temporary store. Ordinary receiver evaluation order is
+unchanged. Distinct synthesized locals use bound-symbol instance identity, matching async
+lowering, even when names and source-less declaration identities are equal.
+
+A focused native consumer checks pending Result success/error propagation and proves
+error completion skips mutation. The unchanged HTTP JSON server and client now compile
+through rvnc with native references and execute together: GET report, POST acknowledgement,
+malformed JSON and missing route responses pass, then a native client performs its GET/POST
+pair. Both processes exit zero; server completion output and client JSON are checked.
+No native metadata encoding, library API, runtime access or scheduler behavior changes.
+Async Main, generic async methods and extension async methods remain outside this gate.
+
+Reproduce from neoCLR with `scripts/check-native-poc-samples.py --case
+native-async-propagation --case http-json-server --case http-json-client` and the existing
+explicit core/seed/ownership/native references, then `scripts/verify-native-http-json.py
+--runtime <neoclr> --server <server.dll> --client <client.dll> --seed <System.neox>
+--module <Numbers.dll> --module <Http.dll> --output <fresh-evidence.json>`.
+
+Validation: all 36 focused async and portable-body tests pass (including the new
+empty-stack field-return plan check). The two native execution controls and both HTTP
+process scenarios pass with matching output and exit status.

@@ -86,7 +86,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         var localTypes = ImmutableArray.CreateBuilder<EmissionType>();
         var nextLabel = 0;
         var labels = new Dictionary<ILabelSymbol, int>(SymbolEqualityComparer.Default);
-        var locals = new Dictionary<ILocalSymbol, int>(SymbolEqualityComparer.Default);
+        // Lowering can create distinct temporaries with the same name and no source
+        // declaration. Their storage identity is the bound symbol instance.
+        var locals = new Dictionary<ILocalSymbol, int>(ReferenceEqualityComparer.Instance);
         LinearBodyFailure? rejected = null;
         // Arrow clauses expose their bound statement block in the original view, as
         // consumed by the general generator. Reuse compiler lowering for conversions
@@ -621,27 +623,39 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (memberAssignment is BoundFieldAssignmentExpression fieldAssignment)
                 {
                     var owner = fieldAssignment.Field.ContainingType!;
-                    if (!SupportedField(fieldAssignment.Field) ||
-                        !Receiver(fieldAssignment.Receiver, owner, Syntax(statement)))
+                    if (!SupportedField(fieldAssignment.Field))
                         return Reject("unsupported instance field assignment", Syntax(statement));
                     if (owner.IsReferenceType)
                     {
-                        // Preserve receiver-before-value evaluation without keeping a receiver
-                        // on the stack across control flow (including terminal failure) in the RHS.
+                        // Async dispatch can resume inside the RHS. Reload the generated
+                        // self receiver afterwards instead of relying on a pre-await local.
+                        // Ordinary receivers must still be evaluated before the value.
+                        var reloadSelf = owner.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol &&
+                            fieldAssignment.Receiver is null or BoundSelfExpression;
                         if (!TryType(owner, false, out var receiverType) ||
                             !TryType(fieldAssignment.Field.Type, false, out var valueType))
                             return Reject("unsupported field assignment storage", Syntax(statement));
-                        var receiverSlot = localTypes.Count;
-                        localTypes.Add(receiverType);
-                        Add(LinearInstructionKind.StoreLocal, Syntax(statement), receiverSlot);
-                        if (!LowerValue(fieldAssignment.Right, fieldAssignment.Field.Type)) return false;
+                        var receiverSlot = -1;
+                        if (!reloadSelf)
+                        {
+                            if (!Receiver(fieldAssignment.Receiver, owner, Syntax(statement))) return false;
+                            receiverSlot = localTypes.Count;
+                            localTypes.Add(receiverType);
+                            Add(LinearInstructionKind.StoreLocal, Syntax(statement), receiverSlot);
+                        }
+                        if (!LowerValue(fieldAssignment.Right, fieldAssignment.Field.Type, atStatementBoundary)) return false;
                         var valueSlot = localTypes.Count;
                         localTypes.Add(valueType);
                         Add(LinearInstructionKind.StoreLocal, Syntax(statement), valueSlot);
-                        Add(LinearInstructionKind.LoadLocal, Syntax(statement), receiverSlot);
+                        if (reloadSelf)
+                        {
+                            if (!Receiver(fieldAssignment.Receiver, owner, Syntax(statement))) return false;
+                        }
+                        else Add(LinearInstructionKind.LoadLocal, Syntax(statement), receiverSlot);
                         Add(LinearInstructionKind.LoadLocal, Syntax(statement), valueSlot);
                     }
-                    else if (!LowerValue(fieldAssignment.Right, fieldAssignment.Field.Type)) return false;
+                    else if (!Receiver(fieldAssignment.Receiver, owner, Syntax(statement)) ||
+                        !LowerValue(fieldAssignment.Right, fieldAssignment.Field.Type)) return false;
                     instructions.Add(new(LinearInstructionKind.StoreField, Syntax(statement), Field: fieldAssignment.Field));
                     continue;
                 }
@@ -1051,16 +1065,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         capabilities is not null && !capabilities.Allows(blockType))
                         return Reject("value block requires a supported trailing value expression", Syntax(block));
                     // A value block may be evaluated with earlier operands still on the
-                    // stack. Only an empty-stack statement boundary admits a method return;
-                    // jumps outside the block remain unsupported.
+                    // stack. Only an empty-stack statement boundary admits a method return
+                    // or an async-lowered branch to the enclosing method's completion label.
                     var controlFlow = statements.Take(statements.Length - 1).SelectMany(WalkStatements).ToArray();
                     var localLabels = controlFlow.OfType<BoundLabeledStatement>()
                         .Select(label => label.Label).ToHashSet<ILabelSymbol>(SymbolEqualityComparer.Default);
                     foreach (var statement in controlFlow)
                     {
-                        if (!atStatementBoundary && statement is (BoundReturnStatement or BoundExpressionStatement { Expression: BoundReturnExpression }) ||
+                        if (!atStatementBoundary && (statement is (BoundReturnStatement or BoundExpressionStatement { Expression: BoundReturnExpression }) ||
                             statement is BoundGotoStatement jump && !localLabels.Contains(jump.Target) ||
-                            statement is BoundConditionalGotoStatement branch && !localLabels.Contains(branch.Target))
+                            statement is BoundConditionalGotoStatement branch && !localLabels.Contains(branch.Target)))
                             return Reject("value block cannot exit its enclosing expression", Syntax(statement));
                     }
                     foreach (var prefix in statements.AsSpan()[..^1])

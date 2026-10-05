@@ -1793,3 +1793,20 @@ subsystem onto main merely to backport this fix. No default .NET defect is demon
 the existing shared portable body adapter. Main does not contain this component. Keep
 the independently tested .NET control-flow fixture and the fix as reconciliation
 candidates; no default binder or Reflection/Emit defect requiring a backport is shown.
+
+
+## Deferred ordinary field-return candidate — 2026-10-05
+
+While validating native async propagation, an ordinary .NET source case compiled but
+threw InvalidProgramException: a reference field assignment RHS block contains an early
+method return (`cell.Value = { if input is null { return 42 }; 1 }`). The complete source
+is preserved in PortableReferenceFieldReturnUsesEmptyStackBoundary, which tests the
+portable plan contract only; native runtime execution is tested independently. The
+Reflection.Emit execution failure is not concealed as a passing .NET assertion.
+
+Main reproduction and a separate fix branch remain pending. This slice changes only the
+portable body path; local main e33591945 does not contain that implementation. Do not
+cherry-pick the native path change as a fix for the distinct .NET emitter bug. Reproduce
+on main, correct receiver/stack evaluation at the owning layer, test both returning and
+fallthrough paths, then integrate and clean up the isolated fix branch. Existing focused
+.NET async tests remain regression controls, not evidence that this new case works.

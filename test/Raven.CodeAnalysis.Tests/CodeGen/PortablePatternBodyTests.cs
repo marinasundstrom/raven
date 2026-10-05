@@ -7,6 +7,41 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class PortablePatternBodyTests
 {
+    [Fact]
+    public void PortableReferenceFieldReturnUsesEmptyStackBoundary()
+    {
+        const string source = """
+        public class Cell {
+            public field Value: int
+        }
+        public static class Consumer {
+            public static func Read(input: Cell?) -> int {
+                let cell = Cell()
+                cell.Value = {
+                    if input is null { return 42 }
+                    1
+                }
+                return cell.Value
+            }
+            public static func Run() -> int {
+                if Read(Cell()) != 1 { return 0 }
+                return Read(null)
+            }
+        }
+        """;
+        var tree = SyntaxTree.ParseText(source);
+        var compilation = Compilation.Create("FieldReturn", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.ValueText == "Read");
+        var symbol = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsCasePatterns: true);
+        Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, capabilities));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities), failure?.Detail);
+    }
+
     [Theory]
     [InlineData("""
         public class Cell {
