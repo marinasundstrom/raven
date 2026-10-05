@@ -502,3 +502,17 @@ single production JavaScript entry point. The VSIX excludes `node_modules`,
 source files, source maps, and language-server symbols while retaining the
 framework-dependent server binaries, grammar, configuration, README, and MIT
 license.
+
+## Experimental NeoCLR adapter packages
+
+Set `RAVEN_NEOCLR_METADATA_PROJECT` to the absolute path of the matching
+`NeoCLR.Metadata.Experimental.csproj` when running `package-sdk.sh` or
+`package-vscode.sh`. The selection is forwarded to every build/publish so the
+compiler and language server carry the same native adapter. Omit it for ordinary
+Raven packages. A missing project fails before staging outputs.
+
+This opt-in builds tooling; it does not supply a NeoCLR core/bootstrap, runtime seed,
+source-built libraries, ownership manifest or runtime executable. Those must be
+packaged and qualified with matching identities separately. The normal Raven
+toolbar remains the .NET workflow; native projects use explicit build/run tasks.
+Use local candidate versions until installation and runtime acceptance passes.

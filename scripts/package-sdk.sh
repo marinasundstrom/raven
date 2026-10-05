@@ -5,6 +5,15 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RID="${1:-}"
 VERSION="${2:-0.1.0-dev}"
 TFM="net11.0"
+# Optional native adapter selection is explicit; default Raven packages remain .NET-only.
+METADATA_ARGS=()
+if [[ -n "${RAVEN_NEOCLR_METADATA_PROJECT:-}" ]]; then
+  if [[ ! -f "$RAVEN_NEOCLR_METADATA_PROJECT" ]]; then
+    echo "RAVEN_NEOCLR_METADATA_PROJECT must name the metadata project." >&2
+    exit 1
+  fi
+  METADATA_ARGS+=("-p:NeoClrMetadataProject=$RAVEN_NEOCLR_METADATA_PROJECT")
+fi
 OUTPUT_DIR="${RAVEN_PACKAGE_OUTPUT:-$ROOT_DIR/artifacts/distribution}"
 
 if [[ -z "$RID" ]]; then
@@ -23,25 +32,25 @@ mkdir -p "$STAGE_DIR/bin" "$STAGE_DIR/tools/rvn" "$STAGE_DIR/tools/rvnc" \
 
 # Raven.Core is compiled by the Raven compiler while publishing rvnc. Bootstrap
 # a host compiler first so packaging also works in a clean checkout.
-dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Debug -f "$TFM" \
+dotnet build ${METADATA_ARGS[@]+"${METADATA_ARGS[@]}"} "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Debug -f "$TFM" \
   -p:UseRavenCoreReference=false /property:WarningLevel=0
-dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Release -f "$TFM" \
+dotnet build ${METADATA_ARGS[@]+"${METADATA_ARGS[@]}"} "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Release -f "$TFM" \
   -p:UseRavenCoreReference=false /property:WarningLevel=0 \
   /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
   /property:IncludeSourceRevisionInInformationalVersion=false
 
-dotnet publish "$ROOT_DIR/src/Raven/Raven.csproj" -c Release -f "$TFM" -r "$RID" \
+dotnet publish ${METADATA_ARGS[@]+"${METADATA_ARGS[@]}"} "$ROOT_DIR/src/Raven/Raven.csproj" -c Release -f "$TFM" -r "$RID" \
   --self-contained false -o "$PUBLISH_DIR/rvn" /property:WarningLevel=0 \
   /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
   /property:IncludeSourceRevisionInInformationalVersion=false
-dotnet publish "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Release -f "$TFM" -r "$RID" \
+dotnet publish ${METADATA_ARGS[@]+"${METADATA_ARGS[@]}"} "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Release -f "$TFM" -r "$RID" \
   --self-contained false -o "$PUBLISH_DIR/rvnc" /property:WarningLevel=0 \
   /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
   /property:IncludeSourceRevisionInInformationalVersion=false
-dotnet build "$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj" -c Release -f "$TFM" \
+dotnet build ${METADATA_ARGS[@]+"${METADATA_ARGS[@]}"} "$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj" -c Release -f "$TFM" \
   /property:WarningLevel=0 \
   /property:RavenCompilerHost="$ROOT_DIR/src/Raven.Compiler/bin/Release/$TFM/rvnc.dll"
-dotnet publish "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" -c Release -f "$TFM" -r "$RID" \
+dotnet publish ${METADATA_ARGS[@]+"${METADATA_ARGS[@]}"} "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" -c Release -f "$TFM" -r "$RID" \
   --self-contained false -o "$PUBLISH_DIR/language-server" /property:WarningLevel=0 \
   /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
   /property:IncludeSourceRevisionInInformationalVersion=false

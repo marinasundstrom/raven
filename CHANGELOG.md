@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Allow SDK/VSIX packaging to explicitly include the matching native
+  metadata adapter via `RAVEN_NEOCLR_METADATA_PROJECT`; default packages remain
+  unchanged. Native runtime/library bundling and installation qualification are
+  separate release gates.
+
 - **2026-10-05:** Show native referenced API XML/Markdown documentation in editor
   hovers and completion details, with Markdown-first member lookup and XML fallback.
   Native project library builds emit documentation sidecars; watched sidecar edits
