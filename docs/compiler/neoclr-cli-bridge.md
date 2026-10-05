@@ -6849,3 +6849,26 @@ explicit core/seed/ownership/native references, then `scripts/verify-native-http
 Validation: all 36 focused async and portable-body tests pass (including the new
 empty-stack field-return plan check). The two native execution controls and both HTTP
 process scenarios pass with matching output and exit status.
+
+
+### Native async entry completion (2026-10-05)
+
+Console entries returning the explicitly selected native Task<unit> or Task<int> now
+receive an internal assembly-level Int32 startup adapter. It forwards the source entry's
+parameters, calls that entry, invokes the explicitly bound RuntimeServices.DrainEntryTasks,
+then calls the native task's GetResult. A Unit value is discarded and returns zero; an
+Int32 becomes the process exit status. The source function retains its Task signature.
+
+This reuses the existing runtime entry dispatcher and retains the task on the startup
+frame while registered work finishes. It does not poll or introduce suspension/green
+threads. Cancelled tasks and tasks still pending without registered work fault through
+GetResult rather than silently succeeding. Task<Result<...>> entry adaptation remains
+unsupported; no success/error mapping is invented. Native service selection still uses
+symbol facts and the host dependency catalog. Missing service bindings publish nothing.
+The ordinary .NET entry bridge is unchanged.
+
+Validation: both unchanged async Main samples execute with exact output, including worker
+completion; a pending integer entry forwards String[] arguments and exits 23. Cancelled
+and unresolved entries exit 1 with the expected faults. The native C# probe checks the
+separate Int32 startup metadata and missing-runtime failure-before-publication. All 60
+focused .NET async-entry, target-entry, entry diagnostics and async-method tests pass.

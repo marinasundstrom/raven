@@ -683,8 +683,40 @@ internal static class Int32Emitter
         if (compilation.Options.OutputKind == OutputKind.ConsoleApplication)
         {
             var entry = compilation.GetEntryPoint() ?? throw Unsupported("entry point unavailable");
-            assembly.EntryPoint = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Plan.Symbol, entry)).Method
+            var implementation = methods.SingleOrDefault(m => SymbolEqualityComparer.Default.Equals(m.Plan.Symbol, entry)).Method
                 ?? throw Unsupported("entry must be a declared Int32/Unit function or static method");
+            if (entry.ReturnType is INamedTypeSymbol { SpecialType: SpecialType.System_Threading_Tasks_Task_T, TypeArguments.Length: 1 } task)
+            {
+                var result = task.TypeArguments[0];
+                if (result.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_Unit or SpecialType.System_Void))
+                    throw Unsupported("native async entry requires Task<int> or Task<unit>");
+                var getResult = task.GetMembers("GetResult").OfType<IMethodSymbol>().SingleOrDefault(m =>
+                    !m.IsStatic && m.Arity == 0 && m.Parameters.IsEmpty && m.DeclaredAccessibility == Accessibility.Public &&
+                    SymbolEqualityComparer.Default.Equals(m.ReturnType, result))
+                    ?? throw Unsupported("native async entry GetResult contract unavailable");
+                var drain = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RuntimeServices")?
+                    .GetMembers("DrainEntryTasks").OfType<IMethodSymbol>().SingleOrDefault(m =>
+                        m.IsStatic && m.Arity == 0 && m.Parameters.IsEmpty && m.DeclaredAccessibility == Accessibility.Public &&
+                        m.ReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
+                    ?? throw Unsupported("native async entry requires explicit DrainEntryTasks runtime binding");
+                var adapter = assembly.AddFunction("Raven.Generated", "<AsyncEntry>",
+                    new MethodSignature(PrimitiveType.Int32, implementation.Signature.ParameterTypes), MethodVisibility.Internal);
+                var body = adapter.GetILGenerator();
+                for (var i = 0; i < entry.Parameters.Length; i++) body.LoadArgument(i);
+                body.Call(implementation);
+                // The runtime drains registered work while retaining the caller frame
+                // and its task value, then resumes here to observe completion/failure.
+                references.Resolve(drain).EmitCall(body);
+                references.Resolve(getResult).EmitCall(body);
+                if (result.SpecialType != SpecialType.System_Int32)
+                {
+                    body.Emit(OpCode.Pop);
+                    body.LoadConstant(0);
+                }
+                body.Return();
+                assembly.EntryPoint = adapter;
+            }
+            else assembly.EntryPoint = implementation;
         }
         var unitAdapters = new Dictionary<int, (MethodBuilder Constructor, MethodBuilder Invoke)>();
         (MethodBuilder Constructor, MethodBuilder Invoke) UnitAdapter(int arity, SignatureType unit)

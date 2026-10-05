@@ -16,7 +16,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   state-machine fields so pending callbacks preserve reference identity. Preserve empty-
   stack propagation boundaries and distinct lowered local storage, and reload generated
   self receivers after awaits. Unchanged native HTTP client/server samples compile
-  and execute a localhost JSON round trip; async Main remains pending.
+  and execute a localhost JSON round trip. Native Task<unit>/Task<int> entry adapters
+  forward arguments, drain existing runtime work and observe task completion before
+  returning exit status; cancellation and unresolved tasks fail explicitly.
 
 - **2026-10-05:** Add `rvnc neoclr --source-object-root` for explicit core-backed
   library bootstrap builds. Preserve configured primitive providers; require an explicit

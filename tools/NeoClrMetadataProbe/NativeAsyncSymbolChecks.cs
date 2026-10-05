@@ -64,6 +64,47 @@ internal static class NativeAsyncSymbolChecks
                 t.DeclaringType?.Name == "Worker") != 1)
                 throw new Exception("class async state machine lost its declaring owner");
         }
+        if (seedPath is not null)
+        {
+            var entry = Compilation.Create("AsyncEntry", [SyntaxTree.ParseText("""
+                import System.Tasks.*
+                async func Main() -> Task<int> { return 23 }
+                """)], [bootstrap.Reference, native], selected.Options.WithOutputKind(OutputKind.ConsoleApplication));
+            foreach (var includeRuntime in new[] { true, false })
+            {
+                using var output = new MemoryStream();
+                if (!includeRuntime) output.WriteByte(42);
+                var dependencies = new List<NeoClrMetadataDependency> { new(native, core.Identity) };
+                if (includeRuntime) dependencies.Add(new(bootstrap.Reference, core, core.Identity,
+                    NativeLibraryDefinition.ReadAssembly(File.ReadAllBytes(seedPath))));
+                var result = NeoClrCompilationEmitter.EmitMetadataAssembly(entry, output,
+                    new(new("AsyncEntry", new(1, 0, 0, 0)), core.Identity, dependencies, bootstrapReference: bootstrap.Reference));
+                if (includeRuntime)
+                {
+                    if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics));
+                    var assembly = AssemblyDefinition.ReadNativeAssembly(output.ToArray());
+                    if (assembly.EntryPoint is not { } startup ||
+                        !startup.TryGetStaticInt32Signature(out var parameters, out var returnsValue) || parameters != 0 || !returnsValue ||
+                        startup.Name == "Main")
+                        throw new Exception("async entry did not retain a separate Int32 startup contract");
+                }
+                else if (result.Success || !output.ToArray().SequenceEqual(new byte[] { 42 }) || output.Position != 1)
+                    throw new Exception("missing async runtime binding published output");
+            }
+        }
+        var unsupportedEntry = Compilation.Create("UnsupportedEntry", [SyntaxTree.ParseText("""
+            import System.Tasks.*
+            async func Main() -> Task<System.Result<int, string>> { return default }
+            """)], [bootstrap.Reference, native], selected.Options.WithOutputKind(OutputKind.ConsoleApplication));
+        using (var output = new MemoryStream())
+        {
+            output.WriteByte(42);
+            var result = NeoClrCompilationEmitter.EmitMetadataAssembly(unsupportedEntry, output,
+                new(new("UnsupportedEntry", new(1, 0, 0, 0)), core.Identity,
+                    [new NeoClrMetadataDependency(native, core.Identity)], bootstrapReference: bootstrap.Reference));
+            if (result.Success || !output.ToArray().SequenceEqual(new byte[] { 42 }) || output.Position != 1)
+                throw new Exception("unsupported async entry result published output");
+        }
         foreach (var source in new[]
         {
             "import System.Tasks.*\nclass Worker<T> { public async func Value(value: T) -> Task<T> { return value } }",
