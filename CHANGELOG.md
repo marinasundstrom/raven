@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Load explicitly selected native NeoCLR artifacts into evaluated
+  projects through an optional metadata provider. Enable native completion, hover
+  and semantic diagnostics in adapter-enabled language-server builds. Preserve
+  default CLI/bridge loading; reject missing adapters, incompatible core selection
+  and unsupported package/project/framework dependencies before project publication.
+  Reference refresh, navigation and native project build/run remain pending.
+
 - **2026-10-05:** Extract native reference setup into `NeoClrReferenceCatalog` for
   CLI and future project/editor hosts. Read the explicit primitive bootstrap once,
   share semantic/emission reference identities and retain immutable native snapshots

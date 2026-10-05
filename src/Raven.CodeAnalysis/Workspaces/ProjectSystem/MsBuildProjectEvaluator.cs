@@ -75,15 +75,18 @@ internal static class MsBuildProjectEvaluator
             })
             .ToImmutableArray();
 
-        var metadataReferencePaths = project.GetItems("Reference")
+        var customMetadata = GetOptionalProperty(project, "RavenMetadataFormat") is { } format &&
+            !string.Equals(format, "CLI", StringComparison.OrdinalIgnoreCase);
+        if (customMetadata && project.GetItems("Reference").Any(item => string.IsNullOrWhiteSpace(item.GetMetadataValue("HintPath"))))
+            throw new InvalidOperationException("Explicit metadata formats require a HintPath for every Reference.");
+        var metadataReferenceCandidates = project.GetItems("Reference")
             .Select(item => item.GetMetadataValue("HintPath"))
             .Where(static value => !string.IsNullOrWhiteSpace(value))
             .Select(path => Path.IsPathRooted(path!)
                 ? path!
                 : Path.GetFullPath(Path.Combine(projectDirectory, path!)))
-            .Where(File.Exists)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToImmutableArray();
+            .Where(path => customMetadata || File.Exists(path));
+        var metadataReferencePaths = (customMetadata ? metadataReferenceCandidates : metadataReferenceCandidates.Distinct(StringComparer.OrdinalIgnoreCase)).ToImmutableArray();
 
         var projectReferencePaths = project.GetItems("ProjectReference")
             .Where(item => !string.Equals(
@@ -91,7 +94,7 @@ internal static class MsBuildProjectEvaluator
                 "false",
                 StringComparison.OrdinalIgnoreCase))
             .Select(item => GetFullPath(projectDirectory, item))
-            .Where(File.Exists)
+            .Where(path => customMetadata || File.Exists(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToImmutableArray();
 
@@ -359,7 +362,10 @@ internal static class MsBuildProjectEvaluator
             GetBooleanProperty(project, "EmitCompilerGeneratedFiles") == true
                 ? Path.GetFullPath(NormalizePathSeparators(GetOptionalProperty(project, "CompilerGeneratedFilesOutputPath")
                     ?? Path.Combine(intermediateOutputPath, "generated")), projectDirectory)
-                : null);
+                : null,
+            project.AllEvaluatedProperties.Where(p => p.Name.StartsWith("Raven", StringComparison.OrdinalIgnoreCase))
+                .GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .ToImmutableDictionary(g => g.Key, g => g.Last().EvaluatedValue, StringComparer.OrdinalIgnoreCase));
     }
 
     private static bool IsCSharpCompilerPluginSource(string sourcePath)
@@ -671,4 +677,5 @@ internal readonly record struct MsBuildProjectEvaluationResult(
     ParseOptions ParseOptions,
     bool UseHostFrameworkReferences,
     ImmutableArray<string> EvaluationInputPaths,
-    string? CompilerGeneratedFilesOutputPath);
+    string? CompilerGeneratedFilesOutputPath,
+    ImmutableDictionary<string, string> TargetProperties);

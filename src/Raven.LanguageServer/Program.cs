@@ -12,6 +12,17 @@ namespace Raven.LanguageServer;
 
 internal static class Program
 {
+    private static IProjectSystemService CreateProjectSystem()
+    {
+#if NEOCLR_METADATA
+        return new MsBuildProjectSystemService(RavenProjectConventions.Default, resolvePackageReferences: true,
+            requestedConfiguration: null, requestedTargetFramework: null,
+            metadataProvider: new Raven.CodeAnalysis.NeoClr.NeoClrProjectMetadataProvider());
+#else
+        return new MsBuildProjectSystemService();
+#endif
+    }
+
     static async Task Main(string[] args)
     {
         var logPath = ResolveLogPath();
@@ -36,6 +47,7 @@ internal static class Program
                 services.AddSingleton<IWorkspaceEventSink>(static provider =>
                     provider.GetRequiredService<LanguageServerWorkspaceEventSink>());
                 services.AddSingleton(static provider => RavenWorkspace.Create(
+                    projectSystemService: CreateProjectSystem(),
                     workspaceEventSink: provider.GetRequiredService<IWorkspaceEventSink>()));
                 services.AddSingleton<WorkspaceManager>();
                 services.AddSingleton<DocumentStore>();

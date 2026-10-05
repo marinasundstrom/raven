@@ -19,6 +19,7 @@ public enum ProjectReferenceLoadMode
 public sealed class MsBuildProjectSystemService : IProjectSystemService
 {
     private readonly RavenProjectConventions _conventions;
+    private readonly IProjectMetadataProvider? _metadataProvider;
     private readonly bool _resolvePackageReferences;
     private readonly bool _allowPackageRestore;
     private readonly string? _requestedConfiguration;
@@ -77,7 +78,8 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         bool? useHostFrameworkReferences = null,
         IEnumerable<string>? compilerSupportReferencePaths = null,
         bool allowPackageRestore = true,
-        ProjectReferenceLoadMode projectReferenceLoadMode = ProjectReferenceLoadMode.Source)
+        ProjectReferenceLoadMode projectReferenceLoadMode = ProjectReferenceLoadMode.Source,
+        IProjectMetadataProvider? metadataProvider = null)
         : this(
             conventions,
             resolvePackageReferences,
@@ -87,7 +89,7 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             compilerSupportReferencePaths,
             allowPackageRestore,
             projectReferenceLoadMode,
-            new ProjectSystemPerformanceInstrumentation())
+            new ProjectSystemPerformanceInstrumentation(), metadataProvider)
     {
     }
 
@@ -100,8 +102,10 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         IEnumerable<string>? compilerSupportReferencePaths,
         bool allowPackageRestore,
         ProjectReferenceLoadMode projectReferenceLoadMode,
-        ProjectSystemPerformanceInstrumentation performanceInstrumentation)
+        ProjectSystemPerformanceInstrumentation performanceInstrumentation,
+        IProjectMetadataProvider? metadataProvider = null)
     {
+        _metadataProvider = metadataProvider;
         _conventions = conventions ?? throw new ArgumentNullException(nameof(conventions));
         _resolvePackageReferences = resolvePackageReferences;
         _allowPackageRestore = allowPackageRestore;
@@ -187,13 +191,24 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
 
         MsBuildLocatorRegistration.EnsureRegistered();
         var evaluation = EvaluateProject(projectFilePath, requestedTargetFramework, requestedConfiguration);
+        ProjectMetadataConfiguration? targetMetadata = null;
+        if (evaluation.TargetProperties.GetValueOrDefault("RavenMetadataFormat") is { Length: > 0 } format &&
+            !string.Equals(format, "CLI", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_metadataProvider is null || !string.Equals(_metadataProvider.MetadataFormat, format, StringComparison.OrdinalIgnoreCase))
+                throw new NotSupportedException($"Project metadata format '{format}' requires a matching host adapter.");
+            if (!evaluation.ProjectReferencePaths.IsEmpty || !evaluation.PackageReferences.IsEmpty || !evaluation.FrameworkReferences.IsEmpty)
+                throw new NotSupportedException("Explicit metadata providers currently require artifact References; ProjectReference, PackageReference and FrameworkReference are unsupported.");
+            targetMetadata = _metadataProvider.Load(projectFilePath, evaluation.AssemblyName, evaluation.CompilationOptions,
+                evaluation.TargetProperties, evaluation.MetadataReferencePaths);
+        }
         var projectId = ProjectId.CreateNew(solution.Id);
         solution = solution.AddProject(
             projectId,
             evaluation.Name,
             projectFilePath,
             evaluation.AssemblyName,
-            evaluation.CompilationOptions ?? new CompilationOptions(OutputKind.ConsoleApplication),
+            targetMetadata?.Options ?? evaluation.CompilationOptions ?? new CompilationOptions(OutputKind.ConsoleApplication),
             evaluation.DocumentationOptions,
             evaluation.ParseOptions);
         solution = solution.WithTargetFramework(projectId, evaluation.TargetFramework);
@@ -211,153 +226,162 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             _conventions.GetPreludeFileName(evaluation.Name),
             evaluation.PreludeOptions);
 
-        solution = ProjectSystemGeneratedDocumentHelper.AddGeneratedTargetFrameworkAttributeDocumentIfNeeded(
-            solution,
-            projectId,
-            evaluation.GeneratedSourceDirectory,
-            _conventions.GetTargetFrameworkAttributeFileName(evaluation.Name),
-            evaluation.TargetFramework);
-
-        var tfm = evaluation.TargetFramework ?? raven.DefaultTargetFramework;
-        var explicitMetadataTarget = evaluation.CompilationOptions.MetadataImportOptions is not null;
-        var useHostFrameworkReferences = !explicitMetadataTarget &&
-            (_useHostFrameworkReferences ?? evaluation.UseHostFrameworkReferences);
-        if (useHostFrameworkReferences)
+        if (targetMetadata is not null)
         {
-            foreach (var reference in raven.GetFrameworkReferences(tfm))
+            foreach (var reference in targetMetadata.References)
                 solution = solution.AddMetadataReference(projectId, reference);
         }
-
-        var metadataReferenceNames = evaluation.MetadataReferencePaths
-            .Select(Path.GetFileNameWithoutExtension)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var metadataReferencePath in evaluation.MetadataReferencePaths)
-            solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataReferencePath));
-
-        var compilerSupportReferenceNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var compilerSupportReferencePath in explicitMetadataTarget ? [] : _compilerSupportReferencePaths)
+        else
         {
-            var referenceName = Path.GetFileNameWithoutExtension(compilerSupportReferencePath);
-            if (string.Equals(referenceName, evaluation.AssemblyName, StringComparison.OrdinalIgnoreCase) ||
-                !metadataReferenceNames.Add(referenceName))
+            solution = ProjectSystemGeneratedDocumentHelper.AddGeneratedTargetFrameworkAttributeDocumentIfNeeded(
+                solution,
+                projectId,
+                evaluation.GeneratedSourceDirectory,
+                _conventions.GetTargetFrameworkAttributeFileName(evaluation.Name),
+                evaluation.TargetFramework);
+
+            var tfm = evaluation.TargetFramework ?? raven.DefaultTargetFramework;
+            var explicitMetadataTarget = evaluation.CompilationOptions.MetadataImportOptions is not null;
+            var useHostFrameworkReferences = !explicitMetadataTarget &&
+                (_useHostFrameworkReferences ?? evaluation.UseHostFrameworkReferences);
+            if (useHostFrameworkReferences)
             {
-                continue;
+                foreach (var reference in raven.GetFrameworkReferences(tfm))
+                    solution = solution.AddMetadataReference(projectId, reference);
             }
 
-            compilerSupportReferenceNames.Add(referenceName);
-            solution = solution.AddMetadataReference(
-                projectId,
-                MetadataReference.CreateFromFile(compilerSupportReferencePath));
-        }
+            var metadataReferenceNames = evaluation.MetadataReferencePaths
+                .Select(Path.GetFileNameWithoutExtension)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var metadataReferencePath in evaluation.MetadataReferencePaths)
+                solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataReferencePath));
 
-        if (_resolvePackageReferences)
-        {
-            var packageReferences = NuGetPackageResolver.ResolveReferences(
-                projectFilePath,
-                tfm,
-                evaluation.PackageReferences,
-                evaluation.FrameworkReferences,
-                _allowPackageRestore);
-
-            // Compiler support assemblies must also win in nested macro projects,
-            // which are compiled before the driver can normalize root references.
-            foreach (var packageReference in packageReferences.MetadataReferences)
+            var compilerSupportReferenceNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var compilerSupportReferencePath in explicitMetadataTarget ? [] : _compilerSupportReferencePaths)
             {
-                if (packageReference is PortableExecutableReference { FilePath: { } path } &&
-                    compilerSupportReferenceNames.Contains(Path.GetFileNameWithoutExtension(path)))
+                var referenceName = Path.GetFileNameWithoutExtension(compilerSupportReferencePath);
+                if (string.Equals(referenceName, evaluation.AssemblyName, StringComparison.OrdinalIgnoreCase) ||
+                    !metadataReferenceNames.Add(referenceName))
                 {
                     continue;
                 }
 
-                solution = solution.AddMetadataReference(projectId, packageReference);
-            }
-            foreach (var macroReference in packageReferences.MacroReferences)
-            {
-                if (!compilerSupportReferenceNames.Contains(Path.GetFileNameWithoutExtension(macroReference.Display)))
-                    solution = solution.AddMacroReference(projectId, macroReference);
-            }
-            foreach (var analyzerReferencePath in packageReferences.AnalyzerReferencePaths)
-            {
-                var assembly = ExtensionAssemblyLoader.LoadFromPath(analyzerReferencePath);
-                solution = solution.AddAnalyzerReference(projectId, new AnalyzerReference(assembly));
-            }
-        }
-
-        foreach (var referencedProjectPath in evaluation.ProjectReferencePaths)
-        {
-            var referencedEvaluation = EvaluateProject(
-                referencedProjectPath,
-                evaluation.TargetFramework,
-                evaluation.Configuration);
-            if (referencedEvaluation.IsCompilerPlugin)
-            {
-                var outputPath = string.Equals(
-                        Path.GetExtension(referencedProjectPath),
-                        ".rvnproj",
-                        StringComparison.OrdinalIgnoreCase)
-                    ? BuildRavenCompilerPluginProject(referencedProjectPath, evaluation, raven)
-                    : BuildManagedMacroProject(referencedProjectPath, referencedEvaluation);
-                solution = solution.AddMacroReference(
-                    projectId,
-                    MacroReference.CreateFromFile(outputPath, referencedProjectPath));
+                compilerSupportReferenceNames.Add(referenceName);
                 solution = solution.AddMetadataReference(
                     projectId,
-                    MetadataReference.CreateFromFile(outputPath));
-                continue;
+                    MetadataReference.CreateFromFile(compilerSupportReferencePath));
             }
 
-            if (_projectReferenceLoadMode == ProjectReferenceLoadMode.Metadata)
+            if (_resolvePackageReferences)
             {
-                var outputPath = CanOpenProject(referencedProjectPath)
-                    ? referencedEvaluation.OutputPath
-                    : MsBuildProjectEvaluator.TryResolveReferencedProjectOutputPath(
-                        referencedProjectPath,
-                        evaluation.Configuration,
-                        evaluation.TargetFramework);
-                if (string.IsNullOrWhiteSpace(outputPath) || !File.Exists(outputPath))
+                var packageReferences = NuGetPackageResolver.ResolveReferences(
+                    projectFilePath,
+                    tfm,
+                    evaluation.PackageReferences,
+                    evaluation.FrameworkReferences,
+                    _allowPackageRestore);
+
+                // Compiler support assemblies must also win in nested macro projects,
+                // which are compiled before the driver can normalize root references.
+                foreach (var packageReference in packageReferences.MetadataReferences)
                 {
-                    throw new FileNotFoundException(
-                        $"The output for referenced project '{referencedProjectPath}' was not found. Build project references before compiling '{projectFilePath}'.",
-                        outputPath);
+                    if (packageReference is PortableExecutableReference { FilePath: { } path } &&
+                        compilerSupportReferenceNames.Contains(Path.GetFileNameWithoutExtension(path)))
+                    {
+                        continue;
+                    }
+
+                    solution = solution.AddMetadataReference(projectId, packageReference);
                 }
-
-                solution = solution.AddMetadataReference(
-                    projectId,
-                    MetadataReference.CreateFromFile(outputPath));
-                continue;
+                foreach (var macroReference in packageReferences.MacroReferences)
+                {
+                    if (!compilerSupportReferenceNames.Contains(Path.GetFileNameWithoutExtension(macroReference.Display)))
+                        solution = solution.AddMacroReference(projectId, macroReference);
+                }
+                foreach (var analyzerReferencePath in packageReferences.AnalyzerReferencePaths)
+                {
+                    var assembly = ExtensionAssemblyLoader.LoadFromPath(analyzerReferencePath);
+                    solution = solution.AddAnalyzerReference(projectId, new AnalyzerReference(assembly));
+                }
             }
 
-            var loadedProject = solution.Projects.FirstOrDefault(
-                project => string.Equals(project.FilePath, referencedProjectPath, StringComparison.OrdinalIgnoreCase));
-
-            if (loadedProject is not null)
+            foreach (var referencedProjectPath in evaluation.ProjectReferencePaths)
             {
-                solution = solution.AddProjectReference(projectId, new ProjectReference(loadedProject.Id));
-                continue;
-            }
-
-            if (CanOpenProject(referencedProjectPath))
-            {
-                var loadedGraph = LoadProjectGraph(
-                    raven,
-                    solution,
+                var referencedEvaluation = EvaluateProject(
                     referencedProjectPath,
-                    loadingProjectPaths,
                     evaluation.TargetFramework,
                     evaluation.Configuration);
-                solution = loadedGraph.Solution;
-                var loadedProjectId = loadedGraph.ProjectId;
-                solution = solution.AddProjectReference(projectId, new ProjectReference(loadedProjectId));
-                continue;
+                if (referencedEvaluation.IsCompilerPlugin)
+                {
+                    var outputPath = string.Equals(
+                            Path.GetExtension(referencedProjectPath),
+                            ".rvnproj",
+                            StringComparison.OrdinalIgnoreCase)
+                        ? BuildRavenCompilerPluginProject(referencedProjectPath, evaluation, raven)
+                        : BuildManagedMacroProject(referencedProjectPath, referencedEvaluation);
+                    solution = solution.AddMacroReference(
+                        projectId,
+                        MacroReference.CreateFromFile(outputPath, referencedProjectPath));
+                    solution = solution.AddMetadataReference(
+                        projectId,
+                        MetadataReference.CreateFromFile(outputPath));
+                    continue;
+                }
+
+                if (_projectReferenceLoadMode == ProjectReferenceLoadMode.Metadata)
+                {
+                    var outputPath = CanOpenProject(referencedProjectPath)
+                        ? referencedEvaluation.OutputPath
+                        : MsBuildProjectEvaluator.TryResolveReferencedProjectOutputPath(
+                            referencedProjectPath,
+                            evaluation.Configuration,
+                            evaluation.TargetFramework);
+                    if (string.IsNullOrWhiteSpace(outputPath) || !File.Exists(outputPath))
+                    {
+                        throw new FileNotFoundException(
+                            $"The output for referenced project '{referencedProjectPath}' was not found. Build project references before compiling '{projectFilePath}'.",
+                            outputPath);
+                    }
+
+                    solution = solution.AddMetadataReference(
+                        projectId,
+                        MetadataReference.CreateFromFile(outputPath));
+                    continue;
+                }
+
+                var loadedProject = solution.Projects.FirstOrDefault(
+                    project => string.Equals(project.FilePath, referencedProjectPath, StringComparison.OrdinalIgnoreCase));
+
+                if (loadedProject is not null)
+                {
+                    solution = solution.AddProjectReference(projectId, new ProjectReference(loadedProject.Id));
+                    continue;
+                }
+
+                if (CanOpenProject(referencedProjectPath))
+                {
+                    var loadedGraph = LoadProjectGraph(
+                        raven,
+                        solution,
+                        referencedProjectPath,
+                        loadingProjectPaths,
+                        evaluation.TargetFramework,
+                        evaluation.Configuration);
+                    solution = loadedGraph.Solution;
+                    var loadedProjectId = loadedGraph.ProjectId;
+                    solution = solution.AddProjectReference(projectId, new ProjectReference(loadedProjectId));
+                    continue;
+                }
+
+                var metadataPath = MsBuildProjectEvaluator.TryResolveReferencedProjectOutputPath(
+                    referencedProjectPath,
+                    evaluation.Configuration,
+                    evaluation.TargetFramework);
+
+                if (!string.IsNullOrWhiteSpace(metadataPath) && File.Exists(metadataPath))
+                    solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataPath));
             }
 
-            var metadataPath = MsBuildProjectEvaluator.TryResolveReferencedProjectOutputPath(
-                referencedProjectPath,
-                evaluation.Configuration,
-                evaluation.TargetFramework);
-
-            if (!string.IsNullOrWhiteSpace(metadataPath) && File.Exists(metadataPath))
-                solution = solution.AddMetadataReference(projectId, MetadataReference.CreateFromFile(metadataPath));
         }
 
         foreach (var analyzerReferencePath in evaluation.AnalyzerReferencePaths)

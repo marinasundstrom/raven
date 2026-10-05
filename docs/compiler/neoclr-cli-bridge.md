@@ -6957,3 +6957,59 @@ emitted library/consumer executes with exit 42. Inheritance and order-collection
 controls still execute with expected output. A malformed driver reference produces no
 output file. This is an editor integration prerequisite; MSBuild project evaluation,
 LSP invalidation/navigation and VS Code build/run are not connected by this slice.
+
+
+### Explicit native project metadata (2026-10-05)
+
+`RavenTargetPlatform=NeoCLR` continues to support the legacy CLI bridge. A project
+must additionally select `RavenMetadataFormat=NeoCLR` to request native import.
+Omitted format or `CLI` retains the existing project loader, including ordinary .NET.
+
+```xml
+<PropertyGroup>
+  <TargetFramework>net10.0</TargetFramework>
+  <RavenTargetPlatform>NeoCLR</RavenTargetPlatform>
+  <RavenMetadataFormat>NeoCLR</RavenMetadataFormat>
+  <RavenNeoClrCoreReference>bootstrap/Core.dll</RavenNeoClrCoreReference>
+  <RavenNeoClrRuntimeSeed>bootstrap/System.neox</RavenNeoClrRuntimeSeed>
+</PropertyGroup>
+<ItemGroup>
+  <Reference Include="Library"><HintPath>lib/Library.dll</HintPath></Reference>
+</ItemGroup>
+```
+
+`RavenNeoClrCoreReference` is required; `RavenNeoClrRuntimeSeed` is optional.
+Both resolve relative to the project directory. Every native `Reference` requires
+an explicit HintPath. Missing files, invalid catalogs and conflicting explicit core
+names fail project loading; paths are not silently removed. Existing evaluated
+Runtime Contract mapping properties remain effective. No ownership manifest or
+async-provider inference is added here. Configure those separately when supported;
+this first project gate uses a simple separately emitted library.
+
+Host API: `IProjectMetadataProvider.MetadataFormat` identifies the opt-in format;
+`Load(projectFilePath, assemblyName, options, properties, referencePaths)` receives
+an absolute project path, evaluated assembly name/options, evaluated Raven-prefixed
+properties and absolute artifact paths. It returns a `ProjectMetadataConfiguration`
+containing `Options` and immutable `References`. Providers throw on invalid input.
+The project system publishes no partial project after provider failure. Register
+one through the optional `metadataProvider` argument on `MsBuildProjectSystemService`.
+The shared project system has no dependency on the native adapter.
+
+`NeoClrProjectMetadataProvider` is the native implementation. It reads the shared
+`NeoClrReferenceCatalog`, requires the NeoCLR target, validates explicit core names,
+and supplies native symbols plus the primitive CLI bootstrap. No host framework,
+compiler-support references or generated host TargetFrameworkAttribute are injected.
+ProjectReference, PackageReference and FrameworkReference currently reject explicitly.
+The provider returns semantic configuration only; it does not attach an emitter,
+execute dependencies or load importer objects during emission.
+
+Language-server builds supplied `NeoClrMetadataProject` register this provider;
+ordinary builds remain independent of the adapter and reject native-format projects.
+C# `NeoClrMetadataProbe --native-project CORE SEED DIRECTORY` verifies evaluated
+relative paths, native binding, absent adapter, wrong target/core, unsupported project
+references and missing-artifact transactional failure. NeoCLR's
+`scripts/check-native-editor.py SERVER_DLL DIRECTORY/project OUTPUT_JSON` verifies
+real stdio completion, hover and missing-member diagnostics against that fixture.
+This is initial semantic editor integration, not VS Code release qualification:
+reference invalidation, metadata navigation, source-built System/async configuration
+and unified project build/run remain work ahead.
