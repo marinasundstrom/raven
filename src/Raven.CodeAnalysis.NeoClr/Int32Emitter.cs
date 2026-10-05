@@ -281,7 +281,7 @@ internal static class Int32Emitter
                 throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
             prepared.Add((plan, body!));
         }
-        var closureCaptures = new Dictionary<IMethodSymbol, ILocalSymbol[]>(SymbolEqualityComparer.Default);
+        var closureCaptures = new Dictionary<IMethodSymbol, ITypeSymbol[]>(SymbolEqualityComparer.Default);
         var lambdaSymbols = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         for (var index = 0; index < prepared.Count; index++)
             foreach (var (function, syntax) in prepared[index].Body?.Functions ?? [])
@@ -289,7 +289,12 @@ internal static class Int32Emitter
                 var symbol = (IMethodSymbol)function.Symbol!;
                 if (!lambdaSymbols.Add(symbol)) continue;
                 if (!CallableSignature.TryCreate(symbol, out var signature, NeoClrCapabilities.Shared)) throw Unsupported("unsupported Function body signature");
-                var captures = function.CapturedVariables.Cast<ILocalSymbol>().ToArray();
+                var captures = function.CapturedVariables.Select(capture => capture switch
+                {
+                    ILocalSymbol local => local.Type,
+                    IParameterSymbol parameter => parameter.Type,
+                    _ => throw Unsupported("unsupported closure capture")
+                }).ToArray();
                 if (captures.Length != 0) closureCaptures.Add(symbol, captures);
                 signature = signature with { IsInstance = captures.Length != 0 };
                 if (!LinearMethodBody.TryLower(symbol, compilation.GetSemanticModel(syntax.SyntaxTree), syntax, IsConsoleCall,
@@ -517,7 +522,7 @@ internal static class Int32Emitter
             {
                 var frame = assembly.AddClass("", "$closure$" + closureFields.Count, TypeVisibility.Internal);
                 var captureFields = captures.Select((capture, index) => frame.AddField("capture" + index,
-                    NeoClrTypeMapper.Map(capture.Type, type => nativeTypes[type], ImportExternalType), FieldVisibility.Private)).ToArray();
+                    NeoClrTypeMapper.Map(capture, type => nativeTypes[type], ImportExternalType), FieldVisibility.Private)).ToArray();
                 var constructor = frame.AddConstructor(new MethodSignature(PrimitiveType.Void, captureFields.Select(field => field.FieldType)));
                 var constructorIl = constructor.GetILGenerator();
                 for (int i = 0; i < captureFields.Length; i++)

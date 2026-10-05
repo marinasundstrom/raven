@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Admit converted value receivers through existing temporary storage
+  and immutable by-value parameter captures through native closure frames. The
+  unchanged native network cancellation sample compiles and executes against a
+  separately emitted DNS/socket library. All 59 focused shared-body .NET tests pass.
+
 - **2026-10-05:** Correct the stale shared-emitter numeric-conversion test: these
   conversions already emit and execute on .NET. All 56 focused shared-body tests
   pass; this is a test correction, not new conversion support.

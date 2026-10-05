@@ -728,8 +728,33 @@ public class SharedLinearBodyTests
             _ => false, out _, out var failure, capabilities);
         Assert.Equal(admitted, success);
         if (!admitted)
-            Assert.Equal("closure capture requires an immutable reference or supported primitive local", failure!.Detail);
+            Assert.Equal("closure capture requires an immutable reference or supported primitive local or by-value parameter", failure!.Detail);
         Assert.Equal(42, Emit(compilation).GetType("Capture")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Fact]
+    public void ImmutableParameterCaptureCanBeReadByNestedFunctionBody()
+    {
+        var compilation = Create("""
+            public static class Capture {
+                public static func Run(value: int) -> int {
+                    let callback: () -> int = () => value + 1
+                    return callback()
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
+            Enum.GetValues<LinearInstructionKind>(), allowsFunctionValues: true);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+            _ => false, out var body, out var failure, capabilities), failure?.Detail);
+        var (function, syntax) = Assert.Single(body!.Functions);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)function.Symbol!, model, syntax,
+            _ => false, out _, out failure, capabilities, function), failure?.Detail);
+        Assert.Equal(42, Emit(compilation).GetType("Capture")!.GetMethod("Run")!.Invoke(null, [41]));
     }
 
     [Fact]
@@ -830,6 +855,33 @@ public class SharedLinearBodyTests
         Assert.Equal(0, compare.Invoke(null, ["four"]));
         Assert.Equal(-1, compare.Invoke(null, ["one"]));
         Assert.Equal(1, compare.Invoke(null, ["longer"]));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ConvertedValueReceiversRequireManagedStorage(bool managedStorage)
+    {
+        var compilation = Create("""
+            public static class ConvertedValues {
+                public static func Compare(value: byte) -> int {
+                    return ((int)value).CompareTo(42)
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            allowsExternalValueSignatures: true, allowsExternalValueInstanceCalls: true, allowsManagedReferences: managedStorage);
+        var success = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+            _ => false, out _, out var failure, capabilities);
+        Assert.True(success == managedStorage, failure?.Detail);
+        var compare = Emit(compilation).GetType("ConvertedValues")!.GetMethod("Compare")!;
+        Assert.Equal(0, compare.Invoke(null, [(byte)42]));
+        Assert.Equal(-1, compare.Invoke(null, [(byte)41]));
+        Assert.Equal(1, compare.Invoke(null, [(byte)43]));
     }
 
     [Fact]

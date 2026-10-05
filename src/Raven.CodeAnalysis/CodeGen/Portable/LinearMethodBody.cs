@@ -785,7 +785,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     BoundDereferenceExpression dereference => LowerReference(dereference.Reference),
                     BoundFieldAccess field => FieldAddress(field.Receiver, field.Field, syntax),
                     BoundMemberAccessExpression { Member: IFieldSymbol field } access => FieldAddress(access.Receiver, field, syntax),
-                    BoundIndexerAccessExpression or BoundPropertyAccess or BoundInvocationExpression => TemporaryReceiver(receiver, syntax),
+                    BoundIndexerAccessExpression or BoundPropertyAccess or BoundInvocationExpression or BoundConversionExpression => TemporaryReceiver(receiver, syntax),
                     BoundMemberAccessExpression { Member: IPropertySymbol } => TemporaryReceiver(receiver, syntax),
                     _ => Reject("value receiver requires addressable storage or a supported value result", syntax)
                 };
@@ -1147,6 +1147,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.LoadIndirect, Syntax(expression), Type: dereference.ElementType));
                     return true;
                 case BoundParameterAccess parameter:
+                    var parameterCaptureIndex = Array.FindIndex(captures, capture => SymbolEqualityComparer.Default.Equals(capture, parameter.Parameter));
+                    if (parameterCaptureIndex >= 0)
+                    {
+                        Add(LinearInstructionKind.LoadCapture, Syntax(expression), parameterCaptureIndex);
+                        return true;
+                    }
                     var index = source.Parameters.IndexOf(parameter.Parameter, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
                     if (index < 0) return Reject("captured parameter", Syntax(expression));
                     Add(LinearInstructionKind.Argument, Syntax(expression), index + (isStaticBody ? 0 : 1));
@@ -1352,13 +1358,18 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     TryType(function.DelegateType, false, out var lambdaType) && capabilities.Allows(lambdaType):
                     foreach (var capture in function.CapturedVariables)
                     {
-                        if (capture is not ILocalSymbol { IsMutable: false } captured ||
-                            capabilities.Allows(LinearInstructionKind.LoadCapture) != true ||
+                        BoundExpression? captured = capture switch
+                        {
+                            ILocalSymbol { IsMutable: false } local => new BoundLocalAccess(local),
+                            IParameterSymbol { IsMutable: false, RefKind: RefKind.None } parameter => new BoundParameterAccess(parameter),
+                            _ => null
+                        };
+                        if (captured is null || capabilities.Allows(LinearInstructionKind.LoadCapture) != true ||
                             !TryType(captured.Type, false, out var capturedType) || !capabilities.Allows(capturedType) ||
                             !(captured.Type.IsReferenceType || capturedType.Primitive is EmissionPrimitiveType.Int32 or
                                 EmissionPrimitiveType.Int64 or EmissionPrimitiveType.Single or EmissionPrimitiveType.Double or EmissionPrimitiveType.Boolean or EmissionPrimitiveType.Byte))
-                            return Reject("closure capture requires an immutable reference or supported primitive local", Syntax(expression));
-                        if (!LowerValue(new BoundLocalAccess(captured))) return false;
+                            return Reject("closure capture requires an immutable reference or supported primitive local or by-value parameter", Syntax(expression));
+                        if (!LowerValue(captured)) return false;
                     }
                     functions.Add((function, Syntax(expression)));
                     instructions.Add(new(LinearInstructionKind.FunctionBind, Syntax(expression), Method: lambda, Type: function.DelegateType));

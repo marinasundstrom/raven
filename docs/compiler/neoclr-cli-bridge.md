@@ -6429,3 +6429,23 @@ expectation; the complete focused group now passes 56 tests. Raven main e1df355a
 has no independent main backport; existing general .NET emission already handles
 these source constructs. Native storage evidence lives in neoCLR's
 `docs/experiments/extended-cli-metadata/source-storage-2026-10-05.md`.
+
+### Source networking callbacks (2026-10-05)
+
+The portable adapter materializes converted value receivers once into existing
+managed temporary storage, allowing IPAddress's numeric formatting calls. It also
+admits immutable by-value parameters wherever immutable local captures already work.
+Native closure fields use symbol-provided types and captured parameter reads use the
+existing LoadCapture path, including nested functions. Mutable bindings and ref/out/in
+parameters remain rejected by this bounded native capture policy. No binding rules,
+Runtime Contract switches or native function representation changed.
+
+The unchanged `network-cancellation/Main.rvn` executes DNS, cancellation, loopback
+accept/connect/send/receive and buffer assertions against separately emitted native
+libraries. Native DnsAddresses uses the runtime's managed string-snapshot adapter.
+59 focused shared-body .NET tests pass, including converted receiver capability
+checks and captured parameter reads. Main's ordinary .NET emitter already supports
+these behaviors; the portable adapter is absent from main, so no standalone main
+backport applies. This does not complete HTTP compilation: its next diagnostic is an
+unlowered BoundPropagateExpression. See neoCLR's source-network-2026-10-05 integration
+note and executable evidence for exact dependencies and limits.
