@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Record API-produced native Object-slot execution as a compiler
+  integration prerequisite, with source-root emission still guarded. Add working
+  Tasks/await samples to the release gate alongside VS Code/LSP support; defer runtime
+  suspension and green threads. No async or editor implementation is claimed here.
+
 - **2026-10-05:** Record NeoCLR Object declaration authoring as a metadata prerequisite;
   source-root emission remains guarded pending slots and reference wiring. Clarify that
   the end-to-end gate includes language-server and VS Code editing/build/run through

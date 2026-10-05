@@ -6623,3 +6623,19 @@ support. Editing against artifact-only native references, project diagnostics an
 build/run must share the ordinary compiler's target configuration and explicit dependency
 catalog. Do not add an editor-specific importer or writer. Runtime execution and editor
 integration remain separate acceptance evidence still to be completed.
+
+### Native Object slots and sample release gate (2026-10-05)
+
+The metadata API now authors Object's concrete virtual new slots and preserves their
+flags through native introspection and CLI reference projection. A C# API-produced PE
+executes all three slots and boxed display under explicit runtime root selection.
+157 C# metadata groups and 13 runtime identity checks pass; see neoCLR's
+`object-root-slots-2026-10-05.md`. Raven source-root emission remains guarded until
+root signatures, boxing, overrides and driver catalogs use the selected identity.
+
+The author additionally requires working release samples including Tasks and await.
+Callback Tasks consumers and older translated async experiments are not native async
+emission acceptance. Assess ordinary native compile/run of the sample inventory after
+root wiring, sharing the existing compiler/lowering path and VS Code configuration.
+Runtime suspension and green threads are deferred; no new scheduler is required by
+this direction. Ordinary .NET async behavior must remain preserved.
