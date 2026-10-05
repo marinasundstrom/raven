@@ -718,6 +718,42 @@ public union Outcome<T, E> {
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ImportedUnionCaseDocumentation_FallsBackToCarrierId(bool includeLogicalDocumentation)
+    {
+        var compilation = Compilation.Create("CarrierDocs",
+            [SyntaxTree.ParseText("public union Choice<T> { case Value(value: T); case None }")],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        var directory = Path.Combine(Path.GetTempPath(), "raven-carrier-docs-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var assemblyPath = Path.Combine(directory, "CarrierDocs.dll");
+            File.WriteAllBytes(assemblyPath, image.ToArray());
+            var consumer = Compilation.Create("Consumer", [], [.. TestMetadataReferences.Default,
+                MetadataReference.CreateFromFile(assemblyPath)], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            var union = Assert.IsAssignableFrom<IUnionSymbol>(consumer.GetTypeByMetadataName("Choice`1"));
+            var value = Assert.Single(union.DeclaredCaseTypes, c => c.Name == "Value");
+            var physicalId = DocumentationCommentIdBuilder.GetTypeMemberId(
+                ((Raven.CodeAnalysis.Symbols.PENamedTypeSymbol)value).GetTypeInfo().AsType());
+            var logicalId = DocumentationCommentIdBuilder.GetTypeMemberId(value);
+            Assert.NotEqual(logicalId, physicalId);
+            var logicalEntry = includeLogicalDocumentation
+                ? $"<member name=\"{logicalId}\"><summary>Logical case help.</summary></member>" : "";
+            File.WriteAllText(Path.ChangeExtension(assemblyPath, ".xml"),
+                $"<doc><members><member name=\"{physicalId}\"><summary>Carrier case help.</summary></member>{logicalEntry}</members></doc>");
+            var documentation = value.GetDocumentationComment();
+            Assert.NotNull(documentation);
+            Assert.Contains(includeLogicalDocumentation ? "Logical case help." : "Carrier case help.", documentation.Content);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
     [Fact]
     public void ExternalDocumentationEmitter_LoadsUnionCaseDocumentationByLogicalName()
     {

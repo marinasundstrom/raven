@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Restore imported union-case documentation from XML/Markdown
+  sidecars authored against CLI carrier identities, while preferring logical case
+  documentation when supplied. This fixes missing case summaries in RavenDoc and
+  editor help without changing union semantics.
+
 - **2026-10-05:** Resolve a union's own cases lexically inside its members, including
   while replacing a legacy bootstrap declaration. Cold semantic queries and ordinary
   emission agree; unrelated case imports and return-type diagnostics keep their rules.
