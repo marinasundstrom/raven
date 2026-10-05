@@ -84,6 +84,40 @@ internal sealed partial class Lowerer
         if (expression is BoundPropagateExpression propagate)
             return RewritePropagateExpression(propagate);
 
+        if (expression is BoundConversionExpression conversion && RewritePropagatingInitializer(conversion.Expression) is { } converted)
+            return new PropagateLowering(converted.Statements, new BoundConversionExpression(
+                converted.SuccessExpression, conversion.Type, conversion.Conversion, conversion.IsNullableSuppression));
+
+        if (expression is BoundIsPatternExpression pattern && RewritePropagatingInitializer(pattern.Expression) is { } matched)
+            return new PropagateLowering(matched.Statements, pattern.Update(
+                matched.SuccessExpression, pattern.Pattern, pattern.BooleanType, pattern.Reason));
+
+        // Spill value arguments in source order before a residual can return.
+        // Address-taking receivers and ref arguments need location-preserving lowering.
+        if (expression is BoundInvocationExpression call && !call.RequiresReceiverAddress &&
+            call.ExtensionReceiver is null && (call.Receiver is null || call.Receiver.Type.IsReferenceType) &&
+            call.Method.Parameters.All(parameter => parameter.RefKind == RefKind.None))
+        {
+            var arguments = call.Arguments.ToArray();
+            var receiver = RewritePropagatingInitializer(call.Receiver);
+            var lowered = arguments.Select(RewritePropagatingInitializer).ToArray();
+            if (receiver is not null || lowered.Any(item => item is not null))
+            {
+                var prefix = new List<BoundStatement>();
+                BoundExpression Spill(BoundExpression original, PropagateLowering? item)
+                {
+                    if (item is not null) prefix.AddRange(item.Statements);
+                    var value = item?.SuccessExpression ?? VisitExpression(original)!;
+                    var temporary = CreateTempLocal("propagateArgument", value.Type, isMutable: false);
+                    prefix.Add(new BoundLocalDeclarationStatement([new BoundVariableDeclarator(temporary, value)]));
+                    return new BoundLocalAccess(temporary);
+                }
+                var spilledReceiver = call.Receiver is null ? null : Spill(call.Receiver, receiver);
+                var spilledArguments = arguments.Select((argument, index) => Spill(argument, lowered[index])).ToArray();
+                return new PropagateLowering(prefix, call.Update(call.Method, spilledArguments, spilledReceiver, null, false));
+            }
+        }
+
         if (expression is BoundBlockExpression block && block.LocalsToDispose.IsEmpty)
         {
             var items = block.Statements.ToArray();
@@ -175,6 +209,12 @@ internal sealed partial class Lowerer
 
         if (node.Expression is not BoundPropagateExpression propagate)
         {
+            if (RewritePropagatingInitializer(node.Expression) is { } nested)
+            {
+                statements.AddRange(nested.Statements);
+                statements.Add(new BoundExpressionStatement(nested.SuccessExpression));
+                return true;
+            }
             var expression = VisitExpression(node.Expression) ?? node.Expression;
             if (ReferenceEquals(expression, node.Expression))
                 return false;

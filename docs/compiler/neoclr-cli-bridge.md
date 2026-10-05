@@ -6473,3 +6473,13 @@ C# tests cover generic callback execution and native readback. Imported callback
 binding and native async lowering remain separate capabilities; .NET uses its existing
 emitter. The portable adapter does not exist on main, so this change needs no main
 backport. See neoCLR's generic HTTP callback integration record.
+
+### Propagation in call arguments (2026-10-05)
+
+Shared lowering now spills supported value-call receivers/arguments in source order
+when propagation can return a residual. Conversion and pattern wrappers retain their
+semantics. Reference receivers and by-value arguments are supported; address-taking
+receivers/ref arguments retain their existing lowering. No Runtime Contract change.
+The unchanged routing consumer executes against native HTTP/library artifacts. All
+23 .NET propagation tests pass, including receiver/argument order and error short exit.
+This is independently applicable to main and is validated there before integration.

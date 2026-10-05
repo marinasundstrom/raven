@@ -9,6 +9,52 @@ namespace Raven.CodeAnalysis.Tests;
 public class PropagationCodeGenTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CallArgumentPropagationPreservesReceiverAndArgumentOrder(bool fail)
+    {
+        const string code = """
+            import System.*
+            class Harness {
+                private static var count: int = 0
+                private static func Target() -> Harness {
+                    count = count * 10 + 1
+                    return Harness()
+                }
+                private static func Mark(value: int) -> int {
+                    count = count * 10 + value
+                    return value
+                }
+                private static func Read(fail: bool) -> Result<int, string> {
+                    _ = Mark(3)
+                    if fail { return .Error("failed") }
+                    return .Ok(7)
+                }
+                private func Use(first: int, matched: bool, last: int) {
+                    if first == 2 && matched && last == 4 { _ = Mark(5) }
+                }
+                private static func Run(fail: bool) -> Result<int, string> {
+                    Target().Use(Mark(2), Read(fail)? == 7, Mark(4))
+                    return .Ok(count)
+                }
+                public static func Check(fail: bool) -> bool {
+                    let result = Run(fail)
+                    if fail { return count == 123 && result is .Error("failed") }
+                    return count == 12345 && result is .Ok(12345)
+                }
+            }
+            """;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
+        var compilation = Compilation.Create("call-propagation", [SyntaxTree.ParseText(code)], references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var pe = new MemoryStream();
+        var result = compilation.Emit(pe);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(pe, references);
+        Assert.Equal(true, loaded.Assembly.GetType("Harness")!.GetMethod("Check")!.Invoke(null, [fail]));
+    }
+
+    [Theory]
     [InlineData(false, false, false)]
     [InlineData(false, false, true)]
     [InlineData(false, true, false)]

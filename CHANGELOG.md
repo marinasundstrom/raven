@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Spill Result propagation in value-call arguments, preserving receiver
+  and argument evaluation order and skipping later operands after a residual return.
+  Native routing executes unchanged; focused .NET propagation tests pass.
+
 - **2026-10-05:** Preserve generic method arguments in native function bindings,
   unblocking HTTP JSON callbacks. Rejected method-group diagnostics identify the
   target and enclosing callable. Ordinary .NET emission remains unchanged.
