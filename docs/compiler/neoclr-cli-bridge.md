@@ -6411,3 +6411,22 @@ Module). The 115-file cumulative source set emits with the same Runtime Contract
 native instructions. Existing library envelope budgets remain unchanged. Older metadata
 library versions reject these larger outputs; see neoCLR's cumulative-library type-budget
 record for boundary and executable controls. This requires no general .NET/main backport.
+
+### Portable value-block returns (2026-10-05)
+
+The shared linear adapter now carries statement-boundary context through nested
+blocks, branches, conversions and transparent wrappers. Returns from a match arm
+at an empty evaluation stack are admitted; returns across pending outer operands
+remain unsupported and ordinary .NET can retain its general emitter fallback.
+No Runtime Contract option, binding rule or instruction/metadata extension changes.
+The unchanged native storage sources and artifact-only storage sample compile and
+execute. Module-function references returning external value types additionally
+require the matching metadata library's authored function-signature update.
+
+Validation: 55 focused SharedLinearBodyTests pass, including Debug/Release returns,
+ordinary .NET match execution and pending-operand rejection. One separately recorded
+pre-existing test still expects supported numeric conversions to reject; it is
+excluded from that count. Raven main e1df355a2 has no portable adapter, so this change
+has no independent main backport; existing general .NET emission already handles
+these source constructs. Native storage evidence lives in neoCLR's
+`docs/experiments/extended-cli-metadata/source-storage-2026-10-05.md`.

@@ -454,21 +454,21 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
-        bool LowerStatements(BoundStatement body)
+        bool LowerStatements(BoundStatement body, bool atStatementBoundary = true)
         {
             foreach (var statement in Flatten(body))
             {
                 if (statement is BoundForStatement loop && capabilities?.AllowsReferenceEnumeration == true &&
                     Lowerer.TryLowerPortableEnumeration(source, loop, out var enumerated))
                 {
-                    if (!LowerStatements(enumerated!)) return false;
+                    if (!LowerStatements(enumerated!, atStatementBoundary)) return false;
                     continue;
                 }
                 if (statement is BoundExpressionStatement { Expression: BoundBlockExpression discardedBlock })
                 {
                     if (!discardedBlock.LocalsToDispose.IsEmpty) return Reject("scope disposal", Syntax(discardedBlock));
                     foreach (var child in discardedBlock.Statements)
-                        if (!LowerStatements(child)) return false;
+                        if (!LowerStatements(child, atStatementBoundary)) return false;
                     continue;
                 }
                 if (statement is BoundExpressionStatement { Expression: BoundUnitExpression }) continue;
@@ -481,11 +481,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 {
                     var otherwise = nextLabel++; var end = nextLabel++;
                     if (!LowerBranch(conditionalIf.Condition, otherwise, false, Syntax(statement))) return false;
-                    if (!LowerStatements(conditionalIf.ThenNode)) return false;
+                    if (!LowerStatements(conditionalIf.ThenNode, atStatementBoundary)) return false;
                     if (instructions.LastOrDefault().Kind is not (LinearInstructionKind.Return or LinearInstructionKind.Branch or LinearInstructionKind.CompilerFailure))
                         Add(LinearInstructionKind.Branch, Syntax(statement), end);
                     Add(LinearInstructionKind.Label, Syntax(statement), otherwise);
-                    if (conditionalIf.ElseNode is { } alternative && !LowerStatements(alternative)) return false;
+                    if (conditionalIf.ElseNode is { } alternative && !LowerStatements(alternative, atStatementBoundary)) return false;
                     Add(LinearInstructionKind.Label, Syntax(statement), end);
                     continue;
                 }
@@ -537,7 +537,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         else if (variable.Local.Type is (IArrayTypeSymbol or ITypeParameterSymbol) && TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
                             localType = arrayType;
                         else return Reject("target does not support local type " + variable.Local.Type.Name, Syntax(variable));
-                        if (variable.Initializer is not null && !LowerValue(variable.Initializer, variable.Local.Type, atStatementBoundary: true)) return false;
+                        if (variable.Initializer is not null && !LowerValue(variable.Initializer, variable.Local.Type, atStatementBoundary)) return false;
                         var slot = localTypes.Count;
                         locals.Add(variable.Local, slot);
                         localTypes.Add(localType);
@@ -634,7 +634,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (assignment is not null)
                 {
                     if (!locals.TryGetValue(assignment.Local, out var slot)) return Reject("undeclared local", Syntax(statement));
-                    if (!LowerValue(assignment.Right, assignment.Local.Type)) return false;
+                    if (!LowerValue(assignment.Right, assignment.Local.Type, atStatementBoundary)) return false;
                     Add(LinearInstructionKind.StoreLocal, Syntax(assignment), slot);
                     continue;
                 }
@@ -664,7 +664,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return Reject("unsupported lowered statement " + statement.GetType().Name +
                         (statement is BoundExpressionStatement unsupported ? " (" + unsupported.Expression.GetType().Name +
                             (unsupported.Expression is BoundRequiredResultExpression required ? "/" + required.Operand.GetType().Name : unsupported.Expression is BoundConversionExpression converted ? "/" + converted.Expression.GetType().Name + " " + converted.Expression.Type.ToDisplayString() + " -> " + converted.Type.ToDisplayString() : "") + ") in " + source.Name : statement is BoundAssignmentStatement assigned ? " (" + assigned.Expression.GetType().Name + ")" : ""), Syntax(statement));
-                if (!LowerValue(value, source.ReturnType)) return false;
+                if (!LowerValue(value, source.ReturnType, atStatementBoundary)) return false;
                 Add(LinearInstructionKind.Return, Syntax(statement));
             }
             return true;
@@ -1000,20 +1000,21 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         capabilities is not null && !capabilities.Allows(blockType))
                         return Reject("value block requires a supported trailing value expression", Syntax(block));
                     // A value block may be evaluated with earlier operands still on the
-                    // stack. Exits must not bypass that enclosing expression's completion.
+                    // stack. Only an empty-stack statement boundary admits a method return;
+                    // jumps outside the block remain unsupported.
                     var controlFlow = statements.Take(statements.Length - 1).SelectMany(WalkStatements).ToArray();
                     var localLabels = controlFlow.OfType<BoundLabeledStatement>()
                         .Select(label => label.Label).ToHashSet<ILabelSymbol>(SymbolEqualityComparer.Default);
                     foreach (var statement in controlFlow)
                     {
-                        if (statement is BoundReturnStatement or BoundExpressionStatement { Expression: BoundReturnExpression } ||
+                        if (!atStatementBoundary && statement is (BoundReturnStatement or BoundExpressionStatement { Expression: BoundReturnExpression }) ||
                             statement is BoundGotoStatement jump && !localLabels.Contains(jump.Target) ||
                             statement is BoundConditionalGotoStatement branch && !localLabels.Contains(branch.Target))
                             return Reject("value block cannot exit its enclosing expression", Syntax(statement));
                     }
                     foreach (var prefix in statements.AsSpan()[..^1])
-                        if (!LowerStatements(prefix)) return false;
-                    return LowerValue(result);
+                        if (!LowerStatements(prefix, atStatementBoundary)) return false;
+                    return LowerValue(result, atStatementBoundary: atStatementBoundary);
                 case BoundIfExpression conditional when conditional.ElseBranch is not null &&
                     conditional.Condition.Type.SpecialType == SpecialType.System_Boolean &&
                     TryType(conditional.Type, false, out var conditionalType) &&
@@ -1023,10 +1024,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     var alternative = nextLabel++;
                     var joined = nextLabel++;
                     if (!LowerBranch(conditional.Condition, alternative, false, Syntax(expression))) return false;
-                    if (!LowerValue(conditional.ThenBranch, conditional.Type)) return false;
+                    if (!LowerValue(conditional.ThenBranch, conditional.Type, atStatementBoundary)) return false;
                     Add(LinearInstructionKind.Branch, Syntax(expression), joined);
                     Add(LinearInstructionKind.Label, Syntax(expression), alternative);
-                    if (!LowerValue(conditional.ElseBranch, conditional.Type)) return false;
+                    if (!LowerValue(conditional.ElseBranch, conditional.Type, atStatementBoundary)) return false;
                     Add(LinearInstructionKind.Label, Syntax(expression), joined);
                     return true;
                 case BoundObjectCreationExpression creation when creation.Initializer is null && creation.Receiver is null &&
@@ -1162,15 +1163,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         Add(unary.Operator.OperatorKind == BoundUnaryOperatorKind.UnaryMinus ? LinearInstructionKind.Negate : LinearInstructionKind.Complement, Syntax(expression));
                     return true;
                 case BoundRequiredResultExpression required:
-                    return LowerValue(required.Operand);
+                    return LowerValue(required.Operand, atStatementBoundary: atStatementBoundary);
                 case BoundParenthesizedExpression parenthesized:
-                    return LowerValue(parenthesized.Expression);
+                    return LowerValue(parenthesized.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression { IsUserDefined: true, MethodSymbol: { IsStatic: true, Parameters: [{ RefKind: RefKind.None } parameter] } conversionMethod } conversion when
                     CallableSignature.SameStorageType(parameter.Type, conversion.Expression.Type) &&
                     CallableSignature.SameStorageType(conversionMethod.ReturnType, conversion.Type) &&
                     TrySignature(conversionMethod, out var conversionSignature) && SupportedTypeArguments(conversionMethod) &&
                     (capabilities is null || capabilities.Allows(conversionSignature)):
-                    if (!LowerValue(conversion.Expression)) return false;
+                    if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     Add(LinearInstructionKind.Call, Syntax(expression), method: conversionMethod);
                     return true;
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && IsNullLiteral(conversion.Expression):
@@ -1180,7 +1181,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     capabilities?.Allows(LinearInstructionKind.BoxToObject) == true && capabilities.Allows(LinearInstructionKind.ReferenceConvert) &&
                     TryType(conversion.Expression.Type, false, out var interfaceValue) && capabilities.Allows(interfaceValue) &&
                     TryType(conversion.Type, false, out var interfaceTarget) && capabilities.Allows(interfaceTarget):
-                    if (!LowerValue(conversion.Expression)) return false;
+                    if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.BoxToObject, Syntax(expression), Type: conversion.Expression.Type));
                     instructions.Add(new(LinearInstructionKind.ReferenceConvert, Syntax(expression), Type: conversion.Type));
                     return true;
@@ -1189,7 +1190,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     (conversion.IsBoxing || conversion.Expression.Type is ITypeParameterSymbol) &&
                     capabilities?.Allows(LinearInstructionKind.BoxToObject) == true &&
                     TryType(conversion.Expression.Type, false, out var boxedType) && capabilities.Allows(boxedType):
-                    if (!LowerValue(conversion.Expression)) return false;
+                    if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.BoxToObject, Syntax(expression), Type: conversion.Expression.Type));
                     return true;
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists &&
@@ -1197,7 +1198,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     (conversion.Type is ITypeParameterSymbol || conversion.Conversion.IsUnboxing) &&
                     capabilities?.Allows(LinearInstructionKind.UnboxAny) == true &&
                     TryType(conversion.Type, false, out var unboxedType) && capabilities.Allows(unboxedType):
-                    if (!LowerValue(conversion.Expression)) return false;
+                    if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.UnboxAny, Syntax(expression), Type: conversion.Type));
                     return true;
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && !conversion.IsUserDefined &&
@@ -1205,26 +1206,26 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     conversion.Type.IsReferenceType && conversion.Type.TypeKind != TypeKind.Delegate &&
                     TryType(conversion.Type, false, out var targetType) && capabilities.Allows(targetType) &&
                     TryType(conversion.Expression.Type, false, out var sourceType) && capabilities.Allows(sourceType):
-                    if (!LowerValue(conversion.Expression)) return false;
+                    if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.ReferenceConvert, Syntax(expression), Type: conversion.Type));
                     return true;
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && conversion.Conversion.IsImplicit &&
                     capabilities?.AllowsInterfaceDispatch == true && conversion.Type.GetNonNullableType() is INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } target &&
                     SourceInterfacePlan.HasSupportedIdentity(target) && TryType(conversion.Expression.Type, false, out var from) && capabilities.Allows(from):
-                    return LowerValue(conversion.Expression);
+                    return LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && capabilities?.Allows(EmissionDeclarationKind.Enum) == true &&
                     conversion.Expression.Type.SpecialType == SpecialType.System_Int32 && conversion.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 }:
-                    if (!LowerValue(conversion.Expression)) return false;
+                    if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.EnumFromInt32, Syntax(expression), Type: conversion.Type)); return true;
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && capabilities?.Allows(EmissionDeclarationKind.Enum) == true &&
                     conversion.Type.SpecialType == SpecialType.System_Int32 && conversion.Expression.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 }:
-                    if (!LowerValue(conversion.Expression)) return false;
+                    if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.EnumToInt32, Syntax(expression), Type: conversion.Expression.Type)); return true;
                 case BoundConversionExpression { IsIdentity: true } conversion:
-                    return LowerValue(conversion.Expression);
+                    return LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression conversion when conversion.Conversion.IsNumeric && !conversion.IsUserDefined &&
                     IsNumeric(conversion.Expression.Type.SpecialType) && IsNumeric(conversion.Type.SpecialType):
-                    if (!LowerValue(conversion.Expression)) return false;
+                    if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     ConvertNumeric(conversion.Expression.Type.SpecialType, conversion.Type.SpecialType, Syntax(expression));
                     return true;
                 case BoundBinaryExpression { Operator.MethodSymbol: { IsStatic: true } binaryMethod } binary when

@@ -13,10 +13,10 @@ public class SharedLinearBodyTests
         var compilation = Create("""
             public static class Blocks {
                 public static func Value(flag: bool) -> int {
-                    let chosen = if flag {
+                    let chosen = 2 + (if flag {
                         if flag { return 42 }
                         0
-                    } else { 1 }
+                    } else { 1 })
                     return chosen
                 }
             }
@@ -28,6 +28,65 @@ public class SharedLinearBodyTests
         Assert.False(plan!.TryLowerBody(compilation, _ => false, out var body, out var failure, ReflectionEmitCapabilities.Shared));
         Assert.Null(body);
         Assert.Equal("value block cannot exit its enclosing expression", failure!.Detail);
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void MatchValueBlockCanReturnFromMethod(OptimizationLevel optimization)
+    {
+        var compilation = Create("""
+            public static class Blocks {
+                public static func Value(flag: bool) -> int {
+                    return match flag {
+                        true => {
+                            if flag { return 42 }
+                            0
+                        }
+                        false => 21
+                    }
+                }
+            }
+            """, optimization);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var method = Emit(compilation).GetType("Blocks")!.GetMethod("Value")!;
+        Assert.Equal(42, method.Invoke(null, [true]));
+        Assert.Equal(21, method.Invoke(null, [false]));
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void ValueBlockReturnsAtStatementBoundaries(OptimizationLevel optimization)
+    {
+        var compilation = Create("""
+            public static class Blocks {
+                public static func Value(flag: bool, direct: bool) -> int {
+                    if direct {
+                        return if flag {
+                            if flag { return 42 }
+                            0
+                        } else { 21 }
+                    }
+                    let chosen = if flag {
+                        if flag { return 42 }
+                        0
+                    } else { 20 }
+                    return chosen + 1
+                }
+            }
+            """, optimization);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        var syntax = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+        var method = Emit(compilation).GetType("Blocks")!.GetMethod("Value")!;
+        foreach (var direct in new[] { true, false })
+        {
+            Assert.Equal(42, method.Invoke(null, [true, direct]));
+            Assert.Equal(21, method.Invoke(null, [false, direct]));
+        }
     }
 
     [Theory]
