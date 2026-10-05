@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Record a release-tooling regression: NeoCLR's CLI reference producer
+  fails Option's None binding on the native integration line but succeeds on current
+  Raven main. Keep this distinct from passing native consumers and the field-return fix.
+
 - **2026-10-05:** Keep reference field assignment receivers off the evaluation stack
   while a right-hand-side block can return. Preserve receiver-first, once-only
   evaluation and the selected object across RHS side effects; ordinary .NET execution

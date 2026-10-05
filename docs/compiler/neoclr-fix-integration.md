@@ -1822,3 +1822,20 @@ candidate, without copying portable native emission onto main.
 
 Integration validation: all 14 focused field/address and portable pattern-body checks
 pass on .NET 11, including the unchanged portable empty-stack regression.
+
+
+## Reference producer compatibility regression — 2026-10-05
+
+Website release preparation rebuilt NeoCLR's `docs/experiments/raven-target/Probe.csproj`
+and ran `--reference-core`. With this integration at `9a4f74884`, the producer rejects
+`System.Option<T>` with RAV0103 (`None` is not in scope). Rebuilding the same bridge
+sources against Raven main `08f34891b` generates the reference successfully. The bridge
+compiles the checked-in Option source without consumer substitutions; the failure is
+not a native metadata runtime failure. Owner-aware diagnostics identify the source.
+
+The website snapshot therefore uses the validated main producer. Keep this integration
+regression open for isolation and repair; passing native Option consumers and the
+field-return tests do not qualify this separate CLI producer. The owning compiler change has
+not yet been isolated. Reproduce using the current NeoCLR
+bridge, explicit RavenRoot, BuildProjectReferences=false and the corresponding built
+.NET 11 compiler, then invoke Probe.dll --reference-core with a fresh output path.
