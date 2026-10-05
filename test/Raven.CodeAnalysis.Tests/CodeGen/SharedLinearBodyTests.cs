@@ -8,6 +8,42 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class SharedLinearBodyTests
 {
     [Fact]
+    public void PropertyPatternsEvaluateOnceAndShortCircuit()
+    {
+        var compilation = Create("""
+            public class Reply {
+                public var Reads: int = 0
+                public var Code: int = 0
+                public val Status: int {
+                    get { Reads += 1; return Code }
+                }
+                public val Payload: int {
+                    get { Reads += 10; return 42 }
+                }
+            }
+            public static class Cases {
+                public static func Match(value: Reply?) -> int {
+                    if let Reply { Status: 200, Payload: item } = value {
+                        return item
+                    }
+                    return 0
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var assembly = Emit(compilation);
+        var type = assembly.GetType("Reply")!;
+        var reply = Activator.CreateInstance(type)!;
+        var method = assembly.GetType("Cases")!.GetMethod("Match")!;
+        Assert.Equal(0, method.Invoke(null, [null]));
+        Assert.Equal(0, method.Invoke(null, [reply]));
+        Assert.Equal(1, type.GetProperty("Reads")!.GetValue(reply));
+        type.GetProperty("Code")!.SetValue(reply, 200);
+        Assert.Equal(42, method.Invoke(null, [reply]));
+        Assert.Equal(12, type.GetProperty("Reads")!.GetValue(reply));
+    }
+
+    [Fact]
     public void ValueBlockReturnRejectsTheSharedPlan()
     {
         var compilation = Create("""

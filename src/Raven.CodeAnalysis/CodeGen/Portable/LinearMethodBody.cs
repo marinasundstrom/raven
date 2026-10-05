@@ -388,6 +388,46 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             }
             if (pattern is BoundDeclarationPattern declaration && CallableSignature.SameStorageType(input, declaration.DeclaredType))
                 return PatternDesignator(declaration.Designator, input, syntax);
+            if (pattern is BoundPropertyPattern propertyPattern && input.IsReferenceType && propertyPattern.ReceiverType.IsReferenceType &&
+                TryType(input, false, out var propertyInputType) && capabilities?.Allows(propertyInputType) == true &&
+                TryType(propertyPattern.ReceiverType, false, out var propertyReceiverType) && capabilities.Allows(propertyReceiverType) &&
+                capabilities.Allows(LinearInstructionKind.TypeTest) && capabilities.Allows(LinearInstructionKind.ReferenceConvert))
+            {
+                var original = localTypes.Count; localTypes.Add(propertyInputType);
+                Add(LinearInstructionKind.StoreLocal, syntax, original);
+                Add(LinearInstructionKind.LoadLocal, syntax, original);
+                instructions.Add(new(LinearInstructionKind.TypeTest, syntax, Type: propertyPattern.ReceiverType));
+                Add(LinearInstructionKind.BranchFalse, syntax, fail);
+                var receiverSlot = localTypes.Count; localTypes.Add(propertyReceiverType);
+                Add(LinearInstructionKind.LoadLocal, syntax, original);
+                instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: propertyPattern.ReceiverType));
+                Add(LinearInstructionKind.StoreLocal, syntax, receiverSlot);
+                foreach (var propertyMember in propertyPattern.Properties)
+                {
+                    if (propertyMember.Member is not IPropertySymbol { GetMethod: { IsStatic: false } accessor } || !SupportedInstanceCall(accessor))
+                        return Reject("unsupported property pattern member", syntax);
+                    Add(LinearInstructionKind.LoadLocal, syntax, receiverSlot);
+                    Add(InstanceCallKind(accessor), syntax, method: accessor);
+                    if (!PatternValue(propertyMember.Type, propertyMember.Pattern, fail, syntax)) return false;
+                }
+                if (propertyPattern.Designator is { } designator)
+                {
+                    Add(LinearInstructionKind.LoadLocal, syntax, receiverSlot);
+                    return PatternDesignator(designator, propertyPattern.ReceiverType, syntax);
+                }
+                return true;
+            }
+            if (pattern is BoundConstantPattern scalar && scalar.Expression is { } scalarExpression &&
+                (input.SpecialType is SpecialType.System_Int32 or SpecialType.System_Boolean || input.TypeKind == TypeKind.Enum) &&
+                CallableSignature.SameStorageType(input, scalarExpression.Type) && scalar.Designator is null or BoundDiscardDesignator)
+            {
+                if (input.TypeKind == TypeKind.Enum) instructions.Add(new(LinearInstructionKind.EnumToInt32, syntax, Type: input));
+                if (!LowerValue(scalarExpression)) return false;
+                if (input.TypeKind == TypeKind.Enum) instructions.Add(new(LinearInstructionKind.EnumToInt32, syntax, Type: input));
+                Add(LinearInstructionKind.Equal, syntax);
+                Add(LinearInstructionKind.BranchFalse, syntax, fail);
+                return true;
+            }
             var tryGet = pattern switch
             {
                 BoundCasePattern c => c.TryGetMethod,
@@ -793,6 +833,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             if (receiver is not null)
             {
                 if (!LowerValue(receiver)) return false;
+                if (receiver.Type.IsValueType && owner.SpecialType == SpecialType.System_Object)
+                {
+                    if (capabilities?.Allows(LinearInstructionKind.BoxToObject) != true) return Reject("target does not support boxed Object receivers", syntax);
+                    instructions.Add(new(LinearInstructionKind.BoxToObject, syntax, Type: receiver.Type));
+                }
                 if (receiver.Type.SpecialType == SpecialType.System_String && owner.SpecialType == SpecialType.System_Object &&
                     capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true)
                     instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: owner));

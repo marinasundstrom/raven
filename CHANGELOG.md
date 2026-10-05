@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Emit native reference property patterns with null/type checks,
+  single getter evaluation, ordered short-circuit matching and scalar/enum constants.
+  Box value receivers for inherited Object calls. Native property/status consumers
+  and focused .NET controls pass.
+
 - **2026-10-05:** Capture reference-type self in native closures and retain lexical
   nesting for private member access. Deferred callbacks mutate the original object;
   the existing HTTP server runs through artifact-only references.

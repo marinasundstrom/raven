@@ -6495,3 +6495,18 @@ HTTP status server serves eight valid responses and rejects two invalid response
 No Runtime Contract switch or .NET behavior changes. Main already supports these
 closures; this portable adapter change needs no main backport. Runtime revision
 8569d729 contains the matching lexical-access implementation and tests.
+
+### HTTP patterns and inherited Object calls (2026-10-05)
+
+The native portable adapter now tests reference property patterns, evaluates getters
+once in source order and binds successful payloads. Null and incompatible objects fail
+without accessing properties; failed earlier members skip later getters. Integer,
+Boolean and enum constants use their semantic storage types. Field/value-receiver
+property patterns remain outside this bounded path. Inherited Object calls box value
+receivers explicitly, including imported status enums; runtime enum dispatch retains
+nominal identity and existing enum formatting rules. No importer handles or new
+metadata categories are required. Native property/status consumers execute; 59 existing
+shared-body tests plus a focused .NET property-pattern control pass. Main uses its
+existing .NET emitter, so these portable-adapter additions need no main backport.
+The shared call-propagation fix was independently integrated into local main as
+ e33591945 (31 propagation/runtime-contract tests); its temporary branch was deleted.
