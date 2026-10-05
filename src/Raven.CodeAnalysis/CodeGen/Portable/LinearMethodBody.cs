@@ -807,6 +807,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: owner));
                 return true;
             }
+            var selfCapture = Array.FindIndex(captures, capture => capture is INamedTypeSymbol type && SymbolEqualityComparer.Default.Equals(type, owner));
+            if (selfCapture >= 0)
+            {
+                Add(LinearInstructionKind.LoadCapture, syntax, selfCapture);
+                return true;
+            }
             if (isStaticBody || !SymbolEqualityComparer.Default.Equals(source.ContainingType, owner)) return Reject("implicit receiver unavailable", syntax);
             Add(LinearInstructionKind.Receiver, syntax); return true;
         }
@@ -1045,6 +1051,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     var nestedParameter = unsupportedCreation.Constructor.Parameters.Select(p => p.Type).OfType<INamedTypeSymbol>().FirstOrDefault(t => t.ContainingType is not null);
                     return Reject("constructor " + unsupportedCreation.Constructor.ContainingType?.ToDisplayString() + "." + unsupportedCreation.Constructor.ToDisplayString() +
                         (nestedParameter is null ? "" : " with nested parameter type " + nestedParameter.ContainingType!.ToDisplayString() + "." + nestedParameter.MetadataName), Syntax(expression));
+                case BoundSelfExpression capturedSelf when Array.FindIndex(captures, capture => capture is INamedTypeSymbol type && SymbolEqualityComparer.Default.Equals(type, capturedSelf.Type)) is var selfIndex && selfIndex >= 0:
+                    Add(LinearInstructionKind.LoadCapture, Syntax(expression), selfIndex);
+                    return true;
                 case BoundSelfExpression self when !isStaticBody && SymbolEqualityComparer.Default.Equals(self.Type, source.ContainingType):
                     Add(LinearInstructionKind.Receiver, Syntax(expression));
                     if (self.Type.IsValueType) instructions.Add(new(LinearInstructionKind.LoadIndirect, Syntax(expression), Type: self.Type));
@@ -1360,6 +1369,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     {
                         BoundExpression? captured = capture switch
                         {
+                            INamedTypeSymbol { IsReferenceType: true } selfType => new BoundSelfExpression(selfType),
                             ILocalSymbol { IsMutable: false } local => new BoundLocalAccess(local),
                             IParameterSymbol { IsMutable: false, RefKind: RefKind.None } parameter => new BoundParameterAccess(parameter),
                             _ => null

@@ -291,6 +291,7 @@ internal static class Int32Emitter
                 if (!CallableSignature.TryCreate(symbol, out var signature, NeoClrCapabilities.Shared)) throw Unsupported("unsupported Function body signature");
                 var captures = function.CapturedVariables.Select(capture => capture switch
                 {
+                    INamedTypeSymbol selfType => selfType,
                     ILocalSymbol local => local.Type,
                     IParameterSymbol parameter => parameter.Type,
                     _ => throw Unsupported("unsupported closure capture")
@@ -520,7 +521,10 @@ internal static class Int32Emitter
             MetadataMethod definition;
             if (closureCaptures.TryGetValue(plan.Symbol, out var captures))
             {
-                var frame = assembly.AddClass("", "$closure$" + closureFields.Count, TypeVisibility.Internal);
+                var frameName = "$closure$" + closureFields.Count;
+                var frame = plan.Symbol.ContainingType is { } lexicalOwner && nativeTypes.TryGetValue(lexicalOwner, out var nativeOwner)
+                    ? nativeOwner.AddNestedClass(frameName, TypeVisibility.Internal)
+                    : assembly.AddClass("", frameName, TypeVisibility.Internal);
                 var captureFields = captures.Select((capture, index) => frame.AddField("capture" + index,
                     NeoClrTypeMapper.Map(capture, type => nativeTypes[type], ImportExternalType), FieldVisibility.Private)).ToArray();
                 var constructor = frame.AddConstructor(new MethodSignature(PrimitiveType.Void, captureFields.Select(field => field.FieldType)));

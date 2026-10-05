@@ -6483,3 +6483,15 @@ receivers/ref arguments retain their existing lowering. No Runtime Contract chan
 The unchanged routing consumer executes against native HTTP/library artifacts. All
 23 .NET propagation tests pass, including receiver/argument order and error short exit.
 This is independently applicable to main and is validated there before integration.
+
+### Capturing the enclosing reference object (2026-10-05)
+
+Native closures capture self through their existing fields, and explicit/implicit
+receiver uses load the same reference. Frames are nested under their lexical owner
+using existing metadata ownership. neoCLR private access follows enclosing identities,
+so private state stays private. Value-type self and generic owner closures remain
+unsupported. A native consumer verifies deferred private state mutation; the existing
+HTTP status server serves eight valid responses and rejects two invalid responses.
+No Runtime Contract switch or .NET behavior changes. Main already supports these
+closures; this portable adapter change needs no main backport. Runtime revision
+8569d729 contains the matching lexical-access implementation and tests.

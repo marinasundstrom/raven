@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Capture reference-type self in native closures and retain lexical
+  nesting for private member access. Deferred callbacks mutate the original object;
+  the existing HTTP server runs through artifact-only references.
+
 - **2026-10-05:** Spill Result propagation in value-call arguments, preserving receiver
   and argument evaluation order and skipping later operands after a residual return.
   Native routing executes unchanged; focused .NET propagation tests pass.
