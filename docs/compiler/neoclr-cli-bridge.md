@@ -6800,3 +6800,23 @@ the separate async entry signature blocker; this is not an async Main completion
 
 Capture follow-up validation: 37 focused .NET async and portable-body tests pass, plus
 the native C# emission/reader probe and exact-output runtime regression.
+
+
+### Native class async methods (2026-10-05)
+
+Nongeneric static and instance class async methods now use the same synthesized body
+collection as assembly functions. A class method's machine retains its class metadata
+owner, so existing nested-type access rules permit private receiver fields; assembly
+function machines remain top-level. Generated types retain internal visibility. This
+matches CLI nesting semantics without changing user member visibility or runtime access
+checks. No metadata schema change or new bridge representation is introduced.
+
+The executable regression suspends an instance method, resumes it, and checks both its
+result and mutation of the original receiver's private field; an awaitless static method
+also returns 42. C# round-trip checks assert retained declaring ownership and reject
+generic owners/methods before publication. Extensions remain guarded. Both HTTP samples
+now reach `value block cannot exit its enclosing expression`, exposing a separate portable
+control-flow gap; they are not yet executable through the native compiler path.
+
+Class-method validation: 38 focused .NET async and portable declaration tests pass,
+plus native reader ownership/rejection checks and the pending receiver-mutation consumer.

@@ -7,8 +7,18 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace, string Name)
 {
     internal INamedTypeSymbol? MetadataOwner => GetMetadataOwner(Symbol);
-    private static INamedTypeSymbol? GetMetadataOwner(INamedTypeSymbol type) =>
-        type.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol ? null : type.OriginalDefinition is SourceUnionCaseTypeSymbol unionCase ? unionCase.MetadataContainingType : type.ContainingType;
+    private static INamedTypeSymbol? GetMetadataOwner(INamedTypeSymbol type)
+    {
+        if (type.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol machine)
+        {
+            // Assembly functions have no physical carrier. Class machines retain
+            // their declaring owner so private receiver access follows CLI nesting.
+            return machine.AsyncMethod.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is MethodDeclarationSyntax
+                ? machine.AsyncMethod.ContainingType : null;
+        }
+        return type.OriginalDefinition is SourceUnionCaseTypeSymbol unionCase
+            ? unionCase.MetadataContainingType : type.ContainingType;
+    }
     internal bool IsExtensionContainer => Symbol.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true };
     internal bool IsStatic => IsStaticContainer(Symbol);
     internal static bool IsStaticContainer(INamedTypeSymbol type) => type.IsStatic ||

@@ -20,6 +20,9 @@ internal static class NativeAsyncSymbolChecks
                 import System.Tasks.*
                 async func Value() -> Task<int> { return 42 }
                 async func Forward(value: Task<int>) -> Task<int> { return await value }
+                class Worker {
+                    public static async func Value() -> Task<int> { return 42 }
+                }
                 async func Captured() -> Task<int> {
                     let source = Promise<int>()
                     TaskQueue.Default.Post(() => { _ = source.Complete(41) })
@@ -55,12 +58,15 @@ internal static class NativeAsyncSymbolChecks
                     new NeoClrMetadataDependency(bootstrap.Reference, core, core.Identity, NativeLibraryDefinition.ReadAssembly(File.ReadAllBytes(seedPath)))], bootstrapReference: bootstrap.Reference));
             if (!emission.Success) throw new Exception(string.Join("\n", emission.Diagnostics));
             var assembly = AssemblyDefinition.ReadNativeAssembly(emitted.ToArray());
-            if (assembly.MainModule.Types.Count(t => t.Name.StartsWith("<>c__AsyncStateMachine", StringComparison.Ordinal)) != 3)
+            if (assembly.MainModule.Types.Count(t => t.Name.StartsWith("<>c__AsyncStateMachine", StringComparison.Ordinal)) != 4)
                 throw new Exception("native async state-machine definitions missing");
+            if (assembly.MainModule.Types.Count(t => t.Name.StartsWith("<>c__AsyncStateMachine", StringComparison.Ordinal) &&
+                t.DeclaringType?.Name == "Worker") != 1)
+                throw new Exception("class async state machine lost its declaring owner");
         }
         foreach (var source in new[]
         {
-            "import System.Tasks.*\nclass Worker { public static async func Value() -> Task<int> { return 42 } }",
+            "import System.Tasks.*\nclass Worker<T> { public async func Value(value: T) -> Task<T> { return value } }",
             "import System.Tasks.*\nasync func Value<T>(value: T) -> Task<T> { return value }"
         })
         {

@@ -9,8 +9,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Reject missing, malformed and CLI providers without bootstrap fallback. Five POC
   async/HTTP samples now pass binding. Emit nongeneric top-level async methods through
   existing heap lowering and portable plans; completed/pending awaits, hoisted locals
-  and cancellation execute with native metadata. Class/generic async methods and async
-  entry completion remain unsupported. Preserve default .NET behavior and output
+  and cancellation execute with native metadata. Nongeneric class async methods retain
+  nested state-machine ownership and private receiver access. Generic async methods and
+  async entry completion remain unsupported. Preserve default .NET behavior and output
   streams on rejected emission. Capture immutable hoisted locals from their async
   state-machine fields so pending callbacks preserve reference identity.
 
