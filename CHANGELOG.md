@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Lower nested propagation through its normal visitor dispatch and
+  spill propagation in if conditions into statement-level checks. Logical AND/OR
+  preserve short-circuit evaluation, one-time effects and early residual returns;
+  ordinary .NET execution remains unchanged. No metadata or runtime contract change.
+
 - **2026-10-04:** Normalize propagation in conditional value initializers through
   shared lowering, preserving branch selection, side effects and early error returns.
   Disposal scopes and arbitrary argument spilling remain outside this bounded change.
