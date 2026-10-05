@@ -6654,3 +6654,19 @@ source-root emission remains guarded: local override signatures, declaration cap
 checks and host catalog wiring are still required. No compiler runtime-contract option
 or ordinary .NET behavior changes in this slice. See neoCLR's
 `object-root-boxing-2026-10-05.md` for reproducible artifact/runtime evidence.
+
+### Owned Object overrides and remaining compiler guards (2026-10-05)
+
+The metadata API now authors overrides using the exact local Object signature, retains
+Virtual/reused-slot flags through native introspection, and executes protected base
+construction plus all three virtual overrides from API-produced PE. Validation passes
+158 C# metadata groups and 14 runtime root-identity tests. Legacy System binding remains
+required when no local root is authored; default .NET override execution still passes.
+
+Source-root emission remains guarded. The next Raven slice must explicitly admit the
+baseless abstract source root in SourceTypePlan, its concrete virtual declarations in
+SourceCallablePlan, and source Object identity in type mapping. Target capabilities
+must contain these differences; the emitter consumes symbols and output-owned metadata,
+not importer objects. Then connect the builders and exercise a source-emitted root.
+Driver/consumer root selection and the production System/VS Code/Tasks-await gates remain
+open. See neoCLR `owned-object-overrides-2026-10-05.md` for artifact/runtime evidence.

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Record executable metadata-owned Object overrides and the remaining
+  source-root compiler blockers: type declaration capability, concrete virtual-slot
+  planning and special Object mapping. Keep emission guarded pending implementation;
+  no compiler or default .NET behavior changes in this documentation slice.
+
 - **2026-10-05:** Document metadata owned-root boxing as an emitter prerequisite:
   API-authored boxing/virtual dispatch executes, but Raven's source-root guard remains
   until local overrides, declaration capabilities and driver ownership are connected.
