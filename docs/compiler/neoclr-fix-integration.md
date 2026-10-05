@@ -1795,18 +1795,30 @@ the independently tested .NET control-flow fixture and the fix as reconciliation
 candidates; no default binder or Reflection/Emit defect requiring a backport is shown.
 
 
-## Deferred ordinary field-return candidate — 2026-10-05
+### Reference field assignment with early return (2026-10-05)
 
-While validating native async propagation, an ordinary .NET source case compiled but
-threw InvalidProgramException: a reference field assignment RHS block contains an early
-method return (`cell.Value = { if input is null { return 42 }; 1 }`). The complete source
-is preserved in PortableReferenceFieldReturnUsesEmptyStackBoundary, which tests the
-portable plan contract only; native runtime execution is tested independently. The
-Reflection.Emit execution failure is not concealed as a passing .NET assertion.
+The native HTTP investigation exposed an independent ordinary .NET emitter defect.
+Reproduction on main `e33591945` throws `InvalidProgramException` for both paths of a
+reference field assignment whose RHS block can return. The three existing reference
+owner mutation controls pass before the fix.
 
-Main reproduction and a separate fix branch remain pending. This slice changes only the
-portable body path; local main e33591945 does not contain that implementation. Do not
-cherry-pick the native path change as a fix for the distinct .NET emitter bug. Reproduce
-on main, correct receiver/stack evaluation at the owning layer, test both returning and
-fallthrough paths, then integrate and clean up the isolated fix branch. Existing focused
-.NET async tests remain regression controls, not evidence that this new case works.
+The .NET emitter now evaluates and saves the reference receiver before evaluating
+that RHS on an empty stack, then reloads the saved object and value for the store.
+This preserves receiver-first evaluation and does not perform a store after early
+return. Value-owner address handling remains on its existing path. This is an emitter
+stack-lifetime repair, not a binding rule or target-specific semantic change; it
+requires no Runtime Contract configuration or metadata change. The portable native
+emitter already handles its receiver separately.
+
+Validation: all ten focused reference-owner, ref-field, field-initialization and
+value-receiver tests pass on .NET 11. The new Debug/Release controls check both
+returning and fallthrough execution, evaluation order, once-only receiver evaluation,
+original-object identity when the RHS replaces the receiver variable, and skipped
+storage on early return. No public API or website example changed.
+
+Integrated independently as Raven main `08f34891b`; the temporary fix branch was
+deleted after fast-forward integration. This replaces the pending .NET field-return
+candidate, without copying portable native emission onto main.
+
+Integration validation: all 14 focused field/address and portable pattern-body checks
+pass on .NET 11, including the unchanged portable empty-stack regression.
