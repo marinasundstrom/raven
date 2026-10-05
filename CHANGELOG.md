@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Record native String[] entry support in the metadata/runtime
+  dependency: Raven emits the ordinary parameter signature, and startup supplies
+  user arguments. The unchanged stream-upload consumer executes all eleven cases.
+
 - **2026-10-05:** Emit native reference property patterns with null/type checks,
   single getter evaluation, ordered short-circuit matching and scalar/enum constants.
   Box value receivers for inherited Object calls. Native property/status consumers

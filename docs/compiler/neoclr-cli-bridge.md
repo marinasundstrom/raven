@@ -6510,3 +6510,13 @@ shared-body tests plus a focused .NET property-pattern control pass. Main uses i
 existing .NET emitter, so these portable-adapter additions need no main backport.
 The shared call-propagation fix was independently integrated into local main as
  e33591945 (31 propagation/runtime-contract tests); its temporary branch was deleted.
+
+### String[] native entry support (2026-10-05)
+
+neoCLR metadata/runtime revision e076c118 admits ordinary no-parameter or String[]
+entry signatures. Raven's existing entry authoring requires no wrapper or intrinsic.
+The runtime passes user arguments after argv[0], while Environment retains the full
+argv; bounds and ambiguous native entry names reject explicitly. All eleven existing
+stream-upload cases execute through the ordinary driver and native references. No new
+Runtime Contract switch or .NET startup behavior change. Full-System bootstrap and
+native async state-machine compilation remain separate milestones.
