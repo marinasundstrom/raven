@@ -63,4 +63,3 @@ public sealed record MetadataImportOptions
     /// <remarks>NeoCLR only. Member lookup uses the source declaration, without adding members to metadata imports or changing ordinary .NET lookup.</remarks>
     public ImmutableHashSet<SpecialType> SourcePrimitiveTypes { get; } = ImmutableHashSet<SpecialType>.Empty;
 }
-

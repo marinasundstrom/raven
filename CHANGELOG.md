@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Record the matching metadata-library row-budget requirement for
+  cumulative native runtime builds: the 115-file subset including Tasks/Concurrency
+  now emits beyond the old 256-type host limit. No additional compiler behavior change.
+
 - **2026-10-05:** Preserve explicit source primitive member providers in native
   bootstrap configuration. String methods/properties now bind to their source
   declaration while scalar signatures retain bootstrap identity. The cumulative

@@ -6401,3 +6401,13 @@ JSON consumers execute against its single native artifact without library source
 See neoCLR's source-primitive-members-2026-10-05 integration record for hashed evidence.
 This is an explicit native bootstrap fix, not an independently applicable .NET fix to
 backport to main.
+
+### Cumulative native library capacity (2026-10-05)
+
+After source-member selection is fixed, adding Tasks/Concurrency reaches the independent
+metadata library's older 256-type authoring limit. Matching writer/native-reader versions
+now admit 4,095 declarations within the existing 4,096-row CLI snapshot budget (including
+Module). The 115-file cumulative source set emits with the same Runtime Contract and
+native instructions. Existing library envelope budgets remain unchanged. Older metadata
+library versions reject these larger outputs; see neoCLR's cumulative-library type-budget
+record for boundary and executable controls. This requires no general .NET/main backport.
