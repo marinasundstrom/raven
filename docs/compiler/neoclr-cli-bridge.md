@@ -6460,3 +6460,16 @@ BoundDelegateCreationExpression admission, which remains open. Validation: 21 pr
 and 65 focused shared-body/runtime-contract tests pass on the integration branch.
 See neoCLR's `condition-propagation-2026-10-05.md` evidence and the shared
 `propagation-temporaries.md` design note.
+
+### Generic HTTP callbacks (2026-10-05)
+
+Owned generic method groups now pass instantiated semantic arguments into native
+Function bindings. Generic owner and method arguments remain separate; the metadata
+adapter validates the substituted shape and constraints. Unsupported groups identify
+the target and enclosing callable. No importer objects are reused during emission.
+No new Runtime Contract switch is needed. The complete HTTP/network source group
+emits; native header/base-address consumers execute against artifacts alone. Metadata
+C# tests cover generic callback execution and native readback. Imported callback
+binding and native async lowering remain separate capabilities; .NET uses its existing
+emitter. The portable adapter does not exist on main, so this change needs no main
+backport. See neoCLR's generic HTTP callback integration record.

@@ -1375,7 +1375,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.FunctionBind, Syntax(expression), Method: lambda, Type: function.DelegateType));
                     return true;
                 case BoundDelegateCreationExpression creation when capabilities?.AllowsFunctionValues == true &&
-                    creation.Method is { IsGenericMethod: false } target &&
+                    creation.Method is { } target &&
+                    (!target.IsGenericMethod || capabilities.AllowsGenericMethods) &&
                     (target.IsStatic || target is { IsVirtual: false, IsOverride: false, IsAbstract: false, ContainingType.IsReferenceType: true } && SupportedInstanceCall(target)
                         || target.ContainingType?.TypeKind == TypeKind.Interface && capabilities.AllowsInterfaceDispatch) &&
                     (target.ContainingType?.Arity is not > 0 || capabilities.AllowsGenericClassOwners) &&
@@ -1384,6 +1385,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (!target.IsStatic && !Receiver(creation.Receiver, target.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.FunctionBind, Syntax(expression), Method: target, Type: creation.DelegateType));
                     return true;
+                case BoundDelegateCreationExpression unsupportedFunction:
+                    return Reject("function reference " + unsupportedFunction.Method?.ToDisplayString() + " in " + source.ToDisplayString(), Syntax(expression));
                 case BoundInvocationExpression call when capabilities?.AllowsFunctionValues == true &&
                     call.Method.Name == "Invoke" && call.Method.ContainingType?.TypeKind == TypeKind.Delegate && call.Receiver is not null &&
                     call.Receiver.Type is INamedTypeSymbol function && CallableSignature.TryFunction(function, out var shape, capabilities):

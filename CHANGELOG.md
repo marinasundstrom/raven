@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Preserve generic method arguments in native function bindings,
+  unblocking HTTP JSON callbacks. Rejected method-group diagnostics identify the
+  target and enclosing callable. Ordinary .NET emission remains unchanged.
+
 - **2026-10-05:** Lower nested propagation through its normal visitor dispatch and
   spill propagation in if conditions into statement-level checks. Logical AND/OR
   preserve short-circuit evaluation, one-time effects and early residual returns;
