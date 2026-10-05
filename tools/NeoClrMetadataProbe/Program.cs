@@ -16,6 +16,11 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args.Length == 6 && args[0] == "--source-object-root-driver")
+{
+    await SourceObjectRootDriverChecks.Run(args[1], args[2], args[3], args[4], args[5]); return;
+}
+
 if (args.Length is 2 or 3 && args[0] == "--source-object-root")
 {
     SourceObjectRootChecks.Run(args[1], args.Length == 3 ? args[2] : null); return;

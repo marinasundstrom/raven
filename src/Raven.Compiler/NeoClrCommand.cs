@@ -20,6 +20,7 @@ internal static class NeoClrCommand
         {
             Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--core-reference NeoCLR.CoreProbe.dll] [--reference library.dll] source.rvn ...");
             Console.WriteLine("Optional --runtime-seed System.neox binds the explicitly selected CLI core bootstrap to retained runtime services; it imports no additional symbols.");
+            Console.WriteLine("Optional --source-object-root selects this library's System.Object; requires --library and --core-reference. Imported-root consumers remain unsupported.");
             Console.WriteLine("Optional --bootstrap-intrinsics authorizes checked storage from the explicitly selected --core-reference.");
             Console.WriteLine("Optional --bootstrap-ownership manifest.json selects source-library ownership and iteration contracts.");
             Console.WriteLine("Experimental PE/#Neo output. References are imported directly from supported native metadata.");
@@ -37,6 +38,7 @@ internal static class NeoClrCommand
             string? output = null;
             var library = false;
             var bootstrapIntrinsics = false;
+            var sourceObjectRoot = false;
             string? systemPath = null;
             string? runtimeSeedPath = null;
             string? corePath = null;
@@ -53,6 +55,10 @@ internal static class NeoClrCommand
                     case "--bootstrap-ownership":
                         if (ownership is not null || ++i == args.Length) throw new ArgumentException("Specify --bootstrap-ownership once with a manifest path.");
                         ownership = BootstrapOwnershipManifest.Read(args[i]);
+                        break;
+                    case "--source-object-root":
+                        if (sourceObjectRoot) throw new ArgumentException("Specify --source-object-root once.");
+                        sourceObjectRoot = true;
                         break;
                     case "--bootstrap-intrinsics":
                         if (bootstrapIntrinsics) throw new ArgumentException("Specify --bootstrap-intrinsics once.");
@@ -98,6 +104,8 @@ internal static class NeoClrCommand
                 throw new ArgumentException("Duplicate input path.");
             if (runtimeSeedPath is not null && (corePath is null || systemPath is not null || string.Equals(runtimeSeedPath, output, StringComparison.OrdinalIgnoreCase)))
                 throw new ArgumentException("--runtime-seed requires --core-reference, a distinct output and no legacy --system-symbols selection.");
+            if (sourceObjectRoot && (corePath is null || !library || systemPath is not null))
+                throw new ArgumentException("--source-object-root requires --library, --core-reference and no legacy --system-symbols selection.");
             if (bootstrapIntrinsics && corePath is null)
                 throw new ArgumentException("--bootstrap-intrinsics requires an explicit --core-reference.");
             if (referencePaths.Count > 0 && corePath is null)
@@ -181,6 +189,15 @@ internal static class NeoClrCommand
             var compilationOptions = (corePath is null ? new CompilationOptions() : CompilationOptions.NeoCLR)
                 .WithOutputKind(library ? OutputKind.DynamicallyLinkedLibrary : OutputKind.ConsoleApplication);
             if (ownership is not null) compilationOptions = ownership.Apply(compilationOptions, name, core.Name);
+            if (sourceObjectRoot)
+            {
+                var imports = compilationOptions.MetadataImportOptions;
+                // A root bootstrap has no implicit introspection services yet. An ownership
+                // manifest may supply a real contract; never require the default seed facade.
+                compilationOptions = compilationOptions.WithRuntimeTypeOfContract(ownership?.TypeOf)
+                    .WithMetadataImportOptions(new MetadataImportOptions(
+                        core.Name, imports?.PrimitiveAssemblies, imports?.SourcePrimitiveTypes, useSourceObjectRoot: true));
+            }
             var compilation = Compilation.Create(name, trees, references.ToArray(), compilationOptions);
             ownership?.Validate(compilation);
             using var image = new MemoryStream();

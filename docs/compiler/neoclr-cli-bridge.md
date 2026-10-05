@@ -6689,3 +6689,29 @@ configuration, native consumer root selection and production System are not comp
 The author requests a metadata disassembler next, before resuming broader end-to-end
 work. Native metadata CLI/VS Code support and Tasks/await samples remain release gates;
 runtime suspension and green threads remain deferred.
+
+### Source Object root driver bootstrap (2026-10-05)
+
+`rvnc neoclr --library --source-object-root --core-reference <core.dll>` selects the
+existing source-root semantic/emission contract. It requires explicit library/core
+selection and cannot combine with the legacy System-symbol projection. Primitive
+providers configured by an ownership manifest are retained. Root bootstrapping has no
+implicit typeof service: an explicit manifest TypeOf contract is used when supplied;
+otherwise that service contract is disabled. `--bootstrap-intrinsics` remains a separate
+opt-in; selecting a root does not implicitly authorize bootstrap storage operations.
+
+The metadata library authors the root, signatures and slots directly into PE/#Neo;
+there is no new bridge representation or metadata format change. The native driver
+continues buffering emission and refuses existing destinations. The .NET driver and
+backend are unchanged. This is a bounded library-producer configuration, not imported
+Object-root selection, complete System compilation, project/LSP configuration or support
+for generic local reference bases.
+
+`NeoClrMetadataProbe --source-object-root-driver <core> <rvnc.dll> <neoclr> <source.rvn>
+<fresh-evidence-directory>` exercises ordinary compiler and runtime processes, exact
+runtime result, metadata inspection, existing-file preservation and six failure-before-
+publication controls. The runtime uses `--object-root <library>` with explicit module
+and seed inputs. The caller is neoIL; this does not claim a Raven-to-Raven consumer gate.
+The evidence records input/artifact hashes and command results. Sixteen existing
+source-root compiler checks and 30 runtime/CLI checks pass. No independently useful
+.NET behavior fix needs backporting from this target-specific driver slice.

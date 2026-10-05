@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Add `rvnc neoclr --source-object-root` for explicit core-backed
+  library bootstrap builds. Preserve configured primitive providers; require an explicit
+  ownership typeof contract instead of implicit seed introspection services. An ordinary
+  driver-produced root PE executes through NeoCLR's explicit runtime CLI selection.
+  Invalid options, missing roots and unsupported declarations publish no output.
+  Imported-root Raven consumers remain pending; default .NET behavior is unchanged.
+
 - **2026-10-05:** Emit explicitly selected source Object roots and their virtual slots
   through the native backend, retaining local base construction and override identity.
   Validate bootstrap assembly identity independently of source Object. A Raven-emitted

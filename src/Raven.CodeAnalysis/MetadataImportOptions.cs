@@ -45,7 +45,7 @@ public sealed record MetadataImportOptions
     /// <param name="sourcePrimitiveTypes">Source primitive member providers.</param>
     /// <param name="useSourceObjectRoot">Select the compilation's own public abstract fieldless System.Object. Missing roots never fall back.</param>
     /// <exception cref="ArgumentException">The core identity is empty or a primitive provider is unsupported, conflicting or empty.</exception>
-    /// <remarks>Semantic analysis only until native root authoring is implemented. Both current emitters reject this configuration before publication.</remarks>
+    /// <remarks>Native emission validates supported root declarations and bodies. The .NET emitter rejects this configuration before publication.</remarks>
     public MetadataImportOptions(string coreAssemblyName, IReadOnlyDictionary<SpecialType, string>? primitiveAssemblies, IEnumerable<SpecialType>? sourcePrimitiveTypes, bool useSourceObjectRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(coreAssemblyName);
