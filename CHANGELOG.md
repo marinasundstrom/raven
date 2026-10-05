@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Emit explicitly selected source Object roots and their virtual slots
+  through the native backend, retaining local base construction and override identity.
+  Validate bootstrap assembly identity independently of source Object. A Raven-emitted
+  PE executes in NeoCLR; 47 focused compiler checks pass. Generic reference owners and
+  unsupported virtual slots reject before publication. Driver/consumer root selection
+  remains pending; ordinary .NET behavior and its source-root guard are preserved.
+
 - **2026-10-05:** Correct a stale shared-plan test that treated already-supported
   reference Object overrides as unrecognized. Test rejection by the restricted
   emission capability profile instead; no compiler behavior changes in this correction.

@@ -1,3 +1,4 @@
+using Raven.CodeAnalysis.CodeGen.Portable;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Symbols;
 
@@ -38,6 +39,27 @@ public class SourceObjectRootTests
             : CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary).WithRuntimeTypeOfContract(null);
         return Compilation.Create("RootLibrary", sources.Select(source => SyntaxTree.ParseText(source)).ToArray(), references,
             options.WithMetadataImportOptions(new MetadataImportOptions(dotnet ? "System.Runtime" : "NeoCLR.CoreProbe", null, null, selected)));
+    }
+
+    [Fact]
+    public void SourceRootAndSlotsRequireExplicitEmissionCapabilities()
+    {
+        var compilation = Create([Root]);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var root = (INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Object);
+        var allowed = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), [],
+            [EmissionDeclarationKind.ObjectRoot, EmissionDeclarationKind.ObjectRootSlot],
+            [Accessibility.Public], [Accessibility.Public], allowsRootClassSignatures: true);
+        Assert.True(SourceTypePlan.TryCreate(root, out var type, allowed));
+        Assert.Equal(EmissionDeclarationKind.ObjectRoot, type!.DeclarationKind);
+        Assert.False(SourceTypePlan.TryCreate(root, out _, ReflectionEmitCapabilities.Shared));
+        foreach (var name in new[] { "ToString", "Equals", "GetHashCode" })
+        {
+            var method = Assert.Single(root.GetMembers(name).OfType<IMethodSymbol>());
+            Assert.True(SourceCallablePlan.TryCreate(method, out var callable, allowed));
+            Assert.Equal(EmissionDeclarationKind.ObjectRootSlot, callable!.DeclarationKind);
+            Assert.False(SourceCallablePlan.TryCreate(method, out _, ReflectionEmitCapabilities.Shared));
+        }
     }
 
     [Theory]

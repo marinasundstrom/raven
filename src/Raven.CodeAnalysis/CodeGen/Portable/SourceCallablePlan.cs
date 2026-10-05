@@ -50,7 +50,15 @@ internal sealed record SourceCallablePlan(
         };
     }
 
-    internal EmissionDeclarationKind DeclarationKind => Override != EmissionOverrideKind.None ? Symbol.ContainingType.IsValueType ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride : IsAssemblyFunction
+    internal bool IsObjectRootSlot => IsRootSlot(Symbol);
+    private static bool IsRootSlot(IMethodSymbol method) => method.ContainingType is { } owner && SourceTypePlan.IsSourceObjectRoot(owner) &&
+        method is { IsVirtual: true, IsOverride: false, IsAbstract: false, IsStatic: false, Arity: 0, DeclaredAccessibility: Accessibility.Public } &&
+        (method.Name == "ToString" && method.Parameters.IsEmpty && method.ReturnType.SpecialType == SpecialType.System_String ||
+         method.Name == "GetHashCode" && method.Parameters.IsEmpty && method.ReturnType.SpecialType == SpecialType.System_Int32 ||
+         method.Name == "Equals" && method.ReturnType.SpecialType == SpecialType.System_Boolean && method.Parameters is [{ RefKind: RefKind.None, Type: var argument }] &&
+         SymbolEqualityComparer.Default.Equals(argument.GetNonNullableType(), owner));
+
+    internal EmissionDeclarationKind DeclarationKind => IsObjectRootSlot ? EmissionDeclarationKind.ObjectRootSlot : Override != EmissionOverrideKind.None ? Symbol.ContainingType.IsValueType ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride : IsAssemblyFunction
         ? Namespace.Length == 0 ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.NamespacedAssemblyFunction
         : Symbol.MethodKind == MethodKind.Constructor ? EmissionDeclarationKind.Constructor
         : Symbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
@@ -70,7 +78,8 @@ internal sealed record SourceCallablePlan(
         if (symbol.IsExtern || symbol.IsOverride && symbol.ContainingType is { IsReferenceType: true, Arity: > 0 } ||
             !CallableSignature.TryCreate(symbol, out var signature, capabilities)) return false;
         if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet) || symbol.IsAbstract || (symbol.IsVirtual || symbol.IsOverride) &&
-            (ClassifyOverride(symbol) == EmissionOverrideKind.None || capabilities?.Allows(symbol.ContainingType?.IsValueType == true ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride) != true) ||
+            (!(IsRootSlot(symbol) && capabilities?.Allows(EmissionDeclarationKind.ObjectRootSlot) == true) &&
+             (ClassifyOverride(symbol) == EmissionOverrideKind.None || capabilities?.Allows(symbol.ContainingType?.IsValueType == true ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride) != true)) ||
             symbol.ContainingType is not { } receiver || !SourceTypePlan.TryCreate(receiver, out _, capabilities))) return false;
         if (symbol.ContainingSymbol is SourcePropertySymbol { IsAutoProperty: true, IsStatic: false, BackingField: { } } property &&
             (symbol.DeclaringSyntaxReferences.IsEmpty || symbol.DeclaringSyntaxReferences is [{ } accessorReference] &&

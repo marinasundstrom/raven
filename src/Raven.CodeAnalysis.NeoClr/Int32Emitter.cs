@@ -140,10 +140,10 @@ internal static class Int32Emitter
                 }
                 else if (member is TypeDeclarationSyntax type && type is ClassDeclarationSyntax or StructDeclarationSyntax)
                 {
-                    if (type.AttributeLists.Count != 0 || type.ParameterList is not null ||
-                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword or SyntaxKind.SealedKeyword)))
-                        throw Unsupported("only public or internal static/root classes or value types without additional contracts");
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
+                    if (type.AttributeLists.Count != 0 || type.ParameterList is not null ||
+                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword or SyntaxKind.SealedKeyword) && !(m.Kind == SyntaxKind.AbstractKeyword && compilation.IsSourceObjectRoot(typeSymbol))))
+                        throw Unsupported("only public or internal static/root classes or value types without additional contracts");
                     if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
                         throw Unsupported("supported public/internal static classes, root classes or unconstrained value types");
                     // Partial declarations share one semantic identity and one metadata definition.
@@ -222,7 +222,7 @@ internal static class Int32Emitter
                         }
                         if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null) || method.AttributeLists.Count != 0 ||
                             method.ExplicitInterfaceSpecifier is not null || method.ConstraintClauses.Count != 0 ||
-                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword or SyntaxKind.OverrideKeyword)))
+                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword or SyntaxKind.OverrideKeyword) && !(m.Kind == SyntaxKind.VirtualKeyword && compilation.IsSourceObjectRoot(typeSymbol))))
                             throw Unsupported("only ordinary primitive methods, explicit constructors and auto-properties");
                         var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
 
@@ -326,6 +326,7 @@ internal static class Int32Emitter
         {
             // The configured semantic marker is transport only; native metadata keeps Self.
             if (RuntimeSelfTypes.IsSelf(compilation, type)) return SignatureType.Self;
+            if (compilation.IsSourceObjectRoot(type)) return nativeTypes[type];
             if (type.SpecialType == SpecialType.System_Char && graphemeOwner is not null)
                 return nativeTypes[graphemeOwner];
             var original = (INamedTypeSymbol)type.OriginalDefinition;

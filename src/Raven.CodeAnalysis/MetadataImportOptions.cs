@@ -60,7 +60,7 @@ public sealed record MetadataImportOptions
     }
 
     /// <summary>Gets whether this NeoCLR compilation explicitly owns the semantic System.Object root.</summary>
-    /// <remarks>Does not change the bootstrap core or authorize native/CLI root emission.</remarks>
+    /// <remarks>Does not change the bootstrap core. Native emission separately validates supported root declarations and bodies; CLI root emission remains unsupported.</remarks>
     public bool UseSourceObjectRoot { get; }
 
     private static bool SupportsPrimitive(SpecialType type) => type is SpecialType.System_SByte or SpecialType.System_Byte or

@@ -14,11 +14,14 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
     internal static bool IsStaticContainer(INamedTypeSymbol type) => type.IsStatic ||
         type.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true };
     internal bool IsClosedHierarchy => Symbol.IsSealedHierarchy;
+    internal bool IsObjectRoot => IsSourceObjectRoot(Symbol);
+    internal static bool IsSourceObjectRoot(INamedTypeSymbol type) => type.SpecialType == SpecialType.System_Object &&
+        type.OriginalDefinition is SourceNamedTypeSymbol && type.BaseType is null;
     internal bool IsEnum => Symbol.TypeKind == TypeKind.Enum;
     internal bool IsValueType => Symbol.TypeKind is TypeKind.Struct or TypeKind.Enum;
-    internal EmissionDeclarationKind DeclarationKind => IsEnum ? EmissionDeclarationKind.Enum : IsValueType ? EmissionDeclarationKind.ValueType : IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
+    internal EmissionDeclarationKind DeclarationKind => IsObjectRoot ? EmissionDeclarationKind.ObjectRoot : IsEnum ? EmissionDeclarationKind.Enum : IsValueType ? EmissionDeclarationKind.ValueType : IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
 
-    internal INamedTypeSymbol? ClassBase => !IsStatic && !IsValueType && Symbol.BaseType is { SpecialType: not SpecialType.System_Object } parent ? parent : null;
+    internal INamedTypeSymbol? ClassBase => !IsStatic && !IsValueType && Symbol.BaseType is { } parent && (parent.SpecialType != SpecialType.System_Object || IsSourceObjectRoot(parent)) ? parent : null;
 
     internal Accessibility Visibility => Symbol.DeclaredAccessibility;
 
@@ -27,6 +30,15 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
     internal static bool TryCreate(INamedTypeSymbol type, out SourceTypePlan? plan, EmissionCapabilities? capabilities = null)
     {
         plan = null;
+        if (IsSourceObjectRoot(type))
+        {
+            if (capabilities?.Allows(EmissionDeclarationKind.ObjectRoot) != true || !type.IsAbstract || type.Arity != 0 ||
+                type.ContainingType is not null || type.DeclaredAccessibility != Accessibility.Public) return false;
+            plan = new(type, "System", "Object");
+            return true;
+        }
+        // The current native builder cannot encode a constructed class's local base.
+        if (type.Arity > 0 && type.IsReferenceType && type.BaseType is { } localRoot && IsSourceObjectRoot(localRoot)) return false;
         if (type.TypeKind == TypeKind.Enum)
         {
             if (capabilities?.Allows(EmissionDeclarationKind.Enum) != true || type.EnumUnderlyingType?.SpecialType != SpecialType.System_Int32 ||

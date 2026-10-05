@@ -116,7 +116,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         var success = body is not null ? LowerBaseInitializer() && LowerBody(body) : Reject("lowered block body unavailable", bodySyntax);
         bool LowerBaseInitializer()
         {
-            if (source.MethodKind != MethodKind.Constructor || source.ContainingType is not { IsReferenceType: true, BaseType: { SpecialType: not SpecialType.System_Object } parent }) return true;
+            if (source.MethodKind != MethodKind.Constructor || source.ContainingType is not { IsReferenceType: true, BaseType: { } parent } || parent.SpecialType == SpecialType.System_Object && !SourceTypePlan.IsSourceObjectRoot(parent)) return true;
             if (capabilities?.AllowsLocalClassInheritance != true) return Reject("class base initialization", bodySyntax);
             var initializer = (source as SourceMethodSymbol)?.ConstructorInitializer;
             var target = initializer?.Constructor ?? parent.GetMembers().OfType<IMethodSymbol>()

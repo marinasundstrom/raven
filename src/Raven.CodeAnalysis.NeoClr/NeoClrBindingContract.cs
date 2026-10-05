@@ -11,10 +11,16 @@ namespace Raven.CodeAnalysis.NeoClr;
 // Validate explicit bootstrap and native primitive providers before emission.
 internal static class NeoClrBindingContract
 {
+    internal static bool MatchesCore(IAssemblySymbol assembly, AssemblyIdentity core)
+    {
+        if (assembly is not PEAssemblySymbol imported) return false;
+        var identity = new AssemblyName(imported.FullName);
+        return core.Equals(new AssemblyIdentity(identity.Name!, identity.Version!, identity.CultureName ?? "",
+            Convert.ToHexString(identity.GetPublicKeyToken() ?? [])));
+    }
+
     internal static string? GetError(Compilation compilation, NeoClrEmitOptions options)
     {
-        if (compilation.UsesSourceObjectRoot)
-            return "source Object root emission requires native root authoring support";
         if (compilation.Options.TargetPlatform == TargetPlatform.DotNet)
             return null; // Existing explicit host-core bootstrap remains supported.
         if (compilation.Options.TargetPlatform != TargetPlatform.NeoCLR)
@@ -39,6 +45,7 @@ internal static class NeoClrBindingContract
                      SpecialType.System_Unit })
         {
             var type = compilation.GetSpecialType(special);
+            if (special == SpecialType.System_Object && compilation.UsesSourceObjectRoot && compilation.IsSourceObjectRoot((INamedTypeSymbol)type)) continue;
             if (compilation.Options.MetadataImportOptions?.PrimitiveAssemblies.TryGetValue(special, out var provider) == true)
             {
                 if (type.SpecialType != special || type.ContainingAssembly?.Name != provider ||

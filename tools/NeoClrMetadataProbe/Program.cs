@@ -16,9 +16,9 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
-if (args.Length == 2 && args[0] == "--source-object-root")
+if (args.Length is 2 or 3 && args[0] == "--source-object-root")
 {
-    SourceObjectRootChecks.Run(args[1]); return;
+    SourceObjectRootChecks.Run(args[1], args.Length == 3 ? args[2] : null); return;
 }
 
 if (args.Length == 2 && args[0] == "--flags-symbols")

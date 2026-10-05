@@ -3255,12 +3255,21 @@ still reject duplicate declarations and invalid inheritance. No language syntax 
 protocol changes are needed: this is a compiler semantic configuration. Editor project
 configuration and native consumer root import remain later work.
 
-This API currently enables **semantic analysis only**. The Reflection.Emit adapter
-rejects this configuration with RAVT003; the native adapter rejects it with NEOMETA002,
-both before writing output. The metadata writer must first gain definition/builder root
-authoring, canonical Object signatures, boxing and slot support. The ordinary compiler
-driver/ownership manifest does not expose this option yet. Do not treat successful
-analysis as full-System compilation or execution.
+The native backend now admits the baseless root and its three concrete virtual slots
+through explicit ObjectRoot/ObjectRootSlot declaration capabilities. Signatures, local
+base constructor calls and overrides use output-owned definitions. Bootstrap reference
+validation compares its exact registered assembly identity, independently of source Object.
+The Reflection.Emit adapter still rejects this option before publication; ordinary .NET
+behavior remains unchanged. Generic reference owners under a source root currently reject
+explicitly because the metadata builder's constructed local-base support is incomplete.
+The ordinary driver/ownership manifest does not expose this option yet. Production System
+and artifact-only native consumer root selection are still pending.
+
+`NeoClrMetadataProbe --source-object-root <core.dll> [output.pe]` now emits native PE,
+checks the root and rejects unsupported virtual/generic declarations and unregistered
+bootstrap references without touching the caller's output stream. The checked-in runtime
+fixture executes a Raven source-derived override under explicit host root selection.
+This is compiler-API/native-runtime evidence, not the ordinary driver/VS Code release gate.
 
 Validation: 15 source-root cases, 75 focused compiler cases in total (including existing
 metadata/typeof, .NET inheritance, virtual members and constructor codegen), plus the
@@ -3269,3 +3278,8 @@ concurrent queries, incremental reuse boundaries, invalid roots, unselected .NET
 NeoCLR declarations, and unchanged stream bytes/position after rejected emission.
 The native adapter builds against the separate metadata library. This target-specific
 feature is not an independently useful .NET fix for backporting to main.
+
+Source-root emission validation (2026-10-05): 47 focused compiler tests pass, including
+the capability opt-in test and .NET inheritance/virtual/constructor controls. A stale
+shared-plan assertion was corrected separately in `a16955e8c`; the override classifier
+itself was unchanged. Matching metadata/runtime support is neoCLR `9d880af0`.

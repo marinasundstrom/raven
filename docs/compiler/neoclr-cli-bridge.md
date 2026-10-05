@@ -6670,3 +6670,22 @@ must contain these differences; the emitter consumes symbols and output-owned me
 not importer objects. Then connect the builders and exercise a source-emitted root.
 Driver/consumer root selection and the production System/VS Code/Tasks-await gates remain
 open. See neoCLR `owned-object-overrides-2026-10-05.md` for artifact/runtime evidence.
+
+### Raven source Object emission executes (2026-10-05)
+
+The native backend now opts into compiler-owned ObjectRoot/ObjectRootSlot declarations.
+The source root stays baseless, its slots use native builders, and local constructor and
+override relationships retain that same symbol identity. Bootstrap validation checks the
+registered assembly identity directly rather than deriving it from Object. Metadata
+support is neoCLR `9d880af0`; no importer objects are reused during emission.
+
+The source-root probe emits a native PE with a source-derived class and its display
+method. NeoCLR loads that PE under explicit host root selection and returns
+"source root override". 47 focused compiler checks pass, including existing .NET behavior;
+unsupported extra virtual slots, generic reference owners and unregistered bootstrap
+references fail before publication. .NET's source-root guard remains. Ordinary driver
+configuration, native consumer root selection and production System are not complete.
+
+The author requests a metadata disassembler next, before resuming broader end-to-end
+work. Native metadata CLI/VS Code support and Tasks/await samples remain release gates;
+runtime suspension and green threads remain deferred.
