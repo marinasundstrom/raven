@@ -6872,3 +6872,25 @@ completion; a pending integer entry forwards String[] arguments and exits 23. Ca
 and unresolved entries exit 1 with the expected faults. The native C# probe checks the
 separate Int32 startup metadata and missing-runtime failure-before-publication. All 60
 focused .NET async-entry, target-entry, entry diagnostics and async-method tests pass.
+
+
+### Value auto-property constructor initialization (2026-10-05)
+
+Native portable value constructors initialize an owned auto-property's backing field
+when the receiver is implicit self or explicit self. Calling its setter on the construction
+receiver was rejected by the metadata verifier. Direct initialization preserves definite
+field assignment without weakening receiver escape checks. The auto-property has no user
+setter body to skip. Ordinary writes, custom setters, other receivers and reference-type
+constructors retain their existing paths.
+
+The unchanged application-types sample executes with stdout `42\n99\n7\n42\n7\n`,
+proving shared class identity, independent struct copies and collection copy behavior.
+The C# source-value driver also runs on .NET and NeoCLR, checking both forms of self
+initialization and later property mutation. Its old boxing rejection control is corrected
+to the current missing-System-binding error; this test correction adds no boxing feature.
+The .NET portable capability profile remains conservative for value owners, and ordinary
+.NET struct properties continue through its existing emitter. No metadata/runtime API or
+format changes and no independently needed main behavior backport arise from this fix.
+
+Validation: 17 focused auto-property, constructor, value receiver and struct semantic
+tests pass, plus the dual-target driver probe and two exact-output native consumers.

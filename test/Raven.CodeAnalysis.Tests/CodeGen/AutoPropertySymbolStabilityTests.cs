@@ -9,9 +9,11 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class AutoPropertySymbolStabilityTests
 {
     [Theory]
-    [InlineData(OptimizationLevel.Release)]
-    [InlineData(OptimizationLevel.Debug)]
-    public void RepeatedBindingKeepsOneCanonicalAccessorPerProperty(OptimizationLevel optimization)
+    [InlineData(OptimizationLevel.Release, "class")]
+    [InlineData(OptimizationLevel.Release, "struct")]
+    [InlineData(OptimizationLevel.Debug, "class")]
+    [InlineData(OptimizationLevel.Debug, "struct")]
+    public void RepeatedBindingKeepsOneCanonicalAccessorPerProperty(OptimizationLevel optimization, string kind)
     {
         var tree = SyntaxTree.ParseText("""
             class Order {
@@ -22,10 +24,10 @@ public class AutoPropertySymbolStabilityTests
                     Pending = pending
                 }
             }
-            """);
+            """.Replace("class Order", kind + " Order"));
         var compilation = Compilation.Create("OrderSymbolStability", [tree], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
-        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var declaration = tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>().Single();
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var type = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
         var properties = type.GetMembers().OfType<SourcePropertySymbol>().ToArray();
@@ -55,6 +57,13 @@ public class AutoPropertySymbolStabilityTests
         {
             foreach (var accessor in new[] { get, set })
             {
+                if (kind == "struct")
+                {
+                    // The conservative .NET portable profile still delegates value owners
+                    // to the ordinary generator; this native fix must not broaden it.
+                    Assert.False(SourceCallablePlan.TryCreate(accessor, out _, ReflectionEmitCapabilities.Shared));
+                    continue;
+                }
                 Assert.True(SourceCallablePlan.TryCreate(accessor, out var plan, ReflectionEmitCapabilities.Shared));
                 Assert.Equal(EmissionDeclarationKind.PropertyAccessor, plan!.DeclarationKind);
                 Assert.True(plan.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);

@@ -620,6 +620,18 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.StoreElement, Syntax(statement), Type: arrayAssignment.Left.ElementType));
                     continue;
                 }
+                // An owned auto-property has no setter behavior to preserve. Initialize
+                // its backing field directly while a value receiver is under construction;
+                // calling a method here would escape the uninitialized receiver.
+                if (source.MethodKind == MethodKind.Constructor && source.ContainingType?.IsValueType == true &&
+                    memberAssignment is BoundPropertyAssignmentExpression
+                    {
+                        Property: SourcePropertySymbol { IsAutoProperty: true, BackingField: { } backingField },
+                        Receiver: null or BoundSelfExpression
+                    } initializer &&
+                    SymbolEqualityComparer.Default.Equals(backingField.ContainingType, source.ContainingType))
+                    memberAssignment = new BoundFieldAssignmentExpression(initializer.Receiver, backingField,
+                        initializer.Right, model.Compilation.GetSpecialType(SpecialType.System_Unit));
                 if (memberAssignment is BoundFieldAssignmentExpression fieldAssignment)
                 {
                     var owner = fieldAssignment.Field.ContainingType!;

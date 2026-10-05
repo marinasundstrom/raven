@@ -36,7 +36,17 @@ internal static class SourceValueDriverChecks
                 public field Value: int
                 init(value: int) { Value = value }
             }
+            public struct PropertyPoint {
+                var X: int
+                var Y: int
+                init(value: int) { X = value; self.Y = value + 1 }
+                func Set(value: int) { X = value }
+            }
             func Main() -> int {
+                var point = PropertyPoint(41)
+                let snapshot = point
+                point.Set(42)
+                if snapshot.X != 41 || snapshot.Y != 42 || point.X != 42 { return 6 }
                 var plain = Plain(41)
                 let saved = plain
                 plain.Value = 42
@@ -186,8 +196,9 @@ internal static class SourceValueDriverChecks
         var rejectedOutput = Path.Combine(output, "Rejected.dll");
         File.WriteAllText(rejectedSource, "public interface Value { func Read() -> int }\npublic struct Box : Value { func Read() -> int => 42 }\nfunc Main() -> int { let value: Value = Box(); return value.Read() }");
         var rejection = await Command("dotnet", [driver, "neoclr", "--core-reference", core, "-o", rejectedOutput, rejectedSource], 1);
-        if (!rejection.Error.Contains("NEOMETA001")) throw new Exception("missing capability diagnostic");
-        if (File.Exists(rejectedOutput)) throw new Exception("unsupported value boxing published output");
+        if (!rejection.Error.Contains("NEOMETA003") || !rejection.Error.Contains("explicit System core binding"))
+            throw new Exception("missing value-boxing runtime-binding diagnostic");
+        if (File.Exists(rejectedOutput)) throw new Exception("unbound value boxing published output");
         if (nested)
         {
             File.WriteAllText(rejectedSource, "public class Outer<T> { struct Case { } }\nfunc Main() -> int => 0");

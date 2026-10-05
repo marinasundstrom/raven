@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Initialize owned value-type auto-property backing fields directly
+  during native construction, retaining construction-receiver validation and ordinary
+  setter behavior. The unchanged types sample executes reference identity and value-copy
+  checks; the source-value driver tests auto-property initialization on both targets.
+  Correct its stale boxing rejection expectation to require an explicit System binding.
+
 - **2026-10-05:** Select native Task/builder declaration identity through immutable
   `MetadataImportOptions.WithAsyncAssemblyName` and `rvnc neoclr --async-library`.
   Reject missing, malformed and CLI providers without bootstrap fallback. Five POC
