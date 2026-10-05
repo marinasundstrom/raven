@@ -6639,3 +6639,18 @@ emission acceptance. Assess ordinary native compile/run of the sample inventory 
 root wiring, sharing the existing compiler/lowering path and VS Code configuration.
 Runtime suspension and green threads are deferred; no new scheduler is required by
 this direction. Ordinary .NET async behavior must remain preserved.
+
+### Owned-root boxing prerequisite (2026-10-05)
+
+The metadata API now uses `AssemblyBuilder.ObjectType` for boxing and value-type
+Isinst results. This selects an explicitly authored root or the existing bootstrap;
+`CoreObjectType` retains its original bootstrap meaning. Native emission validates the
+owned root's complete slots and can emit boxing/virtual dispatch without a legacy
+System binding. An API-produced BoxedDisplay function executes in NeoCLR with "42";
+157 C# contract groups pass, including mixed-identity/incomplete-root rejection.
+
+This prerequisite was found while reviewing source-root emitter integration. Raven
+source-root emission remains guarded: local override signatures, declaration capability
+checks and host catalog wiring are still required. No compiler runtime-contract option
+or ordinary .NET behavior changes in this slice. See neoCLR's
+`object-root-boxing-2026-10-05.md` for reproducible artifact/runtime evidence.

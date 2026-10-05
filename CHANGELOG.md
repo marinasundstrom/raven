@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Document metadata owned-root boxing as an emitter prerequisite:
+  API-authored boxing/virtual dispatch executes, but Raven's source-root guard remains
+  until local overrides, declaration capabilities and driver ownership are connected.
+  No compiler or default .NET behavior changes.
+
 - **2026-10-05:** Record API-produced native Object-slot execution as a compiler
   integration prerequisite, with source-root emission still guarded. Add working
   Tasks/await samples to the release gate alongside VS Code/LSP support; defer runtime
