@@ -243,6 +243,7 @@ internal static class CompletionItemMapper
             Label = item.DisplayText,
             FilterText = item.DisplayText,
             Detail = item.Description,
+            Documentation = FormatDocumentation(item.Symbol),
             LabelDetails = TryCreateLabelDetails(item.Symbol),
             Kind = CompletionHandler.MapCompletionItemKind(item),
             // Use one rank for all Raven items; embedded-language suggestions use a later rank.
@@ -258,6 +259,16 @@ internal static class CompletionItemMapper
                 ? InsertTextFormat.Snippet
                 : InsertTextFormat.PlainText
         };
+    }
+
+    private static StringOrMarkupContent? FormatDocumentation(ISymbol? symbol)
+    {
+        var text = DocumentationMarkdownFormatter.FormatForEditor(symbol?.GetDocumentationComment());
+        return string.IsNullOrWhiteSpace(text) ? null : new StringOrMarkupContent(new MarkupContent
+        {
+            Kind = MarkupKind.Markdown,
+            Value = text
+        });
     }
 
     private static CompletionItemLabelDetails? TryCreateLabelDetails(ISymbol? symbol)

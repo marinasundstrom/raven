@@ -7,6 +7,8 @@ namespace Raven.CodeAnalysis.NeoClr;
 
 internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLayoutSymbol
 {
+    public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
+
     private readonly Lazy<ITypeSymbol> type;
     internal NativeFieldSymbol(FieldInfo view, NativeNamedTypeSymbol owner, int instanceStorageOrdinal)
         : base(SymbolKind.Field, view.Name, owner, owner, owner.ContainingNamespace, [], [], NativeMetadataAccess.Map(view.Accessibility))

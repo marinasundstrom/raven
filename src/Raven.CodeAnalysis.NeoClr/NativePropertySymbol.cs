@@ -8,6 +8,8 @@ namespace Raven.CodeAnalysis.NeoClr;
 
 internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
 {
+    public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
+
     private readonly Lazy<ITypeSymbol> type;
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
     internal NativePropertySymbol(PropertyInfo view, NativeNamedTypeSymbol owner)

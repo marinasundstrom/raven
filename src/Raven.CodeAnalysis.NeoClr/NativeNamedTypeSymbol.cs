@@ -10,6 +10,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 // Keep unsupported categories at the reader boundary rather than manufacturing members.
 internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
 {
+    public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
     private readonly Compilation compilation;
     private readonly NominalTypeInfo view;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> interfaces;

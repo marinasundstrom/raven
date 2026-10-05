@@ -65,7 +65,7 @@ public sealed class NeoClrReferenceCatalog
         {
             var image = ReadImage(path, 16 * 1024 * 1024);
             _ = RuntimeAssemblyContainer.Read(image);
-            var reference = NeoClrMetadataReference.ReadAssembly(image, bootstrap);
+            var reference = NeoClrMetadataReference.ReadDocumentedAssembly(image, bootstrap, path);
             if (!identities.Add(reference.Definition.Identity))
                 throw new ArgumentException("Duplicate native assembly identity: " + reference.Definition.Identity.Name);
             references.Add(reference);

@@ -17,6 +17,23 @@ namespace Raven.LanguageServer.Tests;
 
 public class LanguageServerCompletionMappingTests
 {
+    [Fact]
+    public void ToLspCompletion_IncludesSymbolDocumentation()
+    {
+        var tree = SyntaxTree.ParseText("""
+            /// Describes the **documented API**.
+            public class Documented { }
+            """);
+        var compilation = Compilation.Create("docs", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(tree).AddReferences(LanguageServerTestReferences.Default);
+        var symbol = compilation.GetTypeByMetadataName("Documented")!;
+        var mapped = CompletionItemMapper.ToLspCompletion(
+            new Raven.CodeAnalysis.CompletionItem("Documented", "Documented", new TextSpan(0, 0), Symbol: symbol),
+            SourceText.From(""));
+        mapped.Documentation!.MarkupContent!.Value.ShouldContain("documented API");
+        mapped.Documentation.MarkupContent.Kind.ShouldBe(MarkupKind.Markdown);
+    }
+
     [Theory]
     [InlineData("    Con|soel", "Console", "Console", 4, 11, 2)]
     [InlineData("    Console.Wri|", "WriteLine", "WriteLine($0)", 12, 15, 2)]

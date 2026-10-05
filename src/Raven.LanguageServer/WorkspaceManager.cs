@@ -300,7 +300,9 @@ internal sealed class WorkspaceManager
         var service = _workspace.Services.ProjectSystemService;
         return service is not null && _workspace.CurrentSolution.Projects.Any(project =>
             project.FilePath is { } projectPath && service.GetMetadataInputPaths(projectPath)
-                .Any(input => string.Equals(NormalizePath(input), path, StringComparison.OrdinalIgnoreCase)));
+                .Any(input => string.Equals(NormalizePath(input), path, StringComparison.OrdinalIgnoreCase) ||
+                    (input.EndsWith(".docs", StringComparison.OrdinalIgnoreCase) &&
+                     path.StartsWith(NormalizePath(input) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))));
     }
 
     private bool IsObservedMacroFilePath(string path)

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Show native referenced API XML/Markdown documentation in editor
+  hovers and completion details, with Markdown-first member lookup and XML fallback.
+  Native project library builds emit documentation sidecars; watched sidecar edits
+  and deletion refresh editor help. Website guides remain independently authored.
+
 - **2026-10-05:** Complete a native VS Code POC using evaluated project configuration
   for semantic loading and `rvnc neoclr --project` build/run. Share ownership and async
   contracts, refresh explicitly selected artifacts without CLI substitution, show

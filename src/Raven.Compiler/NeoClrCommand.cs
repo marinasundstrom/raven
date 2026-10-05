@@ -41,8 +41,51 @@ internal static class NeoClrCommand
                 throw new InvalidDataException("Native output must differ from project inputs.");
             Directory.CreateDirectory(Path.GetDirectoryName(output)!);
             var temporary = output + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            try { File.WriteAllBytes(temporary, image.ToArray()); File.Move(temporary, output, true); }
-            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+            var xmlOutput = project.DocumentationOptions?.GenerateXmlDocumentation == true
+                ? Path.GetFullPath(project.DocumentationOptions.XmlDocumentationFile ?? Path.ChangeExtension(output, ".xml"), Path.GetDirectoryName(projectPath)!) : null;
+            var temporaryXml = temporary + ".xml";
+            var markdownOutput = project.DocumentationOptions?.GenerateMarkdownDocumentation == true
+                ? Path.GetFullPath(project.DocumentationOptions.MarkdownDocumentationOutputPath ?? Path.ChangeExtension(output, ".docs"), Path.GetDirectoryName(projectPath)!) : null;
+            var temporaryMarkdown = temporary + ".docs";
+            var protectedPaths = workspace.Services.ProjectSystemService!.GetMetadataInputPaths(projectPath)
+                .Concat(project.Documents.Select(d => d.FilePath).OfType<string>())
+                .Append(projectPath).Append(output).ToArray();
+            if (xmlOutput is not null && protectedPaths.Contains(xmlOutput, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidDataException("Documentation output must differ from native project inputs and assembly output.");
+            try
+            {
+                if (xmlOutput is not null)
+                    DocumentationEmitter.WriteDocumentation(compilation, DocumentationFormat.Xml,
+                        temporaryXml, project.DocumentationOptions!.GenerateXmlDocumentationFromMarkdownComments);
+                if (markdownOutput is not null)
+                {
+                    if (!markdownOutput.EndsWith(".docs", StringComparison.OrdinalIgnoreCase) ||
+                        protectedPaths.Append(xmlOutput ?? output).Any(path =>
+                            string.Equals(path, markdownOutput, StringComparison.OrdinalIgnoreCase) ||
+                            path.StartsWith(markdownOutput + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
+                        throw new InvalidDataException("Native Markdown output must be a dedicated .docs directory outside source inputs.");
+                    DocumentationEmitter.WriteDocumentation(compilation, DocumentationFormat.Markdown, temporaryMarkdown);
+                }
+                File.WriteAllBytes(temporary, image.ToArray());
+                if (xmlOutput is not null)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(xmlOutput)!);
+                    File.Move(temporaryXml, xmlOutput, true);
+                }
+                if (markdownOutput is not null)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(markdownOutput)!);
+                    if (Directory.Exists(markdownOutput)) Directory.Delete(markdownOutput, true);
+                    Directory.Move(temporaryMarkdown, markdownOutput);
+                }
+                File.Move(temporary, output, true);
+            }
+            finally
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+                if (File.Exists(temporaryXml)) File.Delete(temporaryXml);
+                if (Directory.Exists(temporaryMarkdown)) Directory.Delete(temporaryMarkdown, true);
+            }
             Console.WriteLine("Native build output: " + output);
             if (args.Length == 2) return 0;
             var start = new System.Diagnostics.ProcessStartInfo(Path.GetFullPath(args[3])) { UseShellExecute = false };

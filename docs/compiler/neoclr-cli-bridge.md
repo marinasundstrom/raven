@@ -7080,3 +7080,31 @@ reference-only library fixtures; `scripts/native-vscode-acceptance.cjs` drives t
 actual extension host. See the matching NeoCLR integration evidence for revisions,
 artifact hashes and commands. Packaged release installation/publication and broader
 platform qualification remain separate gates.
+
+## Native IDE documentation (2026-10-05)
+
+File-backed native references now use Raven's existing external documentation contract:
+an adjacent `Library.docs/manifest.json` and member Markdown files take precedence over
+`Library.xml`, with XML fallback per member. Type, method/constructor, field and property
+symbols expose documentation through `GetDocumentationComment()`. Image-only references
+have no sidecar search path. Missing or malformed optional documentation does not prevent
+semantic import, matching the ordinary .NET documentation behavior.
+
+`rvnc neoclr --project Library.rvnproj` honors project XML/Markdown documentation options.
+Library defaults produce both beside `bin/neoclr/Library.dll`; custom XML paths and dedicated
+`.docs` directories are supported, with checks against overwriting project inputs.
+Generation follows successful native validation/encoding. Failed binding/encoding publishes
+neither a replacement assembly nor documentation. Individual file replacements are atomic;
+publication of the entire set is not an atomic filesystem transaction.
+
+The editor displays prose in hovers and completion documentation. Explicit reference XML
+sidecars and Markdown directory descendants participate in workspace reload, including
+deletion (which exposes XML fallback). The VS Code workspace watcher covers these paths
+inside its watched roots; externally located files retain the existing watcher limitation.
+The catalog uses the existing documentation cache; Markdown is read lazily, so documentation
+is not claimed to be a byte-frozen part of the semantic artifact snapshot.
+
+This is API help, not a requirement to copy website guides into source comments. Long-form
+guides remain independently authored; RavenDoc may reuse the same concise API descriptions.
+Documentation must accompany the matching library in a distributable bundle. Undocumented
+APIs still show signatures. Native metadata encoding and runtime execution are unchanged.

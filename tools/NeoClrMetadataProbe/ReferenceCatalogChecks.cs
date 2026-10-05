@@ -39,6 +39,27 @@ internal static class ReferenceCatalogChecks
             if (errors.Length != 0) throw new Exception(string.Join("\n", errors.Select(d => d.ToString())));
         }
         var oldCompilation = Compile(first, "Value"); Valid(oldCompilation);
+        var xmlPath = Path.ChangeExtension(libraryPath, ".xml");
+        File.WriteAllText(xmlPath, """
+            <doc><members>
+            <member name="T:Library.Api"><summary>Native API documentation.</summary></member>
+            <member name="M:Library.Api.Value"><summary>Returns the documented answer.</summary></member>
+            </members></doc>
+            """);
+        var documented = Compile(NeoClrReferenceCatalog.Read(corePath, [libraryPath], seedPath), "Value");
+        Valid(documented);
+        var documentedType = documented.GetTypeByMetadataName("Library.Api")!;
+        if (documentedType.GetDocumentationComment()?.Content.Contains("Native API documentation.") != true ||
+            documentedType.GetMembers("Value").Single().GetDocumentationComment()?.Content.Contains("documented answer") != true)
+            throw new Exception("native XML type/member documentation missing");
+        File.WriteAllText(xmlPath, "<invalid");
+        var malformedDocs = Compile(NeoClrReferenceCatalog.Read(corePath, [libraryPath], seedPath), "Value");
+        Valid(malformedDocs);
+        if (malformedDocs.GetTypeByMetadataName("Library.Api")!.GetDocumentationComment() is not null)
+            throw new Exception("malformed optional documentation should be ignored");
+        File.Delete(xmlPath);
+        Console.WriteLine("PASS native XML type/member documentation and malformed optional sidecar");
+
         var earlier = Path.Combine(directory, "Earlier.dll"); File.Copy(libraryPath, earlier, true);
         WriteLibrary("Updated");
         Reject<ArgumentException>(() => NeoClrReferenceCatalog.Read(corePath, [libraryPath, earlier]));

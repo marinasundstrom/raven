@@ -142,7 +142,11 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
     public IReadOnlyList<string> GetMetadataInputPaths(string projectFilePath)
     {
         var evaluation = EvaluateProject(projectFilePath, _requestedTargetFramework, _requestedConfiguration);
-        return evaluation.MetadataReferencePaths.Concat(_metadataProvider?.GetInputPaths(projectFilePath, evaluation.TargetProperties) ?? [])
+        return evaluation.MetadataReferencePaths.Concat(evaluation.MetadataReferencePaths.SelectMany(path =>
+        {
+            var docs = Path.ChangeExtension(path, ".docs");
+            return new[] { Path.ChangeExtension(path, ".xml"), docs };
+        })).Concat(_metadataProvider?.GetInputPaths(projectFilePath, evaluation.TargetProperties) ?? [])
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 

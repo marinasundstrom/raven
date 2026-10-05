@@ -195,6 +195,8 @@ internal sealed class NativeNamespaceSymbol : Symbol, INamespaceSymbol, INamespa
 
 internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
 {
+    public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
+
     private readonly Compilation compilation;
     private readonly NeoCLR.Metadata.Experimental.Introspection.MethodInfo view;
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
