@@ -3198,9 +3198,8 @@ execute. Module-function references returning external value types additionally
 require the matching metadata library's authored function-signature update.
 
 Validation: 55 focused SharedLinearBodyTests pass, including Debug/Release returns,
-ordinary .NET match execution and pending-operand rejection. One separately recorded
-pre-existing test still expects supported numeric conversions to reject; it is
-excluded from that count. Raven main e1df355a2 has no portable adapter, so this change
+ordinary .NET match execution and pending-operand rejection. A separate test correction removes the stale numeric-conversion rejection
+expectation; the complete focused group now passes 56 tests. Raven main e1df355a2 has no portable adapter, so this change
 has no independent main backport; existing general .NET emission already handles
 these source constructs. Native storage evidence lives in neoCLR's
 `docs/experiments/extended-cli-metadata/source-storage-2026-10-05.md`.

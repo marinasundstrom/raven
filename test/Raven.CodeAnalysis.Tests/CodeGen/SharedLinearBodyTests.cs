@@ -454,7 +454,7 @@ public class SharedLinearBodyTests
     }
 
     [Fact]
-    public void UnsupportedBodyIsRejectedBeforeBuildingAndUsesGeneralDotNetGenerator()
+    public void NumericConversionsAreSupportedBySharedAndDotNetGenerators()
     {
         const string source = """
             public static class Arithmetic {
@@ -466,11 +466,10 @@ public class SharedLinearBodyTests
         var compilation = Create(source, OptimizationLevel.Release);
         var method = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var model = compilation.GetSemanticModel(method.SyntaxTree);
-        Assert.False(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
             model, method.Body!, _ => false, out var lowered, out var failure));
-        Assert.Null(lowered);
-        Assert.NotNull(failure);
-        Assert.Equal("(int)(double)value", failure.Syntax.ToString());
+        Assert.NotNull(lowered);
+        Assert.Null(failure);
         Assert.Equal(42, Emit(compilation).GetType("Arithmetic")!.GetMethod("Convert")!.Invoke(null, [42]));
     }
 

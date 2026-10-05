@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Correct the stale shared-emitter numeric-conversion test: these
+  conversions already emit and execute on .NET. All 56 focused shared-body tests
+  pass; this is a test correction, not new conversion support.
+
 - **2026-10-05:** Preserve empty-stack context through portable value blocks,
   conditional branches, conversions and expression wrappers. Early method returns
   in storage Result matches now emit; expressions with pending operands remain
