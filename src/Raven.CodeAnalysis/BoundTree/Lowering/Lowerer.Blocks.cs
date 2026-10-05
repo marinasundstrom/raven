@@ -261,6 +261,12 @@ internal sealed partial class Lowerer
 
     public override BoundNode? VisitIfStatement(BoundIfStatement node)
     {
+        if (RewritePropagatingInitializer(node.Condition) is { } propagation)
+        {
+            propagation.Statements.Add(new BoundIfStatement(propagation.SuccessExpression, node.ThenNode, node.ElseNode));
+            return VisitBlockStatement(new BoundBlockStatement(propagation.Statements));
+        }
+
         var condition = (BoundExpression)VisitExpression(node.Condition)!;
         var thenStatement = (BoundStatement)VisitStatement(node.ThenNode);
         var elseStatement = node.ElseNode is null ? null : (BoundStatement)VisitStatement(node.ElseNode);

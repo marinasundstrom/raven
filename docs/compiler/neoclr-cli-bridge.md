@@ -6449,3 +6449,14 @@ these behaviors; the portable adapter is absent from main, so no standalone main
 backport applies. This does not complete HTTP compilation: its next diagnostic is an
 unlowered BoundPropagateExpression. See neoCLR's source-network-2026-10-05 integration
 note and executable evidence for exact dependencies and limits.
+
+### HTTP condition propagation (2026-10-05)
+
+Shared lowering now rewrites propagation reached through generated child traversal and
+spills propagation in eager/short-circuit if conditions. The native consumer executes
+eight skip/success/error combinations against imported Result metadata. No Runtime
+Contract or metadata changes are needed. The complete HTTP source group advances to
+BoundDelegateCreationExpression admission, which remains open. Validation: 21 propagation
+and 65 focused shared-body/runtime-contract tests pass on the integration branch.
+See neoCLR's `condition-propagation-2026-10-05.md` evidence and the shared
+`propagation-temporaries.md` design note.

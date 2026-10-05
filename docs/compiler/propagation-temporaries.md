@@ -70,3 +70,25 @@ spilling is not part of this change. Ordinary .NET keeps its existing emitter.
 Validation: 21 focused tests pass on the integration branch. The independent fix
 is integrated into main as `e1df355a2` with 29 focused propagation, Runtime Contract
 and async tests passing on .NET 11; the temporary fix branch is removed.
+
+## Short-circuit propagation in conditions (2026-10-05)
+
+Propagation now overrides its node visitor, so generated traversal of nested operands
+reaches the same rewrite as direct expressions. If conditions with direct/eager-binary
+propagation use statement-level temporary values before branching. Logical AND/OR
+retain a Boolean temporary and lower the right operand only in the selected branch;
+residual returns never bypass a pending left operand. Existing initializer/local
+assignment rewriting also benefits from this short-circuit handling.
+
+Eight executable .NET cases check skip/success/failure for both logical operators,
+including propagation on either side of a comparison and one-time side effects. A
+separate native consumer performs the same assertions against an imported Result
+library. HTTP advances from unlowered propagation to a callback-emission capability
+gap. This changes shared lowering, not binding, the .NET emitter, Runtime Contract
+configuration or metadata. General spilling of all receiver/argument forms remains
+outside this bounded change.
+
+The independent shared fix is integrated into local main as `7b971d6c6`, with 26
+propagation/runtime-contract tests passing on .NET 11. Its temporary fix branch was
+removed. Integration validation passes 21 propagation and 65 focused shared-body/
+runtime-contract checks; the native consumer verifies and exits 0.

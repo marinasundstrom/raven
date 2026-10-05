@@ -9,22 +9,14 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer
 {
-    public override BoundExpression? VisitExpression(BoundExpression? node)
+    public override BoundNode? VisitPropagateExpression(BoundPropagateExpression node)
     {
-        if (node is null)
-            return null;
+        var lowering = RewritePropagateExpression(node);
+        if (lowering is null)
+            return node;
 
-        if (node is BoundPropagateExpression propagate)
-        {
-            var lowering = RewritePropagateExpression(propagate);
-            if (lowering is null)
-                return propagate;
-
-            lowering.Statements.Add(new BoundExpressionStatement(lowering.SuccessExpression));
-            return new BoundBlockExpression(lowering.Statements, GetCompilation().UnitTypeSymbol);
-        }
-
-        return base.VisitExpression(node);
+        lowering.Statements.Add(new BoundExpressionStatement(lowering.SuccessExpression));
+        return new BoundBlockExpression(lowering.Statements, GetCompilation().UnitTypeSymbol);
     }
 
     public override BoundNode? VisitAssignmentStatement(BoundAssignmentStatement node)
@@ -137,8 +129,7 @@ internal sealed partial class Lowerer
             }, new BoundLocalAccess(result));
         }
 
-        if (expression is not BoundBinaryExpression binary ||
-            binary.Operator.OperatorKind is BinaryOperatorKind.LogicalAnd or BinaryOperatorKind.LogicalOr)
+        if (expression is not BoundBinaryExpression binary)
             return null;
 
         var left = RewritePropagatingInitializer(binary.Left);
@@ -148,6 +139,22 @@ internal sealed partial class Lowerer
 
         var statements = left?.Statements ?? new List<BoundStatement>();
         var leftValue = left?.SuccessExpression ?? VisitExpression(binary.Left)!;
+        if (binary.Operator.OperatorKind is BinaryOperatorKind.LogicalAnd or BinaryOperatorKind.LogicalOr)
+        {
+            var result = CreateTempLocal("propagateCondition", binary.Type, isMutable: true);
+            statements.Add(new BoundLocalDeclarationStatement([new BoundVariableDeclarator(result, leftValue)]));
+            var rightStatements = right?.Statements ?? new List<BoundStatement>();
+            rightStatements.Add(new BoundAssignmentStatement(new BoundLocalAssignmentExpression(
+                result, new BoundLocalAccess(result), right?.SuccessExpression ?? VisitExpression(binary.Right)!,
+                GetCompilation().UnitTypeSymbol)));
+            var selected = new BoundBlockStatement(rightStatements);
+            var empty = new BoundBlockStatement([]);
+            var isAnd = binary.Operator.OperatorKind == BinaryOperatorKind.LogicalAnd;
+            statements.Add(new BoundIfStatement(new BoundLocalAccess(result),
+                isAnd ? selected : empty, isAnd ? empty : selected));
+            return new PropagateLowering(statements, new BoundLocalAccess(result));
+        }
+
         var leftLocal = CreateTempLocal("propagateLeft", leftValue.Type, isMutable: false);
         // Even a local read must precede the right operand: that operand can mutate it.
         statements.Add(new BoundLocalDeclarationStatement(new[]

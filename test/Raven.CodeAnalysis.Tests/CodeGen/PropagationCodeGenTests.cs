@@ -9,6 +9,58 @@ namespace Raven.CodeAnalysis.Tests;
 public class PropagationCodeGenTests
 {
     [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public void ConditionPropagationPreservesShortCircuitAndResidual(bool skip, bool fail, bool conjunction)
+    {
+        const string code = """
+            import System.*
+            class Harness {
+                private static var count: int = 0
+                private static func Read(fail: bool) -> Result<int, string> {
+                    count += 1
+                    if fail { return .Error("failed") }
+                    return .Ok(7)
+                }
+                private static func Run(skip: bool, fail: bool, conjunction: bool) -> Result<int, string> {
+                    if conjunction {
+                        if !skip && 7 == Read(fail)? {
+                            count += 10
+                            return .Ok(42)
+                        }
+                        return .Ok(9)
+                    }
+                    if skip || Read(fail)? != 7 {
+                        return .Ok(9)
+                    }
+                    count += 10
+                    return .Ok(42)
+                }
+                public static func Check(skip: bool, fail: bool, conjunction: bool) -> bool {
+                    let result = Run(skip, fail, conjunction)
+                    if skip { return count == 0 && result is .Ok(9) }
+                    if fail { return count == 1 && result is .Error("failed") }
+                    return count == 11 && result is .Ok(42)
+                }
+            }
+            """;
+        var references = TestMetadataReferences.DefaultWithRavenCore;
+        var compilation = Compilation.Create("condition-propagation", [SyntaxTree.ParseText(code)], references,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var pe = new MemoryStream();
+        var result = compilation.Emit(pe);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(pe, references);
+        Assert.Equal(true, loaded.Assembly.GetType("Harness")!.GetMethod("Check")!.Invoke(null, [skip, fail, conjunction]));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void BinaryPropagationPreservesEvaluationAndEarlyReturn(bool fail)
