@@ -6924,3 +6924,36 @@ Debug/Release CLR execution and opt-in portable admission, alongside existing in
 abstract-instantiation and override-binding tests. The metadata/runtime work is recorded
 in neoCLR `docs/experiments/extended-cli-metadata/native-inheritance-2026-10-05.md`.
 These are target integration changes; no independent main-branch binder fix is involved.
+
+
+## Shared native reference catalog (2026-10-05)
+
+`rvnc neoclr` now obtains its explicit core/native inputs from
+`Raven.CodeAnalysis.NeoClr.NeoClrReferenceCatalog.Read(corePath, nativeReferencePaths,
+runtimeSeedPath = null)`. This development host API owns immutable snapshots, preserves
+input order and shares the same primitive reference between native semantic import and
+the optional retained-seed emission binding. Core identity comes from the snapshot;
+the driver no longer rereads that file separately for identity and seed binding.
+
+Public members are `Bootstrap`, `CoreIdentity`, immutable `References` and immutable
+`Dependencies`. `ValidateSourceOwnership(metadataTypeNames)` rejects a retained-seed
+copy of a source-owned declaration, preserving the existing manifest check. File limits
+remain 4 MiB for core, 16 MiB per native PE and 8 MiB for seed. Read rejects duplicate
+paths/identities, malformed inputs and a seed whose module is not System. Missing files
+remain IO errors; unresolved semantic dependencies remain normal compiler diagnostics.
+It performs no dependency discovery, execution, projection, file watching or caching.
+
+Hosts must recreate the catalog on a reference change and construct a new compilation;
+old catalogs/compilations retain their original snapshots. Source ownership, runtime
+contracts, async provider and output options still belong to host configuration; this
+class does not infer them. Existing native driver flags, bootstrap configuration and
+failure-before-publication behavior are preserved. The legacy explicitly selected
+System projection remains separate. Ordinary .NET commands do not use this catalog.
+
+C# `NeoClrMetadataProbe --reference-catalog <core> <seed> <output>` checks native import
+and emission, replacement at the same path, old snapshot stability, missing dependencies,
+duplicate/conflicting identities, malformed input and seed ownership. Its separately
+emitted library/consumer executes with exit 42. Inheritance and order-collections driver
+controls still execute with expected output. A malformed driver reference produces no
+output file. This is an editor integration prerequisite; MSBuild project evaluation,
+LSP invalidation/navigation and VS Code build/run are not connected by this slice.

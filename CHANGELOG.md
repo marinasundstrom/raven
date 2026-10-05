@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Extract native reference setup into `NeoClrReferenceCatalog` for
+  CLI and future project/editor hosts. Read the explicit primitive bootstrap once,
+  share semantic/emission reference identities and retain immutable native snapshots
+  across file replacement. Validate input limits, duplicate identities and retained-
+  seed ownership without fallback to CLI projections. Project/LSP wiring is pending.
+
 - **2026-10-05:** Emit local nongeneric abstract/virtual class hierarchies for NeoCLR
   through an explicit shared capability. Preserve overrides and direct base calls,
   using compiler symbols only. The unchanged inheritance sample executes with `7`,

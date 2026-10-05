@@ -122,50 +122,17 @@ internal static class NeoClrCommand
             if (corePath is not null && string.Equals(corePath, output, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("Output must differ from the primitive core input.");
             var name = Path.GetFileNameWithoutExtension(output);
-            var host = corePath is null ? typeof(object).Assembly.GetName() : System.Reflection.AssemblyName.GetAssemblyName(corePath);
-            var core = new AssemblyIdentity(host.Name!, host.Version!, host.CultureName ?? "", Convert.ToHexString(host.GetPublicKeyToken() ?? []));
-            var console = MetadataReference.CreateFromFile(typeof(Console).Assembly.Location);
-            var references = new List<MetadataReference> {
+            var catalog = corePath is null ? null : NeoClrReferenceCatalog.Read(corePath, referencePaths, runtimeSeedPath);
+            catalog?.ValidateSourceOwnership(ownership?.Libraries.SelectMany(library => library.Types) ?? []);
+            var host = typeof(object).Assembly.GetName();
+            var core = catalog?.CoreIdentity ?? new AssemblyIdentity(host.Name!, host.Version!, host.CultureName ?? "", Convert.ToHexString(host.GetPublicKeyToken() ?? []));
+            MetadataReference console = catalog?.Bootstrap.Reference ?? MetadataReference.CreateFromFile(typeof(Console).Assembly.Location);
+            var references = catalog?.References.ToList() ?? new List<MetadataReference> {
                 MetadataReference.CreateFromFile(typeof(object).Assembly.Location), console,
                 MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("System.Runtime").Location)
             };
-            MetadataReference? bootstrapReference = null;
-            NeoClrPrimitiveBootstrap? primitiveBootstrap = null;
-            if (corePath is not null)
-            {
-                if (new FileInfo(corePath).Length > 4 * 1024 * 1024) throw new InvalidDataException("Core snapshot exceeds 4 MiB.");
-                primitiveBootstrap = NeoClrPrimitiveBootstrap.ReadAssembly(File.ReadAllBytes(corePath));
-                var primitiveCore = primitiveBootstrap.Reference;
-                references.Clear();
-                references.Add(primitiveCore);
-                console = primitiveCore;
-                if (bootstrapIntrinsics) bootstrapReference = primitiveCore;
-            }
-            var dependencies = new List<NeoClrMetadataDependency>();
-            if (runtimeSeedPath is not null)
-            {
-                if (new FileInfo(runtimeSeedPath).Length > 8 * 1024 * 1024 || new FileInfo(corePath!).Length > 4 * 1024 * 1024)
-                    throw new InvalidDataException("Runtime seed or core snapshot exceeds its image limit.");
-                var seed = NativeLibraryDefinition.ReadAssembly(File.ReadAllBytes(runtimeSeedPath));
-                if (seed.ModuleName != "System") throw new InvalidDataException("Runtime seed must declare module System.");
-                foreach (var type in ownership?.Libraries.SelectMany(library => library.Types) ?? [])
-                {
-                    var nativeName = System.Text.RegularExpressions.Regex.Replace(type.Replace('+', '.'), @"`\d+", "");
-                    if (seed.TypeNames.Contains(nativeName))
-                        throw new InvalidDataException("Runtime seed duplicates a source-owned declaration: " + type);
-                }
-                dependencies.Add(new(references[0], AssemblyDefinition.ReadAssembly(File.ReadAllBytes(corePath!), expectedExtended: false), core, seed));
-            }
-            foreach (var path in referencePaths)
-            {
-                if (new FileInfo(path).Length > 16 * 1024 * 1024) throw new InvalidDataException("Native PE reference exceeds 16 MiB: " + path);
-                var bytes = File.ReadAllBytes(path);
-                // Validate executable metadata, then import native declarations without a CLI projection.
-                _ = RuntimeAssemblyContainer.Read(bytes);
-                var reference = NeoClrMetadataReference.ReadAssembly(bytes, primitiveBootstrap!);
-                references.Add(reference);
-                dependencies.Add(new(reference, core));
-            }
+            MetadataReference? bootstrapReference = bootstrapIntrinsics ? catalog!.Bootstrap.Reference : null;
+            var dependencies = catalog?.Dependencies.ToList() ?? [];
             NeoClrSystemSymbols? systemSymbols = null;
             if ((systemPath is null) != (systemMethods.Count == 0)) throw new ArgumentException("Use --system-symbols with explicit --system-method selections.");
             if (systemPath is not null)
