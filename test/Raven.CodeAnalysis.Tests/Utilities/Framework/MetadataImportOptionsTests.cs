@@ -7,6 +7,19 @@ namespace Raven.CodeAnalysis.Tests;
 public class MetadataImportOptionsTests
 {
     [Fact]
+    public void NativeAsyncProviderSelectionIsImmutableAndValidatesIdentity()
+    {
+        var baseline = new MetadataImportOptions("Core");
+        var selected = baseline.WithAsyncAssemblyName("Tasks");
+        Assert.Null(baseline.AsyncAssemblyName);
+        Assert.Equal("Tasks", selected.AsyncAssemblyName);
+        Assert.Null(selected.WithAsyncAssemblyName(null).AsyncAssemblyName);
+        Assert.Equal("Core", selected.CoreAssemblyName);
+        Assert.Throws<ArgumentException>(() => baseline.WithAsyncAssemblyName(" "));
+        Assert.Throws<ArgumentException>(() => baseline.WithAsyncAssemblyName(""));
+    }
+
+    [Fact]
     public void PrimitiveProvidersAreCopiedAndRestrictedToSupportedDeclarations()
     {
         var providers = new Dictionary<SpecialType, string> { [SpecialType.System_Single] = "Numbers", [SpecialType.System_String] = "Text" };

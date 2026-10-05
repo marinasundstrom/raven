@@ -39,6 +39,7 @@ internal static class Int32Emitter
                 {
                     diagnosticSyntax = declaration;
                     var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
+                    if (symbol.IsAsync) throw Unsupported("native async state-machine emission");
                     if (symbol.IsExtern)
                     {
                         if (!NeoClrRuntimeServiceDeclaration.TryCreate(compilation, symbol, declaration, out var service))
@@ -70,6 +71,9 @@ internal static class Int32Emitter
                             plans.Add(GetPlan(conversionMethod));
                             continue;
                         }
+                        if (extensionMember is MethodDeclarationSyntax asyncExtension &&
+                            model.GetDeclaredSymbol(asyncExtension) is IMethodSymbol { IsAsync: true })
+                            throw Unsupported("native async state-machine emission");
                         if (extensionMember is not MethodDeclarationSyntax method ||
                             (method.Body is null && method.ExpressionBody is null) || method.AttributeLists.Count != 0 ||
                             method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)) ||
@@ -220,6 +224,9 @@ internal static class Int32Emitter
                             plans.Add(GetPlan((IMethodSymbol)model.GetDeclaredSymbol(op)!));
                             continue;
                         }
+                        if (typeMember is MethodDeclarationSyntax asyncMember &&
+                            model.GetDeclaredSymbol(asyncMember) is IMethodSymbol { IsAsync: true })
+                            throw Unsupported("native async state-machine emission");
                         if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null) || method.AttributeLists.Count != 0 ||
                             method.ExplicitInterfaceSpecifier is not null || method.ConstraintClauses.Count != 0 ||
                             method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword or SyntaxKind.OverrideKeyword) && !(m.Kind == SyntaxKind.VirtualKeyword && compilation.IsSourceObjectRoot(typeSymbol))))

@@ -27,6 +27,10 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
         if (Options.MetadataImportOptions is { } imports && (imports.PrimitiveAssemblies.Count > 0 || imports.SourcePrimitiveTypes.Count > 0) && Options.TargetPlatform != TargetPlatform.NeoCLR)
             return "native primitive providers require the NeoCLR target";
 
+        if (Options.MetadataImportOptions?.AsyncAssemblyName is not null &&
+            (Options.TargetPlatform != TargetPlatform.NeoCLR || !Options.UseHeapAsyncStateMachines))
+            return "native async providers require the NeoCLR heap state-machine target";
+
         if (Options.MetadataImportOptions?.UseSourceObjectRoot == true && !UsesSourceObjectRoot)
             return "source Object ownership requires the NeoCLR target";
 
@@ -62,6 +66,18 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     {
         if (GetConfigurationError() is { } error)
             return error;
+
+        if (Options.MetadataImportOptions?.AsyncAssemblyName is { } asyncProvider)
+        {
+            foreach (var special in new[] { SpecialType.System_Threading_Tasks_Task_T, SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T })
+            {
+                var type = compilation.GetSpecialType(special);
+                if (type.TypeKind != TypeKind.Class || type.Arity != 1 || type.IsStatic ||
+                    type.DeclaredAccessibility != Accessibility.Public || type.ContainingAssembly?.Name != asyncProvider ||
+                    type.ContainingAssembly is not Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    return "native async provider requires public generic Task and builder declarations from its registered native assembly";
+            }
+        }
 
         if (compilation.GetSourceObjectRootError() is { } rootError)
             return rootError;

@@ -63,6 +63,20 @@ public sealed record MetadataImportOptions
     /// <remarks>Does not change the bootstrap core. Native emission separately validates supported root declarations and bodies; CLI root emission remains unsupported.</remarks>
     public bool UseSourceObjectRoot { get; }
 
+    /// <summary>Gets the explicitly selected native library owning Task and async builder declarations.</summary>
+    /// <remarks>NeoCLR only. Missing or incompatible declarations never fall back to the CLI bootstrap.</remarks>
+    public string? AsyncAssemblyName { get; private init; }
+
+    /// <summary>Selects a native async declaration library, or clears the selection with null.</summary>
+    /// <param name="assemblyName">Registered native assembly name; artifact identity is validated by the native reference catalog.</param>
+    /// <returns>A new immutable import configuration.</returns>
+    /// <exception cref="ArgumentException">The assembly name is empty or whitespace.</exception>
+    public MetadataImportOptions WithAsyncAssemblyName(string? assemblyName)
+    {
+        if (assemblyName is not null) ArgumentException.ThrowIfNullOrWhiteSpace(assemblyName);
+        return this with { AsyncAssemblyName = assemblyName };
+    }
+
     private static bool SupportsPrimitive(SpecialType type) => type is SpecialType.System_SByte or SpecialType.System_Byte or
         SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or
         SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double or

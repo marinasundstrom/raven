@@ -6715,3 +6715,40 @@ and seed inputs. The caller is neoIL; this does not claim a Raven-to-Raven consu
 The evidence records input/artifact hashes and command results. Sixteen existing
 source-root compiler checks and 30 runtime/CLI checks pass. No independently useful
 .NET behavior fix needs backporting from this target-specific driver slice.
+
+### Explicit native async declaration provider (2026-10-05)
+
+`MetadataImportOptions.WithAsyncAssemblyName(string? assemblyName)` returns an immutable
+copy selecting the registered native library owning `System.Tasks.Task<T>` and
+`System.Runtime.CompilerServices.AsyncTaskMethodBuilder<T>`. The `AsyncAssemblyName`
+property reports that selection; null clears it and empty names throw ArgumentException.
+Use this only with the NeoCLR heap-state-machine target. The native dependency catalog
+continues validating full artifact identities and conflicts; this selector does not
+load files implicitly or accept an unregistered CLI projection as an async provider.
+
+The native importer assigns the Task/builder special classifications only inside that
+selected assembly. Special-type resolution uses that owner without falling back to the
+primitive bootstrap. Resolved configuration requires public generic reference-class
+Task and builder declarations from a native artifact. The default .NET and unselected
+native paths are unchanged. This establishes declaration identity, not validation of
+every possible builder protocol; normal await binding checks the used awaiter pattern.
+
+`rvnc neoclr --async-library <assembly-name>` exposes the selection alongside explicit
+`--core-reference` and `--reference` inputs. It preserves ownership-manifest primitive
+configuration. No new CLI bridge encoding, metadata schema or Task library implementation
+is introduced. Signatures remain nominal native generic identities. The emitter consumes
+symbols and artifact contracts, never importer objects.
+
+The five native async/HTTP POC samples now pass binding, including HTTP client propagation.
+They still reject at the explicit native async state-machine emission boundary and
+publish no output. Next connect synthesized state-machine owners/fields/methods to the
+portable declaration and body path, using existing heap lowering, and prove completed
+and pending awaits before claiming working async compilation. Runtime suspension and
+green threads remain out of scope. Full System and Object-root replacement do not gate
+these retained-seed POC samples.
+
+Validation: 32-test pre-change async baseline; 33 final focused .NET/option tests pass.
+The C# `--native-async-symbols <core.dll> <native-library.dll>` probe checks selected and
+unselected identity, generic GetResult substitution, async/await binding, malformed
+interface/value-type providers, missing/bootstrap providers, .NET denial and unchanged
+output streams at the emission boundary. No .NET behavior fix requires backporting.

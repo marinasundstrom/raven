@@ -20,6 +20,7 @@ internal static class NeoClrCommand
         {
             Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--core-reference NeoCLR.CoreProbe.dll] [--reference library.dll] source.rvn ...");
             Console.WriteLine("Optional --runtime-seed System.neox binds the explicitly selected CLI core bootstrap to retained runtime services; it imports no additional symbols.");
+            Console.WriteLine("Optional --async-library <assembly-name> selects native Task/builder symbols from an explicit --reference. Native async emission is experimental.");
             Console.WriteLine("Optional --source-object-root selects this library's System.Object; requires --library and --core-reference. Imported-root consumers remain unsupported.");
             Console.WriteLine("Optional --bootstrap-intrinsics authorizes checked storage from the explicitly selected --core-reference.");
             Console.WriteLine("Optional --bootstrap-ownership manifest.json selects source-library ownership and iteration contracts.");
@@ -42,6 +43,7 @@ internal static class NeoClrCommand
             string? systemPath = null;
             string? runtimeSeedPath = null;
             string? corePath = null;
+            string? asyncAssembly = null;
             BootstrapOwnershipManifest? ownership = null;
             var systemMethods = new List<string>();
             for (var i = 0; i < args.Length; i++)
@@ -67,6 +69,11 @@ internal static class NeoClrCommand
                     case "--runtime-seed":
                         if (runtimeSeedPath is not null || ++i == args.Length) throw new ArgumentException("Specify --runtime-seed once with an explicit native System path.");
                         runtimeSeedPath = Path.GetFullPath(args[i]);
+                        break;
+                    case "--async-library":
+                        if (asyncAssembly is not null || ++i == args.Length || string.IsNullOrWhiteSpace(args[i]) || args[i].StartsWith('-'))
+                            throw new ArgumentException("Specify --async-library once with a registered native assembly name.");
+                        asyncAssembly = args[i];
                         break;
                     case "--core-reference":
                         if (corePath is not null || ++i == args.Length) throw new ArgumentException("Specify --core-reference once with a CLI primitive core path.");
@@ -104,6 +111,8 @@ internal static class NeoClrCommand
                 throw new ArgumentException("Duplicate input path.");
             if (runtimeSeedPath is not null && (corePath is null || systemPath is not null || string.Equals(runtimeSeedPath, output, StringComparison.OrdinalIgnoreCase)))
                 throw new ArgumentException("--runtime-seed requires --core-reference, a distinct output and no legacy --system-symbols selection.");
+            if (asyncAssembly is not null && corePath is null)
+                throw new ArgumentException("--async-library requires an explicit --core-reference.");
             if (sourceObjectRoot && (corePath is null || !library || systemPath is not null))
                 throw new ArgumentException("--source-object-root requires --library, --core-reference and no legacy --system-symbols selection.");
             if (bootstrapIntrinsics && corePath is null)
@@ -198,6 +207,9 @@ internal static class NeoClrCommand
                     .WithMetadataImportOptions(new MetadataImportOptions(
                         core.Name, imports?.PrimitiveAssemblies, imports?.SourcePrimitiveTypes, useSourceObjectRoot: true));
             }
+            if (asyncAssembly is not null)
+                compilationOptions = compilationOptions.WithMetadataImportOptions(
+                    (compilationOptions.MetadataImportOptions ?? new MetadataImportOptions(core.Name)).WithAsyncAssemblyName(asyncAssembly));
             var compilation = Compilation.Create(name, trees, references.ToArray(), compilationOptions);
             ownership?.Validate(compilation);
             using var image = new MemoryStream();

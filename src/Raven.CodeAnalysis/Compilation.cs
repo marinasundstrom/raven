@@ -2767,6 +2767,12 @@ public partial class Compilation
             var selected = GetTypeByMetadataName(metadataName, provider);
             return selected?.SpecialType == specialType ? selected : (INamedTypeSymbol)ErrorTypeSymbol;
         }
+        if (Options.MetadataImportOptions?.AsyncAssemblyName is { } asyncProvider &&
+            specialType is SpecialType.System_Threading_Tasks_Task_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
+        {
+            var selected = GetTypeByMetadataName(metadataName, asyncProvider);
+            return selected?.SpecialType == specialType ? selected : (INamedTypeSymbol)ErrorTypeSymbol;
+        }
         var preferredAssembly = _target.RuntimeContract.PreferredSpecialTypeAssemblyName;
 
         var type = TryGetMetadataReferenceTypeByMetadataName(metadataName);

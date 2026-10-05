@@ -23,6 +23,14 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
         this.compilation = compilation;
         this.view = view;
         SpecialType = view.NativeGrapheme ? SpecialType.System_Char : view.NativePrimitive is { } primitive ? Enum.Parse<SpecialType>("System_" + primitive) : SpecialType.None;
+        if (SpecialType == SpecialType.None && compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            compilation.Options.MetadataImportOptions?.AsyncAssemblyName == ContainingAssembly.Name)
+            SpecialType = view.FullName switch
+            {
+                "System.Tasks.Task`1" => SpecialType.System_Threading_Tasks_Task_T,
+                "System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1" => SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T,
+                _ => SpecialType.None
+            };
         TypeParameters = [.. view.GetGenericArguments().Cast<GenericParameterTypeInfo>()
             .Select(parameter => (ITypeParameterSymbol)new NativeTypeParameterSymbol(parameter.Name, parameter.Position, this))];
         TypeArguments = [.. TypeParameters];

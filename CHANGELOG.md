@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Select native Task/builder declaration identity through immutable
+  `MetadataImportOptions.WithAsyncAssemblyName` and `rvnc neoclr --async-library`.
+  Reject missing, malformed and CLI providers without bootstrap fallback. Five POC
+  async/HTTP samples now pass binding; synthesized async state-machine emission remains
+  explicitly unsupported and publishes nothing. Preserve default .NET behavior;
+  33 focused regressions and the native C# symbol/protection probe pass.
+
 - **2026-10-05:** Add `rvnc neoclr --source-object-root` for explicit core-backed
   library bootstrap builds. Preserve configured primitive providers; require an explicit
   ownership typeof contract instead of implicit seed introspection services. An ordinary
