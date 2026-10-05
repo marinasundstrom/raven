@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Keep reference field assignment receivers off the evaluation stack
+  while a right-hand-side block can return. Preserve receiver-first, once-only
+  evaluation and the selected object across RHS side effects; ordinary .NET execution
+  no longer fails with InvalidProgramException. No target or Runtime Contract change.
+
 - **2026-10-05:** Preserve receiver and value-argument evaluation order when Result
   propagation exits a call early. Hoist supported call operands before residual
   returns; .NET propagation and runtime-contract regression tests pass.

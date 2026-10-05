@@ -1777,3 +1777,25 @@ ImportedInterfacePropertyTests test emits a private explicit int getter/setter a
 an external generic C# contract and observes mutation through that contract. The paired
 ordinary driver workflow also returns 42. No Runtime Contract or native dependency is
 needed for this fix. Keep it isolated for independent validation on main.
+
+
+### Reference field assignment with early return (2026-10-05)
+
+The native HTTP investigation exposed an independent ordinary .NET emitter defect.
+Reproduction on main `e33591945` throws `InvalidProgramException` for both paths of a
+reference field assignment whose RHS block can return. The three existing reference
+owner mutation controls pass before the fix.
+
+The .NET emitter now evaluates and saves the reference receiver before evaluating
+that RHS on an empty stack, then reloads the saved object and value for the store.
+This preserves receiver-first evaluation and does not perform a store after early
+return. Value-owner address handling remains on its existing path. This is an emitter
+stack-lifetime repair, not a binding rule or target-specific semantic change; it
+requires no Runtime Contract configuration or metadata change. The portable native
+emitter already handles its receiver separately.
+
+Validation: all ten focused reference-owner, ref-field, field-initialization and
+value-receiver tests pass on .NET 11. The new Debug/Release controls check both
+returning and fallthrough execution, evaluation order, once-only receiver evaluation,
+original-object identity when the RHS replaces the receiver variable, and skipped
+storage on early return. No public API or website example changed.

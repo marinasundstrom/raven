@@ -5209,10 +5209,24 @@ internal partial class ExpressionGenerator : Generator
                         break;
                     }
 
+                    var rightHasControlTransfer = BoundNodeFacts.ContainsControlTransfer(right);
                     var cacheRightValue = !fieldSymbol.IsStatic &&
-                        (containingType?.IsValueType == true ||
-                         receiver is BoundSelfExpression && BoundNodeFacts.ContainsControlTransfer(right));
+                        (containingType?.IsValueType == true || rightHasControlTransfer);
                     IILocal? cachedRightLocal = null;
+                    IILocal? cachedReceiverLocal = null;
+
+                    if (!fieldSymbol.IsStatic && containingType?.IsReferenceType == true && rightHasControlTransfer)
+                    {
+                        // Evaluate the receiver first, but leave an empty stack for RHS returns.
+                        // Reload this same object after the RHS, even if it changes the receiver variable.
+                        if (receiver is not null)
+                            EmitExpression(receiver);
+                        else
+                            ILGenerator.Emit(OpCodes.Ldarg_0);
+
+                        cachedReceiverLocal = ILGenerator.DeclareLocal(ResolveClrType(containingType));
+                        ILGenerator.Emit(OpCodes.Stloc, cachedReceiverLocal);
+                    }
 
                     if (cacheRightValue)
                     {
@@ -5227,7 +5241,11 @@ internal partial class ExpressionGenerator : Generator
 
                     if (!fieldSymbol.IsStatic)
                     {
-                        if (needsAddress)
+                        if (cachedReceiverLocal is not null)
+                        {
+                            ILGenerator.Emit(OpCodes.Ldloc, cachedReceiverLocal);
+                        }
+                        else if (needsAddress)
                         {
                             if (!TryEmitValueTypeReceiverAddress(receiver, receiver?.Type, containingType))
                             {
