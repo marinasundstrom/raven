@@ -6302,3 +6302,17 @@ Validation: the runtime repository's verify_parameter_arrays.py compiles an arti
 provider/consumer, verifies and executes to 42; 151 C# metadata groups and focused native
 roundtrip/projection checks pass. JSON mapping remains in progress. .NET Reflection/Emit
 behavior is unchanged.
+
+### Native JSON control-flow prerequisites (2026-10-05)
+
+Portable lowering supports reference null-coalescing with single evaluation and lazy
+fallback. A direct return fallback is currently admitted at a local initializer's empty
+stack boundary; nested operand contexts reject explicitly. Boxed value declaration
+patterns test the target type before unboxing and binding the pattern local.
+Conversion/required-result wrappers around terminal return statements are unreachable;
+normalization retains the return operand's existing conversion. No importer objects,
+new metadata semantics or changes to the .NET backend are involved.
+
+The runtime repository's mapping-guards provider/consumer validates both Result match
+branches, null/non-null guards, boxed int/bool and a mismatched string. Native verify/run
+passes (42); eight focused .NET pattern tests pass. Full JSON mapping remains open.

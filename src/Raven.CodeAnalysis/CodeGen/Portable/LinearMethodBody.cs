@@ -187,7 +187,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 var expression = expressionStatement.Expression;
                 while (expression is BoundRequiredResultExpression required)
                     expression = required.Operand;
-                if (expression is BoundReturnExpression returned)
+                // A conversion around a terminal expression is unreachable. The
+                // return's own operand already carries the method return conversion.
+                var terminal = expression;
+                while (terminal is BoundConversionExpression { IsUserDefined: false } || terminal is BoundRequiredResultExpression)
+                    terminal = terminal is BoundConversionExpression c ? c.Expression : ((BoundRequiredResultExpression)terminal).Operand;
+                if (terminal is BoundReturnExpression returned)
                     return new BoundReturnStatement(returned.Expression);
                 // At a statement boundary the expression is discarded; wrappers used
                 // by match lowering must not hide blocks, calls or assignments.
@@ -298,6 +303,21 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 Add(LinearInstructionKind.LoadLocal, syntax, extractedReference);
                 instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: referencePattern.DeclaredType));
                 return PatternDesignator(referencePattern.Designator, referencePattern.DeclaredType, syntax);
+            }
+            if (pattern is BoundDeclarationPattern { Designator: BoundSingleVariableDesignator } valuePattern &&
+                input.IsReferenceType && valuePattern.DeclaredType.IsValueType &&
+                capabilities?.Allows(LinearInstructionKind.TypeTest) == true && capabilities.Allows(LinearInstructionKind.UnboxAny) &&
+                TryType(input, false, out var boxedInputType) && capabilities.Allows(boxedInputType) &&
+                TryType(valuePattern.DeclaredType, false, out var unboxedPatternType) && capabilities.Allows(unboxedPatternType))
+            {
+                var boxedInput = localTypes.Count; localTypes.Add(boxedInputType);
+                Add(LinearInstructionKind.StoreLocal, syntax, boxedInput);
+                Add(LinearInstructionKind.LoadLocal, syntax, boxedInput);
+                instructions.Add(new(LinearInstructionKind.TypeTest, syntax, Type: valuePattern.DeclaredType));
+                Add(LinearInstructionKind.BranchFalse, syntax, fail);
+                Add(LinearInstructionKind.LoadLocal, syntax, boxedInput);
+                instructions.Add(new(LinearInstructionKind.UnboxAny, syntax, Type: valuePattern.DeclaredType));
+                return PatternDesignator(valuePattern.Designator, valuePattern.DeclaredType, syntax);
             }
             if (pattern is BoundConstantPattern constant && input.IsReferenceType &&
                 (constant.LiteralType is { ConstantValue: null } || constant.Expression is { } value && IsNullLiteral(value)) &&
@@ -510,7 +530,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         else if (variable.Local.Type is (IArrayTypeSymbol or ITypeParameterSymbol) && TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
                             localType = arrayType;
                         else return Reject("target does not support local type " + variable.Local.Type.Name, Syntax(variable));
-                        if (variable.Initializer is not null && !LowerValue(variable.Initializer, variable.Local.Type)) return false;
+                        if (variable.Initializer is not null && !LowerValue(variable.Initializer, variable.Local.Type, atStatementBoundary: true)) return false;
                         var slot = localTypes.Count;
                         locals.Add(variable.Local, slot);
                         localTypes.Add(localType);
@@ -636,7 +656,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (statement is not BoundReturnStatement { Expression: { } value })
                     return Reject("unsupported lowered statement " + statement.GetType().Name +
                         (statement is BoundExpressionStatement unsupported ? " (" + unsupported.Expression.GetType().Name +
-                            (unsupported.Expression is BoundRequiredResultExpression required ? "/" + required.Operand.GetType().Name : "") + ") in " + source.Name : statement is BoundAssignmentStatement assigned ? " (" + assigned.Expression.GetType().Name + ")" : ""), Syntax(statement));
+                            (unsupported.Expression is BoundRequiredResultExpression required ? "/" + required.Operand.GetType().Name : unsupported.Expression is BoundConversionExpression converted ? "/" + converted.Expression.GetType().Name + " " + converted.Expression.Type.ToDisplayString() + " -> " + converted.Type.ToDisplayString() : "") + ") in " + source.Name : statement is BoundAssignmentStatement assigned ? " (" + assigned.Expression.GetType().Name + ")" : ""), Syntax(statement));
                 if (!LowerValue(value, source.ReturnType)) return false;
                 Add(LinearInstructionKind.Return, Syntax(statement));
             }
@@ -913,13 +933,33 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
-        bool LowerValue(BoundExpression expression, ITypeSymbol? nullTarget = null)
+        bool LowerValue(BoundExpression expression, ITypeSymbol? nullTarget = null, bool atStatementBoundary = false)
         {
             if (nullTarget is not null && IsNullLiteral(expression)) return LowerTypedNull(nullTarget, Syntax(expression));
             if (capabilities is not null && EmissionPrimitiveTypes.TryGetValueType(expression.Type, out var valueType) && !capabilities.Allows(valueType))
                 return Reject("target does not support value type " + valueType, Syntax(expression));
             switch (expression)
             {
+                case BoundNullCoalesceExpression coalesce when coalesce.Left.Type.IsReferenceType &&
+                    capabilities?.Allows(LinearInstructionKind.ReferenceIsNull) == true &&
+                    TryType(coalesce.Type, false, out var coalesceType) && capabilities.Allows(coalesceType):
+                    // Keep the original operand on the non-null path; evaluate it once.
+                    // A return fallback is admitted only with no enclosing operands on the stack.
+                    if (coalesce.Right is BoundReturnExpression && !atStatementBoundary)
+                        return Reject("coalescing return requires a statement boundary", Syntax(expression));
+                    var coalesceJoin = nextLabel++;
+                    if (!LowerValue(coalesce.Left)) return false;
+                    Add(LinearInstructionKind.Duplicate, Syntax(expression));
+                    Add(LinearInstructionKind.ReferenceIsNull, Syntax(expression));
+                    Add(LinearInstructionKind.BranchFalse, Syntax(expression), coalesceJoin);
+                    Add(LinearInstructionKind.Pop, Syntax(expression));
+                    if (coalesce.Right is BoundReturnExpression fallbackReturn)
+                    {
+                        if (!LowerStatements(new BoundReturnStatement(fallbackReturn.Expression))) return false;
+                    }
+                    else if (!LowerValue(coalesce.Right, coalesce.Type)) return false;
+                    Add(LinearInstructionKind.Label, Syntax(expression), coalesceJoin);
+                    return true;
                 case BoundUnitExpression { Type: UnitTypeSymbol { RuntimeRepresentation: { } representation } } when TryType(representation, false, out var unitType) &&
                     unitType.Nominal is not null && capabilities?.Allows(unitType) == true &&
                     capabilities.Allows(LinearInstructionKind.DefaultValue):

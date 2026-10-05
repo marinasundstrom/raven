@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Lower native reference coalescing guards and boxed-value declaration
+  patterns using existing semantic operations. Normalize unreachable conversions around
+  terminal returns at statement boundaries. A separate-library consumer executes null,
+  boxed int/bool, mismatched-type and Result match-return paths; eight focused .NET
+  pattern tests pass.
+
 - **2026-10-05:** Import and emit final by-value native parameter arrays through
   introspection and symbol contracts. Separate-library consumers execute empty, expanded
   and existing-array calls. Native metadata retains the standard ParamArrayAttribute;
