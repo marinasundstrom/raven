@@ -158,7 +158,11 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         TypeKind == TypeKind.Delegate ||
         TypeKind == TypeKind.Array;
 
-    public SpecialType SpecialType => SpecialType.None;
+    public SpecialType SpecialType => Name == "Object" && MetadataName == "Object" &&
+        TypeKind == TypeKind.Class && ContainingType is null &&
+        ContainingNamespace?.ToDisplayString() == "System" &&
+        GetDeclaringCompilation()?.UsesSourceObjectRoot == true
+            ? SpecialType.System_Object : SpecialType.None;
 
     public virtual INamedTypeSymbol? BaseType { get; private set; }
 
@@ -423,7 +427,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol
         _allInterfaces = null;
     }
 
-    internal void SetBaseType(INamedTypeSymbol baseType)
+    internal void SetBaseType(INamedTypeSymbol? baseType)
     {
         BaseType = baseType;
         _allInterfaces = null;

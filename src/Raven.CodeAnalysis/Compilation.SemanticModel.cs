@@ -592,6 +592,7 @@ public partial class Compilation
                 foreach (var model in semanticModels)
                     model.EnsureDeclarations();
 
+                SelectSourceObjectRoot();
                 _sourceTypeDeclarationsDeclared = true;
 
                 foreach (var model in semanticModels)
@@ -641,6 +642,7 @@ public partial class Compilation
                 foreach (var model in semanticModels)
                     model.EnsureDeclarations();
 
+                SelectSourceObjectRoot();
                 _sourceTypeDeclarationsDeclared = true;
             }
             finally

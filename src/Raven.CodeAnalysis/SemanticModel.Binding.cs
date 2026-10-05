@@ -3471,7 +3471,8 @@ public partial class SemanticModel
         var effectiveDeclaration = GetEffectiveNominalTypeDeclaration(declaration);
 
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
-        var defaultBaseType = GetDefaultBaseTypeForNominalDeclaration(effectiveDeclaration, objectType, valueType);
+        var defaultBaseType = Compilation.IsSourceObjectRoot(typeSymbol) ? null
+            : GetDefaultBaseTypeForNominalDeclaration(effectiveDeclaration, objectType, valueType);
         var defaultInterfaces = GetDefaultNominalInterfaces(typeSymbol);
         var shape = declarationBinder.BindNominalTypeShape(effectiveDeclaration, defaultBaseType, defaultInterfaces);
         var baseTypeSymbol = shape.BaseType;

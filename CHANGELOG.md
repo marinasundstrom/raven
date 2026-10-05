@@ -4,11 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
-- **2026-10-05:** Record the explicit Object-root selection prerequisite across the
-  native compiler, metadata writer and runtime. The runtime now provides validated
-  host selection while retaining default lookalike rejection; source-root binding,
-  writer authoring and ordinary driver integration remain pending. Compiler behavior
-  is unchanged.
+- **2026-10-05:** Add opt-in source Object semantic ownership for NeoCLR producers.
+  Select one baseless root before member signatures so named/keyword types, implicit
+  bases and overrides agree across source order and snapshot reuse. Invalid roots
+  diagnose; .NET defaults are unchanged. Both emitters reject this analysis-only
+  configuration before publication until metadata root authoring is implemented.
 
 - **2026-10-05:** Document native Object service adapter/linking requirements and the
   author-directed native metadata editor/LSP release gate. Editor emission reuses the

@@ -35,9 +35,22 @@ public sealed record MetadataImportOptions
     /// <param name="sourcePrimitiveTypes">Primitives whose members are declared in this compilation. Cannot overlap imported providers.</param>
     /// <exception cref="ArgumentException">A provider is unsupported, conflicting or has an empty identity.</exception>
     public MetadataImportOptions(string coreAssemblyName, IReadOnlyDictionary<SpecialType, string>? primitiveAssemblies, IEnumerable<SpecialType>? sourcePrimitiveTypes)
+        : this(coreAssemblyName, primitiveAssemblies, sourcePrimitiveTypes, false)
+    {
+    }
+
+    /// <summary>Selects source System.Object as the semantic root for a NeoCLR bootstrap compilation.</summary>
+    /// <param name="coreAssemblyName">Explicit bootstrap core for the remaining platform declarations.</param>
+    /// <param name="primitiveAssemblies">Imported primitive member providers.</param>
+    /// <param name="sourcePrimitiveTypes">Source primitive member providers.</param>
+    /// <param name="useSourceObjectRoot">Select the compilation's own public abstract fieldless System.Object. Missing roots never fall back.</param>
+    /// <exception cref="ArgumentException">The core identity is empty or a primitive provider is unsupported, conflicting or empty.</exception>
+    /// <remarks>Semantic analysis only until native root authoring is implemented. Both current emitters reject this configuration before publication.</remarks>
+    public MetadataImportOptions(string coreAssemblyName, IReadOnlyDictionary<SpecialType, string>? primitiveAssemblies, IEnumerable<SpecialType>? sourcePrimitiveTypes, bool useSourceObjectRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(coreAssemblyName);
         CoreAssemblyName = coreAssemblyName;
+        UseSourceObjectRoot = useSourceObjectRoot;
         PrimitiveAssemblies = primitiveAssemblies?.ToImmutableDictionary() ?? ImmutableDictionary<SpecialType, string>.Empty;
         if (PrimitiveAssemblies.Any(p => !SupportsPrimitive(p.Key) || string.IsNullOrWhiteSpace(p.Value)))
             throw new ArgumentException("primitive providers require numeric, Boolean, String, grapheme Char or runtime-handle special types and assembly names", nameof(primitiveAssemblies));
@@ -45,6 +58,10 @@ public sealed record MetadataImportOptions
         if (SourcePrimitiveTypes.Any(p => !SupportsPrimitive(p) || PrimitiveAssemblies.ContainsKey(p)))
             throw new ArgumentException("source primitive providers must be supported and distinct from imported providers", nameof(sourcePrimitiveTypes));
     }
+
+    /// <summary>Gets whether this NeoCLR compilation explicitly owns the semantic System.Object root.</summary>
+    /// <remarks>Does not change the bootstrap core or authorize native/CLI root emission.</remarks>
+    public bool UseSourceObjectRoot { get; }
 
     private static bool SupportsPrimitive(SpecialType type) => type is SpecialType.System_SByte or SpecialType.System_Byte or
         SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or

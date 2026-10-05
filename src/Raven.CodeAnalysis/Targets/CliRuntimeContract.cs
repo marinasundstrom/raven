@@ -14,6 +14,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     internal abstract string TupleTypeName { get; }
     internal abstract bool UsesInhabitedDelegateResults { get; }
     internal abstract bool HasNativeSelfContract { get; }
+    internal virtual bool UsesSourceObjectRoot => false;
 
     protected abstract string? GetPlatformConfigurationError();
 
@@ -25,6 +26,9 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
 
         if (Options.MetadataImportOptions is { } imports && (imports.PrimitiveAssemblies.Count > 0 || imports.SourcePrimitiveTypes.Count > 0) && Options.TargetPlatform != TargetPlatform.NeoCLR)
             return "native primitive providers require the NeoCLR target";
+
+        if (Options.MetadataImportOptions?.UseSourceObjectRoot == true && !UsesSourceObjectRoot)
+            return "source Object ownership requires the NeoCLR target";
 
         if (Options.TargetCoreAssemblyName is { } coreName &&
             (string.IsNullOrWhiteSpace(coreName) ||
@@ -58,6 +62,9 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     {
         if (GetConfigurationError() is { } error)
             return error;
+
+        if (compilation.GetSourceObjectRootError() is { } rootError)
+            return rootError;
 
         if (Options.RuntimeSelfTypeContract is not null &&
             (compilation.ResolveRuntimeSelfType() is not { Arity: 0, DeclaredAccessibility: Accessibility.Public } selfType ||

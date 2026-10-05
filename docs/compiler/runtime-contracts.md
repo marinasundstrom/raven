@@ -3223,3 +3223,49 @@ these behaviors; the portable adapter is absent from main, so no standalone main
 backport applies. This does not complete HTTP compilation: its next diagnostic is an
 unlowered BoundPropagateExpression. See neoCLR's source-network-2026-10-05 integration
 note and executable evidence for exact dependencies and limits.
+
+### Source Object semantic ownership (development, 2026-10-05)
+
+`MetadataImportOptions` adds a four-argument constructor and a read-only
+`UseSourceObjectRoot` property:
+
+```csharp
+new MetadataImportOptions(
+    "NeoCLR.CoreProbe", primitiveAssemblies: null, sourcePrimitiveTypes: null,
+    useSourceObjectRoot: true);
+```
+
+Use this only for a NeoCLR compilation defining its own System.Object. All existing
+constructors default to false. The bootstrap still supplies other platform types;
+Object ownership is separate from numeric/Char/String/handle member providers.
+.NET rejects the option with RAVT003 and retains its ordinary special-type selection.
+
+The compiler selects the source root after declaration shells exist across all trees
+and before binding member signatures. `GetSpecialType(System_Object)`, named
+`GetTypeByMetadataName("System.Object")`, keyword signatures, array elements, implicit
+source bases and override contracts then use that same symbol. The root has no implicit
+bootstrap base. During declaration construction the bootstrap remains provisional;
+external semantic requests wait for the declaration phase, including concurrent cold
+queries. Selection is established once per compilation, not copied from another snapshot.
+
+The source root must be a public abstract nongeneric top-level class with no base or
+instance fields. Missing or incompatible declarations produce RAVT003; missing roots
+never fall back through the public selected-root lookup. Existing declaration diagnostics
+still reject duplicate declarations and invalid inheritance. No language syntax or LSP
+protocol changes are needed: this is a compiler semantic configuration. Editor project
+configuration and native consumer root import remain later work.
+
+This API currently enables **semantic analysis only**. The Reflection.Emit adapter
+rejects this configuration with RAVT003; the native adapter rejects it with NEOMETA002,
+both before writing output. The metadata writer must first gain definition/builder root
+authoring, canonical Object signatures, boxing and slot support. The ordinary compiler
+driver/ownership manifest does not expose this option yet. Do not treat successful
+analysis as full-System compilation or execution.
+
+Validation: 15 source-root cases, 75 focused compiler cases in total (including existing
+metadata/typeof, .NET inheritance, virtual members and constructor codegen), plus the
+native probe against the NeoCLR bootstrap. Tests cover both file orders, early queries,
+concurrent queries, incremental reuse boundaries, invalid roots, unselected .NET and
+NeoCLR declarations, and unchanged stream bytes/position after rejected emission.
+The native adapter builds against the separate metadata library. This target-specific
+feature is not an independently useful .NET fix for backporting to main.

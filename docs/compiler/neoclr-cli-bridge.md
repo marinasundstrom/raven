@@ -6594,3 +6594,18 @@ the metadata writer must first agree on source-root identity, implicit bases, si
 boxing and slots. No Runtime Contract option or .NET emission behavior changes here.
 See neoCLR `explicit-object-root-2026-10-05.md`: 86 focused runtime tests pass, including
 external-root binary execution, wrong revisions and incomplete contracts.
+
+### Source Object binding selection (2026-10-05)
+
+The opt-in `MetadataImportOptions(..., useSourceObjectRoot: true)` now unifies the
+producer's source System.Object across special-type lookup, signatures, implicit
+bases and override binding. It resolves before member signatures and does not give
+the root a bootstrap base. Invalid/missing roots diagnose; ordinary .NET and default
+NeoCLR behavior are unchanged. See runtime-contracts.md for the complete API contract.
+
+There is no temporary CLI encoding of this source root. Both current emitters explicitly
+reject the option before publication until the separate metadata library can author
+root definitions, Object signatures and boxing/slot references. The runtime already
+has explicit load-context selection (neoCLR `4e9e4045`); that is not yet connected to the
+compiler driver. The native probe `--source-object-root /path/to/Core.dll` checks actual
+bootstrap binding and the native no-publication boundary, not runtime execution.

@@ -13,6 +13,8 @@ internal static class NeoClrBindingContract
 {
     internal static string? GetError(Compilation compilation, NeoClrEmitOptions options)
     {
+        if (compilation.UsesSourceObjectRoot)
+            return "source Object root emission requires native root authoring support";
         if (compilation.Options.TargetPlatform == TargetPlatform.DotNet)
             return null; // Existing explicit host-core bootstrap remains supported.
         if (compilation.Options.TargetPlatform != TargetPlatform.NeoCLR)

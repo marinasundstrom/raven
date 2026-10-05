@@ -8,6 +8,8 @@ internal sealed class NeoClrCliRuntimeContract(CompilationOptions options) : Cli
     internal override bool UsesInhabitedDelegateResults => true;
     internal override bool HasNativeSelfContract => Options.RuntimeSelfTypeContract is not null;
 
+    internal override bool UsesSourceObjectRoot => Options.MetadataImportOptions?.UseSourceObjectRoot == true;
+
     protected override string? GetPlatformConfigurationError()
         => NeoClrCliProfile.GetConfigurationError(Options);
 }

@@ -2574,6 +2574,8 @@ public partial class Compilation
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
         EnsureSetup();
+        if (UsesSourceObjectRoot && metadataName == "System.Object")
+            return GetSpecialType(SpecialType.System_Object) is { TypeKind: not TypeKind.Error } root ? root : null;
         if (Options.MetadataImportOptions is { PrimitiveAssemblies.Count: > 0 } imports)
             foreach (var special in imports.PrimitiveAssemblies.Keys)
                 if (_target.RuntimeContract.GetSpecialTypeMetadataName(special) == metadataName)
@@ -2743,6 +2745,14 @@ public partial class Compilation
 
     public INamedTypeSymbol GetSpecialType(SpecialType specialType)
     {
+        if (specialType == SpecialType.System_Object && UsesSourceObjectRoot)
+        {
+            EnsureSetup();
+            if (setup)
+                EnsureSourceTypeDeclarationsDeclared();
+            if (_sourceTypeDeclarationsDeclared)
+                return _sourceObjectRoot ?? (INamedTypeSymbol)ErrorTypeSymbol;
+        }
         if (specialType is SpecialType.System_Unit)
             return UnitTypeSymbol;
 
