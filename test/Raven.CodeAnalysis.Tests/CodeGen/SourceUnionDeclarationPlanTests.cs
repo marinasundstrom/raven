@@ -46,14 +46,14 @@ public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
     [Theory]
     [InlineData("class Display { override func ToString() -> string? => \"display\" }")]
     [InlineData("struct Display { override func GetHashCode() -> int => 42 }")]
-    public void OtherVirtualContractsRemainOutsideTheValueToStringCapability(string source)
+    public void OverridesRequireExplicitEmissionCapabilities(string source)
     {
         var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var tree = compilation.SyntaxTrees.Single();
         var declaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
-        Assert.Equal(EmissionOverrideKind.None, SourceCallablePlan.ClassifyOverride(method));
+        Assert.False(SourceCallablePlan.TryCreate(method, out _, ReflectionEmitCapabilities.Shared));
     }
 
     [Theory]
