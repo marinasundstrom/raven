@@ -7,9 +7,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 - **2026-10-05:** Select native Task/builder declaration identity through immutable
   `MetadataImportOptions.WithAsyncAssemblyName` and `rvnc neoclr --async-library`.
   Reject missing, malformed and CLI providers without bootstrap fallback. Five POC
-  async/HTTP samples now pass binding; synthesized async state-machine emission remains
-  explicitly unsupported and publishes nothing. Preserve default .NET behavior;
-  33 focused regressions and the native C# symbol/protection probe pass.
+  async/HTTP samples now pass binding. Emit nongeneric top-level async methods through
+  existing heap lowering and portable plans; completed/pending awaits, hoisted locals
+  and cancellation execute with native metadata. Class/generic async methods and async
+  entry completion remain unsupported. Preserve default .NET behavior and output
+  streams on rejected emission.
 
 - **2026-10-05:** Add `rvnc neoclr --source-object-root` for explicit core-backed
   library bootstrap builds. Preserve configured primitive providers; require an explicit

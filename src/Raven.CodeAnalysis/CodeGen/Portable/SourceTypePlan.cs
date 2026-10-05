@@ -8,7 +8,7 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
 {
     internal INamedTypeSymbol? MetadataOwner => GetMetadataOwner(Symbol);
     private static INamedTypeSymbol? GetMetadataOwner(INamedTypeSymbol type) =>
-        type.OriginalDefinition is SourceUnionCaseTypeSymbol unionCase ? unionCase.MetadataContainingType : type.ContainingType;
+        type.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol ? null : type.OriginalDefinition is SourceUnionCaseTypeSymbol unionCase ? unionCase.MetadataContainingType : type.ContainingType;
     internal bool IsExtensionContainer => Symbol.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true };
     internal bool IsStatic => IsStaticContainer(Symbol);
     internal static bool IsStaticContainer(INamedTypeSymbol type) => type.IsStatic ||
@@ -23,13 +23,21 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
 
     internal INamedTypeSymbol? ClassBase => !IsStatic && !IsValueType && Symbol.BaseType is { } parent && (parent.SpecialType != SpecialType.System_Object || IsSourceObjectRoot(parent)) ? parent : null;
 
-    internal Accessibility Visibility => Symbol.DeclaredAccessibility;
+    internal Accessibility Visibility => Symbol.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol ? Accessibility.Internal : Symbol.DeclaredAccessibility;
 
     internal string FullName => Namespace.Length == 0 ? Name : Namespace + "." + Name;
 
     internal static bool TryCreate(INamedTypeSymbol type, out SourceTypePlan? plan, EmissionCapabilities? capabilities = null)
     {
         plan = null;
+        if (type.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol machine)
+        {
+            if (capabilities?.Allows(EmissionDeclarationKind.AsyncStateMachine) != true ||
+                !machine.IsReferenceType || machine.Arity != 0 || machine.BaseType?.SpecialType != SpecialType.System_Object ||
+                machine.Interfaces.Any(i => !SourceInterfacePlan.HasSupportedRelationship(i, machine.ContainingAssembly, capabilities))) return false;
+            plan = new(type, machine.ContainingNamespace?.ToMetadataName() ?? "", machine.Name);
+            return true;
+        }
         if (IsSourceObjectRoot(type))
         {
             if (capabilities?.Allows(EmissionDeclarationKind.ObjectRoot) != true || !type.IsAbstract || type.Arity != 0 ||

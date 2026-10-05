@@ -6752,3 +6752,32 @@ The C# `--native-async-symbols <core.dll> <native-library.dll>` probe checks sel
 unselected identity, generic GetResult substitution, async/await binding, malformed
 interface/value-type providers, missing/bootstrap providers, .NET denial and unchanged
 output streams at the emission boundary. No .NET behavior fix requires backporting.
+
+
+### Native heap state-machine emission (2026-10-05)
+
+The selected native async provider must also own the public, nongeneric
+`System.Runtime.CompilerServices.IAsyncStateMachine` interface. Task, builder and
+state-machine identities remain nominal references, not primitive storage mappings.
+Top-level nongeneric async functions now use the existing heap AsyncLowerer. Portable
+plans carry prepared bound bodies for the synthesized constructor, MoveNext and
+SetStateMachine, with ordinary fields, interface relationships and IL generation.
+Synthesized owners are internal top-level metadata types; Reflection.Emit retains its
+existing representation. Separate AsyncMethod/AsyncStateMachine capabilities keep the
+shared portable default conservative. No importer objects enter emission.
+
+The native `native-async-state` driver case executes awaitless completion, already
+completed and pending awaits, hoisted local preservation and cancellation. A synchronous
+Main explicitly drains TaskQueue.Default after completing/cancelling promises; this is
+not support for pending async Main. Class/extension and generic async methods remain
+unsupported. No metadata schema change, suspension mechanism or green threads are added.
+
+Pass an optional third input to `--native-async-symbols <core> <native-library> <seed>`
+to verify emission and native reader materialization of two synthesized owners. C# checks
+also prove class/generic async rejection preserves the destination stream. The seed
+supplies the same explicit runtime bindings as the ordinary driver. Next implement entry
+completion and class methods, then resume the unchanged async/HTTP samples. These are
+native adapter changes; no independently useful .NET behavior fix needs a main backport.
+
+Validation: 44 focused .NET async, option and portable-plan tests pass, alongside the
+C# native emission/reader and rejection probe and the executable driver case.

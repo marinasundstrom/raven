@@ -39,7 +39,7 @@ internal static class Int32Emitter
                 {
                     diagnosticSyntax = declaration;
                     var symbol = model.GetDeclaredSymbol(declaration) as IMethodSymbol ?? throw Unsupported("function symbol unavailable");
-                    if (symbol.IsAsync) throw Unsupported("native async state-machine emission");
+                    if (symbol.IsAsync && compilation.Options.MetadataImportOptions?.AsyncAssemblyName is null) throw Unsupported("explicit native async provider required");
                     if (symbol.IsExtern)
                     {
                         if (!NeoClrRuntimeServiceDeclaration.TryCreate(compilation, symbol, declaration, out var service))
@@ -49,7 +49,7 @@ internal static class Int32Emitter
                         continue;
                     }
                     if ((declaration.Body is null && declaration.ExpressionBody is null) || declaration.AttributeLists.Count != 0 ||
-                        declaration.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword)))
+                        declaration.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.AsyncKeyword)))
                         throw Unsupported("only top-level functions with block or expression bodies");
                     var plan = GetPlan(symbol);
                     plans.Add(plan);
@@ -296,6 +296,29 @@ internal static class Int32Emitter
                 throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
             prepared.Add((plan, body!));
         }
+        foreach (var machine in compilation.GetSynthesizedAsyncStateMachineTypes().ToArray())
+        {
+            if (!SourceTypePlan.TryCreate(machine, out var typePlan, NeoClrCapabilities.Shared))
+                throw Unsupported("supported native heap state-machine declaration");
+            declaredTypes.Add(machine, typePlan!);
+            storageFields.AddRange(machine.GetMembers().OfType<IFieldSymbol>());
+            var anchor = machine.AsyncMethod.DeclaringSyntaxReferences.Single().GetSyntax();
+            var constructorBody = new BoundBlockStatement(machine.ConstructorFields.Select((field, index) =>
+                (BoundStatement)new BoundAssignmentStatement(new BoundFieldAssignmentExpression(
+                    new BoundSelfExpression(machine), field, new BoundParameterAccess(machine.Constructor.Parameters[index]),
+                    compilation.GetSpecialType(SpecialType.System_Unit)))).ToArray());
+            foreach (var (method, methodBody) in new[] {
+                (machine.Constructor, constructorBody), (machine.MoveNextMethod, machine.MoveNextBody),
+                (machine.SetStateMachineMethod, machine.SetStateMachineBody) })
+            {
+                if (methodBody is null || !CallableSignature.TryCreate(method, out var signature, NeoClrCapabilities.Shared))
+                    throw Unsupported("synthesized async method signature/body");
+                var plan = new SourceCallablePlan(method, anchor, anchor, machine, method.MetadataName, signature, PreparedBody: methodBody);
+                if (!plan.TryLowerBody(compilation, IsConsoleCall, out var body, out var failure, NeoClrCapabilities.Shared))
+                    throw new UnsupportedInputException(failure!.Detail, failure.Syntax.GetLocation());
+                prepared.Add((plan, body));
+            }
+        }
         var closureCaptures = new Dictionary<IMethodSymbol, ITypeSymbol[]>(SymbolEqualityComparer.Default);
         var lambdaSymbols = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         for (var index = 0; index < prepared.Count; index++)
@@ -381,7 +404,7 @@ internal static class Int32Emitter
                     assembly.DeclareClassBase(imported, ImportExternalType(classBase).ImportedType!);
                 if (original.SpecialType == SpecialType.System_Char && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
                     assembly.SetNativeGrapheme(imported);
-                if (original.SpecialType is (SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_String or SpecialType.System_Boolean) && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
+                if (HasNativePrimitiveStorage(original.SpecialType) && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
                     assembly.SetNativePrimitive(imported, NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(original.SpecialType.ToString()[7..])));
                 if (IsSymbolOnlyReferenceDefinition(original) || IsSymbolOnlyOwnerDefinition(original) && original.IsValueType)
                     foreach (var contract in original.Interfaces)
@@ -887,7 +910,7 @@ internal static class Int32Emitter
                 var contract = new MethodSignature(MapSymbolOnlyType(symbol.ReturnType, result: true),
                     symbol.Parameters.Select(p => p.RefKind == RefKind.None ? MapSymbolOnlyType(p.Type) : SignatureType.ByReference(MapSymbolOnlyType(p.Type))),
                     memberSignature.GenericParameterNames, memberSignature.OutParameters.IsDefault ? [] : memberSignature.OutParameters);
-                return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic, isOverride: symbol.IsOverride, nativePrimitive: owner.SpecialType is not (SpecialType.None or SpecialType.System_Char) && owner.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null }
+                return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic, isOverride: symbol.IsOverride, nativePrimitive: HasNativePrimitiveStorage(owner.SpecialType) && owner.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null }
                     ? NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(owner.SpecialType.ToString()[7..])) : null);
             }
             // A native callable must carry a complete supported semantic contract.
@@ -921,6 +944,10 @@ internal static class Int32Emitter
             return matches[0];
         }
         // Static containers may own references, but are never signature value types.
+        static bool HasNativePrimitiveStorage(SpecialType type) => type is SpecialType.System_SByte or SpecialType.System_Byte or
+            SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or
+            SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double or
+            SpecialType.System_String or SpecialType.System_Boolean;
         static bool IsSymbolOnlyOwnerDefinition(INamedTypeSymbol original) =>
             IsSymbolOnlyReferenceDefinition(original) ||
             original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
@@ -973,7 +1000,7 @@ internal static class Int32Emitter
             ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter => SignatureType.MethodParameter(parameter.Ordinal),
             ITypeParameterSymbol parameter => SignatureType.TypeParameter(parameter.Ordinal),
             IArrayTypeSymbol array => SignatureType.ArrayOf(MapSymbolOnlyType(array.ElementType)),
-            INamedTypeSymbol named when named.SpecialType is SpecialType.System_Char or SpecialType.System_Object || IsRuntimeErasedValue(named) || named.SpecialType == SpecialType.None && IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)named.OriginalDefinition) => ImportExternalType(named),
+            INamedTypeSymbol named when named.SpecialType is SpecialType.System_Char or SpecialType.System_Object || IsRuntimeErasedValue(named) || named.SpecialType is (SpecialType.None or SpecialType.System_Threading_Tasks_Task_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T or SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine) && IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)named.OriginalDefinition) => ImportExternalType(named),
             _ => type.SpecialType switch
             {
                 SpecialType.System_Int32 => PrimitiveType.Int32,

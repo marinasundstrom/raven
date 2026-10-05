@@ -9,7 +9,7 @@ internal enum EmissionOverrideKind { None, ObjectToString, ObjectHashCode, Objec
 // has no logical type owner even when the CLI symbol model supplies a carrier type.
 internal sealed record SourceCallablePlan(
     IMethodSymbol Symbol, SyntaxNode Syntax, SyntaxNode? Body,
-    INamedTypeSymbol? TypeOwner, string MetadataName, CallableSignature Signature, bool IsSynthesizedStatic = false)
+    INamedTypeSymbol? TypeOwner, string MetadataName, CallableSignature Signature, bool IsSynthesizedStatic = false, BoundBlockStatement? PreparedBody = null)
 {
     internal string Namespace { get; } = GetNamespace(Symbol.ContainingNamespace);
     private static string GetNamespace(INamespaceSymbol? scope)
@@ -204,6 +204,6 @@ internal sealed record SourceCallablePlan(
             return false;
         }
         return LinearMethodBody.TryLower(Symbol, compilation.GetSemanticModel(Body.SyntaxTree), Body,
-            permitsConsoleWrite, out body, out failure, capabilities);
+            permitsConsoleWrite, out body, out failure, capabilities, preparedBody: PreparedBody);
     }
 }

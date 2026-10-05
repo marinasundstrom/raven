@@ -72,7 +72,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
     }
 
     internal static bool TryLower(IMethodSymbol source, SemanticModel model, SyntaxNode bodySyntax,
-        Func<BoundInvocationExpression, bool> permitsConsoleWrite, out LinearMethodBody? lowered, out LinearBodyFailure? failure, EmissionCapabilities? capabilities = null, BoundFunctionExpression? functionBody = null)
+        Func<BoundInvocationExpression, bool> permitsConsoleWrite, out LinearMethodBody? lowered, out LinearBodyFailure? failure, EmissionCapabilities? capabilities = null, BoundFunctionExpression? functionBody = null, BoundBlockStatement? preparedBody = null)
     {
         var captures = functionBody?.CapturedVariables.ToArray() ?? [];
         var isStaticBody = functionBody is not null ? captures.Length == 0 : source.IsStatic;
@@ -91,12 +91,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         // Arrow clauses expose their bound statement block in the original view, as
         // consumed by the general generator. Reuse compiler lowering for conversions
         // and Unit expression statements instead of synthesizing backend returns.
-        var body = functionBody is not null ? FunctionBlock(functionBody) : source.MethodKind == MethodKind.Constructor && bodySyntax is ClassDeclarationSyntax or StructDeclarationSyntax
+        var body = preparedBody ?? (functionBody is not null ? FunctionBlock(functionBody) : source.MethodKind == MethodKind.Constructor && bodySyntax is ClassDeclarationSyntax or StructDeclarationSyntax
             ? new BoundBlockStatement([]) : model.Compilation.TryGetSynthesizedMethodBody(source, BoundTreeView.Lowered, out var synthesized) && synthesized is not null
             ? synthesized : bodySyntax is ArrowExpressionClauseSyntax
             ? model.GetBoundNode(bodySyntax, BoundTreeView.Original) is BoundBlockStatement arrowBody
                 ? Lowerer.LowerBlock(source, arrowBody) : null
-            : model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement;
+            : model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement);
         if (body is not null && source.MethodKind == MethodKind.Constructor)
         {
             var initializers = FieldInitializationPlan.Create(model.Compilation, source);

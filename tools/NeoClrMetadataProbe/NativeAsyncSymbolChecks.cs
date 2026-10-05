@@ -9,7 +9,7 @@ namespace NeoClrMetadataProbe;
 
 internal static class NativeAsyncSymbolChecks
 {
-    internal static void Run(string corePath, string libraryPath)
+    internal static void Run(string corePath, string libraryPath, string? seedPath = null)
     {
         var bootstrap = NeoClrPrimitiveBootstrap.ReadAssembly(File.ReadAllBytes(corePath));
         var native = NeoClrMetadataReference.ReadAssembly(File.ReadAllBytes(libraryPath), bootstrap);
@@ -40,6 +40,36 @@ internal static class NativeAsyncSymbolChecks
         if (constructed.SpecialType != SpecialType.System_Threading_Tasks_Task_T ||
             constructed.GetMembers("GetResult").OfType<IMethodSymbol>().Single().ReturnType.SpecialType != SpecialType.System_Int32)
             throw new Exception("constructed native Task lost its result signature");
+        if (seedPath is not null)
+        {
+            using var emitted = new MemoryStream();
+            var emission = NeoClrCompilationEmitter.EmitMetadataAssembly(selected, emitted,
+                new(new("AsyncContract", new(1, 0, 0, 0)), core.Identity,
+                    [new NeoClrMetadataDependency(native, core.Identity),
+                    new NeoClrMetadataDependency(bootstrap.Reference, core, core.Identity, NativeLibraryDefinition.ReadAssembly(File.ReadAllBytes(seedPath)))], bootstrapReference: bootstrap.Reference));
+            if (!emission.Success) throw new Exception(string.Join("\n", emission.Diagnostics));
+            var assembly = AssemblyDefinition.ReadNativeAssembly(emitted.ToArray());
+            if (assembly.MainModule.Types.Count(t => t.Name.StartsWith("<>c__AsyncStateMachine", StringComparison.Ordinal)) != 2)
+                throw new Exception("native async state-machine definitions missing");
+        }
+        foreach (var source in new[]
+        {
+            "import System.Tasks.*\nclass Worker { public static async func Value() -> Task<int> { return 42 } }",
+            "import System.Tasks.*\nasync func Value<T>(value: T) -> Task<T> { return value }"
+        })
+        {
+            var unsupported = Compilation.Create("UnsupportedAsync", [SyntaxTree.ParseText(source)],
+                [bootstrap.Reference, native], selected.Options);
+            var errors = unsupported.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            if (errors.Length != 0) throw new Exception(string.Join("\n", errors.Select(d => d.ToString())));
+            using var output = new MemoryStream();
+            output.WriteByte(42);
+            var result = NeoClrCompilationEmitter.EmitMetadataAssembly(unsupported, output,
+                new(new("UnsupportedAsync", new(1, 0, 0, 0)), core.Identity,
+                    [new NeoClrMetadataDependency(native, core.Identity)], bootstrapReference: bootstrap.Reference));
+            if (result.Success || !output.ToArray().SequenceEqual(new byte[] { 42 }) || output.Position != 1)
+                throw new Exception("unsupported async shape published output");
+        }
         var malformed = new AssemblyBuilder(new("MalformedAsync", new(1, 0, 0, 0)), core.Identity);
         malformed.AddGenericInterface("System.Tasks", "Task", ["T"]);
         malformed.AddGenericValueType("System.Runtime.CompilerServices", "AsyncTaskMethodBuilder", ["T"]);
@@ -49,7 +79,7 @@ internal static class NativeAsyncSymbolChecks
                 new MetadataImportOptions(core.Identity.Name).WithAsyncAssemblyName("MalformedAsync")));
         if (!malformedCompilation.GetDiagnostics().Any(d => d.Id == "RAVT003"))
             throw new Exception("malformed native async declarations were accepted");
-        foreach (var invalid in new[] { selected, Create("Missing.Async"), Create(core.Identity.Name), Create(owner, TargetPlatform.DotNet) })
+        foreach (var invalid in new[] { Create("Missing.Async"), Create(core.Identity.Name), Create(owner, TargetPlatform.DotNet) })
         {
             using var output = new MemoryStream();
             output.WriteByte(42);
@@ -59,9 +89,7 @@ internal static class NativeAsyncSymbolChecks
             if (result.Success || !output.ToArray().SequenceEqual(new byte[] { 42 }) || output.Position != 1 ||
                 !result.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
                 throw new Exception("unsupported async emission did not fail before publication");
-            if (ReferenceEquals(invalid, selected) && !result.Diagnostics.Any(d =>
-                d.Id == "NEOMETA001" && d.GetMessage().Contains("native async state-machine emission", StringComparison.Ordinal)))
-                throw new Exception("selected native async source did not reach the explicit emission boundary");
+
         }
         Console.WriteLine("PASS explicit native Task/builder identity, async/await binding, substitution and rejection controls");
     }

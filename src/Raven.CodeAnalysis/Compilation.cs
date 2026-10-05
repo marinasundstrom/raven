@@ -2768,7 +2768,7 @@ public partial class Compilation
             return selected?.SpecialType == specialType ? selected : (INamedTypeSymbol)ErrorTypeSymbol;
         }
         if (Options.MetadataImportOptions?.AsyncAssemblyName is { } asyncProvider &&
-            specialType is SpecialType.System_Threading_Tasks_Task_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
+            specialType is SpecialType.System_Threading_Tasks_Task_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T or SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine)
         {
             var selected = GetTypeByMetadataName(metadataName, asyncProvider);
             return selected?.SpecialType == specialType ? selected : (INamedTypeSymbol)ErrorTypeSymbol;

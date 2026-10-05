@@ -96,7 +96,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
              parameter.ConstraintTypes.Any(t => t is not INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 }));
         if (method.IsGenericMethod && method.TypeParameters.Any(UnsupportedConstraint) ||
             method.IsExtensionMethod && (capabilities?.AllowsLoweredExtensionCalls != true || !method.IsStatic) ||
-            method.IsAsync || !TryType(method.ReturnType, true, out var result, capabilities)) return false;
+            method.IsAsync && capabilities?.Allows(EmissionDeclarationKind.AsyncMethod) != true || !TryType(method.ReturnType, true, out var result, capabilities)) return false;
         if (method.ContainingType is { Arity: > 0 } owner && ((!SourceTypePlan.TryCreate(owner, out _, capabilities) && !(capabilities?.AllowsConstructedInterfaceInheritance == true && SourceInterfacePlan.HasSupportedIdentity(owner)) && !(capabilities?.AllowsExternalReferenceSignatures == true && IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) && !(capabilities?.AllowsExternalValueSignatures == true && IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true))) || owner.TypeArguments.Any(t => !TryType(t, false, out _, capabilities)))) return false;
         if (method.IsGenericMethod && method.TypeArguments.Any(t => !TryType(t, false, out _, capabilities))) return false;
         var parameters = ImmutableArray.CreateBuilder<EmissionType>(method.Parameters.Length);
