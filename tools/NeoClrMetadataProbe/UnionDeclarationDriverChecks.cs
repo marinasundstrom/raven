@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text;
 using System.Text.Json.Nodes;
+
 using NeoCLR.Metadata.Experimental;
 using NeoCLR.Metadata.Experimental.Model;
 
@@ -33,6 +34,7 @@ internal static class UnionDeclarationDriverChecks
                 union {{union}} {
                     case Some(value: {{payload}})
                     case None
+                    static func EmptyValue() -> {{union}} => None
                 }
                 func Read(value: {{valueType}}) -> int {
                     return match value {
@@ -44,7 +46,7 @@ internal static class UnionDeclarationDriverChecks
                 func Main() -> int {
                     var value: {{valueType}} = .Some(42)
                     let copy = value
-                    value = .None
+                    value = {{valueType}}.EmptyValue()
                     System.Console.WriteLine(copy.ToString())
                     System.Console.WriteLine(value.ToString())
                     return Read(copy) + Read(value)
@@ -70,6 +72,7 @@ internal static class UnionDeclarationDriverChecks
                 public union {{union}} {
                     case Some(value: {{payload}})
                     case None
+                    static func EmptyValue() -> {{union}} => None
                 }
                 """);
             var consumerSource = Path.Combine(output, name + ".Consumer.rvn");
@@ -84,7 +87,7 @@ internal static class UnionDeclarationDriverChecks
                 func Main() -> int {
                     var value: {{valueType}} = .Some(42)
                     let copy = value
-                    value = .None
+                    value = {{valueType}}.EmptyValue()
                     return Read(copy) + Read(value)
                 }
                 """);
@@ -124,7 +127,12 @@ internal static class UnionDeclarationDriverChecks
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
             scope = "Owned and separately compiled union execution, native semantic import and attribute preservation.",
-            driverSha256 = Hash(driver), runtimeSha256 = Hash(runtime), coreSha256 = Hash(core), seedSha256 = Hash(seed), evidence, commands
+            driverSha256 = Hash(driver),
+            runtimeSha256 = Hash(runtime),
+            coreSha256 = Hash(core),
+            seedSha256 = Hash(seed),
+            evidence,
+            commands
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
         Console.WriteLine("PASS owned and separately compiled plain/generic unions on CLR and NeoCLR");
 

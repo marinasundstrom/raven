@@ -1826,6 +1826,8 @@ pass on .NET 11, including the unchanged portable empty-stack regression.
 
 ## Reference producer compatibility regression — 2026-10-05
 
+Resolved by the union lexical case repair below; the following records the original reproduction.
+
 Website release preparation rebuilt NeoCLR's `docs/experiments/raven-target/Probe.csproj`
 and ran `--reference-core`. With this integration at `9a4f74884`, the producer rejects
 `System.Option<T>` with RAV0103 (`None` is not in scope). Rebuilding the same bridge
@@ -1839,3 +1841,32 @@ field-return tests do not qualify this separate CLI producer. The owning compile
 not yet been isolated. Reproduce using the current NeoCLR
 bridge, explicit RavenRoot, BuildProjectReferences=false and the corresponding built
 .NET 11 compiler, then invoke Probe.dll --reference-core with a fresh output path.
+
+
+### Union lexical case repair (2026-10-05)
+
+The CLI reference-producer failure is resolved at union case lookup. A source union's
+member could find its own case symbol but reject it as unimported when a legacy
+bootstrap companion occupied the wildcard import. The integration line's earlier
+expression-body diagnostic validation exposed this; reverting that validation merely
+hid the defect. Main also returned an error type for a cold semantic query.
+
+Case candidate lookup now includes lexically enclosing union declarations, preserving
+local/parameter/member precedence and the import rules for unrelated unions. Neither
+Option source nor the bootstrap declarations are rewritten. Runtime Contract options,
+metadata encodings and target policies are unchanged. C# regressions cover cold queries,
+diagnostics, emission and executed factory results, with and without the explicit
+wildcard import. Existing incompatible expression-body returns remain diagnostics.
+
+The broad union suite exposed an unrelated stale constructor test on unchanged main:
+it expected three bound statements but current initialization generates six. Its
+replacement observes empty/payload cases and payload extraction through CLR execution;
+this test correction is not claimed as new constructor support.
+
+Validation: 196 focused union, bootstrap and expression-return diagnostic tests pass
+on the integration line. The current bridge regenerates its full CLI reference with
+unchanged Option source. The ordinary driver probe executes plain/generic union factories
+on CLR and NeoCLR, both owned and separately compiled, with return 42 and expected stdout;
+malformed case metadata still rejects before output. The general fix is integrated into
+local main as `edff20273` (190 focused checks); its temporary branch is deleted.
+No bridge encoding, Runtime Contract, metadata schema or runtime change is needed.

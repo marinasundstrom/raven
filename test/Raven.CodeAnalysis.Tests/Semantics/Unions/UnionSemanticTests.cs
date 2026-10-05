@@ -3451,47 +3451,31 @@ union struct Result<T> {
     }
 
     [Fact]
-    public void UnionCarrierConstructor_HasSynthesizedBody()
+    public void UnionCarrierConstructor_InitializesCaseAndPayload()
     {
         const string source = """
-union Option {
-    case None
-    case Some(value: int)
-}
-""";
-
-        var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        compilation.EnsureSetup();
-        var model = compilation.GetSemanticModel(tree);
-        var unionDecl = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<IUnionSymbol>(model.GetDeclaredSymbol(unionDecl));
-        var someCase = unionSymbol.Variants.Single(c => c.Name == "Some");
-        var constructor = unionSymbol
-            .GetMembers(".ctor")
-            .OfType<IMethodSymbol>()
-            .Single(m => m.Parameters.Length == 1 &&
-                         SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, someCase));
-
-        Assert.True(compilation.TryGetSynthesizedMethodBody(constructor, BoundTreeView.Original, out var body));
-        Assert.NotNull(body);
-
-        Assert.Collection(
-            body!.Statements,
-            statement =>
-            {
-                var assignment = Assert.IsType<BoundAssignmentStatement>(statement);
-                var fieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(assignment.Expression);
-                Assert.Equal("<Tag>", fieldAssignment.Field.Name);
-                var value = Assert.IsType<BoundLiteralExpression>(fieldAssignment.Right);
-                Assert.Equal((byte)2, value.Value);
-            },
-            statement =>
-            {
-                var assignment = Assert.IsType<BoundAssignmentStatement>(statement);
-                var fieldAssignment = Assert.IsType<BoundFieldAssignmentExpression>(assignment.Expression);
-                Assert.Equal("<SomePayload>", fieldAssignment.Field.Name);
-            },
-            statement => Assert.IsType<BoundReturnStatement>(statement));
+            union Option {
+                case None
+                case Some(value: int)
+            }
+            public class Runner {
+                static func Run() -> int {
+                    let some: Option = .Some(42)
+                    let empty: Option = .None
+                    if empty is .Some(_) { return 0 }
+                    return match some {
+                        .Some(let value) => value
+                        .None => 0
+                    }
+                }
+            }
+            """;
+        var (compilation, _) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
+        Assert.Equal(42, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, null));
     }
 
     [Fact]
