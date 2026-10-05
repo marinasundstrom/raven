@@ -11451,6 +11451,14 @@ partial class BlockBinder : Binder
             }
         }
 
+        // A union's own cases are lexical members, even when an imported bootstrap
+        // companion with the same name predates the source declaration.
+        for (var owner = _containingSymbol as INamedTypeSymbol ?? _containingSymbol?.ContainingType;
+             owner is not null; owner = owner.ContainingType)
+        {
+            AddCasesFromUnionCarrier(owner);
+        }
+
         if (includeNamespaceTypeLookups &&
             CurrentNamespace?.LookupType(name) is INamedTypeSymbol currentNamespaceType)
         {

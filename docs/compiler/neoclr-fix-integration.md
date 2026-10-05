@@ -1799,3 +1799,27 @@ value-receiver tests pass on .NET 11. The new Debug/Release controls check both
 returning and fallthrough execution, evaluation order, once-only receiver evaluation,
 original-object identity when the RHS replaces the receiver variable, and skipped
 storage on early return. No public API or website example changed.
+
+
+### Union lexical case repair (2026-10-05)
+
+The CLI reference-producer failure is resolved at union case lookup. A source union's
+member could find its own case symbol but reject it as unimported when a legacy
+bootstrap companion occupied the wildcard import. The integration line's earlier
+expression-body diagnostic validation exposed this; reverting that validation merely
+hid the defect. Main also returned an error type for a cold semantic query.
+
+Case candidate lookup now includes lexically enclosing union declarations, preserving
+local/parameter/member precedence and the import rules for unrelated unions. Neither
+Option source nor the bootstrap declarations are rewritten. Runtime Contract options,
+metadata encodings and target policies are unchanged. C# regressions cover cold queries,
+diagnostics, emission and executed factory results, with and without the explicit
+wildcard import. Existing incompatible expression-body returns remain diagnostics.
+
+The broad union suite exposed an unrelated stale constructor test on unchanged main:
+it expected three bound statements but current initialization generates six. Its
+replacement observes empty/payload cases and payload extraction through CLR execution;
+this test correction is not claimed as new constructor support.
+
+Main validation: all 190 union semantic, imported empty-case and bootstrap replacement
+checks pass on .NET 11. This repair is independent of the native metadata backend.

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Resolve a union's own cases lexically inside its members, including
+  while replacing a legacy bootstrap declaration. Cold semantic queries and ordinary
+  emission agree; unrelated case imports and return-type diagnostics keep their rules.
+  Replace a stale constructor statement-count test with observable case/payload execution.
+
 - **2026-10-05:** Keep reference field assignment receivers off the evaluation stack
   while a right-hand-side block can return. Preserve receiver-first, once-only
   evaluation and the selected object across RHS side effects; ordinary .NET execution

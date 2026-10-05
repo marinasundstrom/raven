@@ -246,6 +246,9 @@ Binding model:
 * `Union.Case(...)` resolves `Case` from the union’s declared case set, then
   constructs the case value.
 * `.Case(...)` resolves `Case` from the target type’s union case set.
+* A union's member bodies can refer to that union's own case names through lexical
+  scope. A bootstrap companion imported from another assembly does not hide those
+  source cases. This does not import the cases into unrelated types or namespaces.
 * For an unqualified identifier in expression position, ordinary lexical lookup
   wins before imported union-case lookup: locals and parameters first, then
   visible instance/static members and imported symbols, then unqualified union
