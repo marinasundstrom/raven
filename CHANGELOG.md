@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Emit local nongeneric abstract/virtual class hierarchies for NeoCLR
+  through an explicit shared capability. Preserve overrides and direct base calls,
+  using compiler symbols only. The unchanged inheritance sample executes with `7`,
+  `42` on both targets; .NET retains its existing generator. External class overrides,
+  generic virtual owners and new-slot hiding remain unsupported natively.
+
 - **2026-10-05:** Resolve a union's own cases lexically inside its members, including
   while replacing a legacy bootstrap declaration. Cold semantic queries and ordinary
   emission agree; unrelated case imports and return-type diagnostics keep their rules.

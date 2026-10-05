@@ -6894,3 +6894,33 @@ format changes and no independently needed main behavior backport arise from thi
 
 Validation: 17 focused auto-property, constructor, value receiver and struct semantic
 tests pass, plus the dual-target driver probe and two exact-output native consumers.
+
+
+## Native local virtual hierarchies (2026-10-05)
+
+The native adapter opts into `AllowsClassVirtualSlots`; the ordinary .NET portable
+capabilities do not change and CLR emission continues through the existing generator.
+Public nongeneric instance virtual/abstract methods and exact overrides on local,
+nongeneric reference classes are admitted. Abstract class methods remain bodyless;
+only explicitly selected runtime services receive InternalCall. Abstract owner flags,
+new slots and overrides go through the separate metadata builder/definition API.
+
+Lowering retains an explicit `DirectInstanceCall` for `base.Method(...)`. Ordinary
+reference calls dispatch virtually, while base calls target the resolved concrete
+body. Receiver/signature identities come entirely from bound symbols. No importer
+handles or metadata reader objects cross into emission. Local base declarations and
+inherited interface conformance use existing metadata/runtime contracts.
+
+Runtime Contract/bootstrap configuration is unchanged: native driver acceptance uses
+the explicit primitive core, retained System seed, ownership manifest and source-built
+Numbers/Http artifacts. No CLI fallback for native references is added. External class
+overrides, generic virtual owners, re-abstraction and new-slot hiding remain unsupported;
+this does not complete every inheritance or native import/emission combination.
+
+Validation: the unchanged `application-inheritance.rvn` compiles through ordinary driver
+commands and executes with stdout `7\n42\n`, exit 0, empty stderr on both targets.
+The native collections and interfaces controls still pass. C# capability tests exercise
+Debug/Release CLR execution and opt-in portable admission, alongside existing inheritance,
+abstract-instantiation and override-binding tests. The metadata/runtime work is recorded
+in neoCLR `docs/experiments/extended-cli-metadata/native-inheritance-2026-10-05.md`.
+These are target integration changes; no independent main-branch binder fix is involved.

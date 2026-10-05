@@ -45,6 +45,7 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             case LinearInstructionKind.FieldAddress: resolveField!(instruction.Field!).EmitAddress(method); break;
             case LinearInstructionKind.LoadField: resolveField!(instruction.Field!).Emit(method, false); break;
             case LinearInstructionKind.StoreField: resolveField!(instruction.Field!).Emit(method, true); break;
+            case LinearInstructionKind.DirectInstanceCall:
             case LinearInstructionKind.BaseConstructorCall:
             case LinearInstructionKind.NewObject:
             case LinearInstructionKind.InterfaceCall:

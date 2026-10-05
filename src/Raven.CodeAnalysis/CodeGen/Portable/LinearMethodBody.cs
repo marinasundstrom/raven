@@ -9,7 +9,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken }
+internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -796,7 +796,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
               method.Name == "GetHashCode" && method.Parameters.IsEmpty && method.ReturnType.SpecialType == SpecialType.System_Int32 ||
               method.Name == "Equals" && method.Parameters is [{ RefKind: RefKind.None, Type: var parameter }] &&
               parameter.GetNonNullableType().SpecialType == SpecialType.System_Object && method.ReturnType.SpecialType == SpecialType.System_Boolean));
-        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || SupportedObjectDisplayCall(method) || SupportedObjectHashCall(method) || SupportedObjectEqualsCall(method) || SupportedObjectOverrideCall(method) || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true)) &&
+        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || SourceCallablePlan.IsClassVirtualSlot(method, capabilities) || SupportedObjectDisplayCall(method) || SupportedObjectHashCall(method) || SupportedObjectEqualsCall(method) || SupportedObjectOverrideCall(method) || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true)) &&
             method.ContainingType is { } owner && (SourceTypePlan.TryCreate(owner, out _, capabilities) ||
                 capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && (capabilities is null || capabilities.Allows(signature));
@@ -1125,6 +1125,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundSelfExpression capturedSelf when Array.FindIndex(captures, capture => capture is INamedTypeSymbol type && SymbolEqualityComparer.Default.Equals(type, capturedSelf.Type)) is var selfIndex && selfIndex >= 0:
                     Add(LinearInstructionKind.LoadCapture, Syntax(expression), selfIndex);
                     return true;
+                case BoundBaseExpression baseReceiver when !isStaticBody && capabilities?.AllowsClassVirtualSlots == true &&
+                    SymbolEqualityComparer.Default.Equals(baseReceiver.Type, source.ContainingType?.BaseType):
+                    Add(LinearInstructionKind.Receiver, Syntax(expression)); return true;
                 case BoundSelfExpression self when !isStaticBody && SymbolEqualityComparer.Default.Equals(self.Type, source.ContainingType):
                     Add(LinearInstructionKind.Receiver, Syntax(expression));
                     if (self.Type.IsValueType) instructions.Add(new(LinearInstructionKind.LoadIndirect, Syntax(expression), Type: self.Type));
@@ -1507,7 +1510,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         if (call.Method.Parameters[i].RefKind is RefKind.Ref or RefKind.Out
                             ? !LowerReference(arguments[i]) : !LowerValue(arguments[i], call.Method.Parameters[i].Type)) return false;
                     }
-                    Add(call.Method.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(call.Method), Syntax(expression), method: call.Method);
+                    Add(call.Method.IsStatic ? LinearInstructionKind.Call : call.Receiver is BoundBaseExpression ? LinearInstructionKind.DirectInstanceCall : InstanceCallKind(call.Method), Syntax(expression), method: call.Method);
                     return true;
                 case BoundInvocationExpression rejectedCall:
                     return Reject("invocation " + rejectedCall.Method.ToDisplayString(), Syntax(expression));

@@ -84,7 +84,7 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct) || type.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal) ||
             GetMetadataOwner(type) is { } parent && (capabilities?.Allows(EmissionDeclarationKind.NestedType) != true ||
                 parent.Arity != 0 || isStatic || !isValue && type.Arity != 0 || !TryCreate(parent, out _, capabilities)) ||
-            !isStatic && (type.IsAbstract && !closedFamily || type.IsSealedHierarchy && !closedFamily || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false } || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object) &&
+            !isStatic && (type.IsAbstract && !closedFamily && !(capabilities?.AllowsClassVirtualSlots == true && !isValue && type.Arity == 0 && type.ContainingType is null) || type.IsSealedHierarchy && !closedFamily || type.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: false } || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object) &&
                 !(capabilities?.AllowsLocalClassInheritance == true && !isValue && type.Arity == 0 && type.ContainingType is null &&
                   type.BaseType is { Arity: 0, ContainingType: null } baseType && SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, type.ContainingAssembly) && TryCreate(baseType, out _, capabilities))))
             return false;

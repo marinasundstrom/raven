@@ -146,7 +146,7 @@ internal static class Int32Emitter
                 {
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
                     if (type.AttributeLists.Count != 0 || type.ParameterList is not null ||
-                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword or SyntaxKind.SealedKeyword) && !(m.Kind == SyntaxKind.AbstractKeyword && compilation.IsSourceObjectRoot(typeSymbol))))
+                        type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword or SyntaxKind.SealedKeyword or SyntaxKind.AbstractKeyword)))
                         throw Unsupported("only public or internal static/root classes or value types without additional contracts");
                     if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
                         throw Unsupported("supported public/internal static classes, root classes or unconstrained value types");
@@ -228,9 +228,9 @@ internal static class Int32Emitter
                             model.GetDeclaredSymbol(asyncMember) is IMethodSymbol { IsAsync: true } &&
                             compilation.Options.MetadataImportOptions?.AsyncAssemblyName is null)
                             throw Unsupported("explicit native async provider required");
-                        if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null) || method.AttributeLists.Count != 0 ||
+                        if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null && !method.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword)) || method.AttributeLists.Count != 0 ||
                             method.ExplicitInterfaceSpecifier is not null || method.ConstraintClauses.Count != 0 ||
-                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword) && !(m.Kind == SyntaxKind.VirtualKeyword && compilation.IsSourceObjectRoot(typeSymbol))))
+                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword or SyntaxKind.VirtualKeyword or SyntaxKind.AbstractKeyword)))
                             throw Unsupported("only ordinary primitive methods, explicit constructors and auto-properties");
                         var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
 
@@ -288,7 +288,7 @@ internal static class Int32Emitter
         var prepared = new List<(SourceCallablePlan Plan, LinearMethodBody? Body)>();
         foreach (var plan in plans)
         {
-            if (runtimeServices.Contains(plan.Symbol))
+            if (runtimeServices.Contains(plan.Symbol) || plan.Symbol.IsAbstract)
             {
                 prepared.Add((plan, null));
                 continue;
@@ -742,7 +742,7 @@ internal static class Int32Emitter
             current.Body.Emit(new NeoClrLinearMethodBuilder(current.Method.GetILGenerator(), (instruction, output) =>
             {
                 diagnosticSyntax = instruction.Syntax;
-                if (instruction.Kind == LinearInstructionKind.BaseConstructorCall)
+                if (instruction.Kind is LinearInstructionKind.BaseConstructorCall or LinearInstructionKind.DirectInstanceCall)
                     output.Call(definedMethods[instruction.Method!.OriginalDefinition]);
                 else if (instruction.Kind == LinearInstructionKind.FunctionBind)
                 {

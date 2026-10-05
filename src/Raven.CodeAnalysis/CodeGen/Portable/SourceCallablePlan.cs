@@ -50,6 +50,15 @@ internal sealed record SourceCallablePlan(
         };
     }
 
+    internal static bool IsClassVirtualSlot(IMethodSymbol method, EmissionCapabilities? capabilities) =>
+        capabilities?.AllowsClassVirtualSlots == true &&
+        method is
+        {
+            IsStatic: false, MethodKind: MethodKind.Ordinary, Arity: 0, DeclaredAccessibility: Accessibility.Public,
+            ContainingType: { IsReferenceType: true, Arity: 0, ContainingType: null } owner
+        } &&
+        owner.OriginalDefinition is SourceNamedTypeSymbol && (method.IsAbstract || method.IsVirtual || method.IsOverride);
+
     internal bool IsObjectRootSlot => IsRootSlot(Symbol);
     private static bool IsRootSlot(IMethodSymbol method) => method.ContainingType is { } owner && SourceTypePlan.IsSourceObjectRoot(owner) &&
         method is { IsVirtual: true, IsOverride: false, IsAbstract: false, IsStatic: false, Arity: 0, DeclaredAccessibility: Accessibility.Public } &&
@@ -77,7 +86,7 @@ internal sealed record SourceCallablePlan(
         plan = null;
         if (symbol.IsExtern || symbol.IsOverride && symbol.ContainingType is { IsReferenceType: true, Arity: > 0 } ||
             !CallableSignature.TryCreate(symbol, out var signature, capabilities)) return false;
-        if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet) || symbol.IsAbstract || (symbol.IsVirtual || symbol.IsOverride) &&
+        if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet) || symbol.IsAbstract && !IsClassVirtualSlot(symbol, capabilities) || (symbol.IsVirtual || symbol.IsOverride) && !IsClassVirtualSlot(symbol, capabilities) &&
             (!(IsRootSlot(symbol) && capabilities?.Allows(EmissionDeclarationKind.ObjectRootSlot) == true) &&
              (ClassifyOverride(symbol) == EmissionOverrideKind.None || capabilities?.Allows(symbol.ContainingType?.IsValueType == true ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride) != true)) ||
             symbol.ContainingType is not { } receiver || !SourceTypePlan.TryCreate(receiver, out _, capabilities))) return false;
