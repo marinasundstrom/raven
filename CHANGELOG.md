@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Record NeoCLR Object declaration authoring as a metadata prerequisite;
+  source-root emission remains guarded pending slots and reference wiring. Clarify that
+  the end-to-end gate includes language-server and VS Code editing/build/run through
+  the shared compiler configuration; no editor implementation is claimed.
+
 - **2026-10-05:** Add opt-in source Object semantic ownership for NeoCLR producers.
   Select one baseless root before member signatures so named/keyword types, implicit
   bases and overrides agree across source order and snapshot reuse. Invalid roots

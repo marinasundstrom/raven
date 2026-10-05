@@ -6609,3 +6609,17 @@ root definitions, Object signatures and boxing/slot references. The runtime alre
 has explicit load-context selection (neoCLR `4e9e4045`); that is not yet connected to the
 compiler driver. The native probe `--source-object-root /path/to/Core.dll` checks actual
 bootstrap binding and the native no-publication boundary, not runtime execution.
+
+### Object declaration metadata and editor gate (2026-10-05)
+
+The NeoCLR metadata API now authors baseless canonical Object declarations through
+manual definitions or builders, with ordinary CLI Object signature bytes in the
+reference-only projection. Its 156 C# metadata groups pass. This does not yet supply
+native Object virtual-slot authoring, boxing/root-reference selection or driver wiring;
+Raven's source-root emission guards remain required. No default .NET behavior changes.
+
+The author clarified that the end-to-end scenario includes language-server and VS Code
+support. Editing against artifact-only native references, project diagnostics and
+build/run must share the ordinary compiler's target configuration and explicit dependency
+catalog. Do not add an editor-specific importer or writer. Runtime execution and editor
+integration remain separate acceptance evidence still to be completed.
