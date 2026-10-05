@@ -939,7 +939,7 @@ public static partial class DocumentationGenerator
                     RefKind.RefReadOnly or RefKind.RefReadOnlyParameter => "ref readonly ",
                     _ => ""
                 };
-                table.AppendLine($"| `{parameter.Name}` | {passing}{FormatContractType(currentDir, parameter.Type)} | {description.Replace("|", "\\|").Replace("\n", "<br />")} |");
+                table.AppendLine($"| <code class=\"api-parameter-name\">{EscapeName(parameter.Name)}</code> | {passing}{FormatContractType(currentDir, parameter.Type)} | {description.Replace("|", "\\|").Replace("\n", "<br />")} |");
             }
             AppendNamedDocumentationSection(builder, "Parameters", table.ToString());
         }
@@ -962,6 +962,19 @@ public static partial class DocumentationGenerator
 
     private static string FormatContractType(string currentDir, ITypeSymbol type)
     {
+        if (type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+            return EscapeName(type.ToDisplayString(BaseTypeDisplayFormat));
+        if (type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } function
+            && function.ContainingNamespace?.ToDisplayString() == "System"
+            && function.Name is "Func" or "Action")
+        {
+            var arguments = function.TypeArguments;
+            var parameters = function.Name == "Func" ? arguments.Take(arguments.Length - 1) : arguments;
+            var parameterTypes = parameters.Select(parameter => FormatContractType(currentDir, parameter)).ToArray();
+            var input = parameterTypes.Length == 1 ? parameterTypes[0] : "(" + string.Join(", ", parameterTypes) + ")";
+            var result = function.Name == "Func" ? FormatContractType(currentDir, arguments[^1]) : "()";
+            return input + " -&gt; " + result;
+        }
         if (type.GetNullableUnderlyingType() is { } underlying)
             return FormatContractType(currentDir, underlying) + "?";
         if (type is IArrayTypeSymbol array)
@@ -1135,7 +1148,7 @@ public static partial class DocumentationGenerator
 
     private static string NavigationType(ITypeSymbol type)
         => type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit
-            ? "()" : type.TypeKind == TypeKind.Delegate ? GetTypeName(type) : type.ToDisplayString(BaseTypeDisplayFormat);
+            ? "()" : type.ToDisplayString(BaseTypeDisplayFormat.WithDelegateStyle(SymbolDisplayDelegateStyle.NameOnly));
 
     private static string NavigationParameters(IEnumerable<IParameterSymbol> parameters)
         => string.Join(", ", parameters.Select(parameter =>

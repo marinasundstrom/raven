@@ -25,6 +25,57 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void FunctionContractsUseArrowSyntaxInListsAndParameterTables(bool metadata)
+    {
+        const string source = """
+            namespace Callbacks
+            public class Task<T> { }
+            public delegate NamedCallback(value: int) -> ()
+            public class Api {
+                public static func Run(callback: () -> ()) -> Task<()> => Task<()>()
+                public static func Chain(callback: () -> Task<int>) -> Task<int> => callback()
+                public static func Named(callback: NamedCallback) -> () { }
+            }
+            """;
+        var (compilation, _) = CreateCompilation(source, assemblyName: "CallbackDocs");
+        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+        IAssemblySymbol? assembly = null;
+        if (metadata)
+        {
+            var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "CallbackDocs");
+            compilation = Compilation.Create("CallbackHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
+            _ = compilation.GetDiagnostics();
+            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+        }
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            if (assembly is null) DocumentationGenerator.ProcessCompilation(compilation, output);
+            else DocumentationGenerator.ProcessAssembly(compilation, assembly, output);
+            var list = File.ReadAllText(Path.Combine(output, "Callbacks/Api/index.html"));
+            var labels = string.Join("\n", System.Text.RegularExpressions.Regex.Matches(list, "member-name\">([^<]*)</span>").Select(match => match.Groups[1].Value));
+            labels.ShouldContain("Run(callback: () -&gt; ())");
+            labels.ShouldContain("Chain(callback: () -&gt; Task&lt;int&gt;)");
+            list.ShouldContain("Named(callback: NamedCallback)");
+            foreach (var name in new[] { "Run", "Chain" })
+            {
+                var page = File.ReadAllText(Path.Combine(output, $"Callbacks/Api/method_{name}.html"));
+                page.ShouldNotContain("Func&lt;");
+                page.ShouldContain("() -&gt;");
+            }
+            var chained = File.ReadAllText(Path.Combine(output, "Callbacks/Api/method_Chain.html"));
+            var taskLinks = System.Text.RegularExpressions.Regex.Matches(chained, "href=\"([^\"]+)\">Task</a>");
+            taskLinks.Count.ShouldBeGreaterThan(0);
+            foreach (System.Text.RegularExpressions.Match link in taskLinks)
+                File.Exists(Path.GetFullPath(Path.Combine(output, "Callbacks/Api", Uri.UnescapeDataString(link.Groups[1].Value)))).ShouldBeTrue();
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void MemberStructureComesFromSymbolsAndDocumentationEnhancesIt(bool metadata)
     {
         const string source = """
