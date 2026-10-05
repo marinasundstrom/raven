@@ -5,8 +5,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 ## Unreleased
 
 - **2026-10-05:** Record the explicit Object-root selection prerequisite across the
-  native compiler, metadata writer and runtime. An overly broad runtime recognition
-  experiment was reverted after a lookalike regression; compiler behavior is unchanged.
+  native compiler, metadata writer and runtime. The runtime now provides validated
+  host selection while retaining default lookalike rejection; source-root binding,
+  writer authoring and ordinary driver integration remain pending. Compiler behavior
+  is unchanged.
 
 - **2026-10-05:** Document native Object service adapter/linking requirements and the
   author-directed native metadata editor/LSP release gate. Editor emission reuses the

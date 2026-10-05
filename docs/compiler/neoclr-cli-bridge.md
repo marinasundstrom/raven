@@ -6578,3 +6578,19 @@ Object and implicit bases consistently, and author boxing/slots from that identi
 The runtime must receive the same selection before the retained seed root can be
 removed. Keep source Object compilation marked incomplete. Existing source-handle and
 Object-service gates do not establish root replacement.
+
+### Runtime host root selection available (2026-10-05)
+
+neoCLR now exposes `LoadedProgram::with_modules_and_object_root` and a matching mixed
+reader. The host selects an exact library type row plus module/revision, validated
+against the unique System.Object definition and its three concrete virtual slots.
+The retained seed can reference the supplied source-root library with dependency and
+accessibility validation. Default runtime loading still rejects application lookalikes.
+Selection is private load context and is not serialized; no metadata encoding changes.
+
+This closes a runtime prerequisite, not Raven's source Object integration. The driver
+must eventually derive selection from the validated artifact catalog; Raven binding and
+the metadata writer must first agree on source-root identity, implicit bases, signatures,
+boxing and slots. No Runtime Contract option or .NET emission behavior changes here.
+See neoCLR `explicit-object-root-2026-10-05.md`: 86 focused runtime tests pass, including
+external-root binary execution, wrong revisions and incomplete contracts.
