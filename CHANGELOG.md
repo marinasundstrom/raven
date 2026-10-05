@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Document native Object service adapter/linking requirements and the
+  author-directed native metadata editor/LSP release gate. Editor emission reuses the
+  compiler path; a disassembler remains a candidate. No editor implementation is claimed.
+
 - **2026-10-05:** Support explicitly source-owned RuntimeTypeHandle for native
   compilation: preserve canonical signature identity, require fieldless runtime storage,
   and import the emitted handle provider in separate consumers. Seed ownership remains

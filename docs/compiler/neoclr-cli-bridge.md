@@ -6539,3 +6539,30 @@ format version. Native-only primitive implementations still reject executable CL
 The 140-production-source combined library and separate JSON/Tasks consumers execute
 with this ownership. Core Object ownership remains a separate blocker. Matching evidence:
 neoCLR docs/experiments/extended-cli-metadata/source-handle-ownership-2026-10-05.md.
+
+### Object service declarations across native assemblies (2026-10-05)
+
+The runtime integration now supplies native source adapters for ObjectReferenceEquals,
+ObjectEquals and ObjectIdentityHash. ObjectEquals is the nonvirtual base identity service
+with a non-null receiver; ReferenceEquals accepts nulls. These adapters reuse existing
+InternalCall metadata and runtime operations. They are internal library infrastructure,
+not a substitute implementation of source System.Object.
+
+A source library and the retained seed may each declare the same validated service.
+The matching runtime loader preserves assembly definition identities, binds symbolic
+calls to the caller's local declaration, and preserves explicit external references.
+Duplicate declarations inside one module, incompatible signatures and inaccessible
+external declarations still reject. No compiler or .NET backend change is required.
+See neoCLR's object-services-2026-10-05 integration record for native execution evidence.
+Source Object's canonical root identity remains a separate unresolved contract.
+
+### Release requirement: native metadata editor workflow (2026-10-05)
+
+The author requires working editor/language-server support with native NeoCLR references
+for release, alongside the compiler/runtime gates. Use the existing symbol importer and
+ordinary compiler emission for editor builds; do not create an LSP-specific metadata
+writer. Validate project target/reference configuration, imported completion/hover/
+navigation and diagnostics, reference-change invalidation, and an editor-triggered native
+build/run with source-built library references. Preserve ordinary .NET editor behavior.
+A read-only disassembler is a release candidate to assess, not a committed release gate.
+These are recorded requirements, not claims of implemented editor support.
