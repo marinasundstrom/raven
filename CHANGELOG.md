@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Render function callbacks as arrow signatures in RavenDoc member
+  lists and parameter tables, preserving links within generic callback results.
+  Keep nominal delegate declarations named and parameter names unbroken in tables.
+  This is presentation-only; target contracts, metadata and execution are unchanged.
+
 - **2026-10-05:** Restore imported union-case documentation from XML/Markdown
   sidecars authored against CLI carrier identities, while preferring logical case
   documentation when supplied. This fixes missing case summaries in RavenDoc and

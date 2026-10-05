@@ -357,6 +357,8 @@ th, td {
 
 th { background: var(--th-bg); }
 
+.api-parameter-name { white-space: nowrap; overflow-wrap: normal; word-break: normal; }
+
 .muted { color: var(--muted); }
 
 footer {
