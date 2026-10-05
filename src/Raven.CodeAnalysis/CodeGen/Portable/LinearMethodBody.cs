@@ -278,6 +278,38 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
+        bool LowerBranch(BoundExpression condition, int target, bool jumpIfTrue, SyntaxNode syntax)
+        {
+            if (condition is BoundParenthesizedExpression parenthesized)
+                return LowerBranch(parenthesized.Expression, target, jumpIfTrue, syntax);
+            if (condition is BoundUnaryExpression { Operator.OperatorKind: BoundUnaryOperatorKind.LogicalNot } negated)
+                return LowerBranch(negated.Operand, target, !jumpIfTrue, syntax);
+            if (condition is BoundBinaryExpression { Operator.MethodSymbol: null } logical &&
+                logical.Operator.OperatorKind is OperatorKind.LogicalAnd or OperatorKind.LogicalOr)
+            {
+                bool shortCircuitOnTrue = logical.Operator.OperatorKind == OperatorKind.LogicalOr;
+                if (shortCircuitOnTrue == jumpIfTrue)
+                    return LowerBranch(logical.Left, target, jumpIfTrue, syntax) && LowerBranch(logical.Right, target, jumpIfTrue, syntax);
+                var skipped = nextLabel++;
+                if (!LowerBranch(logical.Left, skipped, shortCircuitOnTrue, syntax) ||
+                    !LowerBranch(logical.Right, target, jumpIfTrue, syntax)) return false;
+                Add(LinearInstructionKind.Label, syntax, skipped);
+                return true;
+            }
+            if (condition is BoundIsPatternExpression pattern && capabilities?.AllowsCasePatterns == true)
+            {
+                if (!jumpIfTrue) return LowerPattern(pattern.Expression, pattern.Pattern, target, syntax);
+                var failed = nextLabel++;
+                if (!LowerPattern(pattern.Expression, pattern.Pattern, failed, syntax)) return false;
+                Add(LinearInstructionKind.Branch, syntax, target);
+                Add(LinearInstructionKind.Label, syntax, failed);
+                return true;
+            }
+            if (!LowerValue(condition)) return false;
+            Add(jumpIfTrue ? LinearInstructionKind.BranchTrue : LinearInstructionKind.BranchFalse, syntax, target);
+            return true;
+        }
+
         bool PatternValue(ITypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
         {
             if (pattern is BoundDiscardPattern) { Add(LinearInstructionKind.Pop, syntax); return true; }
@@ -448,15 +480,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (statement is BoundIfStatement conditionalIf)
                 {
                     var otherwise = nextLabel++; var end = nextLabel++;
-                    if (conditionalIf.Condition is BoundIsPatternExpression pattern && capabilities?.AllowsCasePatterns == true)
-                    {
-                        if (!LowerPattern(pattern.Expression, pattern.Pattern, otherwise, Syntax(statement))) return false;
-                    }
-                    else
-                    {
-                        if (!LowerValue(conditionalIf.Condition)) return false;
-                        Add(LinearInstructionKind.BranchFalse, Syntax(statement), otherwise);
-                    }
+                    if (!LowerBranch(conditionalIf.Condition, otherwise, false, Syntax(statement))) return false;
                     if (!LowerStatements(conditionalIf.ThenNode)) return false;
                     if (instructions.LastOrDefault().Kind is not (LinearInstructionKind.Return or LinearInstructionKind.Branch or LinearInstructionKind.CompilerFailure))
                         Add(LinearInstructionKind.Branch, Syntax(statement), end);
@@ -477,24 +501,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 if (statement is BoundConditionalGotoStatement conditional)
                 {
-                    if (conditional.Condition is BoundIsPatternExpression caseTest && capabilities?.AllowsCasePatterns == true)
-                    {
-                        if (!conditional.JumpIfTrue)
-                        {
-                            if (!LowerPattern(caseTest.Expression, caseTest.Pattern, Label(conditional.Target), Syntax(statement))) return false;
-                        }
-                        else
-                        {
-                            var failed = nextLabel++;
-                            if (!LowerPattern(caseTest.Expression, caseTest.Pattern, failed, Syntax(statement))) return false;
-                            Add(LinearInstructionKind.Branch, Syntax(statement), Label(conditional.Target));
-                            Add(LinearInstructionKind.Label, Syntax(statement), failed);
-                        }
-                        continue;
-                    }
-                    if (!LowerValue(conditional.Condition)) return false;
-                    Add(conditional.JumpIfTrue ? LinearInstructionKind.BranchTrue : LinearInstructionKind.BranchFalse,
-                        Syntax(statement), Label(conditional.Target));
+                    if (!LowerBranch(conditional.Condition, Label(conditional.Target), conditional.JumpIfTrue, Syntax(statement))) return false;
                     continue;
                 }
                 if (statement is BoundLocalDeclarationStatement declaration)
@@ -786,6 +793,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             if (receiver is not null)
             {
                 if (!LowerValue(receiver)) return false;
+                if (receiver.Type.SpecialType == SpecialType.System_String && owner.SpecialType == SpecialType.System_Object &&
+                    capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true)
+                    instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: owner));
                 // Projected members use the configured nominal backing or one of
                 // its interfaces; the bound receiver can still be a vector.
                 if (receiver.Type is IArrayTypeSymbol array &&
@@ -1012,15 +1022,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     SymbolEqualityComparer.Default.Equals(conditional.ElseBranch.Type, conditional.Type):
                     var alternative = nextLabel++;
                     var joined = nextLabel++;
-                    if (conditional.Condition is BoundIsPatternExpression conditionalPattern && capabilities?.AllowsCasePatterns == true)
-                    {
-                        if (!LowerPattern(conditionalPattern.Expression, conditionalPattern.Pattern, alternative, Syntax(expression))) return false;
-                    }
-                    else
-                    {
-                        if (!LowerValue(conditional.Condition)) return false;
-                        Add(LinearInstructionKind.BranchFalse, Syntax(expression), alternative);
-                    }
+                    if (!LowerBranch(conditional.Condition, alternative, false, Syntax(expression))) return false;
                     if (!LowerValue(conditional.ThenBranch, conditional.Type)) return false;
                     Add(LinearInstructionKind.Branch, Syntax(expression), joined);
                     Add(LinearInstructionKind.Label, Syntax(expression), alternative);

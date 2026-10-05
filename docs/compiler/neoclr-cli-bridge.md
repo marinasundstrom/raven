@@ -6316,3 +6316,19 @@ new metadata semantics or changes to the .NET backend are involved.
 The runtime repository's mapping-guards provider/consumer validates both Result match
 branches, null/non-null guards, boxed int/bool and a mismatched string. Native verify/run
 passes (42); eight focused .NET pattern tests pass. Full JSON mapping remains open.
+
+### Production JSON emission gate (2026-10-05)
+
+Conditional emission now follows AND/OR/not control flow directly, so pattern locals
+are assigned on precisely the successful edge instead of losing that fact at a boolean
+value merge. String receivers calling inherited Object slots use the existing explicit
+reference projection; this preserves the native UTF-8 representation boundary.
+The unchanged mapper/serializer and descriptor sources compile into a native library.
+The runtime is still being adapted to materialize those source-owned descriptors.
+
+The extended mapping-guards consumer verifies/runs to 42, including both failed AND
+operands, successful dual extraction and String hash calls. Nine focused .NET pattern
+checks pass. Metadata writer dependency also supports inherited public interface bodies
+(runtime commit 32321722); no changes to ordinary .NET generation or bootstrap ownership.
+These portable emission fixes do not alter the current .NET backend and are not claimed
+as independent fixes already backported to main.

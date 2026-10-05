@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Emit conditional branches directly for short-circuit pattern tests,
+  preserving definite assignment of extracted locals. Project String receivers to the
+  configured Object view for inherited Object calls. The unchanged native JSON mapper,
+  serializer and descriptor sources now emit a library; runtime mapping remains open.
+
 - **2026-10-05:** Lower native reference coalescing guards and boxed-value declaration
   patterns using existing semantic operations. Normalize unreachable conversions around
   terminal returns at statement boundaries. A separate-library consumer executes null,
