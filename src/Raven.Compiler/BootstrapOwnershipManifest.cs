@@ -56,13 +56,17 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
         {
             if (options.TargetPlatform != TargetPlatform.NeoCLR || primitiveCoreAssemblyName is null || outputAssemblyName is null)
                 throw new InvalidDataException("Native primitive providers require an explicit NeoCLR core and output identity.");
-            // Source implementations bind primitive spellings through the declared bootstrap.
+            // Source implementations retain bootstrap scalar spellings and select source member declarations.
             // Consumers select the completed native declaration, with no fallback on failure.
             var providers = NativePrimitives.Where(p => p.Value != outputAssemblyName).ToDictionary(p =>
             {
                 NativePrimitiveSpecialType(p.Key, out var special); return special;
             }, p => p.Value);
-            configured = configured.WithMetadataImportOptions(new MetadataImportOptions(primitiveCoreAssemblyName, providers));
+            var sourcePrimitives = NativePrimitives.Where(p => p.Value == outputAssemblyName).Select(p =>
+            {
+                NativePrimitiveSpecialType(p.Key, out var special); return special;
+            });
+            configured = configured.WithMetadataImportOptions(new MetadataImportOptions(primitiveCoreAssemblyName, providers, sourcePrimitives));
         }
         return Unit is null ? configured : configured.WithRuntimeUnitContract(Unit);
     }

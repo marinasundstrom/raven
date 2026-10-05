@@ -6366,3 +6366,38 @@ separate. These changes extend portable/native emission and are not general .NET
 to backport; independently validated earlier binder/lowering fixes remain on main.
 See neoCLR `docs/experiments/extended-cli-metadata/source-json-mapping-2026-10-05.md`
 for commands, dependency ownership, cross-repository revisions and executable evidence.
+
+### Source primitive member selection (2026-10-05)
+
+A native ownership manifest previously excluded declarations owned by the current output
+from PrimitiveAssemblies without retaining a source member selection. Thus primitive
+`string` receivers saw only the bootstrap's method surface. String.SliceUtf8 already
+existed in source and worked when imported, but failed in cumulative encoding, streams
+and JSON builds.
+
+`MetadataImportOptions(string coreAssemblyName, IReadOnlyDictionary<SpecialType, string>?
+primitiveAssemblies, IEnumerable<SpecialType>? sourcePrimitiveTypes)` now records the
+immutable `SourcePrimitiveTypes` set. Supported types are the same numeric, Boolean,
+String and grapheme Char types as imported providers. Overlapping imported/source
+providers or unsupported types throw ArgumentException. Existing constructors remain
+available and select an empty source set. The option requires the NeoCLR target;
+ordinary .NET configuration and lookup are unchanged.
+
+The host derives this set from declarations owned by the current output. Exact named
+member lookup selects that source type and completes its member signatures normally;
+accessibility and overload resolution remain binder responsibilities. There is no
+fallback to bootstrap-only members. Primitive expression/parameter identities remain
+the explicit bootstrap's canonical scalar types; this is the documented temporary
+source-library bootstrap split, not an added metadata alias or importer/emitter coupling.
+A future source-owned core can remove that split. This change does not claim to replace
+all intrinsic constructor/indexer handling with source lookup.
+
+Validation: 19 existing provider/core tests passed before the change; those and six new
+source-provider tests pass afterward (25 total). Tests cover method/property/static and
+literal lookup, source order, canonical scalar identity, opt-in selection, missing
+bootstrap-only members, copied/conflicting configuration and .NET rejection. The ordinary
+rvnc command compiles the previously failing cumulative 109-file runtime library. Both
+JSON consumers execute against its single native artifact without library sources.
+See neoCLR's source-primitive-members-2026-10-05 integration record for hashed evidence.
+This is an explicit native bootstrap fix, not an independently applicable .NET fix to
+backport to main.

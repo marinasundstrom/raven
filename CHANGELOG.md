@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Preserve explicit source primitive member providers in native
+  bootstrap configuration. String methods/properties now bind to their source
+  declaration while scalar signatures retain bootstrap identity. The cumulative
+  109-file runtime subset compiles and both artifact-only JSON consumers execute;
+  25 focused metadata/provider tests pass, including ordinary .NET controls.
+
 - **2026-10-05:** Compile and execute unchanged production JSON mapping/serializer
   and introspection sources through artifact-only native consumers. Preserve final
   class flags, explicit auto-accessors, Boolean primitive providers and already-bound
