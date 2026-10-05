@@ -90,3 +90,14 @@ outside this bounded change.
 Independent main-based validation: 26 propagation/runtime-contract tests pass on
 .NET 11. Integration validation: 21 propagation and 65 focused shared-body/runtime-
 contract tests pass; the native consumer verifies and exits 0.
+
+## Value-call arguments (2026-10-05)
+
+Nested propagation in supported value-call arguments is spilled at statement boundaries.
+Receiver evaluation precedes arguments, each operand is evaluated once, and a residual
+return skips later arguments and the call. Reference receivers and by-value parameters
+are handled; address-taking receivers and ref arguments keep their existing lowering.
+Conversion and pattern wrappers retain the propagated success expression. Two executable
+.NET cases cover successful receiver/argument order and the early-error path. Independent
+main-based validation passes 31 propagation/runtime-contract tests. No runtime or metadata
+contract is changed.
