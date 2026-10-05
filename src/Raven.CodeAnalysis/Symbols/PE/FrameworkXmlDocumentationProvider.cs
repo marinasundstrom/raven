@@ -35,7 +35,13 @@ internal static class ExternalDocumentationProvider
         if (docs is null)
             return null;
 
-        return docs.GetDocumentationComment(memberId);
+        var documentation = docs.GetDocumentationComment(memberId);
+        // Projected union cases have a logical name, but older/externally authored
+        // sidecars may use the physical carrier identity from CLI metadata.
+        if (documentation is null && symbol is PEUnionCaseSymbol unionCase)
+            documentation = docs.GetDocumentationComment(
+                DocumentationCommentIdBuilder.GetTypeMemberId(unionCase.GetTypeInfo().AsType()));
+        return documentation;
     }
 
     private readonly record struct CachedExternalDocumentationSet(
