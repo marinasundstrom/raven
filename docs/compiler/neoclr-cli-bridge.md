@@ -6332,3 +6332,37 @@ checks pass. Metadata writer dependency also supports inherited public interface
 (runtime commit 32321722); no changes to ordinary .NET generation or bootstrap ownership.
 These portable emission fixes do not alter the current .NET backend and are not claimed
 as independent fixes already backported to main.
+
+### Native JSON object mapping execution (2026-10-05)
+
+The runtime repository's `bootstrap/verify_json_mapping.py` now compiles unchanged
+production JSON/introspection sources into JsonIntrospection.dll, emits ResultOperators
+separately, and compiles two consumers against those artifacts without library sources.
+The new public serializer consumer executes nested reference objects, Boolean/string/int
+properties, integer/jagged arrays, shared-object mutation, exact serialized output and
+invalid-input validation before constructor/setter effects (exit 42). The unchanged
+earlier Mapping.rvn/Main.rvn sample also passes its expected stdout (exit 0).
+
+Portable code generation admits explicit empty auto-accessors backed by symbol fields,
+static conversion declarations and bound user conversion calls with exact storage
+parameter/result types. It does not reconstruct overload resolution or implicit coercion.
+Native class emission retains ordinary class finality using the CLI Sealed flag; Raven
+closed families retain their distinct semantics. Runtime Contract configuration explicitly
+selects JsonIntrospection as Boolean and typeof provider for this incremental build.
+The existing numeric/text library owns the other source primitives. No application
+reference is projected to CLI metadata and emission never reopens importer definitions.
+
+The native adapter supplies scoped descriptor materialization and an immutable internal
+ParameterSnapshot wrapper around an owned ParameterInfo array. Runtime service adapters
+use exact InternalCall signatures. Primitive bootstrap/retained service seed, Numbers,
+Encoding and TextStreams dependencies remain explicit and hashed in the gate evidence.
+Execution uses a 100,000,000 instruction budget; this is correctness evidence, not a
+performance claim. This does not establish .NET source-library parity, full reflection
+coverage, HttpContent/HTTP integration or full-System compilation.
+
+Validation: eight focused .NET auto-property/conversion/Result tests pass. The previously
+recorded integration-only static-interface default-value binding regression remains
+separate. These changes extend portable/native emission and are not general .NET fixes
+to backport; independently validated earlier binder/lowering fixes remain on main.
+See neoCLR `docs/experiments/extended-cli-metadata/source-json-mapping-2026-10-05.md`
+for commands, dependency ownership, cross-repository revisions and executable evidence.

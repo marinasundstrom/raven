@@ -63,6 +63,13 @@ internal static class Int32Emitter
                     foreach (var extensionMember in extension.Members)
                     {
                         diagnosticSyntax = extensionMember;
+                        if (extensionMember is ConversionOperatorDeclarationSyntax conversion && (conversion.Body is not null || conversion.ExpressionBody is not null) &&
+                            conversion.AttributeLists.Count == 0 && conversion.Modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword) &&
+                            model.GetDeclaredSymbol(conversion) is IMethodSymbol { IsStatic: true, MethodKind: MethodKind.Conversion } conversionMethod)
+                        {
+                            plans.Add(GetPlan(conversionMethod));
+                            continue;
+                        }
                         if (extensionMember is not MethodDeclarationSyntax method ||
                             (method.Body is null && method.ExpressionBody is null) || method.AttributeLists.Count != 0 ||
                             method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)) ||
@@ -189,7 +196,7 @@ internal static class Int32Emitter
                                 throw Unsupported("only supported instance properties/storage or implemented static properties without storage");
                             if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||
-                                a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null) ||
+                                a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null && property.BackingField is null) ||
                                 a.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword))))
                                 throw Unsupported("only implemented get/set accessors without additional contracts");
                             if (property.BackingField is { } backingField) storageFields.Add(backingField);
@@ -352,7 +359,7 @@ internal static class Int32Emitter
                     assembly.DeclareClassBase(imported, ImportExternalType(classBase).ImportedType!);
                 if (original.SpecialType == SpecialType.System_Char && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
                     assembly.SetNativeGrapheme(imported);
-                if (original.SpecialType is (SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_String) && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
+                if (original.SpecialType is (SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_String or SpecialType.System_Boolean) && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
                     assembly.SetNativePrimitive(imported, NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(original.SpecialType.ToString()[7..])));
                 if (IsSymbolOnlyReferenceDefinition(original) || IsSymbolOnlyOwnerDefinition(original) && original.IsValueType)
                     foreach (var contract in original.Interfaces)
@@ -391,6 +398,8 @@ internal static class Int32Emitter
             if (primitiveOwners.TryGetValue(type.Symbol, out var primitive)) definition.SetNativePrimitive(primitive);
             if (SymbolEqualityComparer.Default.Equals(type.Symbol, graphemeOwner)) definition.SetNativeGrapheme();
             if (flagsEnums.Contains(type.Symbol)) definition.SetEnumFlags();
+            if (!type.IsValueType && !type.IsStatic && !type.IsClosedHierarchy && type.Symbol.IsClosed)
+                definition.SetSealedClass();
             nativeTypes.Add(type.Symbol, definition);
             owners.Add(type.Symbol, new(assembly, definition, type => nativeTypes[type], ImportExternalType));
         }

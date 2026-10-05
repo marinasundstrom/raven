@@ -73,7 +73,8 @@ internal sealed record SourceCallablePlan(
             (ClassifyOverride(symbol) == EmissionOverrideKind.None || capabilities?.Allows(symbol.ContainingType?.IsValueType == true ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride) != true) ||
             symbol.ContainingType is not { } receiver || !SourceTypePlan.TryCreate(receiver, out _, capabilities))) return false;
         if (symbol.ContainingSymbol is SourcePropertySymbol { IsAutoProperty: true, IsStatic: false, BackingField: { } } property &&
-            symbol.DeclaringSyntaxReferences.IsEmpty && property.DeclaringSyntaxReferences.Length == 1)
+            (symbol.DeclaringSyntaxReferences.IsEmpty || symbol.DeclaringSyntaxReferences is [{ } accessorReference] &&
+                accessorReference.GetSyntax() is AccessorDeclarationSyntax { Body: null, ExpressionBody: null }) && property.DeclaringSyntaxReferences.Length == 1)
         {
             var propertySyntax = property.DeclaringSyntaxReferences[0].GetSyntax();
             plan = new(symbol, propertySyntax, propertySyntax, symbol.ContainingType, symbol.MetadataName, signature);
@@ -117,6 +118,10 @@ internal sealed record SourceCallablePlan(
                 SymbolEqualityComparer.Default.Equals(initializer.Constructor.ContainingType, symbol.ContainingType?.BaseType)) && symbol.ContainingType is { } constructorOwner:
                 plan = new(symbol, syntax, (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody, constructorOwner, symbol.MetadataName, signature);
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
+                plan = null; return false;
+            case ConversionOperatorDeclarationSyntax conversion when symbol.IsStatic && symbol.MethodKind == MethodKind.Conversion:
+                plan = new(symbol, syntax, (SyntaxNode?)conversion.Body ?? conversion.ExpressionBody, symbol.ContainingType, symbol.MetadataName, signature);
+                if (plan.Body is not null && (capabilities is null || plan.IsSupportedBy(capabilities))) return true;
                 plan = null; return false;
             case OperatorDeclarationSyntax op when symbol.IsStatic && symbol.MethodKind == MethodKind.UserDefinedOperator:
                 plan = new(symbol, syntax, (SyntaxNode?)op.Body ?? op.ExpressionBody, symbol.ContainingType, symbol.MetadataName, signature);

@@ -23,7 +23,7 @@ public sealed record MetadataImportOptions
     {
     }
 
-    /// <summary>Selects a bootstrap core and explicit native numeric, String or grapheme Char declaration providers.</summary>
+    /// <summary>Selects a bootstrap core and explicit native numeric, Boolean, String or grapheme Char declaration providers.</summary>
     public MetadataImportOptions(string coreAssemblyName, IReadOnlyDictionary<SpecialType, string>? primitiveAssemblies)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(coreAssemblyName);
@@ -31,8 +31,8 @@ public sealed record MetadataImportOptions
         PrimitiveAssemblies = primitiveAssemblies?.ToImmutableDictionary() ?? ImmutableDictionary<SpecialType, string>.Empty;
         if (PrimitiveAssemblies.Any(p => p.Key is not (SpecialType.System_SByte or SpecialType.System_Byte or
             SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or
-            SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_String or SpecialType.System_Char) || string.IsNullOrWhiteSpace(p.Value)))
-            throw new ArgumentException("primitive providers require numeric, String or grapheme Char special types and assembly names", nameof(primitiveAssemblies));
+            SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char) || string.IsNullOrWhiteSpace(p.Value)))
+            throw new ArgumentException("primitive providers require numeric, Boolean, String or grapheme Char special types and assembly names", nameof(primitiveAssemblies));
     }
 
     /// <summary>
@@ -40,7 +40,7 @@ public sealed record MetadataImportOptions
     /// </summary>
     public string? CoreAssemblyName { get; }
 
-    /// <summary>Gets explicit native numeric, String or grapheme Char declaration providers. Missing providers never fall back to the CLI bootstrap.</summary>
+    /// <summary>Gets explicit native numeric, Boolean, String or grapheme Char declaration providers. Missing providers never fall back to the CLI bootstrap.</summary>
     /// <remarks>Supported only by the NeoCLR target. The primitive core remains required for other bootstrap declarations.</remarks>
     public ImmutableDictionary<SpecialType, string> PrimitiveAssemblies { get; } = ImmutableDictionary<SpecialType, string>.Empty;
 }

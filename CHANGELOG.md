@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Compile and execute unchanged production JSON mapping/serializer
+  and introspection sources through artifact-only native consumers. Preserve final
+  class flags, explicit auto-accessors, Boolean primitive providers and already-bound
+  exact user conversions in the portable adapter. Eight focused ordinary .NET
+  property/conversion/Result checks pass; the Reflection/Emit backend is unchanged.
+
 - **2026-10-05:** Emit conditional branches directly for short-circuit pattern tests,
   preserving definite assignment of extracted locals. Project String receivers to the
   configured Object view for inherited Object calls. The unchanged native JSON mapper,

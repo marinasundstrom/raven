@@ -1165,6 +1165,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return LowerValue(required.Operand);
                 case BoundParenthesizedExpression parenthesized:
                     return LowerValue(parenthesized.Expression);
+                case BoundConversionExpression { IsUserDefined: true, MethodSymbol: { IsStatic: true, Parameters: [{ RefKind: RefKind.None } parameter] } conversionMethod } conversion when
+                    CallableSignature.SameStorageType(parameter.Type, conversion.Expression.Type) &&
+                    CallableSignature.SameStorageType(conversionMethod.ReturnType, conversion.Type) &&
+                    TrySignature(conversionMethod, out var conversionSignature) && SupportedTypeArguments(conversionMethod) &&
+                    (capabilities is null || capabilities.Allows(conversionSignature)):
+                    if (!LowerValue(conversion.Expression)) return false;
+                    Add(LinearInstructionKind.Call, Syntax(expression), method: conversionMethod);
+                    return true;
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && IsNullLiteral(conversion.Expression):
                     return LowerTypedNull(conversion.Type, Syntax(expression));
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && conversion.IsBoxing &&
