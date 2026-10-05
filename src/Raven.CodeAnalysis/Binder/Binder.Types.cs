@@ -158,6 +158,18 @@ internal abstract partial class Binder
             _ => Fail(syntax, TypeResolutionFailureKind.UnsupportedTypeSyntax)
         };
 
+        // A selected source handle declares the runtime-owned intrinsic; signatures
+        // retain the bootstrap identity while its implementation is being compiled.
+        if (result.Success && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            Compilation.Options.MetadataImportOptions?.SourcePrimitiveTypes.Contains(SpecialType.System_RuntimeTypeHandle) == true &&
+            result.ResolvedType is INamedTypeSymbol { Arity: 0, ContainingType: null } sourceHandle &&
+            SymbolEqualityComparer.Default.Equals(sourceHandle.ContainingAssembly, Compilation.Assembly) &&
+            sourceHandle.ToFullyQualifiedMetadataName() == "System.RuntimeTypeHandle")
+        {
+            var canonicalHandle = Compilation.GetSpecialType(SpecialType.System_RuntimeTypeHandle);
+            result = result with { ResolvedType = canonicalHandle, ResolvedNamedDefinition = canonicalHandle };
+        }
+
         if (result.Success && result.ResolvedType.SpecialType == SpecialType.System_Void &&
             Compilation.Options.RuntimeUnitContract is { MapClrVoidToUnit: true })
             result = result with { ResolvedType = Compilation.GetSpecialType(SpecialType.System_Unit) };

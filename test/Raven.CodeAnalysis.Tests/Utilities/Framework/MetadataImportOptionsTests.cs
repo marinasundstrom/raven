@@ -21,6 +21,40 @@ public class MetadataImportOptionsTests
             new Dictionary<SpecialType, string> { [SpecialType.System_Double] = " " }));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SourceHandleOwnershipIsExplicitAndCanonicalizesNestedSignatures(bool selected)
+    {
+        var paths = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net10.0"));
+        using var core = Mono.Cecil.AssemblyDefinition.ReadAssembly(paths.Single(p => Path.GetFileName(p) == "System.Runtime.dll"));
+        core.Name.Name = "NeoCLR.CoreProbe";
+        core.Name.PublicKey = [];
+        using var coreImage = new MemoryStream();
+        core.Write(coreImage);
+        var references = paths.Select(MetadataReference.CreateFromFile).Append(MetadataReference.CreateFromImage(coreImage.ToArray())).ToArray();
+        var compilation = Compilation.Create("Handles", [SyntaxTree.ParseText("""
+            namespace System
+            public struct RuntimeTypeHandle { }
+            public class HandleConsumer {
+                static func Echo(value: RuntimeTypeHandle) -> System.RuntimeTypeHandle => value
+                static func EchoArray(value: RuntimeTypeHandle[]) -> System.RuntimeTypeHandle[] => value
+            }
+            """)], references,
+            CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary).WithRuntimeTypeOfContract(null)
+                .WithMetadataImportOptions(new MetadataImportOptions("NeoCLR.CoreProbe", null,
+                    selected ? [SpecialType.System_RuntimeTypeHandle] : [])));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var consumer = compilation.Assembly.GetTypeByMetadataName("System.HandleConsumer")!;
+        var echo = Assert.Single(consumer.GetMembers("Echo").OfType<IMethodSymbol>());
+        var element = Assert.IsAssignableFrom<IArrayTypeSymbol>(Assert.Single(consumer.GetMembers("EchoArray").OfType<IMethodSymbol>()).ReturnType).ElementType;
+        var expected = selected ? compilation.GetSpecialType(SpecialType.System_RuntimeTypeHandle)
+            : compilation.Assembly.GetTypeByMetadataName("System.RuntimeTypeHandle");
+        Assert.True(SymbolEqualityComparer.Default.Equals(expected, echo.ReturnType));
+        Assert.True(SymbolEqualityComparer.Default.Equals(expected, echo.Parameters[0].Type));
+        Assert.True(SymbolEqualityComparer.Default.Equals(expected, element));
+    }
+
     private const string Source = """
         import System.Console.*
         func Main() { WriteLine("test") }

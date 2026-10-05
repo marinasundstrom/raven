@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Support explicitly source-owned RuntimeTypeHandle for native
+  compilation: preserve canonical signature identity, require fieldless runtime storage,
+  and import the emitted handle provider in separate consumers. Seed ownership remains
+  exclusive; ordinary .NET behavior and strict typeof validation are unchanged.
+
 - **2026-10-05:** Record native String[] entry support in the metadata/runtime
   dependency: Raven emits the ordinary parameter signature, and startup supplies
   user arguments. The unchanged stream-upload consumer executes all eleven cases.

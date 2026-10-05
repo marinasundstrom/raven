@@ -23,7 +23,7 @@ public sealed record MetadataImportOptions
     {
     }
 
-    /// <summary>Selects a bootstrap core and explicit native numeric, Boolean, String or grapheme Char declaration providers.</summary>
+    /// <summary>Selects a bootstrap core and explicit native numeric, Boolean, String, grapheme Char or runtime-handle declaration providers.</summary>
     public MetadataImportOptions(string coreAssemblyName, IReadOnlyDictionary<SpecialType, string>? primitiveAssemblies)
     : this(coreAssemblyName, primitiveAssemblies, null)
     {
@@ -40,7 +40,7 @@ public sealed record MetadataImportOptions
         CoreAssemblyName = coreAssemblyName;
         PrimitiveAssemblies = primitiveAssemblies?.ToImmutableDictionary() ?? ImmutableDictionary<SpecialType, string>.Empty;
         if (PrimitiveAssemblies.Any(p => !SupportsPrimitive(p.Key) || string.IsNullOrWhiteSpace(p.Value)))
-            throw new ArgumentException("primitive providers require numeric, Boolean, String or grapheme Char special types and assembly names", nameof(primitiveAssemblies));
+            throw new ArgumentException("primitive providers require numeric, Boolean, String, grapheme Char or runtime-handle special types and assembly names", nameof(primitiveAssemblies));
         SourcePrimitiveTypes = sourcePrimitiveTypes?.ToImmutableHashSet() ?? ImmutableHashSet<SpecialType>.Empty;
         if (SourcePrimitiveTypes.Any(p => !SupportsPrimitive(p) || PrimitiveAssemblies.ContainsKey(p)))
             throw new ArgumentException("source primitive providers must be supported and distinct from imported providers", nameof(sourcePrimitiveTypes));
@@ -49,14 +49,14 @@ public sealed record MetadataImportOptions
     private static bool SupportsPrimitive(SpecialType type) => type is SpecialType.System_SByte or SpecialType.System_Byte or
         SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or
         SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Single or SpecialType.System_Double or
-        SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char;
+        SpecialType.System_Boolean or SpecialType.System_String or SpecialType.System_Char or SpecialType.System_RuntimeTypeHandle;
 
     /// <summary>
     /// Gets the explicit core identity, or null to discover it from supplied references.
     /// </summary>
     public string? CoreAssemblyName { get; }
 
-    /// <summary>Gets explicit native numeric, Boolean, String or grapheme Char declaration providers. Missing providers never fall back to the CLI bootstrap.</summary>
+    /// <summary>Gets explicit native numeric, Boolean, String, grapheme Char or runtime-handle declaration providers. Missing providers never fall back to the CLI bootstrap.</summary>
     /// <remarks>Supported only by the NeoCLR target. The primitive core remains required for other bootstrap declarations.</remarks>
     public ImmutableDictionary<SpecialType, string> PrimitiveAssemblies { get; } = ImmutableDictionary<SpecialType, string>.Empty;
     /// <summary>Gets explicitly source-owned primitive member declarations. Scalar signatures still use the selected bootstrap.</summary>

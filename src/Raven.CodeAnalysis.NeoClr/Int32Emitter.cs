@@ -240,6 +240,14 @@ internal static class Int32Emitter
             var symbol = declaredTypes.Keys.SingleOrDefault(t => t.ToFullyQualifiedMetadataName() == "System." + primitive)
                 ?? throw Unsupported("selected primitive implementation is missing: " + primitive);
             var fieldsForType = storageFields.Where(f => SymbolEqualityComparer.Default.Equals(f.ContainingType, symbol)).ToArray();
+            if (primitive == PrimitiveType.RuntimeTypeHandle)
+            {
+                if (!symbol.IsValueType || symbol.Arity != 0 || symbol.ContainingType is not null || fieldsForType.Length != 0 ||
+                    plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol.ContainingType, symbol) && p.Symbol.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor))
+                    throw Unsupported("runtime type handle implementation requires an empty value declaration without constructors");
+                primitiveOwners.Add(symbol, primitive);
+                continue;
+            }
             if (symbol.IsValueType != (primitive != PrimitiveType.String) || symbol.Arity != 0 || symbol.ContainingType is not null || fieldsForType.Length != 1 ||
                 fieldsForType[0] is not { Name: "m_value", DeclaredAccessibility: Accessibility.Private, IsStatic: false, IsReadOnly: false } field ||
                 field.Type.SpecialType.ToString() != "System_" + primitive ||

@@ -6520,3 +6520,22 @@ argv; bounds and ambiguous native entry names reject explicitly. All eleven exis
 stream-upload cases execute through the ordinary driver and native references. No new
 Runtime Contract switch or .NET startup behavior change. Full-System bootstrap and
 native async state-machine compilation remain separate milestones.
+
+### Source RuntimeTypeHandle ownership (2026-10-05)
+
+The explicit native primitive catalog now accepts System.RuntimeTypeHandle. When its
+owner is the output assembly, source signature lookup (including array/generic nesting)
+uses the canonical bootstrap handle; the source declaration remains an authored type.
+The native emitter requires an empty, nongeneric top-level struct without constructors
+and designates runtime-owned handle storage. Consumers select the emitted native
+primitive provider. No importer objects are used by emission, and ordinary .NET name
+binding is unchanged. RuntimeUnit/typeof contracts are not weakened.
+
+Remove the retained seed handle declaration when assigning source ownership; duplicate
+ownership still rejects before publication. The metadata library must support the new
+RuntimeTypeHandle primitive designation. Existing runtime handle values and CLI handle
+signatures are reused; this introduces no guest storage fields, reflection layer or new
+format version. Native-only primitive implementations still reject executable CLI output.
+The 140-production-source combined library and separate JSON/Tasks consumers execute
+with this ownership. Core Object ownership remains a separate blocker. Matching evidence:
+neoCLR docs/experiments/extended-cli-metadata/source-handle-ownership-2026-10-05.md.
