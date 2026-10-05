@@ -281,6 +281,7 @@ internal sealed class WorkspaceManager
 
         var normalizedPath = NormalizePath(path);
         if (!IsRelevantWatchedFileChangePath(normalizedPath) &&
+            !IsObservedMetadataFilePath(normalizedPath) &&
             !IsObservedMacroFilePath(normalizedPath))
             return false;
 
@@ -292,6 +293,14 @@ internal sealed class WorkspaceManager
         }
 
         return true;
+    }
+
+    private bool IsObservedMetadataFilePath(string path)
+    {
+        var service = _workspace.Services.ProjectSystemService;
+        return service is not null && _workspace.CurrentSolution.Projects.Any(project =>
+            project.FilePath is { } projectPath && service.GetMetadataInputPaths(projectPath)
+                .Any(input => string.Equals(NormalizePath(input), path, StringComparison.OrdinalIgnoreCase)));
     }
 
     private bool IsObservedMacroFilePath(string path)
@@ -522,7 +531,12 @@ internal sealed class WorkspaceManager
         var normalizedProjectPath = NormalizePath(projectFilePath);
         _failedProjectOpens[normalizedProjectPath] = new FailedProjectOpen(
             DateTimeOffset.UtcNow.Add(ProjectOpenFailureRetryDelay),
-            exception.GetType().FullName ?? exception.GetType().Name);
+            exception.GetType().FullName ?? exception.GetType().Name, exception.Message);
+    }
+
+    internal IReadOnlyDictionary<string, string> GetProjectLoadFailures()
+    {
+        lock (_gate) return _failedProjectOpens.ToDictionary(pair => pair.Key, pair => pair.Value.Message);
     }
 
     private void ClearProjectOpenFailure(string projectFilePath)
@@ -2905,5 +2919,5 @@ internal sealed class WorkspaceManager
         ImmutableDictionary<ProjectId, ImmutableDictionary<string, bool>> EditorConfigGeneratedCodeOptionsByProject,
         ImmutableDictionary<DocumentUri, OwnedDocument> Documents,
         ProjectId? FallbackProjectId);
-    private readonly record struct FailedProjectOpen(DateTimeOffset NextRetryUtc, string FailureType);
+    private readonly record struct FailedProjectOpen(DateTimeOffset NextRetryUtc, string FailureType, string Message);
 }

@@ -32,6 +32,9 @@ internal static class NativeProjectChecks
         var project = workspace.CurrentSolution.GetProject(id)!;
         if (project.MetadataReferences.Count() != 2 || project.MetadataReferences.OfType<NeoClrMetadataReference>().Count() != 1)
             throw new Exception("native project silently acquired CLI references");
+        var inputs = workspace.Services.ProjectSystemService!.GetMetadataInputPaths(projectFile);
+        if (!inputs.Contains(Path.GetFullPath(core)) || !inputs.Contains(Path.GetFullPath(seed)) ||
+            !inputs.Contains(Path.Combine(dependencies, "Library.dll"))) throw new Exception("missing watched artifact input");
         var compilation = workspace.GetCompilation(id);
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         if (errors.Length != 0) throw new Exception(string.Join("\n", errors.Select(d => d.ToString())));
@@ -54,6 +57,7 @@ internal static class NativeProjectChecks
             Reject<InvalidDataException>(() => Workspace(true).OpenProject(projectFile));
             File.WriteAllText(projectFile, original);
         }
+        RejectProperty("RavenNeoClrBootstrapIntrinsics", "invalid");
         RejectProperty("RavenTargetPlatform", "DotNet");
         RejectProperty("RavenTargetCoreAssemblyName", "WrongCore");
         RejectProperty("RavenMetadataCoreAssemblyName", "WrongCore");

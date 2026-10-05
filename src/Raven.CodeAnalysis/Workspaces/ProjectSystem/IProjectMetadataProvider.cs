@@ -11,6 +11,9 @@ public interface IProjectMetadataProvider
     /// <summary>Gets the value accepted for the evaluated RavenMetadataFormat property.</summary>
     string MetadataFormat { get; }
 
+    /// <summary>Returns additional explicit configuration/artifact paths for file watching.</summary>
+    IReadOnlyList<string> GetInputPaths(string projectFilePath, IReadOnlyDictionary<string, string> properties) => [];
+
     /// <summary>Loads explicit references and configures semantic options from evaluated project properties.</summary>
     /// <remarks>Paths are absolute. Properties are evaluated Raven-prefixed properties; relative target paths
     /// must be resolved against the project directory. Throw on invalid input; never substitute a different format.</remarks>

@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 using Raven.CodeAnalysis;
 
-namespace Raven;
+namespace Raven.CodeAnalysis;
 
 // Host configuration only: it selects semantic contracts and checks ownership, not metadata representation.
 internal sealed record BootstrapSourceLibrary(string AssemblyName, string[] Sources, string[] Types);

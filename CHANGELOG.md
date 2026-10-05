@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-05:** Complete a native VS Code POC using evaluated project configuration
+  for semantic loading and `rvnc neoclr --project` build/run. Share ownership and async
+  contracts, refresh explicitly selected artifacts without CLI substitution, show
+  read-only metadata declarations, and report failed reloads while preserving the last
+  valid snapshot. Real VS Code tasks execute unchanged collections and Tasks/await
+  samples against source-built libraries; ordinary .NET editor behavior remains covered.
+  This qualifies development builds on macOS arm64, not a published extension bundle.
+
 - **2026-10-05:** Load explicitly selected native NeoCLR artifacts into evaluated
   projects through an optional metadata provider. Enable native completion, hover
   and semantic diagnostics in adapter-enabled language-server builds. Preserve

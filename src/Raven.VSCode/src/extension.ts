@@ -779,7 +779,7 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
     documentSelector: [{ scheme: 'file', language: 'raven' }, { scheme: 'raven-generated', language: 'raven' }],
     synchronize: {
       configurationSection: 'raven',
-      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{rvn,rav,rvnproj,csproj,fsproj}')
+      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{rvn,rav,rvnproj,csproj,fsproj,dll,neox,json}')
     },
     outputChannel: output,
     traceOutputChannel: output,
@@ -2357,6 +2357,13 @@ export function activate(context: vscode.ExtensionContext): void {
     generatedSourceChanged,
     generatedSourceDiagnostics,
     { dispose: () => clearTimeout(generatedSourceRefresh) },
+    vscode.workspace.registerTextDocumentContentProvider('raven-metadata', {
+      async provideTextDocumentContent(uri, token): Promise<string> {
+        if (clientStartPromise) await clientStartPromise;
+        return await client?.sendRequest<string | null>('raven/metadataDeclaration', { uri: uri.toString() }, token)
+          ?? '// Metadata snapshot expired; navigate from the source again.\n';
+      }
+    }),
     vscode.workspace.registerTextDocumentContentProvider('raven-generated', {
       onDidChange: generatedSourceChanged.event,
       async provideTextDocumentContent(uri, token): Promise<string> {

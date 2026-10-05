@@ -7013,3 +7013,70 @@ real stdio completion, hover and missing-member diagnostics against that fixture
 This is initial semantic editor integration, not VS Code release qualification:
 reference invalidation, metadata navigation, source-built System/async configuration
 and unified project build/run remain work ahead.
+
+
+### Native VS Code POC acceptance (2026-10-05)
+
+The next slice completes the bounded project/editor gate above. Both the optional
+language server and `rvnc neoclr --project App.rvnproj` use evaluated source files,
+references, target options and the same `NeoClrProjectMetadataProvider`. Native
+builds atomically replace `bin/neoclr/<AssemblyName>.dll` only after validation and
+encoding succeed. A failed build retains the previous artifact; it does not run it.
+`--run /absolute/path/to/neoclr` explicitly launches the native runtime, passing the
+retained seed and native dependency paths; its exit code is propagated. Library
+projects cannot be run. Existing `rvnc neoclr` source-file commands remain supported.
+The project command currently uses native assembly version 1.0.0.0, no PDB/publish,
+no managed execution, and no automatic dependency search or package/project builds.
+
+Additional evaluated host properties:
+
+| Property | Contract |
+| --- | --- |
+| `RavenNeoClrBootstrapOwnership` | Optional project-relative manifest path; the existing ownership format, validation and Runtime Contract mappings are shared with the driver. |
+| `RavenNeoClrAsyncLibrary` | Optional explicit native Task/builder assembly identity; no reflection fallback. |
+| `RavenNeoClrBootstrapIntrinsics` | Boolean, default false; permits the selected CLI primitive bootstrap's checked intrinsic storage in the native emitter. |
+
+`NeoClrProjectMetadataProvider.GetConfiguration(projectFilePath)` returns the last
+successfully loaded host artifact configuration, or throws InvalidOperationException
+if none exists. The returned `NeoClrProjectConfiguration` exposes its immutable
+`Catalog`, read-only `ReferencePaths` and optional `RuntimeSeedPath`.
+`Validate(compilation)` enforces ownership; `CreateEmissionBackend(assemblyName)`
+creates an adapter from explicit artifact identities and configuration. It does not
+read semantic importer objects or resolve emission operands through reflection.
+The compiler owns symbols; introspection and emission remain separate boundaries.
+
+`IProjectMetadataProvider.GetInputPaths(projectFilePath, properties)` returns extra
+explicit metadata/configuration dependencies (default empty). The project system's
+`IProjectSystemService.GetMetadataInputPaths(projectFilePath)` defaults to empty;
+MSBuild's implementation combines evaluated HintPaths with provider input paths.
+The language server recognizes changes to these exact paths, even in output folders,
+and rebuilds the project snapshot while preserving unsaved documents. VS Code watches
+native artifact/configuration extensions. It does not discover undeclared dependencies.
+Workspace-external dependencies still require client watcher coverage or project reload.
+
+Failed watched-file reloads publish `RAVP001` on the project, including the underlying
+failure and notice that the last good editor snapshot remains in use. Restoring the
+input clears that diagnostic after a successful reload. The command independently
+revalidates inputs, so stale editor state cannot make an invalid build succeed.
+Initial project-open errors still use existing host logging; this slice specifically
+qualifies dependency deletion/replacement/recovery in an open workspace.
+
+Definition navigation for imported native nominal types/members opens a read-only
+`raven-metadata:` document, fetched with `raven/metadataDeclaration`. It renders
+compiler-symbol declarations, not decompiled method bodies or original source.
+Snapshots are content-addressed and bounded to 256 documents per server; navigate
+again if an old snapshot expires. .NET definition navigation retains its prior path.
+Expanded union notation such as `Option<T>(Some<T> | None)` remains valid; this work
+does not redefine display formats. Type-position hover checks cover constructed
+native Option and Result with union kind and substituted arguments.
+
+Validation: native C# project/catalog checks; 8 declaration-navigation tests; focused
+project option and watcher checks; and real VS Code 1.140.0 extension-host acceptance
+on macOS arm64. The latter tests native hover/completion/navigation, replacement,
+unsaved text preservation, missing dependency/recovery, unchanged collections output,
+failed publication, .NET hover/diagnostics and unchanged Tasks/await execution.
+NeoCLR's `scripts/prepare-native-editor.py` creates the project/tasks and separate
+reference-only library fixtures; `scripts/native-vscode-acceptance.cjs` drives the
+actual extension host. See the matching NeoCLR integration evidence for revisions,
+artifact hashes and commands. Packaged release installation/publication and broader
+platform qualification remain separate gates.

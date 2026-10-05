@@ -139,6 +139,13 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         return IsRavenMsBuildProject(document);
     }
 
+    public IReadOnlyList<string> GetMetadataInputPaths(string projectFilePath)
+    {
+        var evaluation = EvaluateProject(projectFilePath, _requestedTargetFramework, _requestedConfiguration);
+        return evaluation.MetadataReferencePaths.Concat(_metadataProvider?.GetInputPaths(projectFilePath, evaluation.TargetProperties) ?? [])
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
     public IReadOnlyList<string> GetProjectReferencePaths(string projectFilePath)
     {
         MsBuildLocatorRegistration.EnsureRegistered();

@@ -134,6 +134,9 @@ internal sealed class DefinitionHandler : IDefinitionHandler
                     tree => GeneratedSourceDocument.GetUri(context.Value, request.TextDocument.Uri, tree))
                 .Select(location => (LocationOrLocationLink)location)
                 .ToArray();
+            if (links.Length == 0 && context.Value.Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+                MetadataDeclarationDocument.Create(SymbolResolutionHelpers.GetNavigationTargetSymbol(resolution.Value)) is { } metadataLocation)
+                links = [metadataLocation];
             resultCount = links.Length;
 
             return new LocationOrLocationLinks(links);

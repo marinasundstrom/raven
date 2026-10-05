@@ -14,8 +14,56 @@ namespace Raven;
 // default CLI emitter and its project/publish/runtime artifact policies.
 internal static class NeoClrCommand
 {
+    private static int RunProject(string[] args)
+    {
+        try
+        {
+            if (args.Length is not (2 or 4) || (args.Length == 4 && args[2] != "--run"))
+                throw new ArgumentException("Usage: rvnc neoclr --project App.rvnproj [--run /path/to/neoclr]");
+            var projectPath = Path.GetFullPath(args[1]);
+            var provider = new NeoClrProjectMetadataProvider();
+            var workspace = RavenWorkspace.Create(projectSystemService: new MsBuildProjectSystemService(
+                RavenProjectConventions.Default, false, null, null, metadataProvider: provider));
+            var id = workspace.OpenProject(projectPath);
+            var project = workspace.CurrentSolution.GetProject(id)!;
+            if (args.Length == 4 && project.CompilationOptions?.OutputKind == OutputKind.DynamicallyLinkedLibrary)
+                throw new InvalidDataException("Cannot run a library project.");
+            var config = provider.GetConfiguration(projectPath);
+            var compilation = workspace.GetCompilation(id);
+            config.Validate(compilation);
+            using var image = new MemoryStream();
+            var result = compilation.Emit(image, null, new EmitOptions().WithBackend(config.CreateEmissionBackend(project.AssemblyName!)));
+            foreach (var diagnostic in result.Diagnostics) Console.Error.WriteLine(diagnostic);
+            if (!result.Success) return 1;
+            var output = Path.Combine(Path.GetDirectoryName(projectPath)!, "bin", "neoclr", project.AssemblyName + ".dll");
+            if (project.Documents.Any(d => string.Equals(d.FilePath, output, StringComparison.OrdinalIgnoreCase)) ||
+                workspace.Services.ProjectSystemService!.GetMetadataInputPaths(projectPath).Contains(output, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidDataException("Native output must differ from project inputs.");
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            var temporary = output + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try { File.WriteAllBytes(temporary, image.ToArray()); File.Move(temporary, output, true); }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+            Console.WriteLine("Native build output: " + output);
+            if (args.Length == 2) return 0;
+            var start = new System.Diagnostics.ProcessStartInfo(Path.GetFullPath(args[3])) { UseShellExecute = false };
+            start.ArgumentList.Add("run"); start.ArgumentList.Add(output);
+            if (config.RuntimeSeedPath is { } seed) { start.ArgumentList.Add("--system"); start.ArgumentList.Add(seed); }
+            foreach (var path in config.ReferencePaths) { start.ArgumentList.Add("--module"); start.ArgumentList.Add(path); }
+            using var process = System.Diagnostics.Process.Start(start)!;
+            process.WaitForExit();
+            return process.ExitCode;
+        }
+        catch (Exception error) when (error is ArgumentException or IOException or InvalidDataException or
+            UnauthorizedAccessException or BadImageFormatException or NotSupportedException or InvalidOperationException)
+        {
+            Console.Error.WriteLine("neoCLR project: " + error.Message);
+            return 1;
+        }
+    }
+
     internal static int Run(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--project") return RunProject(args);
         if (args.Length == 1 && args[0] is "--help" or "-h")
         {
             Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--core-reference NeoCLR.CoreProbe.dll] [--reference library.dll] source.rvn ...");
@@ -28,7 +76,7 @@ internal static class NeoClrCommand
             Console.WriteLine("Legacy bridge: --system-symbols System.neox --system-method System.Math.Min/2 (repeat explicit selections).");
             Console.WriteLine("Static Int32 callable view only; not a complete core-library import. Run with the matching --system assembly.");
             Console.WriteLine("Native references require --core-reference; without references the legacy host primitive bootstrap remains available.");
-            Console.WriteLine("Uses explicitly selected CLI primitive references for binding. No project, publish, PDB or managed execution support.");
+            Console.WriteLine("Native projects: rvnc neoclr --project App.rvnproj [--run /path/to/neoclr]. No publish, PDB or managed execution support.");
             return 0;
         }
         string? projectionPath = null;

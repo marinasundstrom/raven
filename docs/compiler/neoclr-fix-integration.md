@@ -1870,3 +1870,11 @@ on CLR and NeoCLR, both owned and separately compiled, with return 42 and expect
 malformed case metadata still rejects before output. The general fix is integrated into
 local main as `edff20273` (190 focused checks); its temporary branch is deleted.
 No bridge encoding, Runtime Contract, metadata schema or runtime change is needed.
+
+
+2026-10-05 editor candidates: explicit artifact-watch inputs and visible project
+reload failure diagnostics are target-neutral improvements exposed by native metadata.
+They currently remain with the optional native project integration; independently
+exercise ordinary CLI artifact replacement/failure recovery before proposing a main
+backport. The native metadata declaration viewer is explicitly target-gated. No main
+integration is claimed for these new editor changes.
