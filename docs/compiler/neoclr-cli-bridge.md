@@ -6781,3 +6781,22 @@ native adapter changes; no independently useful .NET behavior fix needs a main b
 
 Validation: 44 focused .NET async, option and portable-plan tests pass, alongside the
 C# native emission/reader and rejection probe and the executable driver case.
+
+
+### Async closure capture storage (2026-10-05)
+
+Native immutable closure captures created inside a synthesized async body now read the
+hoisted local field selected by AsyncLowerer. Previously portable closure creation tried
+to load the original local slot and rejected `library-async` as an undeclared local.
+The callback still receives its ordinary capture slot; reference identity is preserved.
+Mutable captures remain guarded, and the Reflection.Emit shared-closure implementation
+is unchanged. This repairs the new native path, not an independently reproduced .NET
+regression requiring backport to main.
+
+The native C# probe emits and reads a third state machine containing a Promise callback.
+The executable `native-async-state` test proves the callback completes the same Promise
+that the suspended method awaits and returns 42. The unchanged `library-async` now reaches
+the separate async entry signature blocker; this is not an async Main completion claim.
+
+Capture follow-up validation: 37 focused .NET async and portable-body tests pass, plus
+the native C# emission/reader probe and exact-output runtime regression.

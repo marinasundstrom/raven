@@ -11,7 +11,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   existing heap lowering and portable plans; completed/pending awaits, hoisted locals
   and cancellation execute with native metadata. Class/generic async methods and async
   entry completion remain unsupported. Preserve default .NET behavior and output
-  streams on rejected emission.
+  streams on rejected emission. Capture immutable hoisted locals from their async
+  state-machine fields so pending callbacks preserve reference identity.
 
 - **2026-10-05:** Add `rvnc neoclr --source-object-root` for explicit core-backed
   library bootstrap builds. Preserve configured primitive providers; require an explicit

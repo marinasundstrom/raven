@@ -20,6 +20,12 @@ internal static class NativeAsyncSymbolChecks
                 import System.Tasks.*
                 async func Value() -> Task<int> { return 42 }
                 async func Forward(value: Task<int>) -> Task<int> { return await value }
+                async func Captured() -> Task<int> {
+                    let source = Promise<int>()
+                    TaskQueue.Default.Post(() => { _ = source.Complete(41) })
+                    let value = await source.Task
+                    return value + 1
+                }
                 """)], [bootstrap.Reference, native], CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
                 .WithRuntimeTypeOfContract(null).WithTargetPlatform(platform)
                 .WithMetadataImportOptions(new MetadataImportOptions(core.Identity.Name).WithAsyncAssemblyName(selected)));
@@ -49,7 +55,7 @@ internal static class NativeAsyncSymbolChecks
                     new NeoClrMetadataDependency(bootstrap.Reference, core, core.Identity, NativeLibraryDefinition.ReadAssembly(File.ReadAllBytes(seedPath)))], bootstrapReference: bootstrap.Reference));
             if (!emission.Success) throw new Exception(string.Join("\n", emission.Diagnostics));
             var assembly = AssemblyDefinition.ReadNativeAssembly(emitted.ToArray());
-            if (assembly.MainModule.Types.Count(t => t.Name.StartsWith("<>c__AsyncStateMachine", StringComparison.Ordinal)) != 2)
+            if (assembly.MainModule.Types.Count(t => t.Name.StartsWith("<>c__AsyncStateMachine", StringComparison.Ordinal)) != 3)
                 throw new Exception("native async state-machine definitions missing");
         }
         foreach (var source in new[]

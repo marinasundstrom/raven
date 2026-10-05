@@ -1415,6 +1415,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         BoundExpression? captured = capture switch
                         {
                             INamedTypeSymbol { IsReferenceType: true } selfType => new BoundSelfExpression(selfType),
+                            // Heap async lowering moved suspension locals into fields. Capture
+                            // their current value, retaining the same immutable-reference semantics
+                            // as ordinary native closures; the callback still uses its capture slot.
+                            ILocalSymbol { IsMutable: false } local when source.ContainingType is SynthesizedAsyncStateMachineTypeSymbol machine &&
+                                machine.TryGetHoistedLocalField(local, out var field) => new BoundFieldAccess(field),
                             ILocalSymbol { IsMutable: false } local => new BoundLocalAccess(local),
                             IParameterSymbol { IsMutable: false, RefKind: RefKind.None } parameter => new BoundParameterAccess(parameter),
                             _ => null
