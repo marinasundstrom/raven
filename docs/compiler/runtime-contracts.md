@@ -3375,3 +3375,24 @@ controls still pass. This is an isolated integration-line fix: main does not yet
 contain the source-root contract needed by its regression. Reassess the general
 assembly-symbol resolution portion when integrating that contract; do not merge
 the native backend solely to backport this fix.
+
+
+### Source-root union member completion
+
+Union ToString synthesis now uses the existing lazy source method-signature path
+before selecting Object.ToString. The override refers to the actual source method,
+including when the union precedes Object or shares its file; it does not borrow a
+PE Object member or disable synthesis. No new public API, Runtime Contract option,
+metadata encoding or emitter mapping is introduced. Ordinary .NET continues to
+resolve its metadata-owned Object normally.
+
+Validation: all 206 existing source-root/union semantic/generic tests pass with the
+fix. Four new declaration-order cases reproduced the crash before the fix; the final
+23-test source-root run passes and checks the synthesized override identities.
+The full native System audit now returns diagnostics (exit 1) for both source-handle
+and retained-bootstrap-handle layouts, with no output published. Source RuntimeTypeHandle
+ownership still conflicts with the configured typeof contract; retained handle ownership
+removes that configuration error and seven conversion errors. Missing runtime-service
+signatures and other binding diagnostics remain. This is not full System compilation
+or execution evidence. The regression depends on the integration-line source-root
+contract; keep this slice isolated until that contract can be validated on main.

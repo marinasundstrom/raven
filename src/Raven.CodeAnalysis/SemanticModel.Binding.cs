@@ -5504,6 +5504,9 @@ public partial class SemanticModel
     private IMethodSymbol GetObjectToStringMethod()
     {
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
+        // A source-owned core has declaration shells before it has member signatures.
+        // Use the normal lazy signature path, including when Object shares this file.
+        TryEnsureSourceTypeMethodSignaturesDeclared(objectType, "ToString", out _, out _);
         return objectType!
             .GetMembers("ToString")
             .OfType<IMethodSymbol>()

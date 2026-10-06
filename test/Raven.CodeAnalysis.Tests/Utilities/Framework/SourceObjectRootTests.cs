@@ -58,6 +58,33 @@ public class SourceObjectRootTests
         Assert.Same(root, attribute.BaseType);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void UnionToStringUsesSourceRootRegardlessOfDeclarationOrder(bool reverse, bool sameFile)
+    {
+        const string union = """
+            public union Choice {
+                case Some(value: int)
+                case None
+            }
+            """;
+        var sources = sameFile
+            ? new[] { reverse ? "namespace System\n" + union + "\n" + Root.Replace("namespace System", "") : Root + "\n" + union }
+            : reverse ? new[] { union, Root } : new[] { Root, union };
+        var compilation = Create(sources);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var root = compilation.GetSpecialType(SpecialType.System_Object);
+        var rootToString = Assert.Single(root.GetMembers("ToString").OfType<IMethodSymbol>());
+        var choice = compilation.Assembly.GetTypeByMetadataName(sameFile ? "System.Choice" : "Choice")!;
+        var toStrings = choice.GetMembers("ToString").OfType<SourceMethodSymbol>().ToArray();
+        Assert.NotEmpty(toStrings);
+        Assert.All(toStrings, method => Assert.Same(rootToString, method.OverriddenMethod));
+        Assert.Equal("RootLibrary", rootToString.ContainingAssembly!.Name);
+    }
+
     [Fact]
     public void SourceRootAndSlotsRequireExplicitEmissionCapabilities()
     {

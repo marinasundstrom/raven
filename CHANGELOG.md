@@ -9,6 +9,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   to PE assemblies, avoiding InvalidCastException during native core bootstrap.
   Canonicalize imported Object signatures to that selected root. Ordinary PE-root
   resolution and emitter contracts are unchanged.
+  Union ToString synthesis now completes the selected source Object method signature
+  on demand, preserving override identity across file and declaration order.
 
 - **2026-10-05:** Render function callbacks as arrow signatures in RavenDoc member
   lists and parameter tables, preserving links within generic callback results.
