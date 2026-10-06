@@ -775,8 +775,8 @@ used for cancellation. There is no new source syntax or highlighting change.
 This provisional subset supports named Task<T> functions. Await within for loops
 is rejected with RAV2712 after an integration probe exposed unsaved iterator state
 and skipped disposal. Protected cleanup/async disposal and runtime-async lowering
-are not validated target capabilities. neoCLR also rejects use declarations against
-its current Disposable contract. Do not silently claim these forms work.
+are not validated target capabilities. neoCLR rejects async use declarations with RAVT006. Synchronous use is supported
+by the scope-exit disposal contract described below.
 
 Validation: normal .NET heap/value state and exception-policy regressions; option
 copy, missing protocol and project-evaluation tests; neoCLR immediate/resumed int,
@@ -3346,3 +3346,39 @@ The C# `--native-async-symbols <core.dll> <native-library.dll>` probe checks sel
 unselected identity, generic GetResult substitution, async/await binding, malformed
 interface/value-type providers, missing/bootstrap providers, .NET denial and unchanged
 output streams at the emission boundary. No .NET behavior fix requires backporting.
+
+## Synchronous scope-exit disposal (2026-10-06)
+
+`CompilationOptions.WithRuntimeDisposalContract(new RuntimeDisposalContract(
+assemblyName, interfaceTypeName, UseExceptionHandling: false))` selects a synchronous
+resource protocol and explicit cleanup on ordinary control-flow exits. The interface
+must expose a public, nongeneric, parameterless instance `Dispose` returning
+unit/void. The contract is preserved by option copies; changes invalidate incremental
+semantic reuse. Binding and language services resolve the same protocol through
+compiler APIs. A null contract retains ordinary .NET `IDisposable`/`IAsyncDisposable`
+behavior and exception-safe finally regions. The alternative lowering is shared
+compiler machinery, independent of neoCLR. `CompilationOptions.NeoCLR` selects
+`NeoCLR.CoreProbe`'s `System.Disposable` with exception handling disabled. A bootstrap
+ownership manifest may supply `Disposal` with `AssemblyName`, `InterfaceTypeName`, and
+`UseExceptionHandling`; its interface must belong to a declared source-library owner.
+Omitting that field preserves the selected profile's disposal contract.
+
+The shared pass runs after propagation and structural control-flow lowering and before
+optimization. Resources become active after successful initialization. Normal block
+completion, explicit/implicit returns, Result error and Option None propagation, and
+loop break/continue dispose the resources whose lifetimes end, in reverse acquisition
+order. Return and value-block results are evaluated and saved before cleanup. A failed
+later initializer disposes earlier resources only. Nested function bodies own separate
+cleanup state. The output consists of ordinary bound locals, calls and branches, with
+no generated exception regions or remaining use-disposal metadata.
+
+This first slice diagnoses async and iterator use with RAVT006. It does not promise
+cleanup on terminal faults, exception unwinding, process termination, or failed
+disposal; suspension/cancellation cleanup and asynchronous disposal remain separate
+work. Outward and backward goto exits also clean up; jumps that skip a use initializer
+are rejected with RAVT007. Ordinary .NET goto restrictions are unchanged. No syntax,
+operations API or TextMate grammar change is required. Automatic iterator disposal is
+not added by this change.
+
+Validation evidence is recorded with the focused tests and native consumer in [the
+bridge notes](neoclr-cli-bridge.md#synchronous-use-cleanup-2026-10-06).

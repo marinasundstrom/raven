@@ -19,6 +19,7 @@ public partial class Compilation
             || Options.PropagateAsyncCancellation != previousCompilation.Options.PropagateAsyncCancellation
             || Options.UseHeapAsyncStateMachines != previousCompilation.Options.UseHeapAsyncStateMachines
             || Options.CaptureAsyncExceptions != previousCompilation.Options.CaptureAsyncExceptions
+            || Options.RuntimeDisposalContract != previousCompilation.Options.RuntimeDisposalContract
             || Options.RuntimeSelfTypeContract != previousCompilation.Options.RuntimeSelfTypeContract
             || Options.RuntimeUnitContract != previousCompilation.Options.RuntimeUnitContract
             || Options.RuntimeTypeOfContract != previousCompilation.Options.RuntimeTypeOfContract

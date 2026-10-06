@@ -886,6 +886,7 @@ public partial class Compilation
             || Options.MetadataImportOptions != previousCompilation.Options.MetadataImportOptions
             || Options.RuntimeIterationContract != previousCompilation.Options.RuntimeIterationContract
             || Options.RuntimePropagationContract != previousCompilation.Options.RuntimePropagationContract
+            || Options.RuntimeDisposalContract != previousCompilation.Options.RuntimeDisposalContract
             || Options.TargetCoreAssemblyName != previousCompilation.Options.TargetCoreAssemblyName)
             return;
 

@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Add a shared synchronous scope-exit disposal contract and cleanup
+  lowering; neoCLR selects `System.Disposable` without exception regions. Dispose
+  successfully initialized resources in reverse order on block completion, returns,
+  error/None propagation, loop exits and outward/backward gotos, preserving result
+  evaluation before cleanup. Diagnose jumps that skip resource acquisition.
+  Ordinary .NET disposal remains exception-safe. Async/iterator use under the new
+  policy is diagnosed until suspension-aware cleanup is supported.
+
 - **2026-10-05:** Render function callbacks as arrow signatures in RavenDoc member
   lists and parameter tables, preserving links within generic callback results.
   Keep nominal delegate declarations named and parameter names unbroken in tables.

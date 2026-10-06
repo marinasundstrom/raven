@@ -995,6 +995,8 @@ partial class BlockBinder : Binder
         {
             var preferAsyncDispose = PrefersAsyncUseDisposal();
             var expectedTargetDisplay = UseDisposalUtilities.GetExpectedUseTargetDisplay(Compilation, preferAsyncDispose);
+            if (Compilation.Options.RuntimeDisposalContract is { UseExceptionHandling: false } && UseRequiresSuspensionCleanup(variableDeclarator))
+                _diagnostics.Report(Targets.TargetDiagnostics.UnsupportedScopeExitCleanup(variableDeclarator.GetLocation()));
 
             var initializerSupportsDispose = initializerValueType is not null &&
                 IsValidUseDeclarationTarget(initializerValueType, preferAsyncDispose);
@@ -1281,6 +1283,30 @@ partial class BlockBinder : Binder
             [],
             isConst: false,
             constantValue: null);
+    }
+
+    private bool UseRequiresSuspensionCleanup(SyntaxNode declaration)
+    {
+        var function = declaration.Ancestors().FirstOrDefault(node => node is
+            MethodDeclarationSyntax or FunctionStatementSyntax or FunctionExpressionSyntax or AccessorDeclarationSyntax);
+        if (function is not null && function.ChildNodes().Any(Compilation.ContainsYieldOutsideNestedFunctions))
+            return true;
+
+        for (Binder? current = this; current is not null; current = current.ParentBinder)
+        {
+            switch (current.ContainingSymbol)
+            {
+                case SourceLambdaSymbol lambda:
+                    return lambda.IsAsync || lambda.IsIterator;
+                case SourceMethodSymbol method:
+                    return method.IsAsync || method.IsIterator;
+                case ILambdaSymbol lambda:
+                    return lambda.IsAsync;
+                case IMethodSymbol method:
+                    return method.IsAsync;
+            }
+        }
+        return false;
     }
 
     private bool PrefersAsyncUseDisposal()

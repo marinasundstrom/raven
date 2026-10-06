@@ -11,6 +11,8 @@ public sealed class NeoClrProfileTests
         var options = preset.WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
             .WithOptimizationLevel(OptimizationLevel.Release).WithRunAnalyzers(false);
         Assert.Equal(TargetPlatform.NeoCLR, options.TargetPlatform);
+        Assert.Equal(new RuntimeDisposalContract("NeoCLR.CoreProbe", "System.Disposable", UseExceptionHandling: false), options.RuntimeDisposalContract);
+        Assert.Null(CompilationOptions.DotNet.RuntimeDisposalContract);
         Assert.Equal("NeoCLR.CoreProbe", options.MetadataImportOptions!.CoreAssemblyName);
         Assert.Equal("NeoCLR.CoreProbe", options.TargetCoreAssemblyName);
         Assert.Equal(new RuntimeUnitContract("NeoCLR.CoreProbe", "System.Void"), options.RuntimeUnitContract);

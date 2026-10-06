@@ -7108,3 +7108,51 @@ This is API help, not a requirement to copy website guides into source comments.
 guides remain independently authored; RavenDoc may reuse the same concise API descriptions.
 Documentation must accompany the matching library in a distributable bundle. Undocumented
 APIs still show signatures. Native metadata encoding and runtime execution are unchanged.
+
+## Synchronous use cleanup (2026-10-06)
+
+**Native intent:** `use` releases successfully acquired `System.Disposable` resources
+when their lexical lifetimes end, including Result/Option propagation. The shared
+compiler owns lifetime tracking, evaluation order and cleanup insertion. The neoCLR
+profile owns the protocol selection; native and CLI emitters only encode
+calls/branches.
+
+**Temporary CLI encoding:** `RuntimeDisposalContract("NeoCLR.CoreProbe",
+"System.Disposable", UseExceptionHandling: false)` binds the supplied interface and
+emits explicit reverse-order Dispose calls. No try/finally handlers are generated.
+Native emission consumes the same lowered body through its existing call, local and
+branch capabilities; no new native instruction or metadata facility is required. The
+assembly identity remains a bridge bootstrap detail and can be replaced by an explicit
+native protocol owner without changing lifetime semantics.
+
+**Restrictions:** synchronous functions only; async and iterator use report RAVT006.
+No unwinding occurs on terminal faults or abrupt process termination. Dispose has no
+recoverable error result; Closable is not implicitly selected. Outward/backward goto
+exits clean up; jumps that skip a use initializer are rejected with RAVT007. Ordinary
+.NET goto restrictions are unchanged. These are bounded implementation guarantees, not
+permanent neoCLR language restrictions. Suspension-aware cleanup must account for
+cancellation and resumed exits before lifting the async restriction. This does not add
+automatic iterator disposal.
+
+**Validation:** `ScopeExitCleanupTests` exercises observable disposal order, return
+and block-result preservation, loop exits, nested functions, failed initialization,
+Result and Option propagation, and unsupported-context diagnostics. It also checks
+portable body admission and absence of emitted exception regions. Existing .NET use
+coverage remains the default-policy control. Native consumer evidence is recorded
+below.
+
+The native `--scope-exit-cleanup-runtime` probe verifies and executes six consumers
+(return, goto, loop exits, value block, None and error propagation), all exiting 42.
+It uses `CompilationOptions.NeoCLR`, an authored disposal interface, and explicit
+authored Propagatable fixtures to isolate cleanup from runtime-library packaging. The
+standard `System.Disposable` profile mapping is covered by profile tests. Implementing
+the bare bootstrap facade directly still hits the native metadata adapter's
+pre-existing "external relationship requires an authored interface contract"
+restriction; select an authored library protocol using the compiler API or manifest
+`Disposal` entry.
+
+See `tools/NeoClrMetadataProbe/scope-exit-cleanup-validation.json` for runtime/core
+hashes and verifier results. The runtime checkout was `codex/native-system-bootstrap`
+at `c23a2585`; no runtime implementation changes were needed. The 84 focused modern
+.NET tests cover shared cleanup, ownership configuration, goto diagnostics and default
+async resource behavior; .NET Framework and NanoFramework execution were not tested.

@@ -123,6 +123,11 @@ if (args.Length == 3 && args[0] == "--native-symbols")
     NativeSymbolChecks.Run(args[1], args[2]); return;
 }
 
+if (args.Length == 4 && args[0] == "--scope-exit-cleanup-runtime")
+{
+    await ScopeExitCleanupChecks.Run(args[1], args[2], args[3]); return;
+}
+
 if (args.Length == 4 && args[0] == "--collection-contract-runtime")
 {
     await CollectionContractChecks.Run(args[1], args[2], args[3]); return;
