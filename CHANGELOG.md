@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Document native source GC execution with existing compiler emission
+  and runtime support for no-result control services. Track lost nullable parameter
+  annotations as an open native import/emission gap; KeepAlive(null) is not yet a
+  passing compiler consumer. No Raven compiler behavior changes in this slice.
+
 - **2026-10-06:** Resolve reflected type metadata through assembly-symbol contracts
   when an explicit target selects a source-owned Object root. Restrict PE interning
   to PE assemblies, avoiding InvalidCastException during native core bootstrap.
