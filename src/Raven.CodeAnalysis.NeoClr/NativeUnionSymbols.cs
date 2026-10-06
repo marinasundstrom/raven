@@ -41,7 +41,7 @@ internal sealed class NativeUnionContracts
                     cases.Add(new(caseType.MetadataToken, type.MetadataToken, name, ordinal));
                 }
                 var ordered = cases.OrderBy(c => c.Ordinal).ToImmutableArray();
-                if (ordered.IsEmpty || !ordered.Select(c => c.Ordinal).SequenceEqual(Enumerable.Range(0, ordered.Length)) ||
+                if ((ordered.IsEmpty && !HasConstructorUnionContract(type)) || !ordered.Select(c => c.Ordinal).SequenceEqual(Enumerable.Range(0, ordered.Length)) ||
                     ordered.Select(c => c.Name).Distinct(StringComparer.Ordinal).Count() != ordered.Length)
                     throw new InvalidDataException("missing or conflicting native union cases");
                 Unions.Add(type.MetadataToken, ordered);
@@ -70,6 +70,14 @@ internal sealed class NativeUnionContracts
         }
     }
 
+    // Constructor unions have no named case attributes. Require the public shape
+    // used by Raven's CLI importer, rather than accepting an empty marker alone.
+    private static bool HasConstructorUnionContract(NominalTypeInfo type)
+        => type.GetConstructors().Any(c => c.IsConstructor && c.Accessibility == MetadataAccessibility.Public &&
+            c.GetParameters() is [{ PassingMode: ParameterPassingMode.Value }]) &&
+            type.GetProperties().Any(p => p.Name == "Value" && !p.IsStatic && p.IndexParameterTypes.Count == 0 &&
+                p.GetMethod is { Accessibility: MetadataAccessibility.Public } && p.PropertyType is NominalTypeInfo { FullName: "System.Object" });
+
     private static bool Is(CustomAttributeInfo attribute, string ns, string name)
     {
         if (attribute.Namespace != ns || attribute.Name != name) return false;
@@ -84,9 +92,27 @@ internal sealed class NativeUnionSymbol(Compilation compilation, NominalTypeInfo
     private ImmutableArray<IUnionCaseTypeSymbol> cases = [];
     internal void SetCases(IEnumerable<IUnionCaseTypeSymbol> values) => cases = [.. values];
     public ImmutableArray<IUnionCaseTypeSymbol> DeclaredCaseTypes => cases;
-    public ImmutableArray<ITypeSymbol> Variants => [.. cases];
-    public ImmutableArray<ITypeSymbol> MemberTypes => Variants;
-    public bool ContentMayBeNull => false;
+    private ImmutableArray<ITypeSymbol>? memberTypes;
+    private bool contentMayBeNull;
+    public ImmutableArray<ITypeSymbol> Variants => MemberTypes;
+    public ImmutableArray<ITypeSymbol> MemberTypes
+    {
+        get
+        {
+            if (memberTypes is { } cached) return cached;
+            if (!cases.IsEmpty) return (memberTypes = [.. cases]).Value;
+            var members = ImmutableArray.CreateBuilder<ITypeSymbol>();
+            foreach (var constructor in InstanceConstructors.Where(c => c.DeclaredAccessibility == Accessibility.Public &&
+                c.Parameters is [{ RefKind: RefKind.None }]))
+            {
+                var type = UnionContentNullability.GetNonNullContentType(constructor.Parameters[0].Type, out var nullable);
+                contentMayBeNull |= nullable;
+                if (!members.Any(existing => SymbolEqualityComparer.Default.Equals(existing, type))) members.Add(type);
+            }
+            return (memberTypes = members.ToImmutable()).Value;
+        }
+    }
+    public bool ContentMayBeNull { get { _ = MemberTypes; return contentMayBeNull; } }
     public IFieldSymbol DiscriminatorField => GetMembers().OfType<IFieldSymbol>().Single(f => UnionFieldUtilities.IsTagFieldName(f.Name));
     public IFieldSymbol PayloadField => GetMembers().OfType<IFieldSymbol>().First(f => UnionFieldUtilities.IsPayloadFieldName(f.Name));
 }

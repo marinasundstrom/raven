@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Import native constructor unions through the existing UnionAttribute,
+  public single-value constructors and Value getter contract. Preserve alternatives
+  and open/constructed generic scopes without inventing named cases. The source-built
+  calendar consumer now executes local/zoned DateTime conversions and type patterns.
+  The .NET importer/backend is unchanged; 11 focused .NET union tests pass.
+
 - **2026-10-06:** Document the native source Environment execution gate with managed
   argument arrays in neoCLR `881c4d01`. No Raven compiler behavior or target settings
   changed; inline value arrays remain outside the supported platform model.

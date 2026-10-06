@@ -3465,3 +3465,25 @@ Main integration candidate: the portable `CallableSignature` implementation is n
 present on Raven main at this revision. Keep this small fix isolated until its owning
 shared layer is integrated; do not copy the experimental target refactoring onto main
 solely to backport this correction.
+
+### Native calendar constructor unions (2026-10-06)
+
+Native import now accepts the constructor-union shape already used by the CLI importer:
+UnionAttribute, public single-value constructors and a public instance Object Value
+getter. Named-case metadata keeps its existing path; a marker alone is insufficient.
+The metadata facade supplies declaration/signature facts. Raven projects alternatives,
+nullability and generic substitutions into IUnionSymbol; emission uses those symbols.
+Provider-interface-only unions remain outside this bounded native path.
+
+The calendar gate compiles unchanged TimeZone, ZonedDateTime, LocalTimeMapping,
+TimeZoneError and DateTime with explicit internal runtime adapters, then compiles a
+consumer using only that artifact and the existing Numbers/core/seed catalog. It
+executes DST gaps/overlaps, offsets, invalid-zone/range cases, and DateTime conversions
+and type patterns. Prefer specific temporal types in user APIs; DateTime is optional
+when accepting either local or zoned values. No new Runtime Contract option or .NET
+behavior change is introduced, and no importer objects are reused during emission.
+
+C# probe: `--constructor-union-symbols <Core.dll> <System.neox> <Numbers.dll>` checks
+plain and open/constructed generic alternatives. The accompanying neoCLR integration
+record is `docs/experiments/extended-cli-metadata/source-calendar-2026-10-06.md`.
+This is a target-adapter fix; there is no shared .NET fix to backport to main.
