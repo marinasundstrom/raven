@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Map native-width integer signatures through native import/emission
+  and explicit source primitive ownership. Unchanged IntPtr/UIntPtr implementations
+  compile separately and their comparison methods execute against signed/unsigned
+  input artifacts. Numeric cast rules are unchanged; neoCLR supplies the widening
+  services already used by those sources. Eight focused .NET/portable tests pass.
+
 - **2026-10-06:** Admit default-value method receivers in portable lowering by giving
   them initialized temporary storage. A general regression checks mutation of that
   temporary and ordinary .NET execution. Isolated from native integer target mappings;

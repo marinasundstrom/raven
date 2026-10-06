@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal static class NeoClrCapabilities
 {
     internal static EmissionCapabilities Shared { get; } = new(
-        [EmissionPrimitiveType.NoResult, EmissionPrimitiveType.Int32, EmissionPrimitiveType.Int64, EmissionPrimitiveType.Boolean, EmissionPrimitiveType.String, EmissionPrimitiveType.Byte, EmissionPrimitiveType.Single, EmissionPrimitiveType.Double, EmissionPrimitiveType.SByte, EmissionPrimitiveType.Int16, EmissionPrimitiveType.UInt16, EmissionPrimitiveType.UInt32, EmissionPrimitiveType.UInt64],
+        [EmissionPrimitiveType.NoResult, EmissionPrimitiveType.Int32, EmissionPrimitiveType.Int64, EmissionPrimitiveType.Boolean, EmissionPrimitiveType.String, EmissionPrimitiveType.Byte, EmissionPrimitiveType.Single, EmissionPrimitiveType.Double, EmissionPrimitiveType.SByte, EmissionPrimitiveType.Int16, EmissionPrimitiveType.UInt16, EmissionPrimitiveType.UInt32, EmissionPrimitiveType.UInt64, EmissionPrimitiveType.IntPtr, EmissionPrimitiveType.UIntPtr],
         [
             LinearInstructionKind.LoadTypeToken, LinearInstructionKind.DirectInstanceCall, LinearInstructionKind.BaseConstructorCall, LinearInstructionKind.ConstrainedCall, LinearInstructionKind.EnumFromInt32, LinearInstructionKind.EnumToInt32, LinearInstructionKind.LoadCapture, LinearInstructionKind.UnboxAny, LinearInstructionKind.ReferenceIsNull, LinearInstructionKind.TypeTest, LinearInstructionKind.FieldAddress, LinearInstructionKind.BoxToObject, LinearInstructionKind.ReferenceConvert, LinearInstructionKind.FunctionBind, LinearInstructionKind.FunctionInvoke, LinearInstructionKind.Constant, LinearInstructionKind.Argument, LinearInstructionKind.Add,
             LinearInstructionKind.Subtract, LinearInstructionKind.Multiply, LinearInstructionKind.Call,

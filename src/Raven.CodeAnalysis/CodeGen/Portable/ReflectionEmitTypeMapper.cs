@@ -12,6 +12,8 @@ internal sealed class ReflectionEmitTypeMapper(Func<SpecialType, Type> resolveTy
         EmissionPrimitiveType.UInt16 => SpecialType.System_UInt16,
         EmissionPrimitiveType.UInt32 => SpecialType.System_UInt32,
         EmissionPrimitiveType.UInt64 => SpecialType.System_UInt64,
+        EmissionPrimitiveType.IntPtr => SpecialType.System_IntPtr,
+        EmissionPrimitiveType.UIntPtr => SpecialType.System_UIntPtr,
         EmissionPrimitiveType.Int64 => SpecialType.System_Int64,
         EmissionPrimitiveType.Single => SpecialType.System_Single,
         EmissionPrimitiveType.Double => SpecialType.System_Double,

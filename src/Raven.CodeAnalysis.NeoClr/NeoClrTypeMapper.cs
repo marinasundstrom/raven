@@ -46,6 +46,8 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
         EmissionPrimitiveType.UInt16 => PrimitiveType.UInt16,
         EmissionPrimitiveType.UInt32 => PrimitiveType.UInt32,
         EmissionPrimitiveType.UInt64 => PrimitiveType.UInt64,
+        EmissionPrimitiveType.IntPtr => PrimitiveType.IntPtr,
+        EmissionPrimitiveType.UIntPtr => PrimitiveType.UIntPtr,
         EmissionPrimitiveType.Int64 => PrimitiveType.Int64,
         EmissionPrimitiveType.Single => PrimitiveType.Single,
         EmissionPrimitiveType.Double => PrimitiveType.Double,

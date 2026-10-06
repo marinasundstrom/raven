@@ -3487,3 +3487,27 @@ C# probe: `--constructor-union-symbols <Core.dll> <System.neox> <Numbers.dll>` c
 plain and open/constructed generic alternatives. The accompanying neoCLR integration
 record is `docs/experiments/extended-cli-metadata/source-calendar-2026-10-06.md`.
 This is a target-adapter fix; there is no shared .NET fix to backport to main.
+
+### Native-width integer source providers (2026-10-06)
+
+NeoCLR's metadata adapter now maps IntPtr/UIntPtr signatures into Raven nint/nuint
+symbols and emits them as native-width primitives. The shared primitive identity
+contract includes both categories; concrete metadata and Reflection.Emit handles stay
+inside their adapters. Ordinary .NET numeric cast rules are unchanged.
+
+`MetadataImportOptions` and bootstrap manifest `nativePrimitives` accept System.IntPtr
+and System.UIntPtr as explicitly owned source/imported types, with the existing exact
+owner validation and no fallback for a missing configured native provider. Their source
+m_value fields map to runtime scalar storage, as for other primitive implementations.
+No implicit provider selection or metadata projection is introduced.
+
+The neoCLR source-native-integers gate builds both unchanged declarations into
+NativeIntegers.dll and compiles an independent consumer. A metadata-API input library
+supplies negative and maximum unsigned values because this gate does not introduce
+new Raven native-integer casts. CompareTo exercises the real primitive receiver and
+existing source widening calls; default-value receiver storage is fixed separately
+in 24c2c4d40. The consumer verifies and exits 42. See neoCLR's matching
+`docs/experiments/extended-cli-metadata/source-native-integers-2026-10-06.md`.
+Console service integration remains a later gate. The shared primitive mapping is
+part of the portable target contract, which is absent on main; no wholesale backend
+backport is required by this change.

@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical body/declaration types. NoResult describes a callable result contract,
 // not an inhabited Unit/Void value or a legal parameter/local type.
-internal enum EmissionPrimitiveType { NoResult, Int32, Int64, Boolean, String, Byte, Single, Double, SByte, Int16, UInt16, UInt32, UInt64 }
+internal enum EmissionPrimitiveType { NoResult, Int32, Int64, Boolean, String, Byte, Single, Double, SByte, Int16, UInt16, UInt32, UInt64, IntPtr, UIntPtr }
 
 internal static class EmissionPrimitiveTypes
 {
@@ -16,6 +16,8 @@ internal static class EmissionPrimitiveTypes
             SpecialType.System_UInt16 => EmissionPrimitiveType.UInt16,
             SpecialType.System_UInt32 => EmissionPrimitiveType.UInt32,
             SpecialType.System_UInt64 => EmissionPrimitiveType.UInt64,
+            SpecialType.System_IntPtr => EmissionPrimitiveType.IntPtr,
+            SpecialType.System_UIntPtr => EmissionPrimitiveType.UIntPtr,
 
             SpecialType.System_String => EmissionPrimitiveType.String,
             SpecialType.System_Int32 => EmissionPrimitiveType.Int32,
