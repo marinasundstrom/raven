@@ -692,3 +692,12 @@ identities and results. These isolated protocol fixtures do not qualify the boot
 facade as an independently implementable native interface. Use a configured authored
 protocol owner for source-built libraries. Ordinary .NET controls live in
 `ScopeExitCleanupTests` and existing resource-lifetime tests.
+
+
+### Callable nullable metadata
+
+`--nullable-symbols <core.dll>` emits and imports a native library with explicit reference,
+array-element, constructed-type and generic-method nullability. It checks semantic facts,
+constructed method substitution, null admission and rejection for an unannotated parameter.
+The explicit primitive bootstrap remains required; application references are native.
+Run the source-heap driver gate in neoCLR for actual KeepAlive(null) execution.

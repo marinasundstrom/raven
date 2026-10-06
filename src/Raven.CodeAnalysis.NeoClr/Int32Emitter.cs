@@ -494,8 +494,10 @@ internal static class Int32Emitter
                     method.Signature.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)), outParameters: method.Signature.OutParameters.IsDefault ? [] : method.Signature.OutParameters), method.Symbol.IsStatic));
             foreach (var pair in contractMethods)
             {
+                pair.Value.SetNullableAnnotation(-1, NullableAnnotationEmitter.Create(pair.Key.ReturnType));
                 for (var i = 0; i < pair.Key.Parameters.Length; i++)
                 {
+                    pair.Value.SetNullableAnnotation(i, NullableAnnotationEmitter.Create(pair.Key.Parameters[i].Type));
                     pair.Value.SetParameterName(i, pair.Key.Parameters[i].Name);
                     if (pair.Key.Parameters[i].IsVarParams) pair.Value.SetParameterArray(i);
                 }
@@ -589,8 +591,10 @@ internal static class Int32Emitter
                 definition = plan.Define(owner);
             }
             if (runtimeServices.Contains(plan.Symbol)) definition.SetInternalCall();
+            definition.SetNullableAnnotation(-1, NullableAnnotationEmitter.Create(plan.Symbol.ReturnType));
             for (var i = 0; i < plan.Symbol.Parameters.Length; i++)
             {
+                definition.SetNullableAnnotation(i, NullableAnnotationEmitter.Create(plan.Symbol.Parameters[i].Type));
                 definition.SetParameterName(i, plan.Symbol.Parameters[i].Name);
                 if (plan.Symbol.Parameters[i].IsVarParams) definition.SetParameterArray(i);
             }
@@ -1011,6 +1015,7 @@ internal static class Int32Emitter
             SymbolEqualityComparer.Default.Equals(named.ContainingAssembly, compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly);
 
         bool IsSymbolOnlyType(ITypeSymbol type, bool result) =>
+            type.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType ? IsSymbolOnlyType(type.GetNonNullableType(), result) :
             RuntimeSelfTypes.IsSelf(compilation, type) ||
             type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType && CallableSignature.TryFunction(functionType, out _, NeoClrCapabilities.Shared) ||
             !result && IsRuntimeUnitValue(type) || IsRuntimeErasedValue(type) ||
@@ -1023,6 +1028,7 @@ internal static class Int32Emitter
 
         SignatureType MapSymbolOnlyType(ITypeSymbol type, bool result = false) => type switch
         {
+            _ when type.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType => MapSymbolOnlyType(type.GetNonNullableType(), result),
             _ when RuntimeSelfTypes.IsSelf(compilation, type) => SignatureType.Self,
             INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType when CallableSignature.TryFunction(functionType, out var shape, NeoClrCapabilities.Shared) =>
                 SignatureType.Function(new MethodSignature(

@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Preserve callable nullable-reference annotations in native emission
+  and reconstruct them on native import, including arrays and generic positions.
+  Physical call references erase annotation-only wrappers. A separately compiled
+  GC consumer now accepts and executes KeepAlive(null); context/field annotations
+  and new runtime nullability semantics remain outside this slice.
+
 - **2026-10-06:** Preserve unconstrained nullable generic parameters in portable
   callable storage signatures using the existing nullable ABI classification.
   The generic parameter identity remains unchanged; .NET nullable emission and

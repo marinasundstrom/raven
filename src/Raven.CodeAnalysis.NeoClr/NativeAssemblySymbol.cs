@@ -117,6 +117,33 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         return module.methodSymbols[view.MetadataToken].TypeParameters[parameter.Position];
     }
     internal ITypeSymbol MapView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => viewSymbols.GetOrAdd(view, MapViewCore);
+    internal ITypeSymbol MapAnnotatedView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view, NullableAnnotation? annotation)
+    {
+        var type = MapView(view);
+        if (annotation is null) return type;
+        int position = 0;
+        byte Next()
+        {
+            if (annotation.IsUniform) return annotation.Flags[0];
+            if (position >= annotation.Flags.Count) throw new InvalidDataException("truncated native nullable transform");
+            return annotation.Flags[position++];
+        }
+        ITypeSymbol Apply(ITypeSymbol symbol)
+        {
+            bool value = symbol.IsValueType;
+            if (value && symbol is not INamedTypeSymbol { TypeArguments.Length: > 0 }) return symbol;
+            byte flag = Next();
+            ITypeSymbol result = symbol;
+            if (symbol is IArrayTypeSymbol array)
+                result = compilation.CreateArrayTypeSymbol(Apply(array.ElementType), array.Rank);
+            else if (symbol is INamedTypeSymbol { TypeArguments.Length: > 0 } named)
+                result = ((INamedTypeSymbol)named.OriginalDefinition).Construct(named.TypeArguments.Select(Apply).ToArray());
+            return !value && flag == 2 ? result.GetNullableType() : result;
+        }
+        var annotated = Apply(type);
+        if (!annotation.IsUniform && position != annotation.Flags.Count) throw new InvalidDataException("excess native nullable transform flags");
+        return annotated;
+    }
     private ITypeSymbol MapViewCore(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => view switch
     {
         SelfTypeInfo => compilation.ResolveRuntimeSelfType()
@@ -217,8 +244,8 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
                 .GetInterfaceConstraints().Select(module.MapView)]))];
         TypeArguments = [.. TypeParameters];
         module.RegisterMethod(view.MetadataToken, this);
-        returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : module.MapView(view.ReturnType));
-        parameters = new(() => [.. view.GetParameters().Select(p => (IParameterSymbol)new NativeParameterSymbol(p.Position, p.Name, module.MapView(p.ParameterType), this,
+        returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : module.MapAnnotatedView(view.ReturnType, view.ReturnNullableAnnotation));
+        parameters = new(() => [.. view.GetParameters().Select(p => (IParameterSymbol)new NativeParameterSymbol(p.Position, p.Name, module.MapAnnotatedView(p.ParameterType, p.NullableAnnotation), this,
             p.PassingMode switch
             {
                 NeoCLR.Metadata.Experimental.Introspection.ParameterPassingMode.Value => RefKind.None,

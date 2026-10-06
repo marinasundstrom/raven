@@ -7156,3 +7156,30 @@ hashes and verifier results. The runtime checkout was `codex/native-system-boots
 at `c23a2585`; no runtime implementation changes were needed. The 84 focused modern
 .NET tests cover shared cleanup, ownership configuration, goto diagnostics and default
 async resource behavior; .NET Framework and NanoFramework execution were not tested.
+
+
+### Native callable nullable annotations (2026-10-06)
+
+The native adapter emits explicit parameter/return transform facts from Raven symbols
+before physical signature mapping. Native introspection exposes those facts; the loader
+reconstructs nullable references, vector elements, generic arguments and method parameter
+scopes without accessing emitter objects. Constructed method substitutions retain them.
+The symbol-only call mapper uses the existing `AnnotatedUnderlyingType` ABI to erase
+wrappers when creating physical references. There is no GC-specific compiler rule.
+
+neoCLR metadata revision `119d2daf` is required. Its optional callable origin annotation
+payload corresponds to explicit .NET NullableAttribute flags; standard CLI writing still
+uses those attributes. Older native readers reject annotated artifacts. This is native
+semantic import, not a CLI projection fallback. Primitive bootstrap/core ownership and
+runtime-service bindings remain explicit and unchanged. No runtime null check, pointer
+layout, instruction or GC policy is added. Nullable context defaults, fields and wider
+signature categories are not covered by this callable slice.
+
+Validation: `NeoClrMetadataProbe --nullable-symbols <core.dll>` emits a native library,
+imports it with the explicit primitive bootstrap, checks reference/array/generic nullable
+facts (including constructed method scope), admits null to an annotated parameter and
+rejects it for an unannotated parameter. The ordinary driver GC gate compiles unchanged
+GC library sources, then two consumers against the artifact with sources absent; both
+verify and print `Native source heap passed`, including KeepAlive(null). The 17 focused
+.NET nullable emission/storage tests pass. Evidence and commands are in neoCLR's
+`docs/experiments/extended-cli-metadata/verify_source_heap.py` and matching gate record.
