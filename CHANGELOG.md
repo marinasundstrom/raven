@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Correct the native class probe to expect Raven's documented
+  sealed-by-default class semantics. All seven native import/emission consumers
+  execute after the callable-nullability changes; this is a test correction.
+
 - **2026-10-06:** Preserve callable nullable-reference annotations in native emission
   and reconstruct them on native import, including arrays and generic positions.
   Physical call references erase annotation-only wrappers. A separately compiled

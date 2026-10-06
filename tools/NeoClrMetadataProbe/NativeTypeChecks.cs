@@ -86,7 +86,7 @@ internal static class NativeTypeChecks
             Check(methods.All(m => m is not null && ReferenceEquals(m.ContainingType, type) && ReferenceEquals(m.ContainingAssembly, assembly)), "nominal method ownership");
             Check(methods.Select(m => m!.ReturnType.SpecialType).ToHashSet().SetEquals([SpecialType.System_Boolean, SpecialType.System_Int32]), "primitive overload selection");
             var calculator = assembly.GetTypeByMetadataName("Example.Calculator");
-            Check(calculator is { IsStatic: false, IsAbstract: false, IsClosed: false } && calculator.InstanceConstructors.Length == 1, "instance class/constructor classification");
+            Check(calculator is { IsStatic: false, IsAbstract: false, IsClosed: true } && calculator.InstanceConstructors.Length == 1, "instance class/constructor classification");
             var constructor = calculator!.InstanceConstructors.Single();
             Check(calculator.GetMembers().OfType<IMethodSymbol>().Count(m => ReferenceEquals(m, constructor)) == 1 &&
                 constructor.MethodKind == MethodKind.Constructor && !constructor.IsStatic &&

@@ -701,3 +701,9 @@ array-element, constructed-type and generic-method nullability. It checks semant
 constructed method substitution, null admission and rejection for an unannotated parameter.
 The explicit primitive bootstrap remains required; application references are native.
 Run the source-heap driver gate in neoCLR for actual KeepAlive(null) execution.
+
+
+Post-nullability regression run (2026-10-06): all seven native semantic consumers
+execute successfully. The Calculator fixture is an ordinary class and its imported
+symbol must be closed, matching Raven's sealed-by-default specification; the old open
+expectation was stale. This test correction does not introduce inheritance behavior.
