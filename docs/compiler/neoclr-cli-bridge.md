@@ -7221,3 +7221,22 @@ hashes live in neoCLR's `docs/experiments/extended-cli-metadata/source-console-2
 The full-System binding audit drops to 14 errors across 190 inputs; encoding and linking
 of the complete source library remain unproven. RuntimeFailure/NativeAllocation,
 let-else termination and HTTP Task return binding are the remaining diagnostic frontier.
+
+
+### Source failure execution and remaining flow contract (2026-10-06)
+
+With Raven a6ee91610 unchanged, neoCLR now compiles System/Functions.rvn plus internal
+RuntimeFailure adapters, then imports Failure.dll into a separate consumer. The explicit
+`--reference-source-failure-core` Probe profile omits the old projected Fail declaration.
+The native no-result `neoCLR.Runtime.Fail` service raises UserFault; the legacy inhabited
+Fault service remains for prebuilt Numbers/seed bodies. Wrong new-service signatures
+reject. The consumer verifies, exits 1 with the expected fault message, and never reaches
+its following return 42. No .NET behavior or Runtime Contract configuration changes.
+
+This closes execution/import ownership only. BoundNodeFacts still delegates terminal
+recognition to NeoClrCliCompatibility's core-assembly check. An explicit source/native
+terminal-function owner contract is needed for let-else and abrupt-expression semantics;
+merely recognizing any method named Fail would be incorrect. Full System still emits no
+artifact (12 binding errors across 192 inputs). See neoCLR's
+`docs/experiments/extended-cli-metadata/source-failure-2026-10-06.md` for reproduction,
+validation and remaining scope.

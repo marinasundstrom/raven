@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Record native source System.Fail execution with an explicit core
+  profile excluding its bridge declaration. RuntimeFailure source ownership now works;
+  legacy-core-only terminal flow recognition remains a separate compiler gap.
+
 - **2026-10-06:** Record the native source-Console acceptance profile: primitive core
   and seed omit competing Console declarations, while separately emitted Console and
   native integer libraries are imported without source files. No compiler behavior
