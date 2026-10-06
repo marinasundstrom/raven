@@ -3449,3 +3449,19 @@ The six native cleanup consumers verify and execute with exit 42 against neoCLR
 `db5b74f4` plus metadata slice `1f956b37`; no native runtime code changed in the merge.
 See `tools/NeoClrMetadataProbe/scope-exit-cleanup-integration-validation.json` for
 runtime/core hashes. This does not qualify async cleanup on neoCLR.
+
+
+## Nullable callable storage (2026-10-06)
+
+Portable callable signature mapping now erases `AnnotatedUnderlyingType` wrappers
+according to the existing semantic nullable ABI classification. This includes
+unconstrained `T?`, whose physical signature is the original generic parameter, as
+well as nullable references. Nullable value storage is not erased. The correction
+is target-neutral and does not introduce nullable runtime checks. A generic .NET
+identity method accepts null and preserves a non-null argument; all 17 focused
+nullable emission/storage tests pass.
+
+Main integration candidate: the portable `CallableSignature` implementation is not
+present on Raven main at this revision. Keep this small fix isolated until its owning
+shared layer is integrated; do not copy the experimental target refactoring onto main
+solely to backport this correction.

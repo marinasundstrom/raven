@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Preserve unconstrained nullable generic parameters in portable
+  callable storage signatures using the existing nullable ABI classification.
+  The generic parameter identity remains unchanged; .NET nullable emission and
+  execution controls pass. Isolated from native annotation import/export.
+
 - **2026-10-06:** Integrate `codex/metadata-consumer` synchronous use cleanup into
   the source-Object/native metadata line, retaining source-root resolution fixes.
   Continue on `codex/source-object-metadata-resolution`; 92 focused .NET tests and

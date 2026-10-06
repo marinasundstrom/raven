@@ -14,7 +14,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
     {
         value = default;
         if (depth >= 16) return false;
-        if (type.IsNullable && type.GetNonNullableType().IsReferenceType)
+        if (type.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType)
             type = type.GetNonNullableType();
         if ((result ? EmissionPrimitiveTypes.TryGetReturnType(type, out var primitive) : EmissionPrimitiveTypes.TryGetValueType(type, out primitive)))
         { value = new(Primitive: primitive); return true; }
