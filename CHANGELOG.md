@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Resolve reflected type metadata through assembly-symbol contracts
+  when an explicit target selects a source-owned Object root. Restrict PE interning
+  to PE assemblies, avoiding InvalidCastException during native core bootstrap.
+  Canonicalize imported Object signatures to that selected root. Ordinary PE-root
+  resolution and emitter contracts are unchanged.
+
 - **2026-10-05:** Render function callbacks as arrow signatures in RavenDoc member
   lists and parameter tables, preserving links within generic callback results.
   Keep nominal delegate declarations named and parameter names unbroken in tables.

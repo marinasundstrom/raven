@@ -41,6 +41,23 @@ public class SourceObjectRootTests
             options.WithMetadataImportOptions(new MetadataImportOptions(dotnet ? "System.Runtime" : "NeoCLR.CoreProbe", null, null, selected)));
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void ReflectionMetadataResolutionSupportsEitherRootOwner(bool sourceRoot, bool dotnet)
+    {
+        var compilation = Create([Root], selected: sourceRoot, dotnet: dotnet);
+        var root = compilation.GetSpecialType(SpecialType.System_Object);
+        Assert.Equal(sourceRoot, root.ContainingAssembly!.Name == "RootLibrary");
+        var metadataType = compilation.CoreAssembly.GetType("System.Attribute", throwOnError: true)!;
+        var resolved = new ReflectionTypeLoader(compilation).ResolveType(metadataType);
+        var attribute = Assert.IsAssignableFrom<INamedTypeSymbol>(resolved);
+        Assert.Equal("Attribute", attribute.Name);
+        Assert.NotEqual(TypeKind.Error, attribute.TypeKind);
+        Assert.Same(root, attribute.BaseType);
+    }
+
     [Fact]
     public void SourceRootAndSlotsRequireExplicitEmissionCapabilities()
     {

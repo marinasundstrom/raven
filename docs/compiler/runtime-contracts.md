@@ -3346,3 +3346,32 @@ The C# `--native-async-symbols <core.dll> <native-library.dll>` probe checks sel
 unselected identity, generic GetResult substitution, async/await binding, malformed
 interface/value-type providers, missing/bootstrap providers, .NET denial and unchanged
 output streams at the emission boundary. No .NET behavior fix requires backporting.
+
+
+## Source-root metadata resolution — 2026-10-06
+
+With explicit `UseSourceObjectRoot` / `--source-object-root`, the special Object
+symbol belongs to a source assembly. ReflectionTypeLoader must therefore resolve
+preferred assemblies and fallback metadata names through IAssemblySymbol; only the
+PE adapter's final type-interning path may require PEAssemblySymbol. It previously
+cast the source core to PEAssemblySymbol and crashed while completing imported base
+types during the full NeoCLR System compilation.
+
+Imported Object bases/signatures are also canonicalized to the explicitly selected
+source root, so removing the cast does not leave two competing Object identities.
+
+This changes semantic metadata resolution only. It introduces no new target option,
+metadata category, primitive owner or emission behavior. Ordinary .NET PE-root
+resolution is retained. The CLI primitive bootstrap is still required; this fix
+removes the reflection-loader crash. The full-source audit then exposes a separate
+union ToString synthesis failure while source Object members are incomplete. Declaration
+ordering and wider source/core identity unification remain subsequent work.
+
+Validation: 16 existing source-root baseline tests pass; the new regression fails
+with the source root and passes with the PE root before the fix. All 41 focused
+source-root, metadata-import and reflection-projection tests pass after the fix,
+including an ordinary .NET control. The released Numbers/HTTP source compilation
+controls still pass. This is an isolated integration-line fix: main does not yet
+contain the source-root contract needed by its regression. Reassess the general
+assembly-symbol resolution portion when integrating that contract; do not merge
+the native backend solely to backport this fix.

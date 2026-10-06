@@ -346,6 +346,10 @@ internal class ReflectionTypeLoader(Compilation compilation)
 
     private ITypeSymbol CanonicalizeSpecialTypeDefinition(ITypeSymbol symbol)
     {
+        // Imported base/signature facts must use the explicitly selected root too.
+        if (compilation.UsesSourceObjectRoot && symbol.SpecialType == SpecialType.System_Object)
+            return compilation.GetSpecialType(SpecialType.System_Object);
+
         // Collection contracts commonly cross the System.Runtime facade boundary in
         // metadata signatures. Intern them before constructing closed receiver types so
         // extension lookup observes one compilation-owned definition.
@@ -621,11 +625,13 @@ internal class ReflectionTypeLoader(Compilation compilation)
         if (string.IsNullOrEmpty(metadataName))
             return compilation.ErrorTypeSymbol;
 
-        var corLibrary = (PEAssemblySymbol)compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly;
+        // Explicit target contracts may select a source-owned core. Resolve through
+        // symbol facts first; only PE assemblies support reflection interning.
+        var corLibrary = compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly;
         var assemblyIdentity = type.Assembly.GetName().Name;
         var preferredAssemblyNames = GetPreferredAssemblyNames(assemblyIdentity);
         var assemblySymbol = preferredAssemblyNames
-            .Select(name => (PEAssemblySymbol?)compilation.ReferencedAssemblySymbols.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)))
+            .Select(name => compilation.ReferencedAssemblySymbols.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)))
             .FirstOrDefault(x => x is not null)
             ?? corLibrary;
 
@@ -637,7 +643,7 @@ internal class ReflectionTypeLoader(Compilation compilation)
             return metadataMatch;
 
         // Fallback to Type-based interning when metadata lookup cannot find a symbol in the preferred assembly.
-        if (assemblySymbol.PrimaryModule is PEModuleSymbol peModule)
+        if (assemblySymbol is PEAssemblySymbol { PrimaryModule: PEModuleSymbol peModule })
         {
             var r = peModule.GetType(type);
             if (r is not null)
