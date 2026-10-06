@@ -11,6 +11,7 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
     internal static SignatureType Map(EmissionType type, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<INamedTypeSymbol, SignatureType>? resolveExternal = null)
     {
         if (type.IsByReference) return SignatureType.ByReference(Map(type with { IsByReference = false }, resolveClass, resolveExternal));
+        if (type.Pointer is { } pointer) return MapPointer(pointer);
         if (type.OwnerParameter is { } ownerParameter) return SignatureType.TypeParameter(ownerParameter.Ordinal);
         if (type.MethodParameter is { } parameter) return SignatureType.MethodParameter(parameter.Ordinal);
         if (type.Primitive is { } p) return Instance.Map(p);
@@ -34,6 +35,14 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
     {
         if (!CallableSignature.TryType(type, false, out var value, NeoClrCapabilities.Shared)) throw new InvalidOperationException("unsupported native value type");
         return Map(value, resolveClass, resolveExternal);
+    }
+
+    private static SignatureType MapPointer(IPointerTypeSymbol pointer)
+    {
+        if (pointer.PointedAtType is IPointerTypeSymbol nested) return SignatureType.PointerTo(MapPointer(nested));
+        if (!EmissionPrimitiveTypes.TryGetReturnType(pointer.PointedAtType, out var primitive))
+            throw new InvalidOperationException("unsupported native pointer target");
+        return SignatureType.PointerTo(Instance.Map(primitive));
     }
 
     public PrimitiveType Map(EmissionPrimitiveType type) => type switch

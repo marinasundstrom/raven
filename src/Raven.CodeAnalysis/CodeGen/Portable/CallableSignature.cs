@@ -18,6 +18,12 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             type = type.GetNonNullableType();
         if ((result ? EmissionPrimitiveTypes.TryGetReturnType(type, out var primitive) : EmissionPrimitiveTypes.TryGetValueType(type, out primitive)))
         { value = new(Primitive: primitive); return true; }
+        if (type is IPointerTypeSymbol pointer)
+        {
+            if (capabilities?.AllowsUnmanagedPointers != true || !IsSupportedPointer(pointer)) return false;
+            value = new(Pointer: pointer);
+            return true;
+        }
         // Callable unit results remain no-result above. In value positions the
         // explicit runtime contract supplies an inhabited nominal representation.
         if (!result && type is UnitTypeSymbol { RuntimeRepresentation: { } representation })
@@ -31,19 +37,24 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         if (capabilities?.Allows(EmissionDeclarationKind.Enum) == true && type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 } enumType)
         { value = new(Nominal: enumType); return true; }
         if (capabilities?.AllowsExternalValueSignatures == true && type is INamedTypeSymbol externalValue && IsExternalValue(externalValue, capabilities?.AllowsNestedExternalTypes == true) &&
-            externalValue.TypeArguments.All(t => TryType(t, false, out _, capabilities, depth + 1)))
+            externalValue.TypeArguments.All(t => t is not IPointerTypeSymbol && TryType(t, false, out _, capabilities, depth + 1)))
         { value = new(Nominal: externalValue); return true; }
         if (capabilities?.AllowsExternalReferenceSignatures == true && type is INamedTypeSymbol external && IsExternalReference(external, capabilities?.AllowsNestedExternalTypes == true) &&
-            external.TypeArguments.All(t => TryType(t, false, out _, capabilities, depth + 1)))
+            external.TypeArguments.All(t => t is not IPointerTypeSymbol && TryType(t, false, out _, capabilities, depth + 1)))
         { value = new(Nominal: external); return true; }
         if (type is INamedTypeSymbol { TypeKind: TypeKind.Interface } contract && SourceInterfacePlan.HasSupportedIdentity(contract))
         { value = new(Nominal: contract); return true; }
         if (type is INamedTypeSymbol named && SourceTypePlan.TryCreate(named, out var plan, capabilities) && !plan!.IsStatic)
         { value = new(Nominal: named); return true; }
-        if (type is IArrayTypeSymbol { Rank: 1, FixedLength: null } array && TryType(array.ElementType, false, out _, capabilities, depth + 1))
+        if (type is IArrayTypeSymbol { Rank: 1, FixedLength: null } array && array.ElementType is not IPointerTypeSymbol && TryType(array.ElementType, false, out _, capabilities, depth + 1))
         { value = new(Array: array); return true; }
         return false;
     }
+    internal static bool IsSupportedPointer(IPointerTypeSymbol pointer, int depth = 0) =>
+        depth < 16 && (pointer.PointedAtType is IPointerTypeSymbol nested
+            ? IsSupportedPointer(nested, depth + 1)
+            : EmissionPrimitiveTypes.TryGetReturnType(pointer.PointedAtType, out var primitive) && primitive != EmissionPrimitiveType.String);
+
     internal static bool TryFunction(INamedTypeSymbol type, out CallableSignature signature, EmissionCapabilities capabilities, int depth = 0)
     {
         signature = null!;
@@ -53,7 +64,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         if (type.TypeKind != TypeKind.Delegate || type.ContainingNamespace?.ToDisplayString() != "System" ||
             type.Name is not ("Func" or "Action") ||
             !SymbolEqualityComparer.Default.Equals(type.ContainingAssembly, type.BaseType?.ContainingAssembly) || type.GetDelegateInvokeMethod() is not { } invoke ||
-            invoke.Parameters.Any(p => p.RefKind != RefKind.None) || invoke.Parameters.Length > 16 ||
+            invoke.Parameters.Any(p => p.RefKind != RefKind.None || p.Type is IPointerTypeSymbol) || invoke.ReturnType is IPointerTypeSymbol || invoke.Parameters.Length > 16 ||
             !TryType(invoke.ReturnType, type.Name == "Action", out var result, capabilities, depth + 1)) return false;
         var parameters = ImmutableArray.CreateBuilder<EmissionType>();
         foreach (var parameter in invoke.Parameters)
@@ -98,7 +109,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
             method.IsExtensionMethod && (capabilities?.AllowsLoweredExtensionCalls != true || !method.IsStatic) ||
             method.IsAsync && capabilities?.Allows(EmissionDeclarationKind.AsyncMethod) != true || !TryType(method.ReturnType, true, out var result, capabilities)) return false;
         if (method.ContainingType is { Arity: > 0 } owner && ((!SourceTypePlan.TryCreate(owner, out _, capabilities) && !(capabilities?.AllowsConstructedInterfaceInheritance == true && SourceInterfacePlan.HasSupportedIdentity(owner)) && !(capabilities?.AllowsExternalReferenceSignatures == true && IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) && !(capabilities?.AllowsExternalValueSignatures == true && IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true))) || owner.TypeArguments.Any(t => !TryType(t, false, out _, capabilities)))) return false;
-        if (method.IsGenericMethod && method.TypeArguments.Any(t => !TryType(t, false, out _, capabilities))) return false;
+        if (method.IsGenericMethod && method.TypeArguments.Any(t => t is IPointerTypeSymbol || !TryType(t, false, out _, capabilities))) return false;
         var parameters = ImmutableArray.CreateBuilder<EmissionType>(method.Parameters.Length);
         foreach (var parameter in method.Parameters)
         {

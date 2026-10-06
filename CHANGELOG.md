@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Admit bounded unmanaged pointer signatures and locals through an explicit
+  NeoCLR capability, including native introspection and symbol-only external function
+  authoring. Source NativeMemory can be compiled and imported separately; allocation,
+  freeing and fault paths execute natively. Ordinary .NET pointer behavior is retained.
+  The full-System audit clears binding and next stops at generic classes with the
+  source Object base; complete System emission is still pending.
+
 - **2026-10-07:** Record the runtime NativeAllocation prerequisites and remaining
   pointer metadata/emission boundary. The metadata library at neoCLR `8e93e39b` now
   supports bounded pointer callable signatures and introspection, validated by 162 C#

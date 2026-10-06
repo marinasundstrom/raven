@@ -152,6 +152,8 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         ConstructedTypeInfo constructed => Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(MapView).ToArray()),
         FunctionTypeInfo { NoResult: true } function => compilation.CreateNoResultFunctionTypeSymbol(function.ParameterTypes.Select(MapView).ToArray()),
         FunctionTypeInfo function => compilation.CreateFunctionTypeSymbol(function.ParameterTypes.Select(MapView).ToArray(), MapView(function.ReturnType)),
+        PointerTypeInfo pointer => compilation.CreatePointerTypeSymbol(pointer.ElementType is PrimitiveTypeInfo { Kind: PrimitiveType.Void }
+            ? compilation.GetSpecialType(SpecialType.System_Void) : MapView(pointer.ElementType)),
         ArrayTypeInfo array => compilation.CreateArrayTypeSymbol(MapView(array.ElementType)),
         GenericParameterTypeInfo parameter => Resolve(parameter.DeclaringType).TypeParameters[parameter.Position],
         MethodGenericParameterTypeInfo parameter => MapMethodParameter(parameter),

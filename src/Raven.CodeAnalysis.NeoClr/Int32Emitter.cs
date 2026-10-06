@@ -49,7 +49,7 @@ internal static class Int32Emitter
                         continue;
                     }
                     if ((declaration.Body is null && declaration.ExpressionBody is null) || declaration.AttributeLists.Count != 0 ||
-                        declaration.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.AsyncKeyword)))
+                        declaration.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.AsyncKeyword or SyntaxKind.UnsafeKeyword)))
                         throw Unsupported("only top-level functions with block or expression bodies");
                     var plan = GetPlan(symbol);
                     plans.Add(plan);
@@ -149,7 +149,7 @@ internal static class Int32Emitter
                         type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword or SyntaxKind.SealedKeyword or SyntaxKind.AbstractKeyword)))
                         throw Unsupported("only public or internal static/root classes or value types without additional contracts");
                     if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
-                        throw Unsupported("supported public/internal static classes, root classes or unconstrained value types");
+                        throw Unsupported("supported public/internal static classes, root classes or unconstrained value types: " + typeSymbol.ToDisplayString());
                     // Partial declarations share one semantic identity and one metadata definition.
                     // Still validate every part and collect all of its members.
                     declaredTypes.TryAdd(typeSymbol, typePlan!);
@@ -230,7 +230,7 @@ internal static class Int32Emitter
                             throw Unsupported("explicit native async provider required");
                         if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null && !method.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword)) || method.AttributeLists.Count != 0 ||
                             method.ExplicitInterfaceSpecifier is not null || method.ConstraintClauses.Count != 0 ||
-                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword or SyntaxKind.VirtualKeyword or SyntaxKind.AbstractKeyword)))
+                            method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword or SyntaxKind.VirtualKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.UnsafeKeyword)))
                             throw Unsupported("only ordinary primitive methods, explicit constructors and auto-properties");
                         var symbol = model.GetDeclaredSymbol(method) as IMethodSymbol ?? throw Unsupported("method symbol unavailable");
 
@@ -1016,6 +1016,7 @@ internal static class Int32Emitter
 
         bool IsSymbolOnlyType(ITypeSymbol type, bool result) =>
             type.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType ? IsSymbolOnlyType(type.GetNonNullableType(), result) :
+            type is IPointerTypeSymbol pointer && CallableSignature.IsSupportedPointer(pointer) ||
             RuntimeSelfTypes.IsSelf(compilation, type) ||
             type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType && CallableSignature.TryFunction(functionType, out _, NeoClrCapabilities.Shared) ||
             !result && IsRuntimeUnitValue(type) || IsRuntimeErasedValue(type) ||
@@ -1029,6 +1030,7 @@ internal static class Int32Emitter
         SignatureType MapSymbolOnlyType(ITypeSymbol type, bool result = false) => type switch
         {
             _ when type.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType => MapSymbolOnlyType(type.GetNonNullableType(), result),
+            IPointerTypeSymbol pointer => NeoClrTypeMapper.Map(pointer, owned => nativeTypes[owned], ImportExternalType),
             _ when RuntimeSelfTypes.IsSelf(compilation, type) => SignatureType.Self,
             INamedTypeSymbol { TypeKind: TypeKind.Delegate } functionType when CallableSignature.TryFunction(functionType, out var shape, NeoClrCapabilities.Shared) =>
                 SignatureType.Function(new MethodSignature(

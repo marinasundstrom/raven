@@ -24,7 +24,7 @@ internal interface ILinearMethodBuilder
 internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
 // Logical value types carry compiler identity, never backend handles.
-internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null, bool IsByReference = false);
+internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null, bool IsByReference = false, IPointerTypeSymbol? Pointer = null);
 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
@@ -576,7 +576,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         else if (variable.Local.Type.GetNonNullableType() is INamedTypeSymbol { TypeKind: TypeKind.Interface } &&
                             TryType(variable.Local.Type, false, out var contractType) && capabilities?.Allows(contractType) == true)
                             localType = contractType;
-                        else if (variable.Local.Type is (IArrayTypeSymbol or ITypeParameterSymbol) && TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
+                        else if (variable.Local.Type is (IArrayTypeSymbol or ITypeParameterSymbol or IPointerTypeSymbol) && TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
                             localType = arrayType;
                         else return Reject("target does not support local type " + variable.Local.Type.Name, Syntax(variable));
                         if (variable.Initializer is not null && !LowerValue(variable.Initializer, variable.Local.Type, atStatementBoundary)) return false;

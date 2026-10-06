@@ -15,7 +15,7 @@ internal static class NeoClrRuntimeServiceDeclaration
         if (!symbol.IsExtern || !symbol.IsStatic || symbol.Arity != 0 ||
             symbol.DeclaredAccessibility != Accessibility.Internal ||
             syntax.Body is not null || syntax.ExpressionBody is not null ||
-            syntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.InternalKeyword or SyntaxKind.ExternKeyword)))
+            syntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.InternalKeyword or SyntaxKind.ExternKeyword or SyntaxKind.UnsafeKeyword)))
             return false;
         var attributes = symbol.GetAttributes();
         if (attributes.Length != 1) return false;

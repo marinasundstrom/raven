@@ -7288,3 +7288,30 @@ pointer symbols/operands through the native loader/emitter and connect the sourc
 NativeAllocation helper. No compiler source acceptance claim or implicit bridge fallback
 is made. Full System still has four binding errors. Reproduction and hashes are in
 neoCLR `docs/experiments/extended-cli-metadata/pointer-signatures-2026-10-07.md`.
+
+### Source NativeMemory execution (2026-10-07)
+
+The NeoCLR target now opts into bounded scalar/Void pointer signatures through the
+compiler-owned `EmissionType.Pointer` and `AllowsUnmanagedPointers` capability.
+The native importer projects metadata PointerTypeInfo into ordinary pointer symbols;
+PTR VOID resolves to System.Void, not the callable no-result Unit interpretation.
+Emission uses only those symbols and explicit host artifact identities. Namespace
+function references, arguments, locals and returns retain exact target identity.
+Unsafe source functions/methods and internal runtime service declarations are admitted;
+unsupported pointer categories still reject before publication. The existing .NET
+backend and its pointer behavior remain the default and are unchanged.
+
+Unchanged NativeMemory source plus real native allocation adapters now compile into a
+library. A separate source consumer imports only that artifact and executes both Alloc
+overloads and Free, including an explicitly typed pointer identity function. Native
+UIntPtr test inputs are emitted by the metadata API; source native-width literal/cast
+semantics are not added by this slice. Double-free and checked-size overflow fault;
+unsupported string-pointer signatures publish no output. See neoCLR
+`docs/experiments/extended-cli-metadata/verify_source_native_memory.py`.
+
+The full-owned-handle audit now passes binding for all 194 inputs and reaches the
+explicit emission restriction on generic classes inheriting the source Object root:
+Array<T> is first. Full System still emits no artifact. This is the next broad blocker,
+not an Array API implementation problem. No new Runtime Contract option or implicit
+CLI fallback is introduced. The metadata API requires the external pointer function
+reference extension in the matching neoCLR slice.
