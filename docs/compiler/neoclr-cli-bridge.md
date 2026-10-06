@@ -7255,3 +7255,20 @@ for API/configuration and the matching neoCLR flow evidence for executable valid
 
 This is target-contract work, not an independently useful .NET behavior correction;
 no general fix needs cherry-picking to main from this slice.
+
+
+### NativeAllocation service boundary (2026-10-07)
+
+neoCLR now offers exact native InternalCalls for byte allocation, unsigned checked-size
+multiplication and no-result release: `neoCLR.Runtime.NativeAllocate(UIntPtr)->Void*`,
+`NativeMultiplyChecked(UIntPtr,UIntPtr)->UIntPtr`, and `NativeFree(Void*)->noresult`.
+They use the existing execution-owned pointer heap and limits. This is the intended
+runtime target for the source NativeAllocation helper, replacing the older bridge-only
+instruction mapping without changing that mapping's semantics.
+
+The remaining compiler/metadata work is explicit unmanaged pointer signature support:
+CLI PTR encoding, native Ptr materialization, introspection facts, compiler-owned
+emission operands and the target adapter. No helper stub or CLR projection substitutes
+for it. The runtime has five native-container tests plus 17 pointer regressions; Raven
+source NativeMemory acceptance and the four remaining binding errors are unchanged.
+See neoCLR `docs/heap-and-pointers.md#source-nativeallocation-services-2026-10-07`.

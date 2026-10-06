@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Record the runtime NativeAllocation prerequisites and remaining
+  pointer metadata/emission boundary. No compiler behavior or source acceptance change.
+
 - **2026-10-07:** Add an explicit NeoCLR RuntimeFailureContract and bootstrap manifest
   owner for terminal namespace functions. Source and native-imported symbols expose
   the same flow fact to binding/lowering; wrong owner/signature rejects before output.
