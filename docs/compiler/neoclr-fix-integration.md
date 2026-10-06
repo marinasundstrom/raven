@@ -1878,3 +1878,17 @@ They currently remain with the optional native project integration; independentl
 exercise ordinary CLI artifact replacement/failure recovery before proposing a main
 backport. The native metadata declaration viewer is explicitly target-gated. No main
 integration is claimed for these new editor changes.
+
+### Default value receiver temporary (2026-10-06)
+
+The portable body planner now admits `default(T).Method()` using the same temporary
+storage path as value-returning calls and properties. The receiver is initialized once
+and its temporary address is passed to the method; no source storage is written back.
+A general C# regression checks portable lowering plus ordinary .NET execution with a
+mutating struct method. The native source IntPtr/UIntPtr consumer exercises the same
+path. No new syntax or Runtime Contract setting is introduced.
+
+This is isolated from native-width metadata/mapping work. Main's current tree has no
+`CodeGen/Portable/LinearMethodBody.cs`, so the owning layer cannot be cherry-picked
+independently there. Carry the fix with that layer's eventual integration; do not copy
+the experimental backend to main solely to apply this one-line correction.

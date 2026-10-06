@@ -851,7 +851,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     BoundDereferenceExpression dereference => LowerReference(dereference.Reference),
                     BoundFieldAccess field => FieldAddress(field.Receiver, field.Field, syntax),
                     BoundMemberAccessExpression { Member: IFieldSymbol field } access => FieldAddress(access.Receiver, field, syntax),
-                    BoundIndexerAccessExpression or BoundPropertyAccess or BoundInvocationExpression or BoundConversionExpression => TemporaryReceiver(receiver, syntax),
+                    BoundIndexerAccessExpression or BoundPropertyAccess or BoundInvocationExpression or BoundConversionExpression or BoundDefaultValueExpression => TemporaryReceiver(receiver, syntax),
                     BoundMemberAccessExpression { Member: IPropertySymbol } => TemporaryReceiver(receiver, syntax),
                     _ => Reject("value receiver requires addressable storage or a supported value result", syntax)
                 };

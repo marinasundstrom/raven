@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Admit default-value method receivers in portable lowering by giving
+  them initialized temporary storage. A general regression checks mutation of that
+  temporary and ordinary .NET execution. Isolated from native integer target mappings;
+  the owning portable layer is not present on main for an independent cherry-pick.
+
 - **2026-10-06:** Import native constructor unions through the existing UnionAttribute,
   public single-value constructors and Value getter contract. Preserve alternatives
   and open/constructed generic scopes without inventing named cases. The source-built
