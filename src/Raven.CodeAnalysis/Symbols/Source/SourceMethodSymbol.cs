@@ -10,6 +10,8 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 {
+    internal override bool IsTerminalRuntimeCall => RuntimeFailureContract.IsTerminal(this, GetDeclaringCompilation()?.Options);
+
     private ImmutableArray<SourceParameterSymbol> _parameters = ImmutableArray<SourceParameterSymbol>.Empty;
     private ITypeSymbol _returnType;
     private bool _isStatic;

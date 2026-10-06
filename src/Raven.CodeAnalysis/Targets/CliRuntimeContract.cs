@@ -51,6 +51,11 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
             return "the unit contract requires an explicit target core, or the .NET void-to-unit bootstrap policy";
         }
 
+        if (Options.RuntimeFailureContract is { } failure &&
+            (Options.TargetPlatform != TargetPlatform.NeoCLR || string.IsNullOrWhiteSpace(failure.AssemblyName) ||
+             string.IsNullOrWhiteSpace(failure.NamespaceName) || string.IsNullOrWhiteSpace(failure.FunctionName)))
+            return "the failure contract requires an explicit NeoCLR namespace-function owner";
+
         if (Options.RuntimeDisposalContract is { } disposal &&
             (string.IsNullOrWhiteSpace(disposal.AssemblyName) || string.IsNullOrWhiteSpace(disposal.InterfaceTypeName)))
             return "the disposal contract requires assembly and interface type names";
@@ -70,6 +75,18 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     {
         if (GetConfigurationError() is { } error)
             return error;
+
+        if (Options.RuntimeFailureContract is { } failure)
+        {
+            INamespaceSymbol? ns = compilation.GlobalNamespace;
+            foreach (var part in failure.NamespaceName.Split('.'))
+                ns = ns?.GetMembers(part).OfType<INamespaceSymbol>().SingleOrDefault();
+            var members = ns?.GetMembers() ?? [];
+            var methods = members.OfType<IMethodSymbol>().Concat(members.OfType<INamedTypeSymbol>()
+                .SelectMany(type => type.GetMembers().OfType<IMethodSymbol>()));
+            if (methods.Where(failure.Matches).Distinct(SymbolEqualityComparer.Default).Count() != 1)
+                return "the failure contract requires one public namespace function with the configured owner and string-to-unit signature";
+        }
 
         if (Options.MetadataImportOptions?.AsyncAssemblyName is { } asyncProvider)
         {

@@ -7240,3 +7240,18 @@ merely recognizing any method named Fail would be incorrect. Full System still e
 artifact (12 binding errors across 192 inputs). See neoCLR's
 `docs/experiments/extended-cli-metadata/source-failure-2026-10-06.md` for reproduction,
 validation and remaining scope.
+
+
+### Native terminal owner contract (2026-10-07)
+
+The preceding source-Fail flow limitation is now resolved by RuntimeFailureContract.
+The host manifest explicitly selects its source/native owner, namespace and function;
+source and native-imported symbols carry the same terminal fact. .NET defaults and the
+legacy CLI profile retain their behavior. No reader/emitter coupling or native reference
+projection is added. Missing/wrong owners and incompatible declarations reject before
+publication. The native runtime no-result service from neoCLR b933c32b is required for
+this source implementation. See [runtime contracts](runtime-contracts.md#native-terminal-function-ownership-2026-10-07)
+for API/configuration and the matching neoCLR flow evidence for executable validation.
+
+This is target-contract work, not an independently useful .NET behavior correction;
+no general fix needs cherry-picking to main from this slice.

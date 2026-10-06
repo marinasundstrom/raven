@@ -224,6 +224,7 @@ internal sealed class NativeNamespaceSymbol : Symbol, INamespaceSymbol, INamespa
 
 internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
 {
+    internal override bool IsTerminalRuntimeCall => RuntimeFailureContract.IsTerminal(this, compilation.Options);
     public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
 
     private readonly Compilation compilation;

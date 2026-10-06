@@ -3511,3 +3511,33 @@ in 24c2c4d40. The consumer verifies and exits 42. See neoCLR's matching
 Console service integration remains a later gate. The shared primitive mapping is
 part of the portable target contract, which is absent on main; no wholesale backend
 backport is required by this change.
+
+
+## Native terminal-function ownership (2026-10-07)
+
+`RuntimeFailureContract(AssemblyName, NamespaceName = "System", FunctionName = "Fail")`
+is an explicit host assertion that the selected namespace function never returns.
+Configure it with `CompilationOptions.WithRuntimeFailureContract(contract)`; null leaves
+existing behavior unchanged. The native bootstrap manifest accepts an optional `failure`
+object with these fields. Its assembly must appear in the source-library catalog.
+
+This contract is NeoCLR-only. The resolved function must be a public static non-generic
+namespace function with one by-value string parameter and void/unit result. Source
+namespace containers and native module functions qualify; arbitrary type members and
+CLI projection declarations do not. Configuration errors, a missing owner, or an
+incompatible signature reject before publication. Artifact identity/digest validation
+continues through the normal host dependency catalog. A method name alone never opts
+an ordinary .NET method into terminal behavior.
+
+Source/native symbols expose an internal terminal-call fact derived from this contract
+and their semantic signatures. Existing bound-flow and lowering consumers use that fact;
+emission neither reopens metadata nor consumes introspection objects. This removes the
+legacy core-assembly restriction for explicitly selected source/native owners while
+retaining the old CLI check for existing users. The emitted signature remains CLI void;
+no new metadata category is introduced. The existing impossible-return guard remains.
+
+The native source-Fail gate exercises both local and imported let-else calls, successful
+and terminal paths, and wrong-owner failure without output. Full-System binding errors
+drop from 12 to four, all NativeAllocation. This is not full System emission or execution.
+The matching runtime supplies its exact no-result Fail service; see neoCLR's
+`docs/experiments/extended-cli-metadata/source-failure-flow-2026-10-07.md`.

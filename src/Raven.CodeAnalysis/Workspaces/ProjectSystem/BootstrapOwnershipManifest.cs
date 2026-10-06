@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis;
 
 // Host configuration only: it selects semantic contracts and checks ownership, not metadata representation.
 internal sealed record BootstrapSourceLibrary(string AssemblyName, string[] Sources, string[] Types);
-internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLibrary[] Libraries, RuntimeIterationContract Iteration, RuntimeTypeOfContract? TypeOf = null, RuntimePropagationContract? Propagation = null, RuntimeUnitContract? Unit = null, RuntimeSelfTypeContract? Self = null, Dictionary<string, string>? NativePrimitives = null, RuntimeDisposalContract? Disposal = null)
+internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLibrary[] Libraries, RuntimeIterationContract Iteration, RuntimeTypeOfContract? TypeOf = null, RuntimePropagationContract? Propagation = null, RuntimeUnitContract? Unit = null, RuntimeSelfTypeContract? Self = null, Dictionary<string, string>? NativePrimitives = null, RuntimeDisposalContract? Disposal = null, RuntimeFailureContract? Failure = null)
 {
     internal static BootstrapOwnershipManifest Read(string path)
     {
@@ -44,6 +44,9 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
         if (manifest.Disposal is { } disposal &&
             (!types.TryGetValue(disposal.InterfaceTypeName, out var disposalOwner) || disposalOwner != disposal.AssemblyName))
             throw new InvalidDataException("Disposal contract must belong to its declared source library.");
+        if (manifest.Failure is { } failure && (!names.Contains(failure.AssemblyName) ||
+            string.IsNullOrWhiteSpace(failure.NamespaceName) || string.IsNullOrWhiteSpace(failure.FunctionName)))
+            throw new InvalidDataException("Failure contract must name its declared source-library owner and namespace function.");
         foreach (var (name, owner) in manifest.NativePrimitives ?? [])
             if (!types.TryGetValue(name, out var declaredOwner) || declaredOwner != owner || !NativePrimitiveSpecialType(name, out _))
                 throw new InvalidDataException("Native primitive must name its declared source-library owner: " + name);
@@ -54,7 +57,7 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
     {
         var configured = options.WithRuntimeIterationContract(Iteration)
             .WithRuntimeTypeOfContract(TypeOf).WithRuntimePropagationContract(Propagation)
-            .WithRuntimeSelfTypeContract(Self);
+            .WithRuntimeSelfTypeContract(Self).WithRuntimeFailureContract(Failure);
         if (Disposal is not null)
             configured = configured.WithRuntimeDisposalContract(Disposal);
         if (NativePrimitives is { Count: > 0 })
