@@ -7183,3 +7183,22 @@ GC library sources, then two consumers against the artifact with sources absent;
 verify and print `Native source heap passed`, including KeepAlive(null). The 17 focused
 .NET nullable emission/storage tests pass. Evidence and commands are in neoCLR's
 `docs/experiments/extended-cli-metadata/verify_source_heap.py` and matching gate record.
+
+
+### Native source Environment boundary (2026-10-06)
+
+neoCLR `881c4d01` compiles unchanged Environment sources using three internal service
+adapters and executes an artifact-only consumer with Raven `d19c6e4a3`. No compiler
+code or target setting changed. EnvironmentArguments now accepts Raven's managed
+string-array result and returns a fresh managed snapshot with array/heap limits.
+The older runtime buffer transport remains an internal compatibility detail, not an
+inline-value-array API. The author reaffirmed managed arrays backed by Array<T> as
+the supported model; possible inline interop arrays remain future work.
+
+Validation covers all three APIs, argument mutation independence, Unicode, exact cwd,
+present/empty/absent variables and invalid names. Four runtime tests and the source gate
+pass. Explicit core/Numbers/seed ownership remains required; the consumer uses an
+explicit Environment namespace alias alongside the bootstrap's legacy type. See neoCLR
+`docs/experiments/extended-cli-metadata/source-environment-2026-10-06.md` for commands,
+hashes and limits. Full-System compilation still has 48 diagnostics; this is not release
+or full bootstrap qualification.

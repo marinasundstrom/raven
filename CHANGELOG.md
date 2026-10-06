@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Document the native source Environment execution gate with managed
+  argument arrays in neoCLR `881c4d01`. No Raven compiler behavior or target settings
+  changed; inline value arrays remain outside the supported platform model.
+
 - **2026-10-06:** Correct the native class probe to expect Raven's documented
   sealed-by-default class semantics. All seven native import/emission consumers
   execute after the callable-nullability changes; this is a test correction.
