@@ -680,3 +680,15 @@ read/write forwarding, imported MutableValue<T> -> Value<T> inheritance and disp
 with both Int32 and class arguments. It asserts parameter scope identity and rejects
 incompatible invariant interface arguments. All seven consumers return 42. This imports
 existing relationships; declaring new implementations of external interfaces is pending.
+
+### Scope-exit cleanup
+
+`--scope-exit-cleanup-runtime <neo-root> <fresh-output> <runtime>` compiles six
+consumers under the neoCLR profile with explicitly authored disposal/propagation
+contracts. It checks reverse disposal order on return, goto, loop exits, value-block completion,
+None and error propagation through observable state, then verifies and executes each
+native image (expected exit 42). `validation.json` records the runtime/core SHA-256
+identities and results. These isolated protocol fixtures do not qualify the bootstrap
+facade as an independently implementable native interface. Use a configured authored
+protocol owner for source-built libraries. Ordinary .NET controls live in
+`ScopeExitCleanupTests` and existing resource-lifetime tests.

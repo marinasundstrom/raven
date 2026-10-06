@@ -54,6 +54,9 @@ internal sealed partial class Lowerer
         }
 
         var loweredStatements = statements.ToImmutableArray();
+        if (GetCompilation().Options.RuntimeDisposalContract is { UseExceptionHandling: false })
+            return new BoundBlockStatement(loweredStatements, node.LocalsToDispose);
+
         var handledUsingLocals = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
         var rewritten = RewriteUseDeclarations(loweredStatements, handledUsingLocals);
 

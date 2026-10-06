@@ -2444,8 +2444,15 @@ partial class BlockBinder
         if (labeledSyntax is not null)
         {
             isBackward = labeledSyntax.Span.Start < gotoStatement.Span.Start;
-            if (DoesGotoExitUseScope(gotoStatement, labeledSyntax))
+            if (Compilation.Options.RuntimeDisposalContract is { UseExceptionHandling: false })
+            {
+                if (DoesGotoSkipUseInitializer(gotoStatement, labeledSyntax))
+                    _diagnostics.Report(Targets.TargetDiagnostics.JumpSkipsResourceInitialization(identifier.GetLocation()));
+            }
+            else if (DoesGotoExitUseScope(gotoStatement, labeledSyntax))
+            {
                 _diagnostics.ReportGotoCannotExitUseScope(identifier.GetLocation());
+            }
         }
 
         SemanticModel?.RegisterGoto(gotoStatement, label);
@@ -2453,6 +2460,25 @@ partial class BlockBinder
         var bound = new BoundGotoStatement(label, isBackward);
         CacheBoundNode(gotoStatement, bound);
         return bound;
+    }
+
+    private static bool DoesGotoSkipUseInitializer(GotoStatementSyntax source, LabeledStatementSyntax target)
+    {
+        foreach (var scope in target.Ancestors().Where(node => node is BlockStatementSyntax or CompilationUnitSyntax))
+        {
+            foreach (var child in scope.ChildNodes())
+            {
+                SyntaxNode statement = child;
+                if (statement is GlobalStatementSyntax global)
+                    statement = global.Statement;
+                while (statement is LabeledStatementSyntax labeled)
+                    statement = labeled.Statement;
+                if (statement is UseDeclarationStatementSyntax { InBlockClause: null } use &&
+                    source.Span.Start < use.Span.Start && use.Span.Start < target.Span.Start)
+                    return true;
+            }
+        }
+        return false;
     }
 
     private static bool DoesGotoExitUseScope(GotoStatementSyntax gotoStatement, LabeledStatementSyntax targetLabel)

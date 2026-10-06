@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Integrate `codex/metadata-consumer` synchronous use cleanup into
+  the source-Object/native metadata line, retaining source-root resolution fixes.
+  Continue on `codex/source-object-metadata-resolution`; 92 focused .NET tests and
+  six native cleanup consumers pass. Async native cleanup remains deferred.
+
 - **2026-10-06:** Document native source GC execution with existing compiler emission
   and runtime support for no-result control services. Track lost nullable parameter
   annotations as an open native import/emission gap; KeepAlive(null) is not yet a
@@ -16,6 +21,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   resolution and emitter contracts are unchanged.
   Union ToString synthesis now completes the selected source Object method signature
   on demand, preserving override identity across file and declaration order.
+
+- **2026-10-06:** Add a shared synchronous scope-exit disposal contract and cleanup
+  lowering; neoCLR selects `System.Disposable` without exception regions. Dispose
+  successfully initialized resources in reverse order on block completion, returns,
+  error/None propagation, loop exits and outward/backward gotos, preserving result
+  evaluation before cleanup. Diagnose jumps that skip resource acquisition.
+  Ordinary .NET disposal remains exception-safe. Async/iterator use under the new
+  policy is diagnosed until suspension-aware cleanup is supported.
 
 - **2026-10-05:** Render function callbacks as arrow signatures in RavenDoc member
   lists and parameter tables, preserving links within generic callback results.

@@ -51,6 +51,10 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
             return "the unit contract requires an explicit target core, or the .NET void-to-unit bootstrap policy";
         }
 
+        if (Options.RuntimeDisposalContract is { } disposal &&
+            (string.IsNullOrWhiteSpace(disposal.AssemblyName) || string.IsNullOrWhiteSpace(disposal.InterfaceTypeName)))
+            return "the disposal contract requires assembly and interface type names";
+
         if (Options.RuntimeTypeOfContract is { } typeOf &&
             (string.IsNullOrWhiteSpace(typeOf.AssemblyName) ||
              string.IsNullOrWhiteSpace(typeOf.TypeInfoTypeName) ||

@@ -19,6 +19,7 @@ internal static class NeoClrCliProfile
         .WithRuntimeIterationContract(new(CoreAssemblyName,
             "System.Collections.Iterable`1", "System.Collections.Iterator`1",
             ArrayShapeTypeName: "System.Array`1"))
+        .WithRuntimeDisposalContract(new(CoreAssemblyName, "System.Disposable", UseExceptionHandling: false))
         .WithRuntimePropagationContract(new(CoreAssemblyName, "System.Propagatable`3"))
         .WithRuntimeTypeOfContract(new(CoreAssemblyName,
             "System.Introspection.TypeInfo", "System.Runtime.RuntimeContext"))
