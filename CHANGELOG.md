@@ -5,7 +5,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 ## Unreleased
 
 - **2026-10-07:** Record the runtime NativeAllocation prerequisites and remaining
-  pointer metadata/emission boundary. No compiler behavior or source acceptance change.
+  pointer metadata/emission boundary. The metadata library at neoCLR `8e93e39b` now
+  supports bounded pointer callable signatures and introspection, validated by 162 C#
+  groups and an executed API-authored native consumer. Raven pointer mapping remains
+  pending. No compiler behavior or source acceptance change.
 
 - **2026-10-07:** Add an explicit NeoCLR RuntimeFailureContract and bootstrap manifest
   owner for terminal namespace functions. Source and native-imported symbols expose

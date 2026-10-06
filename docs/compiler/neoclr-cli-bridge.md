@@ -7272,3 +7272,19 @@ emission operands and the target adapter. No helper stub or CLR projection subst
 for it. The runtime has five native-container tests plus 17 pointer regressions; Raven
 source NativeMemory acceptance and the four remaining binding errors are unchanged.
 See neoCLR `docs/heap-and-pointers.md#source-nativeallocation-services-2026-10-07`.
+
+### Pointer metadata contract available (2026-10-07)
+
+neoCLR revision `8e93e39b` adds `SignatureType.PointerTo`/`PointerElement` and canonical
+`PointerTypeInfo.ElementType` views. Scalar/Void and nested pointer callable signatures
+round-trip through CLI PTR and native Ptr, import into output builders, and preserve
+exact target identity through locals/calls/returns. Pointer generic arguments, vectors,
+Function shapes and nominal/managed targets remain explicitly unsupported by this
+bounded metadata API. The .NET Raven backend is unchanged.
+
+All 162 metadata groups pass; an API-authored native allocation/free assembly verifies
+and executes with exit 42 against runtime revision `709b2322`. Next map compiler-owned
+pointer symbols/operands through the native loader/emitter and connect the source
+NativeAllocation helper. No compiler source acceptance claim or implicit bridge fallback
+is made. Full System still has four binding errors. Reproduction and hashes are in
+neoCLR `docs/experiments/extended-cli-metadata/pointer-signatures-2026-10-07.md`.
