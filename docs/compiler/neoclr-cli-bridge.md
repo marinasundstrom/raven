@@ -7202,3 +7202,22 @@ explicit Environment namespace alias alongside the bootstrap's legacy type. See 
 `docs/experiments/extended-cli-metadata/source-environment-2026-10-06.md` for commands,
 hashes and limits. Full-System compilation still has 48 diagnostics; this is not release
 or full bootstrap qualification.
+
+
+### Source Console acceptance profile (2026-10-06)
+
+Raven a6ee91610 compiles unchanged Console sources and a separate consumer using native
+library references. neoCLR's target Probe supplies `--reference-source-console-core`
+(the comparer-storage primitive profile without System.Console). The acceptance script
+removes the exact legacy Console type and WriteLine service from its seed and records
+Console.dll as the native owner. This is explicit dependency selection; no compiler
+lookup precedence change or native-to-CLI fallback is introduced. Existing default
+.NET behavior is unaffected. Source no-result WriteLine requires the matching runtime
+host-call fix; older inhabited-unit seeds remain supported by that runtime.
+
+The consumer executes UTF-8 input/output, EOF, integral/boolean overloads, stderr and
+independent closed wrappers with exact output and exit 42. Reproduction, artifacts and
+hashes live in neoCLR's `docs/experiments/extended-cli-metadata/source-console-2026-10-06.md`.
+The full-System binding audit drops to 14 errors across 190 inputs; encoding and linking
+of the complete source library remain unproven. RuntimeFailure/NativeAllocation,
+let-else termination and HTTP Task return binding are the remaining diagnostic frontier.

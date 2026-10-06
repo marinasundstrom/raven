@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-06:** Record the native source-Console acceptance profile: primitive core
+  and seed omit competing Console declarations, while separately emitted Console and
+  native integer libraries are imported without source files. No compiler behavior
+  changes; neoCLR's host-call completion now honors no-result methods.
+
 - **2026-10-06:** Map native-width integer signatures through native import/emission
   and explicit source primitive ownership. Unchanged IntPtr/UIntPtr implementations
   compile separately and their comparison methods execute against signed/unsigned
