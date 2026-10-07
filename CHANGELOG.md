@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Emit supported imported native Object slots from symbols through
+  explicit metadata slot references. ToString/GetHashCode/Equals dispatch through an
+  object receiver now executes derived overrides against separate Runtime (exit 42).
+  Keep unrelated virtual methods unsupported; ordinary .NET behavior is unchanged.
+
 - RavenDoc supports configurable GitHub repositories per site or API source, with declaration-based Raven source-file links for metadata references. Assembly identity remains visible; unmatched types do not receive guessed source links.
 
 - **2026-10-07:** Register the imported erased System.Value carrier with the native

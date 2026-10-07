@@ -3618,3 +3618,14 @@ the canonical Value storage tag with scoped aliases. No semantic-loader objects 
 reopened. Source-free ParseInt32/IsValue/UnpackValue execution against Runtime and the
 retained seed returns 42 for success/error checks. Networking advances to unsupported
 imported virtual Object.ToString calls. This native-only fix does not alter .NET emission.
+
+### Imported native Object slot calls — 2026-10-07
+
+The native emitter admits public concrete virtual ToString/GetHashCode/Equals methods
+on the selected imported System.Object root and authors an explicit Object slot
+reference from symbol signatures. It does not label these new-slot declarations as
+overrides or reopen metadata readers. The metadata API validates exact signatures and
+requires Callvirt. The ordinary Raven consumer uses an object receiver and executes
+all three derived overrides (42) against the independently built Runtime. Other imported
+virtual class methods remain outside this bounded contract. Networking advances to
+the retained/source CheckedStorage mapping; this is not full Networking acceptance.
