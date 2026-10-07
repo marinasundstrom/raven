@@ -839,8 +839,8 @@ Copy controls float over code blocks without adding top padding, including API s
 Source API navigation includes public macros from the compile-time macro partition
 and their namespaces, even when the runtime assembly contains no ordinary types.
 
-Authored pages use a documentation sidebar with visible section headings and
-current-page highlighting. Generated API pages keep the searchable symbol tree.
+Authored pages use a documentation sidebar with collapsible sections and
+current-page highlighting. The current section opens automatically. Generated API pages keep the searchable symbol tree.
 `apiNavigationRoot` retains the API browser for authored API landing pages.
 
 Each `apis` entry's `title` is its display name in library navigation and the API

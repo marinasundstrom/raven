@@ -230,7 +230,9 @@ public static class DocumentationSiteBuilder
                     throw new InvalidOperationException("HTML content must be a body fragment; RavenDoc supplies the page shell.");
                 string Link(string path) => Path.GetRelativePath(currentDirectory, Path.Combine(staging, path)).Replace('\\', '/');
                 var pageMenu = MenuForPage(page.Source);
-                var navigation = DocumentationNavigation.Compose(pageMenu, apiNavigation, appendApi: configuration.ApiNavigationRoot is not null && ReferenceEquals(pageMenu, menu));
+                var navigation = DocumentationNavigation.Compose(pageMenu,
+                    configuration.ApiNavigationRoot is null ? libraryNavigation : apiNavigation,
+                    appendApi: pageMenu.Count == 0 || configuration.ApiNavigationRoot is not null && ReferenceEquals(pageMenu, menu));
                 var navigationRoot = configuration.ApiNavigationRoot?.TrimEnd('/');
                 var showNavigation = metadata.Layout != "landing" && (navigationRoot is null ||
                     page.Destination.StartsWith(navigationRoot + "/", StringComparison.Ordinal));

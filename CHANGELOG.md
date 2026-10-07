@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Keep article navigation sections collapsible with native keyboard
+  controls, automatically opening the section containing the current page.
+  Preserve automatic library links when a site has no authored menu.
+
 - **2026-10-07:** Record NeoCLR intrinsic String/source Object constructor support
   and its linked PE execution gate. The 197-source System audit now reaches the
   binary library payload limit; no ordinary .NET compiler behavior changes.
