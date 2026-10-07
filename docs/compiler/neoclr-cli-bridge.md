@@ -7738,3 +7738,21 @@ references; the Runtime library exposes bounded ArrayReflection services. Explic
 primitive Core, ownership manifest and finalized seed remain required. Evidence lives
 in neoCLR's `docs/experiments/extended-cli-metadata/separate-data-2026-10-07.md`.
 This is a native ownership fix, not an independently applicable .NET behavior change.
+
+## Separate Web integration evidence (2026-10-07)
+
+The neoCLR bootstrap branch now has a native Networking-owned NetworkDeadline contract,
+consumed by separately compiled Web. Compiler qualification uses Raven 65f554a49 with
+explicit primitive Core, retained seed and Runtime/Data/Networking/Web artifact references.
+Select System.Runtime through --object-library and, for async consumers, --async-library.
+No importer objects are reused by emission and no CLI fallback is introduced.
+
+Five source-free native consumers and header/body loopback HTTP cancellation pass.
+New typed deadline CLI declarations are documentation-only; the legacy translator has
+no corresponding mapping. This does not qualify every async form: the new Task<()> test
+rejected a return conversion while explicit Task<int> passed. A fresh Web build also
+intermittently fails native System.Void type validation; the identical command can succeed
+on retry. Both compiler cases require investigation before reliable bootstrap qualification.
+See neoCLR docs/experiments/extended-cli-metadata/separate-web-2026-10-07.md and its hashed
+evidence on codex/native-system-bootstrap. Native project-reference support is the next
+integration boundary after reliable builds; existing workspace checks explicitly reject it.

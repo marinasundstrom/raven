@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Record separate native Web deadline integration and passing source-free
+  consumers, plus unresolved intermittent System.Void encoding and Task<()> return gaps.
+  No compiler behavior or default .NET target changes in this documentation slice.
+
 - Infer synchronous lambda results from `match` arms and block returns before
   fixing an unresolved generic method result parameter. Preserve lexical generic
   targets and query-order consistency. Update the list-deconstruction sample to
