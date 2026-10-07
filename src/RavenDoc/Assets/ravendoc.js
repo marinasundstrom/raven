@@ -229,3 +229,48 @@ for (const code of document.querySelectorAll(
     if (notice) observer.observe(notice);
     measure();
 })();
+
+
+// Keep the same navigation links on mobile, behind a keyboard-accessible disclosure.
+(() => {
+    const navigation = document.querySelector('.site-navigation');
+    const header = navigation?.closest('.site-header');
+    if (!header || !navigation.querySelector('a')) return;
+    const mobile = matchMedia('(max-width: 980px)');
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'site-menu-toggle';
+    toggle.setAttribute('aria-label', 'Main menu');
+    toggle.setAttribute('aria-expanded', 'false');
+    navigation.id ||= 'main-navigation';
+    toggle.setAttribute('aria-controls', navigation.id);
+    toggle.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="4" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="20" cy="12" r="2"/></svg>';
+    navigation.before(toggle);
+    header.classList.add('has-navigation-menu');
+    const close = () => {
+        navigation.classList.remove('is-open');
+        toggle.setAttribute('aria-expanded', 'false');
+    };
+    toggle.addEventListener('click', () => {
+        const open = toggle.getAttribute('aria-expanded') !== 'true';
+        const searchToggle = header.querySelector('.site-search-toggle');
+        if (open && searchToggle?.getAttribute('aria-expanded') === 'true') searchToggle.click();
+        navigation.classList.toggle('is-open', open);
+        toggle.setAttribute('aria-expanded', String(open));
+        if (open) header.querySelectorAll('details[open]').forEach(details => {
+            if (!navigation.contains(details)) details.open = false;
+        });
+    });
+    document.addEventListener('click', event => {
+        if (!navigation.contains(event.target) && !toggle.contains(event.target)) close();
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || toggle.getAttribute('aria-expanded') !== 'true') return;
+        close();
+        toggle.focus();
+    });
+    navigation.addEventListener('click', event => {
+        if (mobile.matches && event.target.closest('a')) close();
+    });
+    mobile.addEventListener('change', close);
+})();
