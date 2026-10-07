@@ -74,7 +74,7 @@ public class TargetConfigurationDiagnosticTests
         Assert.False(result.Success);
         var error = Assert.Single(result.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
         Assert.Equal("RAVT003", error.Id);
-        Assert.Contains(typeOfContract ? "typeof contract" : "empty value type", error.GetMessage());
+        Assert.Contains(typeOfContract ? "typeof contract" : "empty non-void value type", error.GetMessage());
         Assert.Equal(suppliedDiagnostics ? 2 : 1, result.Diagnostics.Length);
         if (suppliedDiagnostics)
             Assert.Same(warning, result.Diagnostics[0]);

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Correct stale unit-contract diagnostic test wording, matching the
+  independently validated Raven main fix 8c53fa55b. Compiler behavior is unchanged.
+
 - **2026-10-07:** Reuse output-owned UnionAttribute constructors during native union
   emission, preserving source inheritance and preventing duplicate marker definitions.
   Invalid source markers reject before publication; embedded-marker fallback remains.
