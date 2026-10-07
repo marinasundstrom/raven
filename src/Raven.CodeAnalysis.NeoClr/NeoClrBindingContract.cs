@@ -44,6 +44,16 @@ internal static class NeoClrBindingContract
                      SpecialType.System_Int64, SpecialType.System_Boolean, SpecialType.System_String,
                      SpecialType.System_Unit })
         {
+            if (special == SpecialType.System_Unit && compilation.Options.RuntimeUnitContract is { } unit &&
+                unit.AssemblyName != options.CoreLibrary.Name)
+            {
+                var representation = compilation.ResolveRuntimeUnitType();
+                if (representation?.ContainingAssembly?.Name != unit.AssemblyName ||
+                    !SymbolEqualityComparer.Default.Equals(representation.ContainingAssembly, compilation.Assembly) &&
+                    representation.ContainingAssembly is not IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    return "native unit does not match its selected source or artifact owner";
+                continue;
+            }
             var type = compilation.GetSpecialType(special);
             if (special == SpecialType.System_Object && compilation.UsesSourceObjectRoot && compilation.IsSourceObjectRoot((INamedTypeSymbol)type)) continue;
             if (compilation.Options.MetadataImportOptions?.PrimitiveAssemblies.TryGetValue(special, out var provider) == true)

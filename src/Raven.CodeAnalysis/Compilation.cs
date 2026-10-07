@@ -1735,6 +1735,14 @@ public partial class Compilation
         public SynthesizedMainAsyncMethodSymbol? AsyncMainMethod { get; set; }
     }
 
+    internal INamedTypeSymbol? ResolveRuntimeUnitType()
+    {
+        if (Options.RuntimeUnitContract is not { } contract) return null;
+        return Options.TargetPlatform == TargetPlatform.NeoCLR && Assembly.Name == contract.AssemblyName
+            ? Assembly.GetTypeByMetadataName(contract.TypeName)
+            : ReferencedAssemblySymbols.FirstOrDefault(assembly => assembly.Name == contract.AssemblyName)?.GetTypeByMetadataName(contract.TypeName);
+    }
+
     private UnitTypeSymbol CreateUnitTypeSymbol()
     {
         var global = SourceGlobalNamespace;
@@ -1746,9 +1754,7 @@ public partial class Compilation
             global.AddMember(system);
         }
 
-        var selectedUnit = Options.RuntimeUnitContract is { } contract
-            ? ReferencedAssemblySymbols.FirstOrDefault(assembly => assembly.Name == contract.AssemblyName)?.GetTypeByMetadataName(contract.TypeName)
-            : null;
+        var selectedUnit = ResolveRuntimeUnitType();
         var unit = new UnitTypeSymbol(this, selectedUnit?.ContainingNamespace ?? system, selectedUnit);
         if (Options.RuntimeUnitContract is null)
             system.AddMember(unit);

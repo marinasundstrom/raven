@@ -170,6 +170,12 @@ internal abstract partial class Binder
             result = result with { ResolvedType = canonicalHandle, ResolvedNamedDefinition = canonicalHandle };
         }
 
+        if (result.Success && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            Compilation.Options.RuntimeUnitContract is { } unitContract &&
+            unitContract.AssemblyName != Compilation.Options.TargetCoreAssemblyName &&
+            SymbolEqualityComparer.Default.Equals(result.ResolvedType, Compilation.ResolveRuntimeUnitType()))
+            result = result with { ResolvedType = Compilation.GetSpecialType(SpecialType.System_Unit) };
+
         if (result.Success && result.ResolvedType.SpecialType == SpecialType.System_Void &&
             Compilation.Options.RuntimeUnitContract is { MapClrVoidToUnit: true })
             result = result with { ResolvedType = Compilation.GetSpecialType(SpecialType.System_Unit) };
@@ -917,7 +923,15 @@ internal abstract partial class Binder
                 Issues = element.Issues.Add(ResolveTypeResult.ResolutionIssue.Failure(p.ElementType, TypeResolutionFailureKind.PointerElementFailed))
             };
 
-        return new ResolveTypeResult { ResolvedType = Compilation.CreatePointerTypeSymbol(element.ResolvedType) };
+        // Native unit has nominal storage, but an unmanaged pointer to the explicitly
+        // selected System.Void contract remains CLI PTR VOID, not a pointer to that carrier.
+        var pointedAt = element.ResolvedType;
+        if (Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            Compilation.Options.RuntimeUnitContract is { TypeName: "System.Void", MapClrVoidToUnit: false } &&
+            (pointedAt.SpecialType == SpecialType.System_Unit ||
+             SymbolEqualityComparer.Default.Equals(pointedAt, Compilation.ResolveRuntimeUnitType())))
+            pointedAt = Compilation.GetSpecialType(SpecialType.System_Void);
+        return new ResolveTypeResult { ResolvedType = Compilation.CreatePointerTypeSymbol(pointedAt) };
     }
 
     private ResolveTypeResult BindNullable(

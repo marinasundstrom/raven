@@ -32,10 +32,11 @@ internal static class NeoClrCliProfile
     {
         if (options.TargetCoreAssemblyName != CoreAssemblyName ||
             options.MetadataImportOptions?.CoreAssemblyName != CoreAssemblyName ||
-            options.RuntimeUnitContract != Unit)
+            options.RuntimeUnitContract is not { TypeName: "System.Void", MapClrVoidToUnit: false } unit ||
+            string.IsNullOrWhiteSpace(unit.AssemblyName))
         {
             return "the neoCLR CLI profile requires explicit NeoCLR.CoreProbe metadata and emission cores " +
-                "and its System.Void unit contract; start with CompilationOptions.NeoCLR";
+                "and an explicitly owned System.Void unit contract; start with CompilationOptions.NeoCLR";
         }
 
         return null;

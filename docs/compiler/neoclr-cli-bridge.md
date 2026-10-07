@@ -7378,3 +7378,32 @@ String.Concat for generated union display through the real runtime service.
 101 focused .NET root/constructor/union regressions pass. The full 195-input System
 audit passes binding and next rejects NativeMemory.Alloc's pointer-to-source-Void
 signature; no full-System output is published.
+
+### Explicit source/native unit ownership (2026-10-07)
+
+The NeoCLR RuntimeUnitContract can select System.Void in the current source assembly
+or an explicit native dependency, independently of the primitive bootstrap. It still
+requires an empty public nongeneric value type. Ordinary .NET unit policy and emission
+are unchanged. Source declaration completion precedes contract validation; unit storage
+resolves through the chosen symbol, while callable unit results remain no-result.
+Pointers to that exact selected contract use CLI PTR VOID. Same-named unselected
+source types do not become untyped pointers. Emission authors local/imported unit
+operands from the selected symbols; it does not reopen importer objects.
+
+Ownership manifests may omit iteration for libraries that do not use iteration.
+An explicitly selected source/native unit replaces the compiler bootstrap's unit
+scaffold in ownership checks; other duplicate declarations still reject. Runtime
+seeds and native libraries must agree on the selected owner. Old libraries that refer
+to seed-owned Void cannot simply be reused after deleting that seed declaration.
+
+The NativeMemory source-unit gate builds production Void, NativeMemory and runtime
+adapters, then separately compiles a consumer with no library sources. It executes
+both allocation forms, Free and an inhabited unit parameter (exit 42), plus expected
+double-free and overflow faults and failure-before-publication for unsupported
+pointers. Its minimal seed and API-authored native-width inputs are explicit. The
+ordinary bootstrap NativeMemory control is retained. 76 focused tests cover unit,
+pointer, configuration and synchronous cleanup behavior. Two pre-existing failures
+were stale diagnostic wording assertions; their correction is independently validated
+on main. The full 195-input System audit clears binding and pointer admission, but
+encoding still reports a missing/ambiguous bootstrap System.Void reference. No full
+System artifact or complete ownership migration is claimed.

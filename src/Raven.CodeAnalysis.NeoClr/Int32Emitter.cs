@@ -1050,7 +1050,8 @@ internal static class Int32Emitter
                     NeoClrTypeMapper.Map(shape.ReturnType, owned => nativeTypes[owned], ImportExternalType),
                     shape.ParameterTypes.Select(t => NeoClrTypeMapper.Map(t, owned => nativeTypes[owned], ImportExternalType)))),
             INamedTypeSymbol when !result && IsRuntimeUnitValue(type) =>
-                ImportExternalType(((UnitTypeSymbol)compilation.GetSpecialType(SpecialType.System_Unit)).RuntimeRepresentation!),
+                NeoClrTypeMapper.Map(((UnitTypeSymbol)compilation.GetSpecialType(SpecialType.System_Unit)).RuntimeRepresentation!,
+                    owned => nativeTypes[owned], ImportExternalType),
             ITypeParameterSymbol { DeclaringMethodParameterOwner: not null } parameter => SignatureType.MethodParameter(parameter.Ordinal),
             ITypeParameterSymbol parameter => SignatureType.TypeParameter(parameter.Ordinal),
             IArrayTypeSymbol array => SignatureType.ArrayOf(MapSymbolOnlyType(array.ElementType)),

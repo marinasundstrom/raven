@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis;
 
 // Host configuration only: it selects semantic contracts and checks ownership, not metadata representation.
 internal sealed record BootstrapSourceLibrary(string AssemblyName, string[] Sources, string[] Types);
-internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLibrary[] Libraries, RuntimeIterationContract Iteration, RuntimeTypeOfContract? TypeOf = null, RuntimePropagationContract? Propagation = null, RuntimeUnitContract? Unit = null, RuntimeSelfTypeContract? Self = null, Dictionary<string, string>? NativePrimitives = null, RuntimeDisposalContract? Disposal = null, RuntimeFailureContract? Failure = null)
+internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLibrary[] Libraries, RuntimeIterationContract? Iteration = null, RuntimeTypeOfContract? TypeOf = null, RuntimePropagationContract? Propagation = null, RuntimeUnitContract? Unit = null, RuntimeSelfTypeContract? Self = null, Dictionary<string, string>? NativePrimitives = null, RuntimeDisposalContract? Disposal = null, RuntimeFailureContract? Failure = null)
 {
     internal static BootstrapOwnershipManifest Read(string path)
     {
@@ -22,7 +22,7 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
             }) ?? throw new InvalidDataException("Empty bootstrap ownership manifest.");
         }
         catch (JsonException error) { throw new InvalidDataException("Malformed bootstrap ownership manifest: " + error.Message, error); }
-        if (manifest.Version != 1 || manifest.Libraries is not { Length: > 0 and <= 32 } || manifest.Iteration is null)
+        if (manifest.Version != 1 || manifest.Libraries is not { Length: > 0 and <= 32 })
             throw new InvalidDataException("Unsupported bootstrap ownership manifest version or library catalog.");
         var types = new Dictionary<string, string>(StringComparer.Ordinal);
         var names = new HashSet<string>(StringComparer.Ordinal);
@@ -36,10 +36,10 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
                 if (string.IsNullOrWhiteSpace(type) || !types.TryAdd(type, library.AssemblyName))
                     throw new InvalidDataException("Duplicate or invalid bootstrap type owner: " + type);
         }
-        if (manifest.Iteration.IterableTypeName is null || manifest.Iteration.IteratorTypeName is null ||
+        if (manifest.Iteration is { } iteration && (iteration.IterableTypeName is null || manifest.Iteration.IteratorTypeName is null ||
             !types.TryGetValue(manifest.Iteration.IterableTypeName, out var iterableOwner) ||
             !types.TryGetValue(manifest.Iteration.IteratorTypeName, out var iteratorOwner) ||
-            iterableOwner != manifest.Iteration.AssemblyName || iteratorOwner != manifest.Iteration.AssemblyName)
+            iterableOwner != manifest.Iteration.AssemblyName || iteratorOwner != manifest.Iteration.AssemblyName))
             throw new InvalidDataException("Iteration contracts must belong to their declared source library.");
         if (manifest.Disposal is { } disposal &&
             (!types.TryGetValue(disposal.InterfaceTypeName, out var disposalOwner) || disposalOwner != disposal.AssemblyName))
@@ -111,7 +111,9 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
                 foreach (var assembly in assemblies)
                 {
                     if (assembly.GetTypeByMetadataName(name) is not { } type) continue;
-                    if (NativePrimitives?.ContainsKey(name) == true && type.ContainingAssembly?.Name == compilation.Options.MetadataImportOptions?.CoreAssemblyName) continue;
+                    var replacesBootstrap = NativePrimitives?.ContainsKey(name) == true ||
+                        Unit is { } unit && unit.TypeName == name && unit.AssemblyName == library.AssemblyName;
+                    if (replacesBootstrap && type.ContainingAssembly?.Name == compilation.Options.MetadataImportOptions?.CoreAssemblyName) continue;
                     matches.Add(type);
                 }
                 if (matches.Count != 1 || matches.Single().ContainingAssembly?.Name != library.AssemblyName)

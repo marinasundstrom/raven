@@ -7,6 +7,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 - **2026-10-07:** Correct stale unit-contract diagnostic test wording, matching the
   independently validated Raven main fix 8c53fa55b. Compiler behavior is unchanged.
 
+- **2026-10-07:** Allow NeoCLR's unit contract to select an explicit source or native
+  artifact owner. Preserve inhabited unit storage, no-result calls and CLI PTR VOID
+  for pointers to the selected unit; reject invalid owners and storage. Ownership
+  catalogs can omit unused iteration contracts. NativeMemory and a separate consumer
+  execute with source-owned Void; full-System bootstrap reference migration remains.
+
 - **2026-10-07:** Reuse output-owned UnionAttribute constructors during native union
   emission, preserving source inheritance and preventing duplicate marker definitions.
   Invalid source markers reject before publication; embedded-marker fallback remains.

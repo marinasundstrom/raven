@@ -44,7 +44,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
         if (Options.RuntimeUnitContract is { } unit &&
             (string.IsNullOrWhiteSpace(unit.AssemblyName) ||
              string.IsNullOrWhiteSpace(unit.TypeName) ||
-             (!unit.MapClrVoidToUnit && Options.TargetCoreAssemblyName != unit.AssemblyName) ||
+             (!unit.MapClrVoidToUnit && Options.TargetPlatform != TargetPlatform.NeoCLR && Options.TargetCoreAssemblyName != unit.AssemblyName) ||
              (unit.MapClrVoidToUnit && (Options.TargetPlatform != TargetPlatform.DotNet ||
                  Options.TargetCoreAssemblyName is { } selectedCore && selectedCore != unit.AssemblyName))))
         {
@@ -118,8 +118,10 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
 
         if (Options.RuntimeUnitContract is { } unit)
         {
-            var type = compilation.GetTypeByMetadataName(unit.TypeName, unit.AssemblyName);
-            if (type is null || unit.MapClrVoidToUnit && (type.SpecialType == SpecialType.System_Void || type.DeclaredAccessibility != Accessibility.Public) || !type.IsValueType || type.Arity != 0 || type.ContainingType is not null || type.ContainingAssembly?.Name != unit.AssemblyName
+            if (Options.TargetPlatform == TargetPlatform.NeoCLR && unit.AssemblyName == compilation.Assembly.Name)
+                compilation.EnsureSourceDeclarationsComplete();
+            var type = compilation.ResolveRuntimeUnitType();
+            if (type is null || (Options.TargetPlatform == TargetPlatform.NeoCLR || unit.MapClrVoidToUnit) && type.DeclaredAccessibility != Accessibility.Public || unit.MapClrVoidToUnit && type.SpecialType == SpecialType.System_Void || !type.IsValueType || type.Arity != 0 || type.ContainingType is not null || type.ContainingAssembly?.Name != unit.AssemblyName
                 || type.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic))
                 return "the unit contract must name a public empty non-void value type in its configured assembly";
         }
