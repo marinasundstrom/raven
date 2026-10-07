@@ -723,6 +723,15 @@ on the neoCLR branch, not a promise of general runtime-owned suspension. There i
 no project property or CLI switch yet, and neoCLR builder/importer integration
 remains outstanding. Exception capture is an independent option.
 
+Release-gate validation (2026-10-07) found a pending heap-state regression in
+field-assignment emission: an emitter-local copy of `self` was bypassed by resume
+dispatch. Stable self/base receivers are now reloaded after the value expression;
+side-effecting receivers keep their original evaluation order. Seventeen focused
+modern .NET tests pass, covering Debug/Release heap and value states, delayed task
+completion, forced GC and reference-field early returns. Runtime Contract settings
+and CLI bridge encoding are unchanged. This does not establish native neoCLR,
+.NET Framework or NanoFramework execution support.
+
 ## neoCLR Task builder integration (2026-09-21)
 
 On the neoclr branch, a target-core compilation with heap async states resolves

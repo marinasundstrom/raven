@@ -5215,7 +5215,10 @@ internal partial class ExpressionGenerator : Generator
                     IILocal? cachedRightLocal = null;
                     IILocal? cachedReceiverLocal = null;
 
-                    if (!fieldSymbol.IsStatic && containingType?.IsReferenceType == true && rightHasControlTransfer)
+                    // Self/base are stable across control transfers, including async resume
+                    // labels that bypass emitter-local initialization. Reload them after the RHS.
+                    var cacheReceiver = receiver is not null and not BoundSelfExpression and not BoundBaseExpression;
+                    if (!fieldSymbol.IsStatic && containingType?.IsReferenceType == true && rightHasControlTransfer && cacheReceiver)
                     {
                         // Evaluate the receiver first, but leave an empty stack for RHS returns.
                         // Reload this same object after the RHS, even if it changes the receiver variable.

@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Preserve heap async state across pending awaits when assigning
+  hoisted locals. Reload stable self/base field receivers after control transfers
+  instead of caching them in emitter locals that resume dispatch skips. Keep
+  side-effecting receiver evaluation order; validate Debug/Release heap and value
+  state machines and reference-field early returns. Runtime Contract settings and
+  CLI bridge encodings are unchanged.
+
 - **2026-10-07:** Import native erased System.Value as its declared value-type identity,
   without parsing a nonexistent CLR SpecialType. Native method signatures retain that
   owner; numeric classification is unchanged. The source-free orders consumer now
