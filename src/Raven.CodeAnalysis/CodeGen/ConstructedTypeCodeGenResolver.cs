@@ -12,11 +12,10 @@ internal static class ConstructedTypeCodeGenResolver
 {
     internal static System.Reflection.TypeInfo GetTypeInfo(ConstructedNamedTypeSymbol symbol, CodeGenerator codeGen)
     {
-        var runtimeArguments = symbol.GetAllTypeArguments();
-
         if (symbol.ConstructedFrom is PENamedTypeSymbol pen)
         {
             var genericTypeDef = TypeSymbolExtensionsForCodeGen.GetClrType(pen, codeGen);
+            var runtimeArguments = TypeSymbolExtensionsForCodeGen.GetRuntimeTypeArguments(symbol, genericTypeDef);
             if (runtimeArguments.IsDefaultOrEmpty)
                 return genericTypeDef.GetTypeInfo();
 
@@ -31,6 +30,9 @@ internal static class ConstructedTypeCodeGenResolver
             var definitionType = codeGen.GetTypeBuilder(source) ?? throw new InvalidOperationException("Missing type builder for generic definition.");
             if (source.IsExtensionDeclaration)
                 return definitionType.GetTypeInfo();
+            // Hoisted sealed-hierarchy cases do not carry their lexical owner's
+            // parameters. Match member owners to the actual emitted definition.
+            var runtimeArguments = TypeSymbolExtensionsForCodeGen.GetRuntimeTypeArguments(symbol, definitionType);
             if (runtimeArguments.IsDefaultOrEmpty)
                 return definitionType.GetTypeInfo();
 

@@ -31,6 +31,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ### Detailed changes
 
+- Resolve generic case member owners using the emitted type's arity. Hoisted
+  sealed-hierarchy cases no longer include phantom enclosing arguments in calls
+  or synthesized record formatting. Preserve enclosing arguments for ordinary
+  nested types; add runtime regressions and a representative IL-verified sample.
+
 - Infer synchronous lambda results from `match` arms and block returns before
   fixing an unresolved generic method result parameter. Preserve lexical generic
   targets and query-order consistency. Update the list-deconstruction sample to
