@@ -118,7 +118,7 @@ try {
       const layout = await block.evaluate(pre => {
         const code = pre.querySelector('code');
         const before = code.getBoundingClientRect().top;
-        const position = getComputedStyle(pre.querySelector('.copy-code')).position;
+        const position = getComputedStyle(pre.parentElement.querySelector('.copy-code')).position;
         pre.classList.remove('with-copy-code');
         const after = code.getBoundingClientRect().top;
         pre.classList.add('with-copy-code');
@@ -128,6 +128,43 @@ try {
       assert.equal(layout.before, layout.after, 'Copy control does not push code downward');
     }
   }
+  // Copy controls stay at the visible edge while the code itself scrolls.
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto(`${base}/raven-for-csharp-developers.html`);
+  const scrollingCode = page.locator('pre.with-copy-code').first();
+  const copyBounds = await scrollingCode.evaluate(pre => {
+    pre.querySelector('code').textContent += '\n' + 'long example '.repeat(60);
+    const button = pre.parentElement.querySelector('.copy-code');
+    const before = button.getBoundingClientRect();
+    pre.scrollLeft = 120;
+    const after = button.getBoundingClientRect();
+    return { before: before.x, after: after.x, scroll: pre.scrollLeft, right: after.right, edge: pre.getBoundingClientRect().right };
+  });
+  assert.ok(copyBounds.scroll > 0, 'Code sample scrolled horizontally');
+  assert.equal(copyBounds.before, copyBounds.after, 'Copy button stays fixed while code scrolls');
+  assert.ok(copyBounds.edge - copyBounds.right < 16, 'Copy button stays at the visible right edge');
+  for (const width of [390, 768, 980]) {
+    await page.setViewportSize({ width, height: 900 });
+    const menu = page.getByRole('button', { name: 'Main menu', exact: true });
+    assert.equal(await menu.isVisible(), true);
+    assert.equal(await page.locator('.site-navigation').isVisible(), false);
+    assert.equal(await page.getByRole('button', { name: 'Search site', exact: true }).isVisible(), true);
+    assert.equal(await page.locator('.theme-menu > summary').isVisible(), true);
+    await menu.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await menu.getAttribute('aria-expanded'), 'true');
+    await page.keyboard.press('Tab');
+    assert.equal(await page.locator('.site-navigation').evaluate(nav => nav.contains(document.activeElement)), true);
+    await page.keyboard.press('Escape');
+    assert.equal(await menu.getAttribute('aria-expanded'), 'false');
+    assert.equal(await menu.evaluate(e => e === document.activeElement), true);
+    await menu.click();
+    await page.locator('footer').click();
+    assert.equal(await menu.getAttribute('aria-expanded'), 'false');
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  assert.equal(await page.getByRole('button', { name: 'Main menu', exact: true }).isVisible(), false);
+  assert.equal(await page.locator('.site-navigation').isVisible(), true);
   await page.goto(`${base}/libraries/raven-macros/index.html`);
   const macroNavigation = page.locator('.api-navigation-panel');
   assert.ok(await macroNavigation.locator('a[href$="macro_Quote.html"]').count() > 0, 'Macro-only library is navigable');

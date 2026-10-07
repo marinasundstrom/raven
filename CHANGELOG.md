@@ -31,6 +31,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ### Detailed changes
 
+- **2026-10-07:** Keep RavenDoc copy controls pinned to the visible code sample
+  while code scrolls horizontally. Collapse the main navbar into a three-dot
+  disclosure on mobile/tablet screens, with theme and search controls alongside.
+  Preserve desktop links and keyboard, Escape and outside-click navigation.
+
 - **2026-10-07:** Preserve heap async state across pending awaits when assigning
   hoisted locals. Reload stable self/base field receivers after control transfers
   instead of caching them in emitter locals that resume dispatch skips. Keep

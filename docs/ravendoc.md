@@ -860,3 +860,14 @@ Each path is relative to the configuration directory and uses that directory's
 `toc.yml` for every page below it; the most specific configured section wins.
 `navigationTitle` labels the root sidebar, and a section's optional `title` overrides
 it. Unconfigured folders keep the existing scope conventions.
+
+### Mobile header and code controls
+
+On small screens, the main navbar collapses into a three-dot disclosure beside
+color theme and optional site search. Escape closes the menu and restores focus;
+clicking outside or following a link closes it as well. Desktop navigation stays
+visible. The same authored links serve both layouts.
+
+With `copyCode` enabled, copy controls float at the visible top-right edge of each
+sample or signature. Only the code scrolls horizontally; the control stays in
+place without reserving extra space above the code.
