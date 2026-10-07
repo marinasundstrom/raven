@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Record successful emission of the 197-input NeoCLR System audit
+  using the metadata library's explicit schema-4 envelope profile. Smaller libraries
+  retain schema 3; runtime loading still rejects the source Array backing contract.
+  Optional Data/Networking/Web assembly boundaries remain under investigation.
+
 - **2026-10-07:** Add configurable site-wide article navigation and use it for Raven.
   Organize guides, applications, tools, libraries, reference topics and project
   information in one persistent hierarchy instead of switching sidebars by folder.

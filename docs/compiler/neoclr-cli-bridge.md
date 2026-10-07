@@ -7520,3 +7520,19 @@ The 197-source System audit advances to the binary library payload limit and sti
 publishes no output. This is not full source String/System execution. See neoCLR
 `docs/experiments/extended-cli-metadata/string-root-2026-10-07.md` for commands,
 compiler/runtime hashes, ownership and remaining limits.
+
+## Larger native libraries and first aggregate emission (2026-10-07)
+
+Metadata library writers now select required schema 4 above schema 3's 8 MiB
+envelope, allowing 16 MiB. JSON/node/depth and total PE limits remain unchanged;
+older readers reject schema 4 and small libraries retain schema 3. No compiler
+code, Runtime Contract configuration or CLI mapping changes; ordinary .NET remains
+unchanged. All 197 diagnostic System inputs emit successfully with this metadata DLL.
+
+The aggregate owner is still Numbers, a diagnostic layout, not a shipped monolithic
+System.Runtime. The author suggested separate System.Data, System.Networking and
+System.Web assemblies; dependency/service ownership must be assessed before adopting
+boundaries. Large-library linked execution passes, but loading the complete source
+artifact rejects the nominal Array backing contract. See neoCLR
+`docs/experiments/extended-cli-metadata/expanded-library-2026-10-07.md` for evidence,
+artifact/compiler/runtime hashes, bounds and remaining work.
