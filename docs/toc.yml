@@ -29,8 +29,7 @@
     - name: Authoring Raven macros
       href: macro-authoring.md
 - name: Language reference
-  tocHref: lang/spec/toc.yml
-  topicHref: lang/spec/index.md
+  href: lang/spec/index.md
 - name: About Raven
   href: overview.md
   items:

@@ -148,7 +148,6 @@ try {
     '/workloads/web-api.html', '/showcases/web-api.html',
     '/compiler/raven-compiler.html', '/compiler/analyzers/configuration.html',
     '/libraries/index.html', '/compiler/raven-core-library.html', '/macro-authoring.html',
-    '/lang/spec/index.html', '/lang/spec/functions.html', '/lang/spec/type-system.html',
     '/status.html'
   ];
   const readingLinks = async () => page.locator('.documentation-navigation a').evaluateAll(links =>
@@ -174,8 +173,24 @@ try {
   await page.locator('.api-navigation-panel summary[title="Raven.Macros"]').click();
   await page.locator('.api-navigation-panel a[href$="macro_Quote.html"]').click();
   assert.ok((await page.locator('article').textContent()).includes('Raven.Macros.dll'));
-  await page.locator('.site-navigation').getByRole('link', { name: 'Docs', exact: true }).click();
+  await page.locator('.site-navigation').getByRole('link', { name: 'Getting started', exact: true }).click();
   assert.deepEqual(await readingLinks(), hierarchy, 'Returning from API restores the documentation hierarchy');
+  await page.locator('.site-navigation').getByRole('link', { name: 'Language reference', exact: true }).click();
+  const referenceHierarchy = await readingLinks();
+  assert.notDeepEqual(referenceHierarchy, hierarchy, 'Reference has an intentional separate hierarchy');
+  assert.equal(await page.locator('#api-browser-heading').textContent(), 'Language reference');
+  for (const route of ['/lang/spec/functions.html', '/lang/spec/type-system.html']) {
+    const href = await page.locator('.documentation-navigation a').evaluateAll((links, path) =>
+      links.find(a => new URL(a.href).pathname === path && !new URL(a.href).hash)?.getAttribute('href'), route);
+    const target = page.locator(`.documentation-navigation a[href="${href}"]`).first();
+    for (const group of await target.locator('xpath=ancestor::details').all())
+      if (!await group.evaluate(e => e.open)) await group.locator(':scope > summary').click();
+    await target.click();
+    assert.deepEqual(await readingLinks(), referenceHierarchy, 'Reference hierarchy stays stable');
+  }
+  await page.locator('.site-navigation').getByRole('link', { name: 'Getting started', exact: true }).click();
+  assert.deepEqual(await readingLinks(), hierarchy);
+  assert.equal(await page.locator('#api-browser-heading').textContent(), 'Getting started');
   assert.deepEqual(errors, []);
   console.log('Documentation browser checks passed: responsive layout, contrast, keyboard navigation, reference search, and example links.');
 } finally {

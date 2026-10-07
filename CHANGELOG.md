@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Support explicit navigation section boundaries using conventional
+  directory TOCs and configurable sidebar titles. Give Getting started and Language
+  reference separate stable hierarchies matching the Raven navbar destinations.
+
 - **2026-10-07:** Record successful emission of the 197-input NeoCLR System audit
   using the metadata library's explicit schema-4 envelope profile. Smaller libraries
   retain schema 3; runtime loading still rejects the source Array backing contract.

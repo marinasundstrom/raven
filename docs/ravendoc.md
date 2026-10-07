@@ -853,3 +853,10 @@ authored page, regardless of its folder. Compose that root with `tocHref` includ
 and `topicHref` overview links. The default, `section`, selects the nearest folder's
 `toc.yml` for sites that intentionally use independent sections. API pages retain
 their library symbol browser in both modes.
+
+To define intentional navigation boundaries within a site-wide hierarchy, set
+`navigationSections` to entries such as `{ "path": "lang/spec", "title": "Language reference" }`.
+Each path is relative to the configuration directory and uses that directory's
+`toc.yml` for every page below it; the most specific configured section wins.
+`navigationTitle` labels the root sidebar, and a section's optional `title` overrides
+it. Unconfigured folders keep the existing scope conventions.

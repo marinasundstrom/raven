@@ -4,6 +4,37 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class DocumentationSiteBuilderTests
 {
+    [Fact]
+    public void ExplicitNavigationBoundaryKeepsItsHierarchyAcrossNestedFolders()
+    {
+        WithDirectory(root =>
+        {
+            Directory.CreateDirectory(Path.Combine(root, "reference/deep"));
+            File.WriteAllText(Path.Combine(root, "index.md"), "# Home");
+            File.WriteAllText(Path.Combine(root, "reference/deep/topic.md"), "# Topic");
+            File.WriteAllText(Path.Combine(root, "toc.yml"), "- name: Learn\n  href: index.md");
+            File.WriteAllText(Path.Combine(root, "reference/toc.yml"), "- name: Reference topic\n  href: deep/topic.md");
+            File.WriteAllText(Path.Combine(root, "reference/deep/toc.yml"), "- name: Unintended local menu\n  href: topic.md");
+            var config = Path.Combine(root, "site.json");
+            File.WriteAllText(config, JsonSerializer.Serialize(new
+            {
+                navigationScope = "site",
+                navigationTitle = "Getting started",
+                toc = "toc.yml",
+                navigationSections = new[] { new { path = "reference", title = "Language reference" } }
+            }));
+            DocumentationSiteBuilder.Build(config);
+            var home = File.ReadAllText(Path.Combine(root, "_site/index.html"));
+            home.ShouldContain("<h2 id=\"api-browser-heading\">Getting started</h2>");
+            home.ShouldNotContain("Reference topic");
+            var topic = File.ReadAllText(Path.Combine(root, "_site/reference/deep/topic.html"));
+            topic.ShouldContain("<h2 id=\"api-browser-heading\">Language reference</h2>");
+            topic.ShouldContain("Reference topic");
+            topic.ShouldNotContain("Unintended local menu");
+            topic.ShouldNotContain(">Learn</span>");
+        });
+    }
+
     [Theory]
     [InlineData("site")]
     [InlineData("section")]
