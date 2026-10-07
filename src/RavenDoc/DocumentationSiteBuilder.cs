@@ -65,6 +65,10 @@ public static class DocumentationSiteBuilder
             : configuration.Navigation.Count == 0 && File.Exists(Path.Combine(root, "toc.yml")) ? Path.Combine(root, "toc.yml") : null;
         var menu = tocPath is null ? configuration.Navigation : DocumentationTableOfContents.Load(tocPath, root, ResolvePage);
         var sectionMenus = new Dictionary<string, IReadOnlyList<DocumentationNavigationItem>>(StringComparer.Ordinal);
+        var navigationSections = configuration.NavigationSections.Select(section => (
+            Directory: Path.GetFullPath(RelativeOutput(section.Path), root), section.Title)).OrderByDescending(section => section.Directory.Length).ToArray();
+        foreach (var section in navigationSections)
+            sectionMenus[section.Directory] = DocumentationTableOfContents.Load(Path.Combine(section.Directory, "toc.yml"), root, ResolvePage);
         // Discover section menus before materializing pages; a toc may introduce more pages.
         for (var index = 0; index < configuration.Pages.Count; index++)
         {
@@ -79,6 +83,8 @@ public static class DocumentationSiteBuilder
         }
         IReadOnlyList<DocumentationNavigationItem> MenuForPage(string source)
         {
+            foreach (var section in navigationSections)
+                if (IsWithin(section.Directory, source)) return sectionMenus[section.Directory];
             if (configuration.NavigationScope == "site") return menu;
             var directory = Path.GetDirectoryName(source);
             while (directory is not null && directory != root && IsWithin(root, directory))
@@ -243,7 +249,8 @@ public static class DocumentationSiteBuilder
                     metadata.Title ?? page.Page.Title ?? ArticleTitle(html) ?? Path.GetFileNameWithoutExtension(page.Source), "Documentation", configuration.Name,
                     Link("index.html"), Link("raven-theme.css"), Link("style.css"), Link("site.js"), html,
                     DocumentationNavigation.ResolveLinks(configuration.Links, staging, currentDirectory), showNavigation ? (navigationRoot is null
-                        ? DocumentationNavigation.RenderArticles(navigation, staging, currentDirectory, destination)
+                        ? DocumentationNavigation.RenderArticles(navigation, staging, currentDirectory, destination,
+                            navigationSections.FirstOrDefault(section => IsWithin(section.Directory, page.Source)).Title ?? configuration.NavigationTitle)
                         : DocumentationNavigation.Render(navigation, staging, currentDirectory, destination)) : "", configuration.Name,
                     DocumentationNavigation.Resolve(configuration.Logo, staging, currentDirectory),
                     DocumentationNavigation.Resolve(configuration.Stylesheet, staging, currentDirectory),
@@ -306,6 +313,8 @@ public static class DocumentationSiteBuilder
         public string Output { get; init; } = "_site";
         public string? Toc { get; init; }
         public string NavigationScope { get; init; } = "section";
+        public string NavigationTitle { get; init; } = "Documentation";
+        public List<SiteNavigationSection> NavigationSections { get; init; } = [];
         public string? Api { get; init; }
         public string? ApiTitle { get; init; }
         public List<SiteApi> Apis { get; init; } = [];
@@ -339,6 +348,8 @@ public static class DocumentationSiteBuilder
         public List<DocumentationSiteLink> Links { get; init; } = [];
         public Dictionary<string, string> Values { get; init; } = new(StringComparer.Ordinal);
     }
+
+    private sealed record SiteNavigationSection(string Path, string? Title = null);
 
     private sealed class SiteApi
     {

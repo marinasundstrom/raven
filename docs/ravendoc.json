@@ -12,7 +12,7 @@
   "footer": "The official website of the Raven programming language.",
   "links": [
     {
-      "label": "Docs",
+      "label": "Getting started",
       "url": "learn.html"
     },
     {
@@ -383,5 +383,12 @@
     }
   ],
   "namespaceNavigation": "flat",
-  "navigationScope": "site"
+  "navigationScope": "site",
+  "navigationTitle": "Getting started",
+  "navigationSections": [
+    {
+      "path": "lang/spec",
+      "title": "Language reference"
+    }
+  ]
 }

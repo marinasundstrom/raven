@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Support explicit navigation section boundaries using conventional
+  directory TOCs and configurable sidebar titles. Give Getting started and Language
+  reference separate stable hierarchies matching the Raven navbar destinations.
+
 - **2026-10-07:** Add configurable site-wide article navigation and use it for Raven.
   Organize guides, applications, tools, libraries, reference topics and project
   information in one persistent hierarchy instead of switching sidebars by folder.

@@ -42,7 +42,7 @@ internal static class DocumentationNavigation
             Children = link.Children is null ? null : ResolveLinks(link.Children, root, directory)
         }).ToArray();
 
-    internal static string RenderArticles(IReadOnlyList<DocumentationNavigationItem> items, string root, string directory, string currentPage)
+    internal static string RenderArticles(IReadOnlyList<DocumentationNavigationItem> items, string root, string directory, string currentPage, string title = "Documentation")
     {
         if (items.Count == 0) return "";
         var builder = new StringBuilder();
@@ -81,7 +81,7 @@ internal static class DocumentationNavigation
         return $"""
             <button class="api-browser-toggle" type="button" aria-controls="api-browser" aria-expanded="false">Browse documentation</button>
             <dialog class="api-sidebar reference-navigation documentation-sidebar" id="api-browser" aria-labelledby="api-browser-heading" open>
-              <div class="api-browser-header"><h2 id="api-browser-heading">Documentation</h2><button class="api-browser-close" type="button" aria-label="Close documentation navigation">×</button></div>
+              <div class="api-browser-header"><h2 id="api-browser-heading">{RavenDocSiteTemplate.Escape(title)}</h2><button class="api-browser-close" type="button" aria-label="Close documentation navigation">×</button></div>
               <nav class="api-navigation-panel documentation-navigation" aria-label="Documentation">{builder}</nav>
             </dialog>
             """;
