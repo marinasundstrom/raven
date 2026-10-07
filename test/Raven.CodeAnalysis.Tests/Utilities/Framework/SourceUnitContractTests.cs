@@ -28,6 +28,36 @@ public class SourceUnitContractTests
                 .WithRuntimeUnitContract(new(owner, "System.Void")));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InterfaceGenericSignatureUsesSelectedUnit(bool unitFirst)
+    {
+        const string unitSource = "public struct Void { }";
+        const string contract = """
+            public union Result<T, E> {
+                case Ok(T)
+                case Error(E)
+            }
+            public interface Closable<E> {
+                func Close() -> Result<Void, E>
+            }
+            """;
+        var setup = Create();
+        var declarations = new[] { unitSource, contract };
+        if (!unitFirst) Array.Reverse(declarations);
+        var compilation = Compilation.Create("UnitLibrary", declarations.Select(text => SyntaxTree.ParseText("namespace System\n" + text)).ToArray(),
+            setup.References.ToArray(), setup.Options);
+        // Some earlier library declarations need unit before all source type shells exist.
+        compilation.EnsureSetup();
+        var earlyUnit = Assert.IsType<UnitTypeSymbol>(compilation.GetSpecialType(SpecialType.System_Unit));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var method = compilation.Assembly.GetTypeByMetadataName("System.Closable`1")!.GetMembers("Close").OfType<IMethodSymbol>().Single();
+        var result = Assert.IsAssignableFrom<INamedTypeSymbol>(method.ReturnType);
+        Assert.Same(earlyUnit, result.TypeArguments[0]);
+        Assert.Same(compilation.Assembly.GetTypeByMetadataName("System.Void"), earlyUnit.RuntimeRepresentation);
+    }
+
     [Fact]
     public void SourceUnitOwnsStorageButItsPointerRemainsCliVoid()
     {

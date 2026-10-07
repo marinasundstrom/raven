@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Reject wrong-assembly unit lookup fallbacks during early source
+  declaration setup. Generic interface signatures keep the selected source Void
+  instead of caching the bootstrap copy. Declaration-order regressions and native
+  interface dispatch with a unit type argument pass; ordinary .NET tests remain green.
+
 - **2026-10-07:** Correct stale unit-contract diagnostic test wording, matching the
   independently validated Raven main fix 8c53fa55b. Compiler behavior is unchanged.
 

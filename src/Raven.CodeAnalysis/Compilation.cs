@@ -1738,9 +1738,12 @@ public partial class Compilation
     internal INamedTypeSymbol? ResolveRuntimeUnitType()
     {
         if (Options.RuntimeUnitContract is not { } contract) return null;
-        return Options.TargetPlatform == TargetPlatform.NeoCLR && Assembly.Name == contract.AssemblyName
+        var selected = Options.TargetPlatform == TargetPlatform.NeoCLR && Assembly.Name == contract.AssemblyName
             ? Assembly.GetTypeByMetadataName(contract.TypeName)
             : ReferencedAssemblySymbols.FirstOrDefault(assembly => assembly.Name == contract.AssemblyName)?.GetTypeByMetadataName(contract.TypeName);
+        // Source lookup can fall back to references while declaration shells are still
+        // being created. Never cache that fallback as the selected unit representation.
+        return selected?.ContainingAssembly?.Name == contract.AssemblyName ? selected : null;
     }
 
     private UnitTypeSymbol CreateUnitTypeSymbol()

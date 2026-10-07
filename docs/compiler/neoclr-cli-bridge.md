@@ -7407,3 +7407,23 @@ were stale diagnostic wording assertions; their correction is independently vali
 on main. The full 195-input System audit clears binding and pointer admission, but
 encoding still reports a missing/ambiguous bootstrap System.Void reference. No full
 System artifact or complete ownership migration is claimed.
+
+### Unit selection before source declarations (2026-10-07)
+
+Source assembly metadata-name lookup can temporarily return a referenced declaration
+before its own type shells exist. ResolveRuntimeUnitType now checks the returned
+symbol's assembly against the explicit contract before allowing UnitTypeSymbol to
+cache it. An unavailable source owner stays unresolved until source declarations
+exist; it never becomes the bootstrap Void. No name-based emission remapping, new
+Runtime Contract setting or metadata format change is involved.
+
+Two C# regressions initialize unit before source declaration completion, then inspect
+a Closable<E>-shaped interface returning Result<Void,E>, in both file orders. Both
+failed before the fix and pass afterwards. 52 focused unit/profile/configuration tests
+pass. The native source-unit NativeMemory gate additionally executes a separately
+compiled interface consumer whose parameter is UnitBox<System.Void>; unit value
+passing, allocation/free, fault checks and failed publication remain covered.
+The full 195-input audit clears bootstrap Void import and next rejects a constructor
+call that does not satisfy the direct-base contract. Full System remains unpublished.
+This fix belongs to the source-unit integration introduced in 7abe0adf7; main does
+not contain that source-owner path, so no independent main backport is needed.
