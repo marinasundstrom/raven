@@ -187,6 +187,15 @@ try {
     '/libraries/index.html', '/compiler/raven-core-library.html', '/macro-authoring.html',
     '/status.html'
   ];
+  const followLink = async link => {
+    const destination = await link.evaluate(anchor => anchor.href);
+    // evaluateAll does not wait for elements: await the new document before
+    // comparing navigation trees, including on slower CI/browser responses.
+    await Promise.all([
+      page.waitForURL(destination, { waitUntil: 'domcontentloaded' }),
+      link.click()
+    ]);
+  };
   const readingLinks = async () => page.locator('.documentation-navigation a').evaluateAll(links =>
     links.map(a => new URL(a.href).pathname + new URL(a.href).hash));
   const hierarchy = await readingLinks();
@@ -198,21 +207,21 @@ try {
     for (const group of await target.locator('xpath=ancestor::details').all()) {
       if (!await group.evaluate(e => e.open)) await group.locator(':scope > summary').click();
     }
-    await target.click();
+    await followLink(target);
     assert.equal(new URL(page.url()).pathname, route);
     assert.deepEqual(await readingLinks(), hierarchy, `Sidebar stays consistent on ${route}`);
     assert.ok(await page.locator('.documentation-navigation a[aria-current="page"]').count() > 0);
   }
   await page.locator('.site-navigation summary').filter({ hasText: 'API Reference' }).click();
-  await page.locator('.site-navigation').getByRole('link', { name: 'Macros', exact: true }).click();
+  await followLink(page.locator('.site-navigation').getByRole('link', { name: 'Macros', exact: true }));
   assert.equal(await page.locator('h1').textContent(), 'Macros');
   assert.ok(await page.locator('.api-sidebar:not(.documentation-sidebar)').count() > 0, 'API entry intentionally changes to symbol navigation');
   await page.locator('.api-navigation-panel summary[title="Raven.Macros"]').click();
-  await page.locator('.api-navigation-panel a[href$="macro_Quote.html"]').click();
+  await followLink(page.locator('.api-navigation-panel a[href$="macro_Quote.html"]'));
   assert.ok((await page.locator('article').textContent()).includes('Raven.Macros.dll'));
-  await page.locator('.site-navigation').getByRole('link', { name: 'Getting started', exact: true }).click();
+  await followLink(page.locator('.site-navigation').getByRole('link', { name: 'Getting started', exact: true }));
   assert.deepEqual(await readingLinks(), hierarchy, 'Returning from API restores the documentation hierarchy');
-  await page.locator('.site-navigation').getByRole('link', { name: 'Language reference', exact: true }).click();
+  await followLink(page.locator('.site-navigation').getByRole('link', { name: 'Language reference', exact: true }));
   const referenceHierarchy = await readingLinks();
   assert.notDeepEqual(referenceHierarchy, hierarchy, 'Reference has an intentional separate hierarchy');
   assert.equal(await page.locator('#api-browser-heading').textContent(), 'Language reference');
@@ -222,10 +231,10 @@ try {
     const target = page.locator(`.documentation-navigation a[href="${href}"]`).first();
     for (const group of await target.locator('xpath=ancestor::details').all())
       if (!await group.evaluate(e => e.open)) await group.locator(':scope > summary').click();
-    await target.click();
+    await followLink(target);
     assert.deepEqual(await readingLinks(), referenceHierarchy, 'Reference hierarchy stays stable');
   }
-  await page.locator('.site-navigation').getByRole('link', { name: 'Getting started', exact: true }).click();
+  await followLink(page.locator('.site-navigation').getByRole('link', { name: 'Getting started', exact: true }));
   assert.deepEqual(await readingLinks(), hierarchy);
   assert.equal(await page.locator('#api-browser-heading').textContent(), 'Getting started');
   await page.setViewportSize({ width: 390, height: 900 });
