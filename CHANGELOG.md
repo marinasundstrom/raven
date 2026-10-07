@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Record aligned NeoCLR array backing validation for an explicitly
+  selected source Object root. Runtime PE alias-mutation checks pass; compiler
+  code and ordinary .NET array emission are unchanged.
+
 - **2026-10-07:** Integrate Raven.Core and Raven.Macros into the main RavenDoc
   site configuration and shared Raven header, branding and navigation. Support
   multiple API inputs with disjoint output paths, shared article cross-references

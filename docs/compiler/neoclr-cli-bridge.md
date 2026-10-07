@@ -7494,3 +7494,14 @@ round trips, native environment payload type test/unpack execution (42), and fie
 carrier rejection. The full-System audit now reaches array backing-storage validation.
 See neoCLR `docs/experiments/extended-cli-metadata/source-value-2026-10-07.md` for
 source/dependency hashes, remaining limits and reproduction.
+
+## Array backing and source Object (2026-10-07)
+
+The NeoCLR metadata reader/runtime now accept the array backing class over the
+explicitly host-selected fieldless Object root, matching existing Raven emission.
+No compiler change or Runtime Contract option is introduced. Managed arrays retain
+nominal Array<T> backing and aliasing; CLI arrays and ordinary .NET codegen are
+unchanged. Nonroot or unselected bases remain rejected. The linked PE runtime test
+allocates an array, mutates through an alias and returns 42 through the original.
+The 197-input audit now stops at System.String -> System.Object base classification.
+See neoCLR `docs/experiments/extended-cli-metadata/array-root-2026-10-07.md`.
