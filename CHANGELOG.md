@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Allow explicit source ownership of NeoCLR System.Value through
+  the bootstrap manifest. Emit its empty declaration as runtime erased storage,
+  not an ordinary struct; keep it separate from CLI special types. Native payload
+  type-testing/unpacking executes and fielded carriers reject before publication.
+
 - **2026-10-07:** Add search controls only to the site header, preserving API hero
   headers without duplicate IDs. Derive untitled article/browser/search labels from
   their first heading rather than the Markdown filename.

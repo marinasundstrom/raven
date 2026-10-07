@@ -7471,3 +7471,26 @@ The full-source audit omits the seed-only ObjectIntrospection extension, since s
 Object owns GetType. It reaches System.Value source/imported ownership validation
 inside Environment.GetCurrentDirectory. Evidence: neoCLR
 `docs/experiments/extended-cli-metadata/reflection-construction-2026-10-07.md`.
+
+## Source erased-value ownership (2026-10-07)
+
+The bootstrap manifest may select `nativePrimitives: { "System.Value": "Owner" }`
+with the same declaration listed under that source library's `types`. The emitter
+requires a nongeneric, top-level, empty value declaration without constructors and
+marks its metadata as native runtime Value storage. This is not a CLI SpecialType;
+the manifest does not insert SpecialType.None into scalar resolution. Ordinary .NET
+options reject native primitive ownership as before.
+
+The metadata library retains the nominal System.Value CLI signature and emits the
+existing native Value representation. Only the selected source carrier and the exact
+core/System seed erased alias share evaluation storage. Generic IsValue/UnpackValue
+helpers remain explicit retained dependencies; their core facade does not require a
+second seed Value declaration when a source owner is selected. This is a bounded
+bootstrap path, not arbitrary same-name type equivalence or a metadata importer
+fallback. Separate source-Value import as a compiler consumer remains unqualified.
+
+Validation: 17 focused ownership/unit/profile tests, metadata definition/builder
+round trips, native environment payload type test/unpack execution (42), and fielded
+carrier rejection. The full-System audit now reaches array backing-storage validation.
+See neoCLR `docs/experiments/extended-cli-metadata/source-value-2026-10-07.md` for
+source/dependency hashes, remaining limits and reproduction.

@@ -48,7 +48,7 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
             string.IsNullOrWhiteSpace(failure.NamespaceName) || string.IsNullOrWhiteSpace(failure.FunctionName)))
             throw new InvalidDataException("Failure contract must name its declared source-library owner and namespace function.");
         foreach (var (name, owner) in manifest.NativePrimitives ?? [])
-            if (!types.TryGetValue(name, out var declaredOwner) || declaredOwner != owner || !NativePrimitiveSpecialType(name, out _))
+            if (!types.TryGetValue(name, out var declaredOwner) || declaredOwner != owner || (name != "System.Value" && !NativePrimitiveSpecialType(name, out _)))
                 throw new InvalidDataException("Native primitive must name its declared source-library owner: " + name);
         return manifest;
     }
@@ -66,11 +66,11 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
                 throw new InvalidDataException("Native primitive providers require an explicit NeoCLR core and output identity.");
             // Source implementations retain bootstrap scalar spellings and select source member declarations.
             // Consumers select the completed native declaration, with no fallback on failure.
-            var providers = NativePrimitives.Where(p => p.Value != outputAssemblyName).ToDictionary(p =>
+            var providers = NativePrimitives.Where(p => p.Key != "System.Value" && p.Value != outputAssemblyName).ToDictionary(p =>
             {
                 NativePrimitiveSpecialType(p.Key, out var special); return special;
             }, p => p.Value);
-            var sourcePrimitives = NativePrimitives.Where(p => p.Value == outputAssemblyName).Select(p =>
+            var sourcePrimitives = NativePrimitives.Where(p => p.Key != "System.Value" && p.Value == outputAssemblyName).Select(p =>
             {
                 NativePrimitiveSpecialType(p.Key, out var special); return special;
             });
@@ -97,6 +97,7 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
             throw new InvalidDataException("Bootstrap Self contract requires its exact configured marker identity.");
         foreach (var (name, owner) in NativePrimitives ?? [])
         {
+            if (name == "System.Value") continue; // Nominal ownership is checked below; Value is not a CLI special type.
             NativePrimitiveSpecialType(name, out var special);
             if (owner != compilation.Assembly.Name && compilation.GetSpecialType(special) is var selected &&
                 (selected.TypeKind == TypeKind.Error || selected.SpecialType != special || selected.ContainingAssembly?.Name != owner))
