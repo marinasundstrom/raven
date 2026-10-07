@@ -1,149 +1,3 @@
-@import url("./raven-highlight.css");
-@import url("./raven-theme.css");
-
-html {
-    scroll-padding-top: 5rem;
-}
-
-html[data-bs-theme="light"],
-html[data-bs-theme="dark"] {
-    --bs-body-bg: var(--raven-bg);
-    --bs-body-color: var(--raven-ink);
-    --bs-body-font-family: var(--raven-font-sans);
-    --bs-border-color: var(--raven-line);
-    --bs-border-color-translucent: var(--raven-line);
-    --bs-link-color: var(--raven-accent);
-    --bs-link-hover-color: var(--raven-accent-strong);
-    --bs-code-color: var(--raven-accent-strong);
-    --bs-secondary-color: var(--raven-muted);
-    --bs-tertiary-bg: var(--raven-surface-raised);
-    --bs-border-radius: 0.7rem;
-    --bs-border-radius-lg: var(--raven-radius);
-}
-
-html[data-bs-theme="light"] {
-    --bs-body-color-rgb: 41, 35, 52;
-    --bs-body-bg-rgb: 247, 246, 250;
-    --bs-link-color-rgb: 116, 71, 216;
-    --bs-link-hover-color-rgb: 93, 50, 189;
-}
-
-html[data-bs-theme="dark"] {
-    --bs-body-color-rgb: 242, 237, 247;
-    --bs-body-bg-rgb: 16, 14, 21;
-    --bs-link-color-rgb: 175, 145, 255;
-    --bs-link-hover-color-rgb: 192, 168, 255;
-}
-
-body {
-    background:
-        radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--raven-accent) 8%, transparent), transparent 34rem),
-        var(--raven-bg);
-    color: var(--raven-ink);
-    font-family: var(--raven-font-sans);
-    line-height: 1.65;
-}
-
-body > header {
-    border-color: var(--raven-line) !important;
-    background: var(--raven-header-bg) !important;
-    backdrop-filter: blur(16px);
-}
-
-.navbar .navbar-brand {
-    gap: 0.7rem;
-    color: var(--raven-ink);
-    font-weight: 750;
-    letter-spacing: -0.02em;
-}
-
-.navbar .navbar-brand #logo {
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 0.78rem;
-    box-shadow: 0 8px 22px color-mix(in srgb, var(--raven-accent) 28%, transparent);
-}
-
-.navbar .nav-link {
-    color: var(--raven-muted);
-    font-weight: 600;
-}
-
-.navbar .nav-link:hover,
-.navbar .nav-link:focus,
-.navbar .nav-link.active {
-    color: var(--raven-accent);
-}
-
-.navbar .search input,
-.toc form.filter input {
-    border-color: var(--raven-line);
-    background: color-mix(in srgb, var(--raven-surface) 88%, transparent);
-}
-
-body > main {
-    gap: clamp(1rem, 3vw, 3rem);
-}
-
-article {
-    min-width: 0;
-    color: var(--raven-ink);
-}
-
-article h1,
-article h2,
-article h3,
-article h4 {
-    color: var(--raven-ink);
-    font-weight: 720;
-    letter-spacing: -0.025em;
-}
-
-article h1 {
-    margin-bottom: 1.3rem;
-    font-size: clamp(2.2rem, 5vw, 3.4rem);
-}
-
-article h2 {
-    margin-top: 2.5rem;
-    padding-bottom: 0.45rem;
-    border-bottom: 1px solid var(--raven-line);
-}
-
-article a {
-    text-decoration-color: color-mix(in srgb, var(--raven-accent) 38%, transparent);
-    text-underline-offset: 0.18em;
-}
-
-article code,
-.toc code,
-.affix code {
-    border-radius: 0.35rem;
-    background: var(--raven-code-bg);
-    color: var(--raven-accent-strong);
-    font-family: var(--raven-font-mono);
-}
-
-article pre {
-    overflow: hidden;
-    border: 1px solid var(--raven-line);
-    border-radius: 0.9rem;
-    background: var(--raven-code-bg);
-    box-shadow: 0 10px 28px color-mix(in srgb, var(--raven-ink) 5%, transparent);
-}
-
-article pre > code,
-article pre > code.hljs {
-    overflow-x: auto;
-    background: transparent;
-    color: var(--raven-code-fg);
-    font-family: var(--raven-font-mono);
-}
-
-[data-raven-playground] {
-    display: none;
-}
-
 .raven-sample-actions {
     display: flex;
     flex-wrap: wrap;
@@ -162,99 +16,6 @@ article pre > code.hljs {
     content: " →";
 }
 
-
-.toc,
-.affix {
-    color: var(--raven-muted);
-}
-
-.toc a,
-.affix a {
-    color: var(--raven-muted);
-}
-
-.toc a:hover,
-.toc a:focus,
-.toc a.active,
-.affix a:hover,
-.affix a:focus,
-.affix a.active {
-    color: var(--raven-accent);
-}
-
-.toc li.active > a {
-    font-weight: 700;
-}
-
-.breadcrumb {
-    --bs-breadcrumb-item-active-color: var(--raven-muted);
-}
-
-.alert {
-    border: 1px solid var(--raven-line);
-    border-left: 4px solid var(--raven-accent);
-    border-radius: 0.8rem;
-    background: color-mix(in srgb, var(--raven-accent-soft) 72%, var(--raven-surface));
-    color: var(--raven-ink);
-}
-
-article table {
-    --bs-table-bg: color-mix(in srgb, var(--raven-surface) 90%, transparent);
-    --bs-table-border-color: var(--raven-line);
-    overflow: hidden;
-    border-color: var(--raven-line);
-    border-radius: 0.7rem;
-}
-
-article thead {
-    --bs-table-bg: var(--raven-surface-raised);
-}
-
-.contribution,
-.next-article {
-    border-color: var(--raven-line) !important;
-}
-
-.next-article a {
-    color: var(--raven-accent);
-    font-weight: 650;
-}
-
-body > footer {
-    border-color: var(--raven-line) !important;
-    background: color-mix(in srgb, var(--raven-surface) 75%, transparent);
-    color: var(--raven-muted) !important;
-}
-
-body[data-yaml-mime="ManagedReference"] article h1[data-uid],
-body[data-yaml-mime="ApiPage"] article h1[data-uid] {
-    color: var(--raven-ink);
-}
-
-body[data-yaml-mime="ManagedReference"] article .facts,
-body[data-yaml-mime="ApiPage"] article .facts {
-    padding: 0.9rem 1rem;
-    border: 1px solid var(--raven-line);
-    border-radius: 0.75rem;
-    background: var(--raven-surface-raised);
-}
-
-body:has(.raven-hero) > main {
-    display: block;
-    max-width: 100%;
-    padding-right: 0;
-    padding-left: 0;
-}
-
-body:has(.raven-hero) .breadcrumb,
-body:has(.raven-hero) .affix {
-    display: none;
-}
-
-body:has(.raven-hero) article {
-    max-width: none;
-    padding: 0;
-}
 
 .raven-hero {
     display: grid;
@@ -382,6 +143,7 @@ body:has(.raven-hero) article {
 }
 
 .raven-hero-code pre code {
+    display: block;
     padding: clamp(1.2rem, 3vw, 2rem);
     font-size: clamp(0.78rem, 1.1vw, 0.98rem);
     line-height: 1.75;
@@ -719,34 +481,15 @@ body[data-layout]:not([data-search]):has(.raven-reference-topics) > main > .affi
 }
 
 /* Keep navigation controls and keyboard focus visible in both color schemes. */
-body .btn[data-bs-toggle],
-body .btn[data-bs-dismiss] {
-    color: var(--raven-ink);
-}
-
 body :is(a, button, input, summary, [tabindex]):focus-visible {
     outline: 2px solid var(--raven-accent);
     outline-offset: 3px;
 }
 
-html[data-bs-theme="dark"] .raven-button-primary,
-html[data-bs-theme="dark"] .raven-button-primary:hover {
+html[data-theme="dark"] .raven-button-primary,
+html[data-theme="dark"] .raven-button-primary:hover {
     color: var(--raven-bg);
 }
 
-.raven-skip-link {
-    position: fixed;
-    top: 0.6rem;
-    left: 0.6rem;
-    z-index: 2000;
-    padding: 0.7rem 1rem;
-    background: var(--raven-surface);
-    color: var(--raven-ink);
-    border: 1px solid var(--raven-accent);
-    border-radius: 0.5rem;
-    transform: translateY(-200%);
-}
-
-.raven-skip-link:focus {
-    transform: translateY(0);
-}
+.layout-landing .documentation-shell { display: block; max-width: 1280px; }
+.layout-landing .api-content { width: 100%; }

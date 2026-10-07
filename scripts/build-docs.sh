@@ -24,15 +24,6 @@ for arg in "$@"; do
     esac
 done
 
-dotnet tool restore --tool-manifest "$repository_root/.config/dotnet-tools.json"
-
-# DocFX preserves files from previous builds. Always clear this generated,
-# repository-local directory so excluded development pages cannot leak into a
-# later user-facing build.
-if [[ -d "$site_output" ]]; then
-    rm -rf -- "$site_output"
-fi
-
 if [[ "$no_build" == false ]]; then
     # Build the compiler, Raven-authored libraries, and generated compiler sources
     # through the same bootstrap sequence used by local compiler development.
@@ -44,8 +35,10 @@ if [[ "$no_build" == false ]]; then
         --property WarningLevel=0
 fi
 
-# RavenDoc sites remain independent static sites. They are written into the
-# shared Pages artifact before DocFX runs; DocFX preserves unrelated output.
+# Publish authored content first, then add both API references under the shared root.
+dotnet run --project "$repository_root/src/RavenDoc/RavenDoc.csproj" \
+    --framework net10.0 --no-build -- --site "$repository_root/docs/ravendoc.json"
+
 dotnet run --project "$repository_root/src/RavenDoc/RavenDoc.csproj" \
     --framework net10.0 \
     --no-build \
@@ -94,7 +87,5 @@ if ! grep -Fq \
 fi
 
 if [[ "$serve" == true ]]; then
-    dotnet docfx build "$repository_root/docs/docfx.json" --warningsAsErrors --serve
-else
-    dotnet docfx build "$repository_root/docs/docfx.json" --warningsAsErrors
+    python3 -m http.server 8080 --directory "$site_output"
 fi

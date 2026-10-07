@@ -169,6 +169,24 @@ public static class DocumentationSiteBuilder
                     ".html" => markdown,
                     _ => throw new InvalidOperationException("Site content must be .md or .html.")
                 };
+                // Markdown also permits raw HTML. Rewrite its quoted link/resource
+                // attributes against the same source map as ordinary Markdown links.
+                html = System.Text.RegularExpressions.Regex.Replace(html,
+                    "(?<prefix>\\b(?:href|src)\\s*=\\s*)(?<quote>[\"'])(?<url>[^\"']*)\\k<quote>", match =>
+                    {
+                        var url = System.Net.WebUtility.HtmlDecode(match.Groups["url"].Value);
+                        if (url.StartsWith('/') || url.StartsWith('#') || Uri.TryCreate(url, UriKind.Absolute, out _))
+                            return match.Value;
+                        var suffixStart = url.IndexOfAny(['#', '?']);
+                        var path = suffixStart < 0 ? url : url[..suffixStart];
+                        var suffix = suffixStart < 0 ? "" : url[suffixStart..];
+                        var sourceTarget = Path.GetFullPath(Uri.UnescapeDataString(path), Path.GetDirectoryName(page.Source)!);
+                        if (!path.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ||
+                            !pageMap.TryGetValue(sourceTarget, out var target)) return match.Value;
+                        var rewritten = Path.GetRelativePath(currentDirectory, target).Replace('\\', '/') + suffix;
+                        return match.Groups["prefix"].Value + match.Groups["quote"].Value +
+                            System.Net.WebUtility.HtmlEncode(rewritten) + match.Groups["quote"].Value;
+                    }, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
                 if (System.Text.RegularExpressions.Regex.IsMatch(html, @"<!doctype|<html\b|<head\b|<body\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
                     throw new InvalidOperationException("HTML content must be a body fragment; RavenDoc supplies the page shell.");
                 string Link(string path) => Path.GetRelativePath(currentDirectory, Path.Combine(staging, path)).Replace('\\', '/');
@@ -185,7 +203,8 @@ public static class DocumentationSiteBuilder
                     DocumentationNavigation.Resolve(configuration.Stylesheet, staging, currentDirectory),
                     configuration.Footer ?? configuration.Name, configuration.Subtitle, configuration.Notice,
                     configuration.ReleaseUrl, configuration.ReleaseLabel, metadata.Layout, metadata.Toc ?? configuration.ShowToc,
-                    DocumentationNavigation.Resolve(configuration.Favicon, staging, currentDirectory), configuration.GoogleAnalyticsId)));
+                    DocumentationNavigation.Resolve(configuration.Favicon, staging, currentDirectory), configuration.GoogleAnalyticsId,
+                    DocumentationNavigation.Resolve(configuration.Script, staging, currentDirectory))));
             }
             if (apiInput is not null)
                 File.WriteAllText(Path.Combine(staging, "xref-map.json"), JsonSerializer.Serialize(DocumentationGenerator.ExportXrefs(staging)));
@@ -249,6 +268,7 @@ public static class DocumentationSiteBuilder
         public string? Favicon { get; init; }
         public string? GoogleAnalyticsId { get; init; }
         public string? Stylesheet { get; init; }
+        public string? Script { get; init; }
         public string? Footer { get; init; }
         public List<SitePage> Pages { get; init; } = [];
         public List<string> Resources { get; init; } = [];

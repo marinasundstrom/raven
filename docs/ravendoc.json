@@ -1,0 +1,368 @@
+{
+  "name": "Raven",
+  "subtitle": "Programming language for .NET",
+  "output": "../_site",
+  "toc": "toc.yml",
+  "logo": "images/raven-mark.svg",
+  "favicon": "images/raven-mark.svg",
+  "stylesheet": "assets/website.css",
+  "script": "assets/website.js",
+  "footer": "The official website of the Raven programming language.",
+  "links": [
+    {
+      "label": "Docs",
+      "url": "learn.html"
+    },
+    {
+      "label": "Language reference",
+      "url": "lang/spec/index.html"
+    },
+    {
+      "label": "API Reference",
+      "url": "libraries/index.html",
+      "children": [
+        {
+          "label": "Raven.Core",
+          "url": "libraries/raven-core/index.html"
+        },
+        {
+          "label": "Raven.Macros",
+          "url": "libraries/raven-macros/index.html"
+        }
+      ]
+    },
+    {
+      "label": "Playground",
+      "url": "playground/"
+    },
+    {
+      "label": "GitHub",
+      "url": "https://github.com/marinasundstrom/raven"
+    }
+  ],
+  "pages": [
+    {
+      "source": "index.md"
+    },
+    {
+      "source": "overview.md"
+    },
+    {
+      "source": "roadmap.md"
+    },
+    {
+      "source": "learn.md"
+    },
+    {
+      "source": "raven-in-60-seconds.md"
+    },
+    {
+      "source": "getting-started.md"
+    },
+    {
+      "source": "introduction.md"
+    },
+    {
+      "source": "raven-for-absolute-beginners.md"
+    },
+    {
+      "source": "raven-for-csharp-developers.md"
+    },
+    {
+      "source": "workloads/index.md"
+    },
+    {
+      "source": "workloads/containerization.md"
+    },
+    {
+      "source": "workloads/web-api.md"
+    },
+    {
+      "source": "workloads/file-based-apps.md"
+    },
+    {
+      "source": "workloads/iot-monitor.md"
+    },
+    {
+      "source": "workloads/embedded-iot.md"
+    },
+    {
+      "source": "showcases/domain-modeling.md"
+    },
+    {
+      "source": "showcases/web-api.md"
+    },
+    {
+      "source": "showcases/embedded-iot.md"
+    },
+    {
+      "source": "showcases/html-components.md"
+    },
+    {
+      "source": "showcases/maui-components.md"
+    },
+    {
+      "source": "macro-authoring.md"
+    },
+    {
+      "source": "libraries/index.md"
+    },
+    {
+      "source": "lang/README.md"
+    },
+    {
+      "source": "lang/features/index.md"
+    },
+    {
+      "source": "lang/features/values-and-functions.md"
+    },
+    {
+      "source": "lang/features/data-modeling.md"
+    },
+    {
+      "source": "lang/features/patterns.md"
+    },
+    {
+      "source": "lang/features/option-and-result.md"
+    },
+    {
+      "source": "lang/features/dotnet-interop.md"
+    },
+    {
+      "source": "lang/features/async.md"
+    },
+    {
+      "source": "lang/features/macros.md"
+    },
+    {
+      "source": "lang/philosophy.md"
+    },
+    {
+      "source": "lang/feature-meaning.md"
+    },
+    {
+      "source": "lang/domain-modeling.md"
+    },
+    {
+      "source": "lang/nullability.md"
+    },
+    {
+      "source": "lang/style-guide.md"
+    },
+    {
+      "source": "lang/spec/index.md"
+    },
+    {
+      "source": "lang/spec/assignment-and-expression-statements.md"
+    },
+    {
+      "source": "lang/spec/async-and-error-propagation.md"
+    },
+    {
+      "source": "lang/spec/async-functions.md"
+    },
+    {
+      "source": "lang/spec/classes-and-members.md"
+    },
+    {
+      "source": "lang/spec/collection-expressions.md"
+    },
+    {
+      "source": "lang/spec/control-flow-expressions.md"
+    },
+    {
+      "source": "lang/spec/control-flow.md"
+    },
+    {
+      "source": "lang/spec/deconstruction-and-union-patterns.md"
+    },
+    {
+      "source": "lang/spec/delegate-declarations.md"
+    },
+    {
+      "source": "lang/spec/design-notes.md"
+    },
+    {
+      "source": "lang/spec/dictionary-patterns.md"
+    },
+    {
+      "source": "lang/spec/dotnet-implementation.md"
+    },
+    {
+      "source": "lang/spec/enum-declarations.md"
+    },
+    {
+      "source": "lang/spec/error-handling.md"
+    },
+    {
+      "source": "lang/spec/expressions-and-inference.md"
+    },
+    {
+      "source": "lang/spec/extensions.md"
+    },
+    {
+      "source": "lang/spec/functions.md"
+    },
+    {
+      "source": "lang/spec/fundamental-expressions.md"
+    },
+    {
+      "source": "lang/spec/fundamental-patterns.md"
+    },
+    {
+      "source": "lang/spec/grammar.md"
+    },
+    {
+      "source": "lang/spec/inheritance-and-partial-types.md"
+    },
+    {
+      "source": "lang/spec/interfaces.md"
+    },
+    {
+      "source": "lang/spec/invocations.md"
+    },
+    {
+      "source": "lang/spec/jumps-and-labels.md"
+    },
+    {
+      "source": "lang/spec/lexical-structure.md"
+    },
+    {
+      "source": "lang/spec/local-declarations.md"
+    },
+    {
+      "source": "lang/spec/macros.md"
+    },
+    {
+      "source": "lang/spec/match-exhaustiveness.md"
+    },
+    {
+      "source": "lang/spec/match-forms.md"
+    },
+    {
+      "source": "lang/spec/namespaces-and-imports.md"
+    },
+    {
+      "source": "lang/spec/object-creation.md"
+    },
+    {
+      "source": "lang/spec/operators.md"
+    },
+    {
+      "source": "lang/spec/parameters-overloading-and-operators.md"
+    },
+    {
+      "source": "lang/spec/pattern-matching.md"
+    },
+    {
+      "source": "lang/spec/pipe-expressions.md"
+    },
+    {
+      "source": "lang/spec/properties-and-events.md"
+    },
+    {
+      "source": "lang/spec/ref-structs-and-ref-safety.md"
+    },
+    {
+      "source": "lang/spec/returns-and-yield.md"
+    },
+    {
+      "source": "lang/spec/sequence-and-property-patterns.md"
+    },
+    {
+      "source": "lang/spec/spans-and-memory.md"
+    },
+    {
+      "source": "lang/spec/systems-programming.md"
+    },
+    {
+      "source": "lang/spec/top-level-code-and-entry-points.md"
+    },
+    {
+      "source": "lang/spec/type-declarations-and-initialization.md"
+    },
+    {
+      "source": "lang/spec/type-system.md"
+    },
+    {
+      "source": "lang/spec/unions.md"
+    },
+    {
+      "source": "lang/spec/unsafe-code-and-interop.md"
+    },
+    {
+      "source": "lang/spec/values-and-statements.md"
+    },
+    {
+      "source": "compiler/index.md"
+    },
+    {
+      "source": "compiler/raven-compiler.md"
+    },
+    {
+      "source": "compiler/target-platforms.md"
+    },
+    {
+      "source": "compiler/runtime-contracts.md"
+    },
+    {
+      "source": "compiler/metadata-import.md"
+    },
+    {
+      "source": "compiler/runtime-iteration-contracts.md"
+    },
+    {
+      "source": "compiler/runtime-propagation-contracts.md"
+    },
+    {
+      "source": "compiler/nanoframework.md"
+    },
+    {
+      "source": "compiler/webassembly.md"
+    },
+    {
+      "source": "compiler/browser-wasm.md"
+    },
+    {
+      "source": "compiler/project-system.md"
+    },
+    {
+      "source": "compiler/extending-projects.md"
+    },
+    {
+      "source": "compiler/source-generators.md"
+    },
+    {
+      "source": "compiler/distribution.md"
+    },
+    {
+      "source": "compiler/raven-core-library.md"
+    },
+    {
+      "source": "compiler/raven-macros-library.md"
+    },
+    {
+      "source": "compiler/json-serialization.md"
+    },
+    {
+      "source": "compiler/diagnostics.md"
+    },
+    {
+      "source": "compiler/analyzers/built-in.md"
+    },
+    {
+      "source": "compiler/analyzers/configuration.md"
+    },
+    {
+      "source": "compiler/raven-vscode-extension.md"
+    },
+    {
+      "source": "status.md"
+    }
+  ],
+  "resources": [
+    "images",
+    "assets",
+    "lang/spec/grammar.ebnf"
+  ]
+}

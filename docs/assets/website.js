@@ -1,5 +1,3 @@
-import raven from './raven-language.js'
-
 // Manual tabs keep code and installation commands stable while readers use them.
 const initializeCarousels = () => {
   document.querySelectorAll('[data-raven-carousel], [data-raven-tabs]').forEach((group) => {
@@ -43,9 +41,9 @@ const encodePlaygroundSource = (source) => {
 
 const initializePlaygroundSamples = () => {
   const docRoot = new URL(
-    document.querySelector('meta[name="docfx:rel"]')?.content ?? '',
+    document.querySelector('.raven-brand')?.getAttribute('href') ?? './index.html',
     document.baseURI)
-  const playgroundBase = new URL('playground/', docRoot)
+  const playgroundBase = new URL('playground/', new URL('.', docRoot))
 
   document.querySelectorAll('[data-raven-playground]').forEach((marker) => {
     const codeBlock = marker.nextElementSibling
@@ -91,41 +89,6 @@ const initializePlaygroundSamples = () => {
   })
 }
 
-const initializeDocumentationNavigation = () => {
-  if (document.querySelector('.raven-hero') || document.querySelector('#toc')) return
-  const content = document.querySelector('main > .content')
-  if (!content || content.querySelector('.raven-doc-navigation')) return
-  const root = new URL(document.querySelector('meta[name="docfx:rel"]')?.content ?? '', document.baseURI)
-  const details = document.createElement('details')
-  details.className = 'raven-doc-navigation'
-  details.open = window.matchMedia('(min-width: 992px)').matches
-  const summary = document.createElement('summary')
-  summary.textContent = 'Documentation'
-  details.append(summary)
-  const nav = document.createElement('nav')
-  nav.setAttribute('aria-label', 'Documentation sections')
-  const links = [
-    ['Install and run', 'getting-started.html'],
-    ['Learn Raven', 'learn.html'],
-    ['Language tour', 'introduction.html'],
-    ['For C# developers', 'raven-for-csharp-developers.html'],
-    ['Language reference', 'lang/spec/index.html'],
-    ['Build applications', 'workloads/index.html'],
-    ['Tools and APIs', 'compiler/index.html'],
-    ['Release status', 'status.html'],
-    ['Contribute', 'https://github.com/marinasundstrom/raven/blob/main/CONTRIBUTING.md']
-  ]
-  links.forEach(([label, path]) => {
-    const link = document.createElement('a')
-    link.href = new URL(path, root).href
-    link.textContent = label
-    if (link.href === window.location.href.split('#')[0]) link.setAttribute('aria-current', 'page')
-    nav.append(link)
-  })
-  details.append(nav)
-  content.insertBefore(details, content.querySelector('article'))
-}
-
 const initializeReferenceFinder = () => {
   const finder = document.querySelector('[data-reference-finder]')
   if (!finder) return
@@ -169,32 +132,8 @@ const initializeReferenceFinder = () => {
   finder.hidden = false
 }
 
-const initializeSkipLink = () => {
-  const article = document.querySelector('main article')
-  if (!article || document.querySelector('.raven-skip-link')) return
-  if (!article.id) article.id = 'raven-main-content'
-  article.tabIndex = -1
-  const link = document.createElement('a')
-  link.className = 'raven-skip-link'
-  link.href = `#${article.id}`
-  link.textContent = 'Skip to content'
-  link.addEventListener('click', () => article.focus())
-  document.body.prepend(link)
-  // DocFX's mobile TOC initialization can leave the sequential focus starting
-  // point after the header even while body remains active. Start keyboard-only
-  // navigation at the skip link without stealing focus on page load.
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Tab' && !event.shiftKey && document.activeElement === document.body) {
-      event.preventDefault()
-      link.focus()
-    }
-  }, { once: true })
-}
-
 const initializeRavenSite = () => {
-  initializeSkipLink()
   initializeReferenceFinder()
-  initializeDocumentationNavigation()
   initializeCarousels()
   initializePlaygroundSamples()
 }
@@ -203,11 +142,4 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initializeRavenSite)
 } else {
   initializeRavenSite()
-}
-
-export default {
-  defaultTheme: 'auto',
-  configureHljs(hljs) {
-    hljs.registerLanguage('raven', raven)
-  }
 }

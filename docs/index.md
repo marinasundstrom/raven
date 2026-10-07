@@ -1,5 +1,6 @@
 ---
-_layout: landing
+layout: landing
+toc: false
 title: A fresh language for .NET.
 ---
 

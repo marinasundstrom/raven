@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Publish the entire Raven website with RavenDoc, preserving article
+  and library API URLs, landing-page design, section navigation and playground
+  examples. Remove the DocFX tool and configuration; expose API references in the header.
+
 - **2026-10-07:** Correct the unit-contract diagnostic regression test to match the
   existing public empty non-void value-type requirement. Compiler behavior is unchanged.
 
@@ -5586,6 +5590,10 @@ Impact:
   `DocumentationFile`, and `MarkdownDocumentationOutputPath` on open/save so
   documentation emission settings round-trip cleanly through project editing.
 ## Unreleased
+
+- **2026-10-07:** Publish the entire Raven website with RavenDoc, preserving article
+  and library API URLs, landing-page design, section navigation and playground
+  examples. Remove the DocFX tool and configuration; expose API references in the header.
 
 ### Added
 - Added a separate context-driven code refactoring provider pipeline so editor suggestions can appear without requiring a backing diagnostic. The workspace and language server now surface diagnostic-backed quick fixes and diagnostic-free refactorings as distinct code action sources.

@@ -3,7 +3,7 @@ import raven from './raven-language.js';
 
 hljs.registerLanguage('raven', raven);
 for (const code of document.querySelectorAll(
-    'pre code.language-raven, pre code.language-rvn, pre code.language-rav')) {
+    'pre code.language-raven, pre code.language-rvn, pre code.language-rav, pre code.lang-raven')) {
     hljs.highlightElement(code);
 }
 

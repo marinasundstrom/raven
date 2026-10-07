@@ -19,11 +19,11 @@ assert_contains() {
     fi
 }
 
-# DocFX must make the Raven brand depth-aware. In particular, the workload
+# RavenDoc must make the Raven brand depth-aware. In particular, the workload
 # landing page used to link to itself instead of the root documentation page.
-assert_contains "$site_root/index.html" 'class="navbar-brand" href="index.html"'
-assert_contains "$site_root/workloads/index.html" 'class="navbar-brand" href="../index.html"'
-assert_contains "$site_root/compiler/index.html" 'class="navbar-brand" href="../index.html"'
+assert_contains "$site_root/index.html" 'class="raven-brand" href="index.html"'
+assert_contains "$site_root/workloads/index.html" 'class="raven-brand" href="../index.html"'
+assert_contains "$site_root/compiler/index.html" 'class="raven-brand" href="../index.html"'
 
 # RavenDoc is generated independently, but the combined build explicitly gives
 # it the shared site root so both shallow and nested API pages return there.

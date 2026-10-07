@@ -5,28 +5,10 @@ import path from 'node:path'
 
 const repositoryRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const textMatePath = path.join(repositoryRoot, 'src/Raven.VSCode/syntaxes/raven.tmLanguage.json')
-const docsLexerPath = path.join(repositoryRoot, 'docs/template/public/main.js')
 const textMate = JSON.parse(await fs.readFile(textMatePath, 'utf8'))
-const sharedLexerSource = await fs.readFile(path.join(repositoryRoot, 'docs/template/public/raven-language.js'), 'utf8')
+const sharedLexerSource = await fs.readFile(path.join(repositoryRoot, 'docs/assets/raven-language.js'), 'utf8')
 const sharedLexerUrl = `data:text/javascript;base64,${Buffer.from(sharedLexerSource).toString('base64')}`
-const docsLexerSource = (await fs.readFile(docsLexerPath, 'utf8'))
-  .replace("'./raven-language.js'", JSON.stringify(sharedLexerUrl))
-
-globalThis.document = {
-  readyState: 'loading',
-  addEventListener() {}
-}
-
-const docsLexerUrl = `data:text/javascript;base64,${Buffer.from(docsLexerSource).toString('base64')}`
-const docsLexerModule = await import(docsLexerUrl)
-let ravenFactory
-docsLexerModule.default.configureHljs({
-  registerLanguage(name, factory) {
-    if (name === 'raven') ravenFactory = factory
-  }
-})
-
-if (!ravenFactory) throw new Error('The documentation site did not register its Raven lexer.')
+const { default: ravenFactory } = await import(sharedLexerUrl)
 
 const mode = Object.freeze({})
 const raven = ravenFactory({

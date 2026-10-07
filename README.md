@@ -172,8 +172,8 @@ not part of the normal test focus.
   target net10.0 when the corresponding targeting packs are installed.
 - A shell that can run the repository scripts.
 
-The documentation build restores its pinned DocFX tool automatically; see
-[`docs/docfx.md`](docs/docfx.md).
+The website is generated entirely by RavenDoc; see
+[`docs/website.md`](docs/website.md).
 
 Use a project-local `global.json` to pin the exact .NET SDK feature band for a
 repository when reproducible SDK selection is required.

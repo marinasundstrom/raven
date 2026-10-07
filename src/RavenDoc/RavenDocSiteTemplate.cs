@@ -68,6 +68,7 @@ internal sealed class RavenDocSiteTemplate
           <link rel="stylesheet" href="{Escape(page.StyleHref)}" />
           {favicon}
           {customStyle}
+          {(page.CustomScriptHref is { } script ? $"<script type=\"module\" src=\"{Escape(script)}\"></script>" : "")}
           {analytics}
           <script type="module" src="{Escape(page.ScriptHref)}"></script>
         </head>
@@ -99,7 +100,7 @@ internal sealed class RavenDocSiteTemplate
           {notice}
           <div class="documentation-shell">
             {page.NavigationHtml}
-            <main id="main" class="content-shell">
+            <main id="main" class="content-shell" tabindex="-1">
               <article class="api-content">
                 {page.BodyHtml}
               </article>
@@ -376,7 +377,8 @@ internal sealed record RavenDocPageTemplateModel(
     string Layout = "docs",
     bool ShowToc = true,
     string? FaviconHref = null,
-    string? GoogleAnalyticsId = null);
+    string? GoogleAnalyticsId = null,
+    string? CustomScriptHref = null);
 
 internal sealed record RavenDocMemberTemplateModel(
     RavenDocSymbolKind Kind,
