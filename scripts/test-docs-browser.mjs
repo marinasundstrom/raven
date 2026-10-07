@@ -191,6 +191,12 @@ try {
   await page.locator('.site-navigation').getByRole('link', { name: 'Getting started', exact: true }).click();
   assert.deepEqual(await readingLinks(), hierarchy);
   assert.equal(await page.locator('#api-browser-heading').textContent(), 'Getting started');
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto(`${base}/raven-for-csharp-developers.html`);
+  await page.addStyleTag({ content: 'article table { font-family: monospace; font-size: 18px; }' });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'Wide table typography stays inside the mobile article');
+  const table = page.getByRole('table').first();
+  assert.ok(await table.evaluate(e => { e.scrollLeft = 30; return e.scrollLeft > 0; }), 'Wide tables remain scrollable');
   assert.deepEqual(errors, []);
   console.log('Documentation browser checks passed: responsive layout, contrast, keyboard navigation, reference search, and example links.');
 } finally {
