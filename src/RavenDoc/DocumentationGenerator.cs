@@ -786,7 +786,7 @@ public static partial class DocumentationGenerator
                 .ToArray();
 
             renderedSections.Add(
-                RenderMemberTable(GetSectionTitle(section), currentDir, ordered, context));
+                RenderMemberTable(!isNamespacePage && section == MemberSectionKind.Types ? "Nested types" : GetSectionTitle(section), currentDir, ordered, context));
         }
 
         if (!isNamespacePage && renderedSections.Count > 0)
@@ -2305,6 +2305,7 @@ public static partial class DocumentationGenerator
            symbol.ContainingType is { } companion && CompanionOwners.TryGetValue(companion, out var owner) && IsSelected(owner) ||
            symbol is IUnionCaseTypeSymbol { IsUnionCase: true } selectedCase && IsSelected(selectedCase.Union) ||
            symbol.ContainingType is IUnionCaseTypeSymbol { IsUnionCase: true } caseOwner && IsSelected(caseOwner.Union) ||
+           symbol.ContainingType is { } containing && IsSelected(containing) ||
            symbol is INamespaceSymbol ns && (ns.IsGlobalNamespace ||
                IncludedTypes.Any(type => type.StartsWith(GetNamespaceFullName(ns) + ".", StringComparison.Ordinal))) ||
            symbol is not INamespaceSymbol && IncludedTypes.Contains(GetTypeDocName(symbol as ITypeSymbol ?? symbol.ContainingType!).Replace('+', '.'));
