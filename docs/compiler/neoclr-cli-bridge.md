@@ -7922,3 +7922,18 @@ paths. Invalid Object ownership and missing Web reject without a partial workspa
 The unchanged HTTP consumer then compiles and executes through the project command.
 This is headless workspace and CLI evidence, not a new installed VS Code acceptance
 claim or a promise of live file-event delivery from every client.
+
+
+### Split native bundle documentation validation (2026-10-07)
+
+The native bundle project probe now copies nested documentation directories when
+relocating Runtime/Data/Networking/Web artifacts. When the Networking XML sidecar
+is present, it asserts that native IPAddress symbols expose the authored summary.
+The NeoCLR bundler ships generated XML and Markdown next to their owning assemblies
+and includes their relative paths in its hash manifest. The same native importer
+serves compiler symbols and editor documentation; emission remains independent.
+Object/async ownership remains explicitly System.Runtime with the existing primitive
+Core and retained-seed selections. No compiler or ordinary .NET behavior changes.
+This validates transport of existing help, not complete API documentation coverage
+or a merged RavenDoc website model. The integration evidence is recorded in neoCLR's
+`docs/experiments/extended-cli-metadata/native-bundle-documentation-2026-10-07.md`.

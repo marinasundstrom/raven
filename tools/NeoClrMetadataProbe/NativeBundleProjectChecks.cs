@@ -12,7 +12,12 @@ internal static class NativeBundleProjectChecks
         if (Directory.Exists(directory)) throw new IOException("Output directory must be fresh.");
         var relocated = Path.Combine(directory, "SDK with spaces");
         Directory.CreateDirectory(relocated);
-        foreach (var file in Directory.GetFiles(bundle)) File.Copy(file, Path.Combine(relocated, Path.GetFileName(file)));
+        foreach (var file in Directory.EnumerateFiles(bundle, "*", SearchOption.AllDirectories))
+        {
+            var destination = Path.Combine(relocated, Path.GetRelativePath(bundle, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.Copy(file, destination);
+        }
         var configuration = Path.Combine(relocated, "NeoCLR.ClassLibrary.props");
         var projectFile = Path.Combine(directory, "Headers.rvnproj");
         File.Copy(source, Path.Combine(directory, "Main.rvn"));
@@ -34,6 +39,13 @@ internal static class NativeBundleProjectChecks
                      ("System.Networking.IPAddress", "System.Networking"), ("System.Web.Http.HttpClient", "System.Web") })
             if (compilation.GetTypeByMetadataName(name)?.ContainingAssembly.Name != owner)
                 throw new Exception("Incorrect native symbol owner: " + name);
+        if (File.Exists(Path.Combine(relocated, "System.Networking.xml")))
+        {
+            var address = compilation.GetTypeByMetadataName("System.Networking.IPAddress")!;
+            if (address.GetDocumentationComment()?.Content.Contains("An immutable IP address") != true)
+                throw new Exception("Relocated native documentation was not loaded.");
+            Console.WriteLine("PASS relocated native documentation");
+        }
         var inputs = workspace.Services.ProjectSystemService!.GetMetadataInputPaths(projectFile);
         foreach (var path in new[] { configuration, Path.Combine(relocated, "System.runtime.neox"), Path.Combine(relocated, "System.Web.dll") })
             if (!inputs.Contains(path)) throw new Exception("Unwatched bundle input: " + path);
