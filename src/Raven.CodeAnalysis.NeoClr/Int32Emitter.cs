@@ -460,6 +460,15 @@ internal static class Int32Emitter
         {
             var root = compilation.GetSpecialType(SpecialType.System_Object);
             _ = ImportExternalType(root);
+            // Supply the full selected root contract, independently of which slots bodies call.
+            foreach (var name in new[] { "ToString", "Equals", "GetHashCode" })
+            {
+                var slots = root.GetMembers(name).OfType<IMethodSymbol>().Where(m =>
+                    !m.IsStatic && m.IsVirtual && !m.IsAbstract && !m.IsOverride && m.Arity == 0 &&
+                    m.DeclaredAccessibility == Accessibility.Public).ToArray();
+                if (slots.Length != 1) throw Unsupported("selected Object root requires one concrete virtual slot: " + name);
+                _ = Import(slots[0]);
+            }
             if (root.ContainingAssembly.GetTypeByMetadataName("System.Value") is INamedTypeSymbol value && IsRuntimeErasedValue(value))
                 _ = ImportExternalType(value);
         }

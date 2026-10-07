@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Supply the full selected native Object virtual-slot contract from
+  symbols before emission, including slots not called by a body. This enables boxing
+  against separately compiled System.Runtime without a competing seed Object. The
+  unchanged Networking cancellation sample compiles and runs against separate Runtime
+  and Networking artifacts; ordinary .NET emission remains unchanged.
+
 - Make compiler-driver sample gates prepare MSBuild references, including build-only source generators, before compilation so validation works in fresh checkouts.
 
 - **2026-10-07:** Emit supported imported native Object slots from symbols through

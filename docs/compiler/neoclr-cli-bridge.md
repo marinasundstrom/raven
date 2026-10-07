@@ -7703,3 +7703,21 @@ requires Callvirt. The ordinary Raven consumer uses an object receiver and execu
 all three derived overrides (42) against the independently built Runtime. Other imported
 virtual class methods remain outside this bounded contract. Networking advances to
 the retained/source CheckedStorage mapping; this is not full Networking acceptance.
+
+### Complete imported Object contract for boxing (2026-10-07)
+
+With explicit `--object-library System.Runtime`, the native emitter authors all three
+concrete public Object slots from semantic symbols before bodies: ToString, Equals and
+GetHashCode. It requires exactly one supported slot per name and metadata checks exact
+signatures. Selection does not reopen importer objects or infer contract completeness
+from call sites. Native writing rejects incomplete contracts before publication; actual
+external definitions are still validated by runtime linking. Default .NET paths are unchanged.
+
+Separately compiled System.Networking requires explicit `--bootstrap-intrinsics` for
+CheckedStorage.Reserve; its ordinary consumer does not. The unchanged network-cancellation
+sample compiles using only emitted Runtime/Networking references and executes with
+`Network token cancellation checks passed` and exit 0. Metadata C# contracts cover
+incomplete external boxing rejection and complete-contract round trips. The corresponding
+neoCLR evidence is `docs/experiments/extended-cli-metadata/separate-networking-2026-10-07.md`.
+This still uses the documented primitive bootstrap and finalized retained runtime seed.
+Data's cross-assembly array-reflection boundary remains separate work.
