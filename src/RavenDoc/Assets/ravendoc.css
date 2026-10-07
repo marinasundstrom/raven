@@ -647,3 +647,12 @@ body.with-api-navigation.without-outline .documentation-shell {
 @media (max-width: 760px) {
   .api-content table { display: block; max-width: 100%; overflow-x: auto; }
 }
+
+/* Reserve the sidebar while an opted-in shared tree is restored or downloaded. */
+.api-sidebar:has([data-navigation-src]) {
+  height: var(--sidebar-available-height, calc(100dvh - var(--site-header-height, 4.5rem) - 5.5rem));
+}
+.api-sidebar [data-navigation-src] { flex: 1; }
+.ravendoc-navigation-loading [data-navigation-src]:not([data-navigation-loaded]) {
+  visibility: hidden;
+}

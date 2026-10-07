@@ -1,5 +1,8 @@
 (() => {
     const root = document.documentElement;
+    // Runs before the first paint; reveal fallback navigation if page scripts fail.
+    root.classList.add('ravendoc-navigation-loading');
+    setTimeout(() => root.classList.remove('ravendoc-navigation-loading'), 4000);
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const key = 'ravendoc-theme';
     const normalize = value => ['light', 'dark'].includes(value) ? value : 'system';
