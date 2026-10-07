@@ -31,6 +31,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ### Detailed changes
 
+- Validate async returns against the task payload, including `unit`. Bare returns
+  and expression bodies in `Task<unit>` and `ValueTask<unit>` methods now produce
+  a unit result consistently before and after suspension; bare returns still
+  reject non-unit payloads. Non-generic task behavior is unchanged.
+
 - Resolve generic case member owners using the emitted type's arity. Hoisted
   sealed-hierarchy cases no longer include phantom enclosing arguments in calls
   or synthesized record formatting. Preserve enclosing arguments for ordinary

@@ -720,7 +720,7 @@ class MethodBodyBinder : BlockBinder
 
         if (method.IsAsync &&
             AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation: Compilation, asyncReturnType: returnType) is { } resultType &&
-            resultType.SpecialType is not SpecialType.System_Unit and not SpecialType.System_Void)
+            !AsyncReturnTypeUtilities.IsNonGenericTaskLike(returnType))
         {
             return resultType;
         }
