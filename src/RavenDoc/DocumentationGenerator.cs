@@ -13,6 +13,8 @@ public static partial class DocumentationGenerator
 {
     private static ApiContentTree ApiContent = new(null);
     private static DocumentationSourceLinks SourceLinks = new(null);
+    private static IReadOnlyList<DocumentationNavigationItem>? PageNavigation;
+    private static string? SharedNavigationFile;
 
     private static string outputDir = "_docs";
     private static string documentedAssemblyName = "Raven";
@@ -238,6 +240,8 @@ public static partial class DocumentationGenerator
         if (CurrentSiteOptions.MemberGrouping is not ("kind" or "declaringType"))
             throw new InvalidOperationException("memberGrouping must be kind or declaringType.");
         ApiNavigation.Clear();
+        PageNavigation = null;
+        SharedNavigationFile = null;
         CompanionOwners.Clear();
         PrepareExtensionLookup(compilation);
         SiteLinks = siteOptions?.Links ?? [];
@@ -337,9 +341,7 @@ public static partial class DocumentationGenerator
             scriptHref,
             bodyHtml,
             DocumentationNavigation.ResolveLinks(SiteLinks, SiteRootDirectory, currentDir),
-            DocumentationNavigation.Render(
-                DocumentationNavigation.Compose(CurrentSiteOptions.Navigation ?? [], GetApiNavigation()),
-                SiteRootDirectory, currentDir),
+            RenderPageNavigation(currentDir),
             CurrentSiteOptions.ProjectName,
             DocumentationNavigation.Resolve(CurrentSiteOptions.Logo, SiteRootDirectory, currentDir),
             DocumentationNavigation.Resolve(CurrentSiteOptions.Stylesheet, SiteRootDirectory, currentDir),
@@ -366,6 +368,33 @@ public static partial class DocumentationGenerator
     // ----------------------------
 
     private static string RootDir => outputDir;
+
+    private static string RenderPageNavigation(string currentDirectory)
+    {
+        if (PageNavigation is null)
+        {
+            PageNavigation = DocumentationNavigation.Compose(CurrentSiteOptions.Navigation ?? [], GetApiNavigation());
+            var fullNavigation = DocumentationNavigation.Render(PageNavigation, SiteRootDirectory, RootDir, "");
+            if (CurrentSiteOptions.SharedApiNavigation)
+            {
+                SharedNavigationFile = Path.Combine(RootDir, "api-navigation.html");
+                File.WriteAllText(SharedNavigationFile, fullNavigation);
+            }
+        }
+        if (SharedNavigationFile is null)
+            return DocumentationNavigation.Render(PageNavigation, SiteRootDirectory, currentDirectory);
+
+        // Namespace links remain usable without JavaScript or if the shared asset cannot load.
+        DocumentationNavigationItem Fallback(DocumentationNavigationItem item) => item with
+        {
+            Children = item.Children?.Where(child => child.Kind is null or "Namespace").Select(Fallback).ToArray()
+        };
+        var overview = new DocumentationNavigationItem("API overview",
+            Path.GetRelativePath(SiteRootDirectory, Path.Combine(RootDir, "index.html")).Replace('\\', '/'));
+        var fallback = DocumentationNavigation.Render(new[] { overview }.Concat(PageNavigation.Select(Fallback)).ToArray(), SiteRootDirectory, currentDirectory);
+        return fallback.Replace("<nav class=\"api-navigation-panel\"",
+            "<nav data-navigation-src=\"" + HtmlEscape(RelLink(currentDirectory, SharedNavigationFile)) + "\" class=\"api-navigation-panel\"");
+    }
 
     private static string ToUrlPath(string path)
         => path.Replace(Path.DirectorySeparatorChar, '/');
@@ -2477,7 +2506,8 @@ public sealed record DocumentationSiteOptions(
     string? ApiContent = null,
     string MemberGrouping = "kind",
     string? ApiDisplayName = null,
-    DocumentationSourceRepository? SourceRepository = null)
+    DocumentationSourceRepository? SourceRepository = null,
+    bool SharedApiNavigation = false)
 {
     internal bool IndexOnly { get; init; }
     internal IReadOnlyDictionary<string, string>? SharedXrefs { get; init; }

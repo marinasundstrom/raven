@@ -31,6 +31,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ### Detailed changes
 
+- Optionally share RavenDoc API navigation trees across pages (`sharedApiNavigation: true`, disabled by default) instead of duplicating them in every HTML file. Preserve namespace navigation without JavaScript and full filtering when the shared tree loads.
+
 - Preserve complete namespace names when matching metadata types to source declarations, including nested generic C# types.
 
 - RavenDoc maps C# declarations to GitHub source files for assembly inputs, including partial types. Nested types remain on containing-type pages instead of expanding the API sidebar.

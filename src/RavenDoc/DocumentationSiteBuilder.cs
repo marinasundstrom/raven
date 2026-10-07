@@ -158,7 +158,7 @@ public static class DocumentationSiteBuilder
                 configuration.Footer ?? configuration.Name, configuration.MemberListStyle,
                 configuration.Types, configuration.ExcludedMembers, configuration.Subtitle,
                 configuration.Notice, configuration.ReleaseUrl, configuration.ReleaseLabel, configuration.ShowToc, configuration.Favicon, configuration.NamespaceNavigation, configuration.GoogleAnalyticsId, configuration.ShowEmptyNamespaces, configuration.ExtensionNamespaces, configuration.ExtensionMembers,
-                configuration.ApiContent is null ? null : Path.GetFullPath(configuration.ApiContent, root), configuration.MemberGrouping, SourceRepository: ResolveSourceRepository(configuration.SourceRepository, root));
+                configuration.ApiContent is null ? null : Path.GetFullPath(configuration.ApiContent, root), configuration.MemberGrouping, SourceRepository: ResolveSourceRepository(configuration.SourceRepository, root), SharedApiNavigation: configuration.SharedApiNavigation);
             var template = new RavenDocSiteTemplate();
             template.WriteAssets(staging);
             var libraryNavigation = apis.Select(api => new DocumentationNavigationItem(api.Title, api.Path + "/index.html")).ToArray();
@@ -334,6 +334,7 @@ public static class DocumentationSiteBuilder
     {
         public bool Search { get; init; }
         public bool CopyCode { get; init; }
+        public bool SharedApiNavigation { get; init; }
         public string Name { get; init; } = "Documentation";
         public string Output { get; init; } = "_site";
         public string? Toc { get; init; }

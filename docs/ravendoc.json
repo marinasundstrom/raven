@@ -398,6 +398,7 @@
     }
   ],
   "namespaceNavigation": "flat",
+  "sharedApiNavigation": true,
   "navigationScope": "site",
   "navigationTitle": "Getting started",
   "navigationSections": [

@@ -9,33 +9,66 @@ for (const code of document.querySelectorAll(
 
 (() => {
     const navigation = document.querySelector(".reference-navigation");
-    const filter = document.querySelector("#navigation-filter");
-    const links = [...navigation?.querySelectorAll("a") ?? []];
-    const pageLinks = links.filter(link => new URL(link.href).pathname === window.location.pathname);
-    if (pageLinks.length) {
-        for (const link of links) link.removeAttribute("aria-current");
-        for (const link of pageLinks) link.setAttribute("aria-current", "page");
-    }
-    filter?.addEventListener("input", () => {
-        const query = filter.value.trim().toLocaleLowerCase();
-        const items = [...navigation.querySelectorAll("li")];
-        for (const item of items.reverse()) {
-            const label = item.querySelector(":scope > a, :scope > span, :scope > details > summary");
-            const matches = label?.textContent.toLocaleLowerCase().includes(query);
-            const childMatches = [...item.querySelectorAll(":scope > details > ul > li")].some(child => !child.hidden);
-            item.hidden = !matches && !childMatches;
-            const group = item.querySelector(":scope > details");
-            if (group && query) {
-                if (!group.hasAttribute("data-before-filter")) group.dataset.beforeFilter = String(group.open);
-                if (!item.hidden) group.open = true;
-            } else if (group?.hasAttribute("data-before-filter")) {
-                group.open = group.dataset.beforeFilter === "true";
-                delete group.dataset.beforeFilter;
+    (async () => {
+        const panel = navigation?.querySelector("[data-navigation-src]");
+        if (panel) {
+            try {
+                const source = new URL(panel.dataset.navigationSrc, location.href);
+                const response = await fetch(source);
+                if (!response.ok) throw new Error("Navigation could not load");
+                const shared = new DOMParser().parseFromString(await response.text(), "text/html")
+                    .querySelector(".api-navigation-panel");
+                if (!shared) throw new Error("Navigation is missing");
+                for (const link of shared.querySelectorAll("a[href]"))
+                    link.href = new URL(link.getAttribute("href"), source).href;
+                const expanded = new Set([...panel.querySelectorAll("details[open] > summary")].map(summary => summary.title));
+                panel.replaceChildren(...shared.childNodes);
+                for (const summary of panel.querySelectorAll("details > summary"))
+                    if (expanded.has(summary.title)) summary.parentElement.open = true;
+                const current = [...panel.querySelectorAll("a")].filter(link => {
+                    const url = new URL(link.href);
+                    return url.origin === location.origin && url.pathname.endsWith("/index.html") &&
+                        location.pathname.startsWith(url.pathname.slice(0, -"index.html".length));
+                }).sort((a, b) => b.pathname.length - a.pathname.length)[0];
+                if (current) {
+                    current.setAttribute("aria-current", "location");
+                    for (let parent = current.parentElement; parent && parent !== panel; parent = parent.parentElement)
+                        if (parent.tagName === "DETAILS") parent.open = true;
+                }
+            } catch {
+                // Keep the generated namespace links when offline or when an asset fails.
             }
-            if (matches) for (const child of item.querySelectorAll("li")) child.hidden = false;
+            panel.dataset.navigationLoaded = "true";
         }
-        document.querySelector("#navigation-empty").hidden = items.some(item => !item.hidden);
-    });
+        const filter = document.querySelector("#navigation-filter");
+        const links = [...navigation?.querySelectorAll("a") ?? []];
+        const pageLinks = links.filter(link => new URL(link.href).pathname === window.location.pathname);
+        if (pageLinks.length) {
+            for (const link of links) link.removeAttribute("aria-current");
+            for (const link of pageLinks) link.setAttribute("aria-current", "page");
+        }
+        filter?.addEventListener("input", () => {
+            const query = filter.value.trim().toLocaleLowerCase();
+            const items = [...navigation.querySelectorAll("li")];
+            for (const item of items.reverse()) {
+                const label = item.querySelector(":scope > a, :scope > span, :scope > details > summary");
+                const matches = label?.textContent.toLocaleLowerCase().includes(query);
+                const childMatches = [...item.querySelectorAll(":scope > details > ul > li")].some(child => !child.hidden);
+                item.hidden = !matches && !childMatches;
+                const group = item.querySelector(":scope > details");
+                if (group && query) {
+                    if (!group.hasAttribute("data-before-filter")) group.dataset.beforeFilter = String(group.open);
+                    if (!item.hidden) group.open = true;
+                } else if (group?.hasAttribute("data-before-filter")) {
+                    group.open = group.dataset.beforeFilter === "true";
+                    delete group.dataset.beforeFilter;
+                }
+                if (matches) for (const child of item.querySelectorAll("li")) child.hidden = false;
+            }
+            document.querySelector("#navigation-empty").hidden = items.some(item => !item.hidden);
+        });
+        if (filter?.value) filter.dispatchEvent(new Event("input"));
+    })();
 
     const apiBrowser = document.querySelector("#api-browser");
     const apiToggle = document.querySelector(".api-browser-toggle");
