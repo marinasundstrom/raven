@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- Infer synchronous lambda results from `match` arms and block returns before
+  fixing an unresolved generic method result parameter. Preserve lexical generic
+  targets and query-order consistency. Update the list-deconstruction sample to
+  handle empty rows, and make the NanoFramework metadata gate prepare its own
+  references independently of test order.
+
 - Make compiler-driver sample gates prepare MSBuild references, including build-only source generators, before compilation so validation works in fresh checkouts.
 
 - RavenDoc supports configurable GitHub repositories per site or API source, with declaration-based Raven source-file links for metadata references. Assembly identity remains visible; unmatched types do not receive guessed source links.

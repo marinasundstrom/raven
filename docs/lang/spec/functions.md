@@ -346,6 +346,13 @@ while inferring the body result. Explicit value returns can therefore select a
 value-returning callback such as `Func<int>` alongside `Action`. A uniquely known
 `Action` target or an explicit return annotation remains authoritative.
 
+When a generic call still needs to infer a bare result type parameter such as
+`TResult`, that parameter does not constrain an unannotated synchronous lambda's
+body yet. Raven infers the result from the body, including `match` expressions
+and explicit returns in blocks. A type parameter belonging to the enclosing
+lexical scope remains a real target type; an incompatible arm still reports a
+conversion error.
+
 Compatibility is based on the delegate's parameter types, `ref`/`out`
 modifiers, and return type. Delegate types themselves are not implicitly
 convertible to one another merely because their signatures match; converting

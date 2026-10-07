@@ -12,6 +12,56 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class GenericMethodTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, true)]
+    public void GenericMethodInvocation_InfersMatchLambdaReturn(bool blockBody, bool diagnosticsFirst, bool shadowTypeParameter)
+    {
+        var body = "number match { 0 => \"zero\"\n_ => \"other\" }";
+        if (blockBody) body = "{ return " + body + " }";
+        var callSource = $"let text = Apply(1, number => {body})";
+        if (shadowTypeParameter) callSource = $"func Scope<TResult>() {{ {callSource} }}";
+        var (compilation, tree) = CreateCompilation($$"""
+            {{callSource}}
+            func Apply<T, TResult>(value: T, transform: T -> TResult) -> TResult {
+                transform(value)
+            }
+            """);
+        if (diagnosticsFirst) Assert.Empty(compilation.GetDiagnostics());
+        var call = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(node => node.Expression.ToString() == "Apply");
+        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(call).Symbol);
+        Assert.Equal(SpecialType.System_String, method.ReturnType.SpecialType);
+        Assert.Equal(SpecialType.System_String, method.TypeArguments[1].SpecialType);
+        Assert.Empty(compilation.GetDiagnostics());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MatchLambda_PreservesEnclosingGenericReturnContext(bool invalidArm)
+    {
+        var (compilation, _) = CreateCompilation($$"""
+            func Make<T>(value: T) -> T {
+                let mapper: int -> T = number => number match {
+                    0 => value
+                    _ => {{(invalidArm ? "\"wrong\"" : "value")}}
+                }
+                mapper(0)
+            }
+            """);
+        if (invalidArm)
+            Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1503");
+        else
+            Assert.Empty(compilation.GetDiagnostics());
+    }
+
     [Fact]
     public void GenericMethod_ExposesTypeParametersAndArguments()
     {
