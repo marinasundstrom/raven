@@ -70,7 +70,12 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     public override ImmutableArray<AttributeData> GetAttributes()
     {
         if (!view.IsFlagsEnum) return [];
-        var core = compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly;
+        // Flags is a primitive-bootstrap marker, independent of the selected Object owner.
+        var coreName = compilation.Options.MetadataImportOptions?.CoreAssemblyName;
+        var core = coreName is null
+            ? compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly
+            : compilation.ReferencedAssemblySymbols.SingleOrDefault(assembly => assembly.Name == coreName)
+                ?? throw new InvalidDataException("The configured primitive core is missing for flags enums.");
         var marker = core.GetTypeByMetadataName("System.FlagsAttribute") as INamedTypeSymbol
             ?? throw new InvalidDataException("The configured core must declare System.FlagsAttribute for flags enums.");
         var constructor = marker.Constructors.SingleOrDefault(m => !m.IsStatic && m.Parameters.IsEmpty && m.DeclaredAccessibility == Accessibility.Public)

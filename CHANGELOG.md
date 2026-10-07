@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Resolve native flags-enum marker attributes from the explicit
+  primitive bootstrap even when a different native assembly owns System.Object.
+  Validate both root selections with the C# metadata-symbol probe. This removes
+  an import blocker when separately compiling System.Data against System.Runtime.
+
 - **2026-10-07:** Add explicit imported NeoCLR Object-root selection through
   MetadataImportOptions.WithObjectAssemblyName and rvnc neoclr --object-library.
   Preserve one root across source/generic bases, object signatures and primitive

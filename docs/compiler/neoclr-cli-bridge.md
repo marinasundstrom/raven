@@ -7658,3 +7658,14 @@ are unchanged. See neoCLR `verify_source_owned_orders.py` and
 `docs/experiments/extended-cli-metadata/source-owned-orders-2026-10-07.md` for reproducible
 commands, compiler/dependency hashes and packaging/editor follow-up. These are opt-in
 native target contracts, not a general .NET bug fix requiring a separate main backport.
+
+### Flags markers with an imported Object owner — 2026-10-07
+
+Native flags-enum facts still project to the primitive bootstrap's FlagsAttribute.
+Selecting an imported Object owner does not transfer that marker contract to the
+Object assembly. NativeNamedTypeSymbol uses the explicit MetadataImportOptions
+core identity; absent markers or public parameterless constructors still reject.
+The flags-symbols C# probe covers ordinary and imported roots (including a root
+without FlagsAttribute). No ordinary .NET loader or emission behavior changes.
+Separately compiled Data now advances to its internal array-reflection service
+dependency; optional-library packaging is not yet complete.

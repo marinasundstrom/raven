@@ -12,19 +12,24 @@ internal static class FlagsSymbolChecks
     {
         var core = AssemblyDefinition.ReadAssembly(File.ReadAllBytes(corePath), expectedExtended: false);
         var graph = new AssemblyBuilder(new("NativeFlags", new(1, 0, 0, 0)), core.Identity);
+        graph.AddNativeObjectRoot();
         var flags = graph.AddEnum("Example", "Options");
         flags.SetEnumFlags(); flags.AddEnumMember("One", 1);
         graph.AddEnum("Example", "Ordinary").AddEnumMember("One", 1);
         var reference = NeoClrMetadataReference.ReadAssembly(RuntimeAssemblyContainer.WriteLibraryBinary(graph));
-        var compilation = Compilation.Create("FlagSymbols", [],
-            [Raven.CodeAnalysis.MetadataReference.CreateFromFile(corePath), reference], CompilationOptions.NeoCLR);
-        var symbol = compilation.GetTypeByMetadataName("Example.Options")!;
-        var marker = symbol.GetAttributes().Single();
-        var expected = compilation.GetTypeByMetadataName("System.FlagsAttribute");
-        if (!SymbolEqualityComparer.Default.Equals(marker.AttributeClass, expected) || marker.AttributeConstructor.Parameters.Length != 0 ||
-            marker.ConstructorArguments.Length != 0 || marker.NamedArguments.Length != 0 ||
-            compilation.GetTypeByMetadataName("Example.Ordinary")!.GetAttributes().Length != 0)
-            throw new Exception("native flags fact was not projected into the semantic attribute contract");
+        foreach (var importedRoot in new[] { false, true })
+        {
+            var imports = new MetadataImportOptions(core.Identity.Name).WithObjectAssemblyName(importedRoot ? "NativeFlags" : null);
+            var compilation = Compilation.Create("FlagSymbols", [],
+                [Raven.CodeAnalysis.MetadataReference.CreateFromFile(corePath), reference], CompilationOptions.NeoCLR.WithMetadataImportOptions(imports));
+            var symbol = compilation.GetTypeByMetadataName("Example.Options")!;
+            var marker = symbol.GetAttributes().Single();
+            var expected = compilation.GetTypeByMetadataName("System.FlagsAttribute");
+            if (!SymbolEqualityComparer.Default.Equals(marker.AttributeClass, expected) || marker.AttributeConstructor.Parameters.Length != 0 ||
+                marker.ConstructorArguments.Length != 0 || marker.NamedArguments.Length != 0 ||
+                compilation.GetTypeByMetadataName("Example.Ordinary")!.GetAttributes().Length != 0)
+                throw new Exception("native flags fact was not projected into the semantic attribute contract");
+        }
         Console.WriteLine("PASS native flags metadata-to-symbol attributes");
     }
 }
