@@ -1,6 +1,6 @@
 for (const code of document.querySelectorAll('article pre > code')) {
     const pre = code.parentElement;
-    if (pre.querySelector('.copy-code')) continue;
+    if (pre.classList.contains('with-copy-code')) continue;
     pre.classList.add('with-copy-code');
     const button = document.createElement('button');
     button.type = 'button';
@@ -23,5 +23,8 @@ for (const code of document.querySelectorAll('article pre > code')) {
         }
         reset = setTimeout(() => { button.textContent = 'Copy'; status.textContent = ''; }, 3000);
     });
-    pre.append(button, status);
+    const wrapper = document.createElement('div');
+    wrapper.className = 'code-sample';
+    pre.before(wrapper);
+    wrapper.append(pre, button, status);
 }
