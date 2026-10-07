@@ -18,8 +18,15 @@ internal static class NeoClrCommand
     {
         try
         {
+            var prebuiltCount = args.Skip(2).Count(argument => argument == "--no-build-references");
+            if (prebuiltCount > 1) throw new ArgumentException("Specify --no-build-references once.");
+            if (prebuiltCount == 1)
+            {
+                buildReferences = false;
+                args = args.Where((argument, index) => index < 2 || argument != "--no-build-references").ToArray();
+            }
             if (args.Length is not (2 or 4) || (args.Length == 4 && args[2] != "--run"))
-                throw new ArgumentException("Usage: rvnc neoclr --project App.rvnproj [--run /path/to/neoclr]");
+                throw new ArgumentException("Usage: rvnc neoclr --project App.rvnproj [--no-build-references] [--run /path/to/neoclr]");
             var projectPath = Path.GetFullPath(args[1]);
             var provider = new NeoClrProjectMetadataProvider();
             var service = new MsBuildProjectSystemService(

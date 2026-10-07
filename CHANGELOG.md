@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Add `neoclr --project --no-build-references` for hosts that already
+  built their dependency artifacts. Preserve native graph/identity validation and
+  ordinary dependency-first builds. Exercise prebuilt execution, missing-artifact
+  rejection and unchanged dependency bytes to support explicit Runtime seed staging.
+
 - **2026-10-07:** Add RavenNeoClrSourceObjectRoot for native library projects. Apply
   the existing source-root import contract with explicit ownership/introspection and
   preserve async-owner selection. Reject executable or conflicting imported-root

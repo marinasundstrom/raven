@@ -7869,3 +7869,31 @@ project layout. Ordinary .NET defaults and the legacy bridge project are unchang
 C# native project checks cover the property, async-owner preservation, invalid values,
 executable rejection and source/imported conflicts. Existing graph checks remain green;
 the 67 ordinary project-system checks from the preceding graph slice are unaffected.
+
+
+## Prebuilt project dependencies (2026-10-07)
+
+`rvnc neoclr --project App.rvnproj --no-build-references [--run /path/to/neoclr]`
+compiles only the selected project. Native project graph evaluation, cycles, target
+compatibility, expected assembly names, catalog identity/digest validation and missing
+artifact errors remain in effect. The switch does not import dependency sources or
+fall back to CLI metadata. Without it, the host still builds dependencies first.
+A duplicate switch rejects; an unsupported option continues to report usage.
+
+This exposes existing workspace artifact-loading behavior to build orchestration,
+similar to the separation of source and metadata references in the .NET project path.
+It adds no new symbol or emitter contract and changes no .NET default. It is not an
+incremental freshness check: the host explicitly owns dependency build order.
+
+NeoCLR's staged class-library build uses this to build Runtime, finalize its retained
+seed against that exact artifact, then build Data, Networking and Web once in order.
+The initial approach that rebuilt Runtime through Web's graph changed Runtime bytes,
+invalidating the finalized seed; the staging tool rejected it before publishing a
+bundle manifest. Deterministic assembly output is not claimed by this change.
+
+The executable native diamond verifies default builds and prebuilt execution with
+broken dependency sources, confirms prebuilt artifacts remain byte-identical, and
+checks missing-artifact rejection preserves the consumer. The four native class-library
+projects compile; five source-free consumers verify/run, and the project HTTP consumer
+passes exact-output and invalid-owner publication checks. Shared project-system tests
+from the preceding slice are reused because only explicit native command parsing changes.
