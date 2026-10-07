@@ -491,5 +491,34 @@ html[data-theme="dark"] .raven-button-primary:hover {
     color: var(--raven-bg);
 }
 
-.layout-landing .documentation-shell { display: block; max-width: 1280px; }
+.layout-landing .documentation-shell {
+    display: block;
+    max-width: 1440px;
+    padding: 0 clamp(1rem, 3vw, 3rem);
+}
 .layout-landing .api-content { width: 100%; }
+
+/* One set of fluid gutters avoids stacking shell and hero padding. */
+.layout-landing .raven-hero {
+    width: 100%;
+    max-width: none;
+    padding-block: clamp(1.5rem, 5vh, 4rem);
+    gap: clamp(1.5rem, 3vw, 3rem);
+}
+.layout-landing .raven-hero-code pre { padding: 0; }
+.layout-landing .raven-hero-code pre code {
+    padding: clamp(1rem, 2vw, 1.5rem);
+    font-size: clamp(.78rem, 1vw, .95rem);
+    line-height: 1.6;
+}
+.layout-landing .raven-hero-lead { margin-top: clamp(1rem, 2.5vh, 1.75rem); }
+.layout-landing .raven-hero-actions { margin-top: clamp(1.1rem, 3vh, 2rem); }
+.layout-landing :is(.raven-feature-section, .raven-tooling) {
+    padding: clamp(2rem, 5vw, 4rem) 0;
+    gap: clamp(1.5rem, 3vw, 3rem);
+}
+@media (min-width: 992px) and (max-height: 800px) {
+    .layout-landing .raven-hero { padding-block: 1.5rem; }
+    .layout-landing .raven-hero h1 { font-size: clamp(2.8rem, 4vw, 3.8rem); }
+    .layout-landing .raven-capabilities { margin-top: 1rem; }
+}

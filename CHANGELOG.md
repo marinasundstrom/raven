@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Scale Raven landing-page gutters, hero spacing and section gaps
+  with viewport size, avoid doubled code padding, and compact the hero on shorter
+  desktop windows while preserving the stacked mobile layout. Keep theme/search
+  controls beside the brand on narrow screens to reduce header height.
+
 - **2026-10-07:** Give authored articles a compact documentation sidebar with
   section headings, direct links and current-page highlighting. Keep the API
   symbol tree on reference pages and avoid duplicating top-navbar links.
