@@ -62,10 +62,53 @@ internal static class NativeProjectChecks
         RejectProperty("RavenTargetPlatform", "DotNet");
         RejectProperty("RavenTargetCoreAssemblyName", "WrongCore");
         RejectProperty("RavenMetadataCoreAssemblyName", "WrongCore");
-        var unsupported = XDocument.Parse(original);
-        unsupported.Root!.Element("ItemGroup")!.Add(new XElement("ProjectReference", new XAttribute("Include", "Other.rvnproj")));
-        unsupported.Save(projectFile);
+        var duplicateReference = XDocument.Parse(original);
+        duplicateReference.Root!.Element("ItemGroup")!.Add(new XElement(duplicateReference.Descendants("Reference").Single()));
+        duplicateReference.Save(projectFile);
+        Reject<InvalidDataException>(() => Workspace(true).OpenProject(projectFile));
+        File.WriteAllText(projectFile, original);
+        // The consumer imports a prebuilt artifact without loading dependency sources.
+        var libraryProject = Path.Combine(dependencies, "Library.rvnproj");
+        var libraryDocument = XDocument.Parse(original);
+        libraryDocument.Root!.Element("ItemGroup")!.Remove();
+        libraryDocument.Root.Element("PropertyGroup")!.SetElementValue("OutputType", "Library");
+        libraryDocument.Root.Element("PropertyGroup")!.SetElementValue("AssemblyName", "CatalogLibrary");
+        libraryDocument.Save(libraryProject);
+        var artifact = new NeoClrProjectMetadataProvider().GetOutputPath(libraryProject, "CatalogLibrary");
+        Directory.CreateDirectory(Path.GetDirectoryName(artifact)!);
+        File.Copy(Path.Combine(dependencies, "Library.dll"), artifact, true);
+        var graphProject = XDocument.Parse(original);
+        graphProject.Descendants("Reference").Remove();
+        graphProject.Root!.Element("ItemGroup")!.Add(new XElement("ProjectReference", new XAttribute("Include", libraryProject)));
+        graphProject.Save(projectFile);
+        var graphWorkspace = Workspace(true);
+        var graphId = graphWorkspace.OpenProject(projectFile);
+        if (graphWorkspace.CurrentSolution.Projects.Count() != 1 ||
+            graphWorkspace.GetCompilation(graphId).GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error) ||
+            !graphWorkspace.Services.ProjectSystemService!.GetMetadataInputPaths(projectFile).Contains(artifact))
+            throw new Exception("native project reference did not import the prebuilt artifact");
+        File.Move(artifact, artifact + ".saved");
+        Reject<IOException>(() => Workspace(true).OpenProject(projectFile));
+        File.Move(artifact + ".saved", artifact);
+        File.Move(libraryProject, libraryProject + ".saved");
+        Reject<IOException>(() => Workspace(true).OpenProject(projectFile));
+        File.Move(libraryProject + ".saved", libraryProject);
+        libraryDocument.Root.Add(new XElement("ItemGroup", new XElement("ProjectReference", new XAttribute("Include", projectFile))));
+        libraryDocument.Save(libraryProject);
+        // Make the root a library so cycle validation, rather than executable-reference validation, fires.
+        graphProject.Root.Element("PropertyGroup")!.SetElementValue("OutputType", "Library");
+        graphProject.Save(projectFile);
+        Reject<InvalidOperationException>(() => Workspace(true).OpenProject(projectFile));
+        libraryDocument.Root.Element("ItemGroup")!.Remove();
+        libraryDocument.Root.Element("PropertyGroup")!.SetElementValue("RavenMetadataFormat", "CLI");
+        libraryDocument.Save(libraryProject);
         Reject<NotSupportedException>(() => Workspace(true).OpenProject(projectFile));
+        libraryDocument.Root.Element("PropertyGroup")!.SetElementValue("RavenMetadataFormat", "NeoCLR");
+        libraryDocument.Root.Element("PropertyGroup")!.SetElementValue("AssemblyName", "WrongIdentity");
+        libraryDocument.Save(libraryProject);
+        var wrongArtifact = new NeoClrProjectMetadataProvider().GetOutputPath(libraryProject, "WrongIdentity");
+        File.Copy(artifact, wrongArtifact, true);
+        Reject<InvalidDataException>(() => Workspace(true).OpenProject(projectFile));
         File.WriteAllText(projectFile, original);
         var coreIdentity = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition.ReadAssembly(File.ReadAllBytes(core), false).Identity;
         var graph = new NeoCLR.Metadata.Experimental.Model.AssemblyBuilder(new("ProjectRoot", new(1, 0, 0, 0)), coreIdentity);

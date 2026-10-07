@@ -6999,7 +6999,8 @@ The shared project system has no dependency on the native adapter.
 `NeoClrReferenceCatalog`, requires the NeoCLR target, validates explicit core names,
 and supplies native symbols plus the primitive CLI bootstrap. No host framework,
 compiler-support references or generated host TargetFrameworkAttribute are injected.
-ProjectReference, PackageReference and FrameworkReference currently reject explicitly.
+Native ProjectReference now resolves prebuilt target artifacts (see the project-graph section below).
+PackageReference and FrameworkReference still reject explicitly.
 The provider returns semantic configuration only; it does not attach an emitter,
 execute dependencies or load importer objects during emission.
 
@@ -7798,3 +7799,46 @@ Networking/Web references; invalid ownership preserves the last successful assem
 The primitive Core and retained seed remain explicit. This does not implement native
 ProjectReference orchestration, source-project symbol references or shipping layouts.
 General Raven release integration is owned by the author's separate release task.
+
+
+## Native project graphs (2026-10-07)
+
+`rvnc neoclr --project App.rvnproj [--run /path/to/neoclr]` evaluates the
+explicit native project graph before building dependencies in topological order.
+A diamond builds each project once. Every referenced project must select the same
+metadata format and target and produce a library. Cycles reject before any build.
+This is a native host operation; ordinary .NET project behavior is unchanged.
+
+The shared `IProjectMetadataProvider.GetOutputPath(projectFilePath, assemblyName)`
+contract owns artifact placement. NeoCLR uses `bin/neoclr/<AssemblyName>.dll`
+relative to each project. `ValidateProjectArtifact(path, assemblyName)` checks
+that a prebuilt native artifact has the expected assembly name; dependency identity
+and digest validation remain in the native catalog. An artifact from another
+project is never silently accepted merely because it occupies the expected path.
+Providers without output support reject project references by default.
+
+`MsBuildProjectSystemService.GetMetadataProjectBuildOrder` evaluates the graph
+without reading outputs or executing builds. Workspace/editor loading instead
+consumes existing artifacts: missing outputs require a command-line build. It
+flattens explicit native artifact dependencies across the graph, deduplicates paths,
+and watches project files, artifacts, documentation sidecars and provider inputs.
+It does not import dependency sources or inject host CLI references. Each project
+keeps its own explicit primitive-core, retained-seed and ownership configuration.
+Object/async selection may name artifacts supplied transitively by the graph.
+
+Publication remains atomic per assembly, not a transaction across the whole graph.
+A later failure may leave earlier successful dependency builds; it cannot replace
+the failing project's output. Package/framework resolution, incremental builds,
+configuration-specific native output folders and native source-compilation references
+remain outside this slice. Full live VS Code acceptance and shipped class-library
+project layouts are separate gates.
+
+Validation: C# native project checks cover prebuilt semantic import, watched outputs,
+missing artifacts, wrong names, cycles and incompatible formats. The NeoCLR
+`verify-native-project-graph.py` consumer builds a four-project diamond, exercises
+cross-library generic object mutation and shared identity, and checks exact output,
+cycle preflight and preservation after dependency binding failure.
+
+All 67 existing MsBuildProjectSystemServiceTests also pass. The focused command used
+`--no-restore -p:BuildProjectReferences=false` after building compiler dependencies;
+the initial ordinary test build was stopped while rebuilding the unrelated macro library.

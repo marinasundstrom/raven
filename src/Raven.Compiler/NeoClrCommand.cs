@@ -14,7 +14,7 @@ namespace Raven;
 // default CLI emitter and its project/publish/runtime artifact policies.
 internal static class NeoClrCommand
 {
-    private static int RunProject(string[] args)
+    private static int RunProject(string[] args, bool buildReferences = true)
     {
         try
         {
@@ -22,8 +22,12 @@ internal static class NeoClrCommand
                 throw new ArgumentException("Usage: rvnc neoclr --project App.rvnproj [--run /path/to/neoclr]");
             var projectPath = Path.GetFullPath(args[1]);
             var provider = new NeoClrProjectMetadataProvider();
-            var workspace = RavenWorkspace.Create(projectSystemService: new MsBuildProjectSystemService(
-                RavenProjectConventions.Default, false, null, null, metadataProvider: provider));
+            var service = new MsBuildProjectSystemService(
+                RavenProjectConventions.Default, false, null, null, metadataProvider: provider);
+            if (buildReferences)
+                foreach (var dependency in service.GetMetadataProjectBuildOrder(projectPath).Where(path => path != projectPath))
+                    if (RunProject(["--project", dependency], buildReferences: false) != 0) return 1;
+            var workspace = RavenWorkspace.Create(projectSystemService: service);
             var id = workspace.OpenProject(projectPath);
             var project = workspace.CurrentSolution.GetProject(id)!;
             if (args.Length == 4 && project.CompilationOptions?.OutputKind == OutputKind.DynamicallyLinkedLibrary)
@@ -35,7 +39,7 @@ internal static class NeoClrCommand
             var result = compilation.Emit(image, null, new EmitOptions().WithBackend(config.CreateEmissionBackend(project.AssemblyName!)));
             foreach (var diagnostic in result.Diagnostics) Console.Error.WriteLine(diagnostic);
             if (!result.Success) return 1;
-            var output = Path.Combine(Path.GetDirectoryName(projectPath)!, "bin", "neoclr", project.AssemblyName + ".dll");
+            var output = provider.GetOutputPath(projectPath, project.AssemblyName!);
             if (project.Documents.Any(d => string.Equals(d.FilePath, output, StringComparison.OrdinalIgnoreCase)) ||
                 workspace.Services.ProjectSystemService!.GetMetadataInputPaths(projectPath).Contains(output, StringComparer.OrdinalIgnoreCase))
                 throw new InvalidDataException("Native output must differ from project inputs.");

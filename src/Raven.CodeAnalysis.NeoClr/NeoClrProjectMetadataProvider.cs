@@ -23,6 +23,18 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
     public string MetadataFormat => "NeoCLR";
 
     /// <inheritdoc />
+    public string GetOutputPath(string projectFilePath, string assemblyName)
+        => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(projectFilePath))!, "bin", "neoclr", assemblyName + ".dll");
+
+    /// <inheritdoc />
+    public void ValidateProjectArtifact(string path, string assemblyName)
+    {
+        var definition = AssemblyDefinition.ReadNativeAssembly(File.ReadAllBytes(path));
+        if (definition.Name != assemblyName)
+            throw new InvalidDataException("Native project artifact identity does not match " + assemblyName + ": " + path);
+    }
+
+    /// <inheritdoc />
     public ProjectMetadataConfiguration Load(string projectFilePath, string assemblyName, CompilationOptions options,
         IReadOnlyDictionary<string, string> properties, IReadOnlyList<string> referencePaths)
     {

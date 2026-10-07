@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Build native ProjectReference graphs in dependency order through the
+  ordinary NeoCLR project command. Workspace loading consumes prebuilt native outputs
+  and watches transitive artifacts/configuration; cycles, non-library or incompatible
+  targets, missing outputs and wrong assembly names reject. Publication is per assembly.
+  Keep ordinary .NET project loading and importer/emitter boundaries unchanged.
+
 - **2026-10-07:** Add explicit RavenNeoClrObjectLibrary project selection. Native project
   import and --run use the same registered Object-root artifact; missing or ambiguous
   selections reject without replacing output. Cover workspace identity/watching and

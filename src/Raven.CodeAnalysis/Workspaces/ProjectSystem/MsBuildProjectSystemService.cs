@@ -139,10 +139,68 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         return IsRavenMsBuildProject(document);
     }
 
+    /// <summary>Validates an explicit metadata project graph and returns dependency-first project paths.
+    /// This evaluates projects only; it neither builds nor loads their artifacts.</summary>
+    public IReadOnlyList<string> GetMetadataProjectBuildOrder(string projectFilePath)
+    {
+        MsBuildLocatorRegistration.EnsureRegistered();
+        var ordered = new List<string>();
+        var active = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!File.Exists(projectFilePath)) throw new FileNotFoundException("Project file not found.", projectFilePath);
+        var root = EvaluateProject(projectFilePath, _requestedTargetFramework, _requestedConfiguration);
+        void Visit(string path)
+        {
+            path = Path.GetFullPath(path);
+            if (visited.Contains(path)) return;
+            if (!active.Add(path)) throw new InvalidOperationException("Cyclic project reference: " + path);
+            if (!File.Exists(path)) throw new FileNotFoundException("Referenced project file not found.", path);
+            var evaluation = EvaluateProject(path, _requestedTargetFramework, _requestedConfiguration);
+            if (_metadataProvider is null ||
+                !string.Equals(evaluation.TargetProperties.GetValueOrDefault("RavenMetadataFormat"), _metadataProvider.MetadataFormat, StringComparison.OrdinalIgnoreCase) ||
+                evaluation.CompilationOptions.TargetPlatform != root.CompilationOptions.TargetPlatform)
+                throw new NotSupportedException("Project reference requires the same explicit metadata target: " + path);
+            if (!evaluation.PackageReferences.IsEmpty || !evaluation.FrameworkReferences.IsEmpty)
+                throw new NotSupportedException("Explicit metadata projects do not support PackageReference or FrameworkReference: " + path);
+            if (!string.Equals(path, Path.GetFullPath(projectFilePath), StringComparison.OrdinalIgnoreCase) &&
+                evaluation.CompilationOptions.OutputKind != OutputKind.DynamicallyLinkedLibrary)
+                throw new NotSupportedException("Project reference must produce a library: " + path);
+            foreach (var dependency in evaluation.ProjectReferencePaths) Visit(dependency);
+            active.Remove(path);
+            visited.Add(path);
+            ordered.Add(path);
+        }
+        Visit(projectFilePath);
+        return ordered;
+    }
+
+    private string[] GetExplicitMetadataReferences(string projectFilePath, bool validateArtifacts)
+    {
+        var root = Path.GetFullPath(projectFilePath);
+        var paths = new List<string>();
+        foreach (var path in GetMetadataProjectBuildOrder(root))
+        {
+            var evaluation = EvaluateProject(path, _requestedTargetFramework, _requestedConfiguration);
+            if (evaluation.MetadataReferencePaths.Distinct(StringComparer.OrdinalIgnoreCase).Count() != evaluation.MetadataReferencePaths.Length)
+                throw new InvalidDataException("Duplicate explicit metadata reference in project: " + path);
+            paths.AddRange(evaluation.MetadataReferencePaths);
+            if (string.Equals(path, root, StringComparison.OrdinalIgnoreCase)) continue;
+            var output = _metadataProvider!.GetOutputPath(path, evaluation.AssemblyName);
+            if (validateArtifacts) _metadataProvider.ValidateProjectArtifact(output, evaluation.AssemblyName);
+            paths.Add(output);
+        }
+        return paths.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
     public IReadOnlyList<string> GetMetadataInputPaths(string projectFilePath)
     {
         var evaluation = EvaluateProject(projectFilePath, _requestedTargetFramework, _requestedConfiguration);
-        return evaluation.MetadataReferencePaths.Concat(evaluation.MetadataReferencePaths.SelectMany(path =>
+        var explicitTarget = _metadataProvider is not null && string.Equals(
+            evaluation.TargetProperties.GetValueOrDefault("RavenMetadataFormat"), _metadataProvider.MetadataFormat, StringComparison.OrdinalIgnoreCase);
+        var references = explicitTarget ? GetExplicitMetadataReferences(projectFilePath, false) : evaluation.MetadataReferencePaths.ToArray();
+        var graphInputs = explicitTarget ? GetMetadataProjectBuildOrder(projectFilePath).SelectMany(path =>
+            _metadataProvider!.GetInputPaths(path, EvaluateProject(path, _requestedTargetFramework, _requestedConfiguration).TargetProperties).Append(path)) : [];
+        return references.Concat(graphInputs).Concat(references.SelectMany(path =>
         {
             var docs = Path.ChangeExtension(path, ".docs");
             return new[] { Path.ChangeExtension(path, ".xml"), docs };
@@ -208,10 +266,9 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
         {
             if (_metadataProvider is null || !string.Equals(_metadataProvider.MetadataFormat, format, StringComparison.OrdinalIgnoreCase))
                 throw new NotSupportedException($"Project metadata format '{format}' requires a matching host adapter.");
-            if (!evaluation.ProjectReferencePaths.IsEmpty || !evaluation.PackageReferences.IsEmpty || !evaluation.FrameworkReferences.IsEmpty)
-                throw new NotSupportedException("Explicit metadata providers currently require artifact References; ProjectReference, PackageReference and FrameworkReference are unsupported.");
+
             targetMetadata = _metadataProvider.Load(projectFilePath, evaluation.AssemblyName, evaluation.CompilationOptions,
-                evaluation.TargetProperties, evaluation.MetadataReferencePaths);
+                evaluation.TargetProperties, GetExplicitMetadataReferences(projectFilePath, true));
         }
         var projectId = ProjectId.CreateNew(solution.Id);
         solution = solution.AddProject(
