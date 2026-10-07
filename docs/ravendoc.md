@@ -155,9 +155,11 @@ link API declarations to GitHub. No repository is assumed by the generator:
 `root` is relative to the site configuration; `paths` are relative to that
 repository root. Use a published commit or tag for immutable links, or a branch
 for a development site. Source inputs retain their exact file and line locations.
-For metadata-only assemblies, optional `paths` index Raven declarations by
+For metadata-only assemblies, optional `paths` index Raven (`.rvn`) and C# (`.cs`) declarations by
 namespace, containing type, name and generic arity. File names need not match type
-names; partial declarations can link multiple files. Metadata member pages link
+names; partial declarations can link multiple files. C# lookup supports file-scoped
+and block namespaces, nested and generic types, records, enums and delegates.
+Directory scans omit `bin`, `obj` and `.git`. Metadata member pages link
 the declaring type's files without claiming an exact member line. Types without
 matching declarations have no source link. This does not infer source locations
 from an assembly's file name or decode PDB/Source Link data.
@@ -703,7 +705,7 @@ provided, including mixed property accessors. Inline origins on consuming types 
 and interface defaults, with links to the declarations providing the behavior.
 Incomparable default declarations are reported without guessing a winner. Links target documented declarations; external declarations without a local
 page remain readable text. Constructors and accessor implementation methods are
-not inherited entries. Static classes list only their own members. Static members appear only on their declaring type;
+not inherited entries. Static classes and extension containers show a `static` type signature and list only their own members. They omit inheritance chains, hierarchy relationships and the inherited-member toggle. Static members appear only on their declaring type;
 applicable extensions are still included independently. Closed hierarchies list permitted direct subtypes and
 membership in closed base/interface hierarchies. These sections reflect semantic
 symbols, independently of XML summaries. Use authored content for deeper design
@@ -861,8 +863,55 @@ current-page highlighting. The current section opens automatically. Generated AP
 
 Each `apis` entry's `title` is its display name in library navigation and the API
 overview heading. A single `api` can set `apiTitle` for the same overview behavior.
-Assembly names in symbol metadata remain unchanged. Raven uses “Core extensions”
-and “Macros” while preserving `Raven.Core.dll` and `Raven.Macros.dll` details.
+Assembly names in symbol metadata remain unchanged. Raven uses “Core extensions”,
+“Macros” and “Compiler APIs” while preserving the assembly filenames in details.
+
+All API sources are indexed before their pages are rendered. Parameter and return
+types, inheritance links and authored `xref:` links can therefore target another
+source, regardless of configuration order. Macro pages include parameter and
+return contracts too. Undocumented external types remain readable text. Local
+symbols take precedence when separate API sections contain the same documentation
+ID; site-wide article links use the first configured source for such an ID.
+
+To combine several assemblies into one API namespace tree, use `inputs` instead
+of `input` on an `apis` entry:
+
+```json
+{
+  "apis": [
+    {
+      "inputs": ["references/System.Runtime.dll", "references/System.Data.dll", "references/System.Networking.dll"],
+      "path": "api",
+      "title": "Runtime libraries"
+    }
+  ]
+}
+```
+
+For one combined API hierarchy, use top-level `apiInputs` (an array of assembly
+paths), with `apiPath` and `apiTitle`. Choose exactly one of `api`, `apiInputs`
+and `apis`. This allows a runtime split across several assemblies to keep a
+single namespace tree without introducing separate library navigation groups.
+
+Grouped inputs are assembly files. Their namespaces and type navigation are
+combined, while each type and member retains its declaring assembly identity.
+Use separate `apis` entries for independently browsable libraries such as Raven's
+Core extensions, Macros and Compiler APIs. A single source file, source directory
+or Raven project remains supported through `input`.
+
+Future content extensibility should keep loading and interpretation separate
+from presentation: Markdown and code-source handlers should contribute to the
+same navigation, link and search model, with presentation customization layered
+on top. A future documentation model should be independent of Raven symbols:
+Raven and C# assembly loaders would populate that model, processor extensions
+could transform it, and renderers would consume it. Assembly identity, nested
+ownership, source locations and cross-reference IDs must survive those stages.
+No public content-plugin contract is defined yet.
+
+The API sidebar lists namespace-level types. Public nested types are listed on
+their containing type's page, retain their own pages and remain cross-reference
+and search targets. Nested type metadata identifies the namespace separately
+from its linked containing type.
 
 Set `navigationScope` to `site` to keep the root table of contents on every
 authored page, regardless of its folder. Compose that root with `tocHref` includes

@@ -5,6 +5,7 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 site_output="$repository_root/_site"
 core_api_output="$site_output/libraries/raven-core"
 macros_api_output="$site_output/libraries/raven-macros"
+compiler_api_output="$site_output/libraries/raven-codeanalysis"
 
 serve=false
 no_build=false
@@ -35,13 +36,16 @@ if [[ "$no_build" == false ]]; then
         --property WarningLevel=0
 fi
 
-# One configuration publishes articles and both library references with the same shell.
+# One configuration publishes articles and library references with the same shell.
 dotnet run --project "$repository_root/src/RavenDoc/RavenDoc.csproj" \
     --framework net10.0 --no-build -- --site "$repository_root/docs/ravendoc.json"
 
 required_library_pages=(
     "$core_api_output/index.html"
     "$macros_api_output/index.html"
+    "$compiler_api_output/index.html"
+    "$compiler_api_output/Raven/CodeAnalysis/Compilation/index.html"
+    "$compiler_api_output/Raven/CodeAnalysis/SemanticModel/index.html"
     "$macros_api_output/Raven/Macros/index.html"
     "$macros_api_output/Raven/Macros/macro_Quote.html"
     "$macros_api_output/Raven/Macros/macro_Compile.html"
