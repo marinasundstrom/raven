@@ -140,11 +140,27 @@ dotnet run --project src/RavenDoc -- \
   --output artifacts/markdown-docs-library-site
 ```
 
-Prefer project or source input when publishing APIs from the current
-repository. Source symbols retain their file paths and line spans, allowing
-RavenDoc to link declarations to the corresponding GitHub source lines.
-Assembly input remains useful for external libraries, but metadata symbols do
-not imply a local source mapping.
+Configure `sourceRepository` at site level or on an individual `apis` entry to
+link API declarations to GitHub. No repository is assumed by the generator:
+
+```json
+"sourceRepository": {
+  "url": "https://github.com/owner/library",
+  "revision": "main",
+  "root": "..",
+  "paths": ["runtime/raven/src"]
+}
+```
+
+`root` is relative to the site configuration; `paths` are relative to that
+repository root. Use a published commit or tag for immutable links, or a branch
+for a development site. Source inputs retain their exact file and line locations.
+For metadata-only assemblies, optional `paths` index Raven declarations by
+namespace, containing type, name and generic arity. File names need not match type
+names; partial declarations can link multiple files. Metadata member pages link
+the declaring type's files without claiming an exact member line. Types without
+matching declarations have no source link. This does not infer source locations
+from an assembly's file name or decode PDB/Source Link data.
 
 Use `--framework <tfm>` when the input targets something other than `net10.0`.
 When `--output` is omitted, RavenDoc writes `_site` next to the input.

@@ -5,6 +5,40 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
+    [Fact]
+    public void MetadataSourceLinksUseConfiguredDeclarationsAndPreserveAssemblyName()
+    {
+        const string source = "namespace Links { public class Box<T> { public val Value: int => 42 }\npublic class Missing { } }";
+        var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "SourceLinksFixture");
+        var compilation = Compilation.Create("SourceLinksHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
+        _ = compilation.GetDiagnostics();
+        var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+        var root = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "src"));
+        try
+        {
+            // File name deliberately differs from the type name. Comments must not create declarations.
+            File.WriteAllText(Path.Combine(root, "src/Container file.rvn"),
+                "namespace Links\n// public class Missing { }\npublic class Box<T> { public val Value: int => 42 }");
+            var output = Path.Combine(root, "out");
+            DocumentationGenerator.ProcessAssembly(compilation, assembly, output,
+                new DocumentationSiteOptions([], SourceRepository: new DocumentationSourceRepository(
+                    "https://github.com/example/library", "v1", root, ["src"])));
+            var pages = Directory.GetFiles(output, "*.html", SearchOption.AllDirectories).Select(File.ReadAllText).ToArray();
+            var linked = pages.Where(page => page.Contains("**Source file**") || page.Contains("<strong>Source file</strong>")).ToArray();
+            linked.Length.ShouldBeGreaterThan(1); // Type and member pages.
+            foreach (var page in linked)
+            {
+                page.ShouldContain("https://github.com/example/library/blob/v1/src/Container%20file.rvn");
+                page.ShouldNotContain("github.com/marinasundstrom/raven");
+                page.ShouldContain("SourceLinksFixture.dll");
+            }
+            File.ReadAllText(Path.Combine(output, "Links/Missing/index.html")).ShouldNotContain("Source file");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

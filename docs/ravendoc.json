@@ -390,5 +390,10 @@
       "path": "lang/spec",
       "title": "Language reference"
     }
-  ]
+  ],
+  "sourceRepository": {
+    "url": "https://github.com/marinasundstrom/raven",
+    "revision": "main",
+    "root": ".."
+  }
 }

@@ -145,7 +145,7 @@ public static class DocumentationSiteBuilder
                 configuration.Footer ?? configuration.Name, configuration.MemberListStyle,
                 configuration.Types, configuration.ExcludedMembers, configuration.Subtitle,
                 configuration.Notice, configuration.ReleaseUrl, configuration.ReleaseLabel, configuration.ShowToc, configuration.Favicon, configuration.NamespaceNavigation, configuration.GoogleAnalyticsId, configuration.ShowEmptyNamespaces, configuration.ExtensionNamespaces, configuration.ExtensionMembers,
-                configuration.ApiContent is null ? null : Path.GetFullPath(configuration.ApiContent, root), configuration.MemberGrouping);
+                configuration.ApiContent is null ? null : Path.GetFullPath(configuration.ApiContent, root), configuration.MemberGrouping, SourceRepository: ResolveSourceRepository(configuration.SourceRepository, root));
             var template = new RavenDocSiteTemplate();
             template.WriteAssets(staging);
             var libraryNavigation = apis.Select(api => new DocumentationNavigationItem(api.Title, api.Path + "/index.html")).ToArray();
@@ -158,6 +158,7 @@ public static class DocumentationSiteBuilder
                 {
                     Navigation = configuration.Apis.Count > 0 ? libraryNavigation : menu,
                     ApiDisplayName = api.Definition.Title,
+                    SourceRepository = ResolveSourceRepository(api.Definition.SourceRepository, root) ?? options.SourceRepository,
                     ApiContent = api.Definition.ApiContent is { } content ? Path.GetFullPath(content, root) : options.ApiContent
                 };
                 var framework = api.Definition.Framework ?? configuration.Framework;
@@ -325,6 +326,7 @@ public static class DocumentationSiteBuilder
         public List<string>? ExtensionNamespaces { get; init; }
         public List<string>? ExtensionMembers { get; init; }
         public string? ApiContent { get; init; }
+        public DocumentationSourceRepository? SourceRepository { get; init; }
         public string MemberGrouping { get; init; } = "kind";
         public List<string>? Types { get; init; }
         public List<string>? ExcludedMembers { get; init; }
@@ -349,6 +351,9 @@ public static class DocumentationSiteBuilder
         public Dictionary<string, string> Values { get; init; } = new(StringComparer.Ordinal);
     }
 
+    private static DocumentationSourceRepository? ResolveSourceRepository(DocumentationSourceRepository? source, string root)
+        => source is null ? null : source with { Root = Path.GetFullPath(source.Root, root) };
+
     private sealed record SiteNavigationSection(string Path, string? Title = null);
 
     private sealed class SiteApi
@@ -358,6 +363,7 @@ public static class DocumentationSiteBuilder
         public string? Title { get; init; }
         public string? Framework { get; init; }
         public string? ApiContent { get; init; }
+        public DocumentationSourceRepository? SourceRepository { get; init; }
         public List<string> References { get; init; } = [];
     }
 
