@@ -249,7 +249,12 @@ public static partial class DocumentationGenerator
         // PASS 1: Build xref index (so forward references resolve)
         BuildXrefIndex(globalNamespace);
         foreach (var symbol in additionalNamespaceMembers)
+        {
             AddSymbolToXrefIndex(symbol);
+            // Macro partition namespaces may not be present in the consumer assembly.
+            for (var ns = symbol.ContainingNamespace; ns is { IsGlobalNamespace: false }; ns = ns.ContainingNamespace)
+                AddSymbolToXrefIndex(ns);
+        }
 
         BuildReverseTypeRelationships();
 
@@ -2398,9 +2403,18 @@ public static partial class DocumentationGenerator
             return true;
 
         if (symbol is INamespaceSymbol namespaceSymbol)
-            return namespaceSymbol.GetMembers().Any(IsFromDocumentedAssembly);
+        {
+            var name = GetNamespaceFullName(namespaceSymbol);
+            return AdditionalNamespaceMembers.Keys.Any(key => name.Length == 0 || key == name ||
+                       key.StartsWith(name + ".", StringComparison.Ordinal)) ||
+                   namespaceSymbol.GetMembers().Any(IsFromDocumentedAssembly);
+        }
 
-        return SymbolEqualityComparer.Default.Equals(symbol.ContainingAssembly, documentedAssembly);
+        // Explicit source members can belong to the separate compile-time macro assembly.
+        var namespaceName = GetNamespaceFullName(symbol.ContainingNamespace);
+        return AdditionalNamespaceMembers.TryGetValue(namespaceName, out var members) &&
+                   members.Contains(symbol, SymbolEqualityComparer.Default) ||
+               SymbolEqualityComparer.Default.Equals(symbol.ContainingAssembly, documentedAssembly);
     }
 
     private static bool IsAdditionalNamespaceMember(ISymbol symbol)

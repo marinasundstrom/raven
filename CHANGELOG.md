@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Include explicitly documented compile-time macros and their
+  namespaces in RavenDoc navigation and cross-reference indexing, restoring the
+  Raven.Macros sidebar when macros belong to a separate compilation partition.
+
 - **2026-10-07:** Integrate Raven.Core and Raven.Macros into the main RavenDoc
   site configuration and shared Raven header, branding and navigation. Support
   multiple API inputs with disjoint output paths, shared article cross-references

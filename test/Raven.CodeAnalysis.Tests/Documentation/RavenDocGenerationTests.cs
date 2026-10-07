@@ -1,4 +1,5 @@
 using Raven.CodeAnalysis.Semantics.Tests;
+using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests.Documentation;
 
@@ -574,6 +575,36 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
         {
             if (Directory.Exists(outputPath))
                 Directory.Delete(outputPath, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("flat")]
+    [InlineData("hierarchical")]
+    public void MacroOnlyLibraryAppearsInNavigation(string namespaceNavigation)
+    {
+        var compilation = Compilation.Create("RavenDoc.Macros",
+                options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTreesWithLocalMacros(SyntaxTree.ParseText("""
+                namespace Samples.Macros
+                public macro Quote() { }
+                """));
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessCompilation(compilation, output,
+                new DocumentationSiteOptions([], NamespaceNavigation: namespaceNavigation));
+            var home = File.ReadAllText(Path.Combine(output, "index.html"));
+            var navigation = System.Text.RegularExpressions.Regex.Match(home,
+                "<nav class=\"api-navigation-panel\"[^>]*>(.*?)</nav>",
+                System.Text.RegularExpressions.RegexOptions.Singleline).Groups[1].Value;
+            navigation.ShouldContain("Samples.Macros");
+            navigation.ShouldContain("macro_Quote.html");
+        }
+        finally
+        {
+            if (Directory.Exists(output)) Directory.Delete(output, true);
         }
     }
 
