@@ -382,5 +382,6 @@
       ]
     }
   ],
-  "namespaceNavigation": "flat"
+  "namespaceNavigation": "flat",
+  "navigationScope": "site"
 }

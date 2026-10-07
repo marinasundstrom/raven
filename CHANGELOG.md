@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Add configurable site-wide article navigation and use it for Raven.
+  Organize guides, applications, tools, libraries, reference topics and project
+  information in one persistent hierarchy instead of switching sidebars by folder.
+
 - **2026-10-07:** Keep article navigation sections collapsible with native keyboard
   controls, automatically opening the section containing the current page.
   Preserve automatic library links when a site has no authored menu.

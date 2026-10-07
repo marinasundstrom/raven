@@ -171,3 +171,6 @@
 
     - name: ".NET representation and compatibility"
       href: dotnet-implementation.md
+
+- name: Design notes
+  href: design-notes.md

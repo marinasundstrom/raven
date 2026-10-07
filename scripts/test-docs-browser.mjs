@@ -141,6 +141,41 @@ try {
   await currentSection.locator(':scope > summary').focus();
   await page.keyboard.press('Enter');
   assert.equal(await currentSection.evaluate(e => e.open), true, 'Reading sections support keyboard toggling');
+  // Follow real sidebar links across physical folders: the reading hierarchy stays stable.
+  const readingRoutes = [
+    '/learn.html', '/getting-started.html', '/raven-for-csharp-developers.html',
+    '/lang/features/macros.html', '/lang/domain-modeling.html',
+    '/workloads/web-api.html', '/showcases/web-api.html',
+    '/compiler/raven-compiler.html', '/compiler/analyzers/configuration.html',
+    '/libraries/index.html', '/compiler/raven-core-library.html', '/macro-authoring.html',
+    '/lang/spec/index.html', '/lang/spec/functions.html', '/lang/spec/type-system.html',
+    '/status.html'
+  ];
+  const readingLinks = async () => page.locator('.documentation-navigation a').evaluateAll(links =>
+    links.map(a => new URL(a.href).pathname + new URL(a.href).hash));
+  const hierarchy = await readingLinks();
+  for (const route of readingRoutes) {
+    const href = await page.locator('.documentation-navigation a').evaluateAll((links, path) =>
+      links.find(a => new URL(a.href).pathname === path && !new URL(a.href).hash)?.getAttribute('href'), route);
+    assert.ok(href, `Page belongs to the reading hierarchy: ${route}`);
+    const target = page.locator(`.documentation-navigation a[href="${href}"]`).first();
+    for (const group of await target.locator('xpath=ancestor::details').all()) {
+      if (!await group.evaluate(e => e.open)) await group.locator(':scope > summary').click();
+    }
+    await target.click();
+    assert.equal(new URL(page.url()).pathname, route);
+    assert.deepEqual(await readingLinks(), hierarchy, `Sidebar stays consistent on ${route}`);
+    assert.ok(await page.locator('.documentation-navigation a[aria-current="page"]').count() > 0);
+  }
+  await page.locator('.site-navigation summary').filter({ hasText: 'API Reference' }).click();
+  await page.locator('.site-navigation').getByRole('link', { name: 'Macros', exact: true }).click();
+  assert.equal(await page.locator('h1').textContent(), 'Macros');
+  assert.ok(await page.locator('.api-sidebar:not(.documentation-sidebar)').count() > 0, 'API entry intentionally changes to symbol navigation');
+  await page.locator('.api-navigation-panel summary[title="Raven.Macros"]').click();
+  await page.locator('.api-navigation-panel a[href$="macro_Quote.html"]').click();
+  assert.ok((await page.locator('article').textContent()).includes('Raven.Macros.dll'));
+  await page.locator('.site-navigation').getByRole('link', { name: 'Docs', exact: true }).click();
+  assert.deepEqual(await readingLinks(), hierarchy, 'Returning from API restores the documentation hierarchy');
   assert.deepEqual(errors, []);
   console.log('Documentation browser checks passed: responsive layout, contrast, keyboard navigation, reference search, and example links.');
 } finally {
