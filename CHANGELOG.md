@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+### Fixes
+
+- RavenDoc shared API navigation drawers fill the mobile viewport instead of inheriting the shorter desktop sidebar height.
+
 ### Breaking changes
 
 - None recorded.

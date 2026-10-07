@@ -649,7 +649,7 @@ body.with-api-navigation.without-outline .documentation-shell {
 }
 
 /* Reserve the sidebar while an opted-in shared tree is restored or downloaded. */
-.api-sidebar:has([data-navigation-src]) {
+.api-sidebar:not(:modal):has([data-navigation-src]) {
   height: var(--sidebar-available-height, calc(100dvh - var(--site-header-height, 4.5rem) - 5.5rem));
 }
 .api-sidebar [data-navigation-src] { flex: 1; }
