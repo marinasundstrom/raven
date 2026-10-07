@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Include evaluated native-project .props/.targets imports in metadata
+  input discovery. Qualify a relocated class-library bundle through the workspace
+  loader: native symbol ownership, no dependency-source/fallback imports, configuration
+  inputs and transactional rejection. Ordinary .NET project behavior is unchanged.
+
 - **2026-10-07:** Add `neoclr --project --no-build-references` for hosts that already
   built their dependency artifacts. Preserve native graph/identity validation and
   ordinary dependency-first builds. Exercise prebuilt execution, missing-artifact

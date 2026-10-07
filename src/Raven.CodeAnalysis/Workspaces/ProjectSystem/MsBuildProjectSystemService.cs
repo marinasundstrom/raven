@@ -199,7 +199,12 @@ public sealed class MsBuildProjectSystemService : IProjectSystemService
             evaluation.TargetProperties.GetValueOrDefault("RavenMetadataFormat"), _metadataProvider.MetadataFormat, StringComparison.OrdinalIgnoreCase);
         var references = explicitTarget ? GetExplicitMetadataReferences(projectFilePath, false) : evaluation.MetadataReferencePaths.ToArray();
         var graphInputs = explicitTarget ? GetMetadataProjectBuildOrder(projectFilePath).SelectMany(path =>
-            _metadataProvider!.GetInputPaths(path, EvaluateProject(path, _requestedTargetFramework, _requestedConfiguration).TargetProperties).Append(path)) : [];
+        {
+            var inputEvaluation = EvaluateProject(path, _requestedTargetFramework, _requestedConfiguration);
+            return _metadataProvider!.GetInputPaths(path, inputEvaluation.TargetProperties).Append(path)
+                .Concat(inputEvaluation.EvaluationInputPaths.Where(input =>
+                    input.EndsWith(".props", StringComparison.OrdinalIgnoreCase) || input.EndsWith(".targets", StringComparison.OrdinalIgnoreCase)));
+        }) : [];
         return references.Concat(graphInputs).Concat(references.SelectMany(path =>
         {
             var docs = Path.ChangeExtension(path, ".docs");

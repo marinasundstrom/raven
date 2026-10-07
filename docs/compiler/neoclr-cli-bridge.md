@@ -7897,3 +7897,28 @@ checks missing-artifact rejection preserves the consumer. The four native class-
 projects compile; five source-free consumers verify/run, and the project HTTP consumer
 passes exact-output and invalid-owner publication checks. Shared project-system tests
 from the preceding slice are reused because only explicit native command parsing changes.
+
+
+## Relocatable native bundle configuration (2026-10-07)
+
+NeoCLR class-library staging now emits `NeoCLR.ClassLibrary.props`. A consumer imports
+that file to obtain explicit native References and the matching primitive Core, retained
+seed, ownership, Object and async selections. Paths use MSBuildThisFileDirectory;
+relocation does not embed the original build checkout in consumer configuration.
+Consumers still choose their project TargetFramework, output kind and assembly name.
+The configuration explicitly disables source-root and bootstrap-intrinsic authoring.
+
+The same evaluated project reaches the compiler and native-enabled language server.
+`GetMetadataInputPaths` now includes evaluated .props/.targets imports for native
+projects and their project-reference closure, alongside artifact and documentation
+inputs. No source compilation reference, Reflection fallback or emitter access to
+importer objects is introduced. Ordinary .NET paths are unchanged.
+
+C# `NeoClrMetadataProbe --native-bundle-project BUNDLE FRESH_DIRECTORY SOURCE` copies
+and relocates the bundle into a path with spaces, loads an ordinary project, verifies
+native symbol ownership across Runtime/Data/Networking/Web and five references total
+(four native, one primitive bootstrap), and checks configuration/seed/artifact input
+paths. Invalid Object ownership and missing Web reject without a partial workspace.
+The unchanged HTTP consumer then compiles and executes through the project command.
+This is headless workspace and CLI evidence, not a new installed VS Code acceptance
+claim or a promise of live file-event delivery from every client.
