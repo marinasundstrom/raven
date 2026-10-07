@@ -1,8 +1,35 @@
 # Raven Changelog
 
-Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
+Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
+
+### Breaking changes
+
+- None recorded.
+
+## 0.1.14 - 2026-10-07
+
+### Breaking changes
+
+- Compiler API consumers must rebuild for the target-boundary changes. The
+  public `TypeSymbolExtensions.GetClrType` adapter was removed; semantic symbols
+  no longer provide this host/metadata conversion path. See
+  [Runtime Contracts](docs/compiler/runtime-contracts.md).
+
+### Highlights
+
+- Parameter deconstruction in named functions and lambdas, including nominal
+  and explicit property patterns, with preserved metadata and editor display.
+- Compiler fixes for propagation evaluation order, generic/async capture identity,
+  unsigned arithmetic, interface contracts, union cases, and imported members.
+- Explicit target platform and runtime contracts, with an experimental neoCLR
+  CLI preset. Ordinary .NET behavior remains the default; native structural
+  Function work is not part of this release.
+- RavenDoc replaces DocFX for the Raven website, combining authored content and
+  library APIs with configurable navigation, search, copy controls and themes.
+
+### Detailed changes
 
 - Avoid shared-sidebar flicker by reserving its space, suppressing the temporary fallback during loading, and caching versioned navigation per browser tab. Keep fallback access when scripts or requests fail.
 
@@ -825,10 +852,6 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   instead of recursively binding during flow analysis. Missing names and invalid
   invocations reject compilation again; cold Fault control-flow queries remain
   terminal. No Runtime Contract configuration or emitted metadata changes.
-
-### Breaking changes
-
-- Compiler API consumers must rebuild for the target-boundary changes documented above.
 
 ## 0.1.13 - 2026-09-27
 
