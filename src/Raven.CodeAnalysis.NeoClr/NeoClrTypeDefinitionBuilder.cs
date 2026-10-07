@@ -15,7 +15,9 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
             _ => throw new InvalidOperationException("Unsupported type visibility")
         };
         if (plan.IsObjectRoot) return assembly.AddNativeObjectRoot();
-        if (plan.IsClosedHierarchy) return assembly.AddClosedClass(plan.Namespace, plan.Name, visibility);
+        if (plan.IsClosedHierarchy) return plan.ClassBase is { } closedBase
+            ? assembly.AddClosedClass(plan.Namespace, plan.Name, resolveOwner(closedBase), visibility)
+            : assembly.AddClosedClass(plan.Namespace, plan.Name, visibility);
         if (plan.IsEnum)
         {
             var type = assembly.AddEnum(plan.Namespace, plan.Name, visibility);

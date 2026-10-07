@@ -7427,3 +7427,20 @@ The full 195-input audit clears bootstrap Void import and next rejects a constru
 call that does not satisfy the direct-base contract. Full System remains unpublished.
 This fix belongs to the source-unit integration introduced in 7abe0adf7; main does
 not contain that source-owner path, so no independent main backport is needed.
+
+## Source Object beneath closed families (2026-10-07)
+
+The NeoCLR type-definition adapter now forwards `SourceTypePlan.ClassBase` for
+closed classes, just as for ordinary classes. Previously it created a root closed
+class and discarded the source Object base, so correctly lowered protected
+constructor calls failed metadata validation (the full-System `JsonValue` case).
+The metadata builder overload uses the existing definition validation and native
+base encoding. No binder, importer, Runtime Contract policy or .NET emitter changes.
+
+Validation uses the neoCLR `verify_generic_object_root.py --closed-root` fixture:
+source Object, a closed abstract family, a concrete child with stored state and
+virtual dispatch returning 42. An artifact-only metadata-API consumer executes the
+Raven-emitted library; this is explicitly not ordinary imported-root acceptance.
+Full-System compilation now passes this constructor frontier and stops at the
+`ObjectTypeHandle(object) -> RuntimeTypeHandle` dependency contract. See neoCLR's
+`closed-object-root-2026-10-07.md` for revision/hash evidence and next steps.
