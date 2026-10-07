@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Record NeoCLR execution of separately scoped runtime-service Void
+  value/no-result contracts. WriteLine now clears full-System admission; the next
+  blocker is the selected source unit inside DNS callback signatures. Compiler and
+  ordinary .NET behavior are unchanged.
+
 - **2026-10-07:** Document source Object ownership in the retained NeoCLR audit seed
   and the next WriteLine value/no-result ABI conflict. Record the candidate
   Runtime/Data/Networking/Web dependency order without claiming a completed split.

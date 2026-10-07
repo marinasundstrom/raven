@@ -7553,3 +7553,18 @@ cases remain with their declaring owners. Native adapters and imported seed depe
 need explicit ownership review; the Runtime remainder is not a final minimal-core list.
 See neoCLR `docs/experiments/extended-cli-metadata/library-boundaries-2026-10-07.md`
 for reproducible inventory, evidence and separate-compilation gates.
+
+## Scoped native service result contracts (2026-10-07)
+
+NeoCLR runtime validation now allows separate-module InternalCall declarations with
+unit-value/no-result Void results only when both complete contracts pass its existing
+native registry. Calls retain their own member identities and stack behavior;
+same-module duplicates, ordinary conflicts and unsupported result signatures reject.
+Separate native NEOX consumers produce exact WriteLine output and return 42.
+
+No compiler code, Runtime Contract setting, CLI projection or .NET semantics change.
+The full-source artifact now passes the WriteLine conflict and reaches DnsLookup's
+callback result represented by the selected nominal source System.Void. Reconciling
+that unit signature remains required before full-System loading/execution. See neoCLR
+`docs/experiments/extended-cli-metadata/scoped-service-results-2026-10-07.md` for
+contracts, focused checks and compiler/runtime/artifact evidence.
