@@ -778,3 +778,7 @@ Valid URL choices override saved reader preferences; missing or invalid choices
 fall back to those preferences and site defaults. Opening a shared URL does not
 overwrite saved preferences. Changes replace the current history entry to avoid
 adding a Back-button step for every toggle.
+
+The Raven project website uses `docs/ravendoc.json`; see [Website build](website.md).
+Set `script` to a site-relative JavaScript module for authored-page interactions.
+Raw HTML links to selected Markdown articles are rewritten to their output URLs.

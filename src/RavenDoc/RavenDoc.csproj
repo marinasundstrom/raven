@@ -19,12 +19,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="../../docs/template/public/raven-theme.css"
+    <EmbeddedResource Include="../../docs/assets/raven-theme.css"
                       LogicalName="Raven.Theme.css" />
     <EmbeddedResource Include="Assets/ravendoc.css"
                       LogicalName="RavenDoc.Style.css" />
-    <EmbeddedResource Include="../../docs/template/public/raven-language.js" LogicalName="Raven.Language.js" />
-    <EmbeddedResource Include="../../docs/template/public/raven-highlight.css" LogicalName="Raven.Highlight.css" />
+    <EmbeddedResource Include="../../docs/assets/raven-language.js" LogicalName="Raven.Language.js" />
+    <EmbeddedResource Include="../../docs/assets/raven-highlight.css" LogicalName="Raven.Highlight.css" />
     <EmbeddedResource Include="Assets/highlight-core.js" LogicalName="RavenDoc.Highlight.js" />
     <EmbeddedResource Include="Assets/highlight-LICENSE" LogicalName="RavenDoc.Highlight.License" />
     <EmbeddedResource Include="Assets/theme.js" LogicalName="RavenDoc.Theme.js" />

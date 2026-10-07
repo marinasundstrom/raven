@@ -4,6 +4,24 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class DocumentationSiteBuilderTests
 {
+    [Fact]
+    public void RawHtmlArticleLinksPreserveFragmentsAndCustomScriptDepth()
+    {
+        WithDirectory(root =>
+        {
+            File.WriteAllText(Path.Combine(root, "index.md"), "<a href=\"next.md#example\">Next</a>");
+            File.WriteAllText(Path.Combine(root, "next.md"), "# Next");
+            File.WriteAllText(Path.Combine(root, "site.json"), JsonSerializer.Serialize(new
+            {
+                script = "custom.js",
+                pages = new[] { new { source = "index.md", output = "index.html" }, new { source = "next.md", output = "guide/next.html" } }
+            }));
+            DocumentationSiteBuilder.Build(Path.Combine(root, "site.json"));
+            File.ReadAllText(Path.Combine(root, "_site/index.html")).ShouldContain("href=\"guide/next.html#example\"");
+            File.ReadAllText(Path.Combine(root, "_site/guide/next.html")).ShouldContain("src=\"../custom.js\"");
+        });
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("G-ABC\n")]
@@ -207,7 +225,8 @@ public sealed class DocumentationSiteBuilderTests
             var config = Path.Combine(root, "ravendoc.json");
             File.WriteAllText(config, JsonSerializer.Serialize(new
             {
-                api = "library.rvn", apiContent = "extras",
+                api = "library.rvn",
+                apiContent = "extras",
                 pages = new[] { new { source = "index.md", output = "index.html" } }
             }));
             DocumentationSiteBuilder.Build(config);

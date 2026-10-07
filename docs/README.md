@@ -1,8 +1,8 @@
 # Documentation
 
 Raven keeps user documentation and development records in the same repository,
-but only an explicit user-facing subset is published by DocFX. The publication
-list is defined in [`docfx.json`](docfx.json); adding a Markdown file under
+but only an explicit user-facing subset is published by RavenDoc. The publication
+list is defined in [`ravendoc.json`](ravendoc.json); adding a Markdown file under
 `docs/` does not publish it automatically.
 
 ## User-facing documentation

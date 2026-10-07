@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Publish the entire Raven website with RavenDoc, preserving article
+  and library API URLs, landing-page design, section navigation and playground
+  examples. Remove the DocFX tool and configuration; expose API references in the header.
+
 - **2026-10-07:** Record source-owned NeoCLR reflection construction integration,
   including native constructor/access checks and temporary CLI facade compatibility.
   Compiler behavior is unchanged; full bootstrap next reaches System.Value ownership.

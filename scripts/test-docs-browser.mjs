@@ -37,25 +37,21 @@ try {
       page = await browser.newPage({ viewport: { width, height: 900 } });
       page.on('pageerror', error => errors.push(error.message));
       await page.goto(`${base}/${path}`);
-      await page.locator('.raven-skip-link').waitFor({ state: 'attached' });
+      await page.locator('.skip-link').waitFor({ state: 'attached' });
       for (const theme of ['light', 'dark']) {
-        await page.evaluate(theme => document.documentElement.dataset.bsTheme = theme, theme);
-        await page.waitForTimeout(250); // Allow Bootstrap color transitions to settle.
+        await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
+        await page.waitForTimeout(250); // Allow theme styles to settle.
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${path}: overflow at ${width}px`);
         if (path === 'index.html') {
           const colors = await page.locator('.raven-button-primary').first().evaluate(e => ({ fg: getComputedStyle(e).color, bg: getComputedStyle(e).backgroundColor }));
           assert.ok(contrast(colors.fg, colors.bg) >= 4.5, `${theme}: primary button contrast`);
         }
-        if (width === 390) {
-          const colors = await page.getByRole('button', { name: 'Toggle navigation' }).evaluate(e => ({ fg: getComputedStyle(e).color, bg: getComputedStyle(document.body).backgroundColor }));
-          // The header overlays the body with a near-opaque surface of the same theme.
-          assert.ok(contrast(colors.fg, colors.bg) >= 3, `${theme}: mobile navigation contrast`);
-        }
+
       }
       await page.keyboard.press('Tab');
-      assert.equal(await page.locator('.raven-skip-link').evaluate(e => e === document.activeElement), true, `${width} ${path}: first focus ${await page.evaluate(() => document.activeElement.outerHTML.slice(0,160))}`);
+      assert.equal(await page.locator('.skip-link').evaluate(e => e === document.activeElement), true, `${width} ${path}: first focus ${await page.evaluate(() => document.activeElement.outerHTML.slice(0,160))}`);
       await page.keyboard.press('Enter');
-      assert.equal(await page.locator('article').evaluate(e => e === document.activeElement), true);
+      assert.equal(await page.locator('main').evaluate(e => e === document.activeElement), true);
       const samples = await page.locator('a.raven-playground-link[href*="playground/?source="]').evaluateAll(links => links.map(a => ({ href: a.href, source: a.parentElement.previousElementSibling?.querySelector('code')?.textContent })));
       for (const { href, source } of samples) {
         assert.ok(source?.trim(), `${path}: sample source is visible`);
@@ -65,20 +61,11 @@ try {
   }
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto(`${base}/lang/spec/index.html`);
-  const menu = page.getByRole('button', { name: 'Toggle navigation' });
-  await menu.focus();
-  await page.keyboard.press('Enter');
-  await page.locator('#navpanel.show').waitFor();
-  assert.equal(await menu.getAttribute('aria-expanded'), 'true');
-  await page.keyboard.press('Enter');
-  await page.locator('#navpanel.show').waitFor({ state: 'hidden' });
-  const toc = page.getByRole('button', { name: 'Show table of contents' });
-  await toc.focus();
-  await page.keyboard.press('Enter');
-  await page.locator('#tocOffcanvas.show').waitFor();
+  const browse = page.getByRole('button', { name: 'Browse API', exact: true });
+  await browse.click();
+  await page.locator('#api-browser').waitFor({ state: 'visible' });
   await page.keyboard.press('Escape');
-  await page.locator('#tocOffcanvas.show').waitFor({ state: 'hidden' });
-  assert.equal(await toc.evaluate(e => e === document.activeElement), true);
+  assert.equal(await browse.getAttribute('aria-expanded'), 'false');
   const query = page.locator('#reference-query');
   await query.fill('nullable');
   assert.ok(await page.locator('[data-reference-topic]:visible').count() > 0);
