@@ -7721,3 +7721,20 @@ incomplete external boxing rejection and complete-contract round trips. The corr
 neoCLR evidence is `docs/experiments/extended-cli-metadata/separate-networking-2026-10-07.md`.
 This still uses the documented primitive bootstrap and finalized retained runtime seed.
 Data's cross-assembly array-reflection boundary remains separate work.
+
+### Named Object syntax with an imported root (2026-10-07)
+
+When NeoCLR selects an explicit ObjectAssemblyName, type binding normalizes references
+to primitive-bootstrap System.Object to the selected native root. This includes `Object`
+resolved through a parent namespace, `System.Object`, and nested nullable/array syntax.
+Only the explicit bootstrap assembly identity/name participates; user lookalike types
+and ordinary .NET binding remain unchanged. No importer objects participate in emission.
+
+A reduced namespace probe asserts all three spellings have the same selected symbol.
+The unchanged JSON object consumer compiles against independently emitted Runtime/Data,
+then executes nested models, scalar/jagged arrays, setters, identity and invalid-input
+checks. The matching metadata writer also preserves canonical nonvirtual Object.GetType
+references; the Runtime library exposes bounded ArrayReflection services. Explicit
+primitive Core, ownership manifest and finalized seed remain required. Evidence lives
+in neoCLR's `docs/experiments/extended-cli-metadata/separate-data-2026-10-07.md`.
+This is a native ownership fix, not an independently applicable .NET behavior change.

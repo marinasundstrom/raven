@@ -35,6 +35,13 @@ internal static class ImportedObjectRootChecks
         var attribute = selected.GetTypeByMetadataName("System.Attribute");
         if (attribute is not null && !SymbolEqualityComparer.Default.Equals(attribute.BaseType, selectedRoot))
             throw new Exception("bootstrap base facts retained a competing Object root");
+        var namespaceConsumer = Compilation.Create("NamespaceConsumer",
+            [SyntaxTree.ParseText("namespace System.Data.Json\nimport System.*\npublic class NamedRoot {\npublic val Upper: Object? => null\npublic val Qualified: System.Object? => null\npublic val Keyword: object? => null\n}")],
+            references, selected.Options);
+        var namespaceRoot = namespaceConsumer.GetSpecialType(SpecialType.System_Object);
+        foreach (var member in namespaceConsumer.GetTypeByMetadataName("System.Data.Json.NamedRoot")!.GetMembers().OfType<IPropertySymbol>())
+            if (!SymbolEqualityComparer.Default.Equals(member.Type.GetNonNullableType(), namespaceRoot))
+                throw new Exception("namespace type spelling retained bootstrap Object: " + member.Name + " / " + member.Type.ToDisplayString() + " / " + member.Type.ContainingAssembly?.Name + " / expected " + namespaceRoot.ContainingAssembly.Name);
         var missing = Create(imports.WithObjectAssemblyName("Missing"));
         if (missing.GetSpecialType(SpecialType.System_Object).TypeKind != TypeKind.Error)
             throw new Exception("missing root fell back to bootstrap");

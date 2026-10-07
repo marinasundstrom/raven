@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Normalize primitive-bootstrap Object type syntax to an explicitly
+  selected native Object owner during binding. Parent-namespace lookup now agrees
+  with object keyword and qualified type spelling. This fixes separate System.Data
+  JSON mapping without changing default .NET binding or redirecting user lookalikes.
+
 - **2026-10-07:** Supply the full selected native Object virtual-slot contract from
   symbols before emission, including slots not called by a body. This enables boxing
   against separately compiled System.Runtime without a competing seed Object. The

@@ -158,6 +158,18 @@ internal abstract partial class Binder
             _ => Fail(syntax, TypeResolutionFailureKind.UnsupportedTypeSyntax)
         };
 
+        // Namespace lookup can encounter the primitive bootstrap Object before the
+        // explicitly selected native root. Type spelling must not change ownership.
+        if (result.Success && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            Compilation.Options.MetadataImportOptions is { ObjectAssemblyName: not null } rootImports &&
+            result.ResolvedType is INamedTypeSymbol { Arity: 0, ContainingType: null } objectType &&
+            objectType.ContainingAssembly.Name == rootImports.CoreAssemblyName &&
+            objectType.ToFullyQualifiedMetadataName() == "System.Object")
+        {
+            var root = Compilation.GetSpecialType(SpecialType.System_Object);
+            result = result with { ResolvedType = root, ResolvedNamedDefinition = root };
+        }
+
         // A selected source handle declares the runtime-owned intrinsic; signatures
         // retain the bootstrap identity while its implementation is being compiled.
         if (result.Success && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
