@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Emit the explicitly selected NeoCLR System.Void owner as canonical
+  native unit storage, including imported references, function results and generic
+  arguments. Keep .NET unit carriers unchanged. Source-free NativeMemory/unit-interface
+  consumers execute; full-System admission next reaches retained-seed dependencies.
+
 - **2026-10-07:** Keep wide comparison and API tables inside mobile articles with
   horizontal scrolling, including platforms whose fonts have wider metrics.
 

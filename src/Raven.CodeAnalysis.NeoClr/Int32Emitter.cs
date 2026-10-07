@@ -263,6 +263,19 @@ internal static class Int32Emitter
             primitiveOwners.Add(symbol, primitive);
             primitiveFields.Add(field, primitive);
         }
+        // Unit ownership is already explicit in RuntimeUnitContract. Preserve its
+        // nominal CLI declaration while using intrinsic unit storage in native signatures.
+        if (compilation.Options.RuntimeUnitContract is not null &&
+            compilation.GetSpecialType(SpecialType.System_Unit) is UnitTypeSymbol { RuntimeRepresentation: { } unitRepresentation } &&
+            declaredTypes.Keys.SingleOrDefault(t => SymbolEqualityComparer.Default.Equals(t, unitRepresentation)) is { } unitOwner)
+        {
+            if (!unitOwner.IsValueType || unitOwner.Arity != 0 || unitOwner.ContainingType is not null ||
+                storageFields.Any(f => SymbolEqualityComparer.Default.Equals(f.ContainingType, unitOwner)) ||
+                plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol.ContainingType, unitOwner) &&
+                    p.Symbol.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor))
+                throw Unsupported("selected native unit requires an empty value declaration without constructors");
+            primitiveOwners.Add(unitOwner, PrimitiveType.Void);
+        }
         INamedTypeSymbol? graphemeOwner = null;
         IFieldSymbol? graphemeField = null;
         if (options.ImplementsGrapheme)
@@ -406,6 +419,11 @@ internal static class Int32Emitter
                     assembly.SetNativeGrapheme(imported);
                 if (HasNativePrimitiveStorage(original.SpecialType) && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
                     assembly.SetNativePrimitive(imported, NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(original.SpecialType.ToString()[7..])));
+                if (compilation.Options.RuntimeUnitContract is not null &&
+                    compilation.GetSpecialType(SpecialType.System_Unit) is UnitTypeSymbol { RuntimeRepresentation: { } importedUnit } &&
+                    SymbolEqualityComparer.Default.Equals(original, importedUnit) &&
+                    original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    assembly.SetNativePrimitive(imported, PrimitiveType.Void);
                 if (IsSymbolOnlyReferenceDefinition(original) || IsSymbolOnlyOwnerDefinition(original) && original.IsValueType)
                     foreach (var contract in original.Interfaces)
                     {

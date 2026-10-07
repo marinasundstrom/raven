@@ -7568,3 +7568,28 @@ callback result represented by the selected nominal source System.Void. Reconcil
 that unit signature remains required before full-System loading/execution. See neoCLR
 `docs/experiments/extended-cli-metadata/scoped-service-results-2026-10-07.md` for
 contracts, focused checks and compiler/runtime/artifact evidence.
+
+## Canonical native unit storage (2026-10-07)
+
+NeoCLR void is the inhabited unit type, usable in value positions and generic arguments.
+The separate unit representation needed by CLR void restrictions remains a .NET backend
+concern. No additional NeoCLR Unit type is introduced. No-result calls still have a
+separate stack convention; this is not another language-level type.
+
+The existing RuntimeUnitContract explicitly selects System.Void. The native emitter
+marks an empty, nongeneric, top-level source owner with native Void storage and applies
+the same designation to output-owned references to the selected imported owner. Reference
+creation uses semantic symbols and host artifact identities, not importer objects. The
+metadata library retains scoped dependency aliases and canonicalizes unit signatures.
+Wrong source storage or constructors reject before publication; arbitrary empty structs
+are not treated as unit. CLI transport keeps nominal signatures in value positions,
+where CLI void is invalid. Ordinary .NET lowering and Runtime Contract defaults stay intact.
+
+Validation: 165 C# metadata groups; native callback/generic and separate-reference
+consumers return 42; production NativeMemory compiled separately from its Raven consumer
+passes unit-parameter/generic-interface execution and existing negative cases. All 13
+RuntimeUnitContractTests pass on .NET. All 197 aggregate System inputs emit; loading next
+reaches retained-seed dependency ownership, not a DNS unit-signature mismatch. See neoCLR
+`docs/experiments/extended-cli-metadata/canonical-unit-2026-10-07.md` for binary/source
+hashes, commands and remaining gates. These are target-specific changes, not a general
+compiler fix awaiting backport.
