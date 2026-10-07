@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 
 using NeoCLR.Metadata.Experimental.Introspection;
+using NeoCLR.Metadata.Experimental.Model;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -23,7 +24,11 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     {
         this.compilation = compilation;
         this.view = view;
-        SpecialType = view.NativeGrapheme ? SpecialType.System_Char : view.NativePrimitive is { } primitive ? Enum.Parse<SpecialType>("System_" + primitive) : SpecialType.None;
+        // Erased Value has native storage semantics, but no corresponding CLR special
+        // type. Preserve its declared identity; target contracts select its ownership.
+        SpecialType = view.NativeGrapheme ? SpecialType.System_Char :
+            view.NativePrimitive is { } primitive && primitive != PrimitiveType.Value
+                ? Enum.Parse<SpecialType>("System_" + primitive) : SpecialType.None;
         if (SpecialType == SpecialType.None && compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
             compilation.Options.MetadataImportOptions?.AsyncAssemblyName == ContainingAssembly.Name)
             SpecialType = view.FullName switch

@@ -405,7 +405,7 @@ internal static class Int32Emitter
                 else
                 {
                     if (original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
-                        throw Unsupported("native type requires a supported symbol-only emission contract");
+                        throw Unsupported("native type requires a supported symbol-only emission contract: " + original.ToFullyQualifiedMetadataName());
                     var name = original.ToFullyQualifiedMetadataName();
                     var candidates = binding.Definition.MainModule.Types.Where(t => MatchesType(t, original)).Take(2).ToArray();
                     if (candidates.Length != 1 || candidates[0].GenericArity != original.Arity || candidates[0].IsValueType != original.IsValueType)

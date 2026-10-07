@@ -7612,3 +7612,27 @@ the erased Value category has no such Raven enum member. Fix that semantic class
 next, retaining explicit erased-value ownership rather than inventing a CLR primitive.
 See neoCLR `docs/experiments/extended-cli-metadata/retained-catalog-2026-10-07.md` for
 reproducible commands and hashes. No compiler or ordinary .NET behavior changes here.
+
+## Native erased-value semantic classification (2026-10-07)
+
+NativeNamedTypeSymbol now treats the metadata library's explicit Value representation
+as a nominal value type with SpecialType.None. CLR has no corresponding special type;
+Raven's existing erased-value/ownership contracts remain responsible for its target
+meaning. The importer preserves the declared assembly identity in return and parameter
+symbols. No new CLR special type, reflection surrogate, Runtime Contract option or
+emitter/importer coupling is introduced. Other native primitive classifications remain
+unchanged, including numeric types.
+
+`NeoClrMetadataProbe --native-value-symbols <core.dll>` creates a native provider with
+Value and Int32, imports it, and asserts identity/category and method signature ownership.
+It reproduced the System_Value Enum.Parse failure before the fix and now passes. Both
+ErasedValueOwnershipTests pass; the compiler builds. Ordinary .NET loading is unchanged.
+
+The unchanged application-order-collections consumer gets through binding against the
+197-input source-built artifact and reaches NEOMETA001 for System.Collections.ArrayList`1.
+Native type-capability diagnostics now include the rejected metadata name. The imported
+library's generic classes use its source-owned Object base, while consumer root selection
+still needs reconciliation with the primitive bootstrap. Investigate that contract next;
+no inheritance validation has been relaxed, no application artifact is published, and
+broad runtime execution is not claimed. See neoCLR's
+`docs/experiments/extended-cli-metadata/value-import-2026-10-07.md` for evidence.
