@@ -1,3 +1,5 @@
+/// Compile-time macros for quoting syntax, compiling source, embedding files,
+/// and generating code through the Raven compiler API.
 namespace Raven.Macros
 
 import System.*

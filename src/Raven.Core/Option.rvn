@@ -1,3 +1,5 @@
+/// Core Raven value contracts, including Option and Result, alongside extensions
+/// that integrate these contracts with ordinary .NET APIs.
 namespace System
 
 import System.*
