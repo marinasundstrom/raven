@@ -1,80 +1,75 @@
-- name: Docs
+- name: Learn Raven
   href: learn.md
   items:
-    - name: Learn Raven
+    - name: Start here
       href: learn.md
-      items:
-        - name: Start here
-          href: learn.md
-        - name: Raven in 60 seconds
-          href: raven-in-60-seconds.md
-        - name: Install and run Raven
-          href: getting-started.md
-        - name: Language introduction
-          href: introduction.md
-        - name: Raven for absolute beginners
-          href: raven-for-absolute-beginners.md
-        - name: Raven for C# developers
-          href: raven-for-csharp-developers.md
-        - name: Macros
-          href: lang/features/macros.md
-        - name: Authoring Raven macros
-          href: macro-authoring.md
-    - name: Language features
-      href: lang/features/index.md
-      items:
-        - name: Values and functions
-          href: lang/features/values-and-functions.md
-        - name: Records, unions, and classes
-          href: lang/features/data-modeling.md
-        - name: Pattern matching
-          href: lang/features/patterns.md
-        - name: Option and Result
-          href: lang/features/option-and-result.md
-        - name: .NET interoperability
-          href: lang/features/dotnet-interop.md
-        - name: Asynchronous code
-          href: lang/features/async.md
-        - name: Macros
-          href: lang/features/macros.md
-        - name: Domain modeling
-          href: lang/domain-modeling.md
-        - name: Nullability and absence
-          href: lang/nullability.md
-        - name: Style guide
-          href: lang/style-guide.md
-    - name: Build applications
-      href: workloads/index.md
-      items:
-        - name: Containerize an application
-          href: workloads/containerization.md
-        - name: Web APIs with ASP.NET Core
-          href: workloads/web-api.md
-        - name: File-based applications
-          href: workloads/file-based-apps.md
-        - name: IoT and Native AOT
-          href: workloads/iot-monitor.md
-        - name: Embedded IoT
-          href: workloads/embedded-iot.md
-    - name: Tools and libraries
+    - name: Raven in 60 seconds
+      href: raven-in-60-seconds.md
+    - name: Install and run Raven
+      href: getting-started.md
+    - name: Language introduction
+      href: introduction.md
+    - name: Raven for absolute beginners
+      href: raven-for-absolute-beginners.md
+    - name: Raven for C# developers
+      href: raven-for-csharp-developers.md
+    - name: Macros
+      href: lang/features/macros.md
+    - name: Authoring Raven macros
+      href: macro-authoring.md
+- name: Language features
+  href: lang/features/index.md
+  items:
+    - name: Values and functions
+      href: lang/features/values-and-functions.md
+    - name: Records, unions, and classes
+      href: lang/features/data-modeling.md
+    - name: Pattern matching
+      href: lang/features/patterns.md
+    - name: Option and Result
+      href: lang/features/option-and-result.md
+    - name: .NET interoperability
+      href: lang/features/dotnet-interop.md
+    - name: Asynchronous code
+      href: lang/features/async.md
+    - name: Macros
+      href: lang/features/macros.md
+    - name: Domain modeling
+      href: lang/domain-modeling.md
+    - name: Nullability and absence
+      href: lang/nullability.md
+    - name: Style guide
+      href: lang/style-guide.md
+- name: Build applications
+  href: workloads/index.md
+  items:
+    - name: Containerize an application
+      href: workloads/containerization.md
+    - name: Web APIs with ASP.NET Core
+      href: workloads/web-api.md
+    - name: File-based applications
+      href: workloads/file-based-apps.md
+    - name: IoT and Native AOT
+      href: workloads/iot-monitor.md
+    - name: Embedded IoT
+      href: workloads/embedded-iot.md
+- name: Tools and libraries
+  href: compiler/index.md
+  items:
+    - name: Tools
       href: compiler/index.md
-      items:
-        - name: Tools
-          href: compiler/index.md
-        - name: Libraries
-          href: libraries/index.md
-    - name: About
+    - name: Libraries
+      href: libraries/index.md
+- name: About
+  href: overview.md
+  items:
+    - name: Overview
       href: overview.md
-      items:
-        - name: Overview
-          href: overview.md
-        - name: Release status and compatibility
-          href: status.md
-        - name: MVP roadmap
-          href: roadmap.md
-    - name: Language reference
-      href: lang/spec/index.md
-- name: Playground
-  href: https://marinasundstrom.github.io/raven/playground/
-- name: GitHub
-  href: https://github.com/marinasundstrom/raven
+    - name: Release status and compatibility
+      href: status.md
+    - name: MVP roadmap
+      href: roadmap.md
+- name: Language reference
+  href: lang/spec/index.md
+- name: API Reference
+  href: libraries/index.md

@@ -201,7 +201,9 @@ public sealed class DocumentationSiteBuilderTests
             guide.ShouldContain("aria-label=\"On this page\"");
             guide.ShouldContain("aria-controls=\"api-browser\"");
             var next = File.ReadAllText(Path.Combine(root, "_site/guide/next.html"));
-            next.ShouldContain("API Browser");
+            next.ShouldContain("aria-label=\"Documentation\"");
+            next.ShouldNotContain("API Browser");
+            next.ShouldNotContain("navigation-filter");
             next.ShouldNotContain("aria-label=\"On this page\"");
         });
     }

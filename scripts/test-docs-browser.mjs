@@ -61,7 +61,7 @@ try {
   }
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto(`${base}/lang/spec/index.html`);
-  const browse = page.getByRole('button', { name: 'Browse API', exact: true });
+  const browse = page.getByRole('button', { name: 'Browse documentation', exact: true });
   await browse.click();
   await page.locator('#api-browser').waitFor({ state: 'visible' });
   await page.keyboard.press('Escape');

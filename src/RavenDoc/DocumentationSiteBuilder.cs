@@ -229,14 +229,16 @@ public static class DocumentationSiteBuilder
                     throw new InvalidOperationException("HTML content must be a body fragment; RavenDoc supplies the page shell.");
                 string Link(string path) => Path.GetRelativePath(currentDirectory, Path.Combine(staging, path)).Replace('\\', '/');
                 var pageMenu = MenuForPage(page.Source);
-                var navigation = DocumentationNavigation.Compose(pageMenu, apiNavigation, appendApi: ReferenceEquals(pageMenu, menu));
+                var navigation = DocumentationNavigation.Compose(pageMenu, apiNavigation, appendApi: configuration.ApiNavigationRoot is not null && ReferenceEquals(pageMenu, menu));
                 var navigationRoot = configuration.ApiNavigationRoot?.TrimEnd('/');
                 var showNavigation = metadata.Layout != "landing" && (navigationRoot is null ||
                     page.Destination.StartsWith(navigationRoot + "/", StringComparison.Ordinal));
                 File.WriteAllText(destination, template.RenderPage(new RavenDocPageTemplateModel(
                     metadata.Title ?? page.Page.Title ?? ArticleTitle(html) ?? Path.GetFileNameWithoutExtension(page.Source), "Documentation", configuration.Name,
                     Link("index.html"), Link("raven-theme.css"), Link("style.css"), Link("site.js"), html,
-                    DocumentationNavigation.ResolveLinks(configuration.Links, staging, currentDirectory), showNavigation ? DocumentationNavigation.Render(navigation, staging, currentDirectory, destination) : "", configuration.Name,
+                    DocumentationNavigation.ResolveLinks(configuration.Links, staging, currentDirectory), showNavigation ? (navigationRoot is null
+                        ? DocumentationNavigation.RenderArticles(navigation, staging, currentDirectory, destination)
+                        : DocumentationNavigation.Render(navigation, staging, currentDirectory, destination)) : "", configuration.Name,
                     DocumentationNavigation.Resolve(configuration.Logo, staging, currentDirectory),
                     DocumentationNavigation.Resolve(configuration.Stylesheet, staging, currentDirectory),
                     configuration.Footer ?? configuration.Name, configuration.Subtitle, configuration.Notice,

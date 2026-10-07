@@ -42,6 +42,47 @@ internal static class DocumentationNavigation
             Children = link.Children is null ? null : ResolveLinks(link.Children, root, directory)
         }).ToArray();
 
+    internal static string RenderArticles(IReadOnlyList<DocumentationNavigationItem> items, string root, string directory, string currentPage)
+    {
+        if (items.Count == 0) return "";
+        var builder = new StringBuilder();
+        void Link(DocumentationNavigationItem item)
+        {
+            var label = RavenDocSiteTemplate.Escape(item.Label);
+            if (item.Url is not { } url) { builder.Append($"<span>{label}</span>"); return; }
+            var current = !Uri.TryCreate(url, UriKind.Absolute, out _) &&
+                Path.GetFullPath(Path.Combine(root, url)) == currentPage;
+            builder.Append($"<a href=\"{RavenDocSiteTemplate.Escape(Resolve(url, root, directory))}\"{(current ? " aria-current=\"page\"" : "")}><span>{label}</span></a>");
+        }
+        void Append(IReadOnlyList<DocumentationNavigationItem> entries)
+        {
+            builder.Append("<ul>");
+            foreach (var item in entries)
+            {
+                builder.Append("<li>");
+                if (!item.Api && item.Kind is null && item.Children is { Count: > 0 } children)
+                {
+                    builder.Append("<section class=\"documentation-nav-section\"><h3>");
+                    Link(item);
+                    builder.Append("</h3>");
+                    Append(children);
+                    builder.Append("</section>");
+                }
+                else Link(item);
+                builder.Append("</li>");
+            }
+            builder.Append("</ul>");
+        }
+        Append(items);
+        return $"""
+            <button class="api-browser-toggle" type="button" aria-controls="api-browser" aria-expanded="false">Browse documentation</button>
+            <dialog class="api-sidebar reference-navigation documentation-sidebar" id="api-browser" aria-labelledby="api-browser-heading" open>
+              <div class="api-browser-header"><h2 id="api-browser-heading">Documentation</h2><button class="api-browser-close" type="button" aria-label="Close documentation navigation">×</button></div>
+              <nav class="api-navigation-panel documentation-navigation" aria-label="Documentation">{builder}</nav>
+            </dialog>
+            """;
+    }
+
     internal static string Render(IReadOnlyList<DocumentationNavigationItem> items, string root, string currentDirectory, string? currentPage = null)
     {
         if (items.Count == 0) return "";
