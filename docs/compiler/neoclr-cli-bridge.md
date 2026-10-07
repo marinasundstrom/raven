@@ -7456,3 +7456,18 @@ Runtime Contract option is needed; source Object and explicit native handle owne
 remain required. The focused native consumer executes identity/hash checks, while
 the 196-input full build now stops at ReflectionConstruct. Evidence and limitations:
 neoCLR `docs/experiments/extended-cli-metadata/object-handles-2026-10-07.md`.
+
+## Source-owned parameterless reflection construction (2026-10-07)
+
+NeoCLR's native library routes parameterless TypeInfo.CreateInstance through its
+internal NativeReflection facade and source InternalCall declarations. Existing
+source Object/RuntimeTypeHandle configuration applies; compiler emission contracts
+and .NET behavior are unchanged. Native execution preserves constructor initialization,
+new object identity and accessibility. The CLI bridge retains the equivalent two-method
+facade with exact owner/signature validation; its reference scaffolding is not a .NET
+runtime implementation or fallback for native metadata import.
+
+The full-source audit omits the seed-only ObjectIntrospection extension, since source
+Object owns GetType. It reaches System.Value source/imported ownership validation
+inside Environment.GetCurrentDirectory. Evidence: neoCLR
+`docs/experiments/extended-cli-metadata/reflection-construction-2026-10-07.md`.
