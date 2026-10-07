@@ -127,3 +127,8 @@ sample compatibility suites. The recorded result includes the commit, SDK
 version, target frameworks, immutable annotated bootstrap tag, corresponding
 public release tag when applicable, and whether repository or installed
 artifacts were used.
+
+The compiler-driver sample theory prepares `ResolveReferences` through MSBuild
+with repository compiler/targets before invoking the driver. This builds both
+ordinary and build-only project references (such as source generators), avoiding
+dependence on output left by an earlier sample build.

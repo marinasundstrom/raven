@@ -279,7 +279,18 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
         var outputDirectory = CreateTempDirectory();
         try
         {
-            var result = RunCompiler(repoRoot, compilerDllPath, Path.Combine(repoRoot, relativeProjectPath), outputDirectory);
+            var projectPath = Path.Combine(repoRoot, relativeProjectPath);
+            // The driver consumes dependency outputs; MSBuild owns building the graph,
+            // including build-only references such as source generators.
+            var targets = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+            var build = RunProcess("dotnet",
+                $"msbuild \"{projectPath}\" -restore -target:ResolveReferences " +
+                $"/property:RavenCompilerHost=\"{compilerDllPath}\" " +
+                $"/property:LanguageTargets=\"{targets}\" /property:WarningLevel=0",
+                repoRoot, timeoutMilliseconds: 300_000);
+            Assert.True(build.ExitCode == 0,
+                $"Dependencies for {relativeProjectPath}\nstdout:\n{build.StdOut}\nstderr:\n{build.StdErr}");
+            var result = RunCompiler(repoRoot, compilerDllPath, projectPath, outputDirectory);
             Assert.True(result.ExitCode == 0,
                 $"{relativeProjectPath}\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
         }

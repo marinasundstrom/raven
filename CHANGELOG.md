@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- Make compiler-driver sample gates prepare MSBuild references, including build-only source generators, before compilation so validation works in fresh checkouts.
+
 - **2026-10-07:** Emit supported imported native Object slots from symbols through
   explicit metadata slot references. ToString/GetHashCode/Equals dispatch through an
   object receiver now executes derived overrides against separate Runtime (exit 42).
