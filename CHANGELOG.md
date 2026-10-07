@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Give authored articles a compact documentation sidebar with
+  section headings, direct links and current-page highlighting. Keep the API
+  symbol tree on reference pages and avoid duplicating top-navbar links.
+
 - **2026-10-07:** Include explicitly documented compile-time macros and their
   namespaces in RavenDoc navigation and cross-reference indexing, restoring the
   Raven.Macros sidebar when macros belong to a separate compilation partition.

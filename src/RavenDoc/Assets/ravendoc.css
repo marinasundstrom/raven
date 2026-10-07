@@ -602,3 +602,18 @@ body.with-api-navigation.without-outline .documentation-shell {
 pre.with-copy-code { position: relative; }
 .copy-code { position: absolute; top: .4rem; right: .4rem; padding: .25rem .65rem; border: 1px solid var(--border); border-radius: .35rem; background: var(--surface); color: var(--fg); font: inherit; font-size: .8rem; cursor: pointer; }
 .copy-code:hover { background: var(--accent-soft); }
+
+/* Reading navigation uses section headings rather than an API symbol tree. */
+.documentation-sidebar .api-browser-header { margin-bottom: 1.1rem; }
+.documentation-sidebar .api-browser-header h2 { border: 0; font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.documentation-navigation ul { list-style: none; margin: 0; padding: 0; }
+.documentation-navigation li { margin: 0; }
+.documentation-navigation .documentation-nav-section { margin: 0 0 1.2rem; }
+.documentation-navigation h3 { margin: 0 0 .3rem; padding: 0; border: 0; font-size: .82rem; font-weight: 650; }
+.documentation-navigation a { display: block; padding: .36rem .65rem; border-radius: .3rem; color: var(--muted); font-size: .82rem; line-height: 1.4; text-decoration: none; }
+.documentation-navigation h3 a, .documentation-navigation h3 > span { color: var(--fg); }
+.documentation-navigation h3 > span { display: block; padding: .36rem .65rem; }
+.documentation-navigation a:hover { background: var(--accent-soft); color: var(--link); }
+.documentation-navigation a[aria-current] { color: var(--link); background: var(--accent-soft); box-shadow: inset 2px 0 var(--link); font-weight: 600; }
+.documentation-navigation a > span { white-space: normal !important; }
+.documentation-navigation > ul > li > a { margin-bottom: .2rem; }
