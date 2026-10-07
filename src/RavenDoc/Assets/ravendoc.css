@@ -617,3 +617,13 @@ pre.with-copy-code { position: relative; }
 .documentation-navigation a[aria-current] { color: var(--link); background: var(--accent-soft); box-shadow: inset 2px 0 var(--link); font-weight: 600; }
 .documentation-navigation a > span { white-space: normal !important; }
 .documentation-navigation > ul > li > a { margin-bottom: .2rem; }
+
+@media (max-width: 640px) {
+  .site-header { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; column-gap: .4rem; row-gap: .7rem; }
+  .site-header .raven-brand { grid-column: 1; grid-row: 1; min-width: 0; }
+  .site-header .raven-brand-copy { min-width: 0; }
+  .site-header .raven-brand-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .site-header .theme-menu { grid-column: 2; grid-row: 1; }
+  .site-header .site-search { grid-column: 3; grid-row: 1; }
+  .site-header .site-navigation { grid-column: 1 / -1; grid-row: 2; overflow: visible; }
+}
