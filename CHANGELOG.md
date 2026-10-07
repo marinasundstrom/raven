@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Keep wide comparison and API tables inside mobile articles with
+  horizontal scrolling, including platforms whose fonts have wider metrics.
+
 - **2026-10-07:** Support explicit navigation section boundaries using conventional
   directory TOCs and configurable sidebar titles. Give Getting started and Language
   reference separate stable hierarchies matching the Raven navbar destinations.

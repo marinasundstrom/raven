@@ -629,3 +629,8 @@ pre.with-copy-code { position: relative; }
 .documentation-nav-section > summary::before { content: "›"; flex: 0 0 .5rem; transition: transform .15s; }
 .documentation-nav-section[open] > summary::before { transform: rotate(90deg); }
 .documentation-nav-section > ul { margin: .15rem 0 .8rem; padding-left: .5rem; }
+
+/* Wide comparison/API tables scroll within the article on narrow screens. */
+@media (max-width: 760px) {
+  .api-content table { display: block; max-width: 100%; overflow-x: auto; }
+}
