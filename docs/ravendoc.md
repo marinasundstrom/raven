@@ -835,3 +835,6 @@ not overlap. Authored articles can link to either library using `xref:` links.
 ```
 
 Copy controls float over code blocks without adding top padding, including API signatures.
+
+Source API navigation includes public macros from the compile-time macro partition
+and their namespaces, even when the runtime assembly contains no ordinary types.

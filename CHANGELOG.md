@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Include explicitly documented compile-time macros and their
+  namespaces in RavenDoc navigation and cross-reference indexing, restoring the
+  Raven.Macros sidebar when macros belong to a separate compilation partition.
+
 - **2026-10-07:** Record aligned NeoCLR array backing validation for an explicitly
   selected source Object root. Runtime PE alias-mutation checks pass; compiler
   code and ordinary .NET array emission are unchanged.

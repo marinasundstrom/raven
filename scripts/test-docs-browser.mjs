@@ -128,6 +128,10 @@ try {
       assert.equal(layout.before, layout.after, 'Copy control does not push code downward');
     }
   }
+  await page.goto(`${base}/libraries/raven-macros/index.html`);
+  const macroNavigation = page.locator('.api-navigation-panel');
+  assert.ok(await macroNavigation.locator('a[href$="macro_Quote.html"]').count() > 0, 'Macro-only library is navigable');
+  assert.ok(await macroNavigation.locator('summary[title="Raven.Macros"]').count() > 0, 'Macro namespace is listed');
   assert.deepEqual(errors, []);
   console.log('Documentation browser checks passed: responsive layout, contrast, keyboard navigation, reference search, and example links.');
 } finally {
