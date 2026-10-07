@@ -2109,11 +2109,18 @@ partial class BlockBinder
                 if (expr is null)
                 {
                     var unit = Compilation.GetSpecialType(SpecialType.System_Unit);
-                    if (!IsAssignable(methodReturnType, unit, out _))
+                    var targetType = method.IsAsync
+                        ? AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, methodReturnType) ?? methodReturnType
+                        : methodReturnType;
+                    if (!IsAssignable(targetType, unit, out _))
                         ReportCannotConvertFromTypeToType(
                             unit.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                            methodReturnType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                            targetType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                             returnSyntax.GetLocation());
+                    else if (method.IsAsync &&
+                        !AsyncReturnTypeUtilities.IsNonGenericTaskLike(methodReturnType) &&
+                        SymbolEqualityComparer.Default.Equals(targetType, unit))
+                        expr = new BoundUnitExpression(unit);
                 }
                 else if (method.IsAsync &&
                     AsyncReturnTypeUtilities.IsNonGenericTaskLike(methodReturnType))
