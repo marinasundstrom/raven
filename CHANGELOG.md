@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Add optional RavenDoc code-copy buttons, preserving sample
+  whitespace and reporting clipboard success/failure accessibly.
+
 - **2026-10-07:** Add configurable RavenDoc site-wide search for authored pages
   and API references, with a navbar icon, retained queries, local ranked results
   and combined-site indexing.

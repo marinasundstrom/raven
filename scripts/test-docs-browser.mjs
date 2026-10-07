@@ -95,6 +95,20 @@ try {
   assert.equal(await search.inputValue(), 'Option');
   await search.fill('no-such-raven-site-search-result');
   await page.getByText('No results.', { exact: true }).waitFor();
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => {
+    window.copiedText = undefined;
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedText = text; } } });
+  });
+  const sample = page.locator('article pre > code').first();
+  const expectedCode = await sample.textContent();
+  const copy = page.getByRole('button', { name: 'Copy code', exact: true }).first();
+  await copy.click();
+  assert.equal(await page.evaluate(() => window.copiedText), expectedCode);
+  assert.equal(await copy.textContent(), 'Copied');
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('denied'); } } }));
+  await copy.click();
+  assert.equal(await copy.textContent(), 'Retry');
   assert.deepEqual(errors, []);
   console.log('Documentation browser checks passed: responsive layout, contrast, keyboard navigation, reference search, and example links.');
 } finally {

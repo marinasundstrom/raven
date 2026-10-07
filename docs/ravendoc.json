@@ -1,5 +1,6 @@
 {
   "search": true,
+  "copyCode": true,
   "name": "Raven",
   "subtitle": "Programming language for .NET",
   "output": "../_site",

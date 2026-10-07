@@ -796,3 +796,12 @@ For a combined output assembled in several steps, run
 rebuilds the index and controls for all articles, including nested library sites.
 Paths remain relative, including under a GitHub Pages prefix. Finalization is
 idempotent. It indexes article text, not navigation or executable app content.
+
+## Copying code samples
+
+Set `"copyCode": true` (default: `false`) to add a Copy button to every article
+code block, including generated signatures. It copies the displayed code with
+its whitespace intact and announces success or clipboard failure. Clipboard
+access requires HTTPS or localhost and browser permission. Copy controls are
+outside the code text and do not change playground examples. Combined sites use
+the same `--finalize-site` step as search.
