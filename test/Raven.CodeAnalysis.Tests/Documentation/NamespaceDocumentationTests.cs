@@ -7,13 +7,16 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 public sealed class NamespaceDocumentationTests : CompilationTestBase
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void NamespaceCommentsSurviveColdQueriesAndSyntaxReplacement(bool blockScoped)
+    [InlineData(false, "Samples")]
+    [InlineData(true, "Samples")]
+    [InlineData(false, "System")]
+    [InlineData(true, "System")]
+    public void NamespaceCommentsSurviveColdQueriesAndSyntaxReplacement(bool blockScoped, string namespaceName)
     {
         var source = blockScoped
             ? "/// First overview\nnamespace Samples { public class Widget { } }"
             : "/// First overview\nnamespace Samples\npublic class Widget { }";
+        source = source.Replace("Samples", namespaceName);
         var (compilation, tree) = CreateCompilation(source);
         var declaration = tree.GetRoot().DescendantNodes().OfType<BaseNamespaceDeclarationSyntax>().Single();
         var symbol = compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration).ShouldBeAssignableTo<INamespaceSymbol>();

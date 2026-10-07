@@ -179,7 +179,7 @@ selected entries in order and retains the last path for that name. These remain
 separate compatibility policies.
 
 These are incremental extractions described in the
-[target boundary plan](architecture/target-boundaries-and-bootstrap-plan.md).
+[target boundary plan](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/architecture/target-boundaries-and-bootstrap-plan.md).
 The factory is .NET-specific and returns `MetadataLoadContext`; it is not yet a
 platform-neutral provider. Public APIs, reference precedence, fallback policy,
 configuration errors, and context lifetime are unchanged. Compatible snapshots
@@ -215,7 +215,7 @@ matching imported assembly/type. Nested types participate by their own name and
 arity. Extension conversion discovery returns candidate containers; binding
 continues to decide applicability. Public `IAssemblySymbol` and semantic-model
 APIs are unchanged in this slice, but they can be redesigned under
-[ADR-0003](architecture/decisions/0003-target-owned-metadata-and-emission.md).
+[ADR-0003](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/architecture/decisions/0003-target-owned-metadata-and-emission.md).
 Symbol creation and emitter reflection access remain boundaries to extract.
 
 Namespace extension discovery uses `INamespaceExtensionLookup`, a capability

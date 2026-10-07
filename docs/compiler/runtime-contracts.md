@@ -3,12 +3,12 @@
 The planned general model is a **runtime/platform contract** governing semantic
 rules, available types, representations, supported features, compatible symbol
 sources, and one or more code generators. See the
-[selection and compatibility design](architecture/runtime-platform-contract-design.md).
+[selection and compatibility design](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/architecture/runtime-platform-contract-design.md).
 The CLI-oriented options documented below are existing implementation mechanisms;
 they do not require every future symbol source to use metadata or CLI assemblies.
 
 The neoCLR bridge is a temporary transport, not the native platform specification.
-See the [bridge behavior and replacement inventory](neoclr-cli-bridge.md) for current
+See the [bridge behavior and replacement inventory](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/neoclr-cli-bridge.md) for current
 encodings, limitations, semantic distinctions and branch-qualified exploratory evidence.
 
 ## CompilationOptions presets and planned configuration
@@ -16,7 +16,7 @@ encodings, limitations, semantic distinctions and branch-qualified exploratory e
 The public configuration type remains `CompilationOptions`. The agreed direction
 is TargetPlatform (coherent loader/codegen selection), LangVersion (Raven source
 version), Contract (platform mappings), and Features (requested optional features).
-See the [API direction](architecture/runtime-platform-contract-design.md#agreed-compilationoptions-api-direction)
+See the [API direction](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/architecture/runtime-platform-contract-design.md#agreed-compilationoptions-api-direction)
 for ownership and validation stages, including language settings shared with
 parsing. These four settings are not yet implemented as a unified public API.
 
@@ -93,7 +93,7 @@ The development goal is one shared compiler line on main for .NET and neoCLR.
 The current neoclr branch is temporary integration work; experimental policies
 need explicit ownership and validation, not permanent branch separation. Native
 neoCLR loader/backend completion is not a prerequisite for integration. See the
-[main integration plan](architecture/neoclr-main-readiness.md).
+[main integration plan](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/architecture/neoclr-main-readiness.md).
 
 ## Context-owned typeof (experimental, 2026-09-17)
 
@@ -1748,7 +1748,7 @@ An exploratory preset run used the neoCLR `feature/function-types` development
 bundle; it is not a supported-feature acceptance gate. Native Function types remain
 deliberately deferred until the metadata layer and complete compiler support exist. Native Function support is not on
 neoCLR main at e4f6fe41. Raven main's bridge support and that runtime feature branch
-must not be conflated. See the [bridge inventory](neoclr-cli-bridge.md) for the
+must not be conflated. See the [bridge inventory](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/neoclr-cli-bridge.md) for the
 branch-qualified result and eventual native metadata replacement direction.
 
 

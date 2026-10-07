@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Add library namespace overviews and point website links to
+  unpublished compiler design records at their repository sources. Preserve
+  System namespace comments when the compiler creates its unit-type namespace.
+
 - **2026-10-07:** Preserve namespace documentation on canonical source and merged
   namespace symbols, export/import `N:` comments through Markdown/XML sidecars,
   and render authored namespace additions in RavenDoc. No target contract or IL change.
@@ -5604,6 +5608,10 @@ Impact:
   `DocumentationFile`, and `MarkdownDocumentationOutputPath` on open/save so
   documentation emission settings round-trip cleanly through project editing.
 ## Unreleased
+
+- **2026-10-07:** Add library namespace overviews and point website links to
+  unpublished compiler design records at their repository sources. Preserve
+  System namespace comments when the compiler creates its unit-type namespace.
 
 - **2026-10-07:** Preserve namespace documentation on canonical source and merged
   namespace symbols, export/import `N:` comments through Markdown/XML sidecars,

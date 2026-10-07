@@ -1725,7 +1725,10 @@ public partial class Compilation
 
         if (system is null)
         {
-            system = new SourceNamespaceSymbol((SourceModuleSymbol)Module, "System", Assembly, null, global, [], []);
+            var declarations = SourceDeclarationIndex.GetNamespaceDeclarations("System");
+            system = new SourceNamespaceSymbol((SourceModuleSymbol)Module, "System", Assembly, null, global,
+                declarations.Select(declaration => declaration.GetLocation()).ToArray(),
+                declarations.Select(declaration => declaration.GetReference()).ToArray());
             global.AddMember(system);
         }
 
