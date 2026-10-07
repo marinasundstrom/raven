@@ -77,6 +77,24 @@ public sealed record MetadataImportOptions
         return this with { AsyncAssemblyName = assemblyName };
     }
 
+    /// <summary>Gets the explicitly selected native assembly supplying the semantic Object root.</summary>
+    /// <remarks>Independent of the primitive bootstrap. Missing or incompatible roots never fall back.</remarks>
+    public string? ObjectAssemblyName { get; private init; }
+
+    /// <summary>Selects an imported native Object root, or clears selection with null.</summary>
+    /// <param name="assemblyName">Native reference assembly name. Its exact artifact identity is validated by the host catalog.</param>
+    /// <returns>A new immutable import configuration.</returns>
+    /// <exception cref="ArgumentException">The name is empty or source Object ownership is already selected.</exception>
+    public MetadataImportOptions WithObjectAssemblyName(string? assemblyName)
+    {
+        if (assemblyName is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(assemblyName);
+            if (UseSourceObjectRoot) throw new ArgumentException("source and imported Object ownership are mutually exclusive", nameof(assemblyName));
+        }
+        return this with { ObjectAssemblyName = assemblyName };
+    }
+
     private static bool SupportsPrimitive(SpecialType type) => type is SpecialType.System_SByte or SpecialType.System_Byte or
         SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or
         SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_IntPtr or SpecialType.System_UIntPtr or SpecialType.System_Single or SpecialType.System_Double or

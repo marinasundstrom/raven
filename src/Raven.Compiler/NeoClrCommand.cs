@@ -112,7 +112,7 @@ internal static class NeoClrCommand
             Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--core-reference NeoCLR.CoreProbe.dll] [--reference library.dll] source.rvn ...");
             Console.WriteLine("Optional --runtime-seed System.neox binds the explicitly selected CLI core bootstrap to retained runtime services; it imports no additional symbols.");
             Console.WriteLine("Optional --async-library <assembly-name> selects native Task/builder symbols from an explicit --reference. Native async emission is experimental.");
-            Console.WriteLine("Optional --source-object-root selects this library's System.Object; requires --library and --core-reference. Imported-root consumers remain unsupported.");
+            Console.WriteLine("Optional --source-object-root selects this library's System.Object; requires --library and --core-reference. Use --object-library for an explicitly referenced root; native emission remains capability-checked.");
             Console.WriteLine("Optional --bootstrap-intrinsics authorizes checked storage from the explicitly selected --core-reference.");
             Console.WriteLine("Optional --bootstrap-ownership manifest.json selects source-library ownership and iteration contracts.");
             Console.WriteLine("Experimental PE/#Neo output. References are imported directly from supported native metadata.");
@@ -135,6 +135,7 @@ internal static class NeoClrCommand
             string? runtimeSeedPath = null;
             string? corePath = null;
             string? asyncAssembly = null;
+            string? objectAssembly = null;
             BootstrapOwnershipManifest? ownership = null;
             var systemMethods = new List<string>();
             for (var i = 0; i < args.Length; i++)
@@ -160,6 +161,11 @@ internal static class NeoClrCommand
                     case "--runtime-seed":
                         if (runtimeSeedPath is not null || ++i == args.Length) throw new ArgumentException("Specify --runtime-seed once with an explicit native System path.");
                         runtimeSeedPath = Path.GetFullPath(args[i]);
+                        break;
+                    case "--object-library":
+                        if (objectAssembly is not null || ++i == args.Length || string.IsNullOrWhiteSpace(args[i]) || args[i].StartsWith('-'))
+                            throw new ArgumentException("Specify --object-library once with a registered native assembly name.");
+                        objectAssembly = args[i];
                         break;
                     case "--async-library":
                         if (asyncAssembly is not null || ++i == args.Length || string.IsNullOrWhiteSpace(args[i]) || args[i].StartsWith('-'))
@@ -204,6 +210,8 @@ internal static class NeoClrCommand
                 throw new ArgumentException("--runtime-seed requires --core-reference, a distinct output and no legacy --system-symbols selection.");
             if (asyncAssembly is not null && corePath is null)
                 throw new ArgumentException("--async-library requires an explicit --core-reference.");
+            if (objectAssembly is not null && (corePath is null || sourceObjectRoot || systemPath is not null))
+                throw new ArgumentException("--object-library requires --core-reference and cannot be combined with source or legacy Object ownership.");
             if (sourceObjectRoot && (corePath is null || !library || systemPath is not null))
                 throw new ArgumentException("--source-object-root requires --library, --core-reference and no legacy --system-symbols selection.");
             if (bootstrapIntrinsics && corePath is null)
@@ -264,6 +272,13 @@ internal static class NeoClrCommand
                 compilationOptions = compilationOptions.WithRuntimeTypeOfContract(ownership?.TypeOf)
                     .WithMetadataImportOptions(new MetadataImportOptions(
                         core.Name, imports?.PrimitiveAssemblies, imports?.SourcePrimitiveTypes, useSourceObjectRoot: true));
+            }
+            if (objectAssembly is not null)
+            {
+                if (!references.OfType<NeoClrMetadataReference>().Any(reference => reference.Definition.Name == objectAssembly))
+                    throw new InvalidDataException("Object library is not a registered native reference: " + objectAssembly);
+                compilationOptions = compilationOptions.WithMetadataImportOptions(
+                    (compilationOptions.MetadataImportOptions ?? new MetadataImportOptions(core.Name)).WithObjectAssemblyName(objectAssembly));
             }
             if (asyncAssembly is not null)
                 compilationOptions = compilationOptions.WithMetadataImportOptions(

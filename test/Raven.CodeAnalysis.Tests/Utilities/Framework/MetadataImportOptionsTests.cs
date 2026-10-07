@@ -7,6 +7,20 @@ namespace Raven.CodeAnalysis.Tests;
 public class MetadataImportOptionsTests
 {
     [Fact]
+    public void NativeObjectProviderSelectionIsImmutableAndExclusive()
+    {
+        var baseline = new MetadataImportOptions("Core");
+        var selected = baseline.WithObjectAssemblyName("Root");
+        Assert.Null(baseline.ObjectAssemblyName);
+        Assert.Equal("Root", selected.ObjectAssemblyName);
+        Assert.Equal("Core", selected.CoreAssemblyName);
+        Assert.Null(selected.WithObjectAssemblyName(null).ObjectAssemblyName);
+        Assert.Throws<ArgumentException>(() => baseline.WithObjectAssemblyName(" "));
+        Assert.Throws<ArgumentException>(() => baseline.WithObjectAssemblyName(""));
+        Assert.Throws<ArgumentException>(() => new MetadataImportOptions("Core", null, null, true).WithObjectAssemblyName("Root"));
+    }
+
+    [Fact]
     public void NativeAsyncProviderSelectionIsImmutableAndValidatesIdentity()
     {
         var baseline = new MetadataImportOptions("Core");

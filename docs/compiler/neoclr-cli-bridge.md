@@ -7636,3 +7636,25 @@ still needs reconciliation with the primitive bootstrap. Investigate that contra
 no inheritance validation has been relaxed, no application artifact is published, and
 broad runtime execution is not claimed. See neoCLR's
 `docs/experiments/extended-cli-metadata/value-import-2026-10-07.md` for evidence.
+
+## Source-owned library consumer gate (2026-10-07)
+
+The explicit imported Object contract now selects one semantic root while retaining the
+CLI primitive bootstrap. Native symbols validate the root shape and preserve a null base;
+shared lookup and the temporary bootstrap loader canonicalize Object facts to that selected
+symbol. Native binding validation recognizes its exact artifact owner. There is no .NET
+root override by default, automatic dependency discovery or importer reuse in emission.
+
+`--object-library Numbers` selects the source-owned aggregate referenced by the consumer.
+The unchanged application-order-collections now compiles, verifies and runs against that
+197-input native artifact, with class-library sources absent. Exact output and exit 0
+cover mutation, shared identity, callbacks, maps and query operations. Missing or conflicting
+root selections reject without publication. The runtime still uses the finalized retained
+seed and explicit --object-root artifact; this is the approved primitive-core/seed bootstrap,
+not complete removal of bootstrap dependencies or execution of every library API.
+
+47 focused regressions and the native root semantic probe pass. Metadata/runtime binaries
+are unchanged. See neoCLR `verify_source_owned_orders.py` and
+`docs/experiments/extended-cli-metadata/source-owned-orders-2026-10-07.md` for reproducible
+commands, compiler/dependency hashes and packaging/editor follow-up. These are opt-in
+native target contracts, not a general .NET bug fix requiring a separate main backport.

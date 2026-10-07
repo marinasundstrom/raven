@@ -347,7 +347,8 @@ internal class ReflectionTypeLoader(Compilation compilation)
     private ITypeSymbol CanonicalizeSpecialTypeDefinition(ITypeSymbol symbol)
     {
         // Imported base/signature facts must use the explicitly selected root too.
-        if (compilation.UsesSourceObjectRoot && symbol.SpecialType == SpecialType.System_Object)
+        if ((compilation.UsesSourceObjectRoot || compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            compilation.Options.MetadataImportOptions?.ObjectAssemblyName is not null) && symbol.SpecialType == SpecialType.System_Object)
             return compilation.GetSpecialType(SpecialType.System_Object);
 
         // Collection contracts commonly cross the System.Runtime facade boundary in

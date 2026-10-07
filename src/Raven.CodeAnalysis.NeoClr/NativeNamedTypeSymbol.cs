@@ -29,6 +29,16 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
         SpecialType = view.NativeGrapheme ? SpecialType.System_Char :
             view.NativePrimitive is { } primitive && primitive != PrimitiveType.Value
                 ? Enum.Parse<SpecialType>("System_" + primitive) : SpecialType.None;
+        if (compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            compilation.Options.MetadataImportOptions?.ObjectAssemblyName == ContainingAssembly.Name &&
+            view.FullName == "System.Object")
+        {
+            if (declaringType is not null || view.GenericArity != 0 || view.IsValueType || view.IsInterface ||
+                view.IsStatic || !view.IsAbstract || view.Accessibility != MetadataAccessibility.Public ||
+                view.BaseType is not null || view.GetFields().Count != 0)
+                throw new InvalidDataException("imported Object ownership requires a public abstract fieldless nongeneric root without a base");
+            SpecialType = SpecialType.System_Object;
+        }
         if (SpecialType == SpecialType.None && compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
             compilation.Options.MetadataImportOptions?.AsyncAssemblyName == ContainingAssembly.Name)
             SpecialType = view.FullName switch
@@ -97,7 +107,7 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
     public ITypeSymbol? EnumUnderlyingType => view.IsEnum ? compilation.GetSpecialType(SpecialType.System_Int32) : null;
     public TypeKind TypeKind => view.IsEnum ? TypeKind.Enum : view.IsInterface ? TypeKind.Interface : view.IsValueType ? TypeKind.Struct : TypeKind.Class;
     public SpecialType SpecialType { get; }
-    public INamedTypeSymbol? BaseType => TypeKind == TypeKind.Interface ? null : view.BaseType is { } baseType ?
+    public INamedTypeSymbol? BaseType => TypeKind == TypeKind.Interface || SpecialType == SpecialType.System_Object ? null : view.BaseType is { } baseType ?
         (INamedTypeSymbol)((NativeModuleSymbol)ContainingModule).MapView(baseType) : compilation.GetSpecialType(view.IsEnum ? SpecialType.System_Enum : view.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) as INamedTypeSymbol;
     public ITypeSymbol OriginalDefinition => this;
     public ITypeSymbol ConstructedFrom => this;

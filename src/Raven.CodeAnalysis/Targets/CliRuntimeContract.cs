@@ -31,6 +31,9 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
             (Options.TargetPlatform != TargetPlatform.NeoCLR || !Options.UseHeapAsyncStateMachines))
             return "native async providers require the NeoCLR heap state-machine target";
 
+        if (Options.MetadataImportOptions?.ObjectAssemblyName is not null && Options.TargetPlatform != TargetPlatform.NeoCLR)
+            return "imported Object ownership requires the NeoCLR target";
+
         if (Options.MetadataImportOptions?.UseSourceObjectRoot == true && !UsesSourceObjectRoot)
             return "source Object ownership requires the NeoCLR target";
 
@@ -103,6 +106,19 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
                     type.ContainingAssembly is not Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null })
                     return "native async provider requires public generic Task and builder declarations from its registered native assembly";
             }
+        }
+
+        if (Options.MetadataImportOptions?.ObjectAssemblyName is { } objectProvider)
+        {
+            var root = compilation.GetSpecialType(SpecialType.System_Object);
+            if (root is not
+                {
+                    SpecialType: SpecialType.System_Object, TypeKind: TypeKind.Class, Arity: 0,
+                    IsAbstract: true, IsStatic: false, BaseType: null, DeclaredAccessibility: Accessibility.Public
+                } ||
+                root.ContainingAssembly?.Name != objectProvider ||
+                root.ContainingAssembly is not Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null })
+                return "imported Object ownership requires the selected native assembly's public abstract fieldless root";
         }
 
         if (compilation.GetSourceObjectRootError() is { } rootError)

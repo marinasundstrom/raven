@@ -2590,7 +2590,7 @@ public partial class Compilation
     public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
         EnsureSetup();
-        if (UsesSourceObjectRoot && metadataName == "System.Object")
+        if ((UsesSourceObjectRoot || Options.MetadataImportOptions?.ObjectAssemblyName is not null) && metadataName == "System.Object")
             return GetSpecialType(SpecialType.System_Object) is { TypeKind: not TypeKind.Error } root ? root : null;
         if (Options.MetadataImportOptions is { PrimitiveAssemblies.Count: > 0 } imports)
             foreach (var special in imports.PrimitiveAssemblies.Keys)
@@ -2778,6 +2778,12 @@ public partial class Compilation
     private INamedTypeSymbol ResolveSpecialType(SpecialType specialType)
     {
         var metadataName = _target.RuntimeContract.GetSpecialTypeMetadataName(specialType);
+        if (specialType == SpecialType.System_Object && Options.MetadataImportOptions?.ObjectAssemblyName is { } objectProvider)
+        {
+            var selected = GetTypeByMetadataName(metadataName, objectProvider);
+            return Options.TargetPlatform == TargetPlatform.NeoCLR && selected?.ContainingAssembly is Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null } &&
+                selected.SpecialType == SpecialType.System_Object ? selected : (INamedTypeSymbol)ErrorTypeSymbol;
+        }
         if (Options.MetadataImportOptions?.PrimitiveAssemblies.TryGetValue(specialType, out var provider) == true)
         {
             var selected = GetTypeByMetadataName(metadataName, provider);

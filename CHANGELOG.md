@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Add explicit imported NeoCLR Object-root selection through
+  MetadataImportOptions.WithObjectAssemblyName and rvnc neoclr --object-library.
+  Preserve one root across source/generic bases, object signatures and primitive
+  bootstrap facts; invalid/missing/non-native selections do not fall back. The unchanged
+  orders application compiles against the full source-owned library and executes with
+  exact expected output. Ordinary .NET defaults remain unchanged.
+
 - **2026-10-07:** Preserve heap async state across pending awaits when assigning
   hoisted locals. Reload stable self/base field receivers after control transfers
   instead of caching them in emitter locals that resume dispatch skips. Keep

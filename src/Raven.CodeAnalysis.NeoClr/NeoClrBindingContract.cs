@@ -56,6 +56,13 @@ internal static class NeoClrBindingContract
             }
             var type = compilation.GetSpecialType(special);
             if (special == SpecialType.System_Object && compilation.UsesSourceObjectRoot && compilation.IsSourceObjectRoot((INamedTypeSymbol)type)) continue;
+            if (special == SpecialType.System_Object && compilation.Options.MetadataImportOptions?.ObjectAssemblyName is { } objectProvider)
+            {
+                if (type.SpecialType != SpecialType.System_Object || type.ContainingAssembly?.Name != objectProvider ||
+                    type.ContainingAssembly is not IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    return "native Object does not match its selected artifact owner";
+                continue;
+            }
             if (compilation.Options.MetadataImportOptions?.PrimitiveAssemblies.TryGetValue(special, out var provider) == true)
             {
                 if (type.SpecialType != special || type.ContainingAssembly?.Name != provider ||

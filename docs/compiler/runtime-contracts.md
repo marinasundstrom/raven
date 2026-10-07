@@ -3550,3 +3550,37 @@ and terminal paths, and wrong-owner failure without output. Full-System binding 
 drop from 12 to four, all NativeAllocation. This is not full System emission or execution.
 The matching runtime supplies its exact no-result Fail service; see neoCLR's
 `docs/experiments/extended-cli-metadata/source-failure-flow-2026-10-07.md`.
+
+### Imported Object semantic ownership (development, 2026-10-07)
+
+`MetadataImportOptions.ObjectAssemblyName` and
+`WithObjectAssemblyName(string? assemblyName)` select the native reference supplying
+System.Object independently of the CLI primitive bootstrap. The method returns an
+immutable copy; null clears the selection. Empty names and selecting an imported owner
+while UseSourceObjectRoot is true throw ArgumentException. This contract is NeoCLR-only;
+.NET configuration rejects it. Missing/incompatible providers never fall back to core.
+
+The supplied native assembly must declare a public, abstract, nongeneric, top-level,
+fieldless System.Object class with no base. The native symbol adapter validates those
+facts and classifies only the selected declaration as System_Object. The selected root
+is shared by `object`, `GetSpecialType(System_Object)`, System.Object metadata lookup,
+source class bases, imported generic bases and bootstrap Object base/signature facts.
+No runtime reflection is added. Existing native reference catalog checks establish exact
+assembly/artifact identity; the option names a registered assembly, not a discovery path.
+
+Use `rvnc neoclr --object-library Numbers --reference Numbers.dll --core-reference
+Core.dll ...` for a consumer of the diagnostic source-owned aggregate. The flag rejects
+unregistered names, combination with --source-object-root or --system-symbols, and
+absence of a primitive core. Emission remains independently capability-checked and uses
+semantic facts plus host artifact identities. Runtime loading separately selects that
+same artifact with --object-root; compiler selection is not runtime authorization.
+
+The existing --source-object-root mode remains for compiling the root library itself.
+Bootstrap Core still owns remaining primitive transport declarations; output configuration
+does not change the .NET compiler host. Project/LSP root-catalog propagation and production
+assembly packaging are separate work; this slice establishes the ordinary compiler driver.
+
+Validation: imported-root C# semantic probe; missing/CLI/non-root/unselected/.NET/conflicting
+controls; 47 focused framework/source-root/ownership tests; unchanged orders source
+compiled without library sources, then native verification and exact stdout/exit 0.
+See neoCLR `docs/experiments/extended-cli-metadata/source-owned-orders-2026-10-07.md`.
