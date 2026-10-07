@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Use configured API source titles for overview headings as well as
+  navigation, with `apiTitle` available for single-source sites. Label Raven APIs
+  Core extensions and Macros while retaining assembly filenames in symbol details.
+
 - **2026-10-07:** Scale Raven landing-page gutters, hero spacing and section gaps
   with viewport size, avoid doubled code padding, and compact the hero on shorter
   desktop windows while preserving the stacked mobile layout. Keep theme/search

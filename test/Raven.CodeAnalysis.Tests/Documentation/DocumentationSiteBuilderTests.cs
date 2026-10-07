@@ -24,6 +24,9 @@ public sealed class DocumentationSiteBuilderTests
                 pages = new[] { new { source = "index.md" } }
             }));
             DocumentationSiteBuilder.Build(config);
+            File.ReadAllText(Path.Combine(root, "_site/libraries/first/index.html")).ShouldContain("<h1>First library</h1>");
+            File.ReadAllText(Path.Combine(root, "_site/libraries/second/index.html")).ShouldContain("<h1>Second library</h1>");
+            File.ReadAllText(Path.Combine(root, "_site/libraries/first/First/Widget/index.html")).ShouldContain("first.dll");
             var home = File.ReadAllText(Path.Combine(root, "_site/index.html"));
             home.ShouldContain("href=\"libraries/first/First/Widget/index.html\"");
             home.ShouldContain("href=\"libraries/second/Second/Gadget/index.html\"");

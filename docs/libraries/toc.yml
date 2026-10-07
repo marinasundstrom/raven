@@ -1,12 +1,12 @@
 - name: Library overview
   href: index.md
-- name: Raven.Core
+- name: Core extensions
   items:
     - name: Guide
       href: ../compiler/raven-core-library.md
     - name: API reference
       href: raven-core/
-- name: Raven.Macros
+- name: Macros
   items:
     - name: Guide
       href: ../compiler/raven-macros-library.md
