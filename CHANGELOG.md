@@ -31,6 +31,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ### Detailed changes
 
+- **2026-10-07:** Preserve heap async state across pending awaits when assigning
+  hoisted locals. Reload stable self/base field receivers after control transfers
+  instead of caching them in emitter locals that resume dispatch skips. Keep
+  side-effecting receiver evaluation order; validate Debug/Release heap and value
+  state machines and reference-field early returns. Runtime Contract settings and
+  CLI bridge encodings are unchanged.
+
 - **2026-10-07:** Keep wide comparison and API tables inside mobile articles with
   horizontal scrolling, including platforms whose fonts have wider metrics.
 

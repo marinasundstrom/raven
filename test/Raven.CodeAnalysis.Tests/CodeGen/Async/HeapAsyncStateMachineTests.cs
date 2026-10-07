@@ -12,18 +12,23 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class HeapAsyncStateMachineTests
 {
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public async Task PendingStateRetainsLocalsAfterKickoffReturns(bool heap, bool completed)
+    [InlineData(false, false, OptimizationLevel.Debug)]
+    [InlineData(false, true, OptimizationLevel.Debug)]
+    [InlineData(true, false, OptimizationLevel.Debug)]
+    [InlineData(true, true, OptimizationLevel.Debug)]
+    [InlineData(false, false, OptimizationLevel.Release)]
+    [InlineData(false, true, OptimizationLevel.Release)]
+    [InlineData(true, false, OptimizationLevel.Release)]
+    [InlineData(true, true, OptimizationLevel.Release)]
+    public async Task PendingStateRetainsLocalsAfterKickoffReturns(bool heap, bool completed, OptimizationLevel optimization)
     {
         const string source = """
 import System.Threading.Tasks.*
 class Program {
-    static async func Run(first: Task<int>, second: Task<int>) -> Task<int> {
+    static async func Run(first: Task<int>, second: Task<int>, resumed: TaskCompletionSource<int>) -> Task<int> {
         let seed = 40
         let left = await first
+        resumed.SetResult(left)
         let right = await second
         return seed + left + right
     }
@@ -31,7 +36,7 @@ class Program {
 """;
         var references = TestMetadataReferences.Default;
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-            .WithAsyncExceptionCapture(false).WithHeapAsyncStateMachines(heap);
+            .WithAsyncExceptionCapture(false).WithHeapAsyncStateMachines(heap).WithOptimizationLevel(optimization);
         var compilation = Compilation.Create("heap-async", options)
             .AddSyntaxTrees(SyntaxTree.ParseText(source)).AddReferences(references);
         using var stream = new MemoryStream();
@@ -43,12 +48,17 @@ class Program {
         Assert.Equal(!heap, stateMachine.IsValueType);
         var first = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         var second = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resumed = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         if (completed) { first.SetResult(1); second.SetResult(1); }
-        var task = Assert.IsAssignableFrom<Task<int>>(method.Invoke(null, [first.Task, second.Task]));
+        var task = Assert.IsAssignableFrom<Task<int>>(method.Invoke(null, [first.Task, second.Task, resumed]));
         if (!completed) Assert.False(task.IsCompleted);
         GC.Collect();
         GC.WaitForPendingFinalizers();
         first.TrySetResult(1);
+        Assert.Equal(1, await resumed.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+        if (!completed) Assert.False(task.IsCompleted);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
         second.TrySetResult(1);
         Assert.Equal(42, await task.WaitAsync(TimeSpan.FromSeconds(10)));
     }
