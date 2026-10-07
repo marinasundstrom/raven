@@ -24,11 +24,11 @@
       "url": "libraries/index.html",
       "children": [
         {
-          "label": "Raven.Core",
+          "label": "Core extensions",
           "url": "libraries/raven-core/index.html"
         },
         {
-          "label": "Raven.Macros",
+          "label": "Macros",
           "url": "libraries/raven-macros/index.html"
         }
       ]
@@ -371,12 +371,12 @@
     {
       "input": "../src/Raven.Core/Raven.Core.rvnproj",
       "path": "libraries/raven-core",
-      "title": "Raven.Core"
+      "title": "Core extensions"
     },
     {
       "input": "../src/Raven.Macros",
       "path": "libraries/raven-macros",
-      "title": "Raven.Macros",
+      "title": "Macros",
       "references": [
         "../src/Raven.CodeAnalysis/bin/Debug/net10.0/Raven.CodeAnalysis.dll"
       ]

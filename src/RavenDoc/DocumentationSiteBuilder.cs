@@ -28,7 +28,7 @@ public static class DocumentationSiteBuilder
         if (configuration.Api is not null && configuration.Apis.Count > 0)
             throw new InvalidOperationException("Use either api or apis, not both.");
         var apiDefinitions = configuration.Api is { } singleApi
-            ? new List<SiteApi> { new() { Input = singleApi, Path = configuration.ApiPath } }
+            ? new List<SiteApi> { new() { Input = singleApi, Path = configuration.ApiPath, Title = configuration.ApiTitle } }
             : configuration.Apis;
         var apis = apiDefinitions.Select(api => (
             Input: Path.GetFullPath(api.Input, root), Path: RelativeOutput(api.Path),
@@ -148,6 +148,7 @@ public static class DocumentationSiteBuilder
                 var apiOptions = options with
                 {
                     Navigation = configuration.Apis.Count > 0 ? libraryNavigation : menu,
+                    ApiDisplayName = api.Definition.Title,
                     ApiContent = api.Definition.ApiContent is { } content ? Path.GetFullPath(content, root) : options.ApiContent
                 };
                 var framework = api.Definition.Framework ?? configuration.Framework;
@@ -300,6 +301,7 @@ public static class DocumentationSiteBuilder
         public string Output { get; init; } = "_site";
         public string? Toc { get; init; }
         public string? Api { get; init; }
+        public string? ApiTitle { get; init; }
         public List<SiteApi> Apis { get; init; } = [];
         public string ApiPath { get; init; } = "api";
         public string MemberListStyle { get; init; } = "compact";

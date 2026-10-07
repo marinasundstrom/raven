@@ -842,3 +842,8 @@ and their namespaces, even when the runtime assembly contains no ordinary types.
 Authored pages use a documentation sidebar with visible section headings and
 current-page highlighting. Generated API pages keep the searchable symbol tree.
 `apiNavigationRoot` retains the API browser for authored API landing pages.
+
+Each `apis` entry's `title` is its display name in library navigation and the API
+overview heading. A single `api` can set `apiTitle` for the same overview behavior.
+Assembly names in symbol metadata remain unchanged. Raven uses “Core extensions”
+and “Macros” while preserving `Raven.Core.dll` and `Raven.Macros.dll` details.

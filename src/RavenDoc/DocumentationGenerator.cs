@@ -2000,12 +2000,12 @@ public static partial class DocumentationGenerator
             SymbolDisplayFormat.FullyQualifiedFormat.WithKindOptions(SymbolDisplayKindOptions.None));
         var namespaceName = GetNamespaceFullName(namespaceSymbol);
 
-        if (string.IsNullOrWhiteSpace(name))
-            name = "Global namespace";
+        if (namespaceSymbol.IsGlobalNamespace)
+            name = CurrentSiteOptions.ApiDisplayName ?? "Global namespace";
 
         var heroHtml = SiteTemplate.RenderHero(
             RavenDocSymbolKind.Namespace,
-            "Namespace",
+            namespaceSymbol.IsGlobalNamespace && CurrentSiteOptions.ApiDisplayName is not null ? "API reference" : "Namespace",
             name,
             string.IsNullOrWhiteSpace(namespaceName)
                 ? null
@@ -2530,7 +2530,8 @@ public sealed record DocumentationSiteOptions(
     IReadOnlyList<string>? ExtensionNamespaces = null,
     IReadOnlyList<string>? ExtensionMembers = null,
     string? ApiContent = null,
-    string MemberGrouping = "kind")
+    string MemberGrouping = "kind",
+    string? ApiDisplayName = null)
 {
     public static DocumentationSiteOptions Empty { get; } = new([]);
 }
