@@ -92,6 +92,7 @@ internal static class NeoClrCommand
             start.ArgumentList.Add("run"); start.ArgumentList.Add(output);
             if (config.RuntimeSeedPath is { } seed) { start.ArgumentList.Add("--system"); start.ArgumentList.Add(seed); }
             foreach (var path in config.ReferencePaths) { start.ArgumentList.Add("--module"); start.ArgumentList.Add(path); }
+            if (config.ObjectRootPath is { } objectRoot) { start.ArgumentList.Add("--object-root"); start.ArgumentList.Add(objectRoot); }
             using var process = System.Diagnostics.Process.Start(start)!;
             process.WaitForExit();
             return process.ExitCode;

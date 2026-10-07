@@ -7773,3 +7773,28 @@ before the change. All 29 focused unit-contract tests and six clean Web compilat
 pass after it. Existing .NET unit contracts and pointer rules are included. This is a
 native target-contract fix on the shared compiler branch, not an independent .NET fix.
 The separate async bare-return conversion issue remains a different investigation.
+
+## Native project Object ownership (2026-10-07)
+
+Native projects consuming a source-built runtime select its canonical root explicitly:
+
+```xml
+<RavenNeoClrObjectLibrary>System.Runtime</RavenNeoClrObjectLibrary>
+```
+
+The value must match exactly one registered native Reference assembly name. The metadata
+provider applies the same ObjectAssemblyName target contract as the direct command's
+--object-library option. It exposes the selected artifact as ObjectRootPath on the immutable
+NeoClrProjectConfiguration. The project driver passes this exact path as --object-root
+when --run is requested. The language server uses the same provider and already watches
+the referenced artifact. No namespace-to-path guessing, implicit resolution or CLI bridge
+is introduced. Missing/ambiguous selections reject; an unset property preserves defaults.
+An invalid native root declaration remains subject to existing semantic validation.
+
+C# project checks cover semantic root identity, exact runtime path, watched inputs,
+missing selection and competing versions with the same name. The unchanged HTTP headers
+sample compiles and executes through --project/--run against separate Runtime/Data/
+Networking/Web references; invalid ownership preserves the last successful assembly.
+The primitive Core and retained seed remain explicit. This does not implement native
+ProjectReference orchestration, source-project symbol references or shipping layouts.
+General Raven release integration is owned by the author's separate release task.

@@ -58,6 +58,7 @@ internal static class NativeProjectChecks
             File.WriteAllText(projectFile, original);
         }
         RejectProperty("RavenNeoClrBootstrapIntrinsics", "invalid");
+        RejectProperty("RavenNeoClrObjectLibrary", "Missing");
         RejectProperty("RavenTargetPlatform", "DotNet");
         RejectProperty("RavenTargetCoreAssemblyName", "WrongCore");
         RejectProperty("RavenMetadataCoreAssemblyName", "WrongCore");
@@ -66,6 +67,32 @@ internal static class NativeProjectChecks
         unsupported.Save(projectFile);
         Reject<NotSupportedException>(() => Workspace(true).OpenProject(projectFile));
         File.WriteAllText(projectFile, original);
+        var coreIdentity = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition.ReadAssembly(File.ReadAllBytes(core), false).Identity;
+        var graph = new NeoCLR.Metadata.Experimental.Model.AssemblyBuilder(new("ProjectRoot", new(1, 0, 0, 0)), coreIdentity);
+        graph.AddNativeObjectRoot();
+        var rootArtifact = Path.Combine(dependencies, "ProjectRoot.dll");
+        File.WriteAllBytes(rootArtifact, NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteLibraryBinary(graph));
+        var rootProject = XDocument.Parse(original);
+        rootProject.Root!.Element("PropertyGroup")!.Add(new XElement("RavenNeoClrObjectLibrary", "ProjectRoot"));
+        rootProject.Root.Element("ItemGroup")!.Add(new XElement("Reference", new XAttribute("Include", "ProjectRoot"),
+            new XElement("HintPath", "../dependencies/ProjectRoot.dll")));
+        rootProject.Save(projectFile);
+        var provider = new NeoClrProjectMetadataProvider();
+        var rootWorkspace = RavenWorkspace.Create(targetFramework: "net10.0",
+            projectSystemService: new MsBuildProjectSystemService(RavenProjectConventions.Default, false, null, "net10.0", metadataProvider: provider));
+        var rootId = rootWorkspace.OpenProject(projectFile);
+        if (rootWorkspace.GetCompilation(rootId).GetSpecialType(SpecialType.System_Object).ContainingAssembly.Name != "ProjectRoot" ||
+            provider.GetConfiguration(projectFile).ObjectRootPath != rootArtifact ||
+            !rootWorkspace.Services.ProjectSystemService!.GetMetadataInputPaths(projectFile).Contains(rootArtifact))
+            throw new Exception("project semantic/runtime Object owner or watched artifact differs");
+        var conflictingGraph = new NeoCLR.Metadata.Experimental.Model.AssemblyBuilder(new("ProjectRoot", new(2, 0, 0, 0)), coreIdentity);
+        conflictingGraph.AddNativeObjectRoot();
+        File.WriteAllBytes(Path.Combine(dependencies, "ConflictingRoot.dll"),
+            NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteLibraryBinary(conflictingGraph));
+        rootProject.Root.Element("ItemGroup")!.Add(new XElement("Reference", new XAttribute("Include", "ConflictingRoot"),
+            new XElement("HintPath", "../dependencies/ConflictingRoot.dll")));
+        rootProject.Save(projectFile);
+        Reject<InvalidDataException>(() => Workspace(true).OpenProject(projectFile));
         Console.WriteLine("PASS evaluated native project references, semantic binding, missing-adapter rejection and transactional failure");
         Console.WriteLine(projectFile);
     }

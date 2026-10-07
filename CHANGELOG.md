@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Add explicit RavenNeoClrObjectLibrary project selection. Native project
+  import and --run use the same registered Object-root artifact; missing or ambiguous
+  selections reject without replacing output. Cover workspace identity/watching and
+  separate-library execution. Ordinary .NET and unset-property behavior are unchanged.
+
 - Validate async returns against the task payload, including `unit`. Bare returns
   and expression bodies in `Task<unit>` and `ValueTask<unit>` methods now produce
   a unit result consistently before and after suspension; bare returns still

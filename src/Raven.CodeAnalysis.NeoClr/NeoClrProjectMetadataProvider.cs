@@ -45,11 +45,23 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
         if (ownership is not null) options = ownership.Apply(options, assemblyName, catalog.CoreIdentity.Name);
         if (properties.TryGetValue("RavenNeoClrAsyncLibrary", out var asyncLibrary) && !string.IsNullOrWhiteSpace(asyncLibrary))
             options = options.WithMetadataImportOptions((options.MetadataImportOptions ?? new MetadataImportOptions(catalog.CoreIdentity.Name)).WithAsyncAssemblyName(asyncLibrary));
+        string? objectRootPath = null;
+        if (properties.TryGetValue("RavenNeoClrObjectLibrary", out var objectLibrary) && !string.IsNullOrWhiteSpace(objectLibrary))
+        {
+            var nativeReferences = catalog.References.OfType<NeoClrMetadataReference>().ToArray();
+            var selected = nativeReferences.Select((reference, index) => (reference, index))
+                .Where(item => item.reference.Definition.Name == objectLibrary).ToArray();
+            if (selected.Length != 1)
+                throw new InvalidDataException("Object library must select exactly one registered native reference: " + objectLibrary);
+            objectRootPath = Path.GetFullPath(referencePaths[selected[0].index]);
+            options = options.WithMetadataImportOptions((options.MetadataImportOptions ?? new MetadataImportOptions(catalog.CoreIdentity.Name))
+                .WithObjectAssemblyName(objectLibrary));
+        }
         var intrinsicText = properties.GetValueOrDefault("RavenNeoClrBootstrapIntrinsics");
         var intrinsic = false;
         if (!string.IsNullOrWhiteSpace(intrinsicText) && !bool.TryParse(intrinsicText, out intrinsic))
             throw new InvalidDataException("RavenNeoClrBootstrapIntrinsics must be true or false.");
-        configurations[Path.GetFullPath(projectFilePath)] = new(catalog, referencePaths.ToArray(), PathProperty("RavenNeoClrRuntimeSeed"), ownership, intrinsic);
+        configurations[Path.GetFullPath(projectFilePath)] = new(catalog, referencePaths.ToArray(), PathProperty("RavenNeoClrRuntimeSeed"), ownership, intrinsic, objectRootPath);
         return new(options.WithTargetCoreAssemblyName(catalog.CoreIdentity.Name)
             .WithMetadataImportOptions(options.MetadataImportOptions ?? new MetadataImportOptions(catalog.CoreIdentity.Name)), catalog.References);
     }
@@ -58,14 +70,16 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
 /// <summary>Explicit host artifact snapshot shared by project import and native emission.</summary>
 public sealed class NeoClrProjectConfiguration
 {
-    internal NeoClrProjectConfiguration(NeoClrReferenceCatalog catalog, string[] paths, string? seed, BootstrapOwnershipManifest? ownership, bool bootstrapIntrinsics)
-    { this.bootstrapIntrinsics = bootstrapIntrinsics; Catalog = catalog; ReferencePaths = Array.AsReadOnly(paths); RuntimeSeedPath = seed; this.ownership = ownership; }
+    internal NeoClrProjectConfiguration(NeoClrReferenceCatalog catalog, string[] paths, string? seed, BootstrapOwnershipManifest? ownership, bool bootstrapIntrinsics, string? objectRootPath)
+    { this.bootstrapIntrinsics = bootstrapIntrinsics; ObjectRootPath = objectRootPath; Catalog = catalog; ReferencePaths = Array.AsReadOnly(paths); RuntimeSeedPath = seed; this.ownership = ownership; }
     private readonly BootstrapOwnershipManifest? ownership;
     private readonly bool bootstrapIntrinsics;
     /// <summary>Semantic and emission artifact identities from one read.</summary>
     public NeoClrReferenceCatalog Catalog { get; }
     /// <summary>Explicit native runtime dependency paths.</summary>
     public IReadOnlyList<string> ReferencePaths { get; }
+    /// <summary>Exact registered native artifact selected as the runtime Object root, if configured.</summary>
+    public string? ObjectRootPath { get; }
     /// <summary>Optional retained runtime System seed.</summary>
     public string? RuntimeSeedPath { get; }
     /// <summary>Creates the native adapter from explicit artifacts, never from importer symbols.</summary>
