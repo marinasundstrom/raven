@@ -1,0 +1,13 @@
+import System.Console.*
+
+let item = Box.Item<int>(42)
+WriteLine(item.Read())
+WriteLine(item)
+
+sealed interface Box<T> {
+    func Read() -> T
+
+    record Item<T>(Value: T) : Box<T> {
+        func Read() -> T => Value
+    }
+}
