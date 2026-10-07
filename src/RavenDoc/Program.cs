@@ -10,11 +10,12 @@ internal static class RavenDocCommand
 
     public static int Run(string[] args)
     {
-        if (args is ["--site", var configurationPath])
+        if (args is ["--site" or "--finalize-site", var configurationPath])
         {
             try
             {
-                DocumentationSiteBuilder.Build(configurationPath);
+                if (args[0] == "--finalize-site") DocumentationSiteBuilder.FinalizeSite(configurationPath);
+                else DocumentationSiteBuilder.Build(configurationPath);
                 return 0;
             }
             catch (Exception exception)
@@ -405,6 +406,7 @@ internal static class RavenDocCommand
               ravendoc <project.rvnproj|source.rvn|source-directory|library.dll> [options]
 
               ravendoc --site <ravendoc.json>
+              ravendoc --finalize-site <ravendoc.json>
 
             Options:
               -o, --output <directory>    HTML site output (default: <input-directory>/_site)

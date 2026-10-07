@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Add configurable RavenDoc site-wide search for authored pages
+  and API references, with a navbar icon, retained queries, local ranked results
+  and combined-site indexing.
+
 - **2026-10-07:** Publish the entire Raven website with RavenDoc, preserving article
   and library API URLs, landing-page design, section navigation and playground
   examples. Remove the DocFX tool and configuration; expose API references in the header.

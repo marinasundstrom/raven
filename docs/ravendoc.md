@@ -782,3 +782,17 @@ adding a Back-button step for every toggle.
 The Raven project website uses `docs/ravendoc.json`; see [Website build](website.md).
 Set `script` to a site-relative JavaScript module for authored-page interactions.
 Raw HTML links to selected Markdown articles are rewritten to their output URLs.
+
+## Site-wide search
+
+Set `"search": true` in the site configuration (default: `false`) to index authored
+articles and generated API pages. A navbar search icon opens a labelled field and
+keyboard-accessible results. A nonempty query keeps the panel open; Escape or the
+icon closes it while retaining the query. All query terms must match, with title
+matches ranked first. Search runs locally in the browser without a service.
+
+For a combined output assembled in several steps, run
+`RavenDoc --finalize-site path/to/ravendoc.json` after adding API sites. This
+rebuilds the index and controls for all articles, including nested library sites.
+Paths remain relative, including under a GitHub Pages prefix. Finalization is
+idempotent. It indexes article text, not navigation or executable app content.

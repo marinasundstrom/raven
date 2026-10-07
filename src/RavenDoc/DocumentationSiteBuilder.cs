@@ -7,6 +7,14 @@ using Markdig.Syntax.Inlines;
 /// <summary>Publishes authored Markdown and a Raven API reference using one site shell.</summary>
 public static class DocumentationSiteBuilder
 {
+    public static void FinalizeSite(string configurationPath)
+    {
+        configurationPath = Path.GetFullPath(configurationPath);
+        var configuration = JsonSerializer.Deserialize<SiteConfiguration>(File.ReadAllText(configurationPath),
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true, UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow })!;
+        DocumentationSiteSearch.Apply(Path.GetFullPath(configuration.Output, Path.GetDirectoryName(configurationPath)!), configuration.Search);
+    }
+
     public static void Build(string configurationPath)
     {
         configurationPath = Path.GetFullPath(configurationPath);
@@ -216,6 +224,7 @@ public static class DocumentationSiteBuilder
             }
             if (!File.Exists(Path.Combine(staging, "index.html")))
                 throw new InvalidOperationException("The site must include a page with output 'index.html'.");
+            DocumentationSiteSearch.Apply(staging, configuration.Search);
             if (Directory.Exists(output))
                 Directory.Delete(output, recursive: true);
             Directory.Move(staging, output);
@@ -243,6 +252,7 @@ public static class DocumentationSiteBuilder
 
     private sealed class SiteConfiguration
     {
+        public bool Search { get; init; }
         public string Name { get; init; } = "Documentation";
         public string Output { get; init; } = "_site";
         public string? Toc { get; init; }

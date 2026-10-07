@@ -12,6 +12,7 @@ internal sealed class RavenDocSiteTemplate
         WriteResource(outputDirectory, StyleResourceName, "style.css");
         WriteResource(outputDirectory, ScriptResourceName, "site.js");
         WriteResource(outputDirectory, "RavenDoc.Theme.js", "theme.js");
+        WriteResource(outputDirectory, "RavenDoc.Search.js", "search.js");
         WriteResource(outputDirectory, "Raven.Language.js", "raven-language.js");
         WriteResource(outputDirectory, "Raven.Highlight.css", "raven-highlight.css");
         WriteResource(outputDirectory, "RavenDoc.Highlight.js", "highlight-core.js");
