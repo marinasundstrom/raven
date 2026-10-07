@@ -33,7 +33,7 @@ internal static class DocumentationSiteSearch
                       </section>
                     </div><script type="module" src="{{script}}"></script><!-- /ravendoc-search -->
                     """;
-                html = html.Replace("</header>", control + "</header>", StringComparison.Ordinal);
+                html = new Regex("</header>", RegexOptions.IgnoreCase).Replace(html, _ => control + "</header>", 1);
             }
             File.WriteAllText(path, html);
         }
