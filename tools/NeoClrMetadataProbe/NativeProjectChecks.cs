@@ -58,6 +58,22 @@ internal static class NativeProjectChecks
             File.WriteAllText(projectFile, original);
         }
         RejectProperty("RavenNeoClrBootstrapIntrinsics", "invalid");
+        RejectProperty("RavenNeoClrSourceObjectRoot", "invalid");
+        RejectProperty("RavenNeoClrSourceObjectRoot", "true");
+        var sourceRootProject = XDocument.Parse(original);
+        sourceRootProject.Root!.Element("PropertyGroup")!.SetElementValue("OutputType", "Library");
+        sourceRootProject.Root.Element("PropertyGroup")!.SetElementValue("RavenNeoClrSourceObjectRoot", "true");
+        sourceRootProject.Root.Element("PropertyGroup")!.SetElementValue("RavenNeoClrAsyncLibrary", "CatalogLibrary");
+        sourceRootProject.Save(projectFile);
+        var sourceWorkspace = Workspace(true);
+        var sourceId = sourceWorkspace.OpenProject(projectFile);
+        if (sourceWorkspace.CurrentSolution.GetProject(sourceId)!.CompilationOptions!.MetadataImportOptions?.UseSourceObjectRoot != true ||
+            sourceWorkspace.CurrentSolution.GetProject(sourceId)!.CompilationOptions!.MetadataImportOptions?.AsyncAssemblyName != "CatalogLibrary")
+            throw new Exception("source Object root selection lost in project configuration");
+        sourceRootProject.Root.Element("PropertyGroup")!.SetElementValue("RavenNeoClrObjectLibrary", "CatalogLibrary");
+        sourceRootProject.Save(projectFile);
+        Reject<InvalidDataException>(() => Workspace(true).OpenProject(projectFile));
+        File.WriteAllText(projectFile, original);
         RejectProperty("RavenNeoClrObjectLibrary", "Missing");
         RejectProperty("RavenTargetPlatform", "DotNet");
         RejectProperty("RavenTargetCoreAssemblyName", "WrongCore");

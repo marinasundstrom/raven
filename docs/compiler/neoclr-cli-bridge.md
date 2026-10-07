@@ -7842,3 +7842,30 @@ cycle preflight and preservation after dependency binding failure.
 All 67 existing MsBuildProjectSystemServiceTests also pass. The focused command used
 `--no-restore -p:BuildProjectReferences=false` after building compiler dependencies;
 the initial ordinary test build was stopped while rebuilding the unrelated macro library.
+
+
+## Native source-root projects (2026-10-07)
+
+`RavenNeoClrSourceObjectRoot=true` exposes the direct native command's existing
+`--source-object-root` semantic contract in evaluated projects. Only library output
+is accepted, and `RavenNeoClrObjectLibrary` must be unset. Invalid boolean values,
+executable output and conflicting source/imported selection reject before publication.
+An unset or false property preserves existing behavior.
+
+The provider keeps primitive ownership, sets `UseSourceObjectRoot` and preserves an
+explicit async owner. Runtime TypeOf comes from the ownership manifest, including an
+absent contract; it does not invent introspection services for the bootstrap root.
+Emission still consumes Raven symbols and host-owned artifact identities; no importer
+objects are passed to builders. No instruction or metadata encoding changes are needed.
+
+NeoCLR's checked-in `runtime/raven/projects/System.Runtime/System.Runtime.rvnproj`
+uses this with bootstrap intrinsics, its explicit ownership manifest and host-supplied
+`RavenNeoClrCoreReference` / `RavenNeoClrRuntimeSeed` paths. The 175-source foundation
+builds through the ordinary project command. A retained seed finalized against the
+emitted artifact allows unchanged orders to compile and execute in a separate project
+with Runtime sources absent. This is not a seed-free bootstrap or a complete shipping
+project layout. Ordinary .NET defaults and the legacy bridge project are unchanged.
+
+C# native project checks cover the property, async-owner preservation, invalid values,
+executable rejection and source/imported conflicts. Existing graph checks remain green;
+the 67 ordinary project-system checks from the preceding graph slice are unaffected.

@@ -57,6 +57,21 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
         if (ownership is not null) options = ownership.Apply(options, assemblyName, catalog.CoreIdentity.Name);
         if (properties.TryGetValue("RavenNeoClrAsyncLibrary", out var asyncLibrary) && !string.IsNullOrWhiteSpace(asyncLibrary))
             options = options.WithMetadataImportOptions((options.MetadataImportOptions ?? new MetadataImportOptions(catalog.CoreIdentity.Name)).WithAsyncAssemblyName(asyncLibrary));
+        var sourceRootText = properties.GetValueOrDefault("RavenNeoClrSourceObjectRoot");
+        var sourceRoot = false;
+        if (!string.IsNullOrWhiteSpace(sourceRootText) && !bool.TryParse(sourceRootText, out sourceRoot))
+            throw new InvalidDataException("RavenNeoClrSourceObjectRoot must be true or false.");
+        if (sourceRoot)
+        {
+            if (options.OutputKind != OutputKind.DynamicallyLinkedLibrary ||
+                !string.IsNullOrWhiteSpace(properties.GetValueOrDefault("RavenNeoClrObjectLibrary")))
+                throw new InvalidDataException("Source Object root requires a library and no RavenNeoClrObjectLibrary selection.");
+            var sourceImports = options.MetadataImportOptions;
+            options = options.WithRuntimeTypeOfContract(ownership?.TypeOf)
+                .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name,
+                    sourceImports?.PrimitiveAssemblies, sourceImports?.SourcePrimitiveTypes, useSourceObjectRoot: true)
+                    .WithAsyncAssemblyName(sourceImports?.AsyncAssemblyName));
+        }
         string? objectRootPath = null;
         if (properties.TryGetValue("RavenNeoClrObjectLibrary", out var objectLibrary) && !string.IsNullOrWhiteSpace(objectLibrary))
         {

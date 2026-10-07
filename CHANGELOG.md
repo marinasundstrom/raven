@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Add RavenNeoClrSourceObjectRoot for native library projects. Apply
+  the existing source-root import contract with explicit ownership/introspection and
+  preserve async-owner selection. Reject executable or conflicting imported-root
+  configurations. The checked-in NeoCLR Runtime project compiles and its separate
+  orders consumer executes; ordinary .NET defaults are unchanged.
+
 - Preserve `unit` payloads in .NET 11 runtime-async Task/ValueTask returns,
   including bare, implicit, arrow and try/finally returns. Discard awaited
   payloads correctly in statement position. Extend runtime regressions and the
