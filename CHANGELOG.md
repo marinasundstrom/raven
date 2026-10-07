@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- Make compiler-driver sample gates prepare MSBuild references, including build-only source generators, before compilation so validation works in fresh checkouts.
+
 - RavenDoc supports configurable GitHub repositories per site or API source, with declaration-based Raven source-file links for metadata references. Assembly identity remains visible; unmatched types do not receive guessed source links.
 
 - **2026-10-07:** Keep RavenDoc copy controls pinned to the visible code sample
