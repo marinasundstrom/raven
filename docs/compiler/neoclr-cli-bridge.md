@@ -7444,3 +7444,15 @@ Raven-emitted library; this is explicitly not ordinary imported-root acceptance.
 Full-System compilation now passes this constructor frontier and stops at the
 `ObjectTypeHandle(object) -> RuntimeTypeHandle` dependency contract. See neoCLR's
 `closed-object-root-2026-10-07.md` for revision/hash evidence and next steps.
+
+## Source Object handle adapter (2026-10-07)
+
+NeoCLR's source Object.GetType uses the internal NativeObject.GetTypeHandle facade
+and existing native ObjectTypeHandle service. An extension named like an existing
+bootstrap static method does not supersede it; a distinct facade keeps the selected
+source Object and RuntimeTypeHandle identities intact. Compiler `793220f33` is
+unchanged, including dependency signature matching and the .NET target. No new
+Runtime Contract option is needed; source Object and explicit native handle ownership
+remain required. The focused native consumer executes identity/hash checks, while
+the 196-input full build now stops at ReflectionConstruct. Evidence and limitations:
+neoCLR `docs/experiments/extended-cli-metadata/object-handles-2026-10-07.md`.

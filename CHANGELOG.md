@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Document the source Object native handle adapter integration:
+  explicit source owners execute through an existing internal call, with no compiler
+  change or weakened dependency matching. Full System next reaches ReflectionConstruct.
+
 - **2026-10-07:** Preserve the declared local base when emitting a NeoCLR closed
   class, including source-owned Object. Protected constructor chains and virtual
   dispatch execute through a closed family; ordinary .NET emission is unchanged.
