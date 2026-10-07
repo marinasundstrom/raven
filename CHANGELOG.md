@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** List public nested types and their members when RavenDoc selects
+  an outer type, under an explicit Nested types heading. Keep union cases separate.
+
 - **2026-10-07:** Add optional RavenDoc code-copy buttons, preserving sample
   whitespace and reporting clipboard success/failure accessibly.
 

@@ -805,3 +805,8 @@ its whitespace intact and announces success or clipboard failure. Clipboard
 access requires HTTPS or localhost and browser permission. Copy controls are
 outside the code text and do not change playground examples. Combined sites use
 the same `--finalize-site` step as search.
+
+Ordinary type pages list their public **Nested types** with links. Selecting an
+outer type includes its public nested types and their members. Private nested
+types remain excluded. Union case types stay in the union's **Cases** section,
+never in Nested types. Namespace pages retain the **Types** heading.

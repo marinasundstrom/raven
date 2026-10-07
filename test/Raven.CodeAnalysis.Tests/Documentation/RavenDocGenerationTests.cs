@@ -4,6 +4,49 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SelectedTypesListPublicNestedTypesButKeepUnionCasesSeparate(bool metadata)
+    {
+        const string source = """
+            namespace NestedDocs
+            public class Outer {
+                public class Inner { public val Value: int => 42 }
+                private class Hidden { }
+            }
+            public union Choice { case Yes(value: int) case No }
+            """;
+        var (compilation, _) = CreateCompilation(source, assemblyName: "NestedDocs");
+        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+        IAssemblySymbol? assembly = null;
+        if (metadata)
+        {
+            var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "NestedDocs");
+            compilation = Compilation.Create("NestedHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
+            _ = compilation.GetDiagnostics();
+            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+        }
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var options = new DocumentationSiteOptions([], Types: ["NestedDocs.Outer", "NestedDocs.Choice"]);
+            if (assembly is null) DocumentationGenerator.ProcessCompilation(compilation, output, options);
+            else DocumentationGenerator.ProcessAssembly(compilation, assembly, output, options);
+            var outer = File.ReadAllText(Path.Combine(output, "NestedDocs/Outer/index.html"));
+            outer.ShouldContain("Nested types");
+            outer.ShouldContain("Inner");
+            Directory.GetDirectories(output, "Hidden", SearchOption.AllDirectories).ShouldBeEmpty();
+            Directory.GetFiles(output, "property_Value.html", SearchOption.AllDirectories)
+                .ShouldContain(path => path.Contains("Inner", StringComparison.Ordinal));
+            var choice = File.ReadAllText(Path.Combine(output, "NestedDocs/Choice/index.html"));
+            choice.ShouldContain("Cases");
+            choice.ShouldNotContain("Nested types");
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
     [Fact]
     public void NamespaceNavigationDoesNotSelectEveryFunctionInTheCurrentDirectory()
     {
