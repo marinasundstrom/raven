@@ -391,7 +391,15 @@ partial class BlockBinder
             candidateDelegates.Any(candidate => candidate.GetDelegateInvokeMethod()?.ReturnType is { } candidateReturn &&
                 candidateReturn.SpecialType is not SpecialType.System_Unit and not SpecialType.System_Void);
 
-        initialReturnType = inferOverloadedValueReturn
+        // An unfixed method result parameter supplies no return-type context yet.
+        // Keep lexical type parameters authoritative (for example a callback returning
+        // the enclosing method's T), while letting inference learn TResult from the body.
+        var inferUnfixedReturn = !isAsyncLambda && returnTypeSyntax is null &&
+            targetSignature?.ReturnType is ITypeParameterSymbol resultParameter &&
+            !SymbolEqualityComparer.Default.Equals(lambdaBinder.LookupType(resultParameter.Name), resultParameter);
+        var inferBodyReturn = inferOverloadedValueReturn || inferUnfixedReturn;
+
+        initialReturnType = inferBodyReturn
             ? Compilation.ErrorTypeSymbol
             : annotatedReturnType ?? targetSignature?.ReturnType ?? Compilation.ErrorTypeSymbol;
         lambdaSymbol.SetReturnType(initialReturnType);
@@ -416,7 +424,7 @@ partial class BlockBinder
 
         var destructuringPrologue = BindLambdaDestructuringPrologue(lambdaBinder, parameterSyntaxes, parameterSymbols);
 
-        ITypeSymbol? lambdaBodyTargetType = inferOverloadedValueReturn ? null : targetSignature?.ReturnType;
+        ITypeSymbol? lambdaBodyTargetType = inferBodyReturn ? null : targetSignature?.ReturnType;
         if (isAsyncLambda && lambdaBodyTargetType is not null)
             lambdaBodyTargetType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, lambdaBodyTargetType) ?? lambdaBodyTargetType;
 

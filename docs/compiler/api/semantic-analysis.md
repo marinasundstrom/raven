@@ -49,6 +49,15 @@ information when generating IL or determining the program entry point.【F:src/R
 
 ## Symbol and type queries
 
+Generic invocation queries infer a synchronous lambda's result from its body
+when the delegate result is a still-unfixed method type parameter. The binder
+preserves parameter hints without converting `match` arms prematurely to that
+placeholder. Lexically declared type parameters remain authoritative targets,
+even when a called method uses the same parameter name. `GetSymbolInfo` must
+return the same constructed method and result type before or after diagnostic
+collection. This uses binder-owned inference and introduces no public cache API,
+metadata encoding, or target-specific rule.
+
 Function-expression parameter destructuring is checked for total coverage after
 the input type is resolved. Refutable patterns produce compiler error `RAV1618`,
 including nested sequence requirements. Fixed-length array shapes and rest-only

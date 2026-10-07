@@ -280,16 +280,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
         try
         {
             var projectPath = Path.Combine(repoRoot, relativeProjectPath);
-            // The driver consumes dependency outputs; MSBuild owns building the graph,
-            // including build-only references such as source generators.
-            var targets = Path.Combine(repoRoot, "build", "Raven.Language.targets");
-            var build = RunProcess("dotnet",
-                $"msbuild \"{projectPath}\" -restore -target:ResolveReferences " +
-                $"/property:RavenCompilerHost=\"{compilerDllPath}\" " +
-                $"/property:LanguageTargets=\"{targets}\" /property:WarningLevel=0",
-                repoRoot, timeoutMilliseconds: 300_000);
-            Assert.True(build.ExitCode == 0,
-                $"Dependencies for {relativeProjectPath}\nstdout:\n{build.StdOut}\nstderr:\n{build.StdErr}");
+            PrepareSampleReferences(repoRoot, compilerDllPath, projectPath);
             var result = RunCompiler(repoRoot, compilerDllPath, projectPath, outputDirectory);
             Assert.True(result.ExitCode == 0,
                 $"{relativeProjectPath}\nstdout:\n{result.StdOut}\nstderr:\n{result.StdErr}");
@@ -315,6 +306,7 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
 
         try
         {
+            PrepareSampleReferences(repoRoot, compilerDllPath, projectPath);
             var result = RunCompiler(repoRoot, compilerDllPath, projectPath, outputDirectory);
             output.WriteLine(result.StdOut);
             output.WriteLine(result.StdErr);
@@ -1738,6 +1730,20 @@ public sealed class MsBuildSampleProjectCompilationTests(ITestOutputHelper outpu
             $"Failed to build Raven.Core for sample-project tests.\nstdout:\n{buildResult.StdOut}\nstderr:\n{buildResult.StdErr}");
 
         Assert.True(File.Exists(ravenCoreDllPath), $"Expected Raven.Core output at '{ravenCoreDllPath}'.");
+    }
+
+    private static void PrepareSampleReferences(string repoRoot, string compilerDllPath, string projectPath)
+    {
+        // The driver consumes dependency outputs; MSBuild owns building the graph,
+        // including build-only references such as source generators.
+        var targets = Path.Combine(repoRoot, "build", "Raven.Language.targets");
+        var build = RunProcess("dotnet",
+            $"msbuild \"{projectPath}\" -restore -target:ResolveReferences " +
+            $"/property:RavenCompilerHost=\"{compilerDllPath}\" " +
+            $"/property:LanguageTargets=\"{targets}\" /property:WarningLevel=0",
+            repoRoot, timeoutMilliseconds: 300_000);
+        Assert.True(build.ExitCode == 0,
+            $"Dependencies for {projectPath}\nstdout:\n{build.StdOut}\nstderr:\n{build.StdErr}");
     }
 
     private static (int ExitCode, string StdOut, string StdErr) RunCompiler(
