@@ -12,6 +12,7 @@ using Raven.CodeAnalysis.Syntax;
 public static partial class DocumentationGenerator
 {
     private static ApiContentTree ApiContent = new(null);
+    private static DocumentationSourceLinks SourceLinks = new(null);
 
     private static string outputDir = "_docs";
     private static string documentedAssemblyName = "Raven";
@@ -216,6 +217,7 @@ public static partial class DocumentationGenerator
         AdditionalNamespaceMembers.Clear();
         CurrentSiteOptions = siteOptions ?? DocumentationSiteOptions.Empty;
         ApiContent = new ApiContentTree(CurrentSiteOptions.ApiContent);
+        SourceLinks = new DocumentationSourceLinks(CurrentSiteOptions.SourceRepository);
         MemberListStyle = CurrentSiteOptions.MemberListStyle;
         IncludedTypes = CurrentSiteOptions.Types?.ToHashSet(StringComparer.Ordinal);
         ExcludedMembers = CurrentSiteOptions.ExcludedMembers?.ToHashSet(StringComparer.Ordinal) ?? [];
@@ -428,76 +430,6 @@ public static partial class DocumentationGenerator
     {
         var rel = Path.GetRelativePath(fromDirectory, toFileOrDirectory);
         return ToUrlPath(rel);
-    }
-
-    // ----------------------------
-    // GitHub source linking
-    // ----------------------------
-
-    // User asked for base repo URL:
-    private const string GitHubRepoBaseUrl = "https://github.com/marinasundstrom/raven/";
-
-    // You can change this if your default branch is different:
-    private const string GitHubDefaultBranch = "main";
-
-    private static string? TryFindRepoRoot(string startDir)
-    {
-        if (string.IsNullOrWhiteSpace(startDir))
-            return null;
-
-        DirectoryInfo dir;
-        try
-        {
-            dir = new DirectoryInfo(Path.GetFullPath(startDir));
-        }
-        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
-        {
-            return null;
-        }
-
-        while (dir is not null)
-        {
-            // A normal checkout has a .git directory; a linked worktree has a
-            // .git file that points back to the primary repository.
-            var gitPath = Path.Combine(dir.FullName, ".git");
-            if (Directory.Exists(gitPath) || File.Exists(gitPath))
-                return dir.FullName;
-
-            dir = dir.Parent;
-        }
-
-        return null;
-    }
-
-    private static string? GetSourceGitHubUrl(ISymbol symbol)
-    {
-        var src = symbol.Locations.FirstOrDefault(l => l is not null && l.IsInSource);
-        var srcPath = src?.SourceTree?.FilePath;
-
-        if (string.IsNullOrWhiteSpace(srcPath))
-            return null;
-
-        // Find repo root based on where the docs generator runs from.
-        // (You can change this to use the directory of srcPath if you prefer.)
-        var cwd = Directory.GetCurrentDirectory();
-        var repoRoot = TryFindRepoRoot(cwd) ?? TryFindRepoRoot(Path.GetDirectoryName(srcPath) ?? cwd);
-        if (string.IsNullOrWhiteSpace(repoRoot))
-            return null;
-
-        var rel = Path.GetRelativePath(repoRoot, srcPath);
-
-        // Normalize + URL-encode each path segment
-        var segments = rel
-            .Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(Uri.EscapeDataString);
-
-        var urlPath = string.Join("/", segments);
-
-        // Optional: link to the first source location line
-        var line = (src!.GetLineSpan().StartLinePosition.Line + 1); // 1-based
-        var anchor = line > 0 ? $"#L{line}" : "";
-
-        return $"{GitHubRepoBaseUrl}blob/{GitHubDefaultBranch}/{urlPath}{anchor}";
     }
 
     // ----------------------------
@@ -1376,15 +1308,11 @@ public static partial class DocumentationGenerator
 
     private static string? GetSourceFileLine(ISymbol symbol)
     {
-        var sourceFileName = GetSourceFileName(symbol);
-        if (string.IsNullOrWhiteSpace(sourceFileName))
-            return null;
-
-        var githubUrl = GetSourceGitHubUrl(symbol);
-
-        return !string.IsNullOrWhiteSpace(githubUrl)
-            ? $"**Source file**: [{EscapeName(sourceFileName)}]({githubUrl})<br />"
-            : $"**Source file**: {HtmlEscape(sourceFileName)}<br />";
+        var links = SourceLinks.GetLinks(symbol);
+        if (links.Count == 0) return null;
+        return "**Source file**: " + string.Join(", ", links.Select(link => link.Url is { } url
+            ? $"<a href=\"{HtmlEscape(url)}\">{HtmlEscape(link.File)}</a>"
+            : HtmlEscape(link.File))) + "<br />";
     }
 
     private static string GetOutputAssemblyFileName(Compilation compilation)
@@ -1401,13 +1329,6 @@ public static partial class DocumentationGenerator
                 : ".dll";
 
         return name + ext;
-    }
-
-    private static string? GetSourceFileName(ISymbol symbol)
-    {
-        var src = symbol.Locations.FirstOrDefault(l => l is not null && l.IsInSource);
-        var srcPath = src?.SourceTree?.FilePath;
-        return string.IsNullOrWhiteSpace(srcPath) ? null : Path.GetFileName(srcPath);
     }
 
     private static string GetAssemblyFileNameForSymbol(Compilation compilation, ISymbol symbol)
@@ -2531,7 +2452,8 @@ public sealed record DocumentationSiteOptions(
     IReadOnlyList<string>? ExtensionMembers = null,
     string? ApiContent = null,
     string MemberGrouping = "kind",
-    string? ApiDisplayName = null)
+    string? ApiDisplayName = null,
+    DocumentationSourceRepository? SourceRepository = null)
 {
     public static DocumentationSiteOptions Empty { get; } = new([]);
 }

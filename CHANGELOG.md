@@ -31,6 +31,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ### Detailed changes
 
+- RavenDoc supports configurable GitHub repositories per site or API source, with declaration-based Raven source-file links for metadata references. Assembly identity remains visible; unmatched types do not receive guessed source links.
+
 - **2026-10-07:** Keep RavenDoc copy controls pinned to the visible code sample
   while code scrolls horizontally. Collapse the main navbar into a three-dot
   disclosure on mobile/tablet screens, with theme and search controls alongside.

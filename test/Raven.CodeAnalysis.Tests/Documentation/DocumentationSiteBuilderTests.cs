@@ -71,8 +71,8 @@ public sealed class DocumentationSiteBuilderTests
                 name = "Shared website",
                 search = true,
                 apis = new[] {
-                    new { input = "first.rvn", path = "libraries/first", title = "First library" },
-                    new { input = "second.rvn", path = "libraries/second", title = "Second library" }
+                    new { input = "first.rvn", path = "libraries/first", title = "First library", sourceRepository = new { url = "https://github.com/example/first", root = "." } },
+                    new { input = "second.rvn", path = "libraries/second", title = "Second library", sourceRepository = new { url = "https://github.com/example/second", root = "." } }
                 },
                 pages = new[] { new { source = "index.md" } }
             }));
@@ -80,6 +80,10 @@ public sealed class DocumentationSiteBuilderTests
             File.ReadAllText(Path.Combine(root, "_site/libraries/first/index.html")).ShouldContain("<h1>First library</h1>");
             File.ReadAllText(Path.Combine(root, "_site/libraries/second/index.html")).ShouldContain("<h1>Second library</h1>");
             File.ReadAllText(Path.Combine(root, "_site/libraries/first/First/Widget/index.html")).ShouldContain("first.dll");
+            File.ReadAllText(Path.Combine(root, "_site/libraries/first/First/Widget/index.html"))
+                .ShouldContain("https://github.com/example/first/blob/main/first.rvn#L1");
+            File.ReadAllText(Path.Combine(root, "_site/libraries/second/Second/Gadget/index.html"))
+                .ShouldContain("https://github.com/example/second/blob/main/second.rvn#L1");
             var home = File.ReadAllText(Path.Combine(root, "_site/index.html"));
             home.ShouldContain("href=\"libraries/first/index.html\"");
             home.ShouldContain("href=\"libraries/second/index.html\"");
