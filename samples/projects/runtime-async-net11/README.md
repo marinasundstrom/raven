@@ -5,6 +5,7 @@ This sample targets `.NET 11` and demonstrates runtime-async emission for:
 - `Task`
 - `Task<T>`
 - `ValueTask<T>`
+- Unit payloads in `Task<unit>` and `ValueTask<unit>`, including bare and implicit returns
 - `ConfigureAwait(false)` awaitables
 
 Project file:

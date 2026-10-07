@@ -31,6 +31,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ### Detailed changes
 
+- Preserve `unit` payloads in .NET 11 runtime-async Task/ValueTask returns,
+  including bare, implicit, arrow and try/finally returns. Discard awaited
+  payloads correctly in statement position. Extend runtime regressions and the
+  framework-matrix sample; ordinary unit-returning methods keep their void ABI.
+
 - Validate async returns against the task payload, including `unit`. Bare returns
   and expression bodies in `Task<unit>` and `ValueTask<unit>` methods now produce
   a unit result consistently before and after suspension; bare returns still
