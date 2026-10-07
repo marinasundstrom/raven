@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Record full native System artifact admission with an explicit retained
+  seed dependency catalog: 2,433 IL functions verify and a control executes. Ordinary
+  orders compilation now reaches the native System.Value importer classification gap;
+  compiler code and .NET behavior are unchanged in this tooling slice.
+
 - **2026-10-07:** Emit the explicitly selected NeoCLR System.Void owner as canonical
   native unit storage, including imported references, function results and generic
   arguments. Keep .NET unit carriers unchanged. Source-free NativeMemory/unit-interface

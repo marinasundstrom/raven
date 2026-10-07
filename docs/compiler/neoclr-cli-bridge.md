@@ -7593,3 +7593,22 @@ reaches retained-seed dependency ownership, not a DNS unit-signature mismatch. S
 `docs/experiments/extended-cli-metadata/canonical-unit-2026-10-07.md` for binary/source
 hashes, commands and remaining gates. These are target-specific changes, not a general
 compiler fix awaiting backport.
+
+## Full artifact admission and remaining native import (2026-10-07)
+
+The NeoCLR full-source audit finalizes a separate runtime seed after emission, adding
+an explicit module/revision reference read from the source-owned native artifact. The
+compile-time seed remains recorded separately; Runtime Contract ownership is unchanged.
+This closes the missing retained-service dependency without relaxing runtime validation
+or introducing CLI projection fallback. A wrong dependency revision rejects, and invalid
+translator references publish no output.
+
+All 197 inputs emit. The combined native load set verifies 2,433 IL functions and runs
+an API-authored control returning 42. That is artifact admission, not execution of every
+System API. The unchanged application-order-collections consumer, with library sources
+absent, now fails native import with `Requested value 'System_Value' was not found.`
+NativeNamedTypeSymbol maps native primitive designations through SpecialType parsing;
+the erased Value category has no such Raven enum member. Fix that semantic classification
+next, retaining explicit erased-value ownership rather than inventing a CLR primitive.
+See neoCLR `docs/experiments/extended-cli-metadata/retained-catalog-2026-10-07.md` for
+reproducible commands and hashes. No compiler or ordinary .NET behavior changes here.
