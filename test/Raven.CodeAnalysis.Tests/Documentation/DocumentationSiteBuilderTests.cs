@@ -7,6 +7,28 @@ public sealed class DocumentationSiteBuilderTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void CodeCopyIsOptInAndFinalizationDoesNotDuplicateScripts(bool enabled)
+    {
+        WithDirectory(root =>
+        {
+            File.WriteAllText(Path.Combine(root, "index.md"), "```raven\nlet value = 1\n```");
+            var config = Path.Combine(root, "site.json");
+            File.WriteAllText(config, JsonSerializer.Serialize(new
+            {
+                copyCode = enabled,
+                pages = new[] { new { source = "index.md" } }
+            }));
+            DocumentationSiteBuilder.Build(config);
+            DocumentationSiteBuilder.FinalizeSite(config);
+            var html = File.ReadAllText(Path.Combine(root, "_site/index.html"));
+            System.Text.RegularExpressions.Regex.Matches(html, "<!-- ravendoc-copy -->").Count.ShouldBe(enabled ? 1 : 0);
+            html.ShouldContain("let value = 1");
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void SearchIndexesArticleTextAndFinalizesAdditionalApiPages(bool enabled)
     {
         WithDirectory(root =>
