@@ -5,6 +5,38 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LargeApiNavigationUsesASharedTreeAndNamespaceFallback(bool sharedNavigation)
+    {
+        var source = "namespace LargeDocs\n" + string.Join("\n", Enumerable.Range(0, 220)
+            .Select(index => $"public class PublicApiTypeWithALongDescriptiveName{index} {{ }}"));
+        var (compilation, _) = CreateCompilation(source, assemblyName: "LargeDocs");
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessCompilation(compilation, output,
+                sharedNavigation ? new DocumentationSiteOptions([], SharedApiNavigation: true) : null);
+            if (!sharedNavigation)
+            {
+                File.Exists(Path.Combine(output, "api-navigation.html")).ShouldBeFalse();
+                File.ReadAllText(Path.Combine(output, "LargeDocs/PublicApiTypeWithALongDescriptiveName0/index.html"))
+                    .ShouldContain("PublicApiTypeWithALongDescriptiveName219/index.html");
+                return;
+            }
+            var shared = File.ReadAllText(Path.Combine(output, "api-navigation.html"));
+            shared.ShouldContain("PublicApiTypeWithALongDescriptiveName219/index.html");
+            var page = File.ReadAllText(Path.Combine(output, "LargeDocs/PublicApiTypeWithALongDescriptiveName0/index.html"));
+            page.ShouldContain("data-navigation-src=\"../../api-navigation.html\"");
+            page.ShouldContain("href=\"../index.html\"");
+            page.ShouldNotContain("PublicApiTypeWithALongDescriptiveName219");
+            File.Exists(Path.Combine(output, "LargeDocs/PublicApiTypeWithALongDescriptiveName219/index.html")).ShouldBeTrue();
+            page.Length.ShouldBeLessThan(shared.Length / 2);
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
     [Fact]
     public void CSharpAssemblyNestedTypesKeepTheirNamespaceOwnerAndSourceFiles()
     {

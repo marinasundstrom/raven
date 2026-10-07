@@ -1,15 +1,21 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, statSync, readdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, resolve, sep } from 'node:path';
 import { chromium } from '../src/Raven.Playground/node_modules/playwright/index.mjs';
 
 const root = resolve(process.argv[2] ?? '_site');
 assert.ok(existsSync(resolve(root, 'introduction.html')), 'Build the documentation first.');
+const siteBytes = directory => readdirSync(directory, { withFileTypes: true }).reduce((total, entry) => {
+  const path = resolve(directory, entry.name);
+  return total + (entry.isDirectory() ? siteBytes(path) : statSync(path).size);
+}, 0);
+assert.ok(siteBytes(root) < 1_000_000_000, 'The published Raven site must fit GitHub Pages’ 1 GB limit.');
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 const server = createServer((req, res) => {
-  const path = resolve(root, '.' + decodeURIComponent(new URL(req.url, 'http://localhost').pathname));
+  const pathname = new URL(req.url, 'http://localhost').pathname.replace(/^\/preview\//, '/');
+  const path = resolve(root, '.' + decodeURIComponent(pathname));
   const file = path.endsWith(sep) || (existsSync(path) && statSync(path).isDirectory()) ? resolve(path, 'index.html') : path;
   if (!file.startsWith(root + sep) || !existsSync(file)) { res.writeHead(404).end(); return; }
   res.setHeader('Content-Type', types[extname(file)] ?? 'application/octet-stream');
@@ -236,9 +242,23 @@ try {
   assert.equal(await page.locator('h1').textContent(), 'Compilation');
   assert.ok(await page.locator('article a[href*="/blob/main/src/Raven.CodeAnalysis/Compilation"]').count(),
     'Compiler API pages link to their C# source files');
+  await page.locator('[data-navigation-loaded="true"]').waitFor();
   assert.equal(await page.locator('#api-browser a[href*="BinderReentryInstrumentation/Snapshot/"]').count(), 0,
     'Nested types are reached through the containing type, not sidebar branches');
   assert.ok((await page.locator('article').textContent()).includes('Raven.CodeAnalysis.dll'));
+  await page.goto(`${base}/preview/libraries/raven-codeanalysis/Raven/CodeAnalysis/Compilation/index.html`);
+  await page.locator('[data-navigation-loaded="true"]').waitFor();
+  assert.ok(await page.locator('#api-browser details[open] a[aria-current]').count(), 'Shared tree opens the active namespace');
+  await page.locator('#navigation-filter').fill('SemanticModel');
+  const sharedType = page.locator('#api-browser a[title="SemanticModel"]');
+  assert.ok((await sharedType.getAttribute('href')).includes('/preview/libraries/raven-codeanalysis/'));
+  await followLink(sharedType);
+  assert.equal(await page.locator('h1').textContent(), 'SemanticModel');
+  await page.route('**/api-navigation.html', route => route.abort());
+  await page.goto(`${base}/libraries/raven-codeanalysis/Raven/CodeAnalysis/Compilation/index.html`);
+  await page.locator('[data-navigation-loaded="true"]').waitFor();
+  assert.ok(await page.locator('#api-browser a[title="Raven.CodeAnalysis"]').count(), 'Namespace fallback survives a failed navigation request');
+  await page.unroute('**/api-navigation.html');
   await followLink(page.locator('.site-navigation').getByRole('link', { name: 'Getting started', exact: true }));
   assert.deepEqual(await readingLinks(), hierarchy, 'Returning from API restores the documentation hierarchy');
   await followLink(page.locator('.site-navigation').getByRole('link', { name: 'Language reference', exact: true }));
