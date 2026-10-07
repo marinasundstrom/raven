@@ -131,6 +131,7 @@ internal static class ExternalDocumentationProvider
     {
         memberId = symbol switch
         {
+            PENamespaceSymbol { IsGlobalNamespace: false } ns => "N:" + ns.ToMetadataName(),
             PEUnionCaseSymbol type => DocumentationCommentIdBuilder.GetTypeMemberId(type),
             PENamedTypeSymbol type => DocumentationCommentIdBuilder.GetTypeMemberId(type.GetTypeInfo().AsType()),
             PEMethodSymbol method => DocumentationCommentIdBuilder.GetMethodMemberId(method.ReflectionMethodBase),

@@ -1835,12 +1835,15 @@ public partial class Compilation
 
             if (nextSource is null)
             {
+                var parentName = GetNamespaceMetadataName(currentSourceNamespace);
+                var metadataName = string.IsNullOrEmpty(parentName) ? part : parentName + "." + part;
+                var declarations = SourceDeclarationIndex.GetNamespaceDeclarations(metadataName);
                 nextSource = new SourceNamespaceSymbol(
                     part,
                     currentSourceNamespace,
                     currentSourceNamespace,
-                    [],
-                    []);
+                    declarations.Select(declaration => declaration.GetLocation()).ToArray(),
+                    declarations.Select(declaration => declaration.GetReference()).ToArray());
 
                 currentSourceNamespace.AddMember(nextSource);
                 InvalidateNamespaceSymbolLookupCache();

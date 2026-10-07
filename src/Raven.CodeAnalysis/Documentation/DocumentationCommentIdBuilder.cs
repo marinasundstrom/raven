@@ -14,6 +14,7 @@ internal static class DocumentationCommentIdBuilder
         {
             memberId = symbol switch
             {
+                INamespaceSymbol { IsGlobalNamespace: false } ns => "N:" + ns.ToMetadataName(),
                 INamedTypeSymbol type => GetTypeMemberId(type),
                 IMethodSymbol method => GetMethodMemberId(method),
                 IMacroDeclarationSymbol macro => GetMacroMemberId(macro),

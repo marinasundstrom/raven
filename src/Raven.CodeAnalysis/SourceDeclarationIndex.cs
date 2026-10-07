@@ -7,6 +7,7 @@ namespace Raven.CodeAnalysis;
 internal sealed class SourceDeclarationIndex
 {
     private readonly Compilation _compilation;
+    private readonly Dictionary<string, ImmutableArray<BaseNamespaceDeclarationSyntax>> _namespaceDeclarations = new(StringComparer.Ordinal);
     private readonly HashSet<string> _namespaces = new(StringComparer.Ordinal);
     private readonly Dictionary<NamespaceMemberFunctionLookupKey, ImmutableArray<FunctionStatementSyntax>> _namespaceFunctions;
     private readonly Dictionary<NamespaceTypeLookupKey, ImmutableArray<SyntaxNode>> _namespaceTypes;
@@ -30,6 +31,9 @@ internal sealed class SourceDeclarationIndex
             static pair => pair.Key,
             static pair => pair.Value.ToImmutable());
     }
+
+    public ImmutableArray<BaseNamespaceDeclarationSyntax> GetNamespaceDeclarations(string metadataName)
+        => _namespaceDeclarations.TryGetValue(metadataName, out var declarations) ? declarations : [];
 
     public bool ContainsNamespace(string metadataName) => _namespaces.Contains(metadataName);
 
@@ -61,6 +65,9 @@ internal sealed class SourceDeclarationIndex
         Dictionary<NamespaceMemberFunctionLookupKey, ImmutableArray<FunctionStatementSyntax>.Builder> namespaceFunctions,
         Dictionary<NamespaceTypeLookupKey, ImmutableArray<SyntaxNode>.Builder> namespaceTypes)
     {
+        if (containerNode is BaseNamespaceDeclarationSyntax declaration)
+            _namespaceDeclarations[namespaceMetadataName] = GetNamespaceDeclarations(namespaceMetadataName).Add(declaration);
+
         for (var name = namespaceMetadataName; !string.IsNullOrEmpty(name);)
         {
             _namespaces.Add(name);

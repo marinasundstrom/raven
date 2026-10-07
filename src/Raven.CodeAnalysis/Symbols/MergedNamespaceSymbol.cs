@@ -25,6 +25,17 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
         _namespaces = state.Namespaces;
     }
 
+    public override Documentation.DocumentationComment? GetDocumentationComment()
+    {
+        var comments = _namespaces.Select(ns => ns.GetDocumentationComment()).OfType<Documentation.DocumentationComment>().ToArray();
+        return comments.Length switch
+        {
+            0 => null,
+            1 => comments[0],
+            _ => Documentation.DocumentationComment.Merge(comments[0].Format, comments)
+        };
+    }
+
     public override SymbolKind Kind => SymbolKind.Namespace;
 
     public bool IsNamespace => true;

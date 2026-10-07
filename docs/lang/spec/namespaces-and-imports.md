@@ -225,3 +225,20 @@ Imported functions and constants do not require source syntax to appear in compl
 A class merely named `NamespaceMembers` is not sufficient. Existing namespace-member
 and namespace-member-import options still control this projection. This uses ordinary
 CLI custom attributes and static members; it does not change the CLR instruction set.
+
+## Namespace documentation
+
+Leading `///` comments document file-scoped and block-scoped namespace declarations:
+
+```raven
+/// Tools for working with application settings.
+namespace Example.Settings
+
+public class Settings { }
+```
+
+Comments on declarations of the same namespace merge in compilation source order.
+A comment on `Example.Settings` belongs to that namespace, not the implicit
+`Example` parent. `GetDeclaredSymbol(...).GetDocumentationComment()` exposes the
+merged content; a new compilation snapshot reads its own comments. Namespace
+comments use the existing Markdown/XML documentation formats and trivia grammar.
