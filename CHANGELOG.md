@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Register the imported erased System.Value carrier with the native
+  emitter before bootstrap helper signatures are mapped. A source-free consumer of
+  retained parse/IsValue/UnpackValue services verifies and returns 42, including error
+  payload checks. Requires matching metadata canonical Value aliases; .NET is unchanged.
+
 - **2026-10-07:** Select the imported native Object authoring identity before mapping
   callable signatures. Keep primitive bootstrap references distinct while supporting
   source Equals overrides against a separately built Runtime; the ordinary native

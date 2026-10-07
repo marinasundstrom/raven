@@ -3607,3 +3607,14 @@ metadata API change on neoCLR's native bootstrap branch. An ordinary source Item
 consumer compiled against System.Runtime verifies/runs with exit 42; API authoring and
 manual-definition tests also pass. Networking advances to a separate System.Value
 encoding failure, so optional-library execution is not complete. No .NET target change.
+
+### Imported erased Value ownership — 2026-10-07
+
+The native emitter registers System.Value from the selected Object-owner assembly
+using the existing erased-carrier contract, before importing primitive-bootstrap helper
+signatures. It remains a nominal semantic symbol with no CLR SpecialType. The metadata
+adapter maps bootstrap Value references to that explicit external owner and preserves
+the canonical Value storage tag with scoped aliases. No semantic-loader objects are
+reopened. Source-free ParseInt32/IsValue/UnpackValue execution against Runtime and the
+retained seed returns 42 for success/error checks. Networking advances to unsupported
+imported virtual Object.ToString calls. This native-only fix does not alter .NET emission.
