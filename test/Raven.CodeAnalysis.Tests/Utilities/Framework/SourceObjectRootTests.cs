@@ -41,6 +41,20 @@ public class SourceObjectRootTests
             options.WithMetadataImportOptions(new MetadataImportOptions(dotnet ? "System.Runtime" : "NeoCLR.CoreProbe", null, null, selected)));
     }
 
+    [Fact]
+    public void GenericSourceRootBaseRequiresTargetCapability()
+    {
+        var compilation = Create([Root, "public class Box<T> { init() { } }"]);
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var box = compilation.Assembly.GetTypeByMetadataName("Box`1")!;
+        EmissionCapabilities Capabilities(bool allow) => new(Enum.GetValues<EmissionPrimitiveType>(), [],
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(),
+            allowsGenericClassOwners: true, allowsGenericObjectRootBase: allow);
+        Assert.False(SourceTypePlan.TryCreate(box, out _, Capabilities(false)));
+        Assert.True(SourceTypePlan.TryCreate(box, out var plan, Capabilities(true)));
+        Assert.Same(compilation.GetSpecialType(SpecialType.System_Object), plan!.ClassBase);
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]

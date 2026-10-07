@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Add an explicit native emission capability for generic reference classes
+  inheriting the source Object root. Preserve that local base in metadata authoring;
+  generic storage and inherited root dispatch execute in a source regression. The
+  full-System audit advances beyond Array<T> to enum attribute ownership. Ordinary
+  .NET behavior and the imported-root driver restriction are unchanged.
+
 - **2026-10-07:** Admit bounded unmanaged pointer signatures and locals through an explicit
   NeoCLR capability, including native introspection and symbol-only external function
   authoring. Source NativeMemory can be compiled and imported separately; allocation,

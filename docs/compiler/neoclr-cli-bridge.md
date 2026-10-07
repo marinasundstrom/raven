@@ -7315,3 +7315,24 @@ Array<T> is first. Full System still emits no artifact. This is the next broad b
 not an Array API implementation problem. No new Runtime Contract option or implicit
 CLI fallback is introduced. The metadata API requires the external pointer function
 reference extension in the matching neoCLR slice.
+
+### Generic classes over the source root (2026-10-07)
+
+`AllowsGenericObjectRootBase` is an internal, opt-in emission capability. NeoCLR enables
+it and authors the semantic source Object base for generic classes through the metadata
+builder's bounded overload. Other shared-plan clients retain their earlier admission.
+No new Runtime Contract configuration is required. Constructors still lower their bound
+base initialization and generic argument storage; no loader handles enter emission.
+
+The metadata library now validates manual/builder parity, open receiver construction,
+canonical base identity and inherited root calls for constructed instances. A small
+Raven fixture executes Box<int> storage and inherited GetHashCode through a separate
+API-authored consumer. Ordinary Raven imported-root consumers remain unsupported and
+are not counted as complete bootstrap acceptance. Generic bases other than the explicit
+local native Object root remain outside the supported subset.
+
+The 194-input full-System audit now proceeds past Array<T> and rejects enum attribute
+ownership. See neoCLR `docs/experiments/extended-cli-metadata/generic-object-root-2026-10-07.md`.
+During test reduction, a constructor with `self.value = value` and a same-named parameter
+reported RAV0200; the minimal generic-root fixture uses distinct names. This is an
+unresolved general binding candidate, not a claimed fix or a production-source rewrite.

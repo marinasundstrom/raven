@@ -55,8 +55,8 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
             plan = new(type, "System", "Object");
             return true;
         }
-        // The current native builder cannot encode a constructed class's local base.
-        if (type.Arity > 0 && type.IsReferenceType && type.BaseType is { } localRoot && IsSourceObjectRoot(localRoot)) return false;
+        // Generic classes require an explicit target capability for a source-defined Object base.
+        if (type.Arity > 0 && type.IsReferenceType && type.BaseType is { } localRoot && IsSourceObjectRoot(localRoot) && capabilities?.AllowsGenericObjectRootBase != true) return false;
         if (type.TypeKind == TypeKind.Enum)
         {
             if (capabilities?.Allows(EmissionDeclarationKind.Enum) != true || type.EnumUnderlyingType?.SpecialType != SpecialType.System_Int32 ||
