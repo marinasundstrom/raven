@@ -182,10 +182,17 @@ internal abstract partial class Binder
             result = result with { ResolvedType = canonicalHandle, ResolvedNamedDefinition = canonicalHandle };
         }
 
+        // Merged namespaces can return the bootstrap declaration first. Its
+        // spelling must select the same unit owner as the explicit native contract.
         if (result.Success && Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
             Compilation.Options.RuntimeUnitContract is { } unitContract &&
             unitContract.AssemblyName != Compilation.Options.TargetCoreAssemblyName &&
-            SymbolEqualityComparer.Default.Equals(result.ResolvedType, Compilation.ResolveRuntimeUnitType()))
+            Compilation.ResolveRuntimeUnitType() is { } selectedUnit &&
+            (SymbolEqualityComparer.Default.Equals(result.ResolvedType, selectedUnit) ||
+             unitContract.TypeName == "System.Void" &&
+             result.ResolvedType is INamedTypeSymbol { Arity: 0, ContainingType: null, IsValueType: true } bootstrapUnit &&
+             bootstrapUnit.ContainingAssembly.Name == Compilation.Options.MetadataImportOptions?.CoreAssemblyName &&
+             bootstrapUnit.ToFullyQualifiedMetadataName() == unitContract.TypeName))
             result = result with { ResolvedType = Compilation.GetSpecialType(SpecialType.System_Unit) };
 
         if (result.Success && result.ResolvedType.SpecialType == SpecialType.System_Void &&

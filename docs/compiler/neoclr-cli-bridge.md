@@ -7756,3 +7756,20 @@ on retry. Both compiler cases require investigation before reliable bootstrap qu
 See neoCLR docs/experiments/extended-cli-metadata/separate-web-2026-10-07.md and its hashed
 evidence on codex/native-system-bootstrap. Native project-reference support is the next
 integration boundary after reliable builds; existing workspace checks explicitly reject it.
+
+## Bootstrap Void lookup correction (2026-10-07)
+
+Namespace lookup could select primitive-bootstrap System.Void before the explicitly
+selected native owner. A generic field such as Promise<Result<System.Void, HttpError>>
+then attempted to import a competing Void from the retained seed and failed intermittently.
+BindTypeCore now recognizes the exact bootstrap core/type identity under a NeoCLR
+RuntimeUnitContract and normalizes it to the selected unit symbol, as it already does
+for direct lookup of the selected owner. Unit value storage and no-result emission remain
+separate. No emitter fallback, importer-object reuse, metadata extension or .NET policy
+change is involved. A missing selected owner does not trigger this normalization.
+
+Two C# tests force bootstrap namespace lookup for Void and System.Void; both failed
+before the change. All 29 focused unit-contract tests and six clean Web compilations
+pass after it. Existing .NET unit contracts and pointer rules are included. This is a
+native target-contract fix on the shared compiler branch, not an independent .NET fix.
+The separate async bare-return conversion issue remains a different investigation.

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Normalize bootstrap Void type syntax to the explicitly selected native
+  unit owner, including namespace lookup inside generic signatures. Fix intermittent
+  separate Web encoding without changing .NET defaults or weakening metadata validation.
+  Deterministic lookup regressions and six fresh Web compilations pass.
+
 - **2026-10-07:** Record separate native Web deadline integration and passing source-free
   consumers, plus unresolved intermittent System.Void encoding and Task<()> return gaps.
   No compiler behavior or default .NET target changes in this documentation slice.

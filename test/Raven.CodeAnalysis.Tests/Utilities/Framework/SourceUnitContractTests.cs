@@ -29,6 +29,30 @@ public class SourceUnitContractTests
     }
 
     [Theory]
+    [InlineData("Void")]
+    [InlineData("System.Void")]
+    public void BootstrapUnitTypeSyntaxUsesSelectedOwner(string spelling)
+    {
+        var setup = Create();
+        var tree = SyntaxTree.ParseText("let value: " + spelling + " = ()");
+        var compilation = Compilation.Create("UnitLibrary", [.. setup.SyntaxTrees, tree],
+            setup.References.ToArray(), setup.Options);
+        compilation.EnsureSetup();
+        var syntax = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single().TypeAnnotation!.Type;
+        var binder = compilation.GetSemanticModel(tree).GetBinder(syntax);
+        var core = compilation.ReferencedAssemblySymbols.Single(a => a.Name == "NeoCLR.CoreProbe");
+        var scope = spelling.Contains('.') ? core.GlobalNamespace : core.GlobalNamespace.LookupNamespace("System")!;
+        // Force the bootstrap lookup that otherwise depends on merged-namespace order.
+        var result = binder.BindTypeSyntax(syntax, new Binder.TypeResolutionOptions
+        {
+            ImportedScopesOverride = new[] { scope }
+        });
+        Assert.True(result.Success);
+        var unit = Assert.IsType<UnitTypeSymbol>(result.ResolvedType);
+        Assert.Equal("UnitLibrary", unit.RuntimeRepresentation!.ContainingAssembly.Name);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void InterfaceGenericSignatureUsesSelectedUnit(bool unitFirst)
