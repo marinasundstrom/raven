@@ -15,6 +15,7 @@ public static partial class DocumentationGenerator
     private static DocumentationSourceLinks SourceLinks = new(null);
     private static IReadOnlyList<DocumentationNavigationItem>? PageNavigation;
     private static string? SharedNavigationFile;
+    private static string? SharedNavigationVersion;
 
     private static string outputDir = "_docs";
     private static string documentedAssemblyName = "Raven";
@@ -242,6 +243,7 @@ public static partial class DocumentationGenerator
         ApiNavigation.Clear();
         PageNavigation = null;
         SharedNavigationFile = null;
+        SharedNavigationVersion = null;
         CompanionOwners.Clear();
         PrepareExtensionLookup(compilation);
         SiteLinks = siteOptions?.Links ?? [];
@@ -379,6 +381,8 @@ public static partial class DocumentationGenerator
             {
                 SharedNavigationFile = Path.Combine(RootDir, "api-navigation.html");
                 File.WriteAllText(SharedNavigationFile, fullNavigation);
+                SharedNavigationVersion = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(fullNavigation)))[..16].ToLowerInvariant();
             }
         }
         if (SharedNavigationFile is null)
@@ -393,7 +397,7 @@ public static partial class DocumentationGenerator
             Path.GetRelativePath(SiteRootDirectory, Path.Combine(RootDir, "index.html")).Replace('\\', '/'));
         var fallback = DocumentationNavigation.Render(new[] { overview }.Concat(PageNavigation.Select(Fallback)).ToArray(), SiteRootDirectory, currentDirectory);
         return fallback.Replace("<nav class=\"api-navigation-panel\"",
-            "<nav data-navigation-src=\"" + HtmlEscape(RelLink(currentDirectory, SharedNavigationFile)) + "\" class=\"api-navigation-panel\"");
+            "<nav data-navigation-src=\"" + HtmlEscape(RelLink(currentDirectory, SharedNavigationFile) + "?v=" + SharedNavigationVersion) + "\" class=\"api-navigation-panel\"");
     }
 
     private static string ToUrlPath(string path)

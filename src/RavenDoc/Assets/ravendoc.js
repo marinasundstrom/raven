@@ -14,9 +14,19 @@ for (const code of document.querySelectorAll(
         if (panel) {
             try {
                 const source = new URL(panel.dataset.navigationSrc, location.href);
-                const response = await fetch(source);
-                if (!response.ok) throw new Error("Navigation could not load");
-                const shared = new DOMParser().parseFromString(await response.text(), "text/html")
+                const cacheKey = "ravendoc-navigation:" + source.origin + source.pathname;
+                let html;
+                try {
+                    const cached = JSON.parse(sessionStorage.getItem(cacheKey));
+                    if (cached?.url === source.href) html = cached.html;
+                } catch { }
+                if (typeof html !== "string") {
+                    const response = await fetch(source);
+                    if (!response.ok) throw new Error("Navigation could not load");
+                    html = await response.text();
+                    try { sessionStorage.setItem(cacheKey, JSON.stringify({ url: source.href, html })); } catch { }
+                }
+                const shared = new DOMParser().parseFromString(html, "text/html")
                     .querySelector(".api-navigation-panel");
                 if (!shared) throw new Error("Navigation is missing");
                 for (const link of shared.querySelectorAll("a[href]"))
@@ -39,6 +49,7 @@ for (const code of document.querySelectorAll(
                 // Keep the generated namespace links when offline or when an asset fails.
             }
             panel.dataset.navigationLoaded = "true";
+            document.documentElement.classList.remove("ravendoc-navigation-loading");
         }
         const filter = document.querySelector("#navigation-filter");
         const links = [...navigation?.querySelectorAll("a") ?? []];
