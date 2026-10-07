@@ -7536,3 +7536,20 @@ boundaries. Large-library linked execution passes, but loading the complete sour
 artifact rejects the nominal Array backing contract. See neoCLR
 `docs/experiments/extended-cli-metadata/expanded-library-2026-10-07.md` for evidence,
 artifact/compiler/runtime hashes, bounds and remaining work.
+
+## Source-root seed ownership and optional libraries (2026-10-07)
+
+The full-source audit now removes bootstrap Object and its methods from the retained
+native seed after resolving its temporary source signatures. Explicit JSON preparation
+and NEOX encoding artifacts are recorded; runtime/consumer inputs stay native metadata.
+Source Object is the sole selected root. All 197 inputs still emit, and linking now
+reports the next conflict: retained neoCLR.Runtime.WriteLine returns a Void value,
+while the source declaration uses no-result. Reconcile that ABI before claiming load
+or execution. Compiler code and ordinary .NET behavior are unchanged in this slice.
+
+An emitted local-reference inventory supports investigating Runtime → no optional
+libraries, Data/Networking → Runtime, and Web → Runtime/Data/Networking. Nested union
+cases remain with their declaring owners. Native adapters and imported seed dependencies
+need explicit ownership review; the Runtime remainder is not a final minimal-core list.
+See neoCLR `docs/experiments/extended-cli-metadata/library-boundaries-2026-10-07.md`
+for reproducible inventory, evidence and separate-compilation gates.

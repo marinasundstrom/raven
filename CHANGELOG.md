@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Document source Object ownership in the retained NeoCLR audit seed
+  and the next WriteLine value/no-result ABI conflict. Record the candidate
+  Runtime/Data/Networking/Web dependency order without claiming a completed split.
+
 - **2026-10-07:** Support explicit navigation section boundaries using conventional
   directory TOCs and configurable sidebar titles. Give Getting started and Language
   reference separate stable hierarchies matching the Raven navbar destinations.
