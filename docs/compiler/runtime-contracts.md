@@ -3629,3 +3629,19 @@ requires Callvirt. The ordinary Raven consumer uses an object receiver and execu
 all three derived overrides (42) against the independently built Runtime. Other imported
 virtual class methods remain outside this bounded contract. Networking advances to
 the retained/source CheckedStorage mapping; this is not full Networking acceptance.
+
+## Hoisted generic sealed-case member owners
+
+When a generic sealed hierarchy's nested case is emitted as a top-level CLI
+type, its member references use the case definition's actual generic arity.
+They must not append the lexical container's type arguments. Constructed member
+resolution uses the same argument projection as type and constructor resolution,
+including calls from synthesized record formatting. Ordinary CLI nested types
+continue to include their enclosing generic arguments.
+
+This shared backend correction does not change Runtime Contract configuration,
+source symbols, public compiler APIs or the existing hoisted-case representation.
+Debug/Release runtime regressions cover direct member calls and record formatting;
+`sealed-interface-generic-case.rav` adds representative IL-verifier coverage without
+the verifier's known static-abstract generic-math limitation. Validation on modern
+.NET does not establish execution on native neoCLR or NanoFramework.

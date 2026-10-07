@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- Resolve generic case member owners using the emitted type's arity. Hoisted
+  sealed-hierarchy cases no longer include phantom enclosing arguments in calls
+  or synthesized record formatting. Preserve enclosing arguments for ordinary
+  nested types; add runtime regressions and a representative IL-verified sample.
+
 - **2026-10-07:** Normalize bootstrap Void type syntax to the explicitly selected native
   unit owner, including namespace lookup inside generic signatures. Fix intermittent
   separate Web encoding without changing .NET defaults or weakening metadata validation.
