@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- RavenDoc supports configurable GitHub repositories per site or API source, with declaration-based Raven source-file links for metadata references. Assembly identity remains visible; unmatched types do not receive guessed source links.
+
 - **2026-10-07:** Register the imported erased System.Value carrier with the native
   emitter before bootstrap helper signatures are mapped. A source-free consumer of
   retained parse/IsValue/UnpackValue services verifies and returns 42, including error
