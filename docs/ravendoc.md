@@ -810,3 +810,9 @@ Ordinary type pages list their public **Nested types** with links. Selecting an
 outer type includes its public nested types and their members. Private nested
 types remain excluded. Union case types stay in the union's **Cases** section,
 never in Nested types. Namespace pages retain the **Types** heading.
+
+Namespace pages render `///` comments from namespace declarations and `N:`
+entries from Markdown/XML sidecars. Add authored namespace guidance with
+`uid: N:Example.Settings` in an `apiContent` file; it is validated and merged
+like type/member content. Source namespace comments from multiple declarations
+merge in compilation source order. Implicit parent namespaces do not inherit them.

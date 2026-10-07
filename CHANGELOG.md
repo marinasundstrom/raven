@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Preserve namespace documentation on canonical source and merged
+  namespace symbols, export/import `N:` comments through Markdown/XML sidecars,
+  and render authored namespace additions in RavenDoc. No target contract or IL change.
+
 - **2026-10-07:** List public nested types and their members when RavenDoc selects
   an outer type, under an explicit Nested types heading. Keep union cases separate.
 

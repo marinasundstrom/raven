@@ -173,6 +173,7 @@ internal static class ExternalDocumentationEmitter
             switch (member)
             {
                 case INamespaceSymbol nestedNamespace:
+                    yield return nestedNamespace;
                     foreach (var nested in EnumerateDocumentableSymbols(nestedNamespace))
                         yield return nested;
                     break;

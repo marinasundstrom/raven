@@ -2084,7 +2084,7 @@ public static partial class DocumentationGenerator
         var contentMarkdown = ContentTemplate.RenderNamespacePage(
             new RavenDocNamespaceContentTemplateModel(
                 heroHtml,
-                docInfo.RawMarkdown,
+                ApiContent.Merge(GetXrefId(namespaceSymbol), docInfo.RawMarkdown),
                 memberSections));
         var contentHtml = RenderMarkdownWithXrefs(contentMarkdown, currentDir);
         var pageHtml = WrapHtml(currentDir, name, documentedAssemblyName, contentHtml);
