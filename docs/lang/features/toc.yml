@@ -14,3 +14,13 @@
   href: async.md
 - name: Macros
   href: macros.md
+- name: Choosing language features
+  href: ../feature-meaning.md
+- name: Domain modeling
+  href: ../domain-modeling.md
+- name: Nullability and absence
+  href: ../nullability.md
+- name: Style guide
+  href: ../style-guide.md
+- name: Language philosophy
+  href: ../philosophy.md

@@ -10,3 +10,5 @@
   href: iot-monitor.md
 - name: Embedded IoT
   href: embedded-iot.md
+- name: Example applications
+  tocHref: ../showcases/toc.yml

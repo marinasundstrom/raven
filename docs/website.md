@@ -19,3 +19,9 @@ then build provenance, navigation/browser validation and production analytics.
 Publication remains a separate manual GitHub Pages workflow; a local build does
 not deploy. `scripts/build-playground-site.sh` and
 `scripts/build-html-macro-site.sh` build the two application surfaces.
+
+All authored Raven pages share the root documentation hierarchy (`navigationScope:
+site`). Section TOCs are included explicitly in `docs/toc.yml`; moving into a guide,
+compiler article, showcase or language reference does not replace the sidebar.
+Library API pages intentionally use the API browser, and the playground remains
+a separate interactive application.

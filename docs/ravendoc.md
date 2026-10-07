@@ -847,3 +847,9 @@ Each `apis` entry's `title` is its display name in library navigation and the AP
 overview heading. A single `api` can set `apiTitle` for the same overview behavior.
 Assembly names in symbol metadata remain unchanged. Raven uses “Core extensions”
 and “Macros” while preserving `Raven.Core.dll` and `Raven.Macros.dll` details.
+
+Set `navigationScope` to `site` to keep the root table of contents on every
+authored page, regardless of its folder. Compose that root with `tocHref` includes
+and `topicHref` overview links. The default, `section`, selects the nearest folder's
+`toc.yml` for sites that intentionally use independent sections. API pages retain
+their library symbol browser in both modes.

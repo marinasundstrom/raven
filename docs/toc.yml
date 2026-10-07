@@ -13,54 +13,25 @@
       href: raven-for-absolute-beginners.md
     - name: Raven for C# developers
       href: raven-for-csharp-developers.md
-    - name: Macros
-      href: lang/features/macros.md
+- name: Language guides
+  tocHref: lang/features/toc.yml
+  topicHref: lang/README.md
+- name: Build applications
+  tocHref: workloads/toc.yml
+  topicHref: workloads/index.md
+- name: Tools
+  tocHref: compiler/toc.yml
+  topicHref: compiler/index.md
+- name: Libraries and macros
+  tocHref: libraries/toc.yml
+  topicHref: libraries/index.md
+  items:
     - name: Authoring Raven macros
       href: macro-authoring.md
-- name: Language features
-  href: lang/features/index.md
-  items:
-    - name: Values and functions
-      href: lang/features/values-and-functions.md
-    - name: Records, unions, and classes
-      href: lang/features/data-modeling.md
-    - name: Pattern matching
-      href: lang/features/patterns.md
-    - name: Option and Result
-      href: lang/features/option-and-result.md
-    - name: .NET interoperability
-      href: lang/features/dotnet-interop.md
-    - name: Asynchronous code
-      href: lang/features/async.md
-    - name: Macros
-      href: lang/features/macros.md
-    - name: Domain modeling
-      href: lang/domain-modeling.md
-    - name: Nullability and absence
-      href: lang/nullability.md
-    - name: Style guide
-      href: lang/style-guide.md
-- name: Build applications
-  href: workloads/index.md
-  items:
-    - name: Containerize an application
-      href: workloads/containerization.md
-    - name: Web APIs with ASP.NET Core
-      href: workloads/web-api.md
-    - name: File-based applications
-      href: workloads/file-based-apps.md
-    - name: IoT and Native AOT
-      href: workloads/iot-monitor.md
-    - name: Embedded IoT
-      href: workloads/embedded-iot.md
-- name: Tools and libraries
-  href: compiler/index.md
-  items:
-    - name: Tools
-      href: compiler/index.md
-    - name: Libraries
-      href: libraries/index.md
-- name: About
+- name: Language reference
+  tocHref: lang/spec/toc.yml
+  topicHref: lang/spec/index.md
+- name: About Raven
   href: overview.md
   items:
     - name: Overview
@@ -69,7 +40,3 @@
       href: status.md
     - name: MVP roadmap
       href: roadmap.md
-- name: Language reference
-  href: lang/spec/index.md
-- name: API Reference
-  href: libraries/index.md

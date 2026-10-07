@@ -4,6 +4,28 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class DocumentationSiteBuilderTests
 {
+    [Theory]
+    [InlineData("site")]
+    [InlineData("section")]
+    public void NavigationScopeControlsSidebarConsistencyAcrossFolders(string scope)
+    {
+        WithDirectory(root =>
+        {
+            Directory.CreateDirectory(Path.Combine(root, "guide"));
+            File.WriteAllText(Path.Combine(root, "index.md"), "# Home");
+            File.WriteAllText(Path.Combine(root, "guide/topic.md"), "# Topic");
+            File.WriteAllText(Path.Combine(root, "toc.yml"), "- name: Start here\n  href: index.md\n- name: Topic\n  href: guide/topic.md");
+            File.WriteAllText(Path.Combine(root, "guide/toc.yml"), "- name: Local section\n  href: topic.md");
+            var config = Path.Combine(root, "site.json");
+            File.WriteAllText(config, JsonSerializer.Serialize(new { navigationScope = scope, toc = "toc.yml" }));
+            DocumentationSiteBuilder.Build(config);
+            var topic = File.ReadAllText(Path.Combine(root, "_site/guide/topic.html"));
+            topic.Contains("Start here").ShouldBe(scope == "site");
+            topic.Contains("Local section").ShouldBe(scope == "section");
+            topic.ShouldContain("aria-current=\"page\"");
+        });
+    }
+
     [Fact]
     public void MultipleLibrariesShareBrandingAndPreserveBothArticleXrefs()
     {

@@ -46,6 +46,8 @@ public static class DocumentationSiteBuilder
         if (IsWithin(output, root))
             throw new InvalidOperationException("Site output must not contain the configuration directory.");
 
+        if (configuration.NavigationScope is not ("section" or "site"))
+            throw new InvalidOperationException("navigationScope must be section or site.");
         if (configuration.Toc is not null && configuration.Navigation.Count > 0)
             throw new InvalidOperationException("Use either 'toc' or 'navigation' to define the menu.");
         string ResolvePage(string source, string title)
@@ -77,6 +79,7 @@ public static class DocumentationSiteBuilder
         }
         IReadOnlyList<DocumentationNavigationItem> MenuForPage(string source)
         {
+            if (configuration.NavigationScope == "site") return menu;
             var directory = Path.GetDirectoryName(source);
             while (directory is not null && directory != root && IsWithin(root, directory))
             {
@@ -302,6 +305,7 @@ public static class DocumentationSiteBuilder
         public string Name { get; init; } = "Documentation";
         public string Output { get; init; } = "_site";
         public string? Toc { get; init; }
+        public string NavigationScope { get; init; } = "section";
         public string? Api { get; init; }
         public string? ApiTitle { get; init; }
         public List<SiteApi> Apis { get; init; } = [];

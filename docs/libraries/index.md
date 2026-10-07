@@ -2,8 +2,7 @@
 
 Raven ships a runtime library and a compile-time macro library. Their API
 references are generated directly from Markdown documentation comments by
-RavenDoc and are published as independent static sites alongside this language
-documentation.
+RavenDoc and are integrated into this website under API Reference.
 
 ## Core extensions
 
