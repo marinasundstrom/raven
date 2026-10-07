@@ -14,6 +14,44 @@ public sealed class RuntimeAsyncCodeGenTests
 {
     private const int RuntimeAsyncMethodImplBit = 0x2000;
 
+    [Theory]
+    [InlineData("Task", "{}")]
+    [InlineData("ValueTask", "{}")]
+    [InlineData("Task", "{ return await Task.FromResult(()).ConfigureAwait(false) }")]
+    [InlineData("ValueTask", "{ return await Task.FromResult(()).ConfigureAwait(false) }")]
+    [InlineData("Task", "=> ()")]
+    [InlineData("ValueTask", "=> ()")]
+    [InlineData("Task", "{ return }")]
+    [InlineData("ValueTask", "{ return }")]
+    [InlineData("Task", "{ await Task.Yield(); return }")]
+    [InlineData("ValueTask", "{ await Task.Yield(); return }")]
+    [InlineData("Task", "{ await Task.Yield(); return () }")]
+    [InlineData("ValueTask", "{ await Task.Yield(); return () }")]
+    [InlineData("Task", "{ await Task.Yield() }")]
+    [InlineData("ValueTask", "{ await Task.Yield() }")]
+    [InlineData("Task", "{ try { await Task.Yield(); return } finally { System.GC.KeepAlive(42) } }")]
+    [InlineData("ValueTask", "{ try { await Task.Yield(); return } finally { System.GC.KeepAlive(42) } }")]
+    public async Task RuntimeAsyncEnabled_UnitPayloadCompletes(string taskType, string body)
+    {
+        var code = $$"""
+            import System.Threading.Tasks.*
+            public class Program {
+                static async func Finish() -> {{taskType}}<unit> {{body}}
+                static async func Run() -> Task<int> {
+                    await Finish()
+                    return 42
+                }
+            }
+            """;
+        using var loaded = EmitAssembly(code, useRuntimeAsync: true, references: [
+            .. GetFrameworkReferences("net11.0"),
+            MetadataReference.CreateFromFile(Path.Combine(AppContext.BaseDirectory, "Raven.Core.dll"))
+        ]);
+        var run = loaded.Assembly.GetType("Program")!.GetMethod("Run")!;
+        var task = Assert.IsAssignableFrom<Task<int>>(run.Invoke(null, null));
+        Assert.Equal(42, await task.WaitAsync(TimeSpan.FromSeconds(10)));
+    }
+
     [Fact]
     public void RuntimeAsyncEnabled_EmitsAsyncMethodImplFlag()
     {

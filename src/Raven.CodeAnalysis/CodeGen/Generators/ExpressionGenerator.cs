@@ -378,7 +378,11 @@ internal partial class ExpressionGenerator : Generator
     {
         if (Compilation.IsRuntimeAsyncEnabled && TryEmitRuntimeAsyncAwait(awaitExpression, out var runtimeAsyncProducesValue))
         {
-            if (_preserveResult &&
+            if (!_preserveResult && runtimeAsyncProducesValue)
+            {
+                ILGenerator.Emit(OpCodes.Pop);
+            }
+            else if (_preserveResult &&
                 !runtimeAsyncProducesValue &&
                 (awaitExpression.ResultType.SpecialType == SpecialType.System_Unit ||
                  awaitExpression.Type.SpecialType == SpecialType.System_Unit ||

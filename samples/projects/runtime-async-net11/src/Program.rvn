@@ -9,7 +9,18 @@ async func ComputeValueTask(x: int) -> Task<int> {
     return await ValueTask.FromResult(x + 1).ConfigureAwait(false)
 }
 
+async func FinishTask() -> Task<unit> {
+    await Task.Yield()
+    return
+}
+
+async func FinishValueTask() -> ValueTask<unit> {
+    await Task.Yield()
+}
+
 async func Main() -> Task {
+    await FinishTask()
+    await FinishValueTask()
     await Task.Delay(1).ConfigureAwait(false)
     let taskValue = await ComputeTask(21)
     let valueTaskValue = await ComputeValueTask(taskValue)

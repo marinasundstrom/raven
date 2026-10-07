@@ -224,7 +224,8 @@ internal class StatementGenerator : Generator
         var expressionEmitInfo = EmitInfo.None;
         IILocal? resultTemp = null;
 
-        var isVoidLikeReturn = returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit;
+        var isVoidLikeReturn = returnType.SpecialType == SpecialType.System_Void ||
+            (returnType.SpecialType == SpecialType.System_Unit && !MethodBodyGenerator.RequiresUnitReturnValue);
         var hasExceptionExit = TryGetExceptionExitLabel(out _);
         var forceDiscriminatedUnionReturnConversion = false;
         ITypeSymbol? forcedConversionSourceType = null;
