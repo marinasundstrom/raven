@@ -42,7 +42,7 @@ internal static class Int32Emitter
                     if (symbol.IsAsync && compilation.Options.MetadataImportOptions?.AsyncAssemblyName is null) throw Unsupported("explicit native async provider required");
                     if (symbol.IsExtern)
                     {
-                        if (!NeoClrRuntimeServiceDeclaration.TryCreate(compilation, symbol, declaration, out var service))
+                        if (!NeoClrRuntimeServiceDeclaration.TryCreate(options.CoreLibrary, symbol, declaration, out var service))
                             throw Unsupported("runtime services require internal nongeneric bodyless functions in neoCLR.Runtime with the core MethodImpl(InternalCall) attribute");
                         runtimeServices.Add(symbol);
                         plans.Add(service!);
@@ -91,9 +91,8 @@ internal static class Int32Emitter
                     var attributes = enumSymbol.GetAttributes();
                     if (!attributes.IsEmpty)
                     {
-                        var core = compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly;
                         if (attributes.Length != 1 || attributes[0] is not { AttributeClass: { } attributeType, ConstructorArguments.IsEmpty: true, NamedArguments.IsEmpty: true } ||
-                            attributeType.ToFullyQualifiedMetadataName() != "System.FlagsAttribute" || !SymbolEqualityComparer.Default.Equals(attributeType.ContainingAssembly, core))
+                            attributeType.ToFullyQualifiedMetadataName() != "System.FlagsAttribute" || !NeoClrBindingContract.MatchesCore(attributeType.ContainingAssembly, options.CoreLibrary))
                             throw Unsupported("only the configured core FlagsAttribute on native enums");
                         flagsEnums.Add(enumSymbol);
                     }

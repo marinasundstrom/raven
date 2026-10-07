@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Validate NeoCLR FlagsAttribute and MethodImpl(InternalCall) against the
+  exact configured bootstrap identity instead of System.Object's owner. Source-owned
+  Object no longer invalidates legitimate core attributes; same-named source attributes
+  still reject before publication. The ordinary .NET backend is unchanged.
+
 - **2026-10-07:** Add an explicit native emission capability for generic reference classes
   inheriting the source Object root. Preserve that local base in metadata authoring;
   generic storage and inherited root dispatch execute in a source regression. The

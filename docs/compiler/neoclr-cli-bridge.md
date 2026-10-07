@@ -7336,3 +7336,23 @@ ownership. See neoCLR `docs/experiments/extended-cli-metadata/generic-object-roo
 During test reduction, a constructor with `self.value = value` and a same-named parameter
 reported RAV0200; the minimal generic-root fixture uses distinct names. This is an
 unresolved general binding candidate, not a claimed fix or a production-source rewrite.
+
+### Attribute ownership with a source Object root (2026-10-07)
+
+Native enum FlagsAttribute and runtime-service MethodImplAttribute admission now use
+`NeoClrBindingContract.MatchesCore` with the host's explicit `NeoClrEmitOptions.CoreLibrary`
+identity. They no longer infer primitive-bootstrap ownership from System.Object, which
+can be source-owned. Namespace/name, constructor arguments and supported declaration
+shape remain independently checked; same-named source attributes do not qualify.
+
+No new Runtime Contract configuration, semantic annotation meaning, emission category,
+metadata encoding or .NET backend change is introduced. The source-root driver regression
+compiles production BindingFlags and invokes an attributed native WriteLine service;
+it exits 42 with exact output. Both FlagsAttribute and MethodImplAttribute lookalikes
+reject with no output artifact. The consumer uses the existing metadata API fixture;
+ordinary imported-root Raven consumers remain unsupported.
+
+The full-System audit passes these checks and next rejects UnionAttribute's external
+System.Attribute base. Attribute-class ownership/inheritance is the next boundary;
+complete System still emits no artifact. See neoCLR
+`docs/experiments/extended-cli-metadata/core-attributes-source-root-2026-10-07.md`.
