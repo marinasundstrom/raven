@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- Preserve `unit` payloads in .NET 11 runtime-async Task/ValueTask returns,
+  including bare, implicit, arrow and try/finally returns. Discard awaited
+  payloads correctly in statement position. Extend runtime regressions and the
+  framework-matrix sample; ordinary unit-returning methods keep their void ABI.
+
 - **2026-10-07:** Build native ProjectReference graphs in dependency order through the
   ordinary NeoCLR project command. Workspace loading consumes prebuilt native outputs
   and watches transitive artifacts/configuration; cycles, non-library or incompatible

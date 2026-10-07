@@ -126,13 +126,21 @@ internal partial class MethodBodyGenerator
         return _returnLabel ??= ILGenerator.DefineLabel();
     }
 
+    // Runtime-async generic tasks return their logical payload directly. Unit is
+    // a stored generic payload here, unlike the void ABI of ordinary unit methods.
+    internal bool RequiresUnitReturnValue => Compilation.IsRuntimeAsyncEnabled &&
+        MethodSymbol.IsAsync &&
+        !AsyncReturnTypeUtilities.IsNonGenericTaskLike(MethodSymbol.ReturnType) &&
+        GetEffectiveReturnTypeForEmission().SpecialType == SpecialType.System_Unit;
+
     internal IILocal EnsureReturnValueLocal()
     {
         if (_returnValueLocal is not null)
             return _returnValueLocal;
 
         var returnType = GetEffectiveReturnTypeForEmission();
-        if (returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+        if (returnType.SpecialType == SpecialType.System_Void ||
+            (returnType.SpecialType == SpecialType.System_Unit && !RequiresUnitReturnValue))
             throw new InvalidOperationException("Void-like methods do not require a return value local.");
 
         var clrType = TypeSymbolExtensionsForCodeGen.GetClrType(returnType, MethodGenerator.TypeGenerator.CodeGen);
@@ -2292,7 +2300,7 @@ internal partial class MethodBodyGenerator
 
         new ExpressionGenerator(baseGenerator, expression).Emit();
 
-        if (returnType.SpecialType == SpecialType.System_Unit)
+        if (returnType.SpecialType == SpecialType.System_Unit && !RequiresUnitReturnValue)
         {
             ILGenerator.Emit(OpCodes.Pop);
         }
@@ -2701,7 +2709,7 @@ internal partial class MethodBodyGenerator
             if (!endsWithTerminator && ShouldEmitImplicitReturn())
             {
                 EmitDebugNop();
-                ILGenerator.Emit(OpCodes.Ret);
+                EmitImplicitReturn();
                 return;
             }
 
@@ -2986,7 +2994,7 @@ internal partial class MethodBodyGenerator
         if (statementArray.Length == 0)
         {
             EmitDebugNop();
-            ILGenerator.Emit(OpCodes.Ret);
+            EmitImplicitReturn();
             return;
         }
 
@@ -3011,8 +3019,16 @@ internal partial class MethodBodyGenerator
         if (withReturn && ShouldEmitImplicitReturn())
         {
             EmitDebugNop();
-            ILGenerator.Emit(OpCodes.Ret);
+            EmitImplicitReturn();
         }
+    }
+
+    private void EmitImplicitReturn()
+    {
+        if (RequiresUnitReturnValue)
+            new ExpressionGenerator(baseGenerator,
+                new BoundUnitExpression(Compilation.GetSpecialType(SpecialType.System_Unit))).Emit();
+        ILGenerator.Emit(OpCodes.Ret);
     }
 
     private bool ShouldEmitImplicitReturn()

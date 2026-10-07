@@ -3659,3 +3659,13 @@ This is shared binding behavior and introduces no Runtime Contract option,
 public API or CLI bridge representation. Focused modern .NET tests cover
 awaitless and suspended Task/ValueTask results, arrow bodies and negative
 non-unit returns; native runtime execution is separately qualified.
+
+For .NET 11 runtime-async emission, a generic task's unit result is a stored
+payload, not CLI void. Explicit and implicit returns leave the unit value on the
+stack; exception-region exits preserve it in a return local. Ordinary unit
+methods and non-generic task returns retain their void-like behavior. Runtime
+await helpers that produce a value discard it when the await is used as a
+statement, including a unit payload. Runtime tests cover Task/ValueTask, empty
+and arrow bodies, suspension, configured awaits, and finally exits. The
+`runtime-async-net11` framework-matrix sample exercises both unit task families.
+This changes no Runtime Contract configuration or native neoCLR encoding.
