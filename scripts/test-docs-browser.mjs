@@ -109,6 +109,25 @@ try {
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('denied'); } } }));
   await copy.click();
   assert.equal(await copy.textContent(), 'Retry');
+  for (const path of ['libraries/raven-core/System/Option%601/index.html', 'libraries/raven-macros/Raven/Macros/index.html']) {
+    await page.goto(`${base}/${path}`);
+    assert.ok(await page.locator('header a').evaluateAll(links => links.some(a => new URL(a.href).pathname === '/libraries/index.html')), 'API shares website navigation');
+    assert.equal(await page.locator('.api-namespace .api-namespace').count(), 0, 'Namespaces are flat');
+    const block = page.locator('pre.with-copy-code').first();
+    if (await block.count()) {
+      const layout = await block.evaluate(pre => {
+        const code = pre.querySelector('code');
+        const before = code.getBoundingClientRect().top;
+        const position = getComputedStyle(pre.querySelector('.copy-code')).position;
+        pre.classList.remove('with-copy-code');
+        const after = code.getBoundingClientRect().top;
+        pre.classList.add('with-copy-code');
+        return { before, after, position };
+      });
+      assert.equal(layout.position, 'absolute');
+      assert.equal(layout.before, layout.after, 'Copy control does not push code downward');
+    }
+  }
   assert.deepEqual(errors, []);
   console.log('Documentation browser checks passed: responsive layout, contrast, keyboard navigation, reference search, and example links.');
 } finally {

@@ -12,7 +12,7 @@ programs, including `Option`, `Result`, error helpers, parsing projections,
 sequence extensions, unions, and JSON integration.
 
 - [Learn how Raven.Core fits into the language](../compiler/raven-core-library.md)
-- [Browse the Raven.Core API reference](https://marinasundstrom.github.io/raven/libraries/raven-core/)
+- [Browse the Raven.Core API reference](raven-core/)
 
 ## Raven.Macros
 
@@ -21,7 +21,7 @@ sequence extensions, unions, and JSON integration.
 their short aliases into scope.
 
 - [Learn how Raven.Macros is referenced and authored](../compiler/raven-macros-library.md)
-- [Browse the Raven.Macros API reference](https://marinasundstrom.github.io/raven/libraries/raven-macros/)
+- [Browse the Raven.Macros API reference](raven-macros/)
 
 The library references intentionally remain separate RavenDoc sites. This is
 the first integration point for RavenDoc; its publishing and navigation model

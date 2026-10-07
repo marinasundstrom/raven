@@ -12,7 +12,7 @@ of compiler API dependencies while allowing macro libraries to declare their
 ordinary `Raven.CodeAnalysis` compatibility contract.
 
 Browse the generated
-[Raven.Core API reference](https://marinasundstrom.github.io/raven/libraries/raven-core/)
+[Raven.Core API reference](../libraries/raven-core/)
 for the public types and members extracted from Raven's Markdown documentation
 comments.
 

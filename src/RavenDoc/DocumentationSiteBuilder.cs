@@ -25,7 +25,20 @@ public static class DocumentationSiteBuilder
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true, UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow })
             ?? throw new InvalidOperationException("The site configuration is empty.");
         var output = Path.GetFullPath(configuration.Output, root);
-        var apiPath = RelativeOutput(configuration.ApiPath);
+        if (configuration.Api is not null && configuration.Apis.Count > 0)
+            throw new InvalidOperationException("Use either api or apis, not both.");
+        var apiDefinitions = configuration.Api is { } singleApi
+            ? new List<SiteApi> { new() { Input = singleApi, Path = configuration.ApiPath } }
+            : configuration.Apis;
+        var apis = apiDefinitions.Select(api => (
+            Input: Path.GetFullPath(api.Input, root), Path: RelativeOutput(api.Path),
+            Title: api.Title ?? Path.GetFileNameWithoutExtension(api.Input), Definition: api)).ToArray();
+        for (var i = 0; i < apis.Length; i++)
+            for (var j = i + 1; j < apis.Length; j++)
+                if (IsWithin(apis[i].Path, apis[j].Path) || IsWithin(apis[j].Path, apis[i].Path))
+                    throw new InvalidOperationException("API output paths must not overlap.");
+        var apiPaths = apis.Length == 0 ? new[] { RelativeOutput(configuration.ApiPath) } : apis.Select(api => api.Path).ToArray();
+        bool InApi(string path) => apiPaths.Any(apiPath => path.Equals(apiPath, StringComparison.OrdinalIgnoreCase) || path.StartsWith(apiPath + "/", StringComparison.OrdinalIgnoreCase));
         if (configuration.MemberListStyle is not ("compact" or "signatures"))
             throw new InvalidOperationException("memberListStyle must be compact or signatures.");
         if (configuration.NamespaceNavigation is not ("hierarchical" or "flat"))
@@ -85,7 +98,7 @@ public static class DocumentationSiteBuilder
             if (IsWithin(output, page.Source))
                 throw new InvalidOperationException("Site output must not contain an input page.");
             if (!page.Destination.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
-                page.Destination.StartsWith(apiPath + "/", StringComparison.OrdinalIgnoreCase) ||
+                InApi(page.Destination) ||
                 !destinations.Add(page.Destination))
                 throw new InvalidOperationException($"Invalid or duplicate page output: {page.Destination}");
         }
@@ -103,7 +116,7 @@ public static class DocumentationSiteBuilder
                 if (!File.Exists(file))
                     throw new FileNotFoundException("Site resource was not found.", file);
                 var destination = RelativeOutput(Path.GetRelativePath(root, file));
-                if (destination.StartsWith(apiPath + "/", StringComparison.OrdinalIgnoreCase) ||
+                if (InApi(destination) ||
                     destination is "style.css" or "site.js" or "raven-theme.css" ||
                     !destinations.Add(destination))
                     throw new InvalidOperationException($"Conflicting resource output: {destination}");
@@ -111,8 +124,7 @@ public static class DocumentationSiteBuilder
             }
         }
 
-        var apiInput = configuration.Api is null ? null : Path.GetFullPath(configuration.Api, root);
-        if (apiInput is not null && (IsWithin(output, apiInput) || IsWithin(apiInput, output)))
+        if (apis.Any(api => IsWithin(output, api.Input) || IsWithin(api.Input, output)))
             throw new InvalidOperationException("API input and site output must be separate directories.");
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
         var staging = Path.Combine(Path.GetDirectoryName(output)!, $".ravendoc-{Guid.NewGuid():N}");
@@ -127,17 +139,33 @@ public static class DocumentationSiteBuilder
                 configuration.ApiContent is null ? null : Path.GetFullPath(configuration.ApiContent, root), configuration.MemberGrouping);
             var template = new RavenDocSiteTemplate();
             template.WriteAssets(staging);
-            IReadOnlyList<DocumentationNavigationItem> apiNavigation = [];
-            if (apiInput is not null)
+            var libraryNavigation = apis.Select(api => new DocumentationNavigationItem(api.Title, api.Path + "/index.html")).ToArray();
+            var apiGroups = new List<DocumentationNavigationItem>();
+            var xrefs = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var api in apis)
             {
-                var apiOutput = Path.Combine(staging, apiPath);
-                if (apiInput.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-                    RavenDocCommand.GenerateFromAssembly(apiInput, apiOutput, configuration.Framework, options);
+                var apiOutput = Path.Combine(staging, api.Path);
+                var apiOptions = options with
+                {
+                    Navigation = configuration.Apis.Count > 0 ? libraryNavigation : menu,
+                    ApiContent = api.Definition.ApiContent is { } content ? Path.GetFullPath(content, root) : options.ApiContent
+                };
+                var framework = api.Definition.Framework ?? configuration.Framework;
+                if (api.Input.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                    RavenDocCommand.GenerateFromAssembly(api.Input, apiOutput, framework, apiOptions);
                 else
-                    RavenDocCommand.GenerateFromSource(apiInput, apiOutput, configuration.Framework, options,
-                        configuration.References.Select(path => Path.GetFullPath(path, root)).ToArray());
-                apiNavigation = DocumentationGenerator.GetApiNavigation();
+                    RavenDocCommand.GenerateFromSource(api.Input, apiOutput, framework, apiOptions,
+                        configuration.References.Concat(api.Definition.References).Select(path => Path.GetFullPath(path, root)).Distinct().ToArray());
+                var navigation = DocumentationGenerator.GetApiNavigation();
+                if (configuration.Apis.Count > 0)
+                    apiGroups.Add(new DocumentationNavigationItem(api.Title, api.Path + "/index.html", navigation.FirstOrDefault()?.Children));
+                else
+                    apiGroups.AddRange(navigation);
+                foreach (var pair in DocumentationGenerator.ExportXrefs(staging))
+                    xrefs.TryAdd(pair.Key, Path.Combine(staging, pair.Value));
             }
+            IReadOnlyList<DocumentationNavigationItem> apiNavigation = configuration.Apis.Count > 0
+                ? [new DocumentationNavigationItem("API reference", Children: apiGroups)] : apiGroups;
 
             var pageMap = pages.ToDictionary(page => page.Source,
                 page => Path.Combine(staging, page.Destination), StringComparer.Ordinal);
@@ -166,12 +194,12 @@ public static class DocumentationSiteBuilder
                             link.Url = Path.GetRelativePath(currentDirectory, Path.Combine(staging, asset.Destination)).Replace('\\', '/') + suffix;
                     }
                 };
-                if (apiInput is not null)
+                if (apis.Length > 0)
                     pipeline.DocumentProcessed += document =>
                     {
                         foreach (var link in document.Descendants().OfType<LinkInline>())
                             if (link.Url?.StartsWith("xref:", StringComparison.Ordinal) == true)
-                                link.Url = DocumentationGenerator.ResolveArticleXref(link.Url, currentDirectory);
+                                link.Url = DocumentationGenerator.ResolveArticleXref(link.Url, currentDirectory, xrefs);
                     };
                 var html = Path.GetExtension(page.Source).ToLowerInvariant() switch
                 {
@@ -216,8 +244,8 @@ public static class DocumentationSiteBuilder
                     DocumentationNavigation.Resolve(configuration.Favicon, staging, currentDirectory), configuration.GoogleAnalyticsId,
                     DocumentationNavigation.Resolve(configuration.Script, staging, currentDirectory))));
             }
-            if (apiInput is not null)
-                File.WriteAllText(Path.Combine(staging, "xref-map.json"), JsonSerializer.Serialize(DocumentationGenerator.ExportXrefs(staging)));
+            if (apis.Length > 0)
+                File.WriteAllText(Path.Combine(staging, "xref-map.json"), JsonSerializer.Serialize(xrefs.ToDictionary(pair => pair.Key, pair => Path.GetRelativePath(staging, pair.Value).Replace('\\', '/'))));
             foreach (var asset in assets)
             {
                 var destination = Path.Combine(staging, asset.Destination);
@@ -270,6 +298,7 @@ public static class DocumentationSiteBuilder
         public string Output { get; init; } = "_site";
         public string? Toc { get; init; }
         public string? Api { get; init; }
+        public List<SiteApi> Apis { get; init; } = [];
         public string ApiPath { get; init; } = "api";
         public string MemberListStyle { get; init; } = "compact";
         public string NamespaceNavigation { get; init; } = "hierarchical";
@@ -299,6 +328,16 @@ public static class DocumentationSiteBuilder
         public List<DocumentationNavigationItem> Navigation { get; init; } = [];
         public List<DocumentationSiteLink> Links { get; init; } = [];
         public Dictionary<string, string> Values { get; init; } = new(StringComparer.Ordinal);
+    }
+
+    private sealed class SiteApi
+    {
+        public required string Input { get; init; }
+        public required string Path { get; init; }
+        public string? Title { get; init; }
+        public string? Framework { get; init; }
+        public string? ApiContent { get; init; }
+        public List<string> References { get; init; } = [];
     }
 
     private sealed record SitePage(string Source, string? Output = null, string? Title = null);

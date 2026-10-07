@@ -5,10 +5,10 @@
     - name: Guide
       href: ../compiler/raven-core-library.md
     - name: API reference
-      href: https://marinasundstrom.github.io/raven/libraries/raven-core/
+      href: raven-core/
 - name: Raven.Macros
   items:
     - name: Guide
       href: ../compiler/raven-macros-library.md
     - name: API reference
-      href: https://marinasundstrom.github.io/raven/libraries/raven-macros/
+      href: raven-macros/

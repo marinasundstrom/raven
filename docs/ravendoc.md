@@ -818,3 +818,20 @@ like type/member content. Source namespace comments from multiple declarations
 merge in compilation source order. Implicit parent namespaces do not inherit them.
 
 Article titles default to the first H1 when neither front matter nor page configuration supplies a title.
+
+### Multiple libraries in one website
+
+Use `apis` instead of `api` to publish multiple libraries with the same site branding,
+header, search and navigation. Each entry requires `input` and a distinct `path`,
+and can set `title`, `framework`, `references` and `apiContent`. Relative input and
+reference paths resolve from the configuration directory. API output paths must
+not overlap. Authored articles can link to either library using `xref:` links.
+
+```json
+"apis": [
+  { "input": "../src/First.rvnproj", "path": "libraries/first", "title": "First" },
+  { "input": "../src/Second.rvnproj", "path": "libraries/second", "title": "Second" }
+]
+```
+
+Copy controls float over code blocks without adding top padding, including API signatures.
