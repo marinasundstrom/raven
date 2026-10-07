@@ -6,7 +6,7 @@ compiler APIs can still change between releases.
 
 ## Install a release
 
-[Release 0.1.13](https://github.com/marinasundstrom/raven/releases/tag/v0.1.13)
+[Release 0.1.14](https://github.com/marinasundstrom/raven/releases/tag/v0.1.14)
 provides installers and release notes. Follow [Install and run Raven](getting-started.md)
 for the first-run path.
 
@@ -29,9 +29,9 @@ examples to the compiler version you are using. The
 published versions; the [changelog on main](https://github.com/marinasundstrom/raven/blob/main/CHANGELOG.md)
 also includes unreleased work.
 
-These pages target Raven **0.1.13**, including the SDK and browser playground.
+These pages target Raven **0.1.14**, including the SDK and browser playground.
 The build footer marks this version as unreleased until its release tag exists.
-Use the matching SDK when running the tour examples locally. In 0.1.13,
+Use the matching SDK when running the tour examples locally. Since 0.1.13,
 `await operation?` and `try operation?` propagate after the complete `await` or
 `try` expression. Use explicit operand parentheses to propagate inside it.
 
