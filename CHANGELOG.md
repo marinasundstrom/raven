@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Record NeoCLR intrinsic String/source Object constructor support
+  and its linked PE execution gate. The 197-source System audit now reaches the
+  binary library payload limit; no ordinary .NET compiler behavior changes.
+
 - **2026-10-07:** Use configured API source titles for overview headings as well as
   navigation, with `apiTitle` available for single-source sites. Label Raven APIs
   Core extensions and Macros while retaining assembly filenames in symbol details.

@@ -7505,3 +7505,18 @@ unchanged. Nonroot or unselected bases remain rejected. The linked PE runtime te
 allocates an array, mutates through an alias and returns 42 through the original.
 The 197-input audit now stops at System.String -> System.Object base classification.
 See neoCLR `docs/experiments/extended-cli-metadata/array-root-2026-10-07.md`.
+
+## Intrinsic String source-root execution (2026-10-07)
+
+The NeoCLR reader/runtime now preserve intrinsic String over the explicitly selected
+fieldless source Object. Runtime constructor adaptation keeps UTF-8 text storage,
+validates the original receiver identity and single chaining, and executes the actual
+base body through an Object handle. No compiler change, Runtime Contract setting or
+CLI bridge mapping is introduced; ordinary .NET emission remains unchanged.
+
+Metadata-API authored native PE library/consumer execution returns 42; missing root
+selection rejects and a faulting base-body fixture confirms the body executes.
+The 197-source System audit advances to the binary library payload limit and still
+publishes no output. This is not full source String/System execution. See neoCLR
+`docs/experiments/extended-cli-metadata/string-root-2026-10-07.md` for commands,
+compiler/runtime hashes, ownership and remaining limits.
