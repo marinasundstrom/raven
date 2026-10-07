@@ -4,6 +4,42 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class DocumentationSiteBuilderTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SearchIndexesArticleTextAndFinalizesAdditionalApiPages(bool enabled)
+    {
+        WithDirectory(root =>
+        {
+            File.WriteAllText(Path.Combine(root, "index.md"), "# Welcome\n\nSearchable & useful.");
+            var config = Path.Combine(root, "site.json");
+            File.WriteAllText(config, JsonSerializer.Serialize(new
+            {
+                search = enabled,
+                pages = new[] { new { source = "index.md" } }
+            }));
+            DocumentationSiteBuilder.Build(config);
+            var output = Path.Combine(root, "_site");
+            Directory.CreateDirectory(Path.Combine(output, "library/api"));
+            File.WriteAllText(Path.Combine(output, "library/api/index.html"),
+                "<title>Widget API</title><header></header><article>Distinctive contract <script>secret</script></article>");
+            DocumentationSiteBuilder.FinalizeSite(config);
+            DocumentationSiteBuilder.FinalizeSite(config);
+            var page = File.ReadAllText(Path.Combine(output, "library/api/index.html"));
+            File.Exists(Path.Combine(output, "search-index.json")).ShouldBe(enabled);
+            if (enabled)
+            {
+                page.ShouldContain("src=\"../../search.js\"");
+                System.Text.RegularExpressions.Regex.Matches(page, "id=\"site-search-query\"").Count.ShouldBe(1);
+                using var index = JsonDocument.Parse(File.ReadAllText(Path.Combine(output, "search-index.json")));
+                index.RootElement.GetArrayLength().ShouldBe(2);
+                var api = index.RootElement.EnumerateArray().Single(entry => entry.GetProperty("title").GetString() == "Widget API");
+                api.GetProperty("text").GetString().ShouldBe("Distinctive contract");
+            }
+            else page.ShouldNotContain("site-search-query");
+        });
+    }
+
     [Fact]
     public void RawHtmlArticleLinksPreserveFragmentsAndCustomScriptDepth()
     {

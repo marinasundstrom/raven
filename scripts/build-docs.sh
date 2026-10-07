@@ -86,6 +86,9 @@ if ! grep -Fq \
     exit 1
 fi
 
+dotnet run --project "$repository_root/src/RavenDoc/RavenDoc.csproj" \
+    --framework net10.0 --no-build -- --finalize-site "$repository_root/docs/ravendoc.json"
+
 if [[ "$serve" == true ]]; then
     python3 -m http.server 8080 --directory "$site_output"
 fi

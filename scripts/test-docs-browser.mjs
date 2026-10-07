@@ -78,6 +78,23 @@ try {
   assert.equal(await query.inputValue(), '');
   assert.equal(await query.evaluate(e => e === document.activeElement), true);
   assert.equal(await page.locator('[data-reference-topic]:visible').count(), 49);
+  await page.goto(`${base}/index.html`);
+  const searchToggle = page.getByRole('button', { name: 'Search site', exact: true });
+  await searchToggle.click();
+  const search = page.getByRole('searchbox', { name: 'Search documentation and APIs' });
+  assert.equal(await search.evaluate(e => e === document.activeElement), true);
+  await search.fill('Option');
+  await page.locator('.site-search-results a').first().waitFor();
+  assert.ok(await page.locator('.site-search-results a[href*="libraries/raven-core/"]').count() > 0);
+  await page.mouse.click(3, 890);
+  assert.equal(await searchToggle.getAttribute('aria-expanded'), 'true');
+  await search.focus();
+  await page.keyboard.press('Escape');
+  assert.equal(await searchToggle.getAttribute('aria-expanded'), 'false');
+  await searchToggle.click();
+  assert.equal(await search.inputValue(), 'Option');
+  await search.fill('no-such-raven-site-search-result');
+  await page.getByText('No results.', { exact: true }).waitFor();
   assert.deepEqual(errors, []);
   console.log('Documentation browser checks passed: responsive layout, contrast, keyboard navigation, reference search, and example links.');
 } finally {
