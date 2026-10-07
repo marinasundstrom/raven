@@ -13,6 +13,8 @@ public sealed class AsyncUnitResultTests
     [InlineData("Task", "=> ()")]
     [InlineData("ValueTask", "=> ()")]
     [InlineData("Task", "{ return () }")]
+    [InlineData("Task", "{ return }")]
+    [InlineData("ValueTask", "{ return }")]
     [InlineData("ValueTask", "{ return () }")]
     public async Task AwaitlessBody_ReturnsUnitPayload(string taskType, string body)
     {
@@ -36,6 +38,8 @@ class Program {
 
     [Theory]
     [InlineData("Task", false, "return ()")]
+    [InlineData("Task", false, "return")]
+    [InlineData("ValueTask", false, "return")]
     [InlineData("Task", true, "return ()")]
     [InlineData("ValueTask", false, "return ()")]
     [InlineData("ValueTask", true, "return ()")]
@@ -76,6 +80,22 @@ class Program {
         {
             gate.TrySetResult(1);
         }
+    }
+
+    [Theory]
+    [InlineData("Task")]
+    [InlineData("ValueTask")]
+    public void BareReturnStillRejectsNonUnitPayload(string taskType)
+    {
+        var source = $$"""
+            import System.Threading.Tasks.*
+            class Program {
+                static async func Finish() -> {{taskType}}<int> { return }
+            }
+            """;
+        var compilation = Compilation.Create("async-nonunit-return", [SyntaxTree.ParseText(source)],
+            References(), new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "RAV1503");
     }
 
     private static MetadataReference[] References() => [

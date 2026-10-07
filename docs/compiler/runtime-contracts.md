@@ -2158,3 +2158,17 @@ Debug/Release runtime regressions cover direct member calls and record formattin
 `sealed-interface-generic-case.rav` adds representative IL-verifier coverage without
 the verifier's known static-abstract generic-math limitation. Validation on modern
 .NET does not establish execution on native neoCLR or NanoFramework.
+
+## Async unit payload returns
+
+Return binding in async methods uses the selected task's result payload rather
+than the task wrapper. `Task<unit>` and `ValueTask<unit>` accept both `return` and
+`return ()`; a bare return supplies a bound unit value so awaitless value-task
+construction and suspended state machines agree. Expression bodies returning
+unit use that same payload context. Bare returns remain invalid for non-unit
+payloads such as `Task<int>`. Non-generic Task/ValueTask rules are unchanged.
+
+This is shared binding behavior and introduces no Runtime Contract option,
+public API or CLI bridge representation. Focused modern .NET tests cover
+awaitless and suspended Task/ValueTask results, arrow bodies and negative
+non-unit returns; native runtime execution is separately qualified.
