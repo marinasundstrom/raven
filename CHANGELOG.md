@@ -23,6 +23,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   preserve async-owner selection. Reject executable or conflicting imported-root
   configurations. The checked-in NeoCLR Runtime project compiles and its separate
   orders consumer executes; ordinary .NET defaults are unchanged.
+
+- Preserve complete namespace names when matching metadata types to source declarations, including nested generic C# types.
+
 - RavenDoc maps C# declarations to GitHub source files for assembly inputs, including partial types. Nested types remain on containing-type pages instead of expanding the API sidebar.
 
 - RavenDoc resolves type and authored cross-references between API sources, includes macro parameter/return contracts, and supports grouped assembly inputs with a shared namespace tree and preserved assembly identities. Raven adds Compiler APIs alongside Core extensions and Macros.

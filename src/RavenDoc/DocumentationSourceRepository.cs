@@ -96,8 +96,16 @@ internal sealed class DocumentationSourceLinks
     private static string TypeName(INamedTypeSymbol type)
     {
         var prefix = type.ContainingType is { } parent ? TypeName(parent)
-            : type.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() : "";
+            : type.ContainingNamespace is { IsGlobalNamespace: false } ns ? NamespaceName(ns) : "";
         return (prefix.Length > 0 ? prefix + "." : "") + type.MetadataName;
+    }
+
+    private static string NamespaceName(INamespaceSymbol ns)
+    {
+        var parts = new Stack<string>();
+        for (var current = ns; current is { IsGlobalNamespace: false }; current = current.ContainingNamespace)
+            parts.Push(current.Name);
+        return string.Join(".", parts);
     }
 
     private string? RelativePath(string path)
