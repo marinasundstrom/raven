@@ -413,6 +413,9 @@ internal static class Int32Emitter
                     imported = assembly.ImportReference(candidates[0], binding.CoreLibrary);
                 }
                 importedTypes.Add(original, imported);
+                if (original.SpecialType == SpecialType.System_Object &&
+                    original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    assembly.SetNativeObjectRoot(imported);
                 if (original.TypeKind == TypeKind.Class && original.BaseType is { SpecialType: not SpecialType.System_Object } classBase)
                     assembly.DeclareClassBase(imported, ImportExternalType(classBase).ImportedType!);
                 if (original.SpecialType == SpecialType.System_Char && original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
@@ -451,6 +454,8 @@ internal static class Int32Emitter
             return imported.GenericArity == 0 ? imported : imported.MakeGenericInstance(type.TypeArguments
                 .Select(t => NeoClrTypeMapper.Map(t, owned => nativeTypes[owned], ImportExternalType)).ToArray());
         }
+        if (compilation.Options.MetadataImportOptions?.ObjectAssemblyName is not null)
+            _ = ImportExternalType(compilation.GetSpecialType(SpecialType.System_Object));
         var functions = new NeoClrCallableDefinitionBuilder(assembly, resolveClass: type => nativeTypes[type], resolveExternal: ImportExternalType);
         void DefineClass(SourceTypePlan type)
         {

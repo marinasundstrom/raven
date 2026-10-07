@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Select the imported native Object authoring identity before mapping
+  callable signatures. Keep primitive bootstrap references distinct while supporting
+  source Equals overrides against a separately built Runtime; the ordinary native
+  driver consumer verifies and returns 42. Requires the matching metadata library's
+  external-root authoring API; ordinary .NET emission is unchanged.
+
 - **2026-10-07:** Keep RavenDoc copy controls pinned to the visible code sample
   while code scrolls horizontally. Collapse the main navbar into a three-dot
   disclosure on mobile/tablet screens, with theme and search controls alongside.

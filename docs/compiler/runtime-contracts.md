@@ -3595,3 +3595,15 @@ The flags-symbols C# probe covers ordinary and imported roots (including a root
 without FlagsAttribute). No ordinary .NET loader or emission behavior changes.
 Separately compiled Data now advances to its internal array-reflection service
 dependency; optional-library packaging is not yet complete.
+
+### Imported Object authoring identity — 2026-10-07
+
+When `MetadataImportOptions.ObjectAssemblyName` selects a native root, emission now
+creates its output-owned reference from semantic symbol facts and the host's exact
+artifact identity before authoring callable signatures. `SetNativeObjectRoot` on the
+metadata builder preserves the selected identity for Equals overrides and imported
+bootstrap Object signatures. The importer is not reopened. This requires the matching
+metadata API change on neoCLR's native bootstrap branch. An ordinary source Item.Equals
+consumer compiled against System.Runtime verifies/runs with exit 42; API authoring and
+manual-definition tests also pass. Networking advances to a separate System.Value
+encoding failure, so optional-library execution is not complete. No .NET target change.
