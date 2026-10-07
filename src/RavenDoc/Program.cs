@@ -135,28 +135,35 @@ internal static class RavenDocCommand
         string outputPath,
         string targetFramework,
         DocumentationSiteOptions siteOptions)
-    {
-        var targetReference = MetadataReference.CreateFromFile(assemblyPath);
-        var references = new List<MetadataReference> { targetReference };
-        var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { assemblyPath };
+        => GenerateFromAssemblies([assemblyPath], outputPath, targetFramework, siteOptions);
 
-        foreach (var path in GetFrameworkReferencePaths(targetFramework)
-            .Concat(Directory.EnumerateFiles(Path.GetDirectoryName(assemblyPath)!, "*.dll")))
+    internal static void GenerateFromAssemblies(
+        IReadOnlyList<string> assemblyPaths,
+        string outputPath,
+        string targetFramework,
+        DocumentationSiteOptions siteOptions)
+    {
+        var targetReferences = assemblyPaths.Select(MetadataReference.CreateFromFile).ToArray();
+        var references = new List<MetadataReference>(targetReferences);
+        var seenPaths = new HashSet<string>(assemblyPaths, StringComparer.OrdinalIgnoreCase);
+        foreach (var path in GetFrameworkReferencePaths(targetFramework).Concat(assemblyPaths
+            .SelectMany(path => Directory.EnumerateFiles(Path.GetDirectoryName(path)!, "*.dll"))))
         {
             var fullPath = Path.GetFullPath(path);
             if (seenPaths.Add(fullPath))
                 references.Add(MetadataReference.CreateFromFile(fullPath));
         }
-
-        var compilation = Compilation.Create(
-                "RavenDoc.MetadataHost",
+        var compilation = Compilation.Create("RavenDoc.MetadataHost",
                 options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(references.ToArray());
         _ = compilation.GetDiagnostics();
-        var assembly = compilation.GetAssemblyOrModuleSymbol(targetReference) as IAssemblySymbol
-            ?? throw new InvalidOperationException($"Could not load assembly symbols from '{assemblyPath}'.");
-
-        DocumentationGenerator.ProcessAssembly(compilation, assembly, outputPath, siteOptions);
+        var assemblies = targetReferences.Select(reference =>
+            compilation.GetAssemblyOrModuleSymbol(reference) as IAssemblySymbol
+                ?? throw new InvalidOperationException("Could not load assembly symbols.")).ToArray();
+        if (assemblies.Length == 1)
+            DocumentationGenerator.ProcessAssembly(compilation, assemblies[0], outputPath, siteOptions);
+        else
+            DocumentationGenerator.ProcessAssemblies(compilation, assemblies, outputPath, siteOptions);
     }
 
     private static void ReportErrors(Compilation compilation)

@@ -170,6 +170,12 @@ try {
   assert.ok(await macroNavigation.locator('a[href$="macro_Quote.html"]').count() > 0, 'Macro-only library is navigable');
   assert.ok(await macroNavigation.locator('summary[title="Raven.Macros"]').count() > 0, 'Macro namespace is listed');
   await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${base}/libraries/raven-core/System/Linq/EnumerableOption%601/index.html?inherited=false`);
+  assert.ok((await page.locator('article pre code').first().textContent()).includes('static class EnumerableOption'));
+  assert.equal(await page.locator('#show-inherited-members').count(), 0, 'Static containers have no inherited-member toggle');
+  assert.ok(!(await page.locator('article').textContent()).includes('Inheritance:'));
+  await page.locator('#member-grouping').selectOption('declaringType');
+  assert.ok(await page.locator('.member-card:visible').count() > 0, 'Static member grouping works without inheritance controls');
   await page.goto(`${base}/raven-for-csharp-developers.html`);
   const currentSection = page.locator('.documentation-nav-section').filter({ has: page.locator('a[aria-current="page"]') }).first();
   assert.equal(await currentSection.evaluate(e => e.open), true, 'Current reading section opens automatically');
@@ -219,6 +225,20 @@ try {
   await page.locator('.api-navigation-panel summary[title="Raven.Macros"]').click();
   await followLink(page.locator('.api-navigation-panel a[href$="macro_Quote.html"]'));
   assert.ok((await page.locator('article').textContent()).includes('Raven.Macros.dll'));
+  const compilerType = page.locator('article a[href$="/Raven/CodeAnalysis/Macros/TokenTreeMacroContext/index.html"]').first();
+  await followLink(compilerType);
+  assert.equal(await page.locator('h1').textContent(), 'TokenTreeMacroContext');
+  assert.ok((await page.locator('article').textContent()).includes('Raven.CodeAnalysis.dll'));
+  await page.locator('.site-navigation summary').filter({ hasText: 'API Reference' }).click();
+  await followLink(page.locator('.site-navigation').getByRole('link', { name: 'Compiler APIs', exact: true }));
+  assert.equal(await page.locator('h1').textContent(), 'Compiler APIs');
+  await page.goto(`${base}/libraries/raven-codeanalysis/Raven/CodeAnalysis/Compilation/index.html`);
+  assert.equal(await page.locator('h1').textContent(), 'Compilation');
+  assert.ok(await page.locator('article a[href*="/blob/main/src/Raven.CodeAnalysis/Compilation"]').count(),
+    'Compiler API pages link to their C# source files');
+  assert.equal(await page.locator('#api-browser a[href*="BinderReentryInstrumentation/Snapshot/"]').count(), 0,
+    'Nested types are reached through the containing type, not sidebar branches');
+  assert.ok((await page.locator('article').textContent()).includes('Raven.CodeAnalysis.dll'));
   await followLink(page.locator('.site-navigation').getByRole('link', { name: 'Getting started', exact: true }));
   assert.deepEqual(await readingLinks(), hierarchy, 'Returning from API restores the documentation hierarchy');
   await followLink(page.locator('.site-navigation').getByRole('link', { name: 'Language reference', exact: true }));

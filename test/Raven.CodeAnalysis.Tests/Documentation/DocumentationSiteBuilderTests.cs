@@ -104,6 +104,100 @@ public sealed class DocumentationSiteBuilderTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LibraryLinksResolveAcrossSourceAndMetadataInEitherOrder(bool metadataFirst)
+    {
+        WithDirectory(root =>
+        {
+            var reference = (PortableExecutableReference)TestMetadataFactory.CreateFileReferenceFromSource(
+                "namespace Shared { public open class Token { } }", "Contracts");
+            File.Copy(reference.FilePath!, Path.Combine(root, "Contracts.dll"));
+            File.WriteAllText(Path.Combine(root, "Contracts.xml"), """
+                <doc><assembly><name>Contracts</name></assembly><members>
+                <member name="T:Shared.Token"><summary>Used by <see cref="T:Consumer.Api"/>.</summary></member>
+                </members></doc>
+                """);
+            File.WriteAllText(Path.Combine(root, "consumer.rvn"), """
+                namespace Consumer
+                public class Api : Shared.Token {
+                    public func Echo(value: Shared.Token) -> Shared.Token => value
+                    public func Text(value: string) -> string => value
+                }
+                """);
+            Directory.CreateDirectory(Path.Combine(root, "content"));
+            File.WriteAllText(Path.Combine(root, "content/token.md"), "---\nuid: T:Shared.Token\n---\n## Usage\n\n[Consumer](xref:T:Consumer.Api)");
+            var definitions = new[] {
+                new { input = "consumer.rvn", path = "api/consumer", references = new[] { "Contracts.dll" }, apiContent = (string?)null },
+                new { input = "Contracts.dll", path = "api/contracts", references = Array.Empty<string>(), apiContent = (string?)"content" }
+            };
+            var config = Path.Combine(root, "site.json");
+            File.WriteAllText(Path.Combine(root, "index.md"), "# APIs");
+            File.WriteAllText(config, JsonSerializer.Serialize(new
+            {
+                apis = metadataFirst ? definitions.Reverse().ToArray() : definitions,
+                pages = new[] { new { source = "index.md" } }
+            }));
+            DocumentationSiteBuilder.Build(config);
+            var consumer = File.ReadAllText(Path.Combine(root, "_site/api/consumer/Consumer/Api/index.html"));
+            consumer.ShouldContain("href=\"../../../contracts/Shared/Token/index.html\"");
+            var method = File.ReadAllText(Path.Combine(root, "_site/api/consumer/Consumer/Api/method_Echo.html"));
+            method.Split("href=\"../../../contracts/Shared/Token/index.html\"").Length.ShouldBeGreaterThanOrEqualTo(3);
+            var contract = File.ReadAllText(Path.Combine(root, "_site/api/contracts/Shared/Token/index.html"));
+            contract.ShouldContain("href=\"../../../consumer/Consumer/Api/index.html\"");
+            var external = File.ReadAllText(Path.Combine(root, "_site/api/consumer/Consumer/Api/method_Text.html"));
+            external.ShouldNotContain("String/index.html");
+            external.ShouldNotContain("href=\"xref:");
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GroupedAssembliesShareNamespacesAndKeepTheirAssemblyIdentity(bool singleTree)
+    {
+        WithDirectory(root =>
+        {
+            foreach (var (assembly, type) in new[] { ("Runtime.Library", "RuntimeType"), ("Data.Library", "DataType") })
+            {
+                var reference = (PortableExecutableReference)TestMetadataFactory.CreateFileReferenceFromSource(
+                    $"namespace Shared {{ public class {type} {{ }} }}", assembly);
+                File.Copy(reference.FilePath!, Path.Combine(root, assembly + ".dll"));
+            }
+            File.WriteAllText(Path.Combine(root, "Data.Library.xml"), """
+                <doc><assembly><name>Data.Library</name></assembly><members>
+                <member name="T:Shared.DataType"><summary>Uses <see cref="T:Shared.RuntimeType"/>.</summary></member>
+                </members></doc>
+                """);
+            File.WriteAllText(Path.Combine(root, "index.md"), "# Runtime");
+            var config = Path.Combine(root, "site.json");
+            var inputs = new[] { "Runtime.Library.dll", "Data.Library.dll" };
+            var configuration = new Dictionary<string, object>
+            {
+                ["pages"] = new[] { new { source = "index.md" } }
+            };
+            if (singleTree)
+            {
+                configuration["apiInputs"] = inputs;
+                configuration["apiTitle"] = "Runtime APIs";
+            }
+            else configuration["apis"] = new[] { new { inputs, path = "api", title = "Runtime APIs" } };
+            File.WriteAllText(config, JsonSerializer.Serialize(configuration));
+            DocumentationSiteBuilder.Build(config);
+            var ns = File.ReadAllText(Path.Combine(root, "_site/api/Shared/index.html"));
+            ns.ShouldContain("RuntimeType/index.html");
+            ns.ShouldContain("DataType/index.html");
+            var runtime = File.ReadAllText(Path.Combine(root, "_site/api/Shared/RuntimeType/index.html"));
+            runtime.ShouldContain("Runtime.Library.dll");
+            var data = File.ReadAllText(Path.Combine(root, "_site/api/Shared/DataType/index.html"));
+            data.ShouldContain("Data.Library.dll");
+            data.ShouldContain("href=\"../RuntimeType/index.html\"");
+            Directory.Exists(Path.Combine(root, "_site/api/System/String")).ShouldBeFalse();
+            File.ReadAllText(Path.Combine(root, "_site/api/index.html")).ShouldContain("<h1>Runtime APIs</h1>");
+        });
+    }
+
+    [Theory]
     [InlineData("libraries/first")]
     [InlineData("libraries/first/nested")]
     public void OverlappingLibrariesPreservePublishedSite(string secondPath)

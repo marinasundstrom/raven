@@ -100,7 +100,7 @@ for (const code of document.querySelectorAll(
     const control = document.querySelector("#member-grouping");
     if (!container || !control) return;
     const inherited = document.querySelector("#show-inherited-members");
-    inherited.closest("label").hidden = false;
+    if (inherited) inherited.closest("label").hidden = false;
     const original = [...container.children].filter(section => section.classList.contains("member-section"));
     const cards = [...container.querySelectorAll(".member-card")];
     const extensions = document.querySelector("#show-extension-members");
@@ -108,11 +108,11 @@ for (const code of document.querySelectorAll(
     const storageKey = "raven-member-grouping";
     const readSelection = () => {
         let preferred = container.dataset.defaultGrouping || "kind";
-        inherited.checked = true;
+        if (inherited) inherited.checked = true;
         extensions.checked = true;
         try {
             preferred = localStorage.getItem(storageKey) || preferred;
-            inherited.checked = localStorage.getItem("raven-show-inherited") !== "false";
+            if (inherited) inherited.checked = localStorage.getItem("raven-show-inherited") !== "false";
             extensions.checked = localStorage.getItem("raven-show-extensions") !== "false";
         } catch { }
         const query = new URL(location.href).searchParams;
@@ -124,13 +124,14 @@ for (const code of document.querySelectorAll(
         control.value = preferred === "declaringType" ? preferred : "kind";
         for (const [key, checkbox] of [["inherited", inherited], ["extensions", extensions]]) {
             const value = query.get(key);
-            if (value === "true" || value === "false") checkbox.checked = value === "true";
+            if (checkbox && (value === "true" || value === "false")) checkbox.checked = value === "true";
         }
     };
     const shareSelection = () => {
         const url = new URL(location.href);
         url.searchParams.set("groupBy", control.value);
-        url.searchParams.set("inherited", String(inherited.checked));
+        if (inherited) url.searchParams.set("inherited", String(inherited.checked));
+        else url.searchParams.delete("inherited");
         url.searchParams.set("extensions", String(extensions.checked));
         history.replaceState(history.state, "", url);
     };
@@ -139,7 +140,7 @@ for (const code of document.querySelectorAll(
     const render = () => {
         container.replaceChildren();
         for (const card of cards) card.hidden =
-            (!inherited.checked && card.dataset.memberInherited === "true") ||
+            (inherited && !inherited.checked && card.dataset.memberInherited === "true") ||
             (!extensions.checked && card.dataset.memberExtension === "true");
         if (control.value === "kind") {
             container.append(...original);
@@ -186,7 +187,7 @@ for (const code of document.querySelectorAll(
         shareSelection();
         render();
     });
-    inherited.addEventListener("change", () => {
+    inherited?.addEventListener("change", () => {
         try { localStorage.setItem("raven-show-inherited", String(inherited.checked)); } catch { }
         shareSelection();
         render();

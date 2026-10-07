@@ -31,6 +31,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ### Detailed changes
 
+- RavenDoc maps C# declarations to GitHub source files for assembly inputs, including partial types. Nested types remain on containing-type pages instead of expanding the API sidebar.
+
+- RavenDoc resolves type and authored cross-references between API sources, includes macro parameter/return contracts, and supports grouped assembly inputs with a shared namespace tree and preserved assembly identities. Raven adds Compiler APIs alongside Core extensions and Macros.
+
+- RavenDoc identifies static classes and extension containers in signatures and omits their inheritance relationships and inherited-member controls. Ordinary instance-type inheritance remains visible.
+
 - Preserve `unit` payloads in .NET 11 runtime-async Task/ValueTask returns,
   including bare, implicit, arrow and try/finally returns. Discard awaited
   payloads correctly in statement position. Extend runtime regressions and the

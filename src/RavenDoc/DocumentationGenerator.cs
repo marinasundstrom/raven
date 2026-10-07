@@ -16,7 +16,7 @@ public static partial class DocumentationGenerator
 
     private static string outputDir = "_docs";
     private static string documentedAssemblyName = "Raven";
-    private static IAssemblySymbol? documentedAssembly;
+    private static readonly HashSet<IAssemblySymbol> DocumentedAssemblies = new(SymbolEqualityComparer.Default);
 
     private const string ExtensionGroupingTypePrefix = "<>__RavenExtensionGrouping_For_";
     private const string ExtensionMarkerTypePrefix = "<>__RavenExtensionMarker_";
@@ -195,19 +195,29 @@ public static partial class DocumentationGenerator
             additionalNamespaceMembers: [],
             siteOptions);
 
+    internal static void ProcessAssemblies(
+        Compilation compilation,
+        IReadOnlyList<IAssemblySymbol> assemblies,
+        string outputDir,
+        DocumentationSiteOptions siteOptions)
+        => Process(compilation, assemblies[0], compilation.GlobalNamespace,
+            outputDir, [], siteOptions, assemblies);
+
     private static void Process(
         Compilation compilation,
         IAssemblySymbol assembly,
         INamespaceSymbol globalNamespace,
         string outputDir,
         IReadOnlyList<ISymbol> additionalNamespaceMembers,
-        DocumentationSiteOptions? siteOptions)
+        DocumentationSiteOptions? siteOptions,
+        IReadOnlyList<IAssemblySymbol>? assemblies = null)
     {
         try { Directory.Delete(outputDir, recursive: true); } catch { }
         try { Directory.CreateDirectory(outputDir); } catch { }
 
         DocumentationGenerator.outputDir = outputDir;
-        documentedAssembly = assembly;
+        DocumentedAssemblies.Clear();
+        DocumentedAssemblies.UnionWith(assemblies ?? [assembly]);
         documentedAssemblyName = assembly.Name;
         DocInfoCache.Clear();
         DocumentedTypes.Clear();
@@ -257,6 +267,11 @@ public static partial class DocumentationGenerator
             for (var ns = symbol.ContainingNamespace; ns is { IsGlobalNamespace: false }; ns = ns.ContainingNamespace)
                 AddSymbolToXrefIndex(ns);
         }
+
+        if (CurrentSiteOptions.IndexOnly) return;
+        if (CurrentSiteOptions.SharedXrefs is { } sharedXrefs)
+            foreach (var (id, target) in sharedXrefs)
+                XrefToTargetPath.TryAdd(id, target);
 
         BuildReverseTypeRelationships();
 
@@ -728,7 +743,8 @@ public static partial class DocumentationGenerator
 
         if (!isNamespacePage && renderedSections.Count > 0)
         {
-            renderedSections.Insert(0, $"<div class=\"member-display-controls\"><label class=\"member-grouping\" hidden>Group members <select id=\"member-grouping\"><option value=\"kind\">By member kind</option><option value=\"declaringType\">By declaring type</option></select></label><label class=\"member-filter\" hidden><input id=\"show-inherited-members\" type=\"checkbox\" checked /> Show inherited members</label><label class=\"member-filter\" hidden><input id=\"show-extension-members\" type=\"checkbox\" checked /> Show extension members</label></div>\n\n<div id=\"member-groups\" data-default-grouping=\"{CurrentSiteOptions.MemberGrouping}\">");
+            var inheritedControl = context is not null && IsStaticType(context) ? "" : "<label class=\"member-filter\" hidden><input id=\"show-inherited-members\" type=\"checkbox\" checked /> Show inherited members</label>";
+            renderedSections.Insert(0, $"<div class=\"member-display-controls\"><label class=\"member-grouping\" hidden>Group members <select id=\"member-grouping\"><option value=\"kind\">By member kind</option><option value=\"declaringType\">By declaring type</option></select></label>{inheritedControl}<label class=\"member-filter\" hidden><input id=\"show-extension-members\" type=\"checkbox\" checked /> Show extension members</label></div>\n\n<div id=\"member-groups\" data-default-grouping=\"{CurrentSiteOptions.MemberGrouping}\">");
             renderedSections.Add("</div>");
         }
         return renderedSections;
@@ -858,6 +874,7 @@ public static partial class DocumentationGenerator
         IEnumerable<IParameterSymbol> parameters = member switch
         {
             IMethodSymbol method => method.Parameters,
+            IMacroDeclarationSymbol macro => macro.Parameters,
             IPropertySymbol property => property.Parameters,
             _ => []
         };
@@ -887,6 +904,7 @@ public static partial class DocumentationGenerator
             IFieldSymbol field => ("Field value", field.Type, DocumentationSectionKind.Value),
             IEventSymbol @event => ("Event type", @event.Type, DocumentationSectionKind.Value),
             IMethodSymbol method when !method.IsConstructor => ("Return value", method.ReturnType, DocumentationSectionKind.Result),
+            IMacroDeclarationSymbol macro => ("Return value", macro.ReturnType, DocumentationSectionKind.Result),
             _ => ("", (ITypeSymbol?)null, DocumentationSectionKind.Result)
         };
         if (type is not null)
@@ -928,7 +946,7 @@ public static partial class DocumentationGenerator
                 EscapeName(element.Name) + ": " + FormatContractType(currentDir, element.Type))) + ")";
         var name = EscapeName(named.Name);
         var definition = named.OriginalDefinition ?? named;
-        if (IsFromDocumentedAssembly(definition) && XrefToTargetPath.TryGetValue(GetXrefId(definition), out var target))
+        if (XrefToTargetPath.TryGetValue(GetXrefId(definition), out var target))
             name = $"[{name}]({RelLink(currentDir, target)})";
         if (named.ContainingType is { } owner)
             name = FormatContractType(currentDir, owner) + "." + name;
@@ -1255,6 +1273,7 @@ public static partial class DocumentationGenerator
             IEventSymbol => "Event",
             IUnionCaseTypeSymbol { IsUnionCase: true } => "Union case",
             IUnionSymbol { IsUnion: true } => "Union",
+            ITypeSymbol type when IsStaticType(type) => "Static class",
             ITypeSymbol type => type.TypeKind.ToString(),
             _ => "Member"
         };
@@ -1411,6 +1430,9 @@ public static partial class DocumentationGenerator
         {
             if (symbol is INamedTypeSymbol documentedType)
                 DocumentedTypes[GetXrefId(documentedType)] = documentedType;
+            // Nested types remain indexed and listed on their containing type's page.
+            if (symbol is ITypeSymbol { ContainingType: not null })
+                return;
             var target = GetTargetPathForLink(symbol);
             var label = symbol is INamespaceSymbol navigationNamespace
                 ? (navigationNamespace.IsGlobalNamespace ? "API reference" : GetNamespaceFullName(navigationNamespace))
@@ -1686,8 +1708,12 @@ public static partial class DocumentationGenerator
     // Page generators
     // ----------------------------
 
+    private static bool IsStaticType(ITypeSymbol type)
+        => type.IsStatic || type.GetExtensionReceiverType() is not null;
+
     private static IReadOnlyList<ITypeSymbol> GetInheritanceChain(ITypeSymbol typeSymbol)
     {
+        if (IsStaticType(typeSymbol)) return [];
         var chain = new Stack<ITypeSymbol>();
         var current = typeSymbol;
 
@@ -1704,8 +1730,7 @@ public static partial class DocumentationGenerator
     {
         var memberName = EscapeName(GetTypeName(typeSymbol));
         var definition = typeSymbol is INamedTypeSymbol named ? named.OriginalDefinition : typeSymbol;
-        if (!IsFromDocumentedAssembly(definition) ||
-            !XrefToTargetPath.TryGetValue(GetXrefId(definition), out var target))
+        if (!XrefToTargetPath.TryGetValue(GetXrefId(definition), out var target))
             return memberName;
 
         return $"[{memberName}]({RelLink(currentDir, target)})";
@@ -1754,7 +1779,7 @@ public static partial class DocumentationGenerator
             relationshipLines.Add(
                 $"**Inheritance**: {string.Join(" → ", inheritanceLinks)}<br />");
         }
-        var implementedInterfaces = typeSymbol.Interfaces
+        var implementedInterfaces = (IsStaticType(typeSymbol) ? [] : typeSymbol.Interfaces)
             .Distinct(SymbolEqualityComparer.Default)
             .OrderBy(type => type.ToDisplayString(BaseTypeDisplayFormat))
             .ToArray();
@@ -2048,6 +2073,8 @@ public static partial class DocumentationGenerator
         var signature = symbol is IPropertySymbol property
             ? FormatPropertySignature(property)
             : OmitRedundantPublicModifier(symbol.ToDisplayString(MemberDisplayFormat));
+        if (symbol is ITypeSymbol staticType && IsStaticType(staticType) && !signature.StartsWith("static ", StringComparison.Ordinal))
+            signature = "static " + signature;
         var typeParameters = symbol switch
         {
             INamedTypeSymbol type => type.TypeParameters,
@@ -2320,9 +2347,6 @@ public static partial class DocumentationGenerator
 
     private static bool IsFromDocumentedAssembly(ISymbol symbol)
     {
-        if (documentedAssembly is null)
-            return true;
-
         if (symbol is INamespaceSymbol namespaceSymbol)
         {
             var name = GetNamespaceFullName(namespaceSymbol);
@@ -2335,7 +2359,7 @@ public static partial class DocumentationGenerator
         var namespaceName = GetNamespaceFullName(symbol.ContainingNamespace);
         return AdditionalNamespaceMembers.TryGetValue(namespaceName, out var members) &&
                    members.Contains(symbol, SymbolEqualityComparer.Default) ||
-               SymbolEqualityComparer.Default.Equals(symbol.ContainingAssembly, documentedAssembly);
+               symbol.ContainingAssembly is { } containingAssembly && DocumentedAssemblies.Contains(containingAssembly);
     }
 
     private static bool IsAdditionalNamespaceMember(ISymbol symbol)
@@ -2455,6 +2479,9 @@ public sealed record DocumentationSiteOptions(
     string? ApiDisplayName = null,
     DocumentationSourceRepository? SourceRepository = null)
 {
+    internal bool IndexOnly { get; init; }
+    internal IReadOnlyDictionary<string, string>? SharedXrefs { get; init; }
+
     public static DocumentationSiteOptions Empty { get; } = new([]);
 }
 
