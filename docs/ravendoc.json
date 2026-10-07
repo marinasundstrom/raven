@@ -30,6 +30,10 @@
         {
           "label": "Macros",
           "url": "libraries/raven-macros/index.html"
+        },
+        {
+          "label": "Compiler APIs",
+          "url": "libraries/raven-codeanalysis/index.html"
         }
       ]
     },
@@ -380,6 +384,17 @@
       "references": [
         "../src/Raven.CodeAnalysis/bin/Debug/net10.0/Raven.CodeAnalysis.dll"
       ]
+    },
+    {
+      "input": "../src/Raven.CodeAnalysis/bin/Debug/net10.0/Raven.CodeAnalysis.dll",
+      "path": "libraries/raven-codeanalysis",
+      "title": "Compiler APIs",
+      "sourceRepository": {
+        "url": "https://github.com/marinasundstrom/raven",
+        "revision": "main",
+        "root": "..",
+        "paths": ["src/Raven.CodeAnalysis"]
+      }
     }
   ],
   "namespaceNavigation": "flat",

@@ -6,7 +6,63 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 public sealed class RavenDocGenerationTests : CompilationTestBase
 {
     [Fact]
-    public void MetadataSourceLinksUseConfiguredDeclarationsAndPreserveAssemblyName()
+    public void CSharpAssemblyNestedTypesKeepTheirNamespaceOwnerAndSourceFiles()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            const string source = """
+                namespace CSharpDocs;
+                public class Outer<T> {
+                    public class Inner<U> {
+                        public record Snapshot(int Value);
+                        public delegate void Callback<V>(V value);
+                        public enum State { Ready }
+                    }
+                }
+                """;
+            File.WriteAllText(Path.Combine(root, "Declarations.cs"), source);
+            var references = TargetFrameworkResolver.GetReferenceAssemblies(TargetFrameworkResolver.ResolveVersion("net10.0"))
+                .Select(path => Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(path));
+            var assemblyPath = Path.Combine(root, "CSharpDocs.dll");
+            var declarations = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create("CSharpDocs",
+                [Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(source)], references,
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+            using (var stream = File.Create(assemblyPath))
+            {
+                var emitted = declarations.Emit(stream);
+                Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+            }
+            var reference = MetadataReference.CreateFromFile(assemblyPath);
+            var (compilation, _) = CreateCompilation("", references: TestMetadataReferences.Default.Concat([reference]).ToArray());
+            _ = compilation.GetDiagnostics();
+            var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            var output = Path.Combine(root, "site");
+            DocumentationGenerator.ProcessAssembly(compilation, assembly, output,
+                new DocumentationSiteOptions([], SourceRepository: new DocumentationSourceRepository(
+                    "https://github.com/example/csharp", Root: root, Paths: ["Declarations.cs"])));
+            var innerDirectory = Path.Combine(output, "CSharpDocs/Outer`1/Inner`1");
+            var inner = File.ReadAllText(Path.Combine(innerDirectory, "index.html"));
+            inner.ShouldContain("<strong>Namespace</strong>: <a href=\"../../index.html\">CSharpDocs</a>");
+            inner.ShouldContain("<strong>Containing type</strong>: <a href=\"../index.html\">Outer&lt;T&gt;</a>");
+            foreach (var relative in new[] { "index.html", "Snapshot/index.html", "Callback`1/index.html", "State/index.html" })
+            {
+                var html = File.ReadAllText(Path.Combine(innerDirectory, relative));
+                html.ShouldContain("https://github.com/example/csharp/blob/main/Declarations.cs");
+                html.ShouldContain("CSharpDocs.dll");
+            }
+            var snapshot = File.ReadAllText(Path.Combine(innerDirectory, "Snapshot/index.html"));
+            snapshot.ShouldContain("<strong>Namespace</strong>: <a href=\"../../../index.html\">CSharpDocs</a>");
+            snapshot.ShouldContain("<strong>Containing type</strong>: <a href=\"../index.html\">Inner&lt;U&gt;</a>");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MetadataSourceLinksUseConfiguredDeclarationsAndPreserveAssemblyName(bool csharp)
     {
         const string source = "namespace Links { public class Box<T> { public val Value: int => 42 }\npublic class Missing { } }";
         var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "SourceLinksFixture");
@@ -19,8 +75,16 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
         try
         {
             // File name deliberately differs from the type name. Comments must not create declarations.
-            File.WriteAllText(Path.Combine(root, "src/Container file.rvn"),
-                "namespace Links\n// public class Missing { }\npublic class Box<T> { public val Value: int => 42 }");
+            var extension = csharp ? "cs" : "rvn";
+            File.WriteAllText(Path.Combine(root, "src/Container file." + extension), csharp
+                ? "namespace Links; // public class Missing { }\npublic partial class Box<T> { public int Value => 42; }"
+                : "namespace Links\n// public class Missing { }\npublic class Box<T> { public val Value: int => 42 }");
+            if (csharp)
+            {
+                File.WriteAllText(Path.Combine(root, "src/Partial.cs"), "namespace Links { public partial class Box<T> { } }");
+                Directory.CreateDirectory(Path.Combine(root, "src/obj"));
+                File.WriteAllText(Path.Combine(root, "src/obj/Generated.cs"), "namespace Links { public class Missing { } }");
+            }
             var output = Path.Combine(root, "out");
             DocumentationGenerator.ProcessAssembly(compilation, assembly, output,
                 new DocumentationSiteOptions([], SourceRepository: new DocumentationSourceRepository(
@@ -30,7 +94,8 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             linked.Length.ShouldBeGreaterThan(1); // Type and member pages.
             foreach (var page in linked)
             {
-                page.ShouldContain("https://github.com/example/library/blob/v1/src/Container%20file.rvn");
+                page.ShouldContain("https://github.com/example/library/blob/v1/src/Container%20file." + extension);
+                if (csharp) page.ShouldContain("https://github.com/example/library/blob/v1/src/Partial.cs");
                 page.ShouldNotContain("github.com/marinasundstrom/raven");
                 page.ShouldContain("SourceLinksFixture.dll");
             }
@@ -72,6 +137,12 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             var outer = File.ReadAllText(Path.Combine(output, "NestedDocs/Outer/index.html"));
             outer.ShouldContain("Nested types");
             outer.ShouldContain("Inner");
+            var sidebarStart = outer.IndexOf("<dialog", StringComparison.Ordinal);
+            var sidebarEnd = outer.IndexOf("</dialog>", sidebarStart, StringComparison.Ordinal);
+            outer[sidebarStart..sidebarEnd].ShouldNotContain("Inner/index.html");
+            var inner = File.ReadAllText(Path.Combine(output, "NestedDocs/Outer/Inner/index.html"));
+            inner.ShouldContain("<strong>Containing type</strong>: <a href=\"../index.html\">Outer</a>");
+            inner.ShouldContain("<strong>Namespace</strong>: <a href=\"../../index.html\">NestedDocs</a>");
             Directory.GetDirectories(output, "Hidden", SearchOption.AllDirectories).ShouldBeEmpty();
             Directory.GetFiles(output, "property_Value.html", SearchOption.AllDirectories)
                 .ShouldContain(path => path.Contains("Inner", StringComparison.Ordinal));
@@ -282,10 +353,15 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             else DocumentationGenerator.ProcessAssembly(compilation, assembly, output, options);
             var factory = File.ReadAllText(Path.Combine(output, "Relationships/Factory/index.html"));
             factory.ShouldContain("Create()");
+            factory.ShouldContain("static class Factory");
+            factory.ShouldContain("Static class");
+            factory.ShouldNotContain("<strong>Inheritance</strong>");
+            factory.ShouldNotContain("id=\"show-inherited-members\"");
             factory.ShouldNotContain("data-member-inherited=\"true\"");
             factory.ShouldNotContain("GetHashCode()");
             factory.ShouldNotContain("ToString()");
             var page = File.ReadAllText(Path.Combine(output, "Relationships/Derived/index.html"));
+            page.ShouldContain("<strong>Inheritance</strong>");
             page.ShouldContain("Inherited from");
             page.ShouldContain("../Base/method_Read.html");
             page.ShouldNotContain("Hidden()");
@@ -321,6 +397,10 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             concretePage.ShouldNotContain("Identity&lt;T&gt;");
             var containerPage = File.ReadAllText(Path.Combine(output, metadata ? "Relationships/GenericExtras/index.html" : "Relationships/GenericExtras`1/index.html"));
             containerPage.ShouldContain("Identity");
+            containerPage.ShouldContain("static class GenericExtras");
+            containerPage.ShouldNotContain("<strong>Inheritance</strong>");
+            containerPage.ShouldNotContain("id=\"show-inherited-members\"");
+            containerPage.ShouldNotContain("data-member-inherited=\"true\"");
             containerPage.ShouldContain("symbol-extension-marker\">E</span>");
             containerPage.ShouldNotContain("data-member-extension=\"true\"");
             page.ShouldContain("Extra()");
@@ -420,8 +500,9 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             var web = tree.Descendants("details").Single(node => node.Element("summary")?.Value == "Example.Web");
             web.Attribute("open").ShouldNotBeNull();
             web.Descendants("a").ShouldContain(link => (string?)link.Attribute("href") == "../index.html");
-            var request = web.Descendants("details").Single(node => node.Element("summary")?.Attribute("title")?.Value == "Request");
-            request.Descendants("a").ShouldContain(link => (string?)link.Attribute("href") == "Header/index.html");
+            web.Descendants("a").ShouldContain(link => (string?)link.Attribute("title") == "Request");
+            web.Descendants("a").ShouldNotContain(link => (string?)link.Attribute("href") == "Header/index.html");
+            page.ShouldContain("href=\"Header/index.html\"");
             page.ShouldContain("aria-current=\"location\"");
         }
         finally { if (Directory.Exists(output)) Directory.Delete(output, true); }

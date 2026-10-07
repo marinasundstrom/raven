@@ -15,6 +15,7 @@ public static partial class DocumentationGenerator
     {
         foreach (var type in DocumentedTypes.Values)
         {
+            if (IsStaticType(type)) continue;
             var related = new Dictionary<string, bool>(StringComparer.Ordinal);
             for (var ancestor = type.BaseType; ancestor is not null; ancestor = ancestor.BaseType)
                 related[TypeDefinitionId(ancestor)] = SymbolEqualityComparer.Default.Equals(ancestor, type.BaseType);
@@ -91,7 +92,7 @@ public static partial class DocumentationGenerator
             seen.Add(MemberIdentity(member));
             yield return member;
         }
-        if (type.IsStatic) yield break;
+        if (IsStaticType(type)) yield break;
         for (var ancestor = type.BaseType; ancestor is not null; ancestor = ancestor.BaseType)
             foreach (var member in PublicRelatedMembers(ancestor))
                 if (seen.Add(MemberIdentity(member))) yield return member;
@@ -102,6 +103,7 @@ public static partial class DocumentationGenerator
 
     private static IEnumerable<string> ClosedHierarchyLines(string directory, ITypeSymbol type)
     {
+        if (IsStaticType(type)) yield break;
         if (type is INamedTypeSymbol { IsSealedHierarchy: true } root)
         {
             yield return "**Closed hierarchy**: only the permitted direct subtypes can extend this type.<br />";
@@ -263,7 +265,7 @@ public static partial class DocumentationGenerator
 
     private static IEnumerable<ISymbol> ApplicableExtensionMembers(ITypeSymbol type)
     {
-        if (ExtensionModel is null || type.IsStatic) yield break;
+        if (ExtensionModel is null || IsStaticType(type)) yield break;
         // Definitions have no TypeArguments. Lookup needs the open constructed
         // receiver so it can infer extension parameters from Task<T>, Result<T, E>, etc.
         var receiver = type is INamedTypeSymbol { Arity: > 0 } named && named.TypeArguments.IsEmpty
