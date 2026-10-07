@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- Infer synchronous lambda results from `match` arms and block returns before
+  fixing an unresolved generic method result parameter. Preserve lexical generic
+  targets and query-order consistency. Update the list-deconstruction sample to
+  handle empty rows, and make the NanoFramework metadata gate prepare its own
+  references independently of test order.
+
 - **2026-10-07:** Normalize primitive-bootstrap Object type syntax to an explicitly
   selected native Object owner during binding. Parent-namespace lookup now agrees
   with object keyword and qualified type spelling. This fixes separate System.Data

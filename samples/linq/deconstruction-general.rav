@@ -1,5 +1,6 @@
 import System.*
 import System.Console.*
+import System.Collections.Immutable.*
 import System.Linq.*
 
 func Main() -> () {
@@ -13,8 +14,12 @@ func Main() -> () {
     let (firstNumber, firstText) = pairs[0]
     WriteLine("$firstNumber:$firstText")
 
-    let rows = [[1, 2, 3], [4, 5, 6]]
-    let tails = rows.Select(([head, ..tail]) => tail)
+    let rows = [[1, 2, 3], [4, 5, 6], ImmutableList<int>.Empty]
+    // A row can be empty, so extract its tail inside an exhaustive match.
+    let tails = rows.Select(row => row match {
+        [_, ..let tail] => tail
+        _ => row
+    })
 
     for value in tails.SelectMany(x => x) {
         WriteLine(value)
