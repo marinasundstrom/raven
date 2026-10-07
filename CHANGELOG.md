@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Keep article navigation sections collapsible with native keyboard
+  controls, automatically opening the section containing the current page.
+  Preserve automatic library links when a site has no authored menu.
+
 - **2026-10-07:** Use configured API source titles for overview headings as well as
   navigation, with `apiTitle` available for single-source sites. Label Raven APIs
   Core extensions and Macros while retaining assembly filenames in symbol details.

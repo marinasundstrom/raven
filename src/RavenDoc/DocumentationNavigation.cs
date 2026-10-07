@@ -46,6 +46,9 @@ internal static class DocumentationNavigation
     {
         if (items.Count == 0) return "";
         var builder = new StringBuilder();
+        bool Current(DocumentationNavigationItem item) => item.Url is { } url &&
+            !Uri.TryCreate(url, UriKind.Absolute, out _) && Path.GetFullPath(Path.Combine(root, url)) == currentPage;
+        bool ContainsCurrent(DocumentationNavigationItem item) => Current(item) || item.Children?.Any(ContainsCurrent) == true;
         void Link(DocumentationNavigationItem item)
         {
             var label = RavenDocSiteTemplate.Escape(item.Label);
@@ -62,11 +65,12 @@ internal static class DocumentationNavigation
                 builder.Append("<li>");
                 if (!item.Api && item.Kind is null && item.Children is { Count: > 0 } children)
                 {
-                    builder.Append("<section class=\"documentation-nav-section\"><h3>");
-                    Link(item);
-                    builder.Append("</h3>");
-                    Append(children);
-                    builder.Append("</section>");
+                    builder.Append($"<details class=\"documentation-nav-section\"{(ContainsCurrent(item) ? " open" : "")}><summary>{RavenDocSiteTemplate.Escape(item.Label)}</summary>");
+                    var links = item.Url is not null && !children.Any(child => child.Url == item.Url)
+                        ? new[] { item with { Label = "Overview", Children = null } }.Concat(children).ToArray()
+                        : children;
+                    Append(links);
+                    builder.Append("</details>");
                 }
                 else Link(item);
                 builder.Append("</li>");

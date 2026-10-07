@@ -28,6 +28,8 @@ public sealed class DocumentationSiteBuilderTests
             File.ReadAllText(Path.Combine(root, "_site/libraries/second/index.html")).ShouldContain("<h1>Second library</h1>");
             File.ReadAllText(Path.Combine(root, "_site/libraries/first/First/Widget/index.html")).ShouldContain("first.dll");
             var home = File.ReadAllText(Path.Combine(root, "_site/index.html"));
+            home.ShouldContain("href=\"libraries/first/index.html\"");
+            home.ShouldContain("href=\"libraries/second/index.html\"");
             home.ShouldContain("href=\"libraries/first/First/Widget/index.html\"");
             home.ShouldContain("href=\"libraries/second/Second/Gadget/index.html\"");
             foreach (var path in new[] { "libraries/first/First/Widget", "libraries/second/Second/Gadget" })

@@ -132,6 +132,15 @@ try {
   const macroNavigation = page.locator('.api-navigation-panel');
   assert.ok(await macroNavigation.locator('a[href$="macro_Quote.html"]').count() > 0, 'Macro-only library is navigable');
   assert.ok(await macroNavigation.locator('summary[title="Raven.Macros"]').count() > 0, 'Macro namespace is listed');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${base}/raven-for-csharp-developers.html`);
+  const currentSection = page.locator('.documentation-nav-section').filter({ has: page.locator('a[aria-current="page"]') }).first();
+  assert.equal(await currentSection.evaluate(e => e.open), true, 'Current reading section opens automatically');
+  await currentSection.locator(':scope > summary').click();
+  assert.equal(await currentSection.evaluate(e => e.open), false);
+  await currentSection.locator(':scope > summary').focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await currentSection.evaluate(e => e.open), true, 'Reading sections support keyboard toggling');
   assert.deepEqual(errors, []);
   console.log('Documentation browser checks passed: responsive layout, contrast, keyboard navigation, reference search, and example links.');
 } finally {
