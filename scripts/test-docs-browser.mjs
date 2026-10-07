@@ -246,19 +246,46 @@ try {
   assert.equal(await page.locator('#api-browser a[href*="BinderReentryInstrumentation/Snapshot/"]').count(), 0,
     'Nested types are reached through the containing type, not sidebar branches');
   assert.ok((await page.locator('article').textContent()).includes('Raven.CodeAnalysis.dll'));
+  await page.evaluate(() => sessionStorage.clear());
+  let releaseNavigation;
+  let navigationStarted;
+  let navigationRequests = 0;
+  const navigationPending = new Promise(resolve => { navigationStarted = resolve; });
+  const navigationRelease = new Promise(resolve => { releaseNavigation = resolve; });
+  await page.route('**/api-navigation.html*', async route => {
+    navigationRequests++;
+    navigationStarted();
+    await navigationRelease;
+    await route.continue();
+  });
   await page.goto(`${base}/preview/libraries/raven-codeanalysis/Raven/CodeAnalysis/Compilation/index.html`);
+  await navigationPending;
+  const pendingPanel = page.locator('[data-navigation-src]');
+  assert.equal(await pendingPanel.evaluate(element => getComputedStyle(element).visibility), 'hidden',
+    'Do not flash the fallback menu while the shared tree is loading');
+  const sidebarHeight = (await page.locator('#api-browser').boundingBox()).height;
+  releaseNavigation();
   await page.locator('[data-navigation-loaded="true"]').waitFor();
+  assert.equal(await pendingPanel.evaluate(element => getComputedStyle(element).visibility), 'visible');
+  assert.ok(Math.abs((await page.locator('#api-browser').boundingBox()).height - sidebarHeight) < 1,
+    'Loading the menu preserves the sidebar height');
   assert.ok(await page.locator('#api-browser details[open] a[aria-current]').count(), 'Shared tree opens the active namespace');
   await page.locator('#navigation-filter').fill('SemanticModel');
   const sharedType = page.locator('#api-browser a[title="SemanticModel"]');
   assert.ok((await sharedType.getAttribute('href')).includes('/preview/libraries/raven-codeanalysis/'));
   await followLink(sharedType);
+  await page.locator('[data-navigation-loaded="true"]').waitFor();
   assert.equal(await page.locator('h1').textContent(), 'SemanticModel');
-  await page.route('**/api-navigation.html', route => route.abort());
+  assert.equal(navigationRequests, 1, 'Subsequent pages restore the shared tree from session cache');
+  await page.unroute('**/api-navigation.html*');
+  await page.evaluate(() => sessionStorage.clear());
+  await page.route('**/api-navigation.html*', route => route.abort());
   await page.goto(`${base}/libraries/raven-codeanalysis/Raven/CodeAnalysis/Compilation/index.html`);
   await page.locator('[data-navigation-loaded="true"]').waitFor();
   assert.ok(await page.locator('#api-browser a[title="Raven.CodeAnalysis"]').count(), 'Namespace fallback survives a failed navigation request');
-  await page.unroute('**/api-navigation.html');
+  assert.equal(await page.locator('#api-browser a[title="SemanticModel"]').count(), 0);
+  assert.equal(await page.locator('[data-navigation-src]').evaluate(element => getComputedStyle(element).visibility), 'visible');
+  await page.unroute('**/api-navigation.html*');
   await followLink(page.locator('.site-navigation').getByRole('link', { name: 'Getting started', exact: true }));
   assert.deepEqual(await readingLinks(), hierarchy, 'Returning from API restores the documentation hierarchy');
   await followLink(page.locator('.site-navigation').getByRole('link', { name: 'Language reference', exact: true }));

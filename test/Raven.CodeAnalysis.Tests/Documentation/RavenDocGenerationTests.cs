@@ -28,7 +28,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             var shared = File.ReadAllText(Path.Combine(output, "api-navigation.html"));
             shared.ShouldContain("PublicApiTypeWithALongDescriptiveName219/index.html");
             var page = File.ReadAllText(Path.Combine(output, "LargeDocs/PublicApiTypeWithALongDescriptiveName0/index.html"));
-            page.ShouldContain("data-navigation-src=\"../../api-navigation.html\"");
+            page.ShouldContain("data-navigation-src=\"../../api-navigation.html?v=");
             page.ShouldContain("href=\"../index.html\"");
             page.ShouldNotContain("PublicApiTypeWithALongDescriptiveName219");
             File.Exists(Path.Combine(output, "LargeDocs/PublicApiTypeWithALongDescriptiveName219/index.html")).ShouldBeTrue();

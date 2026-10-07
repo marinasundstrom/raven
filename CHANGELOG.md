@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- Avoid shared-sidebar flicker by reserving its space, suppressing the temporary fallback during loading, and caching versioned navigation per browser tab. Keep fallback access when scripts or requests fail.
+
 - Optionally share RavenDoc API navigation trees across pages (`sharedApiNavigation: true`, disabled by default) instead of duplicating them in every HTML file. Preserve namespace navigation without JavaScript and full filtering when the shared tree loads.
 
 - Preserve complete namespace names when matching metadata types to source declarations, including nested generic C# types.

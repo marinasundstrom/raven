@@ -917,6 +917,12 @@ tree. Generated namespace links remain usable without JavaScript or when the
 shared file fails to load. The default is `false`: sidebars remain inline unless
 the site explicitly opts in. No SPA framework or client-side page routing is used.
 
+The shared tree is cached for the browser tab's session, with a content hash
+invalidating it when navigation changes. The sidebar reserves its height and
+hides the temporary fallback until loading succeeds or fails, avoiding a flash
+of two different menus. If page scripts fail entirely, the fallback is revealed
+after four seconds; without JavaScript it is available immediately.
+
 The API sidebar lists namespace-level types. Public nested types are listed on
 their containing type's page, retain their own pages and remain cross-reference
 and search targets. Nested type metadata identifies the namespace separately
