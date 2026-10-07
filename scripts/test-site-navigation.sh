@@ -25,8 +25,7 @@ assert_contains "$site_root/index.html" 'class="raven-brand" href="index.html"'
 assert_contains "$site_root/workloads/index.html" 'class="raven-brand" href="../index.html"'
 assert_contains "$site_root/compiler/index.html" 'class="raven-brand" href="../index.html"'
 
-# RavenDoc is generated independently, but the combined build explicitly gives
-# it the shared site root so both shallow and nested API pages return there.
+# API references share the main Raven site shell and site-root navigation.
 assert_contains "$site_root/libraries/raven-core/index.html" 'class="raven-brand" href="../../index.html"'
 assert_contains "$site_root/libraries/raven-core/System/Option\`1/index.html" 'class="raven-brand" href="../../../../index.html"'
 

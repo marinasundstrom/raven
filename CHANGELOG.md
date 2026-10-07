@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Integrate Raven.Core and Raven.Macros into the main RavenDoc
+  site configuration and shared Raven header, branding and navigation. Support
+  multiple API inputs with disjoint output paths, shared article cross-references
+  and one search index; preserve existing library URLs. Show Raven namespaces
+  flat and float copy controls without adding space above code or signatures.
+
 - **2026-10-07:** Allow explicit source ownership of NeoCLR System.Value through
   the bootstrap manifest. Emit its empty declaration as runtime erased storage,
   not an ordinary struct; keep it separate from CLI special types. Native payload

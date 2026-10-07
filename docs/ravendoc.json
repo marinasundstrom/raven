@@ -366,5 +366,21 @@
     "images",
     "assets",
     "lang/spec/grammar.ebnf"
-  ]
+  ],
+  "apis": [
+    {
+      "input": "../src/Raven.Core/Raven.Core.rvnproj",
+      "path": "libraries/raven-core",
+      "title": "Raven.Core"
+    },
+    {
+      "input": "../src/Raven.Macros",
+      "path": "libraries/raven-macros",
+      "title": "Raven.Macros",
+      "references": [
+        "../src/Raven.CodeAnalysis/bin/Debug/net10.0/Raven.CodeAnalysis.dll"
+      ]
+    }
+  ],
+  "namespaceNavigation": "flat"
 }

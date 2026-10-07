@@ -1494,12 +1494,13 @@ public static partial class DocumentationGenerator
         }
     }
 
-    internal static string ResolveArticleXref(string url, string currentDir)
+    internal static string ResolveArticleXref(string url, string currentDir, IReadOnlyDictionary<string, string>? targets = null)
     {
+        targets ??= XrefToTargetPath;
         var id = NormalizeXrefIdIncoming(url["xref:".Length..]);
-        if (XrefToTargetPath.TryGetValue(id, out var target)) return RelLink(currentDir, target);
+        if (targets.TryGetValue(id, out var target)) return RelLink(currentDir, target);
         foreach (var prefix in new[] { "T:", "N:", "M:", "P:", "F:", "E:" })
-            if (XrefToTargetPath.TryGetValue(prefix + id, out target)) return RelLink(currentDir, target);
+            if (targets.TryGetValue(prefix + id, out target)) return RelLink(currentDir, target);
         throw new InvalidOperationException($"Unresolved article xref: {url}");
     }
 

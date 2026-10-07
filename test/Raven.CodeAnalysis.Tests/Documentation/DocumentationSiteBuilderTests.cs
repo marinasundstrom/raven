@@ -4,6 +4,68 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 
 public sealed class DocumentationSiteBuilderTests
 {
+    [Fact]
+    public void MultipleLibrariesShareBrandingAndPreserveBothArticleXrefs()
+    {
+        WithDirectory(root =>
+        {
+            File.WriteAllText(Path.Combine(root, "first.rvn"), "namespace First { public class Widget { } }");
+            File.WriteAllText(Path.Combine(root, "second.rvn"), "namespace Second { public class Gadget { } }");
+            File.WriteAllText(Path.Combine(root, "index.md"), "# Home\n[Widget](xref:T:First.Widget) [Gadget](xref:T:Second.Gadget)");
+            var config = Path.Combine(root, "site.json");
+            File.WriteAllText(config, JsonSerializer.Serialize(new
+            {
+                name = "Shared website",
+                search = true,
+                apis = new[] {
+                    new { input = "first.rvn", path = "libraries/first", title = "First library" },
+                    new { input = "second.rvn", path = "libraries/second", title = "Second library" }
+                },
+                pages = new[] { new { source = "index.md" } }
+            }));
+            DocumentationSiteBuilder.Build(config);
+            var home = File.ReadAllText(Path.Combine(root, "_site/index.html"));
+            home.ShouldContain("href=\"libraries/first/First/Widget/index.html\"");
+            home.ShouldContain("href=\"libraries/second/Second/Gadget/index.html\"");
+            foreach (var path in new[] { "libraries/first/First/Widget", "libraries/second/Second/Gadget" })
+            {
+                var html = File.ReadAllText(Path.Combine(root, "_site", path, "index.html"));
+                html.ShouldContain("Shared website");
+                html.ShouldContain("First library");
+                html.ShouldContain("Second library");
+                html.ShouldContain("site-search-query");
+            }
+            var index = File.ReadAllText(Path.Combine(root, "_site/search-index.json"));
+            index.ShouldContain("libraries/first/First/Widget/index.html");
+            index.ShouldContain("libraries/second/Second/Gadget/index.html");
+        });
+    }
+
+    [Theory]
+    [InlineData("libraries/first")]
+    [InlineData("libraries/first/nested")]
+    public void OverlappingLibrariesPreservePublishedSite(string secondPath)
+    {
+        WithDirectory(root =>
+        {
+            Directory.CreateDirectory(Path.Combine(root, "_site"));
+            File.WriteAllText(Path.Combine(root, "_site/index.html"), "Previous site");
+            File.WriteAllText(Path.Combine(root, "index.md"), "# Home");
+            var config = Path.Combine(root, "site.json");
+            File.WriteAllText(config, JsonSerializer.Serialize(new
+            {
+                apis = new[] {
+                    new { input = "first.rvn", path = "libraries/first" },
+                    new { input = "second.rvn", path = secondPath }
+                },
+                pages = new[] { new { source = "index.md" } }
+            }));
+            Should.Throw<InvalidOperationException>(() => DocumentationSiteBuilder.Build(config))
+                .Message.ShouldContain("overlap");
+            File.ReadAllText(Path.Combine(root, "_site/index.html")).ShouldBe("Previous site");
+        });
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
