@@ -10,9 +10,9 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal static class NeoClrUnionMetadata
 {
     internal static void Emit(AssemblyBuilder assembly, IReadOnlyList<SourceUnionDeclarationPlan> unions,
-        Func<INamedTypeSymbol, TypeBuilder> resolve)
+        Func<INamedTypeSymbol, TypeBuilder> resolve, MethodBuilder? sourceMarker = null)
     {
-        var marker = Define("System.Runtime.CompilerServices", "UnionAttribute", []);
+        var marker = sourceMarker ?? Define("System.Runtime.CompilerServices", "UnionAttribute", []);
         var caseMarker = Define("Raven.Runtime.CompilerServices", "RavenUnionCaseAttribute",
             [PrimitiveType.String, PrimitiveType.String, PrimitiveType.Int32]);
         var companionMarker = Define("Raven.Runtime.CompilerServices", "RavenUnionCompanionAttribute", [PrimitiveType.String]);
@@ -31,6 +31,7 @@ internal static class NeoClrUnionMetadata
 
         MethodBuilder Define(string ns, string name, PrimitiveType[] parameters)
         {
+            // When no source marker exists, preserve the bounded embedded-marker contract.
             // Like Raven's embedded CLI markers, these are owned by the output assembly.
             // Native metadata currently models attribute constructors as nominal records;
             // it does not yet model the CLI System.Attribute base class.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Reuse output-owned UnionAttribute constructors during native union
+  emission, preserving source inheritance and preventing duplicate marker definitions.
+  Invalid source markers reject before publication; embedded-marker fallback remains.
+
 - **2026-10-07:** Validate NeoCLR FlagsAttribute and MethodImpl(InternalCall) against the
   exact configured bootstrap identity instead of System.Object's owner. Source-owned
   Object no longer invalidates legitimate core attributes; same-named source attributes

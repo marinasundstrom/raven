@@ -460,8 +460,6 @@ internal static class Int32Emitter
             foreach (var extension in extensionOwners)
                 nativeTypes[extension.Symbol].AddCustomAttribute(new(marker.Definition, []));
         }
-        if (unions.Count != 0)
-            NeoClrUnionMetadata.Emit(assembly, unions, type => nativeTypes[type]);
         var nativeInterfaces = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
         foreach (var contract in interfaces)
         {
@@ -600,6 +598,22 @@ internal static class Int32Emitter
             methods.Add((plan, definition, body));
         }
         var definedMethods = methods.ToDictionary(m => m.Plan.Symbol, m => m.Method, (IEqualityComparer<IMethodSymbol>)SymbolEqualityComparer.Default);
+        if (unions.Count != 0)
+        {
+            // Source definitions own their marker identity and base construction. Resolve
+            // only output symbols/builders; emission never reopens imported metadata.
+            var sourceMarker = declaredTypes.Keys.SingleOrDefault(type =>
+                type.ToFullyQualifiedMetadataName() == "System.Runtime.CompilerServices.UnionAttribute");
+            MetadataMethod? markerConstructor = null;
+            if (sourceMarker is not null)
+            {
+                var constructor = sourceMarker.Constructors.SingleOrDefault(method => !method.IsStatic &&
+                    method.Parameters.IsEmpty && method.DeclaredAccessibility == Accessibility.Public);
+                if (constructor is null || !definedMethods.TryGetValue(constructor, out markerConstructor))
+                    throw Unsupported("source UnionAttribute requires a public parameterless constructor");
+            }
+            NeoClrUnionMetadata.Emit(assembly, unions, type => nativeTypes[type], markerConstructor);
+        }
         foreach (var (plan, definition, _) in methods)
             foreach (var implementation in plan.Symbol.ExplicitInterfaceImplementations)
             {

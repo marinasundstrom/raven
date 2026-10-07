@@ -7356,3 +7356,25 @@ The full-System audit passes these checks and next rejects UnionAttribute's exte
 System.Attribute base. Attribute-class ownership/inheritance is the next boundary;
 complete System still emits no artifact. See neoCLR
 `docs/experiments/extended-cli-metadata/core-attributes-source-root-2026-10-07.md`.
+
+### Source attribute hierarchy and union marker ownership (2026-10-07)
+
+The source-built System library now owns an abstract System.Attribute with a protected
+constructor and the existing UnionAttribute subclass. Native union emission reuses
+the output's public parameterless UnionAttribute constructor after callable definition.
+It never creates a duplicate marker or reopens importer objects. Invalid source marker
+constructors fail before publication. Outputs without a source marker retain the
+existing embedded nominal-record encoding; that fallback still has no Attribute base.
+No Runtime Contract option or format version changes. Compiler-facing FlagsAttribute
+and MethodImpl remain owned by the exact configured bootstrap.
+
+The neoCLR source-attribute driver fixture preserves Attribute -> Object and
+UnionAttribute -> Attribute in introspection and resolves a union's custom attribute
+to the same canonical source marker. A separate API-authored consumer executes the
+source constructor chain and inherited GetHashCode with exit 42. Embedded-marker
+control and invalid-constructor rejection are covered by the same harness. This does
+not claim Raven imported-root consumer support. The explicit minimal seed supplies
+String.Concat for generated union display through the real runtime service.
+101 focused .NET root/constructor/union regressions pass. The full 195-input System
+audit passes binding and next rejects NativeMemory.Alloc's pointer-to-source-Void
+signature; no full-System output is published.
