@@ -13,7 +13,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
         try
         {
             const string source = """
-                namespace CSharpDocs;
+                namespace CSharpDocs.Nested;
                 public class Outer<T> {
                     public class Inner<U> {
                         public record Snapshot(int Value);
@@ -42,9 +42,9 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             DocumentationGenerator.ProcessAssembly(compilation, assembly, output,
                 new DocumentationSiteOptions([], SourceRepository: new DocumentationSourceRepository(
                     "https://github.com/example/csharp", Root: root, Paths: ["Declarations.cs"])));
-            var innerDirectory = Path.Combine(output, "CSharpDocs/Outer`1/Inner`1");
+            var innerDirectory = Path.Combine(output, "CSharpDocs/Nested/Outer`1/Inner`1");
             var inner = File.ReadAllText(Path.Combine(innerDirectory, "index.html"));
-            inner.ShouldContain("<strong>Namespace</strong>: <a href=\"../../index.html\">CSharpDocs</a>");
+            inner.ShouldContain("<strong>Namespace</strong>: <a href=\"../../index.html\">CSharpDocs.Nested</a>");
             inner.ShouldContain("<strong>Containing type</strong>: <a href=\"../index.html\">Outer&lt;T&gt;</a>");
             foreach (var relative in new[] { "index.html", "Snapshot/index.html", "Callback`1/index.html", "State/index.html" })
             {
@@ -53,7 +53,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 html.ShouldContain("CSharpDocs.dll");
             }
             var snapshot = File.ReadAllText(Path.Combine(innerDirectory, "Snapshot/index.html"));
-            snapshot.ShouldContain("<strong>Namespace</strong>: <a href=\"../../../index.html\">CSharpDocs</a>");
+            snapshot.ShouldContain("<strong>Namespace</strong>: <a href=\"../../../index.html\">CSharpDocs.Nested</a>");
             snapshot.ShouldContain("<strong>Containing type</strong>: <a href=\"../index.html\">Inner&lt;U&gt;</a>");
         }
         finally { Directory.Delete(root, true); }
