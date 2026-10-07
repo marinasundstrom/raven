@@ -908,6 +908,15 @@ could transform it, and renderers would consume it. Assembly identity, nested
 ownership, source locations and cross-reference IDs must survive those stages.
 No public content-plugin contract is defined yet.
 
+For large sites, opt in with `"sharedApiNavigation": true` in the site
+configuration. API sidebars are then stored once per API source in
+`api-navigation.html` and loaded by the page script. Links resolve
+relative to that shared file, including when the site is hosted under a URL
+prefix. Active ancestors open automatically, and filtering still covers the full
+tree. Generated namespace links remain usable without JavaScript or when the
+shared file fails to load. The default is `false`: sidebars remain inline unless
+the site explicitly opts in. No SPA framework or client-side page routing is used.
+
 The API sidebar lists namespace-level types. Public nested types are listed on
 their containing type's page, retain their own pages and remain cross-reference
 and search targets. Nested type metadata identifies the namespace separately
