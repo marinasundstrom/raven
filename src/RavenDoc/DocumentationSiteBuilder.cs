@@ -206,7 +206,7 @@ public static class DocumentationSiteBuilder
                 var showNavigation = metadata.Layout != "landing" && (navigationRoot is null ||
                     page.Destination.StartsWith(navigationRoot + "/", StringComparison.Ordinal));
                 File.WriteAllText(destination, template.RenderPage(new RavenDocPageTemplateModel(
-                    metadata.Title ?? page.Page.Title ?? Path.GetFileNameWithoutExtension(page.Source), "Documentation", configuration.Name,
+                    metadata.Title ?? page.Page.Title ?? ArticleTitle(html) ?? Path.GetFileNameWithoutExtension(page.Source), "Documentation", configuration.Name,
                     Link("index.html"), Link("raven-theme.css"), Link("style.css"), Link("site.js"), html,
                     DocumentationNavigation.ResolveLinks(configuration.Links, staging, currentDirectory), showNavigation ? DocumentationNavigation.Render(navigation, staging, currentDirectory, destination) : "", configuration.Name,
                     DocumentationNavigation.Resolve(configuration.Logo, staging, currentDirectory),
@@ -238,6 +238,15 @@ public static class DocumentationSiteBuilder
             if (Directory.Exists(staging))
                 Directory.Delete(staging, recursive: true);
         }
+    }
+
+    private static string? ArticleTitle(string html)
+    {
+        var heading = System.Text.RegularExpressions.Regex.Match(html, @"<h1\b[^>]*>(.*?)</h1>",
+            System.Text.RegularExpressions.RegexOptions.Singleline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!heading.Success) return null;
+        var title = System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(heading.Groups[1].Value, "<[^>]*>", "")).Trim();
+        return title.Length == 0 ? null : title;
     }
 
     private static bool IsWithin(string directory, string path)

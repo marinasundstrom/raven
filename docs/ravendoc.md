@@ -816,3 +816,5 @@ entries from Markdown/XML sidecars. Add authored namespace guidance with
 `uid: N:Example.Settings` in an `apiContent` file; it is validated and merged
 like type/member content. Source namespace comments from multiple declarations
 merge in compilation source order. Implicit parent namespaces do not inherit them.
+
+Article titles default to the first H1 when neither front matter nor page configuration supplies a title.

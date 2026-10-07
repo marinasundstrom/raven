@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Add search controls only to the site header, preserving API hero
+  headers without duplicate IDs. Derive untitled article/browser/search labels from
+  their first heading rather than the Markdown filename.
+
 - **2026-10-07:** Add library namespace overviews and point website links to
   unpublished compiler design records at their repository sources. Preserve
   System namespace comments when the compiler creates its unit-type namespace.
@@ -5608,6 +5612,10 @@ Impact:
   `DocumentationFile`, and `MarkdownDocumentationOutputPath` on open/save so
   documentation emission settings round-trip cleanly through project editing.
 ## Unreleased
+
+- **2026-10-07:** Add search controls only to the site header, preserving API hero
+  headers without duplicate IDs. Derive untitled article/browser/search labels from
+  their first heading rather than the Markdown filename.
 
 - **2026-10-07:** Add library namespace overviews and point website links to
   unpublished compiler design records at their repository sources. Preserve

@@ -41,10 +41,11 @@ public sealed class DocumentationSiteBuilderTests
                 pages = new[] { new { source = "index.md" } }
             }));
             DocumentationSiteBuilder.Build(config);
+            File.ReadAllText(Path.Combine(root, "_site/index.html")).ShouldContain("<title>Welcome · Documentation</title>");
             var output = Path.Combine(root, "_site");
             Directory.CreateDirectory(Path.Combine(output, "library/api"));
             File.WriteAllText(Path.Combine(output, "library/api/index.html"),
-                "<title>Widget API</title><header></header><article>Distinctive contract <script>secret</script></article>");
+                "<title>Widget API</title><header></header><article><header>Distinctive contract</header> <script>secret</script></article>");
             DocumentationSiteBuilder.FinalizeSite(config);
             DocumentationSiteBuilder.FinalizeSite(config);
             var page = File.ReadAllText(Path.Combine(output, "library/api/index.html"));
