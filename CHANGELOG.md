@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-07:** Correct the unit-contract diagnostic regression test to match the
+  existing public empty non-void value-type requirement. Compiler behavior is unchanged.
+
 - **2026-10-05:** Render function callbacks as arrow signatures in RavenDoc member
   lists and parameter tables, preserving links within generic callback results.
   Keep nominal delegate declarations named and parameter names unbroken in tables.
