@@ -4,9 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- RavenDoc shared API navigation drawers fill the mobile viewport instead of inheriting the shorter desktop sidebar height.
+
 - **2026-10-07:** Extend the native bundle relocation probe to preserve nested
   documentation sidecars and assert imported IPAddress help after relocation.
   No compiler, metadata, Runtime Contract or ordinary .NET behavior changes.
+
 
 - **2026-10-07:** Include evaluated native-project .props/.targets imports in metadata
   input discovery. Qualify a relocated class-library bundle through the workspace

@@ -310,6 +310,16 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'Wide table typography stays inside the mobile article');
   const table = page.getByRole('table').first();
   assert.ok(await table.evaluate(e => { e.scrollLeft = 30; return e.scrollLeft > 0; }), 'Wide tables remain scrollable');
+  await page.goto(`${base}/libraries/raven-codeanalysis/Raven/CodeAnalysis/Compilation/index.html`);
+  await page.locator('[data-navigation-loaded="true"]').waitFor({ state: 'attached' });
+  await page.locator('.api-browser-toggle').click();
+  for (const height of [900, 650]) {
+    await page.setViewportSize({ width: 390, height });
+    const drawer = await page.locator('#api-browser').boundingBox();
+    assert.ok(Math.abs(drawer.y) < 1 && Math.abs(drawer.height - height) < 1,
+      'The shared API drawer fills the mobile viewport, including after resizing');
+  }
+  await page.keyboard.press('Escape');
   assert.deepEqual(errors, []);
   console.log('Documentation browser checks passed: responsive layout, contrast, keyboard navigation, reference search, and example links.');
 } finally {
