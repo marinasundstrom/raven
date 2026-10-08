@@ -7988,3 +7988,35 @@ Boxed numeric Object formatting remains explicitly rejected without object publi
 until a later native receiver/metadata profile. This limit is not a permanent language
 rule or a new CLI bridge restriction. Compiler support on main does not ship the
 experimental native backend there; it stays on codex/source-object-metadata-resolution.
+
+## neoCLR StringBuilder and String.Join integration (2026-10-08)
+
+The companion neoCLR main branch adds a development System.Text.StringBuilder with
+fluent append, explicit UTF-8 byte quotas and immutable ToString snapshots, plus
+String.Join(separator: string, values: string[]). These are runtime-library APIs;
+Raven language syntax and ordinary .NET framework lookup are unchanged.
+
+The temporary CLI bridge projects a sealed reference class, fluent returns and
+ToString override, and maps the exact bootstrap service
+StringJoinParts(arrayref<String>, Int32, String, Int32) -> String. The native target
+uses ordinary source-owned CIL class metadata and a namespace InternalCall instead.
+Runtime Contract settings for target platform, metadata format, core/unit identities
+and checked array ownership are unchanged. The CLI importer was refreshed to accept
+String's existing source sequence constructor and authored equality operators.
+The runtime library owns public semantics; the neoCLR bridge owns CLI declarations
+and import validation; Rust/native C services own checked joining and allocation.
+
+The initial builder supports at most 65536 UTF-8 bytes; quota overflow is a user
+fault, not Result propagation. Join preserves separators around empty elements and
+requires non-null initialized inputs, unlike .NET's null-to-empty coercion. No
+formatting/iterable overloads, mutable native-buffer ownership or stable C ABI are
+implied. Native metadata/codegen replaces the temporary facade in native builds;
+the documentation pipeline still uses the aggregate CLI reference.
+
+neoCLR's same-source interpreter/AOT consumers use this integration branch at
+2acfd40ecc88f5ae45ec4178e2f310c12cee8113 and a matching rebuilt Runtime/Data/Networking/Web
+bundle. They validate Unicode, snapshots, reuse, separators and limit fault stacks.
+The neoCLR backend additionally admits sealed-owner virtual calls with their null
+checks, required by ToString. General virtual dispatch and native HTTP server support
+remain incomplete. See neoCLR docs/design/string-building.md and
+docs/experiments/string-building/README.md for evidence and performance limitations.
