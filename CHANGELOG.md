@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-09
 
+- Normalize bootstrap Void values to the explicit RuntimeUnitContract owner during
+  native emission, including nested imported generic constructor signatures. This
+  fixes HttpContext's Promise<Result<Void, HttpError>> initializer metadata mismatch.
+  No-result calls and ordinary .NET emission are unchanged.
+
 - Emit canonical assembly-member XML and Markdown documentation IDs for the neoCLR
   target, omitting the synthesized NamespaceMembers carrier while preserving ordinary
   .NET IDs. Include native assembly functions/constants in RavenDoc navigation, and

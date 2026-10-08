@@ -385,6 +385,16 @@ internal static class Int32Emitter
         {
             // The configured semantic marker is transport only; native metadata keeps Self.
             if (RuntimeSelfTypes.IsSelf(compilation, type)) return SignatureType.Self;
+            // Imported callable substitutions can retain the bootstrap's inhabited
+            // Void token. Value positions must use this compilation's explicit unit
+            // owner; no-result calls are mapped before reaching this nominal path.
+            if (type.SpecialType == SpecialType.System_Void &&
+                compilation.Options.RuntimeUnitContract is not null &&
+                compilation.ResolveRuntimeUnitType() is { } selectedUnit &&
+                !SymbolEqualityComparer.Default.Equals(type, selectedUnit) &&
+                SymbolEqualityComparer.Default.Equals(type.ContainingAssembly,
+                    compilation.GetSpecialType(SpecialType.System_Void).ContainingAssembly))
+                return NeoClrTypeMapper.Map(selectedUnit, owned => nativeTypes[owned], ImportExternalType);
             if (compilation.IsSourceObjectRoot(type)) return nativeTypes[type];
             if (type.SpecialType == SpecialType.System_Char && graphemeOwner is not null)
                 return nativeTypes[graphemeOwner];

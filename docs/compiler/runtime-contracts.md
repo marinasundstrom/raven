@@ -3835,3 +3835,22 @@ recovering comments; that compatibility input is not a permanent loader fallback
 RavenDoc now includes assembly functions/constants in namespace navigation and
 collects declarations from documented libraries rather than letting bootstrap
 primitive equivalence hide Object. Full native-core bootstrap remains separate.
+
+### Native nested unit ownership (2026-10-09)
+
+When RuntimeUnitContract selects a source/native library's System.Void, native
+nominal emission maps the explicit primitive bootstrap's Void value to that selected
+owner. Imported callable substitutions can retain a bootstrap symbol inside nested
+generic constructions; accepting it unchanged produced two incompatible
+Promise<Result<Void, HttpError>> signatures in HttpContext's constructor. The
+metadata verifier remains strict. This mapping is confined to the selected core's
+Void and an explicit unit contract; same-named foreign types are not aliases.
+No-result returns and ordinary .NET compilation are unchanged.
+
+The remaining CLI primitive bootstrap is temporary. A fully native core must carry
+the same explicit inhabited-unit ownership; this fix does not qualify bridge-free
+bootstrap. `tools/NeoClrMetadataProbe/check-unit-owner.py --compiler <rvnc.dll>
+--bundle <native-bundle> --output <fresh-directory>` checks nested field initializer
+constructors with both System.Void and unit spellings. The nominal case reproduces
+NEOMETA003 without the fix; both compile after it. The full neoCLR Web library also
+builds, with the existing seven unit-contract tests retained as controls.
