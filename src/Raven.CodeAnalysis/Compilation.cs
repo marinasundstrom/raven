@@ -2338,6 +2338,8 @@ public partial class Compilation
         return GetOrAddSynthesizedDelegate(parameterImmutable, refKinds, returnType);
     }
 
+    internal string RuntimeUnionInterfaceTypeName => _target.RuntimeContract.UnionInterfaceTypeName;
+
     internal string RuntimeAsyncStateMachineTypeName => _target.RuntimeContract.AsyncStateMachineTypeName;
 
     internal string RuntimeTupleTypeName => _target.RuntimeContract.TupleTypeName;

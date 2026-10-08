@@ -998,7 +998,7 @@ internal class CodeGenerator
         if (UnionInterfaceType is not null)
             return;
 
-        if (TargetRuntimeTypeExists("System.Runtime.CompilerServices.IUnion"))
+        if (TargetRuntimeTypeExists(Compilation.RuntimeUnionInterfaceTypeName))
         {
             TryBindRuntimeCoreTypes();
             if (UnionInterfaceType is not null)
@@ -1007,13 +1007,13 @@ internal class CodeGenerator
 
         if (!_compilation.Options.EmbedCoreTypes)
         {
-            throw new InvalidOperationException("Type 'System.Runtime.CompilerServices.IUnion' not found in runtime assemblies.");
+            throw new InvalidOperationException($"Type '{Compilation.RuntimeUnionInterfaceTypeName}' not found in runtime assemblies.");
         }
 
         var objectType = TypeSymbolExtensionsForCodeGen.GetClrType(Compilation.GetSpecialType(SpecialType.System_Object), this);
 
         var interfaceBuilder = ModuleBuilder.DefineType(
-            "System.Runtime.CompilerServices.IUnion",
+            Compilation.RuntimeUnionInterfaceTypeName,
             TypeAttributes.Public | TypeAttributes.Interface | TypeAttributes.Abstract);
 
         var valueProperty = interfaceBuilder.DefineProperty(
@@ -2071,7 +2071,7 @@ internal class CodeGenerator
         }
 
         if (UnionInterfaceType is null &&
-            Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.IUnion") is PENamedTypeSymbol unionInterfaceSymbol)
+            Compilation.GetTypeByMetadataName(Compilation.RuntimeUnionInterfaceTypeName) is PENamedTypeSymbol unionInterfaceSymbol)
         {
             UnionInterfaceType = unionInterfaceSymbol.GetTypeInfo().AsType();
         }

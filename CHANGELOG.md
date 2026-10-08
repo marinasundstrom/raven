@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-08:** Select `System.Runtime.CompilerServices.UnionValue` for the
+  neoCLR union bridge, including explicitly configured legacy probe-core callers.
+  Runtime lookup, generated protocol definitions and imported protocol reuse agree;
+  ordinary .NET keeps `IUnion`. Keep renamed async interface signatures in the
+  selected target metadata instead of loading them from the compiler host, including
+  explicit legacy probe-core callers. Rebuild neoCLR references and consumers together.
+  Sixteen focused target-profile, .NET union-protocol and output-initialization tests pass.
+
 - **2026-10-08:** Keep metadata types resolved during incomplete source declarations
   out of the canonical and namespace-scoped lookup caches. A later namespace import
   now selects the source declaration instead of an earlier metadata duplicate,

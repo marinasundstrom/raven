@@ -8061,3 +8061,28 @@ and all runtime/reference bundles together. Old prefixed artifacts are not alias
 CLI bridge helpers retain their existing callback/heap state-machine restrictions;
 the native backend emits the actual unprefixed metadata identity. A future removal
 of the CLI bootstrap does not require another public interface rename.
+
+### Unprefixed union bridge interface (2026-10-08)
+
+The neoCLR Runtime Contract names the boxed-active-case CLI bridge interface
+`System.Runtime.CompilerServices.UnionValue`. The existing explicit legacy
+`NeoCLR.CoreProbe` target-core compatibility contract selects the same identity.
+Lookup, generated interface definitions and imported interface reuse use this one
+contract. Ordinary .NET retains `IUnion`; `IUnionSymbol` and related compiler API
+interfaces are unchanged. Rebuild matched neoCLR references, runtime and consumers.
+The native backend's native union metadata is unchanged; this naming correction
+does not add native general boxing or reflection. Sixteen focused profile, .NET union-protocol and output-initialization checks pass.
+
+Legacy explicit probe-core async lookup also uses `AsyncStateMachine`, including
+CLI special-type recognition in the selected provider; ordinary .NET remains
+unchanged. The companion neoCLR bridge refresh translates current union constructor
+field defaults into checked native field writes and materializes typed null output
+stores. Its regenerated union library now follows the existing shared bound-body
+contract from `0d261d8be`: TryGetValue clears outputs on failure. The legacy union
+and time/timezone samples pass, with ten error-union admission/rejection cases.
+This corrects stale bridge behavior rather than changing Raven's union semantics.
+
+Async interface signatures use target metadata alongside task/builder types during
+persisted CLI emission; they are not resolved through the compiler host's runtime
+assemblies. Regression checks emit a pass-through signature for explicit NeoCLR
+and legacy probe-core profiles and inspect its return type and assembly scope.

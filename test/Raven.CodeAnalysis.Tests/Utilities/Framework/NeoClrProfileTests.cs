@@ -45,6 +45,17 @@ public sealed class NeoClrProfileTests
     }
 
     [Fact]
+    public void UnionInterfaceNamesFollowExplicitAndLegacyNeoClrContracts()
+    {
+        Assert.Equal("System.Runtime.CompilerServices.UnionValue",
+            new NeoClrCliRuntimeContract(CompilationOptions.NeoCLR).UnionInterfaceTypeName);
+        Assert.Equal("System.Runtime.CompilerServices.UnionValue",
+            new DotNetRuntimeContract(CompilationOptions.DotNet.WithTargetCoreAssemblyName("NeoCLR.CoreProbe")).UnionInterfaceTypeName);
+        Assert.Equal("System.Runtime.CompilerServices.IUnion",
+            new DotNetRuntimeContract(CompilationOptions.DotNet).UnionInterfaceTypeName);
+    }
+
+    [Fact]
     public void AsyncInterfaceNamesFollowTheSelectedTargetContract()
     {
         var special = SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine;
@@ -56,8 +67,10 @@ public sealed class NeoClrProfileTests
         Assert.Equal("IAsyncStateMachine", dotnet.GetSpecialType(special).Name);
     }
 
-    [Fact]
-    public void NeoClrCliImportRecognizesTheUnprefixedStateMachineInterface()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NeoClrCliImportRecognizesTheUnprefixedStateMachineInterface(bool legacyCoreSelection)
     {
         var corePath = TestMetadataReferences.Default.OfType<PortableExecutableReference>()
             .Single(reference => Path.GetFileName(reference.FilePath) == "System.Runtime.dll").FilePath!;
@@ -67,14 +80,28 @@ public sealed class NeoClrProfileTests
         core.MainModule.GetType("System.Runtime.CompilerServices.IAsyncStateMachine").Name = "AsyncStateMachine";
         using var image = new MemoryStream();
         core.Write(image);
-        var compilation = Compilation.Create("NeoClrAsyncNames", [],
+        var source = SyntaxTree.ParseText("""
+            public static class Consumer {
+                public static func Pass(state: System.Runtime.CompilerServices.AsyncStateMachine) -> System.Runtime.CompilerServices.AsyncStateMachine => state
+            }
+            """);
+        var compilation = Compilation.Create("NeoClrAsyncNames", [source],
             [.. TestMetadataReferences.Default, MetadataReference.CreateFromImage(image.ToArray())],
-            CompilationOptions.NeoCLR.WithRuntimeTypeOfContract(null));
+            CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary).WithRuntimeTypeOfContract(null)
+                .WithTargetPlatform(legacyCoreSelection ? TargetPlatform.DotNet : TargetPlatform.NeoCLR));
         var machine = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine);
         Assert.Equal(TypeKind.Interface, machine.TypeKind);
         Assert.Equal("AsyncStateMachine", machine.Name);
         Assert.Equal("NeoCLR.CoreProbe", machine.ContainingAssembly.Name);
         Assert.Equal(SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine, machine.SpecialType);
+        using var emitted = new MemoryStream();
+        var result = compilation.Emit(emitted);
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        emitted.Position = 0;
+        using var consumer = AssemblyDefinition.ReadAssembly(emitted);
+        var pass = consumer.MainModule.GetType("Consumer").Methods.Single(m => m.Name == "Pass");
+        Assert.Equal("System.Runtime.CompilerServices.AsyncStateMachine", pass.ReturnType.FullName);
+        Assert.Equal("NeoCLR.CoreProbe", pass.ReturnType.Scope.Name);
     }
 
     public static IEnumerable<object[]> InvalidConfigurations()

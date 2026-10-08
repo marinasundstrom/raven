@@ -7,6 +7,12 @@ internal sealed class DotNetRuntimeContract(CompilationOptions options) : CliRun
     internal override string TupleTypeName => NeoClrCliCompatibility.UsesLegacyContract(Options)
         ? "System.Tuple" : "System.ValueTuple";
 
+    internal override string AsyncStateMachineTypeName => NeoClrCliCompatibility.UsesLegacyContract(Options)
+        ? "System.Runtime.CompilerServices.AsyncStateMachine" : base.AsyncStateMachineTypeName;
+
+    internal override string UnionInterfaceTypeName => NeoClrCliCompatibility.UsesLegacyContract(Options)
+        ? "System.Runtime.CompilerServices.UnionValue" : base.UnionInterfaceTypeName;
+
     internal override bool UsesInhabitedDelegateResults => NeoClrCliCompatibility.UsesLegacyContract(Options);
     internal override bool HasNativeSelfContract => false;
 

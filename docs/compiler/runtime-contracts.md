@@ -3686,3 +3686,14 @@ queries and namespace imports must select a matching source declaration. This is
 a general compiler correction with no Runtime Contract option or target-specific
 policy. It fixes the neoCLR library bootstrap's same-assembly internal property
 lookup without relaxing member accessibility or changing metadata-only queries.
+
+### Unprefixed union bridge interface (2026-10-08)
+
+The neoCLR Runtime Contract names the boxed-active-case CLI bridge interface
+`System.Runtime.CompilerServices.UnionValue`. The existing explicit legacy
+`NeoCLR.CoreProbe` target-core compatibility contract selects the same identity.
+Lookup, generated interface definitions and imported interface reuse use this one
+contract. Ordinary .NET retains `IUnion`; `IUnionSymbol` and related compiler API
+interfaces are unchanged. Rebuild matched neoCLR references, runtime and consumers.
+The native backend's native union metadata is unchanged; this naming correction
+does not add native general boxing or reflection. Sixteen focused profile, .NET union-protocol and output-initialization checks pass.
