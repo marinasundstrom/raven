@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-08:** Keep source-assembly metadata lookup within that assembly and
+  route namespace-qualified expression types through compilation-level type selection.
+  This prevents reference enumeration order from choosing a competing declaration;
+  qualified calls share source precedence and configured target providers with type lookup.
+  Keep closure Object resolution at compilation scope. Add ordinary .NET regression
+  coverage independent of the neoCLR integration. Validate 22 focused lookup,
+  type-resolution and closure tests on this branch.
+
 ### Fixes
 
 - RavenDoc shared API navigation drawers fill the mobile viewport instead of inheriting the shorter desktop sidebar height.

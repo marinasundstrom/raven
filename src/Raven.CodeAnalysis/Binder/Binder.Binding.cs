@@ -9,6 +9,17 @@ namespace Raven.CodeAnalysis;
 
 internal abstract partial class Binder
 {
+    // Qualified expressions must use the same source/metadata and target-provider
+    // selection as type syntax, not the enumeration order of namespace fragments.
+    protected INamedTypeSymbol? LookupCanonicalNamespaceType(INamespaceSymbol owner, string name, int arity)
+    {
+        var namespaceName = owner.ToMetadataName();
+        var metadataName = (string.IsNullOrEmpty(namespaceName) ? "" : namespaceName + ".") + name;
+        if (arity > 0)
+            metadataName += "`" + arity;
+        return Compilation.GetTypeByMetadataName(metadataName);
+    }
+
     // ---------------------------------
     // Helpers: interpret type/name syntax as expression access and vice versa
     // ---------------------------------
@@ -68,10 +79,7 @@ internal abstract partial class Binder
                 }
 
                 // Then a type in that namespace.
-                var typeInNs = nsReceiver.Namespace
-                    .GetMembers(name)
-                    .OfType<INamedTypeSymbol>()
-                    .FirstOrDefault(static type => type.Arity == 0);
+                var typeInNs = LookupCanonicalNamespaceType(nsReceiver.Namespace, name, 0);
 
                 if (typeInNs is null)
                     return false;
@@ -438,26 +446,7 @@ internal abstract partial class Binder
         INamedTypeSymbol? LookupNamespaceType(INamespaceSymbol namespaceSymbol, string name, TypeArgumentListSyntax? typeArguments)
         {
             var arity = typeArguments?.Arguments.Count ?? 0;
-            var namedType = SelectByArity(namespaceSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), arity);
-
-            if (namedType is null && namespaceSymbol.LookupType(name) is INamedTypeSymbol fallback)
-            {
-                var definition = NormalizeDefinition(fallback);
-                if (definition.Arity == arity)
-                    namedType = definition;
-            }
-
-            if (namedType is not null)
-                return namedType;
-
-            if (typeArguments is null)
-                return null;
-
-            var namespaceName = namespaceSymbol.ToMetadataName();
-            if (string.IsNullOrWhiteSpace(namespaceName))
-                return null;
-
-            return Compilation.GetTypeByMetadataName(namespaceName + "." + name + "`" + arity) as INamedTypeSymbol;
+            return LookupCanonicalNamespaceType(namespaceSymbol, name, arity);
         }
 
         static NamePart[] FlattenMemberAccess(MemberAccessExpressionSyntax node)

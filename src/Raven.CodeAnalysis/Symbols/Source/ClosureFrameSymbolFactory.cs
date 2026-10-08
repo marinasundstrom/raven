@@ -12,7 +12,9 @@ internal static class ClosureFrameSymbolFactory
         if (owner is null)
             throw new ArgumentNullException(nameof(owner));
 
-        var baseType = owner.ContainingAssembly.GetTypeByMetadataName("System.Object") as INamedTypeSymbol
+        var baseType = (owner.ContainingAssembly is SourceAssemblySymbol sourceAssembly
+            ? sourceAssembly.Compilation.GetSpecialType(SpecialType.System_Object) as INamedTypeSymbol
+            : owner.ContainingAssembly.GetTypeByMetadataName("System.Object"))
             ?? throw new InvalidOperationException("Unable to resolve System.Object for closure frame.");
 
         var name = CreateClosureName(owner);

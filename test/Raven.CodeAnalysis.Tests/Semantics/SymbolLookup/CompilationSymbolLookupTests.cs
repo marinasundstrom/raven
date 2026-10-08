@@ -12,6 +12,41 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public sealed class CompilationSymbolLookupTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void QualifiedMemberLookupUsesCanonicalMetadataType(bool reverseReferences)
+    {
+        var bootstrap = TestMetadataFactory.CreateFileReferenceFromSource("""
+            namespace Shared {
+                public static class Api {
+                    public static func Legacy() -> int => 1
+                }
+            }
+            """, assemblyName: "Bootstrap");
+        var library = TestMetadataFactory.CreateFileReferenceFromSource("""
+            namespace Shared {
+                public static class Api {
+                    public static func Value() -> int => 42
+                }
+            }
+            """, assemblyName: "Shared.Library");
+        var references = TestMetadataReferences.Default.Concat(reverseReferences
+            ? new[] { library, bootstrap } : new[] { bootstrap, library }).ToArray();
+        for (var i = 0; i < 8; i++)
+        {
+            var tree = SyntaxTree.ParseText("func Main() -> int => Shared.Api.Value()", path: $"lookup-{i}.rvn");
+            var compilation = CreateCompilation(tree, references: references);
+            var expected = compilation.GetTypeByMetadataName("Shared.Api");
+            Assert.Equal("Shared.Library", expected?.ContainingAssembly?.Name);
+            Assert.Null(compilation.Assembly.GetTypeByMetadataName("Shared.Api"));
+            Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+            var api = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
+                .Single(n => n.Identifier.ValueText == "Api");
+            Assert.Equal(expected, compilation.GetSemanticModel(tree).GetSymbolInfo(api).Symbol, SymbolEqualityComparer.Default);
+        }
+    }
+
     [Fact]
     public void GetTypeByMetadataName_PrefersSourceTypeOverReferencedMetadataType()
     {

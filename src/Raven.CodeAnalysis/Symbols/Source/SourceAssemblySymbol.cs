@@ -37,7 +37,7 @@ internal partial class SourceAssemblySymbol : SourceSymbol, IAssemblySymbol
     {
         return _modules
             .OfType<SourceModuleSymbol>()
-            .Select(m => m.ResolveMetadataMember(GlobalNamespace, fullyQualifiedMetadataName))
+            .Select(m => m.FindDeclaredType(fullyQualifiedMetadataName))
             .OfType<INamedTypeSymbol>()
             .FirstOrDefault();
     }
