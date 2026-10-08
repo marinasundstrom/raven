@@ -8115,3 +8115,17 @@ After the fix, 67 focused shared-body/.NET async tests pass. The native queued-a
 consumer now prints `Queued` then `Resumed` in interpreter, sanitized native and
 standalone execution. These are modern .NET and bounded neoCLR checks, not .NET
 Framework/NanoFramework qualification or a benchmark.
+
+### Math bootstrap collision correction (2026-10-08)
+
+neoCLR's explicit source-runtime bootstrap now omits the placeholder System.Math type
+in favor of System.Runtime's native Math namespace. Qualified/wildcard Sign calls
+selected that placeholder in old inputs; an explicit namespace alias selected the
+native function. No Raven binder, Runtime Contract option or native method mapping
+changes. Ordinary .NET type/namespace precedence remains intact. Four focused namespace
+metadata controls pass on integration 2c8c1f9de; comparison with main shows only the
+unrelated union-companion abstraction in ImportBinder. This does not establish a general
+lookup defect on main. Rebuild neoCLR Core.dll and the matching native bundle; old
+artifacts retain their collision. The native-core replacement and namespace constant
+support remain separate work. neoCLR records interpreted/native string-sample evidence
+in benchmarks/native-web/math-lookup-validation.json.

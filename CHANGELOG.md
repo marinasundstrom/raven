@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+### 2026-10-08
+
+- Document neoCLR’s source-owned Math bootstrap correction; ordinary .NET lookup is unchanged.
+
 - **2026-10-08:** Preserve statement-boundary control flow while lowering explicit
   discards in the portable emitter. A discarded await can suspend/resume; nested
   value expressions retain their earlier-operand safety restriction. Semantic APIs,
