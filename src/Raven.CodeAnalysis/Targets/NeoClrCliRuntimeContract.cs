@@ -4,6 +4,7 @@ namespace Raven.CodeAnalysis.Targets;
 // contract must replace CLI marker, type-handle and representation assumptions.
 internal sealed class NeoClrCliRuntimeContract(CompilationOptions options) : CliRuntimeContract(options)
 {
+    internal override string AsyncStateMachineTypeName => "System.Runtime.CompilerServices.AsyncStateMachine";
     internal override string TupleTypeName => "System.Tuple";
     internal override bool UsesInhabitedDelegateResults => true;
     internal override bool HasNativeSelfContract => Options.RuntimeSelfTypeContract is not null;

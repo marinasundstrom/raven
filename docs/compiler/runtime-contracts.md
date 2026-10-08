@@ -3669,3 +3669,11 @@ statement, including a unit payload. Runtime tests cover Task/ValueTask, empty
 and arrow bodies, suspension, configured awaits, and finally exits. The
 `runtime-async-net11` framework-matrix sample exercises both unit task families.
 This changes no Runtime Contract configuration or native neoCLR encoding.
+
+### neoCLR interface names (2026-10-08)
+
+Use descriptive interface names without the .NET `I` prefix. In particular the
+neoCLR async compiler protocol is `AsyncStateMachine` and `TaskAwaiter`; Raven's
+.NET target continues to use .NET's own identities. This is a naming consistency
+choice, not a new dispatch or performance capability. Migrating old neoCLR
+artifacts requires recompilation with a matching compiler/runtime bundle.

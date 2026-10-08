@@ -12,6 +12,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     protected CompilationOptions Options { get; } = options;
 
     internal abstract string TupleTypeName { get; }
+    internal virtual string AsyncStateMachineTypeName => "System.Runtime.CompilerServices.IAsyncStateMachine";
     internal abstract bool UsesInhabitedDelegateResults { get; }
     internal abstract bool HasNativeSelfContract { get; }
     internal virtual bool UsesSourceObjectRoot => false;
@@ -212,7 +213,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
             SpecialType.System_ValueTuple_TRest => $"{TupleTypeName}`8",
             SpecialType.System_Type => "System.Type",
             SpecialType.System_Exception => "System.Exception",
-            SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine => "System.Runtime.CompilerServices.IAsyncStateMachine",
+            SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine => AsyncStateMachineTypeName,
             _ => throw new InvalidOperationException("Special type is not supported."),
         };
     }

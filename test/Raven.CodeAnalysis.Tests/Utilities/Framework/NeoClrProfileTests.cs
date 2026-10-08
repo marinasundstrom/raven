@@ -1,4 +1,7 @@
+using Mono.Cecil;
+
 using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Targets;
 
 namespace Raven.CodeAnalysis.Tests;
 
@@ -39,6 +42,39 @@ public sealed class NeoClrProfileTests
         Assert.False(dotnet.UseGraphemeChar);
         Assert.True(dotnet.AllowArrayCovariance);
         Assert.True(dotnet.AllowNullableValueTypes);
+    }
+
+    [Fact]
+    public void AsyncInterfaceNamesFollowTheSelectedTargetContract()
+    {
+        var special = SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine;
+        Assert.Equal("System.Runtime.CompilerServices.AsyncStateMachine",
+            new NeoClrCliRuntimeContract(CompilationOptions.NeoCLR).GetSpecialTypeMetadataName(special));
+        Assert.Equal("System.Runtime.CompilerServices.IAsyncStateMachine",
+            new DotNetRuntimeContract(CompilationOptions.DotNet).GetSpecialTypeMetadataName(special));
+        var dotnet = Compilation.Create("DotNetControl", [], TestMetadataReferences.Default, CompilationOptions.DotNet);
+        Assert.Equal("IAsyncStateMachine", dotnet.GetSpecialType(special).Name);
+    }
+
+    [Fact]
+    public void NeoClrCliImportRecognizesTheUnprefixedStateMachineInterface()
+    {
+        var corePath = TestMetadataReferences.Default.OfType<PortableExecutableReference>()
+            .Single(reference => Path.GetFileName(reference.FilePath) == "System.Runtime.dll").FilePath!;
+        using var core = AssemblyDefinition.ReadAssembly(corePath);
+        core.Name.Name = "NeoCLR.CoreProbe";
+        core.Name.PublicKey = [];
+        core.MainModule.GetType("System.Runtime.CompilerServices.IAsyncStateMachine").Name = "AsyncStateMachine";
+        using var image = new MemoryStream();
+        core.Write(image);
+        var compilation = Compilation.Create("NeoClrAsyncNames", [],
+            [.. TestMetadataReferences.Default, MetadataReference.CreateFromImage(image.ToArray())],
+            CompilationOptions.NeoCLR.WithRuntimeTypeOfContract(null));
+        var machine = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine);
+        Assert.Equal(TypeKind.Interface, machine.TypeKind);
+        Assert.Equal("AsyncStateMachine", machine.Name);
+        Assert.Equal("NeoCLR.CoreProbe", machine.ContainingAssembly.Name);
+        Assert.Equal(SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine, machine.SpecialType);
     }
 
     public static IEnumerable<object[]> InvalidConfigurations()

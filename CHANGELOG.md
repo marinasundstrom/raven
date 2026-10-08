@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-08:** Map neoCLR async state-machine lookup and CLI emission to
+  `System.Runtime.CompilerServices.AsyncStateMachine`, including native metadata
+  and configured CLI provider recognition. Ordinary .NET retains
+  `IAsyncStateMachine`; internal special-type identifiers are unchanged. Coordinate
+  with neoCLR's `TaskAwaiter` rename and rebuild matched runtime/reference/consumer
+  artifacts. Validate 37 focused profile/async-lowering tests (35 before the change)
+  and native Runtime/Data/Networking/Web emission with real async consumers.
+
 - **2026-10-08:** Document the companion neoCLR metadata fix for inhabited Void
   imports from the explicitly bound core. HTTP Result<Void,HttpError> now compiles
   and executes interpreted; native layout admission remains incomplete. No ordinary
