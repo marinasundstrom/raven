@@ -122,7 +122,7 @@ internal static class NeoClrCommand
         if (args.Length == 1 && args[0] is "--help" or "-h")
         {
             Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--core-reference NeoCLR.CoreProbe.dll] [--reference library.dll] source.rvn ...");
-            Console.WriteLine("Optional --native-core-reference Core.dll selects native-only core semantics instead of --core-reference; runtime seeds remain execution inputs. Project mode does not yet support this selection.");
+            Console.WriteLine("Optional --native-core-reference Core.dll selects native-only core semantics instead of --core-reference; runtime seeds remain execution inputs. Project mode selects it with RavenNeoClrNativeCoreReference.");
             Console.WriteLine("Optional --runtime-seed System.neox binds the explicitly selected CLI core bootstrap to retained runtime services; it imports no additional symbols.");
             Console.WriteLine("Optional --async-library <assembly-name> selects native Task/builder symbols from an explicit --reference. Native async emission is experimental.");
             Console.WriteLine("Optional --source-object-root selects this library's System.Object; requires --library and --core-reference. Use --object-library for an explicitly referenced root; native emission remains capability-checked.");

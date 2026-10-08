@@ -15,7 +15,7 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
 
     /// <inheritdoc />
     public IReadOnlyList<string> GetInputPaths(string projectFilePath, IReadOnlyDictionary<string, string> properties)
-        => new[] { "RavenNeoClrCoreReference", "RavenNeoClrRuntimeSeed", "RavenNeoClrBootstrapOwnership" }
+        => new[] { "RavenNeoClrCoreReference", "RavenNeoClrNativeCoreReference", "RavenNeoClrRuntimeSeed", "RavenNeoClrBootstrapOwnership" }
             .Where(name => properties.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value))
             .Select(name => Path.GetFullPath(properties[name], Path.GetDirectoryName(Path.GetFullPath(projectFilePath))!)).ToArray();
 
@@ -43,14 +43,37 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
         var directory = Path.GetDirectoryName(Path.GetFullPath(projectFilePath))!;
         string? PathProperty(string name) => properties.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value)
             ? Path.GetFullPath(value, directory) : null;
-        var core = PathProperty("RavenNeoClrCoreReference")
-            ?? throw new InvalidDataException("Native metadata requires RavenNeoClrCoreReference.");
-        var catalog = NeoClrReferenceCatalog.Read(core, referencePaths, PathProperty("RavenNeoClrRuntimeSeed"));
+        var core = PathProperty("RavenNeoClrCoreReference");
+        var nativeCore = PathProperty("RavenNeoClrNativeCoreReference");
+        if ((core is null) == (nativeCore is null))
+            throw new InvalidDataException("Select exactly one of RavenNeoClrCoreReference or RavenNeoClrNativeCoreReference.");
+        if (nativeCore is not null)
+            foreach (var property in new[] { "RavenNeoClrBootstrapOwnership", "RavenNeoClrBootstrapIntrinsics",
+                "RavenNeoClrSourceObjectRoot", "RavenNeoClrObjectLibrary", "RavenNeoClrAsyncLibrary" })
+                if (!string.IsNullOrWhiteSpace(properties.GetValueOrDefault(property)))
+                    throw new InvalidDataException("RavenNeoClrNativeCoreReference cannot combine with " + property + ".");
+        var catalog = nativeCore is not null
+            ? NeoClrReferenceCatalog.ReadNative(nativeCore, referencePaths)
+            : NeoClrReferenceCatalog.Read(core!, referencePaths, PathProperty("RavenNeoClrRuntimeSeed"));
         if (options.MetadataImportOptions is { } imports && imports.CoreAssemblyName != catalog.CoreIdentity.Name)
             throw new InvalidDataException("Native project core identity does not match RavenMetadataCoreAssemblyName.");
         if (properties.TryGetValue("RavenTargetCoreAssemblyName", out var targetCore) &&
             !string.IsNullOrWhiteSpace(targetCore) && targetCore != catalog.CoreIdentity.Name)
             throw new InvalidDataException("Native project core identity does not match RavenTargetCoreAssemblyName.");
+        if (nativeCore is not null)
+        {
+            var seed = PathProperty("RavenNeoClrRuntimeSeed");
+            var executionPaths = new[] { nativeCore }.Concat(referencePaths).ToArray();
+            if (seed is not null && (executionPaths.Contains(seed, StringComparer.OrdinalIgnoreCase) || !File.Exists(seed)))
+                throw new InvalidDataException("Native runtime seed must exist and differ from semantic references.");
+            options = options.WithTargetCoreAssemblyName(catalog.CoreIdentity.Name)
+                .WithRuntimeTypeOfContract(null)
+                .WithRuntimeUnitContract(new(catalog.CoreIdentity.Name, "System.Void"))
+                .WithMetadataImportOptions(new MetadataImportOptions(catalog.CoreIdentity.Name)
+                    .WithObjectAssemblyName(catalog.CoreIdentity.Name).WithNativeMetadata());
+            configurations[Path.GetFullPath(projectFilePath)] = new(catalog, executionPaths, seed, null, false, nativeCore);
+            return new(options, catalog.References);
+        }
         var ownershipPath = PathProperty("RavenNeoClrBootstrapOwnership");
         var ownership = ownershipPath is null ? null : BootstrapOwnershipManifest.Read(ownershipPath);
         catalog.ValidateSourceOwnership(ownership?.Libraries.SelectMany(library => library.Types) ?? []);
@@ -112,7 +135,7 @@ public sealed class NeoClrProjectConfiguration
     /// <summary>Creates the native adapter from explicit artifacts, never from importer symbols.</summary>
     public NeoClrEmissionBackend CreateEmissionBackend(string assemblyName) => new(new(
         new(assemblyName, new Version(1, 0, 0, 0)), Catalog.CoreIdentity, Catalog.Dependencies,
-        Catalog.Bootstrap.Reference, bootstrapReference: bootstrapIntrinsics ? Catalog.Bootstrap.Reference : null, primitiveImplementations: ownership?.NativePrimitives?
+        Catalog.CoreReference, bootstrapReference: bootstrapIntrinsics ? Catalog.Bootstrap.Reference : null, primitiveImplementations: ownership?.NativePrimitives?
             .Where(p => p.Value == assemblyName && p.Key != "System.Char").Select(p => Enum.Parse<PrimitiveType>(p.Key[7..])),
         implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Char") == assemblyName));
 

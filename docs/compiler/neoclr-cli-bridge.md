@@ -8391,3 +8391,33 @@ including CLI projections; this is not a claim that the CLI image stores native
 module records. Explicit module source uses that label on either target. Hover,
 completion display and document/workspace symbol kinds follow this contract, while
 ordinary .NET namespace spelling retains namespace presentation.
+
+## Native-only project core selection (2026-10-09)
+
+Set RavenTargetPlatform=NeoCLR, RavenMetadataFormat=NeoCLR and
+`RavenNeoClrNativeCoreReference` to a project-relative native PE/#Neo core path.
+Select exactly one of that property and the legacy `RavenNeoClrCoreReference`.
+The shared project adapter calls ReadNative, sets native-only metadata import,
+selects the core's Object and System.Void contracts and clears the default TypeOf
+service contract, matching the bounded direct driver path. Core identity properties,
+when supplied, must match the artifact. This does not establish a complete core API.
+
+`RavenNeoClrRuntimeSeed` is optional and execution-only in this mode. It must exist
+and differ from semantic references. The native core is included in ReferencePaths
+and selected as ObjectRootPath for `rvnc neoclr --project ... --run ...`; it is also
+a watched input. The seed is never attached as a translated core implementation.
+CreateEmissionBackend uses Catalog.CoreReference and never asks a native catalog
+for its CLI Bootstrap.
+
+BootstrapOwnership, BootstrapIntrinsics, SourceObjectRoot, ObjectLibrary and
+AsyncLibrary settings (with the RavenNeoClr prefix) reject when nonempty in this
+bounded mode. No bridge encoding is introduced: all semantic core/dependency inputs
+are native snapshots. The old explicit CLI bootstrap mode retains its existing
+behavior and limitations. Shared project loading also supplies language-server
+semantics, but installed-editor acceptance is a separate validation step.
+
+The native-core-project probe covers native-only references, module binding, input
+watching, emission, execution paths and nine rejected configurations, including
+preservation of the last successful configuration on failed reload. The checked
+neoCLR project verifier covers driver publication and interpreted/native execution.
+Full source-runtime bootstrap and release package qualification remain open.

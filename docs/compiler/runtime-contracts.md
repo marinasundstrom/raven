@@ -3894,3 +3894,12 @@ keyword; hover, completion descriptions and document/workspace symbols use modul
 terminology for neoCLR, including legacy namespace spelling and imported CLI scopes.
 Ordinary .NET namespace labels remain unchanged. Outline extraction remains syntax-only
 and includes the target in its cache key. No new bound operation kind is introduced.
+
+## Native-only project inputs (development, 2026-10-09)
+
+`RavenNeoClrNativeCoreReference` selects native-only metadata for a NeoCLR-format
+project, with the same explicit Object/unit ownership as the direct native-core
+command. It excludes the CLI bootstrap selection and bridge-specific ownership
+settings; ordinary .NET project defaults are unchanged. Runtime seeds remain
+execution inputs. See the [project contract](neoclr-cli-bridge.md#native-only-project-core-selection-2026-10-09)
+for properties, failures, adapter ownership and validation limits.

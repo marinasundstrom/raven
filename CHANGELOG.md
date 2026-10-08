@@ -6,6 +6,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-09
 
+- Add explicit RavenNeoClrNativeCoreReference project selection: native-only
+  semantic references, emission and runtime core paths, watched core inputs and
+  rejection of mixed CLI/bootstrap settings. Retain the legacy core selection and
+  last successful configuration on failed reload. Full native library bootstrap
+  and installed editor qualification remain separate gates.
+
 - Add file/block `module` declarations using existing namespace syntax nodes,
   qualified-name/import binding and target-aware IsModule symbol information. Native
   metadata preserves logical module ownership and empty declarations; CLI emission
