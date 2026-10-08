@@ -3793,3 +3793,26 @@ rendering. Native source/project inputs and the full neoCLR documentation bundle
 remain separate work. See `docs/ravendoc.md` for configuration and limitations. This
 reuses native compiler loading rather than adding a second metadata decoder or pretending
 that current CLI CoreProbe declarations belong to production libraries.
+
+
+### Assembly-level documentation ownership (2026-10-09)
+
+RavenDoc and DocumentationCommentIdBuilder now support assembly-level function IDs
+`M:Namespace.Function(parameter-types)` and constant IDs `F:Namespace.Constant`, with
+no namespace prefix for global members. Type-owned .NET IDs remain unchanged. Native
+constant symbols forward sidecar documentation through the existing reader. Type
+selection filters no longer dereference a missing declaring type on these members.
+This restores documentation semantics; no emitted IL or runtime contract changes.
+
+The native-only fixture exercises namespaced/global functions, constants and their
+comments. Existing .NET documentation tests remain controls. A separate production
+bundle audit reuses its project metadata configuration, including the explicitly
+retained CLI primitive bootstrap: four actual native library inputs now render 1,632
+API pages with their real owners and no CoreProbe labels. This audit is not native-only
+bootstrap qualification and does not silently expand the strict native loader's policy.
+Full website coverage, comment association and route migration remain required.
+
+The renderer assumption also exists on Raven main. The shared renderer/documentation-ID
+fix is a general candidate; its reduced native regression depends on the integration
+adapter. Carry the independent documentation tests with the shared-line reconciliation,
+rather than treating this renderer fix as permanently target-specific.

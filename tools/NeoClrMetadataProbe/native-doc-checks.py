@@ -62,6 +62,12 @@ member = (site / 'docs/Example/Books/method_Echo.html').read_text()
 assert 'Models.dll' in book and 'A native book with preserved documentation.' in book
 assert 'Additional native API guidance.' in book and '/blob/fixture/models.cs' in book
 assert 'Library.dll' in member and 'Book/index.html' in member
+function = (site / 'docs/Example/method_Score.html').read_text()
+assert 'Library.dll' in function and 'Score(value: int)' in function
+assert 'Assembly function documentation.' in function
+constant = (site / 'docs/Example/field_Scale.html').read_text()
+assert 'Library.dll' in constant and 'Assembly constant documentation.' in constant and '1.5' in constant
+assert (site / 'docs/method_GlobalScore.html').exists()
 assert 'book: Book' in member and 'number: int' in member
 assert 'The original book.' in member and 'The same book instance.' in member
 assert 'Native namespace overview.' in (site / 'docs/Example/index.html').read_text()

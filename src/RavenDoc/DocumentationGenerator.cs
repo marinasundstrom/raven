@@ -1648,12 +1648,17 @@ public static partial class DocumentationGenerator
         return sb.ToString();
     }
 
+    private static string GetMemberOwnerDocPrefix(ISymbol member)
+    {
+        if (member.ContainingType is { } type) return GetTypeDocName(type) + ".";
+        return member.ContainingNamespace is { IsGlobalNamespace: false } ns ? GetNamespaceFullName(ns) + "." : "";
+    }
+
     private static string GetMethodDocName(IMethodSymbol ms)
     {
         // Type.Method(params...)
         var sb = new StringBuilder();
-        sb.Append(GetTypeDocName(ms.ContainingType!));
-        sb.Append('.');
+        sb.Append(GetMemberOwnerDocPrefix(ms));
         sb.Append(ms.Name);
 
         if (ms.Parameters is { Length: > 0 })
@@ -1723,7 +1728,7 @@ public static partial class DocumentationGenerator
     }
 
     private static string GetFieldDocName(IFieldSymbol fs)
-        => $"{GetTypeDocName(fs.ContainingType!)}.{fs.Name}";
+        => GetMemberOwnerDocPrefix(fs) + fs.Name;
 
     private static string GetEventDocName(IEventSymbol es)
         => $"{GetTypeDocName(es.ContainingType!)}.{es.Name}";
@@ -2295,7 +2300,8 @@ public static partial class DocumentationGenerator
            symbol.ContainingType is { } containing && IsSelected(containing) ||
            symbol is INamespaceSymbol ns && (ns.IsGlobalNamespace ||
                IncludedTypes.Any(type => type.StartsWith(GetNamespaceFullName(ns) + ".", StringComparison.Ordinal))) ||
-           symbol is not INamespaceSymbol && IncludedTypes.Contains(GetTypeDocName(symbol as ITypeSymbol ?? symbol.ContainingType!).Replace('+', '.'));
+           symbol is not INamespaceSymbol && (symbol as ITypeSymbol ?? symbol.ContainingType) is { } selectedType &&
+           IncludedTypes.Contains(GetTypeDocName(selectedType).Replace('+', '.'));
 
     private static bool IsDocumentableSymbol(ISymbol symbol)
         => IsSelected(symbol) &&

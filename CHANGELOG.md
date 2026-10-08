@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+### 2026-10-09
+
+- Render assembly-level functions and constants with namespace-qualified documentation
+  IDs instead of assuming a declaring type. Preserve their native XML/Markdown help,
+  including constants; retain type-owned .NET IDs. A production native-library audit
+  now renders real System.Runtime/Data/Networking/Web owners instead of CoreProbe.
+  Its explicit CLI primitive bootstrap remains temporary; production website input
+  replacement still requires coverage and route qualification.
+
 ### 2026-10-08
 
 - Add an explicit native RavenDoc loader for compiled neoCLR libraries, including

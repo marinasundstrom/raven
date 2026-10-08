@@ -6,6 +6,8 @@ namespace Raven.CodeAnalysis.NeoClr;
 
 internal sealed class NativeAssemblyConstantSymbol : Symbol, IFieldSymbol
 {
+    public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
+
     private readonly double value;
     private readonly Lazy<ITypeSymbol> type;
     internal NativeAssemblyConstantSymbol(AssemblyConstantDefinition constant, INamespaceSymbol owner, Func<ITypeSymbol> type)

@@ -1013,3 +1013,11 @@ namespace comment forwarding was missing and is now fixed in the compiler adapte
 The 63 existing .NET RavenDoc generation/site checks also pass. These fixtures do not
 establish every native metadata signature's coverage; the complete library snapshot
 must retain its public-API inventory before switching publication inputs.
+
+
+Assembly-level functions and constants retain namespace-qualified member IDs and
+actual declaring assembly labels. They do not need a synthetic declaring type.
+Native comments follow `M:Namespace.Function(parameter-types)` / `F:Namespace.Constant`;
+existing type-owned .NET IDs keep their previous shape. Global members omit the
+namespace prefix. This corrects the production native-library renderer crash found
+on 2026-10-09, independently of completing the production native core.
