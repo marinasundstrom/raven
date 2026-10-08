@@ -6,6 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-08
 
+- Record the native-only core initialization frontier after neoCLR's self-core writer
+  correction. A native semantic core still reports RAVT004 during .NET metadata-session
+  setup; no bridge-free compiler target or consumer execution is claimed.
+
 - Call types, functions and constants assembly-level members with namespace-qualified
   names. Update the native constant adapter to AssemblyConstantDefinition / AddConstant /
   Constants and the matching renamed metadata contract; rebuild prototype artifacts.

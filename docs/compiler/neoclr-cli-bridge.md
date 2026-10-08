@@ -8190,3 +8190,24 @@ AssemblyInfo.GetMembers for assembly-owned type/function/constant views. Native
 round-trip checks retain ownership, qualified names and overload signatures. Six
 compiler emission/visibility controls pass using the renamed contract; the Math
 consumer still passes interpreted execution and remains AOT-blocked on Double.
+
+
+## Native-only core initialization frontier (2026-10-08)
+
+neoCLR's metadata writer now permits a self-owned native core PE/#Neo container,
+using local TypeDef handles in its reference-only projection rather than an external
+self-dependency. This is producer support, not a new Raven target contract.
+The reduced neoCLR `docs/experiments/native-core-bootstrap` probe passes only a
+`NeoClrMetadataReference` for an authored primitive core. At compiler `bc3c500e6`,
+GetDiagnostics reports RAVT004 because DotNetCompilationTarget still creates a
+DotNetMetadataSession from portable references before native semantic initialization.
+The probe uses the required NeoCLR.CoreProbe identity and emits no consumer.
+
+Native intent is direct core symbol ownership from native metadata. Current catalog,
+driver and project profiles still require the explicit CLI primitive bootstrap;
+ordinary .NET behavior is unchanged. Do not supply a CLI projection as a purported
+fix for the no-bridge release requirement. Next isolate native semantic initialization
+behind an explicit Runtime Contract, then validate complete core ownership, native
+emission, source-library builds and project/editor consumers. A metadata core with
+three primitives is not a complete runtime contract. Compiler hosting on .NET is a
+separate concern; no compiler implementation change is included in this checkpoint.
