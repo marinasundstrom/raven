@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-08:** Keep metadata types resolved during incomplete source declarations
+  out of the canonical and namespace-scoped lookup caches. A later namespace import
+  now selects the source declaration instead of an earlier metadata duplicate,
+  preserving same-assembly access to internal members. Validate 16 focused symbol
+  lookup tests and neoCLR's TaskQueue.Current library-bootstrap reproduction.
+
 - **2026-10-08:** Map neoCLR async state-machine lookup and CLI emission to
   `System.Runtime.CompilerServices.AsyncStateMachine`, including native metadata
   and configured CLI provider recognition. Ordinary .NET retains

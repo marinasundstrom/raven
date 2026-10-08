@@ -3677,3 +3677,12 @@ neoCLR async compiler protocol is `AsyncStateMachine` and `TaskAwaiter`; Raven's
 .NET target continues to use .NET's own identities. This is a naming consistency
 choice, not a new dispatch or performance capability. Migrating old neoCLR
 artifacts requires recompilation with a matching compiler/runtime bundle.
+
+### Source identity after declaration lookup (2026-10-08)
+
+Metadata-only fallback while source declarations are incomplete is provisional.
+It must not populate canonical or namespace-scoped type lookup caches: later
+queries and namespace imports must select a matching source declaration. This is
+a general compiler correction with no Runtime Contract option or target-specific
+policy. It fixes the neoCLR library bootstrap's same-assembly internal property
+lookup without relaxing member accessibility or changing metadata-only queries.

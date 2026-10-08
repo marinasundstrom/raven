@@ -2618,7 +2618,8 @@ public partial class Compilation
             EnsureMacroSignatureCompilation();
             if (_macroSignatureCompilation?.GetTypeByMetadataName(metadataName) is { } macroType)
             {
-                _metadataTypeCache.TryAdd(metadataName, macroType);
+                if (!_isDeclaringSourceTypes)
+                    _metadataTypeCache.TryAdd(metadataName, macroType);
                 return macroType;
             }
         }
@@ -2626,7 +2627,9 @@ public partial class Compilation
         var metadataType = TryGetMetadataReferenceTypeByMetadataName(metadataName);
         if (metadataType is not null)
         {
-            _metadataTypeCache.TryAdd(metadataName, metadataType);
+            // Metadata selected while source declarations are incomplete is provisional.
+            if (!_isDeclaringSourceTypes)
+                _metadataTypeCache.TryAdd(metadataName, metadataType);
             return metadataType;
         }
 
@@ -2647,7 +2650,8 @@ public partial class Compilation
 
         var qualifiedMetadataName = currentNamespace.QualifyName(metadataName);
         var resolved = GetTypeByMetadataName(qualifiedMetadataName) ?? GetTypeByMetadataName(metadataName);
-        _scopedMetadataTypeCache.TryAdd(cacheKey, resolved ?? s_missingMetadataType);
+        if (!_isDeclaringSourceTypes)
+            _scopedMetadataTypeCache.TryAdd(cacheKey, resolved ?? s_missingMetadataType);
         return resolved;
     }
 

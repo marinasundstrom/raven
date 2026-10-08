@@ -51,6 +51,38 @@ public sealed class CompilationSymbolLookupTests : CompilationTestBase
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SourceNamespaceImportsDoNotRetainMetadataTypesCachedDuringDeclarations(bool reverseDeclarations)
+    {
+        const string queue = """
+            namespace Shared {
+                public class Queue {
+                    internal static val Current: Queue => Queue()
+                }
+            }
+            """;
+        var metadataReference = TestMetadataFactory.CreateFileReferenceFromSource(queue, assemblyName: "Bootstrap.Queue");
+        const string consumer = """
+            namespace Consumer {
+                import Shared.*
+                public class Builder<T> {
+                    init(queue: Queue) { }
+                    static func Create() -> Builder<T> => Builder<T>(Queue.Current)
+                }
+            }
+            """;
+        var tree = SyntaxTree.ParseText(reverseDeclarations ? consumer + "\n" + queue : queue + "\n" + consumer);
+        var compilation = CreateCompilation(tree, references: TestMetadataReferences.Default.Append(metadataReference).ToArray());
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var receiver = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>()
+            .Single(n => n.ToString() == "Queue.Current").Expression;
+        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(receiver).Symbol);
+        Assert.Same(compilation.Assembly, type.ContainingAssembly);
+        Assert.Same(type, compilation.GetTypeByMetadataName("Shared.Queue"));
+    }
+
     [Fact]
     public void GetTypeByMetadataName_PrefersSourceTypeOverReferencedMetadataType()
     {
