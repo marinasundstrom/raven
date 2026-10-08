@@ -13,9 +13,13 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class CompilationSymbolLookupTests : CompilationTestBase
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void QualifiedMemberLookupUsesCanonicalMetadataType(bool reverseReferences)
+    [InlineData(false, "", "Shared.Api")]
+    [InlineData(true, "", "Shared.Api")]
+    [InlineData(false, "import Shared.*", "Api")]
+    [InlineData(true, "import Shared.*", "Api")]
+    [InlineData(false, "import Shared.Api", "Api")]
+    [InlineData(true, "import Shared.Api", "Api")]
+    public void NamespaceMemberLookupUsesCanonicalMetadataType(bool reverseReferences, string imports, string receiver)
     {
         var bootstrap = TestMetadataFactory.CreateFileReferenceFromSource("""
             namespace Shared {
@@ -35,14 +39,14 @@ public sealed class CompilationSymbolLookupTests : CompilationTestBase
             ? new[] { library, bootstrap } : new[] { bootstrap, library }).ToArray();
         for (var i = 0; i < 8; i++)
         {
-            var tree = SyntaxTree.ParseText("func Main() -> int => Shared.Api.Value()", path: $"lookup-{i}.rvn");
+            var tree = SyntaxTree.ParseText($"{imports}\nfunc Main() -> int => {receiver}.Value()", path: $"lookup-{i}.rvn");
             var compilation = CreateCompilation(tree, references: references);
             var expected = compilation.GetTypeByMetadataName("Shared.Api");
             Assert.Equal("Shared.Library", expected?.ContainingAssembly?.Name);
             Assert.Null(compilation.Assembly.GetTypeByMetadataName("Shared.Api"));
             Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
             var api = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
-                .Single(n => n.Identifier.ValueText == "Api");
+                .Last(n => n.Identifier.ValueText == "Api");
             Assert.Equal(expected, compilation.GetSemanticModel(tree).GetSymbolInfo(api).Symbol, SymbolEqualityComparer.Default);
         }
     }
