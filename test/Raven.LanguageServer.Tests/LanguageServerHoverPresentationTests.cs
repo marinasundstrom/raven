@@ -21,6 +21,32 @@ namespace Raven.LanguageServer.Tests;
 
 public class LanguageServerHoverPresentationTests
 {
+    [Theory]
+    [InlineData("module", false, "module", "Module")]
+    [InlineData("namespace", false, "namespace", "Namespace")]
+    [InlineData("namespace", true, "module", "Module")]
+    public void ModuleHoverAndSymbolDisplaysRespectTarget(string keyword, bool neoClr, string displayKeyword, string kind)
+    {
+        var tree = SyntaxTree.ParseText($"{keyword} Example.Tools {{ public class Item {{}} }}");
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            .WithTargetPlatform(neoClr ? TargetPlatform.NeoCLR : TargetPlatform.DotNet);
+        var compilation = Compilation.Create("Package", [tree], [.. LanguageServerTestReferences.Default], options);
+        var model = compilation.GetSemanticModel(tree);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<BaseNamespaceDeclarationSyntax>().Single();
+        var symbol = model.GetDeclaredSymbol(syntax).ShouldBeAssignableTo<INamespaceSymbol>();
+        var signatureMethod = typeof(HoverHandler).GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var kindMethod = typeof(HoverHandler).GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+        ((string)signatureMethod.Invoke(null, [symbol, syntax, model])!).ShouldBe(displayKeyword + " Example.Tools");
+        ((string)kindMethod.Invoke(null, [symbol])!).ShouldBe(kind);
+        symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).ShouldStartWith(displayKeyword + " ");
+        var containingMethod = typeof(HoverHandler).GetMethod("FormatKindAndContainingDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
+        containingMethod.Invoke(null, ["Function", displayKeyword + " Example.Tools"]).ShouldBe("Function in " + displayKeyword + " `Example.Tools`");
+        var workspaceKind = typeof(WorkspaceSymbolSearchService).GetMethod("MapSymbolKind", BindingFlags.NonPublic | BindingFlags.Static)!;
+        workspaceKind.Invoke(null, [symbol]).ShouldBe(kind == "Module" ? OmniSharp.Extensions.LanguageServer.Protocol.Models.SymbolKind.Module : OmniSharp.Extensions.LanguageServer.Protocol.Models.SymbolKind.Namespace);
+        if (neoClr)
+            compilation.GetTypeByMetadataName("System.String")!.ContainingNamespace!.IsModule.ShouldBeTrue();
+    }
+
     [Fact]
     public void ExternConstantHover_UsesConstantSignatureAndKind()
     {

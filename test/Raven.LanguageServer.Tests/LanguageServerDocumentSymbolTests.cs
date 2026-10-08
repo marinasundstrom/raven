@@ -13,6 +13,25 @@ namespace Raven.LanguageServer.Tests;
 
 public sealed class LanguageServerDocumentSymbolTests
 {
+    [Theory]
+    [InlineData("module Example.Tools { public class Item {} }", SymbolKind.Module)]
+    [InlineData("module Example.Tools\npublic class Item {}", SymbolKind.Module)]
+    [InlineData("namespace Example.Tools { public class Item {} }", SymbolKind.Namespace)]
+    public void ModuleDeclarationUsesModuleOutlineKind(string source, SymbolKind kind)
+    {
+        var tree = SyntaxTree.ParseText(source);
+        var root = (CompilationUnitSyntax)tree.GetRoot();
+        var build = typeof(DocumentSymbolHandler).GetMethod("BuildMemberSymbols", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var symbols = (IEnumerable<DocumentSymbol>)build.Invoke(null, [root.Members, SourceText.From(source)])!;
+        var module = symbols.Single();
+        module.Name.ShouldBe("Example.Tools");
+        module.Kind.ShouldBe(kind);
+        var apply = typeof(DocumentSymbolHandler).GetMethod("ApplyModuleTerminology", BindingFlags.NonPublic | BindingFlags.Static)!;
+        module = (DocumentSymbol)apply.Invoke(null, [module])!;
+        module.Kind.ShouldBe(SymbolKind.Module);
+        module.Children!.Single().Kind.ShouldBe(SymbolKind.Class);
+    }
+
     [Fact]
     public async Task Handle_OpenDocument_UsesSyntaxOnlyContextAsync()
     {

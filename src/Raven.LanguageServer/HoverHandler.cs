@@ -546,6 +546,10 @@ internal sealed class HoverHandler : IHoverHandler
 
     private static string FormatKindAndContainingDisplay(string kind, string containing)
     {
+        const string modulePrefix = "module ";
+        if (containing.StartsWith(modulePrefix, StringComparison.Ordinal))
+            return $"{kind} in module `{containing[modulePrefix.Length..]}`";
+
         const string namespacePrefix = "namespace ";
         if (containing.StartsWith(namespacePrefix, StringComparison.Ordinal))
             return $"{kind} in namespace `{containing[namespacePrefix.Length..]}`";
@@ -1991,6 +1995,7 @@ internal sealed class HoverHandler : IHoverHandler
             or SyntaxKind.MatchKeyword
             or SyntaxKind.NameOfKeyword
             or SyntaxKind.NamespaceKeyword
+            or SyntaxKind.ModuleKeyword
             or SyntaxKind.NewKeyword
             or SyntaxKind.OpenKeyword
             or SyntaxKind.OperatorKeyword
@@ -2809,7 +2814,7 @@ internal sealed class HoverHandler : IHoverHandler
         var plainTypeFormat = CreatePlainTypeFormat();
 
         if (symbol is INamespaceSymbol namespaceSymbol)
-            return $"namespace {FormatNamespaceDisplay(namespaceSymbol)}";
+            return $"{(namespaceSymbol.IsModule ? "module" : "namespace")} {FormatNamespaceDisplay(namespaceSymbol)}";
 
         if (symbol is IMethodSymbol { MethodKind: MethodKind.LambdaMethod } lambda)
         {
@@ -4307,7 +4312,7 @@ internal sealed class HoverHandler : IHoverHandler
 
         return symbol switch
         {
-            INamespaceSymbol namespaceSymbol => $"namespace {FormatNamespaceDisplay(namespaceSymbol)}",
+            INamespaceSymbol namespaceSymbol => $"{(namespaceSymbol.IsModule ? "module" : "namespace")} {FormatNamespaceDisplay(namespaceSymbol)}",
             ILocalSymbol local => $"{(local.IsMutable ? "var" : "val")} {local.Name}: {FormatType(local.Type, tooltipFormat)}",
             IParameterSymbol parameter => $"{parameter.Name}: {FormatType(parameter.Type, tooltipFormat)}",
             ITypeSymbol type => FormatType(type, tooltipFormat),
@@ -4442,7 +4447,7 @@ internal sealed class HoverHandler : IHoverHandler
             semanticModel.Compilation.IsNamespaceMemberContainer(topLevelContainingType) &&
             topLevelContainingType.ContainingNamespace is { } containingNamespace)
         {
-            return "namespace " + FormatNamespaceDisplay(containingNamespace);
+            return (containingNamespace.IsModule ? "module " : "namespace ") + FormatNamespaceDisplay(containingNamespace);
         }
 
         var containing = GetUserFacingContainingSymbol(symbol);
@@ -4546,7 +4551,7 @@ internal sealed class HoverHandler : IHoverHandler
         if (symbol is IFieldSymbol { IsConst: true } or ILocalSymbol { IsConst: true })
             return "Constant";
 
-        return symbol.Kind.ToString();
+        return symbol is INamespaceSymbol { IsModule: true } ? "Module" : symbol.Kind.ToString();
     }
 
     private static string BuildKindDisplay(ISymbol symbol)

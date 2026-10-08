@@ -48,6 +48,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol, IN
         }
     }
 
+    public bool IsModule => _reflectionTypeLoader.Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR;
     public bool IsNamespace => true;
     public bool IsType => false;
     public bool IsGlobalNamespace => ContainingNamespace is null;

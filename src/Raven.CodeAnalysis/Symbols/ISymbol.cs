@@ -241,6 +241,11 @@ public interface INamespaceOrTypeSymbol : ISymbol
 
 public interface INamespaceSymbol : INamespaceOrTypeSymbol
 {
+    /// <summary>Whether this lookup scope represents logical modules (explicit source or neoCLR target).</summary>
+    /// <remarks>A merged lookup scope may include multiple assembly-owned modules. ContainingModule
+    /// continues to denote the physical compiler module; this flag does not merge declaration identities.</remarks>
+    bool IsModule => false;
+
     bool IsGlobalNamespace { get; }
 
     INamespaceSymbol? LookupNamespace(string name);

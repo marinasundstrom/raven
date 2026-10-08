@@ -132,7 +132,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
     private static bool IsPossibleCompilationUnitMemberStart(SyntaxToken token)
     {
         return MacroDeclarationParser.IsMacroKeyword(token) ||
-            token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.GlobalKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or
+            token.Kind is SyntaxKind.ImportKeyword or SyntaxKind.GlobalKeyword or SyntaxKind.AliasKeyword or SyntaxKind.NamespaceKeyword or SyntaxKind.ModuleKeyword or
             SyntaxKind.ConstKeyword or SyntaxKind.EnumKeyword or SyntaxKind.UnionKeyword or SyntaxKind.DelegateKeyword or SyntaxKind.StructKeyword or SyntaxKind.ClassKeyword or
             SyntaxKind.InterfaceKeyword or SyntaxKind.ExtensionKeyword or SyntaxKind.OpenBracketToken or SyntaxKind.HashToken or
             SyntaxKind.PublicKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword or SyntaxKind.FileprivateKeyword or
@@ -197,7 +197,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
             aliasDirectives.Add(aliasDirective);
             order = MemberOrder.Aliases;
         }
-        else if (nextToken.IsKind(SyntaxKind.NamespaceKeyword))
+        else if (nextToken.Kind is SyntaxKind.NamespaceKeyword or SyntaxKind.ModuleKeyword)
         {
             var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
 
@@ -285,7 +285,7 @@ internal class CompilationUnitSyntaxParser : SyntaxParser
                 }
             }
 
-            if (tokenAfterModifiers.IsKind(SyntaxKind.NamespaceKeyword))
+            if (tokenAfterModifiers.Kind is SyntaxKind.NamespaceKeyword or SyntaxKind.ModuleKeyword)
             {
                 checkpoint.Rewind();
 

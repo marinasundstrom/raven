@@ -52,7 +52,7 @@ Declaration              ::= NamespaceDeclaration
                            | InterfaceDeclaration
                            | DelegateDeclaration ;
 
-NamespaceDeclaration     ::= 'namespace' Identifier '{' {ImportDirective} {AliasDirective} {TopLevelItem} '}' ;
+NamespaceDeclaration     ::= ('namespace' | 'module') QualifiedName ('{' {ImportDirective} {AliasDirective} {TopLevelItem} '}' | {ImportDirective} {AliasDirective} {TopLevelItem}) ;
 
 TopLevelFunctionDeclaration
                           ::= {AttributeList | MacroAttributeList}
@@ -940,3 +940,7 @@ BinaryDigits             ::= BinaryDigit { BinaryDigit | '_' } ;
 DecimalDigit             ::= '0'..'9' ;
 HexDigit                 ::= DecimalDigit | 'a'..'f' | 'A'..'F' ;
 BinaryDigit              ::= '0' | '1' ;
+
+(* `module` also uses the existing file-scoped namespace declaration form.
+   Logical module paths and import directives use the same qualified-name grammar.
+   Module-private visibility and re-export syntax are not introduced. *)

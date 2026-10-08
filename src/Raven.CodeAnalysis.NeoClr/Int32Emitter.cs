@@ -371,6 +371,10 @@ internal static class Int32Emitter
         // Materialize definitions only after all source declarations and body capabilities pass.
         // Every definition exists before reference resolution or method-body emission.
         var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);
+        foreach (var tree in compilation.SyntaxTrees)
+            foreach (var declaration in tree.GetRoot().DescendantNodes().OfType<BaseNamespaceDeclarationSyntax>())
+                if (compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration) is INamespaceSymbol { IsModule: true } module)
+                    assembly.DefineModule(module.ToMetadataName() ?? "");
         foreach (var constant in assemblyConstants)
             assembly.AddConstant(new AssemblyConstantDefinition(constant.ContainingNamespace?.ToMetadataName() ?? "", constant.Name,
                 (double)constant.GetConstantValue()!, constant.DeclaredAccessibility == Accessibility.Public ? MethodVisibility.Public : MethodVisibility.Internal));

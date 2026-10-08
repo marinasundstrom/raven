@@ -501,7 +501,7 @@
                 },
                 {
                     "name": "keyword.declaration.namespace.raven storage.type.namespace.raven",
-                    "match": "\\b(namespace)\\b"
+                    "match": "\\b(namespace|module)\\b"
                 },
                 {
                     "name": "keyword.other.alias.raven",
@@ -734,7 +734,7 @@
             "patterns": [
                 {
                     "name": "meta.namespace.declaration.raven",
-                    "match": "\\b(namespace)\\s+([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)\\b",
+                    "match": "\\b(namespace|module)\\s+([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)\\b",
                     "captures": {
                         "1": {
                             "name": "keyword.declaration.namespace.raven storage.type.namespace.raven"

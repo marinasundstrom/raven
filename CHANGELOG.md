@@ -6,6 +6,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-09
 
+- Add file/block `module` declarations using existing namespace syntax nodes,
+  qualified-name/import binding and target-aware IsModule symbol information. Native
+  metadata preserves logical module ownership and empty declarations; CLI emission
+  remains a namespace projection. Module-private access is not introduced.
+  RavenDoc can present modules while retaining Assembly ownership labels; ordinary
+  .NET namespace terminology remains the default. VS Code hover, completion
+  descriptions and document/workspace symbols use module terminology for neoCLR,
+  including projected namespace scopes; module keywords receive syntax highlighting.
+
 - Document the matching neoCLR System.Time/TimeOfDay library identity migration and
   the bounded legacy Instant factory bootstrap contract. Ordinary .NET names and
   compiler defaults remain unchanged; rebuild neoCLR consumers with matching inputs.

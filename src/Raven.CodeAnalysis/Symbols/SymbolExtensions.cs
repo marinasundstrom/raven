@@ -784,7 +784,7 @@ public static partial class SymbolExtensions
             symbol is INamespaceSymbol namespaceSymbol &&
             !namespaceSymbol.IsGlobalNamespace)
         {
-            kindPrefix = "namespace";
+            kindPrefix = namespaceSymbol.IsModule ? "module" : "namespace";
         }
         // member keyword (currently disabled; GetMemberKindKeyword returns null)
         else if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword))

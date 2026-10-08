@@ -378,7 +378,7 @@ public static partial class DocumentationGenerator
         if (PageNavigation is null)
         {
             PageNavigation = DocumentationNavigation.Compose(CurrentSiteOptions.Navigation ?? [], GetApiNavigation());
-            var fullNavigation = DocumentationNavigation.Render(PageNavigation, SiteRootDirectory, RootDir, "");
+            var fullNavigation = DocumentationNavigation.Render(PageNavigation, SiteRootDirectory, RootDir, "", CurrentSiteOptions.ModuleTerminology);
             if (CurrentSiteOptions.SharedApiNavigation)
             {
                 SharedNavigationFile = Path.Combine(RootDir, "api-navigation.html");
@@ -388,7 +388,7 @@ public static partial class DocumentationGenerator
             }
         }
         if (SharedNavigationFile is null)
-            return DocumentationNavigation.Render(PageNavigation, SiteRootDirectory, currentDirectory);
+            return DocumentationNavigation.Render(PageNavigation, SiteRootDirectory, currentDirectory, moduleTerminology: CurrentSiteOptions.ModuleTerminology);
 
         // Namespace links remain usable without JavaScript or if the shared asset cannot load.
         DocumentationNavigationItem Fallback(DocumentationNavigationItem item) => item with
@@ -397,7 +397,7 @@ public static partial class DocumentationGenerator
         };
         var overview = new DocumentationNavigationItem("API overview",
             Path.GetRelativePath(SiteRootDirectory, Path.Combine(RootDir, "index.html")).Replace('\\', '/'));
-        var fallback = DocumentationNavigation.Render(new[] { overview }.Concat(PageNavigation.Select(Fallback)).ToArray(), SiteRootDirectory, currentDirectory);
+        var fallback = DocumentationNavigation.Render(new[] { overview }.Concat(PageNavigation.Select(Fallback)).ToArray(), SiteRootDirectory, currentDirectory, moduleTerminology: CurrentSiteOptions.ModuleTerminology);
         return fallback.Replace("<nav class=\"api-navigation-panel\"",
             "<nav data-navigation-src=\"" + HtmlEscape(RelLink(currentDirectory, SharedNavigationFile) + "?v=" + SharedNavigationVersion) + "\" class=\"api-navigation-panel\"");
     }
@@ -596,7 +596,7 @@ public static partial class DocumentationGenerator
 
     private static string GetSectionTitle(MemberSectionKind kind) => kind switch
     {
-        MemberSectionKind.Namespaces => "Namespaces",
+        MemberSectionKind.Namespaces => CurrentSiteOptions.ModuleTerminology ? "Modules" : "Namespaces",
         MemberSectionKind.Types => "Types",
         MemberSectionKind.Functions => "Functions",
         MemberSectionKind.Macros => "Macros",
@@ -1807,7 +1807,7 @@ public static partial class DocumentationGenerator
             var target = GetNamespaceIndexPath(containingNamespace);
             var memberName = EscapeName(containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat));
             metadataLines.Add(
-                $"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
+                $"**{(CurrentSiteOptions.ModuleTerminology || containingNamespace.IsModule ? "Module" : "Namespace")}**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
 
         metadataLines.AddRange(GetSourceAndAssemblyLines(compilation, typeSymbol));
@@ -1936,7 +1936,7 @@ public static partial class DocumentationGenerator
             var target = GetNamespaceIndexPath(containingNamespace);
             var memberName = EscapeName(containingNamespace.ToDisplayString(ContainingNamespaceDisplayFormat));
             metadataLines.Add(
-                $"**Namespace**: [{memberName}]({RelLink(currentDir, target)})<br />");
+                $"**{(CurrentSiteOptions.ModuleTerminology || containingNamespace.IsModule ? "Module" : "Namespace")}**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
 
         metadataLines.AddRange(GetSourceAndAssemblyLines(compilation, members[0]));
@@ -1989,15 +1989,15 @@ public static partial class DocumentationGenerator
         var namespaceName = GetNamespaceFullName(namespaceSymbol);
 
         if (namespaceSymbol.IsGlobalNamespace)
-            name = CurrentSiteOptions.ApiDisplayName ?? "Global namespace";
+            name = CurrentSiteOptions.ApiDisplayName ?? (CurrentSiteOptions.ModuleTerminology ? "Global module" : "Global namespace");
 
         var heroHtml = SiteTemplate.RenderHero(
             RavenDocSymbolKind.Namespace,
-            namespaceSymbol.IsGlobalNamespace && CurrentSiteOptions.ApiDisplayName is not null ? "API reference" : "Namespace",
+            namespaceSymbol.IsGlobalNamespace && CurrentSiteOptions.ApiDisplayName is not null ? "API reference" : (CurrentSiteOptions.ModuleTerminology || namespaceSymbol.IsModule ? "Module" : "Namespace"),
             name,
             string.IsNullOrWhiteSpace(namespaceName)
                 ? null
-                : $"namespace {name}");
+                : $"{(CurrentSiteOptions.ModuleTerminology || namespaceSymbol.IsModule ? "module" : "namespace")} {name}");
 
         var declaredNamespaceMembers =
             PreferDocumentableGenericDefinitions(GetDocumentedNamespaceMembers(namespaceSymbol))
@@ -2544,7 +2544,8 @@ public sealed record DocumentationSiteOptions(
     string MemberGrouping = "kind",
     string? ApiDisplayName = null,
     DocumentationSourceRepository? SourceRepository = null,
-    bool SharedApiNavigation = false)
+    bool SharedApiNavigation = false,
+    bool ModuleTerminology = false)
 {
     internal bool IndexOnly { get; init; }
     internal IReadOnlyDictionary<string, string>? SharedXrefs { get; init; }

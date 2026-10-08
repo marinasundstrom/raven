@@ -8367,3 +8367,27 @@ bootstrap shim is temporary and is replaced by full native library compilation.
 Validation includes regenerated time/globalization slices, calendar and timezone
 consumers, renamed metadata/XML IDs and local API navigation. Timezone runtime
 services and nonempty value boxing still limit AOT coverage.
+
+## Declaration module foundation (2026-10-09)
+
+Native intent: assembly identity owns independently named logical modules, which
+own types, free functions and constants. Raven accepts `module` through the existing
+file/block namespace grammar and exposes `INamespaceSymbol.IsModule`; imports and
+qualified names retain their established binding behavior. The native backend writes
+explicit module names, including empty declarations, and its loader marks native
+module scopes without creating CLR container types.
+
+Temporary CLI representation remains ordinary namespaces and the existing global
+function/constant projection. It loses explicit module status and empty declarations.
+No new Runtime Contract is required. The parser/binder owns source scope and naming;
+neoCLR's metadata library owns the native table and validates owners; runtime admission
+validates its version/names. Guest module discovery and module-private access have not
+been implemented. Tests cover both syntax forms, nested imports, unchanged namespace
+controls, metadata ownership and native scalar execution. Ordinary .NET behavior is
+unchanged for existing source.
+
+The language-server/VS Code presentation uses module labels for neoCLR target scopes,
+including CLI projections; this is not a claim that the CLI image stores native
+module records. Explicit module source uses that label on either target. Hover,
+completion display and document/workspace symbol kinds follow this contract, while
+ordinary .NET namespace spelling retains namespace presentation.

@@ -7,6 +7,29 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 public sealed class NamespaceDocumentationTests : CompilationTestBase
 {
     [Theory]
+    [InlineData(false, "Namespace")]
+    [InlineData(true, "Module")]
+    public void ModuleTerminologyRetainsAssemblyOwner(bool modules, string label)
+    {
+        var tree = SyntaxTree.ParseText("namespace Examples { public class Item {} }");
+        var compilation = Compilation.Create("Package", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var output = Path.Combine(Path.GetTempPath(), "module-docs-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessAssembly(compilation, compilation.Assembly, output,
+                new DocumentationSiteOptions([], ModuleTerminology: modules));
+            var html = File.ReadAllText(Path.Combine(output, "Examples/Item/index.html"));
+            Assert.Contains($"<strong>{label}</strong>", html);
+            Assert.Contains("<strong>Assembly</strong>", html);
+            Assert.Contains(label + " overview", html);
+            Assert.Contains("Package", html);
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
+    [Theory]
     [InlineData(false, "NamespaceMembers.")]
     [InlineData(true, "")]
     public void AssemblyMemberSidecarsUseTargetSpecificIds(bool native, string carrier)

@@ -29,6 +29,12 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
 
     public override IModuleSymbol ContainingModule => _containingModule ?? ContainingSymbol!.ContainingModule!;
 
+    public bool IsModule => ContainingAssembly is SourceAssemblySymbol { Compilation.Options.TargetPlatform: TargetPlatform.NeoCLR } || DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() switch
+    {
+        Syntax.NamespaceDeclarationSyntax declaration => declaration.NamespaceKeyword.Kind == Syntax.SyntaxKind.ModuleKeyword,
+        Syntax.FileScopedNamespaceDeclarationSyntax declaration => declaration.NamespaceKeyword.Kind == Syntax.SyntaxKind.ModuleKeyword,
+        _ => false
+    });
     public bool IsNamespace => true;
     public bool IsType => false;
     public bool IsGlobalNamespace => ContainingNamespace is null;

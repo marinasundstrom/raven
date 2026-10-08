@@ -82,6 +82,8 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             foreach (var part in name.Split('.', StringSplitOptions.RemoveEmptyEntries)) ns = ns.GetOrAddNamespace(part);
             return ns;
         }
+        foreach (var module in assembly.Reference.Definition.GetModules())
+            _ = Namespace(module.Name);
         foreach (var constant in assembly.Reference.Definition.MainModule.Constants)
         {
             var ns = Namespace(constant.Namespace);
@@ -217,6 +219,7 @@ internal sealed class NativeNamespaceSymbol : Symbol, INamespaceSymbol, INamespa
     public bool IsNamespace => true;
     public bool IsType => false;
     public bool IsGlobalNamespace => ContainingNamespace is null;
+    public bool IsModule => true;
     public ImmutableArray<ISymbol> GetMembers() => [.. members];
     public ImmutableArray<ISymbol> GetMembers(string name) => [.. members.Where(m => m.Name == name)];
     public INamespaceSymbol? LookupNamespace(string name) => members.OfType<INamespaceSymbol>().SingleOrDefault(n => n.Name == name);

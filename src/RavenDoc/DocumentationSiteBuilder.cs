@@ -167,7 +167,7 @@ public static class DocumentationSiteBuilder
                 configuration.Footer ?? configuration.Name, configuration.MemberListStyle,
                 configuration.Types, configuration.ExcludedMembers, configuration.Subtitle,
                 configuration.Notice, configuration.ReleaseUrl, configuration.ReleaseLabel, configuration.ShowToc, configuration.Favicon, configuration.NamespaceNavigation, configuration.GoogleAnalyticsId, configuration.ShowEmptyNamespaces, configuration.ExtensionNamespaces, configuration.ExtensionMembers,
-                configuration.ApiContent is null ? null : Path.GetFullPath(configuration.ApiContent, root), configuration.MemberGrouping, SourceRepository: ResolveSourceRepository(configuration.SourceRepository, root), SharedApiNavigation: configuration.SharedApiNavigation);
+                configuration.ApiContent is null ? null : Path.GetFullPath(configuration.ApiContent, root), configuration.MemberGrouping, SourceRepository: ResolveSourceRepository(configuration.SourceRepository, root), SharedApiNavigation: configuration.SharedApiNavigation, ModuleTerminology: configuration.ModuleTerminology);
             var template = new RavenDocSiteTemplate();
             template.WriteAssets(staging);
             var libraryNavigation = apis.Select(api => new DocumentationNavigationItem(api.Title, api.Path + "/index.html")).ToArray();
@@ -291,7 +291,7 @@ public static class DocumentationSiteBuilder
                     DocumentationNavigation.ResolveLinks(configuration.Links, staging, currentDirectory), showNavigation ? (navigationRoot is null
                         ? DocumentationNavigation.RenderArticles(navigation, staging, currentDirectory, destination,
                             navigationSections.FirstOrDefault(section => IsWithin(section.Directory, page.Source)).Title ?? configuration.NavigationTitle)
-                        : DocumentationNavigation.Render(navigation, staging, currentDirectory, destination)) : "", configuration.Name,
+                        : DocumentationNavigation.Render(navigation, staging, currentDirectory, destination, configuration.ModuleTerminology)) : "", configuration.Name,
                     DocumentationNavigation.Resolve(configuration.Logo, staging, currentDirectory),
                     DocumentationNavigation.Resolve(configuration.Stylesheet, staging, currentDirectory),
                     configuration.Footer ?? configuration.Name, configuration.Subtitle, configuration.Notice,
@@ -350,6 +350,7 @@ public static class DocumentationSiteBuilder
         public bool Search { get; init; }
         public bool CopyCode { get; init; }
         public bool SharedApiNavigation { get; init; }
+        public bool ModuleTerminology { get; init; }
         public string Name { get; init; } = "Documentation";
         public string Output { get; init; } = "_site";
         public string? Toc { get; init; }

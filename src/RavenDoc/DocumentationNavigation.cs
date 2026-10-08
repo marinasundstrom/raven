@@ -87,7 +87,7 @@ internal static class DocumentationNavigation
             """;
     }
 
-    internal static string Render(IReadOnlyList<DocumentationNavigationItem> items, string root, string currentDirectory, string? currentPage = null)
+    internal static string Render(IReadOnlyList<DocumentationNavigationItem> items, string root, string currentDirectory, string? currentPage = null, bool moduleTerminology = false)
     {
         if (items.Count == 0) return "";
         var builder = new StringBuilder();
@@ -99,7 +99,7 @@ internal static class DocumentationNavigation
               <div class="api-browser-header"><h2 id="api-browser-heading">API Browser</h2><button class="api-browser-close" type="button" aria-label="Close API Browser">×</button></div>
               <label class="visually-hidden" for="navigation-filter">Filter navigation</label>
               <input id="navigation-filter" type="search" placeholder="Find a page or type" />
-              <nav class="api-navigation-panel" aria-label="API namespaces and types"><ul>{builder}</ul><p id="navigation-empty" hidden>No matching pages.</p></nav>
+              <nav class="api-navigation-panel" aria-label="API {(moduleTerminology ? "modules" : "namespaces")} and types"><ul>{builder}</ul><p id="navigation-empty" hidden>No matching pages.</p></nav>
             </dialog>
             """;
 
@@ -117,7 +117,7 @@ internal static class DocumentationNavigation
                 if (item.Kind == "Namespace" || item.Children is { Count: > 0 })
                 {
                     builder.Append($"<details class=\"api-namespace\"{(ContainsCurrent(item) ? " open" : "")}><summary title=\"{label}\">{Icon(item)}<span>{label}</span></summary><ul>");
-                    if (item.Url is not null) AppendLink(item, item.Kind == "Namespace" ? "Namespace overview" : "Overview", true);
+                    if (item.Url is not null) AppendLink(item, item.Kind == "Namespace" ? (moduleTerminology ? "Module overview" : "Namespace overview") : "Overview", true);
                     Append(item.Children ?? []);
                     builder.Append("</ul></details>");
                 }

@@ -153,7 +153,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 token.Kind is
                 SyntaxKind.ImportKeyword or
                 SyntaxKind.AliasKeyword or
-                SyntaxKind.NamespaceKeyword or
+                SyntaxKind.NamespaceKeyword or SyntaxKind.ModuleKeyword or
                 SyntaxKind.ConstKeyword or
                 SyntaxKind.EnumKeyword or
                 SyntaxKind.UnionKeyword or
@@ -281,7 +281,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
             aliasDirectives.Add(aliasDirective);
             order = MemberOrder.Aliases;
         }
-        else if (nextToken.IsKind(SyntaxKind.NamespaceKeyword))
+        else if (nextToken.Kind is SyntaxKind.NamespaceKeyword or SyntaxKind.ModuleKeyword)
         {
             var namespaceDeclaration = new NamespaceDeclarationParser(this).ParseNamespaceDeclaration();
 
@@ -369,7 +369,7 @@ internal class NamespaceDeclarationParser : SyntaxParser
                 }
             }
 
-            if (tokenAfterModifiers.IsKind(SyntaxKind.NamespaceKeyword))
+            if (tokenAfterModifiers.Kind is SyntaxKind.NamespaceKeyword or SyntaxKind.ModuleKeyword)
             {
                 checkpoint.Rewind();
 

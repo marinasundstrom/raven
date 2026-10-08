@@ -3854,3 +3854,43 @@ bootstrap. `tools/NeoClrMetadataProbe/check-unit-owner.py --compiler <rvnc.dll>
 constructors with both System.Void and unit spellings. The nominal case reproduces
 NEOMETA003 without the fix; both compile after it. The full neoCLR Web library also
 builds, with the existing seven unit-contract tests retained as controls.
+
+## Logical module declarations (development, 2026-10-09)
+
+`module Example.Tools` and `module Example.Tools { ... }` reuse namespace syntax
+nodes and binder scopes. The original keyword token is retained in `NamespaceKeyword`;
+`INamespaceSymbol.IsModule` identifies logical module scopes: explicit source declarations and all neoCLR
+target scopes, including projected older metadata. Metadata-level projection
+status remains available through neoCLR's DeclarationModuleDefinition.IsProjection.
+Merged lookup scopes report the presence of a module but do not merge assembly
+identities. Qualified names, wildcard imports, aliases, overload resolution and
+accessibility use their existing rules. Nested module declarations qualify their
+parent path. Physical `IModuleSymbol` remains the compilation image.
+
+There is no new Runtime Contract switch: source spelling works for .NET as a
+namespace projection; ordinary .NET `namespace` remains unchanged. For the neoCLR
+target, either spelling presents a logical module. The neoCLR native
+backend emits a version-1 `declaration_modules` table through the external metadata
+library, including explicit empty modules. Native imports reconstruct module scopes
+and retain original assembly owners. Older inputs without that table are projections.
+The target metadata library must include the matching module APIs. Module-private
+access, re-exports, declaration forwarding and guest runtime discovery remain future
+work; this syntax does not supply those policies.
+
+RavenDoc accepts `moduleTerminology: true` in site configuration (or
+`DocumentationSiteOptions.ModuleTerminology`). It changes container labels and
+module signatures while retaining Assembly labels and existing routes/UIDs. Default
+.NET documentation continues to say Namespace. This presentation choice does not
+change the metadata owner or claim a projected input has explicit module metadata.
+
+Validation for this slice: the focused modern .NET suite passes 20 parser/symbol,
+namespace-control and documentation-label cases; 15 language-server cases pass
+for target-aware presentation and document-symbol behavior. The generator/build script passes.
+The checked neoCLR module sample returns 42 in the interpreter and ARM64 native
+execution, both within one assembly and across a separately compiled module library.
+Native reader checks preserve the explicitly empty module. Framework/NanoFramework
+execution and guest module reflection were not tested. Editor semantic lookup reuses the existing binder. TextMate recognizes the new
+keyword; hover, completion descriptions and document/workspace symbols use module
+terminology for neoCLR, including legacy namespace spelling and imported CLI scopes.
+Ordinary .NET namespace labels remain unchanged. Outline extraction remains syntax-only
+and includes the target in its cache key. No new bound operation kind is introduced.
