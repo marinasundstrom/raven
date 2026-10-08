@@ -405,3 +405,10 @@ Raven's existing policy, not a new claim of complete Roslyn parity.
 Regression coverage uses two ordinary CLI libraries with competing `Shared.Api`
 declarations and both reference orders. It checks source-assembly ownership,
 compilation selection, diagnostics and semantic identity for qualified calls.
+
+Namespace import lookup applies the same selection to named type candidates before
+member binding and deduplication. `import Shared.*` therefore agrees with qualified
+`Shared.Api` and explicit `import Shared.Api` calls when metadata declarations compete.
+Namespace scopes, aliases, type-scope static members and accessibility checks retain
+their existing roles. A missing configured provider does not fall back to the original
+namespace candidate. The regression covers all three forms and both reference orders.

@@ -99,7 +99,10 @@ class ImportBinder : Binder
             return sourceNamespace.LookupTypeDeclared(name);
         }
 
-        return scope.LookupType(name);
+        var type = scope.LookupType(name);
+        return scope is INamespaceSymbol && type is INamedTypeSymbol named
+            ? Compilation.GetTypeByMetadataName(named.ToFullyQualifiedMetadataName())
+            : type;
     }
 
     public override IEnumerable<ISymbol> LookupSymbols(string name)
@@ -168,7 +171,8 @@ class ImportBinder : Binder
             members = members.Where(IsImportableTypeScopeMember);
 
         foreach (var member in members)
-            yield return member;
+            if (CanonicalMember(member) is { } selected)
+                yield return selected;
 
         if (symbol is INamedTypeSymbol typeSymbol &&
             typeSymbol.TryGetUnion() is { } union)
@@ -185,10 +189,16 @@ class ImportBinder : Binder
             var includeNamespaceMembers = Compilation.Options.AllowNamespaceMembers &&
                                           Compilation.Options.AllowNamespaceMemberImports;
             foreach (var member in Compilation.GetNamespaceMembers(namespaceSymbol, name, includeNamespaceMembers))
-                yield return member;
+                if (CanonicalMember(member) is { } selected)
+                    yield return selected;
         }
 
         yield break;
+
+        ISymbol? CanonicalMember(ISymbol member)
+            => symbol is INamespaceSymbol && member is INamedTypeSymbol type
+                ? Compilation.GetTypeByMetadataName(type.ToFullyQualifiedMetadataName())
+                : member;
     }
 
     private static bool IsImportedTypeName(ITypeSymbol type, string name)
