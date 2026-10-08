@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.NeoClr;
 
 /// <summary>Opt-in native format-5 emitter for the documented static primitive source subset.</summary>
-/// <remarks>Reuses compiler-lowered bodies with the host bootstrap or a validated neoCLR CLI declaration core. Uses the shared Compilation.Emit pipeline through an explicit backend.</remarks>
+/// <remarks>Reuses compiler-lowered bodies with a validated explicit CLI or native semantic core. Uses the shared Compilation.Emit pipeline through an explicit backend.</remarks>
 public static class NeoClrCompilationEmitter
 {
     private static readonly DiagnosticDescriptor Unsupported = Descriptor("NEOMETA001", "Unsupported native source", "Native emission does not support {0}.");
@@ -11,7 +11,7 @@ public static class NeoClrCompilationEmitter
     private static readonly DiagnosticDescriptor Encoding = Descriptor("NEOMETA003", "Invalid native graph", "Native metadata encoding failed: {0}.");
 
     /// <summary>Validates the compilation and configuration, then writes native bytes to a caller-owned stream.</summary>
-    /// <param name="compilation">Source trees using the host bootstrap or CompilationOptions.NeoCLR with a matching CLI declaration core.</param>
+    /// <param name="compilation">Source trees using the host bootstrap or CompilationOptions.NeoCLR with a matching explicit CLI or native semantic core.</param>
     /// <param name="output">Writable stream; validation failure leaves its bytes and position unchanged.</param>
     /// <param name="options">Explicit output/core identities and compiler-reference bindings.</param>
     /// <returns>Success and preserved compiler diagnostics, or a source/backend diagnostic without output.</returns>

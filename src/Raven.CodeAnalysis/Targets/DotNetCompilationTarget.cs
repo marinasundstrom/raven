@@ -5,13 +5,13 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Targets;
 
-// Composition for the .NET pipeline and the experimental neoCLR CLI bridge. Reflection
-// handles stay here; shared semantic services still have .NET-facing adapters.
+// Target composition retains the .NET/CLI path and an explicit native-only semantic path.
+// Reflection handles belong only to the former; host execution remains separate.
 internal sealed class DotNetCompilationTarget
 {
     private readonly Compilation _compilation;
     private readonly Lazy<ReflectionTypeLoader> _reflectionTypeLoader;
-    private DotNetMetadataSession _metadataSession = null!;
+    private DotNetMetadataSession? _metadataSession;
     private DotNetMetadataSession? _previousMetadataSessionForReuse;
 
     internal DotNetCompilationTarget(Compilation compilation)
@@ -30,7 +30,10 @@ internal sealed class DotNetCompilationTarget
     internal ReflectionTypeLoader ReflectionTypeLoader => _reflectionTypeLoader.Value;
     internal CliRuntimeContract RuntimeContract { get; }
     internal DotNetHostRuntime HostRuntime { get; } = new();
-    internal Assembly CoreAssembly { get; private set; } = null!;
+    private Assembly? _coreAssembly;
+    internal Assembly CoreAssembly => _compilation.Options.MetadataImportOptions?.UseNativeMetadata == true
+        ? throw new InvalidOperationException("Native metadata mode has no reflection core assembly; use semantic assembly symbols.")
+        : _coreAssembly!;
     internal Assembly RuntimeCoreAssembly { get; private set; } = null!;
     internal Assembly EmitCoreAssembly { get; private set; } = null!;
 
@@ -50,11 +53,19 @@ internal sealed class DotNetCompilationTarget
 
     internal ISemanticDataLoader InitializeSemanticData()
     {
+        if (_compilation.Options.MetadataImportOptions?.UseNativeMetadata == true)
+        {
+            if (_compilation.Options.TargetPlatform != TargetPlatform.NeoCLR ||
+                _compilation.References.Any(reference => reference is not ISemanticMetadataReference))
+                throw new TargetInitializationException("native metadata mode requires the NeoCLR target and semantic references exclusively");
+            _previousMetadataSessionForReuse = null;
+            return new NativeSemanticDataLoader(_compilation);
+        }
         _metadataSession = DotNetSemanticDataLoader.OpenSession(
             _compilation.References, _compilation.Options.MetadataImportOptions, HostRuntime,
             _previousMetadataSessionForReuse);
         _previousMetadataSessionForReuse = null;
-        CoreAssembly = _metadataSession.CoreAssembly;
+        _coreAssembly = _metadataSession.CoreAssembly;
         EmitCoreAssembly = HostRuntime.ResolveEmitCoreAssembly() ?? RuntimeCoreAssembly;
         HostRuntime.RegisterRuntimeAssembly(CoreAssembly, RuntimeCoreAssembly.Location);
         return new CompositeSemanticDataLoader(_compilation, new DotNetSemanticDataLoader(_metadataSession, ReflectionTypeLoader, HostRuntime));
@@ -67,5 +78,6 @@ internal sealed class DotNetCompilationTarget
                 _compilation.References.OfType<ISemanticMetadataReference>().Select(r => r.Validate(_compilation)).FirstOrDefault(error => error is not null));
 
     internal Diagnostic? GetResolvedConfigurationDiagnostic()
-        => TargetDiagnostics.InvalidConfiguration(RuntimeContract.GetResolvedConfigurationError(_compilation, CoreAssembly.GetName().Name));
+        => TargetDiagnostics.InvalidConfiguration(RuntimeContract.GetResolvedConfigurationError(_compilation, _compilation.Options.MetadataImportOptions?.UseNativeMetadata == true
+            ? _compilation.Options.MetadataImportOptions.CoreAssemblyName : CoreAssembly.GetName().Name));
 }

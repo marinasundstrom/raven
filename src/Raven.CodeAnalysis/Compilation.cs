@@ -248,6 +248,8 @@ public partial class Compilation
         return SourceGlobalNamespace.AsSourceNamespace();
     }
 
+    /// <summary>Gets the reflection metadata core for the CLI target path.</summary>
+    /// <exception cref="InvalidOperationException">Native-only metadata mode has no reflection core. Use GetAssemblyOrModuleSymbol on the supplied native reference.</exception>
     public Assembly CoreAssembly => _target.CoreAssembly;
     public Assembly RuntimeCoreAssembly => _target.RuntimeCoreAssembly;
     internal Assembly EmitCoreAssembly => _target.EmitCoreAssembly;

@@ -8,6 +8,37 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class NeoClrProfileTests
 {
     [Fact]
+    public void NativeMetadataSelectionIsExplicitAndImmutable()
+    {
+        var original = new MetadataImportOptions("NativeCore");
+        var native = original.WithNativeMetadata();
+        Assert.False(original.UseNativeMetadata);
+        Assert.True(native.UseNativeMetadata);
+        Assert.True(native.WithObjectAssemblyName("NativeCore").UseNativeMetadata);
+        Assert.False(native.WithNativeMetadata(false).UseNativeMetadata);
+        Assert.False(CompilationOptions.NeoCLR.MetadataImportOptions!.UseNativeMetadata);
+    }
+
+    [Fact]
+    public void NativeMetadataRejectsDotNetTargetWithoutLoadingReferences()
+    {
+        var options = CompilationOptions.DotNet.WithMetadataImportOptions(new MetadataImportOptions("NativeCore").WithNativeMetadata());
+        var compilation = Compilation.Create("WrongTarget", [], [], options);
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAVT003" &&
+            diagnostic.GetMessage().Contains("requires the NeoCLR target"));
+    }
+
+    [Fact]
+    public void NativeMetadataRejectsPortableReferencesInsteadOfFallingBack()
+    {
+        var options = CompilationOptions.NeoCLR.WithRuntimeTypeOfContract(null)
+            .WithMetadataImportOptions(new MetadataImportOptions("NeoCLR.CoreProbe").WithNativeMetadata());
+        var compilation = Compilation.Create("WrongReference", [], TestMetadataReferences.Default, options);
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAVT004" &&
+            diagnostic.GetMessage().Contains("semantic references exclusively"));
+    }
+
+    [Fact]
     public void PresetSelectsExplicitCliContractsAndPreservesThemThroughCopies()
     {
         var preset = CompilationOptions.NeoCLR;

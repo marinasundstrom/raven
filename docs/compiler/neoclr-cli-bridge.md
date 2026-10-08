@@ -8211,3 +8211,24 @@ behind an explicit Runtime Contract, then validate complete core ownership, nati
 emission, source-library builds and project/editor consumers. A metadata core with
 three primitives is not a complete runtime contract. Compiler hosting on .NET is a
 separate concern; no compiler implementation change is included in this checkpoint.
+
+
+### Native-only core follow-through (2026-10-08)
+
+The initialization failure above is now closed for the explicit compiler API mode
+`MetadataImportOptions.WithNativeMetadata()`. Semantic references load directly,
+without a DotNetMetadataSession or CLI projection input; native emission accepts the
+exact native core identity for primitives and unit. Default .NET/CLI behavior remains.
+The neoCLR reduced consumer now emits and returns 42 in interpreter and macOS ARM64
+native execution; the binary depends only on libSystem. Fixture Object slots and an
+empty native System seed are deliberate test inputs, not production runtime coverage.
+See the runtime-contract API section for guards and limits. Catalog/driver/project,
+complete source-runtime ownership and Windows/editor qualification remain outstanding.
+
+The author also expects RavenDoc to stop exposing Probe artifacts as this migration
+progresses. Its assembly input loader still creates portable references and adds
+framework references; the symbol renderer already tracks actual declaring assemblies.
+A native provider must reuse native semantic metadata and real ownership, not relabel
+CLI CoreProbe declarations. Probe.dll is generator tooling; NeoCLR.CoreProbe.dll is
+the current aggregate documentation reference. No RavenDoc provider change or new
+release gate is implied by this compiler API slice.

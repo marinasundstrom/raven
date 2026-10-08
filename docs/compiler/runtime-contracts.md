@@ -3697,3 +3697,34 @@ contract. Ordinary .NET retains `IUnion`; `IUnionSymbol` and related compiler AP
 interfaces are unchanged. Rebuild matched neoCLR references, runtime and consumers.
 The native backend's native union metadata is unchanged; this naming correction
 does not add native general boxing or reflection. Sixteen focused profile, .NET union-protocol and output-initialization checks pass.
+
+
+## Native-only semantic core (development, 2026-10-08)
+
+`MetadataImportOptions.WithNativeMetadata(bool enabled = true)` returns an immutable
+copy whose `UseNativeMetadata` selects an experimental NeoCLR-only semantic loader.
+The default remains false, including `CompilationOptions.NeoCLR`. Select matching
+explicit metadata/emission core names, an owned System.Void unit contract and an
+explicit native Object provider. Supply native semantic references only; portable
+CLI references reject instead of entering a .NET MetadataLoadContext. This selection
+changes the target's semantic inputs, not the .NET compiler host.
+
+The selected core must have exactly one native artifact identity. Native emission
+checks complete core identity, including version, against primitive/unit owners and
+requires the explicit NeoClrEmissionBackend. Default CLI emission rejects without
+publishing output. Compilation.CoreAssembly has no reflection Assembly in this mode
+and throws InvalidOperationException; use GetAssemblyOrModuleSymbol(reference) for
+semantic ownership. Missing native declarations never fall back to host references.
+
+A small authored native core now compiles an integer Raven consumer, executed by
+neoCLR's interpreter and ARM64 AOT with result 42. The fixture supplies minimal Object
+slots, numeric/unit declarations and String; it is not a production Object library.
+The normal .NET/CLI profile and mixed native-library/CLI-core catalog remain controls.
+The catalog, CLI driver, MSBuild/editor and full source-library bootstrap still use
+the previous core path; this is an explicit compiler API prerequisite, not release
+qualification or a guarantee that all binders and lowering paths are native-only.
+
+NeoCLR keeps the reproducer and execution evidence in
+`docs/experiments/native-core-bootstrap`. Raven's focused NeoClrProfileTests cover
+immutability and wrong-target/portable-reference rejection; the producer probe covers
+native symbols, output, missing core, exact identity rejection and CLI emission refusal.

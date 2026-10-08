@@ -15,3 +15,12 @@ internal sealed class CompositeSemanticDataLoader(Compilation compilation, ISema
             ? semantic.CreateAssemblySymbol(compilation)
             : cli.LoadReference(reference);
 }
+
+// Explicit native-only mode never creates a reflection metadata context or falls back to CLI inputs.
+internal sealed class NativeSemanticDataLoader(Compilation compilation) : ISemanticDataLoader
+{
+    public IAssemblySymbol? LoadReference(MetadataReference reference)
+        => reference is ISemanticMetadataReference semantic
+            ? semantic.CreateAssemblySymbol(compilation)
+            : throw new Targets.TargetInitializationException("native metadata mode requires semantic references exclusively");
+}

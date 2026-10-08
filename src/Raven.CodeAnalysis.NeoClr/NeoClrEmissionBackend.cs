@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 
 /// <summary>Explicit native backend for Compilation.Emit, using the separate neoCLR metadata library.</summary>
 /// <remarks>
-/// Binding still uses the .NET primitive bootstrap and explicit native reference projections.
+/// Binding supports an explicit CLI primitive bootstrap or opt-in native-only semantic references.
 /// This selects artifact production only. The supported source subset is the same as
 /// NeoClrCompilationEmitter. Debug output and CLI core-reference rewriting are unsupported.
 /// </remarks>

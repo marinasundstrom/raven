@@ -23,6 +23,8 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     // Configuration-only checks must not open references or resolve symbols.
     internal string? GetConfigurationError()
     {
+        if (Options.MetadataImportOptions?.UseNativeMetadata == true && Options.TargetPlatform != TargetPlatform.NeoCLR)
+            return "native metadata loading requires the NeoCLR target";
         if (GetPlatformConfigurationError() is { } platformError)
             return platformError;
 
@@ -80,6 +82,11 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
     {
         if (GetConfigurationError() is { } error)
             return error;
+
+        if (Options.MetadataImportOptions is { UseNativeMetadata: true } nativeImports &&
+            compilation.ReferencedAssemblySymbols.Count(assembly => assembly.Name == nativeImports.CoreAssemblyName &&
+                assembly is Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null }) != 1)
+            return "native metadata loading requires exactly one native semantic core with the configured identity";
 
         if (Options.RuntimeFailureContract is { } failure)
         {

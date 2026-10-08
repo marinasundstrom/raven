@@ -13,6 +13,7 @@ internal static class NeoClrBindingContract
 {
     internal static bool MatchesCore(IAssemblySymbol assembly, AssemblyIdentity core)
     {
+        if (assembly is NativeAssemblySymbol native) return native.Reference.Definition.Identity.Equals(core);
         if (assembly is not PEAssemblySymbol imported) return false;
         var identity = new AssemblyName(imported.FullName);
         return core.Equals(new AssemblyIdentity(identity.Name!, identity.Version!, identity.CultureName ?? "",
@@ -68,6 +69,13 @@ internal static class NeoClrBindingContract
                 if (type.SpecialType != special || type.ContainingAssembly?.Name != provider ||
                     type.ContainingAssembly is not IImportedAssemblySymbol { ResolvedArtifact: not null })
                     return "native primitive does not match its selected provider";
+                continue;
+            }
+            if (compilation.Options.MetadataImportOptions?.UseNativeMetadata == true)
+            {
+                if (type.TypeKind == TypeKind.Error || type.ContainingAssembly is not NativeAssemblySymbol native ||
+                    !native.Reference.Definition.Identity.Equals(options.CoreLibrary))
+                    return "native primitive or Unit declaration must belong to the selected native core artifact";
                 continue;
             }
             if (type.TypeKind == TypeKind.Error || type.ContainingAssembly is not PEAssemblySymbol imported)

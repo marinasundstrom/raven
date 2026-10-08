@@ -1,7 +1,7 @@
 namespace Raven.CodeAnalysis.Targets;
 
-// The supported configuration surface of the experimental CLI bridge, not a
-// native loader/backend or a claim that every language feature is supported.
+// The default preset remains the experimental CLI bridge. Explicit native metadata
+// selection relaxes its fixed core name, while retaining owned-unit validation.
 internal static class NeoClrCliProfile
 {
     internal const string CoreAssemblyName = "NeoCLR.CoreProbe";
@@ -30,6 +30,14 @@ internal static class NeoClrCliProfile
 
     internal static string? GetConfigurationError(CompilationOptions options)
     {
+        if (options.MetadataImportOptions is { UseNativeMetadata: true } native)
+        {
+            if (string.IsNullOrWhiteSpace(native.CoreAssemblyName) || options.TargetCoreAssemblyName != native.CoreAssemblyName ||
+                options.RuntimeUnitContract is not { TypeName: "System.Void", MapClrVoidToUnit: false } nativeUnit ||
+                string.IsNullOrWhiteSpace(nativeUnit.AssemblyName))
+                return "native metadata mode requires matching explicit metadata/emission core names and an owned System.Void unit contract";
+            return null;
+        }
         if (options.TargetCoreAssemblyName != CoreAssemblyName ||
             options.MetadataImportOptions?.CoreAssemblyName != CoreAssemblyName ||
             options.RuntimeUnitContract is not { TypeName: "System.Void", MapClrVoidToUnit: false } unit ||

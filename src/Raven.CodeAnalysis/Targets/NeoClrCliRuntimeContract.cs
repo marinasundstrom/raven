@@ -1,7 +1,7 @@
 namespace Raven.CodeAnalysis.Targets;
 
-// Explicit neoCLR semantics under the temporary CLI loader/emitter. A native
-// contract must replace CLI marker, type-handle and representation assumptions.
+// Shared neoCLR semantic policy for the CLI bridge and bounded native metadata path.
+// Broader native marker, type-handle and representation contracts remain incremental.
 internal sealed class NeoClrCliRuntimeContract(CompilationOptions options) : CliRuntimeContract(options)
 {
     internal override string UnionInterfaceTypeName => "System.Runtime.CompilerServices.UnionValue";

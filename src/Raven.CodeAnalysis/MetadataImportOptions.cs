@@ -95,6 +95,16 @@ public sealed record MetadataImportOptions
         return this with { ObjectAssemblyName = assemblyName };
     }
 
+    /// <summary>Whether semantic loading uses only native references, without a .NET metadata session.</summary>
+    /// <remarks>Experimental NeoCLR-only contract. Every reference must supply native semantic data;
+    /// a named core and native emission backend are required. Does not change compiler hosting.</remarks>
+    public bool UseNativeMetadata { get; private init; }
+
+    /// <summary>Selects native-only semantic loading, or restores the default CLI loading policy.</summary>
+    /// <param name="enabled">True to reject portable references and avoid .NET metadata loading.</param>
+    /// <returns>A new immutable import configuration.</returns>
+    public MetadataImportOptions WithNativeMetadata(bool enabled = true) => this with { UseNativeMetadata = enabled };
+
     private static bool SupportsPrimitive(SpecialType type) => type is SpecialType.System_SByte or SpecialType.System_Byte or
         SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or
         SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_IntPtr or SpecialType.System_UIntPtr or SpecialType.System_Single or SpecialType.System_Double or

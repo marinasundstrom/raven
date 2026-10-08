@@ -6,9 +6,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-08
 
-- Record the native-only core initialization frontier after neoCLR's self-core writer
-  correction. A native semantic core still reports RAVT004 during .NET metadata-session
-  setup; no bridge-free compiler target or consumer execution is claimed.
+- Add explicit MetadataImportOptions.WithNativeMetadata for NeoCLR compiler API use:
+  close the reduced RAVT004 initialization failure by importing native semantic core
+  references without a .NET metadata session, reject
+  portable references/wrong targets, and validate exact native primitive/core ownership
+  for emission. An authored-core integer consumer now runs interpreted and ARM64 native.
+  Default CLI behavior remains; full source-runtime, driver/editor and RavenDoc native
+  input migration are still pending. CoreAssembly has no reflection value in native mode.
 
 - Call types, functions and constants assembly-level members with namespace-qualified
   names. Update the native constant adapter to AssemblyConstantDefinition / AddConstant /
