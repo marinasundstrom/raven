@@ -1131,3 +1131,27 @@ exercise nested vector planning/.NET execution; metadata tests cover CLI/native 
 trips, introspection, generic substitution, malformed elements and nesting limits.
 The portable and factory changes are retained general candidates pending independent
 main-line callers; no ordinary .NET behavior fix is inferred from native support.
+
+## Assembly ownership and qualified expressions (2026-10-08)
+
+`IAssemblySymbol.GetTypeByMetadataName` on a source assembly now searches that
+assembly's declarations only. It no longer returns a referenced CLI type as if it
+were source-owned. Call `Compilation.GetTypeByMetadataName` when reference lookup
+is intended. This is the same ownership distinction exposed by .NET/Roslyn's
+[assembly symbol API](https://learn.microsoft.com/en-us/dotnet/api/microsoft.codeanalysis.iassemblysymbol.gettypebymetadataname?view=roslyn-dotnet-4.13.0)
+and compilation symbol APIs; no metadata representation changes. Closure frames
+resolve their Object base through the owning compilation's special-type contract,
+so they retain the selected framework or native Object provider.
+
+Namespace-qualified expression types use the compilation's existing source-first,
+metadata-affinity and explicit target-provider selection instead of the first
+matching member of an unordered namespace fragment. Type arity remains part of
+the metadata name. This fixes inconsistent qualified calls when references contain
+competing declarations, without introducing a neoCLR-specific preference into
+ordinary .NET lookup. The cost is a compilation-level lookup, with its existing
+cache; this change makes no performance claim. Reference ambiguity policy remains
+Raven's existing policy, not a new claim of complete Roslyn parity.
+
+Regression coverage uses two ordinary CLI libraries with competing `Shared.Api`
+declarations and both reference orders. It checks source-assembly ownership,
+compilation selection, diagnostics and semantic identity for qualified calls.

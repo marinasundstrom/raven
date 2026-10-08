@@ -65,6 +65,9 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
         return null;
     }
 
+    internal INamedTypeSymbol? FindDeclaredType(string metadataName)
+        => FindType(GlobalNamespace, metadataName) as INamedTypeSymbol;
+
     private ITypeSymbol? FindType(INamespaceSymbol rootNamespace, string fullyQualifiedName)
     {
         if (string.IsNullOrWhiteSpace(fullyQualifiedName))

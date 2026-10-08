@@ -4137,13 +4137,14 @@ partial class BlockBinder
 
         if (receiver is BoundNamespaceExpression nsExpr)
         {
-            var member = nsExpr.Namespace.GetMembers(name).FirstOrDefault();
+            var ns2 = nsExpr.Namespace.LookupNamespace(name);
 
-            if (member is INamespaceSymbol ns2)
+            if (ns2 is not null)
                 return new BoundNamespaceExpression(ns2);
 
-            if (member is ITypeSymbol type)
+            if (LookupCanonicalNamespaceType(nsExpr.Namespace, name, explicitTypeArguments?.Length ?? 0) is { } definition)
             {
+                var type = explicitTypeArguments is { } arguments ? definition.Construct(arguments.ToArray()) : definition;
                 if (!EnsureMemberAccessible(type, nameLocation, "type"))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
                 return new BoundTypeExpression(type);
