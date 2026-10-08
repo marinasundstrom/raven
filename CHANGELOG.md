@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-08:** Keep metadata types resolved during incomplete source declarations
+  out of the canonical and namespace-scoped lookup caches. A later namespace import
+  now selects the source declaration instead of an earlier metadata duplicate,
+  preserving same-assembly access to internal members. Validate 16 focused symbol
+  lookup tests and neoCLR's TaskQueue.Current library-bootstrap reproduction.
+
 - **2026-10-08:** Preserve ordinary invocation conversions and parameter-array
   mapping in synthesized String.Concat calls for interpolation and string addition.
   Portable emission now receives explicit boxing when an Object parameter is selected;
