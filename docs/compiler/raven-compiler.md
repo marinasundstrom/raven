@@ -315,3 +315,14 @@ Current limitations:
 - Setting `<UseRuntimeAsync>true</UseRuntimeAsync>` or passing `--runtime-async` explicitly for an unsupported target is rejected instead of producing incompatible output.
 - Raven-specific `Result<..., ...>` entry-point wrappers still use compiler-emitted bridge logic to map success and error payloads to process results.
 - Custom task-like return types that rely on `AsyncMethodBuilderAttribute` are not supported yet.
+
+## Synthesized string calls
+
+String interpolation and string `+` calls normalize arguments through the ordinary
+invocation conversion path after selecting `String.Concat`. The bound call preserves
+boxing/reference conversions and parameter-array mapping, so portable emitters receive
+arguments matching the selected signature. Overload selection and Runtime Contract
+configuration are unchanged; ordinary .NET remains the default. This repairs missing
+semantic information rather than adding a backend-specific conversion or metadata
+encoding. Focused tests cover integer interpolation, value-only interpolation, string
+addition, evaluation order and null text, with emitted .NET execution assertions.

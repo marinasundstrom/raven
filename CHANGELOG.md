@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-08:** Preserve ordinary invocation conversions and parameter-array
+  mapping in synthesized String.Concat calls for interpolation and string addition.
+  Portable emission now receives explicit boxing when an Object parameter is selected;
+  overload selection and Runtime Contract defaults are unchanged. Validate 11 focused
+  interpolation and string error-recovery tests, including emitted .NET execution,
+  null text and left-to-right evaluation, on main and the native integration branch.
+
 - **2026-10-08:** Keep source-assembly metadata lookup within that assembly and
   route namespace-qualified expression types through compilation-level type selection.
   This prevents reference enumeration order from choosing a competing declaration;
