@@ -8020,3 +8020,27 @@ The neoCLR backend additionally admits sealed-owner virtual calls with their nul
 checks, required by ToString. General virtual dispatch and native HTTP server support
 remain incomplete. See neoCLR docs/design/string-building.md and
 docs/experiments/string-building/README.md for evidence and performance limitations.
+
+## Inhabited Void imports (2026-10-08)
+
+The HTTP Result<Void,HttpError> consumer exposed an import ordering gap: native
+signature encoding already maps the explicit core System.Void facade to inhabited
+Void, but declaration validation first required a nominal seed type. The metadata
+importer now admits only the empty, nongeneric, top-level value facade from the
+selected core bound to native module System. Snapshot/core checks remain in force;
+wrong-module bindings are rejected. No-result returns remain distinct from inhabited
+Void results. Runtime Contract and unit configuration are unchanged, and ordinary
+.NET import/emission retains its existing behavior.
+
+This is a companion neoCLR metadata-library fix on main, tested with Raven's
+codex/source-object-metadata-resolution compiler f88757da4 rebuilt against that
+library. Raven main does not contain this native emitter; no shared .NET compiler
+fix was identified. The CLI facade is temporary type identity for the existing
+native Void primitive, not a new nominal runtime type or bridge opcode. The native
+metadata path preserves the value/no-result distinction directly.
+
+Validation: the focused --native-void-value metadata check reproduces the original
+failure, then passes native serialization/reimport, value-result and wrong-core
+checks. TaskResultList.rvn now compiles and executes interpreted; native admission
+next rejects HttpError's 40 flattened lanes against the current 32-lane limit.
+The HTTP app remains work in progress; no native server execution is claimed.

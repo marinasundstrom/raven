@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-08:** Document the companion neoCLR metadata fix for inhabited Void
+  imports from the explicitly bound core. HTTP Result<Void,HttpError> now compiles
+  and executes interpreted; native layout admission remains incomplete. No ordinary
+  .NET behavior or Runtime Contract default changes.
+
 - **2026-10-08:** Document the companion neoCLR StringBuilder/String.Join integration:
   source-owned fluent APIs, UTF-8 quotas, separator joining, exact private service
   mapping and temporary CLI reference projections. Record interpreter/native validation
