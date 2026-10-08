@@ -122,6 +122,7 @@ internal static class NeoClrCommand
         if (args.Length == 1 && args[0] is "--help" or "-h")
         {
             Console.WriteLine("rvnc neoclr [-o output.dll] [--library] [--core-reference NeoCLR.CoreProbe.dll] [--reference library.dll] source.rvn ...");
+            Console.WriteLine("Optional --native-core-reference Core.dll selects native-only core semantics instead of --core-reference; runtime seeds remain execution inputs. Project mode does not yet support this selection.");
             Console.WriteLine("Optional --runtime-seed System.neox binds the explicitly selected CLI core bootstrap to retained runtime services; it imports no additional symbols.");
             Console.WriteLine("Optional --async-library <assembly-name> selects native Task/builder symbols from an explicit --reference. Native async emission is experimental.");
             Console.WriteLine("Optional --source-object-root selects this library's System.Object; requires --library and --core-reference. Use --object-library for an explicitly referenced root; native emission remains capability-checked.");
@@ -141,6 +142,7 @@ internal static class NeoClrCommand
             var referencePaths = new List<string>();
             string? output = null;
             var library = false;
+            var nativeCore = false;
             var bootstrapIntrinsics = false;
             var sourceObjectRoot = false;
             string? systemPath = null;
@@ -184,6 +186,12 @@ internal static class NeoClrCommand
                             throw new ArgumentException("Specify --async-library once with a registered native assembly name.");
                         asyncAssembly = args[i];
                         break;
+                    case "--native-core-reference":
+                        if (corePath is not null || ++i == args.Length || args[i].StartsWith('-'))
+                            throw new ArgumentException("Specify exactly one core selection with a path: --core-reference or --native-core-reference.");
+                        corePath = Path.GetFullPath(args[i]);
+                        nativeCore = true;
+                        break;
                     case "--core-reference":
                         if (corePath is not null || ++i == args.Length) throw new ArgumentException("Specify --core-reference once with a CLI primitive core path.");
                         corePath = Path.GetFullPath(args[i]);
@@ -210,6 +218,9 @@ internal static class NeoClrCommand
                         break;
                 }
             }
+            if (nativeCore && (runtimeSeedPath is not null || systemPath is not null || systemMethods.Count != 0 ||
+                bootstrapIntrinsics || sourceObjectRoot || ownership is not null))
+                throw new ArgumentException("--native-core-reference cannot use CLI bootstrap, source-root or ownership-manifest options; select runtime seeds at execution time.");
             if (sources.Count == 0) throw new ArgumentException("Provide at least one Raven source file.");
             output ??= Path.ChangeExtension(sources[0], ".dll");
             if (File.Exists(output)) throw new IOException("Output already exists: " + output);
@@ -233,11 +244,13 @@ internal static class NeoClrCommand
             if (corePath is not null && string.Equals(corePath, output, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("Output must differ from the primitive core input.");
             var name = Path.GetFileNameWithoutExtension(output);
-            var catalog = corePath is null ? null : NeoClrReferenceCatalog.Read(corePath, referencePaths, runtimeSeedPath);
+            var catalog = corePath is null ? null : nativeCore
+                ? NeoClrReferenceCatalog.ReadNative(corePath, referencePaths)
+                : NeoClrReferenceCatalog.Read(corePath, referencePaths, runtimeSeedPath);
             catalog?.ValidateSourceOwnership(ownership?.Libraries.SelectMany(library => library.Types) ?? []);
             var host = typeof(object).Assembly.GetName();
             var core = catalog?.CoreIdentity ?? new AssemblyIdentity(host.Name!, host.Version!, host.CultureName ?? "", Convert.ToHexString(host.GetPublicKeyToken() ?? []));
-            MetadataReference console = catalog?.Bootstrap.Reference ?? MetadataReference.CreateFromFile(typeof(Console).Assembly.Location);
+            MetadataReference console = catalog?.CoreReference ?? MetadataReference.CreateFromFile(typeof(Console).Assembly.Location);
             var references = catalog?.References.ToList() ?? new List<MetadataReference> {
                 MetadataReference.CreateFromFile(typeof(object).Assembly.Location), console,
                 MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("System.Runtime").Location)
@@ -276,6 +289,12 @@ internal static class NeoClrCommand
             var compilationOptions = (corePath is null ? new CompilationOptions() : CompilationOptions.NeoCLR)
                 .WithOutputKind(library ? OutputKind.DynamicallyLinkedLibrary : OutputKind.ConsoleApplication);
             if (ownership is not null) compilationOptions = ownership.Apply(compilationOptions, name, core.Name);
+            if (nativeCore)
+                compilationOptions = compilationOptions.WithTargetCoreAssemblyName(core.Name)
+                    .WithRuntimeTypeOfContract(null)
+                    .WithRuntimeUnitContract(new(core.Name, "System.Void"))
+                    .WithMetadataImportOptions(new MetadataImportOptions(core.Name)
+                        .WithObjectAssemblyName(core.Name).WithNativeMetadata());
             if (sourceObjectRoot)
             {
                 var imports = compilationOptions.MetadataImportOptions;
@@ -299,7 +318,7 @@ internal static class NeoClrCommand
             ownership?.Validate(compilation);
             using var image = new MemoryStream();
             var backend = new NeoClrEmissionBackend(
-                new(new(name, new Version(1, 0, 0, 0)), core, dependencies, systemSymbols is null ? console : null, systemSymbols, bootstrapReference,
+                new(new(name, new Version(1, 0, 0, 0)), core, dependencies, !nativeCore && systemSymbols is null ? console : null, systemSymbols, bootstrapReference,
                     ownership?.NativePrimitives?.Where(p => p.Value == name && p.Key != "System.Char").Select(p => Enum.Parse<PrimitiveType>(p.Key[7..])),
                     implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Char") == name));
             var result = compilation.Emit(image, null, new EmitOptions().WithBackend(backend));

@@ -3755,3 +3755,22 @@ emission, missing dependencies and invalid inputs. The old `--reference-catalog`
 remains a control. neoCLR's executable consumer now calls a separate native library;
 both modes return 42. This closes catalog API composition only; CLI/MSBuild/editor
 selection and complete core production remain separate gates.
+
+
+### Native core driver selection (development, 2026-10-08)
+
+`rvnc neoclr --native-core-reference Core.dll --reference Library.dll -o App.dll App.rvn`
+selects the native catalog and semantic loader explicitly. It configures the core’s
+System.Void and Object ownership and disables the implicit typeof service contract.
+`--object-library` and `--async-library` can select explicit native providers.
+No host framework references or CLI Console binding enter this path. Existing
+`--core-reference` retains CLI bootstrap behavior; the two selections are exclusive.
+Runtime seeds remain execution inputs. This bounded consumer path rejects retained
+seed/static projection, bootstrap intrinsics, source-root and ownership-manifest flags;
+complete source-core bootstrapping and project/editor configuration remain pending.
+
+The companion neoCLR verifier compiles a separate-library consumer through the driver,
+checks conflicting options and preservation of existing outputs, then runs interpreted
+and ARM64 native with result 42. The native image links only libSystem. Raven owns this
+selection; native metadata/codegen and runtime contracts are unchanged. This removes a
+CLI semantic input requirement for explicit driver consumers, not the .NET compiler host.
