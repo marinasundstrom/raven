@@ -49,7 +49,7 @@ replacement direction, not a claim of an implemented native loader or backend.
 | Unit and no-result calls | Named value-type `System.Void` represents inhabited unit in value/generic positions; CLI VOID denotes no stack result. The importer distinguishes these contexts. | Preserve neoCLR's unit value and separate call-result convention directly. This semantic distinction survives removal of the encoding. |
 | Function types | Raven transports function signatures through `Func`/`Action`-shaped CLI types. neoCLR unit functions use an inhabited result shape even for the existing nominal Func ABI; ordinary .NET targets use Action. This encoding does not establish structural identity or assignability. The importer maps supported delegate shapes to native structural functions. | Load structural function signatures, identity and assignability directly; do not make CLR delegate families or their arities the native semantic model. |
 | Tuples | The profile selects value-type `System.Tuple` names. Import normalizes those probe types to Raven's existing tuple special-type identifiers, historically named System_ValueTuple. | Expose tuple structure and members from native metadata. CLI family names and the special-type alias are compatibility machinery, not native reference-type semantics. |
-| Namespace functions / terminal Fault | CLI containers and a TopLevel marker stand in for namespace functions. Shared lookup consumes INamespaceMemberContainer; the PE provider interprets the attribute. Fault classification checks assembly, namespace, static nongeneric signature, one by-value string parameter and void/unit result. It currently also applies through legacy imported-assembly recognition. | Represent callable ownership and terminal behavior in the native contract. Avoid permanent dependence on CLR container spelling, probe identity or attribute encoding. |
+| Assembly-level functions / terminal Fault | CLI containers and a TopLevel marker stand in for assembly-level functions. Shared lookup consumes INamespaceMemberContainer; the PE provider interprets the attribute. Fault classification checks assembly, namespace, static nongeneric signature, one by-value string parameter and void/unit result. It currently also applies through legacy imported-assembly recognition. | Represent callable ownership and terminal behavior in the native contract. Avoid permanent dependence on CLR container spelling, probe identity or attribute encoding. |
 | Iteration and arrays | Contract maps Iterable/Iterator and member names; a generic array-shape type describes APIs over CLI array transport. Array covariance defaults off. | Load actual neoCLR array/protocol relationships and capabilities. Retain target semantics; replace CLI projection assumptions. |
 | Propagation | Explicit three-parameter `System.Propagatable` protocol is projected through nominal CLI references and Raven binding. | Preserve output/residual relationships and protocol semantics using native types. The protocol is platform behavior; CLI representation is replaceable. |
 | typeof | Runtime context and TypeInfo names are configured; the current compiler checks a RuntimeTypeHandle-taking provider and emits the CLI path. | Define native type identity/token and introspection operations without requiring CLR reflection handles. Keep language typeof semantics and target introspection APIs distinct. |
@@ -992,7 +992,7 @@ Native emission now collects and validates all supported source declarations fir
 then creates type/callable definitions, registers references, and emits bodies. Empty
 static types remain declarations even when they have no callable plans. The native
 syntax/capability validator remains adapter-owned; it still rejects unsupported attributes,
-visibility, namespace functions and richer type contracts rather than dropping metadata.
+visibility, assembly-level functions and richer type contracts rather than dropping metadata.
 
 Compared with the previous inline builder creation, the plan separates source semantics
 from backend lifetime/ownership and gives both adapters one callable definition/body
@@ -1712,7 +1712,7 @@ all language/runtime features. Metadata importer expansion remains deferred.
 
 ## Namespaced functions and real Math source — 2026-10-01
 
-Raven now admits block/file namespace functions through a distinct shared target
+Raven now admits block/file assembly-level functions through a distinct shared target
 capability, preserving the full semantic namespace and simple name. Both bounded
 backend profiles opt in; ordinary .NET remains the default. Native functions retain
 no type owner. No Runtime Contract setting changes. The native adapter requires the
@@ -3227,7 +3227,7 @@ default-disabled mapping and unregistered-reference rejection. Metadata C# check
 cover raw emits, generic substitution, invalid element/scope/stack contracts, CLI refusal,
 and native container/projection loading. All 94 metadata groups pass. The source inventory
 now gets unchanged ArrayList past Reserve and stops at System.Fail's imported namespace
-container, which still needs a namespace-function dependency mapping. Full ArrayList
+container, which still needs a assembly-level-function dependency mapping. Full ArrayList
 native emission/execution is not yet complete. CLI symbols and translated System remain
 the temporary bootstrap; native symbol importing remains future work.
 
@@ -3249,7 +3249,7 @@ The --array-list-source-runtime probe compiles unchanged ArrayList and its sourc
 interfaces with the implementation seed and BootstrapReference. Growth, copy independence,
 iteration, callback predicates/searches and Option results return 42 on native execution.
 Negative capacity and invalid index reach expected System.Fail faults. A separate
-namespace-function consumer verifies dynamic messages and a successful branch.
+assembly-level-function consumer verifies dynamic messages and a successful branch.
 Thirteen array/default tests and two independent required-result Debug/Release tests
 pass; the broad collections application retains exact output. Full library source
 compilation and native semantic loading remain open; translated System still provides
@@ -3329,7 +3329,7 @@ support remains the scope; a later Cecil investigation is deferred.
 ### Native function symbols (2026-10-02)
 
 A native function library can now populate Raven's semantic model directly through
-NeoClrMetadataReference.ReadAssembly. Namespace functions retain native ownership,
+NeoClrMetadataReference.ReadAssembly. Assembly-level functions retain native ownership,
 primitive signatures and exact assembly identity. The current target still uses its
 explicit CLI core for primitive symbols and runtime contracts. This is the only CLI
 bootstrap dependency required by the small semantic probe; the native library itself
@@ -3390,7 +3390,7 @@ compiler symbols. No constructors are invented. Public constructor/instance impo
 reuse the existing metadata references, NewObject and Call emission paths. A Raven
 consumer constructs Calculator, stores its reference in locals and invokes Add(20, 22)
 through an alias; the native runtime returns 42. Private constructors/methods produce
-RAV0500. Existing namespace-function and static-overload controls remain in the probe.
+RAV0500. Existing assembly-level-function and static-overload controls remain in the probe.
 
 The CLI primitive core bootstrap and exact explicit dependency bindings remain required.
 Fields/properties, value/interface/nested/generic declarations and nominal signatures
@@ -3624,7 +3624,7 @@ policy change; native import/bootstrap limitations remain unchanged.
 ### Native generic metadata boundary (2026-10-02 development)
 
 The independent metadata library reads/imports unconstrained static generic methods
-and namespace functions, preserving names, arity and parameter/vector signatures. An
+and assembly-level functions, preserving names, arity and parameter/vector signatures. An
 initial explicit rejection boundary kept Raven safe during that library expansion;
 the subsequent symbol integration now admits this profile.
 
@@ -3668,7 +3668,7 @@ Native parameter/result signatures now include local closed generic root classes
 as Box<int>. The metadata model exposes immutable definition references and arguments;
 NativeModuleSymbol resolves them through the existing signature cache and shared
 constructed-type symbols. The generic consumer now calls native CreateBox and EchoBox
-namespace functions instead of allocating its integer box locally. All seven consumers
+assembly-level functions instead of allocating its integer box locally. All seven consumers
 execute (42); the C# metadata/CLR counterpart passes. No Runtime Contract, codegen
 abstraction or metadata encoding change was needed. Open/external generic constructions,
 constraints and the full native core/bootstrap remain separate work.
@@ -3679,7 +3679,7 @@ Open local signatures such as Box<T> now resolve recursively through the declari
 method or type's cache. Closed signatures retain module caching. Scope checks remain
 in the metadata reader; no synthetic parameters or reflection objects are created.
 Shared constructed-type/member substitution and inference handle OpenBox/OpenBoxes
-namespace functions and Box<TItem>.Same without new emission logic.
+assembly-level functions and Box<TItem>.Same without new emission logic.
 
 The C# consumer checks exact method/owner parameter identity and incompatible generic
 return diagnostics; arrays of open constructions preserve aliases at runtime. All seven
@@ -3700,12 +3700,12 @@ through three assemblies and missing/wrong-version resolver rejection.
 No Runtime Contract, metadata encoding or core bootstrap change. Constraints and generic
 inheritance remain pending. During development, qualified calls
 GenericBridge.Forward(...) and GenericBridge.ForwardArray(...) reported RAV0234 for
-generic namespace functions, while imported unqualified calls compile and execute.
+generic assembly-level functions, while imported unqualified calls compile and execute.
 This is an observed lookup candidate, not yet independently reproduced on .NET or
 attributed to a specific binder path. Follow it up separately; no workaround was added
 to the importer or emitter.
 
-### Qualified native namespace functions resolved (2026-10-02)
+### Qualified native assembly-level functions resolved (2026-10-02)
 
 The earlier RAV0234 lookup candidate was narrowed with independent .NET source controls:
 qualified inferred/explicit generic calls already passed on .NET. The shared namespace
@@ -3735,7 +3735,7 @@ unchanged; existing execution evidence does not prove the proposed separation.
 
 ### First symbol-only emission slice (2026-10-02)
 
-Native namespace functions with primitive, method-parameter and single-vector signatures
+Native assembly-level functions with primitive, method-parameter and single-vector signatures
 now reconstruct output references using IMethodSymbol and a compiler-owned
 ResolvedAssemblyArtifact value. The latter contains exact assembly identity and the
 selected input image's SHA-256, not a reader handle. The importer copies method flags
@@ -3764,7 +3764,7 @@ values, including unconstrained generics. Other type profiles and member referen
 remain reader-backed. See [scope and validation](metadata-backend-boundaries.md#symbol-only-root-class-references-2026-10-02).
 
 
-Namespace functions with external root-class signatures now reconstruct references
+Assembly-level functions with external root-class signatures now reconstruct references
 from symbols too, including open/closed constructions and arrays across dependencies.
 See [the bounded contract](metadata-backend-boundaries.md#nominal-namespace-call-reconstruction-2026-10-02).
 Type-owned members and richer type profiles remain reader-backed; bootstrap and
@@ -3927,7 +3927,7 @@ semantics but its guest implementation is unchanged. No performance claim is mad
 
 
 Method/parameter facade checkpoint (2026-10-02): MethodInfo, ParameterInfo and
-MethodGenericParameterTypeInfo now project namespace functions and declared methods,
+MethodGenericParameterTypeInfo now project assembly-level functions and declared methods,
 including methods viewed on constructed owners. Owner and method argument scopes are
 separate and substitution is simultaneous. Method/parameter identities remain canonical
 within the context; no invocation or runtime loading is introduced.
@@ -5007,7 +5007,7 @@ the change. See [the caller inventory](metadata-backend-boundaries.md#nativelega
 
 Native callable import cleanup (2026-10-03): method/constructor and module-function
 symbols now consume canonical introspection views exclusively. This removes a reader
-wrapper from Raven without changing native namespace-function semantics, primitive
+wrapper from Raven without changing native assembly-level-function semantics, primitive
 bootstrap, Runtime Contract configuration or CLI transport. All seven native consumers
 and canonical constructor/accessor checks pass. Ordinary .NET loading and emission stay
 on their existing paths. See [metadata import](metadata-import.md).
@@ -8126,14 +8126,14 @@ changes. Ordinary .NET type/namespace precedence remains intact. Four focused na
 metadata controls pass on integration 2c8c1f9de; comparison with main shows only the
 unrelated union-companion abstraction in ImportBinder. This does not establish a general
 lookup defect on main. Rebuild neoCLR Core.dll and the matching native bundle; old
-artifacts retain their collision. The native-core replacement and namespace constant
+artifacts retain their collision. The native-core replacement and assembly-level constant
 support remain separate work. neoCLR records interpreted/native string-sample evidence
 in benchmarks/native-web/math-lookup-validation.json.
 
-### Native namespace Double constants (2026-10-08)
+### Native assembly-level Double constants (2026-10-08)
 
 The native backend now collects public/internal namespace const declarations of
-finite Double type and emits their values into neoCLR namespace_constants metadata.
+finite Double type and emits their values into neoCLR constants metadata.
 The native reader exposes them as IFieldSymbol constants in the actual namespace;
 ordinary GetConstantValue and qualified/wildcard lookup supply the value. The portable
 body planner inlines Double field constants. No target Runtime Contract option is
@@ -8141,7 +8141,7 @@ added; ordinary .NET namespace literal-field emission remains unchanged.
 
 The initial metadata contract is finite Double only. Other types/attributes reject
 with NEOMETA001 rather than losing declarations. Native semantic snapshots carry
-exact bits; native PE's incidental CLI envelope does not project namespace constants.
+exact bits; native PE's incidental CLI envelope does not project assembly-level constants.
 Standalone metadata-tool CLI projection rejects. neoCLR's documentation bridge exposes
 its Pi/E/Tau API as literal fields separately. Use matching updated compiler, metadata
 and runtime tools; older readers reject the additive metadata field. Consumers must
@@ -8160,3 +8160,33 @@ Qualified native constant access also extends GetNamespaceMembers to include dir
 constant fields and permits a null nominal receiver for such fields. The pre-existing
 native direct-function path is not on main; these changes remain with that integration.
 Ordinary .NET carrier lookup keeps its existing behavior and focused controls pass.
+
+## Assembly-level members and qualified names (2026-10-08)
+
+Author clarification: types, functions and constants can be assembly-level members.
+Their names include namespaces. Assembly identity supplies ownership; the namespace
+is part of the qualified name and supports source lookup/imports.
+
+For example, System.Runtime declares the type `System.String`, the function
+`System.Math.Sign`, and the constant `System.Math.Pi`. The metadata may store the
+namespace and simple name separately; together they represent the qualified name.
+Function overloads also retain signatures. A qualified name alone does not replace
+assembly identity when resolving dependencies. Type-owned members and nested types
+retain their declaring-type relationships.
+
+Use **assembly-level function**, **assembly-level constant** or **assembly-level
+member** in APIs and documentation. The existing `Namespace` metadata property and
+namespace imports describe name qualification. This terminology does not change
+CLI instruction semantics, runtime storage, overload identity or ABI conventions.
+
+The unreleased constant adapter now uses AssemblyConstantDefinition,
+AssemblyBuilder.AddConstant and ModuleDefinition.Constants. Native metadata uses
+assemblies[].constants. Rebuild same-day prototype artifacts with matching tools;
+old serialized names are not retained as aliases. Direct namespace symbol lookup
+still supplies the qualified members; no source syntax or inlining behavior changes.
+
+The matching metadata library also exposes AssemblyDefinition.GetMembers and
+AssemblyInfo.GetMembers for assembly-owned type/function/constant views. Native
+round-trip checks retain ownership, qualified names and overload signatures. Six
+compiler emission/visibility controls pass using the renamed contract; the Math
+consumer still passes interpreted execution and remains AOT-blocked on Double.

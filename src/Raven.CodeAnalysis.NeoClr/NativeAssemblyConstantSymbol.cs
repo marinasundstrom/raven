@@ -4,11 +4,11 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-internal sealed class NativeNamespaceConstantSymbol : Symbol, IFieldSymbol
+internal sealed class NativeAssemblyConstantSymbol : Symbol, IFieldSymbol
 {
     private readonly double value;
     private readonly Lazy<ITypeSymbol> type;
-    internal NativeNamespaceConstantSymbol(NamespaceConstantDefinition constant, INamespaceSymbol owner, Func<ITypeSymbol> type)
+    internal NativeAssemblyConstantSymbol(AssemblyConstantDefinition constant, INamespaceSymbol owner, Func<ITypeSymbol> type)
         : base(SymbolKind.Field, constant.Name, owner, null, owner, [], [],
             constant.Visibility == MethodVisibility.Public ? Accessibility.Public : Accessibility.Internal)
     { value = constant.Value; this.type = new(type); }
