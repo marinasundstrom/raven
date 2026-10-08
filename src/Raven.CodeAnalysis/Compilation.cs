@@ -1330,10 +1330,10 @@ public partial class Compilation
 
         if (namespaceSymbol is SourceNamespaceSymbol)
             namespaceSymbol = GetNamespaceSymbolCached(GetNamespaceMetadataName(namespaceSymbol)) ?? namespaceSymbol;
-        foreach (var method in namespaceSymbol.GetMembers(name).OfType<IMethodSymbol>())
+        foreach (var member in namespaceSymbol.GetMembers(name))
         {
-            if (method.IsStatic && method.ContainingType is null && seen.Add(method.GetLookupIdentityKey()))
-                members.Add(method);
+            if ((member is IMethodSymbol { IsStatic: true } or IFieldSymbol { IsConst: true }) && member.ContainingType is null && seen.Add(member.GetLookupIdentityKey()))
+                members.Add(member);
         }
 
         foreach (var container in GetNamespaceMemberContainers(namespaceSymbol))
@@ -1363,10 +1363,10 @@ public partial class Compilation
 
         if (namespaceSymbol is SourceNamespaceSymbol)
             namespaceSymbol = GetNamespaceSymbolCached(GetNamespaceMetadataName(namespaceSymbol)) ?? namespaceSymbol;
-        foreach (var method in namespaceSymbol.GetMembers().OfType<IMethodSymbol>())
+        foreach (var member in namespaceSymbol.GetMembers())
         {
-            if (method.IsStatic && method.ContainingType is null && seen.Add(method.GetLookupIdentityKey()))
-                members.Add(method);
+            if ((member is IMethodSymbol { IsStatic: true } or IFieldSymbol { IsConst: true }) && member.ContainingType is null && seen.Add(member.GetLookupIdentityKey()))
+                members.Add(member);
         }
 
         foreach (var container in GetNamespaceMemberContainers(namespaceSymbol))

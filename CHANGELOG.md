@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-08
 
+- Emit/import finite Double namespace constants in native neoCLR metadata, with
+  public/internal visibility and exact compile-time values; inline Double constants
+  in the portable emitter. Other native constant types remain unsupported. Requires
+  matching metadata/runtime tools; ordinary .NET literal-field semantics are unchanged.
+
 - Document neoCLR’s source-owned Math bootstrap correction; ordinary .NET lookup is unchanged.
 
 - **2026-10-08:** Preserve statement-boundary control flow while lowering explicit

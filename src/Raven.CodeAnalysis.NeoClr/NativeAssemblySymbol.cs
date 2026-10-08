@@ -82,6 +82,11 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             foreach (var part in name.Split('.', StringSplitOptions.RemoveEmptyEntries)) ns = ns.GetOrAddNamespace(part);
             return ns;
         }
+        foreach (var constant in assembly.Reference.Definition.MainModule.NamespaceConstants)
+        {
+            var ns = Namespace(constant.Namespace);
+            ns.Add(new NativeNamespaceConstantSymbol(constant, ns, () => compilation.GetSpecialType(SpecialType.System_Double)));
+        }
         foreach (var method in moduleView.GetFunctions())
         {
             var ns = root;

@@ -4172,7 +4172,7 @@ partial class BlockBinder
                 if (!EnsureMemberAccessible(topLevelField, nameLocation, GetSymbolKindForDiagnostic(topLevelField)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-                return new BoundMemberAccessExpression(new BoundTypeExpression(topLevelField.ContainingType!), topLevelField);
+                return new BoundMemberAccessExpression(topLevelField.ContainingType is { } fieldContainer ? new BoundTypeExpression(fieldContainer) : null, topLevelField);
             }
 
             _diagnostics.ReportTypeOrNamespaceNameDoesNotExistInTheNamespace(name, nsExpr.Namespace.Name, nameLocation);

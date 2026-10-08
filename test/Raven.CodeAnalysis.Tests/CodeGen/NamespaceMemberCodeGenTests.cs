@@ -12,6 +12,24 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public sealed class NamespaceMemberCodeGenTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DoubleConstantsPreserveValuesInFunctionBodies(bool qualified)
+    {
+        var prefix = qualified ? "Numbers." : "";
+        var source = "import Numbers.*\nnamespace Numbers { public const Pi: double = 3.14159265358979323846 }\n"
+            + $"public func Read() -> double {{ return {prefix}Pi }}";
+        var compilation = Compilation.Create("DoubleConstants", [SyntaxTree.ParseText(source)],
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, compilation.References);
+        var function = loaded.Assembly.GetType("NamespaceMembers")!.GetMethod("Read")!;
+        Assert.Equal(Math.PI, function.Invoke(null, null));
+    }
+
     [Fact]
     public void TopLevelFunctionAndConst_EmitIntoNamespaceContainer()
     {

@@ -8129,3 +8129,34 @@ lookup defect on main. Rebuild neoCLR Core.dll and the matching native bundle; o
 artifacts retain their collision. The native-core replacement and namespace constant
 support remain separate work. neoCLR records interpreted/native string-sample evidence
 in benchmarks/native-web/math-lookup-validation.json.
+
+### Native namespace Double constants (2026-10-08)
+
+The native backend now collects public/internal namespace const declarations of
+finite Double type and emits their values into neoCLR namespace_constants metadata.
+The native reader exposes them as IFieldSymbol constants in the actual namespace;
+ordinary GetConstantValue and qualified/wildcard lookup supply the value. The portable
+body planner inlines Double field constants. No target Runtime Contract option is
+added; ordinary .NET namespace literal-field emission remains unchanged.
+
+The initial metadata contract is finite Double only. Other types/attributes reject
+with NEOMETA001 rather than losing declarations. Native semantic snapshots carry
+exact bits; native PE's incidental CLI envelope does not project namespace constants.
+Standalone metadata-tool CLI projection rejects. neoCLR's documentation bridge exposes
+its Pi/E/Tau API as literal fields separately. Use matching updated compiler, metadata
+and runtime tools; older readers reject the additive metadata field. Consumers must
+be recompiled after changing constant values, just as with .NET const fields.
+
+Validation: namespace metadata controls and qualified/wildcard Double .NET execution,
+plus neoCLR's separately compiled MathConstants consumer in interpreted mode.
+AOT still rejects Double instructions; no compiled execution is claimed.
+The portable emitter is not present on main, so its Double-inlining addition remains
+with that pending shared-emitter integration; this is not a demonstrated main compiler
+bug. Source constant syntax and .NET semantic behavior already exist on main.
+neoCLR owns metadata/reader bounds and API documentation; Raven owns declarations,
+namespace symbols and body inlining. Full native-core replacement remains independent.
+
+Qualified native constant access also extends GetNamespaceMembers to include direct
+constant fields and permits a null nominal receiver for such fields. The pre-existing
+native direct-function path is not on main; these changes remain with that integration.
+Ordinary .NET carrier lookup keeps its existing behavior and focused controls pass.

@@ -24,6 +24,7 @@ internal static class Int32Emitter
         var unions = new List<SourceUnionDeclarationPlan>();
         var properties = new List<SourcePropertySymbol>();
         var storageFields = new List<IFieldSymbol>();
+        var namespaceConstants = new List<IFieldSymbol>();
         var declaredTypes = new Dictionary<INamedTypeSymbol, SourceTypePlan>(SymbolEqualityComparer.Default);
         // Collect all declarations before emitting any body, so calls do not depend on file order.
         foreach (var tree in compilation.SyntaxTrees)
@@ -53,6 +54,18 @@ internal static class Int32Emitter
                         throw Unsupported("only top-level functions with block or expression bodies");
                     var plan = GetPlan(symbol);
                     plans.Add(plan);
+                }
+                else if (member is ConstDeclarationSyntax constant)
+                {
+                    if (constant.AttributeLists.Count != 0 || constant.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword)))
+                        throw Unsupported("public/internal namespace Double constants without attributes");
+                    foreach (var variable in constant.Declaration.Declarators)
+                    {
+                        if (model.GetDeclaredSymbol(variable) is not IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Double } field ||
+                            field.GetConstantValue() is not double value || !double.IsFinite(value))
+                            throw Unsupported("finite namespace Double constants");
+                        namespaceConstants.Add(field);
+                    }
                 }
                 else if (member is ExtensionDeclarationSyntax extension)
                 {
@@ -358,6 +371,9 @@ internal static class Int32Emitter
         // Materialize definitions only after all source declarations and body capabilities pass.
         // Every definition exists before reference resolution or method-body emission.
         var assembly = new AssemblyBuilder(options.Identity, options.CoreLibrary);
+        foreach (var constant in namespaceConstants)
+            assembly.AddNamespaceConstant(new NamespaceConstantDefinition(constant.ContainingNamespace?.ToMetadataName() ?? "", constant.Name,
+                (double)constant.GetConstantValue()!, constant.DeclaredAccessibility == Accessibility.Public ? MethodVisibility.Public : MethodVisibility.Internal));
         foreach (var (_, binding) in dependencies)
             if (binding.NativeImplementation is { } implementation)
                 assembly.BindNativeLibrary(binding.Definition, implementation, binding.CoreLibrary);
