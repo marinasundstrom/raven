@@ -7,7 +7,7 @@ using Raven.CodeAnalysis.Metadata;
 namespace Raven.CodeAnalysis.NeoClr;
 
 /// <summary>An owned native metadata input, read directly without a CLI projection.</summary>
-/// <remarks>The profile supports unconstrained generic root classes, unconstrained generic interfaces and static generic methods/functions with supported local/external nongeneric interface bounds, with primitive, nominal and vector signatures and explicitly resolved dependencies. An explicit CLI core still supplies primitive symbols.</remarks>
+/// <remarks>The profile supports unconstrained generic root classes, unconstrained generic interfaces and static generic methods/functions with supported local/external nongeneric interface bounds, with primitive, nominal and vector signatures and explicitly resolved dependencies. An explicit CLI bootstrap or native semantic core supplies primitive symbols.</remarks>
 public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetadataReference
 {
     private NeoClrMetadataReference(AssemblyDefinition definition, string sha256, NeoClrPrimitiveBootstrap? bootstrap = null, Raven.CodeAnalysis.Symbols.ExternalDocumentationSet? documentation = null)
@@ -19,7 +19,7 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         Artifact = new(identity.Name, identity.Version, identity.Culture, identity.PublicKeyToken, identity.Flags, sha256);
     }
     internal Raven.CodeAnalysis.Symbols.ExternalDocumentationSet? Documentation { get; }
-    internal static NeoClrMetadataReference ReadDocumentedAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap bootstrap, string assemblyPath)
+    internal static NeoClrMetadataReference ReadDocumentedAssembly(ReadOnlySpan<byte> image, NeoClrPrimitiveBootstrap? bootstrap, string assemblyPath)
         => new(AssemblyDefinition.ReadNativeAssembly(image), Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image)), bootstrap, Raven.CodeAnalysis.Symbols.ExternalDocumentationSet.TryLoad(assemblyPath));
 
     internal NeoClrPrimitiveBootstrap? Bootstrap { get; }

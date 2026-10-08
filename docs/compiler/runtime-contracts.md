@@ -3720,7 +3720,7 @@ A small authored native core now compiles an integer Raven consumer, executed by
 neoCLR's interpreter and ARM64 AOT with result 42. The fixture supplies minimal Object
 slots, numeric/unit declarations and String; it is not a production Object library.
 The normal .NET/CLI profile and mixed native-library/CLI-core catalog remain controls.
-The catalog, CLI driver, MSBuild/editor and full source-library bootstrap still use
+The CLI driver, MSBuild/editor and full source-library bootstrap still use
 the previous core path; this is an explicit compiler API prerequisite, not release
 qualification or a guarantee that all binders and lowering paths are native-only.
 
@@ -3728,3 +3728,30 @@ NeoCLR keeps the reproducer and execution evidence in
 `docs/experiments/native-core-bootstrap`. Raven's focused NeoClrProfileTests cover
 immutability and wrong-target/portable-reference rejection; the producer probe covers
 native symbols, output, missing core, exact identity rejection and CLI emission refusal.
+
+
+### Native core reference catalog
+
+`NeoClrReferenceCatalog.ReadNative(corePath, nativeReferencePaths)` snapshots the
+native core first, then explicit native libraries, without a CLI semantic reference.
+Use `catalog.References` for compilation, `catalog.Dependencies` for native emission
+and `catalog.CoreIdentity` for the explicit target/unit contracts above. All bindings
+reuse the same reference instances. `UsesNativeMetadata` identifies this mode;
+`NativeCore` exposes the core snapshot and `CoreReference` works with either mode.
+`Bootstrap` remains available for `Read` catalogs and throws InvalidOperationException
+for `ReadNative`. Existing `Read` callers retain the CLI bootstrap contract.
+
+Each input must be a supported native PE/#Neo artifact no larger than 16 MiB. Duplicate
+paths/identities and CLI-only/malformed inputs reject. The catalog snapshots optional
+adjacent XML documentation, never searches for dependency assemblies, and leaves
+missing dependencies as compiler diagnostics. Core completeness is not inferred;
+semantic/emission contracts still require the declarations used by the program.
+Runtime seeds remain separate execution inputs; native catalogs attach no translated
+seed, so `ValidateSourceOwnership` has no retained seed to inspect in this mode.
+
+The focused `NeoClrMetadataProbe --native-core-catalog <native-core> <cli-core> <output>`
+checks snapshot reuse after file replacement, changed library symbols, documentation,
+emission, missing dependencies and invalid inputs. The old `--reference-catalog` probe
+remains a control. neoCLR's executable consumer now calls a separate native library;
+both modes return 42. This closes catalog API composition only; CLI/MSBuild/editor
+selection and complete core production remain separate gates.

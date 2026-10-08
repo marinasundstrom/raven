@@ -11,7 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   references without a .NET metadata session, reject
   portable references/wrong targets, and validate exact native primitive/core ownership
   for emission. An authored-core integer consumer now runs interpreted and ARM64 native.
-  Default CLI behavior remains; full source-runtime, driver/editor and RavenDoc native
+  Add NeoClrReferenceCatalog.ReadNative for matching immutable native core/library
+  references and emission bindings, with XML documentation and explicit input guards.
+  A separate-library consumer returns 42 in both execution modes. Existing Read and
+  default CLI behavior remain; full source-runtime, driver/editor and RavenDoc native
   input migration are still pending. CoreAssembly has no reflection value in native mode.
 
 - Call types, functions and constants assembly-level members with namespace-qualified

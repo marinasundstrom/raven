@@ -16,6 +16,11 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args.Length == 4 && args[0] == "--native-core-catalog")
+{
+    NativeCoreCatalogChecks.Run(args[1], args[2], args[3]); return;
+}
+
 if (args.Length == 2 && args[0] == "--imported-object-root")
 {
     ImportedObjectRootChecks.Run(args[1]); return;

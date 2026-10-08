@@ -8222,7 +8222,7 @@ exact native core identity for primitives and unit. Default .NET/CLI behavior re
 The neoCLR reduced consumer now emits and returns 42 in interpreter and macOS ARM64
 native execution; the binary depends only on libSystem. Fixture Object slots and an
 empty native System seed are deliberate test inputs, not production runtime coverage.
-See the runtime-contract API section for guards and limits. Catalog/driver/project,
+See the runtime-contract API section for guards and limits. Driver/project,
 complete source-runtime ownership and Windows/editor qualification remain outstanding.
 
 The author also expects RavenDoc to stop exposing Probe artifacts as this migration
@@ -8232,3 +8232,20 @@ A native provider must reuse native semantic metadata and real ownership, not re
 CLI CoreProbe declarations. Probe.dll is generator tooling; NeoCLR.CoreProbe.dll is
 the current aggregate documentation reference. No RavenDoc provider change or new
 release gate is implied by this compiler API slice.
+
+
+### Native core catalog follow-through (2026-10-08)
+
+`NeoClrReferenceCatalog.ReadNative` now composes native core/library semantic snapshots
+and matching native emission bindings through an explicit API. Configure
+`WithNativeMetadata`, the selected core, owned unit and Object contracts as documented
+in runtime-contracts.md. Existing `Read` remains the CLI bootstrap path. No temporary
+CLI projection is used as a semantic input, and no translated System implementation
+is attached to the native core; runtime seed selection remains the execution host's
+responsibility. Native PE/#Neo wrapping remains the reference transport format.
+
+Raven owns loading/configuration; neoCLR owns core production and execution. Focused
+snapshot/invalid-input/dependency checks and the existing CLI catalog control pass.
+neoCLR's separate-library consumer returns 42 interpreted and ARM64 native. Full
+core declarations, driver/project/editor integration and RavenDoc's native provider
+remain pending; this does not remove their existing importer path or rename artifacts.
