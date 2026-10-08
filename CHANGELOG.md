@@ -13,7 +13,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   type-resolution and closure tests on this branch. Also normalize namespace-imported
   type candidates through the same lookup; cover qualified, wildcard-imported and
   explicitly imported calls with both reference orders. Validate 68 focused import,
-  namespace, alias and lookup tests on both compiler branches.
+  namespace, alias and lookup tests on both compiler branches. Qualify a fresh
+  imported-Console reader through neoCLR CIL and standalone AOT: nine reader cases
+  and exact output-fault parity, without source staging or compilation reuse.
 
 - RavenDoc shared API navigation drawers fill the mobile viewport instead of inheriting the shorter desktop sidebar height.
 

@@ -7937,3 +7937,35 @@ Core and retained-seed selections. No compiler or ordinary .NET behavior changes
 This validates transport of existing help, not complete API documentation coverage
 or a merged RavenDoc website model. The integration evidence is recorded in neoCLR's
 `docs/experiments/extended-cli-metadata/native-bundle-documentation-2026-10-07.md`.
+
+## Console AOT producer lookup qualification (2026-10-08)
+
+Shared fixes `b7a22b9e1` and `8b46ab9eb` keep source-assembly lookup local and
+route qualified and namespace-imported types through compilation-level selection.
+Their general equivalents are on main as `9c7db32a2` and `26cc6caae`. The native
+backend and qualification build remain on codex/source-object-metadata-resolution.
+Ordinary .NET regressions independently reproduce the lookup bugs on main; 68
+focused import, namespace, alias and lookup tests pass on each branch. Earlier
+lookup/closure/root checks pass 46 tests here and 22 applicable tests on main.
+
+The Console producer had two declarations: a minimal CLI bootstrap Console and the
+complete native System.Runtime Console. First-candidate namespace/import lookup and
+source-assembly queries escaping into referenced CLI assemblies caused intermittent
+missing-member diagnostics before emission. Source-path staging was an observation,
+not the root cause. Closure Object lookup now uses the owning compilation's selected
+special type, preserving native and .NET root contracts.
+
+The explicit configuration is unchanged: --core-reference, --runtime-seed, native
+--reference System.Runtime, --bootstrap-ownership and --object-library System.Runtime.
+No temporary CLI encoding, native metadata schema, intrinsic, ABI or emitter fallback
+is added. Compiler symbol lookup owns the fix; existing native metadata/CIL emission
+and neoCLR AOT compilation consume the corrected bound program. Broader duplicate-type
+policy and retirement of bootstrap facade declarations remain separate design work.
+
+neoCLR's docs/experiments/aot-console/raven-lookup-validation.json records fresh
+compilation of imported Console calls, nine interpreter/native reader cases, exact
+broken-pipe fault/exit parity and standalone execution with an empty environment and
+only macOS libSystem. No staged source or reused compilation is used. The driver
+now hashes adjacent compiler DLLs and runtime/dependency configuration before reuse;
+missing implementation hashes reject before copying artifacts. The bundle libraries
+remain pinned; this does not qualify all native emitter features or other .NET targets.
