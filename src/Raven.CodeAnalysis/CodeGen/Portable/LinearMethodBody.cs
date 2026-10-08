@@ -596,7 +596,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (memberAssignment is BoundPatternAssignmentExpression { Pattern: BoundDiscardPattern } discard)
                 {
                     if (discard.Right is BoundUnitExpression) continue;
-                    if (!LowerValue(discard.Right)) return false;
+                    // A discard consumes no earlier operand. Preserve the enclosing
+                    // statement boundary so a lowered await may suspend here, while
+                    // discards nested inside a value expression retain its restrictions.
+                    if (!LowerValue(discard.Right, atStatementBoundary: atStatementBoundary)) return false;
                     if (discard.Right is BoundInvocationExpression discardedCall)
                     {
                         if (ReturnsValue(discardedCall.Method)) Add(LinearInstructionKind.Pop, Syntax(statement));

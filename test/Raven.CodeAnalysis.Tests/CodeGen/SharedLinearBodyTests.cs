@@ -985,6 +985,56 @@ public class SharedLinearBodyTests
         Assert.Equal(42, Emit(compilation).GetType("Discards")!.GetMethod("Main")!.Invoke(null, null));
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void DiscardedValueBlocksCanReturnAtStatementBoundaries(OptimizationLevel optimization)
+    {
+        var compilation = Create("""
+            public static class Discards {
+                public static func Value(flag: bool) -> int {
+                    _ = if flag {
+                        if flag { return 42 }
+                        0
+                    } else { 7 }
+                    return 21
+                }
+            }
+            """, optimization);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(declaration)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+        var method = Emit(compilation).GetType("Discards")!.GetMethod("Value")!;
+        Assert.Equal(42, method.Invoke(null, [true]));
+        Assert.Equal(21, method.Invoke(null, [false]));
+    }
+
+    [Fact]
+    public void DiscardInsideValueBlockPreservesEnclosingOperandRestriction()
+    {
+        var compilation = Create("""
+            public static class Discards {
+                public static func Value(flag: bool) -> int {
+                    return 2 + (if flag {
+                        _ = if flag {
+                            if flag { return 42 }
+                            0
+                        } else { 7 }
+                        1
+                    } else { 3 })
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(declaration)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.False(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared));
+        Assert.Equal("value block cannot exit its enclosing expression", failure!.Detail);
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));

@@ -8086,3 +8086,32 @@ Async interface signatures use target metadata alongside task/builder types duri
 persisted CLI emission; they are not resolved through the compiler host's runtime
 assemblies. Regression checks emit a pass-through signature for explicit NeoCLR
 and legacy probe-core profiles and inspect its return type and assembly scope.
+
+
+### Discarded await at a statement boundary (2026-10-08)
+
+The portable body planner now forwards the enclosing empty-stack statement context
+when lowering `_ = expression`. A discarded await may suspend and resume before its
+result is dropped, just like an awaited local initializer. A discard nested in a
+larger value expression does not gain permission to exit while earlier operands are
+still on the stack. The new regression covers both boundaries without asserting an
+instruction sequence, plus ordinary .NET completed/pending awaits in Debug/Release.
+
+This is an emission correction, not a binder, semantic-model or Runtime Contract
+change. The neoCLR consumer still explicitly selects `System.Runtime` as its async
+provider. Existing CLI state-machine representation and native metadata/CIL encoding
+are unchanged; the portable compiler owns the missing control-flow context, and the
+runtime owns queue entry draining. Native host-I/O entry waits remain unsupported.
+
+The portable planner currently exists on `codex/source-object-metadata-resolution`
+and is absent from main. This general planner fix should accompany that shared backend
+when integrated; it is not a permanent neoCLR-only language rule. Do not transplant
+the target backend to main solely to apply this local fix. Independent .NET controls
+remain usable on main without the portable planner.
+
+Validation: the 60-test portable-body baseline passed. Before the fix, both new
+statement-boundary planner controls failed while five other new controls passed.
+After the fix, 67 focused shared-body/.NET async tests pass. The native queued-await
+consumer now prints `Queued` then `Resumed` in interpreter, sanitized native and
+standalone execution. These are modern .NET and bounded neoCLR checks, not .NET
+Framework/NanoFramework qualification or a benchmark.

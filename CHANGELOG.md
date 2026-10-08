@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-08:** Preserve statement-boundary control flow while lowering explicit
+  discards in the portable emitter. A discarded await can suspend/resume; nested
+  value expressions retain their earlier-operand safety restriction. Semantic APIs,
+  runtime contracts and metadata encodings are unchanged. The portable planner fix
+  accompanies the shared backend on the integration line; main does not contain it.
+  Validate 67 focused compiler/.NET controls and queued-await native/interpreter parity.
+
 - **2026-10-08:** Select `System.Runtime.CompilerServices.UnionValue` for the
   neoCLR union bridge, including explicitly configured legacy probe-core callers.
   Runtime lookup, generated protocol definitions and imported protocol reuse agree;
