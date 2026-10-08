@@ -1021,3 +1021,17 @@ Native comments follow `M:Namespace.Function(parameter-types)` / `F:Namespace.Co
 existing type-owned .NET IDs keep their previous shape. Global members omit the
 namespace prefix. This corrects the production native-library renderer crash found
 on 2026-10-09, independently of completing the production native core.
+
+
+Native assembly functions and constants participate in namespace sidebar navigation.
+Combined rendering enumerates declarations from the selected libraries, keeping
+bootstrap/dependency primitives from displacing documented Object declarations.
+NeoCLR source documentation uses the same canonical IDs as native metadata; ordinary
+.NET documentation retains its CLI carrier IDs. Historical sidecars require explicit
+migration or regeneration, not cosmetic ownership relabeling.
+
+Assembly-level overloads share one member-group page. Native Math int/Double
+overloads and the reduced native Score fixture retain both signatures and comments;
+sidebar entries identify overload groups rather than showing only the last signature.
+Validation: 43 focused compiler/renderer tests and the native documentation fixture
+pass, alongside neoCLR's integrated HTML/link and browser checks.

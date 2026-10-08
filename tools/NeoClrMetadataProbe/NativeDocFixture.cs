@@ -34,6 +34,10 @@ internal static class NativeDocFixture
         function.SetParameterName(0, "value");
         function.GetILGenerator().LoadArgument(0);
         function.GetILGenerator().Return();
+        var functionOverload = api.AddFunction("Example", "Score", new(PrimitiveType.Double, [PrimitiveType.Double]));
+        functionOverload.SetParameterName(0, "value");
+        functionOverload.GetILGenerator().LoadArgument(0);
+        functionOverload.GetILGenerator().Return();
         var global = api.AddFunction("GlobalScore", new(PrimitiveType.Int32, []));
         global.GetILGenerator().LoadConstant(42);
         global.GetILGenerator().Return();

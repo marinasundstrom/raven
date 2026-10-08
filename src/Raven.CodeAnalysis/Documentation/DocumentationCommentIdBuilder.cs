@@ -146,7 +146,9 @@ internal static class DocumentationCommentIdBuilder
     }
 
     private static string GetMemberOwnerPrefix(ISymbol member)
-        => member.ContainingType is { } type ? GetTypeName(type) + "."
+        => member.ContainingType is { } type &&
+            type is not SynthesizedNamespaceMembersClassSymbol { Compilation.Options.TargetPlatform: TargetPlatform.NeoCLR }
+                ? GetTypeName(type) + "."
             : member.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToMetadataName() + "." : "";
 
     public static string GetFieldMemberId(IFieldSymbol field)

@@ -5,6 +5,7 @@ import hashlib
 from html.parser import HTMLParser
 from urllib.parse import unquote, urlsplit
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -65,9 +66,13 @@ assert 'Library.dll' in member and 'Book/index.html' in member
 function = (site / 'docs/Example/method_Score.html').read_text()
 assert 'Library.dll' in function and 'Score(value: int)' in function
 assert 'Assembly function documentation.' in function
+assert 'Score(value: double)' in function
 constant = (site / 'docs/Example/field_Scale.html').read_text()
 assert 'Library.dll' in constant and 'Assembly constant documentation.' in constant and '1.5' in constant
 assert (site / 'docs/method_GlobalScore.html').exists()
+nav = re.search(r'<nav[^>]*aria-label="API namespaces and types"[^>]*>(.*?)</nav>', book, re.S).group(1)
+assert 'method_Score.html' in nav and 'field_Scale.html' in nav
+assert 'method_GlobalScore.html' in nav
 assert 'book: Book' in member and 'number: int' in member
 assert 'The original book.' in member and 'The same book instance.' in member
 assert 'Native namespace overview.' in (site / 'docs/Example/index.html').read_text()

@@ -7,6 +7,49 @@ namespace Raven.CodeAnalysis.Tests.Documentation;
 public sealed class NamespaceDocumentationTests : CompilationTestBase
 {
     [Theory]
+    [InlineData(false, "NamespaceMembers.")]
+    [InlineData(true, "")]
+    public void AssemblyMemberSidecarsUseTargetSpecificIds(bool native, string carrier)
+    {
+        var tree = SyntaxTree.ParseText("namespace Samples\n/// Function summary\npublic func Score(value: int) -> int { value }\n/// Constant summary\npublic const Scale: int = 2",
+            new ParseOptions { DocumentationMode = true, DocumentationFormat = DocumentationFormat.Markdown });
+        var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+        var references = TestMetadataReferences.Default.ToArray();
+        if (native)
+        {
+            var corePath = references.OfType<PortableExecutableReference>()
+                .Single(reference => Path.GetFileName(reference.FilePath) == "System.Runtime.dll").FilePath!;
+            using var core = Mono.Cecil.AssemblyDefinition.ReadAssembly(corePath);
+            core.Name.Name = "NeoCLR.CoreProbe";
+            core.Name.PublicKey = [];
+            using var image = new MemoryStream();
+            core.Write(image);
+            references = [.. references, MetadataReference.CreateFromImage(image.ToArray())];
+            options = CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary)
+                .WithRuntimeTypeOfContract(null);
+        }
+        var compilation = Compilation.Create("MemberDocs", [tree], references, options);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var root = Path.Combine(Path.GetTempPath(), "member-docs-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            ExternalDocumentationEmitter.WriteXmlDocumentation(compilation, Path.Combine(root, "docs.xml"));
+            ExternalDocumentationEmitter.WriteMarkdownDocumentation(compilation, Path.Combine(root, "docs.docs"));
+            var xml = System.Xml.Linq.XDocument.Load(Path.Combine(root, "docs.xml"));
+            var ids = xml.Descendants("member").Select(member => member.Attribute("name")!.Value).ToArray();
+            ids.ShouldContain("M:Samples." + carrier + "Score(System.Int32)");
+            ids.ShouldContain("F:Samples." + carrier + "Scale");
+            var markdown = string.Join("\n", Directory.EnumerateFiles(Path.Combine(root, "docs.docs"), "*.md", SearchOption.AllDirectories).Select(File.ReadAllText));
+            markdown.ShouldContain("xref: M:Samples." + carrier + "Score(System.Int32)");
+            markdown.ShouldContain("xref: F:Samples." + carrier + "Scale");
+            markdown.ShouldContain("Function summary");
+            markdown.ShouldContain("Constant summary");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Theory]
     [InlineData(false, "Samples")]
     [InlineData(true, "Samples")]
     [InlineData(false, "System")]

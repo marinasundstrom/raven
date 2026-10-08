@@ -8310,3 +8310,22 @@ The renderer assumption also exists on Raven main. The shared renderer/documenta
 fix is a general candidate; its reduced native regression depends on the integration
 adapter. Carry the independent documentation tests with the shared-line reconciliation,
 rather than treating this renderer fix as permanently target-specific.
+
+
+### Native documentation identity follow-up (2026-10-09)
+
+For a NeoCLR target, source members owned by the synthesized NamespaceMembers
+container now receive native assembly-level documentation IDs: for example
+`M:System.Math.Exp(System.Double)` and `F:System.Math.Pi`. XML and Markdown
+sidecars share this identity builder. Ordinary .NET compilation retains the carrier
+IDs because those match its emitted CLI declarations; user-authored types named
+NamespaceMembers are not rewritten. Native metadata readers already use the
+canonical IDs. No new Runtime Contract setting is required beyond the explicit
+NeoCLR target; this does not change IL or native metadata encoding.
+
+Historical bundle sidecars must be regenerated or explicitly mapped during migration.
+The neoCLR website audit matches reviewed XML to actual native declarations before
+recovering comments; that compatibility input is not a permanent loader fallback.
+RavenDoc now includes assembly functions/constants in namespace navigation and
+collects declarations from documented libraries rather than letting bootstrap
+primitive equivalence hide Object. Full native-core bootstrap remains separate.

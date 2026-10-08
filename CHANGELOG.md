@@ -6,6 +6,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-09
 
+- Emit canonical assembly-member XML and Markdown documentation IDs for the neoCLR
+  target, omitting the synthesized NamespaceMembers carrier while preserving ordinary
+  .NET IDs. Include native assembly functions/constants in RavenDoc navigation, and
+  enumerate documented libraries directly so bootstrap primitives cannot hide Object
+  pages through merged-namespace deduplication. Group assembly-function overloads
+  onto one page instead of overwriting earlier signatures.
+
 - Render assembly-level functions and constants with namespace-qualified documentation
   IDs instead of assuming a declaring type. Preserve their native XML/Markdown help,
   including constants; retain type-owned .NET IDs. A production native-library audit

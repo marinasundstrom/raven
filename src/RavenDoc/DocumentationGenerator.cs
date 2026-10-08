@@ -68,6 +68,7 @@ public static partial class DocumentationGenerator
 
     private static IReadOnlyList<DocumentationSiteLink> SiteLinks = [];
     private static DocumentationSiteOptions CurrentSiteOptions = DocumentationSiteOptions.Empty;
+    private static bool UseExplicitLibraryDeclarations;
     private static readonly Dictionary<string, DocumentationNavigationItem> ApiNavigation = new(StringComparer.Ordinal);
 
     internal static IReadOnlyList<DocumentationNavigationItem> GetApiNavigation()
@@ -219,6 +220,7 @@ public static partial class DocumentationGenerator
         try { Directory.CreateDirectory(outputDir); } catch { }
 
         DocumentationGenerator.outputDir = outputDir;
+        UseExplicitLibraryDeclarations = assemblies is not null;
         DocumentedAssemblies.Clear();
         DocumentedAssemblies.UnionWith(assemblies ?? [assembly]);
         documentedAssemblyName = assembly.Name;
@@ -1297,7 +1299,7 @@ public static partial class DocumentationGenerator
             IMacroDeclarationSymbol => "Macro",
             IMethodSymbol method when IsOperatorLike(method) => "Operator",
             IMethodSymbol { MethodKind: MethodKind.Constructor } => "Constructor",
-            IMethodSymbol when IsAdditionalNamespaceMember(symbol) => "Namespace function",
+            IMethodSymbol when IsAdditionalNamespaceMember(symbol) => "Function",
             IMethodSymbol => "Method",
             IPropertySymbol { IsIndexer: true } => "Indexer",
             IPropertySymbol => "Property",
@@ -1435,7 +1437,7 @@ public static partial class DocumentationGenerator
 
             if (s is INamespaceOrTypeSymbol nts)
             {
-                foreach (var m in PreferDocumentableGenericDefinitions(nts.GetMembers()))
+                foreach (var m in PreferDocumentableGenericDefinitions(nts is INamespaceSymbol ns ? GetDocumentedNamespaceMembers(ns) : nts.GetMembers()))
                     Visit(m);
             }
         }
@@ -1470,6 +1472,8 @@ public static partial class DocumentationGenerator
             var label = symbol is INamespaceSymbol navigationNamespace
                 ? (navigationNamespace.IsGlobalNamespace ? "API reference" : GetNamespaceFullName(navigationNamespace))
                 : symbol is ITypeSymbol navigationType ? GetTypeName(navigationType) : GetNavigationName(symbol);
+            if (symbol is IMethodSymbol && ApiNavigation.ContainsKey(target))
+                label = symbol.Name + " (overloads)";
             ApiNavigation[target] = new DocumentationNavigationItem(label,
                 Path.GetRelativePath(SiteRootDirectory, target).Replace('\\', '/'), Kind: GetSymbolKindLabel(symbol));
         }
@@ -1996,7 +2000,7 @@ public static partial class DocumentationGenerator
                 : $"namespace {name}");
 
         var declaredNamespaceMembers =
-            PreferDocumentableGenericDefinitions(namespaceSymbol.GetMembers())
+            PreferDocumentableGenericDefinitions(GetDocumentedNamespaceMembers(namespaceSymbol))
                 .Where(member => !IsProjectedUnionCaseType(member))
                 .ToArray();
         var namespaceMemberContainers = declaredNamespaceMembers
@@ -2062,13 +2066,14 @@ public static partial class DocumentationGenerator
             GenerateTypePage(compilation, t2);
         }
 
-        foreach (var m in members.Where(m => m is not INamespaceSymbol && m is not ITypeSymbol))
+        foreach (var group in members.Where(m => m is not INamespaceSymbol && m is not ITypeSymbol).GroupBy(GetMemberGroupKey))
         {
+            var first = group.First();
             GenerateMemberGroupPage(
                 compilation,
-                IsAdditionalNamespaceMember(m) ? null : m.ContainingType,
-                GetMemberGroupKey(m),
-                new[] { m });
+                IsAdditionalNamespaceMember(first) ? null : first.ContainingType,
+                group.Key,
+                group.ToArray());
         }
 
         var contentMarkdown = ContentTemplate.RenderNamespacePage(
@@ -2384,6 +2389,24 @@ public static partial class DocumentationGenerator
         return type.TypeParameters.IsDefaultOrEmpty ? 1 : 2;
     }
 
+    private static IEnumerable<ISymbol> GetDocumentedNamespaceMembers(INamespaceSymbol namespaceSymbol)
+    {
+        if (!UseExplicitLibraryDeclarations) return namespaceSymbol.GetMembers();
+        // A consumer's merged namespace may collapse equivalent primitive symbols
+        // from its bootstrap and the documented library. Render the library's own
+        // declarations, regardless of reference enumeration order.
+        var members = namespaceSymbol.GetMembers().Where(member => member is INamespaceSymbol).ToList();
+        var name = GetNamespaceFullName(namespaceSymbol);
+        foreach (var assembly in DocumentedAssemblies)
+        {
+            IEnumerable<INamespaceSymbol> current = [assembly.GlobalNamespace];
+            foreach (var segment in name.Split('.', StringSplitOptions.RemoveEmptyEntries))
+                current = current.SelectMany(owner => owner.GetMembers(segment).OfType<INamespaceSymbol>()).ToArray();
+            members.AddRange(current.SelectMany(owner => owner.GetMembers()).Where(member => member is not INamespaceSymbol));
+        }
+        return members.Distinct(ReferenceEqualityComparer<ISymbol>.Instance);
+    }
+
     private static bool IsFromDocumentedAssembly(ISymbol symbol)
     {
         if (symbol is INamespaceSymbol namespaceSymbol)
@@ -2391,7 +2414,7 @@ public static partial class DocumentationGenerator
             var name = GetNamespaceFullName(namespaceSymbol);
             return AdditionalNamespaceMembers.Keys.Any(key => name.Length == 0 || key == name ||
                        key.StartsWith(name + ".", StringComparison.Ordinal)) ||
-                   namespaceSymbol.GetMembers().Any(IsFromDocumentedAssembly);
+                   GetDocumentedNamespaceMembers(namespaceSymbol).Any(IsFromDocumentedAssembly);
         }
 
         // Explicit source members can belong to the separate compile-time macro assembly.
@@ -2403,6 +2426,10 @@ public static partial class DocumentationGenerator
 
     private static bool IsAdditionalNamespaceMember(ISymbol symbol)
     {
+        if (symbol is IMethodSymbol or IFieldSymbol && symbol.ContainingType is null &&
+            symbol.ContainingSymbol is INamespaceSymbol)
+            return true;
+
         if (symbol.ContainingType is INamedTypeSymbol containingType &&
             IsNamespaceMemberContainer(containingType))
         {
@@ -2438,7 +2465,7 @@ public static partial class DocumentationGenerator
 
     private static bool NamespaceContainsDocumentableMembers(INamespaceSymbol namespaceSymbol, bool includeDescendants = true)
     {
-        foreach (var member in namespaceSymbol.GetMembers())
+        foreach (var member in GetDocumentedNamespaceMembers(namespaceSymbol))
         {
             if (member is INamespaceSymbol childNamespace)
             {
