@@ -9,6 +9,33 @@ namespace Raven.CodeAnalysis.Tests;
 public class StringInterpolationTests
 {
     [Theory]
+    [InlineData("\"Value: $value\"", "Value: 42")]
+    [InlineData("\"${value}\"", "42")]
+    [InlineData("\"Value: \" + value", "Value: 42")]
+    public void SynthesizedConcatPreservesArgumentConversions(string expression, string expected)
+    {
+        var tree = SyntaxTree.ParseText("public class Example { public static func Format(value: int) -> string => " + expression + " }");
+        var compilation = Compilation.Create("ConcatConversions", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var syntax = tree.GetRoot().DescendantNodes().OfType<ExpressionSyntax>()
+            .First(n => n is InterpolatedStringExpressionSyntax or InfixOperatorExpressionSyntax);
+        var call = Assert.IsType<BoundInvocationExpression>(compilation.GetSemanticModel(tree).GetBoundNode(syntax));
+        var arguments = call.Arguments.ToArray();
+        Assert.Equal(call.Method.Parameters.Length, arguments.Length);
+        var operands = arguments.SelectMany(argument => argument is BoundCollectionExpression collection
+            ? collection.Elements : [argument]).ToArray();
+        Assert.True(Assert.IsType<BoundConversionExpression>(operands.Last()).IsBoxing);
+        for (var i = 0; i < arguments.Length; i++)
+            Assert.Equal(call.Method.Parameters[i].Type, arguments[i].Type, SymbolEqualityComparer.Default);
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
+        Assert.Equal(expected, loaded.Assembly.GetType("Example")!.GetMethod("Format")!.Invoke(null, [42]));
+    }
+
+    [Theory]
     [InlineData("Value $value")]
     [InlineData("${value}")]
     public void MissingConcatOverloadReportsDiagnostic(string expression)
@@ -33,6 +60,34 @@ public class StringInterpolationTests
             && diagnostic.GetMessage().Contains("Concat"));
         using var output = new MemoryStream();
         Assert.False(compilation.Emit(output).Success);
+    }
+
+    [Fact]
+    public void InterpolationPreservesEvaluationOrderAndNullText()
+    {
+        var tree = SyntaxTree.ParseText("""
+            class Counter {
+                private var count: int = 0
+                func Next() -> int {
+                    count += 1
+                    return count
+                }
+            }
+            public class Example {
+                public static func Format() -> string {
+                    let counter = Counter()
+                    let absent: object? = null
+                    return "${counter.Next()}:${counter.Next()}:${absent}"
+                }
+            }
+            """);
+        var compilation = Compilation.Create("ConcatEvaluation", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var output = new MemoryStream();
+        var emitted = compilation.Emit(output);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(output, compilation.References);
+        Assert.Equal("1:2:", loaded.Assembly.GetType("Example")!.GetMethod("Format")!.Invoke(null, null));
     }
 
     [Fact]

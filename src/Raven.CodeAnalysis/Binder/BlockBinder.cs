@@ -8318,7 +8318,7 @@ partial class BlockBinder : Binder
                     _diagnostics.ReportNoOverloadForMethod("method", "String.Concat", 2, syntax.GetLocation());
                     return ErrorExpression(reason: BoundExpressionReason.OtherError);
                 }
-                return new BoundInvocationExpression(firstConcat, [empty, right]);
+                return CreateStringConcatInvocation(firstConcat, empty, right, syntax);
             }
 
             if (left is BoundErrorExpression)
@@ -8336,7 +8336,7 @@ partial class BlockBinder : Binder
                 _diagnostics.ReportNoOverloadForMethod("method", "String.Concat", 2, syntax.GetLocation());
                 return ErrorExpression(reason: BoundExpressionReason.OtherError);
             }
-            return new BoundInvocationExpression(concatMethod, [left, right]);
+            return CreateStringConcatInvocation(concatMethod, left, right, syntax);
         }
 
         static List<string> SplitBySentinel(string s, char sentinel)
@@ -9159,7 +9159,7 @@ partial class BlockBinder : Binder
 
                 var concatMethod = ResolveStringConcatMethod(left, right);
                 if (concatMethod is not null)
-                    return new BoundInvocationExpression(concatMethod, [left, right]);
+                    return CreateStringConcatInvocation(concatMethod, left, right, callSyntax);
             }
         }
 
@@ -9843,6 +9843,16 @@ partial class BlockBinder : Binder
 
         foreach (var argument in remainingArguments)
             yield return argument;
+    }
+
+    private BoundInvocationExpression CreateStringConcatInvocation(
+        IMethodSymbol method, BoundExpression left, BoundExpression right, SyntaxNode? syntax)
+    {
+        // Synthesized calls have the same argument conversion contract as source
+        // invocations. Portable emitters consume these conversions directly.
+        var arguments = ConvertArguments(method.Parameters,
+            [new BoundArgument(left, RefKind.None, null), new BoundArgument(right, RefKind.None, null)], syntax);
+        return new BoundInvocationExpression(method, arguments);
     }
 
     private IMethodSymbol? ResolveStringConcatMethod(BoundExpression left, BoundExpression right)
