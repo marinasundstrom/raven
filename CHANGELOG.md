@@ -6,6 +6,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-08
 
+- Add an explicit native RavenDoc loader for compiled neoCLR libraries, including
+  grouped site inputs and dependency-only references. Preserve XML documentation,
+  cross-library links and declaring identities without framework/adjacent DLL loading.
+  Reject invalid, missing or conflicting native inputs before rendering. The adapter
+  requires a NeoClrMetadataProject-enabled build; ordinary .NET loading stays default.
+  Restore native namespace comment forwarding and validate the existing renderer’s
+  member, inheritance/extension, generic, navigation/search and sidecar experience.
+
 - Add explicit MetadataImportOptions.WithNativeMetadata for NeoCLR compiler API use:
   close the reduced RAVT004 initialization failure by importing native semantic core
   references without a .NET metadata session, reject
@@ -16,8 +24,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   A separate-library consumer returns 42 in both execution modes. Existing Read and
   default CLI behavior remain. Add explicit rvnc --native-core-reference consumer
   selection, rejecting mixed bridge options without publishing output; full source-runtime,
-  project/editor and RavenDoc native
-  input migration are still pending. CoreAssembly has no reflection value in native mode.
+  project/editor and full documentation bundle migration are still pending. CoreAssembly has no reflection value in native mode.
 
 - Call types, functions and constants assembly-level members with namespace-qualified
   names. Update the native constant adapter to AssemblyConstantDefinition / AddConstant /

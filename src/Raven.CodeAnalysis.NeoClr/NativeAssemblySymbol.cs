@@ -197,6 +197,8 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
 
 internal sealed class NativeNamespaceSymbol : Symbol, INamespaceSymbol, INamespaceExtensionLookup
 {
+    public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
+
     private readonly List<ISymbol> members = [];
     internal NativeNamespaceSymbol(string name, ISymbol owner, NativeNamespaceSymbol? parent)
         : base(SymbolKind.Namespace, name, owner, null, parent, [], []) { }

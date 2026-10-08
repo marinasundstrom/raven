@@ -148,6 +148,15 @@ public static class DocumentationSiteBuilder
 
         if (apis.Any(api => api.Inputs.Any(input => IsWithin(output, input) || IsWithin(input, output))))
             throw new InvalidOperationException("API input and site output must be separate directories.");
+        foreach (var api in apis)
+        {
+            var nativeCore = api.Definition.NativeCoreReference ?? configuration.NativeCoreReference;
+            if (nativeCore is null) continue;
+            var nativeInputs = configuration.References.Concat(api.Definition.References).Append(nativeCore)
+                .Select(path => Path.GetFullPath(path, root));
+            if (nativeInputs.Any(input => IsWithin(output, input)))
+                throw new InvalidOperationException("Site output must not contain native metadata inputs.");
+        }
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
         var staging = Path.Combine(Path.GetDirectoryName(output)!, $".ravendoc-{Guid.NewGuid():N}");
         Directory.CreateDirectory(staging);
@@ -180,8 +189,14 @@ public static class DocumentationSiteBuilder
                         ApiContent = api.Definition.ApiContent is { } content ? Path.GetFullPath(content, root) : options.ApiContent
                     };
                     var framework = api.Definition.Framework ?? configuration.Framework;
+                    var nativeCore = api.Definition.NativeCoreReference ?? configuration.NativeCoreReference;
+                    var referencePaths = configuration.References.Concat(api.Definition.References)
+                        .Select(path => Path.GetFullPath(path, root)).Distinct().ToArray();
+                    if (nativeCore is not null && !api.Input.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException("Native documentation requires compiled .dll inputs.");
                     if (api.Input.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-                        RavenDocCommand.GenerateFromAssemblies(api.Inputs, apiOutput, framework, apiOptions);
+                        RavenDocCommand.GenerateFromAssemblies(api.Inputs, apiOutput, framework, apiOptions,
+                            nativeCore is null ? null : Path.GetFullPath(nativeCore, root), referencePaths);
                     else
                         RavenDocCommand.GenerateFromSource(api.Input, apiOutput, framework, apiOptions,
                             configuration.References.Concat(api.Definition.References).Select(path => Path.GetFullPath(path, root)).Distinct().ToArray());
@@ -351,6 +366,7 @@ public static class DocumentationSiteBuilder
         public bool ShowEmptyNamespaces { get; init; }
         public List<string>? ExtensionNamespaces { get; init; }
         public List<string>? ExtensionMembers { get; init; }
+        public string? NativeCoreReference { get; init; }
         public string? ApiContent { get; init; }
         public DocumentationSourceRepository? SourceRepository { get; init; }
         public string MemberGrouping { get; init; } = "kind";
@@ -389,6 +405,7 @@ public static class DocumentationSiteBuilder
         public required string Path { get; init; }
         public string? Title { get; init; }
         public string? Framework { get; init; }
+        public string? NativeCoreReference { get; init; }
         public string? ApiContent { get; init; }
         public DocumentationSourceRepository? SourceRepository { get; init; }
         public List<string> References { get; init; } = [];

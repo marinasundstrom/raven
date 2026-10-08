@@ -8268,3 +8268,22 @@ checks conflicting options and preservation of existing outputs, then runs inter
 and ARM64 native with result 42. The native image links only libSystem. Raven owns this
 selection; native metadata/codegen and runtime contracts are unchanged. This removes a
 CLI semantic input requirement for explicit driver consumers, not the .NET compiler host.
+
+
+### RavenDoc native loader (development, 2026-10-08)
+
+RavenDoc now accepts `--native-core-reference` for compiled native inputs, or
+`nativeCoreReference` in site configuration and individual API groups. It reuses
+`NeoClrReferenceCatalog.ReadNative` with explicit dependency references, owned core
+Object/System.Void contracts and no implicit typeof service. No framework references,
+adjacent assembly discovery or CLI semantic projection enter this path. The native
+metadata adapter remains an optional build dependency selected by NeoClrMetadataProject;
+ordinary .NET loading remains the default. Raven owns symbol loading and rendering;
+neoCLR owns the produced metadata and documentation sidecars.
+
+Grouped native libraries retain one namespace/type tree, original declaring identities,
+documentation and cross-library links. Missing/invalid/conflicting inputs reject before
+rendering. Native source/project inputs and the full neoCLR documentation bundle migration
+remain separate work. See `docs/ravendoc.md` for configuration and limitations. This
+reuses native compiler loading rather than adding a second metadata decoder or pretending
+that current CLI CoreProbe declarations belong to production libraries.
