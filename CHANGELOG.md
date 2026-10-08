@@ -10,6 +10,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   overload selection and Runtime Contract defaults are unchanged. Validate 11 focused
   interpolation and string error-recovery tests, including emitted .NET execution,
   null text and left-to-right evaluation, on main and the native integration branch.
+  Qualify native CIL integer/null output and standalone text interpolation with
+  Unicode/NUL parity; retain explicit AOT rejection of boxed numeric Object display.
 
 - **2026-10-08:** Keep source-assembly metadata lookup within that assembly and
   route namespace-qualified expression types through compilation-level type selection.

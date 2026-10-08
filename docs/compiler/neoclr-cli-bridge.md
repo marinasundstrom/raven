@@ -7969,3 +7969,22 @@ only macOS libSystem. No staged source or reused compilation is used. The driver
 now hashes adjacent compiler DLLs and runtime/dependency configuration before reuse;
 missing implementation hashes reject before copying artifacts. The bundle libraries
 remain pinned; this does not qualify all native emitter features or other .NET targets.
+
+## Console interpolation conversion qualification (2026-10-08)
+
+Shared binder fix `9d2f6ae4e` (main `45650a975`) normalizes synthesized Concat
+arguments through ordinary invocation conversions and params mapping. No Runtime
+Contract option, CLI representation, metadata encoding or overload-selection change
+is introduced. Native consumers retain explicit core, runtime seed, native Runtime
+reference, bootstrap ownership and `--object-library System.Runtime` configuration.
+Raven owns semantic conversions; neoCLR owns native receiver/codegen support.
+
+Eleven focused .NET tests pass on both lines, including evaluation order and null
+text. neoCLR's `docs/experiments/aot-console/interpolation-validation.json` records
+fresh native CIL execution for Int32 endpoints, interpolation/addition and null text,
+and standalone ARM64 String-only interpolation with UTF-8/NUL parity. The executable
+runs alone with an empty environment and only libSystem as a dynamic dependency.
+Boxed numeric Object formatting remains explicitly rejected without object publication
+until a later native receiver/metadata profile. This limit is not a permanent language
+rule or a new CLI bridge restriction. Compiler support on main does not ship the
+experimental native backend there; it stays on codex/source-object-metadata-resolution.
