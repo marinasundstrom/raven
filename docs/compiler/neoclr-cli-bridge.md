@@ -8348,3 +8348,22 @@ bootstrap. `tools/NeoClrMetadataProbe/check-unit-owner.py --compiler <rvnc.dll>
 constructors with both System.Void and unit spellings. The nominal case reproduces
 NEOMETA003 without the fix; both compile after it. The full neoCLR Web library also
 builds, with the existing seven unit-contract tests retained as controls.
+
+### neoCLR System.Time migration (2026-10-09)
+
+The matching neoCLR library now owns civil values, clocks, durations, instants,
+calendar policies and timezone mappings/errors in System.Time. TimeOfDay replaces
+the former System.Time struct; LocalDateTime.Time remains a property. Consumers
+use `import System.Time.*` and rebuild against a matching library bundle.
+System.Runtime remains the assembly owner. System.Globalization retains formatting.
+No new Runtime Contract setting or ordinary .NET type remapping is introduced.
+
+The legacy neoCLR reference producer mirrors these declaration names. During
+separate Instant slice authoring only, its bootstrap reference temporarily exposes
+LocalDateTime.FromUnixTimeTicks(Int64); the importer restores internal visibility
+and admits only the exact Instant caller. Normal consumer references omit that
+factory; native source emission preserves its ordinary internal contract. This
+bootstrap shim is temporary and is replaced by full native library compilation.
+Validation includes regenerated time/globalization slices, calendar and timezone
+consumers, renamed metadata/XML IDs and local API navigation. Timezone runtime
+services and nonempty value boxing still limit AOT coverage.

@@ -6,6 +6,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-09
 
+- Document the matching neoCLR System.Time/TimeOfDay library identity migration and
+  the bounded legacy Instant factory bootstrap contract. Ordinary .NET names and
+  compiler defaults remain unchanged; rebuild neoCLR consumers with matching inputs.
+
 - Normalize bootstrap Void values to the explicit RuntimeUnitContract owner during
   native emission, including nested imported generic constructor signatures. This
   fixes HttpContext's Promise<Result<Void, HttpError>> initializer metadata mismatch.
