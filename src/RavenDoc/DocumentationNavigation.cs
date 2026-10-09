@@ -126,7 +126,24 @@ internal static class DocumentationNavigation
             }
         }
         string Icon(DocumentationNavigationItem item) => item.Kind is null or "Namespace" ? "" : RavenDocSiteTemplate.RenderIcon(
-                item.Kind switch { "Class" => RavenDocSymbolKind.Class, "Interface" => RavenDocSymbolKind.Interface, "Enum" => RavenDocSymbolKind.Enum, "Union" => RavenDocSymbolKind.Union, "Delegate" => RavenDocSymbolKind.Delegate, "Struct" => RavenDocSymbolKind.Struct, "Namespace function" => RavenDocSymbolKind.Function, "Macro" => RavenDocSymbolKind.Macro, _ => RavenDocSymbolKind.Type });
+                item.Kind switch
+                {
+                    "Type extension" or "Extension container" => RavenDocSymbolKind.Extension,
+                    "Class" or "Static class" => RavenDocSymbolKind.Class,
+                    "Interface" => RavenDocSymbolKind.Interface,
+                    "Enum" => RavenDocSymbolKind.Enum,
+                    "Union" => RavenDocSymbolKind.Union,
+                    "Union case" => RavenDocSymbolKind.Case,
+                    "Delegate" => RavenDocSymbolKind.Delegate,
+                    "Struct" => RavenDocSymbolKind.Struct,
+                    "Namespace function" or "Function" or "Method" or "Constructor" => RavenDocSymbolKind.Function,
+                    "Constant" or "Field" => RavenDocSymbolKind.Field,
+                    "Property" or "Indexer" => RavenDocSymbolKind.Property,
+                    "Event" => RavenDocSymbolKind.Event,
+                    "Operator" => RavenDocSymbolKind.Operator,
+                    "Macro" => RavenDocSymbolKind.Macro,
+                    _ => RavenDocSymbolKind.Type
+                });
         void AppendLink(DocumentationNavigationItem item, string text, bool wrap)
         {
             if (wrap) builder.Append("<li>");

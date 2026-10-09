@@ -46,6 +46,15 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
         {
             const string source = """
                 namespace CSharpDocs.Nested;
+                public class Receiver { }
+                public class OtherReceiver { }
+                public static class Extensions {
+                    public static int Read(this Outer<Receiver> value) => 1;
+                    public static int Read(this OtherReceiver value) => 2;
+                }
+                public static class Plain {
+                    public static int Read(Receiver value) => 1;
+                }
                 public class Outer<T> {
                     public class Inner<U> {
                         public record Snapshot(int Value);
@@ -84,6 +93,18 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 html.ShouldContain("https://github.com/example/csharp/blob/main/Declarations.cs");
                 html.ShouldContain("CSharpDocs.dll");
             }
+            var extensions = File.ReadAllText(Path.Combine(output, "CSharpDocs/Nested/Extensions/index.html"));
+            extensions.ShouldContain("<span>Type extension</span>");
+            extensions.ShouldContain("symbol-icon--extension");
+            extensions.ShouldContain("id=\"receivers\"");
+            extensions.ShouldContain("<a href=\"../Outer%601/index.html\">Outer</a>&lt;<a href=\"../Receiver/index.html\">Receiver</a>&gt;");
+            extensions.ShouldContain("href=\"../OtherReceiver/index.html\">OtherReceiver</a>");
+            extensions.ShouldNotContain("static class Extensions");
+            extensions.ShouldNotContain("extension Extensions for");
+            var plain = File.ReadAllText(Path.Combine(output, "CSharpDocs/Nested/Plain/index.html"));
+            plain.ShouldContain("<span>Static class</span>");
+            plain.ShouldContain("static class Plain");
+            plain.ShouldNotContain("id=\"receiver\"");
             var snapshot = File.ReadAllText(Path.Combine(innerDirectory, "Snapshot/index.html"));
             snapshot.ShouldContain("<strong>Namespace</strong>: <a href=\"../../../index.html\">CSharpDocs.Nested</a>");
             snapshot.ShouldContain("<strong>Containing type</strong>: <a href=\"../index.html\">Inner&lt;U&gt;</a>");
@@ -181,6 +202,67 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             var choice = File.ReadAllText(Path.Combine(output, "NestedDocs/Choice/index.html"));
             choice.ShouldContain("Cases");
             choice.ShouldNotContain("Nested types");
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NamespaceConstantsHaveTheirOwnGroupAndMemberIcons(bool sharedNavigation)
+    {
+        var (compilation, _) = CreateCompilation("""
+            namespace Examples
+            public const Scale: int = 2
+            public func Twice(value: int) -> int => value * Scale
+            public class Item {}
+            """, assemblyName: "ModuleMemberDocs");
+        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessCompilation(compilation, output,
+                new DocumentationSiteOptions([], SharedApiNavigation: sharedNavigation));
+            var page = File.ReadAllText(Path.Combine(output, "Examples/index.html"));
+            page.ShouldContain(">Constants</h2>");
+            page.ShouldContain(">Functions</h2>");
+            page.ShouldNotContain(">Members</h2>");
+            var navigation = sharedNavigation ? File.ReadAllText(Path.Combine(output, "api-navigation.html")) : page;
+            var constantLink = System.Text.RegularExpressions.Regex.Match(navigation,
+                "<a[^>]*href=\"[^\"]*field_Scale.html\"[^>]*>(.*?)</a>",
+                System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+            constantLink.ShouldContain("symbol-icon--field");
+            var functionLink = System.Text.RegularExpressions.Regex.Match(navigation,
+                "<a[^>]*href=\"[^\"]*method_Twice.html\"[^>]*>(.*?)</a>",
+                System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+            functionLink.ShouldContain("symbol-icon--function");
+            var constantPage = File.ReadAllText(Path.Combine(output, "Examples/field_Scale.html"));
+            constantPage.ShouldContain("symbol-icon--field");
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
+    [Theory]
+    [InlineData("Function", "function")]
+    [InlineData("Method", "function")]
+    [InlineData("Constant", "field")]
+    [InlineData("Static class", "class")]
+    [InlineData("Type extension", "extension")]
+    public void NavigationUsesTheExistingMemberIconForMetadataLabels(string kind, string icon)
+    {
+        var (compilation, _) = CreateCompilation("public class Item {}", assemblyName: "IconDocs");
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessCompilation(compilation, output,
+                new DocumentationSiteOptions([], Navigation:
+                    [new DocumentationNavigationItem("Metadata entry", "index.html", Kind: kind)]));
+            var html = File.ReadAllText(Path.Combine(output, "index.html"));
+            var link = System.Text.RegularExpressions.Regex.Match(html,
+                "<a title=\"Metadata entry\"[^>]*>(.*?)</a>",
+                System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+            link.ShouldContain("symbol-icon--" + icon);
+            link.ShouldNotContain("symbol-icon--type");
         }
         finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
     }
@@ -352,6 +434,8 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             public interface IGeneric<T> { func Echo(value: T) -> T }
             public class Generic<T> : IGeneric<T> { public func Echo(value: T) -> T => value }
             public class Concrete : IGeneric<int> { public func Echo(value: int) -> int => value }
+            /// Extra generic operations.
+            /// @typeparam T The element type.
             public extension GenericExtras<T> for IGeneric<T> {
                 func Identity(value: T) -> T => value
                 func Convert<U>(value: T, result: U) -> U => result
@@ -367,6 +451,12 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
         if (metadata)
         {
             var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "RelationshipFixture");
+            File.WriteAllText(Path.ChangeExtension(((PortableExecutableReference)reference).FilePath, ".xml"), """
+                <doc><members><member name="T:Relationships.GenericExtras">
+                <summary>Extra generic operations.</summary>
+                <typeparam name="T">The element type.</typeparam>
+                </member></members></doc>
+                """);
             compilation = Compilation.Create("RelationshipHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
             _ = compilation.GetDiagnostics();
@@ -383,6 +473,14 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             var options = new DocumentationSiteOptions([], ExtensionNamespaces: ["Relationships"], ApiContent: content);
             if (assembly is null) DocumentationGenerator.ProcessCompilation(compilation, output, options);
             else DocumentationGenerator.ProcessAssembly(compilation, assembly, output, options);
+            var modulePage = File.ReadAllText(Path.Combine(output, "Relationships/index.html"));
+            modulePage.ShouldContain("id=\"type-extensions\"");
+            modulePage.ShouldContain(metadata ? "GenericExtras for IGeneric&lt;T&gt;" : "GenericExtras&lt;T&gt; for IGeneric&lt;T&gt;");
+            var extensionGroup = System.Text.RegularExpressions.Regex.Match(modulePage,
+                "<section[^>]*aria-labelledby=\"type-extensions\".*?</section>",
+                System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+            extensionGroup.ShouldContain("GenericExtras");
+            extensionGroup.ShouldNotContain("Factory");
             var factory = File.ReadAllText(Path.Combine(output, "Relationships/Factory/index.html"));
             factory.ShouldContain("Create()");
             factory.ShouldContain("static class Factory");
@@ -429,7 +527,19 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             concretePage.ShouldNotContain("Identity&lt;T&gt;");
             var containerPage = File.ReadAllText(Path.Combine(output, metadata ? "Relationships/GenericExtras/index.html" : "Relationships/GenericExtras`1/index.html"));
             containerPage.ShouldContain("Identity");
-            containerPage.ShouldContain("static class GenericExtras");
+            containerPage.ShouldContain("<span>Type extension</span>");
+            containerPage.ShouldContain("symbol-icon--extension");
+            containerPage.ShouldNotContain("static class GenericExtras");
+            containerPage.ShouldContain(metadata
+                ? "extension GenericExtras for IGeneric&lt;T&gt;"
+                : "extension GenericExtras&lt;T&gt; for IGeneric&lt;T&gt;");
+            containerPage.ShouldContain("id=\"receiver\"");
+            containerPage.ShouldContain("<a href=\"../IGeneric%601/index.html\">IGeneric</a>&lt;<a href=\"#type-parameters\">T</a>&gt;");
+            containerPage.ShouldContain("id=\"type-parameters\"");
+            containerPage.IndexOf("id=\"receiver\"", StringComparison.Ordinal)
+                .ShouldBeLessThan(containerPage.IndexOf("id=\"type-parameters\"", StringComparison.Ordinal));
+            containerPage.ShouldContain("The element type.");
+            containerPage.ShouldNotContain("<strong>Receiver type</strong>");
             containerPage.ShouldNotContain("<strong>Inheritance</strong>");
             containerPage.ShouldNotContain("id=\"show-inherited-members\"");
             containerPage.ShouldNotContain("data-member-inherited=\"true\"");
@@ -859,6 +969,9 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             File.Exists(extensionPagePath).ShouldBeTrue();
 
             var extensionPage = File.ReadAllText(extensionPagePath);
+            extensionPage.ShouldContain("<span>Type extension</span>");
+            extensionPage.ShouldContain("extension TextExtensions for string");
+            extensionPage.ShouldContain("id=\"receiver\"");
             extensionPage.ShouldNotContain("<>__RavenExtensionGrouping");
             extensionPage.ShouldNotContain("<>__RavenExtensionMarker");
 

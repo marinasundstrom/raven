@@ -4,7 +4,28 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-09:** Place type-extension receiver information before type parameters
+  and remarks, following the introduction.
+
+- **2026-10-09:** Give extension receivers a dedicated section, linking named type
+  components independently and documented parameters to the type-parameter section.
+  Module/namespace pages group Type extensions separately and show their receivers.
+  Page labels and icon tooltips use Type extension.
+
+- **2026-10-09:** Distinguish RavenDoc extension containers from static classes with a
+  dedicated icon, receiver-aware declarations and linked receiver types. Preserve
+  ordinary static classes and list all receivers for containers extending several types.
+
+- **2026-10-09:** Use the existing member icons for API sidebar functions and constants,
+  including metadata-loaded members, and group namespace/module constants under
+  Constants instead of Members. Ordinary fields retain a separate Fields group;
+  reference URLs and compiler/runtime semantics are unchanged.
+
 ### 2026-10-09
+
+- Integrate the reviewed RavenDoc module/member navigation and extension-reference
+  fixes into the shared neoCLR integration line. General rendering fixes also
+  remain on main; native module terminology stays target-specific.
 
 - Resolve native core Array/Enum contracts and project configured vector members
   and collection interfaces. Native synthesized function callbacks validate their
@@ -32,6 +53,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   rejection of mixed CLI/bootstrap settings. Retain the legacy core selection and
   last successful configuration on failed reload. Full native library bootstrap
   and installed editor qualification remain separate gates.
+- Recognize the native module `Function` navigation label with the existing function glyph.
 
 - Add file/block `module` declarations using existing namespace syntax nodes,
   qualified-name/import binding and target-aware IsModule symbol information. Native
