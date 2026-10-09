@@ -14,6 +14,11 @@ if [[ -n "${RAVEN_NEOCLR_METADATA_PROJECT:-}" ]]; then
   fi
   METADATA_ARGS+=("-p:NeoClrMetadataProject=$RAVEN_NEOCLR_METADATA_PROJECT")
 fi
+# MSBuild property values do not receive Git Bash's automatic path conversion.
+COMPILER_HOST="$ROOT_DIR/src/Raven.Compiler/bin/Release/$TFM/rvnc.dll"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) COMPILER_HOST="$(cygpath -m "$COMPILER_HOST")" ;;
+esac
 OUTPUT_DIR="${RAVEN_PACKAGE_OUTPUT:-$ROOT_DIR/artifacts/distribution}"
 
 if [[ -z "$RID" ]]; then
@@ -51,6 +56,8 @@ dotnet build ${METADATA_ARGS[@]+"${METADATA_ARGS[@]}"} "$ROOT_DIR/src/Raven.Macr
   /property:WarningLevel=0 \
   /property:RavenCompilerHost="$ROOT_DIR/src/Raven.Compiler/bin/Release/$TFM/rvnc.dll"
 dotnet publish ${METADATA_ARGS[@]+"${METADATA_ARGS[@]}"} "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" -c Release -f "$TFM" -r "$RID" \
+  /property:RavenCompilerHost="$COMPILER_HOST"
+dotnet publish "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" -c Release -f "$TFM" -r "$RID" \
   --self-contained false -o "$PUBLISH_DIR/language-server" /property:WarningLevel=0 \
   /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
   /property:IncludeSourceRevisionInInformationalVersion=false

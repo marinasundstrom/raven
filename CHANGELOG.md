@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-09:** Fix SDK packaging under Git Bash on Windows by passing the
+  macro build's compiler-host property as a Windows path. Ordinary .NET and
+  neoCLR SDK packaging share this correction; Unix paths are unchanged.
+
 - **2026-10-09:** Place type-extension receiver information before type parameters
   and remarks, following the introduction.
 
