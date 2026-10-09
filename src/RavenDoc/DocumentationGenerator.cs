@@ -1266,7 +1266,7 @@ public static partial class DocumentationGenerator
                 row.Signature,
                 row.Href,
                 row.Summary,
-                specializedExtensions?.Contains(row.Symbol) == true ? FormatSignature(row.Symbol) :
+                specializedExtensions?.Contains(row.Symbol) == true ? GetNavigationName(row.Symbol, receiverBound: true) :
                 row.Symbol is ITypeSymbol extensionType && IsExtensionContainer(extensionType)
                     ? GetTypeName(extensionType) + " for " + string.Join(", ", GetExtensionReceivers(extensionType).Select(NavigationType))
                     : GetNavigationName(BindNavigationReceiver(row.Symbol, context), IsContributedExtension(row.Symbol, context)),
@@ -2190,28 +2190,33 @@ public static partial class DocumentationGenerator
             if (signature.Contains(marker, StringComparison.Ordinal))
                 continue;
 
-            var constraints = new List<string>();
-            var kind = parameter.ConstraintKind;
-            if (kind.HasFlag(TypeParameterConstraintKind.ReferenceType))
-                constraints.Add("class");
-            if (kind.HasFlag(TypeParameterConstraintKind.ValueType))
-                constraints.Add("struct");
-            if (kind.HasFlag(TypeParameterConstraintKind.NotNull))
-                constraints.Add("notnull");
-
-            constraints.AddRange(parameter.ConstraintTypes.Select(type =>
-                type.ToDisplayString(BaseTypeDisplayFormat)));
-
-            if (kind.HasFlag(TypeParameterConstraintKind.Constructor))
-                constraints.Add("new()");
-            if (kind.HasFlag(TypeParameterConstraintKind.AllowByRefLike))
-                constraints.Add("allows ref struct");
-
-            if (constraints.Count > 0)
-                signature += $" where {parameter.Name}: {string.Join(", ", constraints)}";
+            if (FormatTypeParameterConstraint(parameter) is { } constraint)
+                signature += " " + constraint;
         }
 
         return signature;
+    }
+
+    private static string? FormatTypeParameterConstraint(ITypeParameterSymbol parameter)
+    {
+        var constraints = new List<string>();
+        var kind = parameter.ConstraintKind;
+        if (kind.HasFlag(TypeParameterConstraintKind.ReferenceType))
+            constraints.Add("class");
+        if (kind.HasFlag(TypeParameterConstraintKind.ValueType))
+            constraints.Add("struct");
+        if (kind.HasFlag(TypeParameterConstraintKind.NotNull))
+            constraints.Add("notnull");
+
+        constraints.AddRange(parameter.ConstraintTypes.Select(type =>
+            type.ToDisplayString(BaseTypeDisplayFormat)));
+
+        if (kind.HasFlag(TypeParameterConstraintKind.Constructor))
+            constraints.Add("new()");
+        if (kind.HasFlag(TypeParameterConstraintKind.AllowByRefLike))
+            constraints.Add("allows ref struct");
+
+        return constraints.Count > 0 ? $"where {parameter.Name}: {string.Join(", ", constraints)}" : null;
     }
 
     private static string RenderUnionCaseSection(string currentDir, IUnionSymbol union)

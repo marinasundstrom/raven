@@ -554,7 +554,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             optionPage.ShouldContain("Flatten");
             optionPage.ShouldContain("ReferenceValue");
             optionPage.ShouldContain("Option&lt;Option&lt;T&gt;&gt;");
-            optionPage.ShouldContain("subject to the extension’s generic constraints");
+            optionPage.ShouldContain("Applies to <code>");
             optionPage.ShouldContain("where T: class");
             var resultPage = File.ReadAllText(Path.Combine(output, "Relationships/Result`2/index.html"));
             resultPage.ShouldContain("WithContext");
@@ -565,7 +565,10 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 System.Text.RegularExpressions.RegexOptions.Singleline).Value;
             resultMethods.ShouldContain("WithContext");
             resultPage.ShouldContain("where E: IContract");
-            resultPage.ShouldContain("subject to the extension’s generic constraints");
+            resultPage.ShouldContain("Applies to <code>Result&lt;T, E&gt; where E: IContract</code>");
+            resultPage.ShouldContain("member-name\">WithContext(message: string) -&gt; string</span>");
+            resultPage.ShouldNotContain("member-name\">func WithContext");
+            resultPage.ShouldNotContain("member-name\">WithContext&lt;T, E&gt;");
             var factory = File.ReadAllText(Path.Combine(output, "Relationships/Factory/index.html"));
             factory.ShouldContain("Create()");
             factory.ShouldContain("static class Factory");

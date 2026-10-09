@@ -11,7 +11,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   and compiler extension namespaces so applicable members appear on receiver pages.
   Generic pages also expose constrained and specialized extensions, including
   Option and Result operations, with their receiver and constraints visible. These entries participate in the
-  same member list, grouping controls and extension toggle as ordinary members.
+  same member list, grouping controls, compact signature style and extension toggle
+  as ordinary members; receiver constraints appear in the applicability note.
 
 - **2026-10-09:** Show the first five derived/implementing type or derived-interface
   relationships, with a keyboard-accessible Show more/Show less disclosure for
