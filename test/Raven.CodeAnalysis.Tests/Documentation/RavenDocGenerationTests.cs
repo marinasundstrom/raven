@@ -490,9 +490,27 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 func Identity(value: T) -> T => value
                 func Convert<U>(value: T, result: U) -> U => result
             }
+            public class Result<T, E> { }
+            public extension ResultExtras<T, E: IContract> for Result<T, E> {
+                func WithContext(message: string) -> string => message
+            }
+            public class Option<T> { }
+            public extension OptionExtras<T> for Option<T> {
+                func ReadOption(value: T) -> T => value
+            }
+            public extension NestedOptionExtras<T> for Option<Option<T>> {
+                func Flatten(value: T) -> T => value
+            }
+            public extension ReferenceOptionExtras<T: class> for Option<T> {
+                func ReferenceValue(value: T) -> T => value
+            }
             public extension Extras for Derived {
                 func Extra() -> int => 4
+                func Repeat(count: int = 2) -> int => count
                 val ExtraValue: int => 7
+                static func From(value: Derived) -> int => 1
+                static func DefaultCount() -> int => 1
+                static val DefaultValue: int => 2
             }
             """;
         var (compilation, _) = CreateCompilation(source, assemblyName: "RelationshipFixture");
@@ -531,6 +549,17 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 System.Text.RegularExpressions.RegexOptions.Singleline).Value;
             extensionGroup.ShouldContain("GenericExtras");
             extensionGroup.ShouldNotContain("Factory");
+            var optionPage = File.ReadAllText(Path.Combine(output, "Relationships/Option`1/index.html"));
+            optionPage.ShouldContain("ReadOption(value: T)");
+            optionPage.ShouldContain("Flatten");
+            optionPage.ShouldContain("ReferenceValue");
+            optionPage.ShouldContain("Option&lt;Option&lt;T&gt;&gt;");
+            optionPage.ShouldContain("subject to their generic constraints");
+            optionPage.ShouldContain("where T: class");
+            var resultPage = File.ReadAllText(Path.Combine(output, "Relationships/Result`2/index.html"));
+            resultPage.ShouldContain("WithContext");
+            resultPage.ShouldContain("where E: IContract");
+            resultPage.ShouldContain("subject to their generic constraints");
             var factory = File.ReadAllText(Path.Combine(output, "Relationships/Factory/index.html"));
             factory.ShouldContain("Create()");
             factory.ShouldContain("static class Factory");
@@ -562,6 +591,29 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             page.ShouldContain("Extras.Extra");
             page.ShouldNotContain("Extension properties");
             page.ShouldContain("Extras.ExtraValue");
+            var extensionPage = File.ReadAllText(Path.Combine(output, "Relationships/Extras/index.html"));
+            foreach (var listing in new[] { page, extensionPage })
+                foreach (var name in new[] { "DefaultCount", "DefaultValue", "From" })
+                {
+                    var row = System.Text.RegularExpressions.Regex.Match(listing,
+                        "<div class=\"member-card\"[^>]*data-member-name=\"" + name + "[^\"]*\"[^>]*>.*?</div>",
+                        System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+                    row.ShouldContain("symbol-static-extension-marker\">SE</span>");
+                    row.ShouldContain("Static extension member");
+                }
+            var extraDetail = File.ReadAllText(Path.Combine(output, "Relationships/Extras/method_Extra.html"));
+            extraDetail.ShouldContain("func Extra() -&gt; int");
+            extraDetail.ShouldNotContain("static func Extra");
+            extraDetail.ShouldNotContain("self:");
+            File.ReadAllText(Path.Combine(output, "Relationships/Extras/method_Repeat.html"))
+                .ShouldContain("func Repeat(count: int = 2) -&gt; int");
+            var propertyDetail = File.ReadAllText(Path.Combine(output, "Relationships/Extras/property_ExtraValue.html"));
+            propertyDetail.ShouldNotContain("static val ExtraValue");
+            File.ReadAllText(Path.Combine(output, "Relationships/Extras/method_DefaultCount.html"))
+                .ShouldContain("static func DefaultCount() -&gt; int");
+            File.ReadAllText(Path.Combine(output, "Relationships/Extras/index.html"))
+                .ShouldNotContain("static extension Extras");
+
             File.ReadAllText(Path.Combine(output, "Relationships/Generic`1/index.html"))
                 .ShouldContain("IGeneric&lt;T&gt;.Echo</a>");
             var genericPage = File.ReadAllText(Path.Combine(output, "Relationships/Generic`1/index.html"));

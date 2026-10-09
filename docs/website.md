@@ -25,3 +25,13 @@ site`). Language reference is an explicit `navigationSections` boundary at
 `lang/spec`, using that folder's `toc.yml`. Navigation stays stable within each
 navbar destination. Library API pages intentionally use the API browser, and the
 playground remains a separate interactive application.
+
+Receiver member lists opt into the extension namespaces provided by the documented
+libraries: `System`, `System.Collections.Generic`, `System.Linq`,
+`Raven.CodeAnalysis`, `Raven.CodeAnalysis.Syntax` and `Raven.CodeAnalysis.Text`.
+RavenDoc uses semantic applicability, including generic receiver shapes and
+constraints, and only contributes members from the documented assembly. This
+keeps `Option<T>` and compiler API member lists connected to their extensions
+without importing unrelated framework extensions. Extensions of external .NET
+types remain browsable on their extension pages; the site does not publish a copy
+of the entire .NET API reference.

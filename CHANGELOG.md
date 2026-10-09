@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-09:** Present instance extension declarations without CLR carrier
+  static modifiers or receiver parameters. Distinguish static extensions with an
+  SE badge in both receiver and extension member lists, while keeping ordinary
+  static S and instance extension E markers. Configure the Raven website’s core
+  and compiler extension namespaces so applicable members appear on receiver pages.
+  Generic pages also expose constrained and specialized extensions, including
+  Option and Result operations, with their receiver and constraints visible.
+
 - **2026-10-09:** Show the first five derived/implementing type or derived-interface
   relationships, with a keyboard-accessible Show more/Show less disclosure for
   longer lists. Short lists remain fully visible and every link remains in the page.

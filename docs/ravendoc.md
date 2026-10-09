@@ -706,7 +706,7 @@ provided, including mixed property accessors. Inline origins on consuming types 
 and interface defaults, with links to the declarations providing the behavior.
 Incomparable default declarations are reported without guessing a winner. Links target documented declarations; external declarations without a local
 page remain readable text. Constructors and accessor implementation methods are
-not inherited entries. Static classes and extension containers show a `static` type signature and list only their own members. They omit inheritance chains, hierarchy relationships and the inherited-member toggle. Static members appear only on their declaring type;
+not inherited entries. Static classes show a `static` type signature. Type extensions show an `extension` declaration without a `static` modifier. Both list only their own members. They omit inheritance chains, hierarchy relationships and the inherited-member toggle. Static members appear only on their declaring type;
 applicable extensions are still included independently. Closed hierarchies list permitted direct subtypes and
 membership in closed base/interface hierarchies. These sections reflect semantic
 symbols, independently of XML summaries. Use authored content for deeper design
@@ -725,11 +725,18 @@ sections. Displayed extensions identify and link their declaring container. Only
 from the documented assembly are included, preventing host-only framework
 extensions from leaking into a different target's reference. Extension methods and
 properties appear alongside ordinary members in their respective groups, with an
-distinct E badge and a link to their declaring definition. The E badge replaces
-the S badge on extension members. Compact labels on receiver pages omit generic
+E badge for instance extensions or an SE badge for static extensions, and a link
+to their declaring definition. Ordinary static members retain the S badge. These
+markers are consistent on receiver and extension pages; instance extension
+declarations omit the CLR carrier’s static modifier and synthetic receiver. Compact labels on receiver pages omit generic
 parameters already bound by receiver lookup: `Any()` rather than `Any<T>()`,
 while a caller-selected result parameter remains, such as `Map<U>(...)`. The
 extension container and declaration signature preserve the full generic contract.
+Generic definition pages also list extensions for specialized or constrained
+constructions in explicitly labeled groups. For example, `Flatten` for
+`Option<Option<T>>` is discoverable from `Option<T>` without claiming that it is
+callable on every option. These groups show the receiver declaration, member
+constraints and links to the defining extension.
 
 Set `"apiContent": "api-content"` in the site configuration to merge a separate
 Markdown tree into type and member pages. Directory structure and filenames are

@@ -258,6 +258,37 @@ public static partial class DocumentationGenerator
         => context is not null && IsDocumentationExtension(member) &&
             LogicalMemberOwner(member) is { } owner && TypeDefinitionId(owner) != TypeDefinitionId(context);
 
+    private static IEnumerable<string> RenderSpecializedExtensionMembers(
+        string directory, ITypeSymbol type, IReadOnlyList<ISymbol> applicable)
+    {
+        if (type is not INamedTypeSymbol { Arity: > 0 } || IsStaticType(type) ||
+            CurrentSiteOptions.ExtensionNamespaces is not { Count: > 0 } namespaces)
+            yield break;
+
+        var included = applicable.Select(member => GetXrefId(member is IMethodSymbol method ? method.OriginalDefinition : member)).ToHashSet(StringComparer.Ordinal);
+        foreach (var extension in DocumentedTypes.Values.OrderBy(GetTypeDocName, StringComparer.Ordinal))
+        {
+            if (!namespaces.Contains(GetNamespaceFullName(extension.ContainingNamespace))) continue;
+            var receivers = GetExtensionReceivers(extension)
+                .Where(receiver => TypeDefinitionId(receiver) == TypeDefinitionId(type)).ToArray();
+            if (receivers.Length == 0) continue;
+            var members = GetLogicalMembers(extension)
+                .Where(IsDocumentableSymbol).Where(CanRenderSymbol)
+                .Where(member => IsDocumentationExtension(member) &&
+                    member is not IMethodSymbol { AssociatedSymbol: not null } &&
+                    member.GetExtensionReceiverType() is { } receiver && TypeDefinitionId(receiver) == TypeDefinitionId(type) &&
+                    !included.Contains(GetXrefId(member is IMethodSymbol method ? method.OriginalDefinition : member)) &&
+                    (CurrentSiteOptions.ExtensionMembers is not { Count: > 0 } selected || selected.Contains(GetXrefId(member))))
+                .ToArray();
+            if (members.Length == 0) continue;
+            yield return $"## Extensions for `{string.Join(", ", receivers.Select(NavigationType))}`\n\n" +
+                "These declarations apply to matching constructed types, subject to their generic constraints. " +
+                "See " + FormatTypeLink(directory, extension, ContainingTypeDisplayFormat) + ".\n\n" +
+                "```raven\n" + FormatSignature(extension) + "\n```\n\n" +
+                RenderMemberTable("Members from " + GetTypeName(extension), directory, members, type, declarationLabels: true);
+        }
+    }
+
     private static SemanticModel? ExtensionModel;
 
     private static void PrepareExtensionLookup(Compilation compilation)
