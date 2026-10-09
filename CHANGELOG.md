@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-09:** Link to neoCLR from the website homepage and project overview,
+  identifying its runtime/native-compilation integration as experimental while
+  retaining .NET as Raven’s current official target.
+
 - **2026-10-09:** Guard Raven’s .NET type-extension API presentation in website
   browser checks, including receiver/type-parameter order, namespace/assembly
   labels, and light/dark mobile layouts. Refresh the theme-test DOM mock and run

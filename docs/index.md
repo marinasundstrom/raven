@@ -69,4 +69,6 @@ title: A fresh language for .NET.
   <div class="raven-workload-points"><div><strong>More places to explore</strong><span><a href="workloads/embedded-iot.md">Embedded IoT</a> and <a href="workloads/iot-monitor.md">Native AOT</a></span></div><div><strong>Experimental</strong><span><a href="showcases/html-components.md">Blazor component macros</a> · evolving syntax and tooling</span></div></div>
 </section>
 
+<section class="raven-reference-callout"><p><strong>Related project: neoCLR.</strong> Raven currently targets .NET. The <a href="https://marinasundstrom.github.io/neoCLR/">neoCLR project</a> is exploring an experimental runtime and native compilation for Raven. That integration is still under development; visit its website for the current scope and progress.</p></section>
+
 <section class="raven-reference-callout"><p><strong>Raven is in preview.</strong> Use the <a href="status.md">release and compatibility guide</a> to distinguish available releases from upcoming language changes.</p></section>

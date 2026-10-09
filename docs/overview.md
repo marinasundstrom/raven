@@ -38,3 +38,11 @@ Tutorials and reference pages describe implemented behavior unless they
 explicitly say otherwise. Compiler implementation notes, investigations, and
 language proposals remain in the source repository, but are intentionally not
 part of this user documentation.
+
+## Related project: neoCLR
+
+Raven's official target is currently .NET. [neoCLR](https://marinasundstrom.github.io/neoCLR/)
+is a related experimental platform exploring its own runtime, metadata and native
+compilation for Raven. Integration is under development and does not imply that
+.NET libraries or every Raven feature work on neoCLR. Its project website tracks
+that work separately from Raven's .NET release and documentation.
