@@ -46,6 +46,15 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
         {
             const string source = """
                 namespace CSharpDocs.Nested;
+                public class Receiver { }
+                public class OtherReceiver { }
+                public static class Extensions {
+                    public static int Read(this Receiver value) => 1;
+                    public static int Read(this OtherReceiver value) => 2;
+                }
+                public static class Plain {
+                    public static int Read(Receiver value) => 1;
+                }
                 public class Outer<T> {
                     public class Inner<U> {
                         public record Snapshot(int Value);
@@ -84,6 +93,18 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 html.ShouldContain("https://github.com/example/csharp/blob/main/Declarations.cs");
                 html.ShouldContain("CSharpDocs.dll");
             }
+            var extensions = File.ReadAllText(Path.Combine(output, "CSharpDocs/Nested/Extensions/index.html"));
+            extensions.ShouldContain("<span>Extension container</span>");
+            extensions.ShouldContain("symbol-icon--extension");
+            extensions.ShouldContain("<strong>Receiver types</strong>");
+            extensions.ShouldContain("href=\"../Receiver/index.html\">Receiver</a>");
+            extensions.ShouldContain("href=\"../OtherReceiver/index.html\">OtherReceiver</a>");
+            extensions.ShouldNotContain("static class Extensions");
+            extensions.ShouldNotContain("extension Extensions for");
+            var plain = File.ReadAllText(Path.Combine(output, "CSharpDocs/Nested/Plain/index.html"));
+            plain.ShouldContain("<span>Static class</span>");
+            plain.ShouldContain("static class Plain");
+            plain.ShouldNotContain("<strong>Receiver type");
             var snapshot = File.ReadAllText(Path.Combine(innerDirectory, "Snapshot/index.html"));
             snapshot.ShouldContain("<strong>Namespace</strong>: <a href=\"../../../index.html\">CSharpDocs.Nested</a>");
             snapshot.ShouldContain("<strong>Containing type</strong>: <a href=\"../index.html\">Inner&lt;U&gt;</a>");
@@ -225,6 +246,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
     [InlineData("Method", "function")]
     [InlineData("Constant", "field")]
     [InlineData("Static class", "class")]
+    [InlineData("Extension container", "extension")]
     public void NavigationUsesTheExistingMemberIconForMetadataLabels(string kind, string icon)
     {
         var (compilation, _) = CreateCompilation("public class Item {}", assemblyName: "IconDocs");
@@ -488,7 +510,13 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             concretePage.ShouldNotContain("Identity&lt;T&gt;");
             var containerPage = File.ReadAllText(Path.Combine(output, metadata ? "Relationships/GenericExtras/index.html" : "Relationships/GenericExtras`1/index.html"));
             containerPage.ShouldContain("Identity");
-            containerPage.ShouldContain("static class GenericExtras");
+            containerPage.ShouldContain("<span>Extension container</span>");
+            containerPage.ShouldContain("symbol-icon--extension");
+            containerPage.ShouldNotContain("static class GenericExtras");
+            containerPage.ShouldContain(metadata
+                ? "extension GenericExtras for IGeneric&lt;T&gt;"
+                : "extension GenericExtras&lt;T&gt; for IGeneric&lt;T&gt;");
+            containerPage.ShouldContain("<strong>Receiver type</strong>: <a href=\"../IGeneric%601/index.html\">IGeneric&lt;T&gt;</a>");
             containerPage.ShouldNotContain("<strong>Inheritance</strong>");
             containerPage.ShouldNotContain("id=\"show-inherited-members\"");
             containerPage.ShouldNotContain("data-member-inherited=\"true\"");
@@ -918,6 +946,9 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             File.Exists(extensionPagePath).ShouldBeTrue();
 
             var extensionPage = File.ReadAllText(extensionPagePath);
+            extensionPage.ShouldContain("<span>Extension container</span>");
+            extensionPage.ShouldContain("extension TextExtensions for string");
+            extensionPage.ShouldContain("<strong>Receiver type</strong>");
             extensionPage.ShouldNotContain("<>__RavenExtensionGrouping");
             extensionPage.ShouldNotContain("<>__RavenExtensionMarker");
 
