@@ -556,6 +556,7 @@ public static partial class DocumentationGenerator
     {
         Namespaces,
         Types,
+        TypeExtensions,
         Functions,
         Macros,
         Constants,
@@ -587,6 +588,7 @@ public static partial class DocumentationGenerator
     {
     MemberSectionKind.Namespaces,
     MemberSectionKind.Types,
+    MemberSectionKind.TypeExtensions,
     MemberSectionKind.Constants,
     MemberSectionKind.Fields,
     MemberSectionKind.Functions,
@@ -598,6 +600,7 @@ public static partial class DocumentationGenerator
     {
         MemberSectionKind.Namespaces => "Namespaces",
         MemberSectionKind.Types => "Types",
+        MemberSectionKind.TypeExtensions => "Type extensions",
         MemberSectionKind.Functions => "Functions",
         MemberSectionKind.Macros => "Macros",
         MemberSectionKind.Constants => "Constants",
@@ -740,6 +743,7 @@ public static partial class DocumentationGenerator
         return m switch
         {
             INamespaceSymbol => MemberSectionKind.Namespaces,
+            ITypeSymbol type when IsExtensionContainer(type) => MemberSectionKind.TypeExtensions,
             ITypeSymbol => MemberSectionKind.Types,
             IFieldSymbol { IsConst: true } => MemberSectionKind.Constants,
             IFieldSymbol => MemberSectionKind.Fields,
@@ -952,8 +956,10 @@ public static partial class DocumentationGenerator
         }
     }
 
-    private static string FormatContractType(string currentDir, ITypeSymbol type)
+    private static string FormatContractType(string currentDir, ITypeSymbol type, IReadOnlySet<string>? documentedTypeParameters = null)
     {
+        if (type is ITypeParameterSymbol parameter && documentedTypeParameters?.Contains(parameter.Name) == true)
+            return $"[{EscapeName(parameter.Name)}](#type-parameters)";
         if (type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
             return EscapeName(type.ToDisplayString(BaseTypeDisplayFormat));
         if (type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } function
@@ -962,33 +968,33 @@ public static partial class DocumentationGenerator
         {
             var arguments = function.TypeArguments;
             var parameters = function.Name == "Func" ? arguments.Take(arguments.Length - 1) : arguments;
-            var parameterTypes = parameters.Select(parameter => FormatContractType(currentDir, parameter)).ToArray();
+            var parameterTypes = parameters.Select(parameter => FormatContractType(currentDir, parameter, documentedTypeParameters)).ToArray();
             var input = parameterTypes.Length == 1 ? parameterTypes[0] : "(" + string.Join(", ", parameterTypes) + ")";
-            var result = function.Name == "Func" ? FormatContractType(currentDir, arguments[^1]) : "()";
+            var result = function.Name == "Func" ? FormatContractType(currentDir, arguments[^1], documentedTypeParameters) : "()";
             return input + " -&gt; " + result;
         }
         if (type.GetNullableUnderlyingType() is { } underlying)
-            return FormatContractType(currentDir, underlying) + "?";
+            return FormatContractType(currentDir, underlying, documentedTypeParameters) + "?";
         if (type is IArrayTypeSymbol array)
-            return FormatContractType(currentDir, array.ElementType) + "\\[" +
+            return FormatContractType(currentDir, array.ElementType, documentedTypeParameters) + "\\[" +
                 (array.IsFixedArray ? array.FixedLength?.ToString() ?? "" : new string(',', array.Rank - 1)) + "\\]";
         if (type is IPointerTypeSymbol pointer)
-            return FormatContractType(currentDir, pointer.PointedAtType) + "\\*";
+            return FormatContractType(currentDir, pointer.PointedAtType, documentedTypeParameters) + "\\*";
         if (type is IAddressTypeSymbol address)
-            return "&amp;" + FormatContractType(currentDir, address.ReferencedType);
+            return "&amp;" + FormatContractType(currentDir, address.ReferencedType, documentedTypeParameters);
         if (type is not INamedTypeSymbol named)
             return EscapeName(type.ToDisplayString(ContainingTypeDisplayFormat));
         if (named.IsTupleType)
             return "(" + string.Join(", ", named.TupleElements.Select(element =>
-                EscapeName(element.Name) + ": " + FormatContractType(currentDir, element.Type))) + ")";
+                EscapeName(element.Name) + ": " + FormatContractType(currentDir, element.Type, documentedTypeParameters))) + ")";
         var name = EscapeName(named.Name);
         var definition = named.OriginalDefinition ?? named;
         if (XrefToTargetPath.TryGetValue(GetXrefId(definition), out var target))
             name = $"[{name}]({RelLink(currentDir, target)})";
         if (named.ContainingType is { } owner)
-            name = FormatContractType(currentDir, owner) + "." + name;
+            name = FormatContractType(currentDir, owner, documentedTypeParameters) + "." + name;
         if (named.TypeArguments.Length > 0)
-            name += "&lt;" + string.Join(", ", named.TypeArguments.Select(argument => FormatContractType(currentDir, argument))) + "&gt;";
+            name += "&lt;" + string.Join(", ", named.TypeArguments.Select(argument => FormatContractType(currentDir, argument, documentedTypeParameters))) + "&gt;";
         return name;
     }
 
@@ -1255,7 +1261,9 @@ public static partial class DocumentationGenerator
                 row.Signature,
                 row.Href,
                 row.Summary,
-                GetNavigationName(BindNavigationReceiver(row.Symbol, context), IsContributedExtension(row.Symbol, context)),
+                row.Symbol is ITypeSymbol extensionType && IsExtensionContainer(extensionType)
+                    ? GetTypeName(extensionType) + " for " + string.Join(", ", GetExtensionReceivers(extensionType).Select(NavigationType))
+                    : GetNavigationName(BindNavigationReceiver(row.Symbol, context), IsContributedExtension(row.Symbol, context)),
                 row.Symbol switch
                 {
                     IMethodSymbol method => method.IsStatic && !method.IsInstanceExtensionMember,
@@ -1311,7 +1319,7 @@ public static partial class DocumentationGenerator
             IEventSymbol => "Event",
             IUnionCaseTypeSymbol { IsUnionCase: true } => "Union case",
             IUnionSymbol { IsUnion: true } => "Union",
-            ITypeSymbol type when IsExtensionContainer(type) => "Extension container",
+            ITypeSymbol type when IsExtensionContainer(type) => "Type extension",
             ITypeSymbol type when IsStaticType(type) => "Static class",
             ITypeSymbol type => type.TypeKind.ToString(),
             _ => "Member"
@@ -1830,8 +1838,11 @@ public static partial class DocumentationGenerator
         }
 
         var receivers = GetExtensionReceivers(typeSymbol);
-        if (receivers.Count > 0)
-            metadataLines.Add($"**Receiver type{(receivers.Count == 1 ? "" : "s")}**: {string.Join(", ", receivers.Select(receiver => FormatTypeLink(currentDir, receiver, BaseTypeDisplayFormat)))}<br />");
+        var documentedTypeParameters = commentInfo.Documentation.GetAssociations(DocumentationAssociationKind.TypeParameter)
+            .Select(association => association.Name).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var receiverMarkdown = receivers.Count == 0 ? null
+            : $"## {(receivers.Count == 1 ? "Receiver" : "Receivers")}\n\n" +
+              string.Join("\n\n", receivers.Select(receiver => FormatContractType(currentDir, receiver, documentedTypeParameters)));
 
         metadataLines.AddRange(GetSourceAndAssemblyLines(compilation, typeSymbol));
 
@@ -1902,7 +1913,8 @@ public static partial class DocumentationGenerator
                 metadataLines,
                 relationshipLines,
                 ApiContent.Merge(GetXrefId(typeSymbol), commentInfo.RawMarkdown),
-                memberSections));
+                memberSections,
+                receiverMarkdown));
         var contentHtml = RenderMarkdownWithXrefs(contentMarkdown, currentDir);
         var pageHtml = WrapHtml(currentDir, name, documentedAssemblyName, contentHtml);
         File.WriteAllText(indexPath, pageHtml);
