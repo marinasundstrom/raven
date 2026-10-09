@@ -984,3 +984,8 @@ Module/namespace pages list Type extensions separately from Types, including rec
 names in each extension entry. Ordinary type grouping remains unchanged.
 
 The user-facing singular label and icon tooltip are Type extension.
+
+Reverse relationship lists (derived types, derived interfaces and implementing types)
+show their first five entries. Longer lists keep the remainder in a native HTML
+disclosure, collapsed initially, with Show more/Show less controls. Alphabetical
+ordering, indirect relationship labels and all navigation links are preserved.

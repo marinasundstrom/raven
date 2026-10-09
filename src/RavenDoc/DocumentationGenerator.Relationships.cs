@@ -54,13 +54,23 @@ public static partial class DocumentationGenerator
             var lines = new StringBuilder();
             lines.AppendLine($"## {group.Key}").AppendLine();
             lines.AppendLine("Documented types in this API reference. Indirect relationships are marked.").AppendLine();
-            foreach (var item in group.OrderBy(item => GetTypeDocName(item.Type), StringComparer.Ordinal))
+            var ordered = group.OrderBy(item => GetTypeDocName(item.Type), StringComparer.Ordinal).ToArray();
+            const int visibleCount = 5;
+            for (var index = 0; index < ordered.Length; index++)
             {
+                if (index == visibleCount)
+                {
+                    lines.AppendLine().AppendLine("<details class=\"type-relationships-more\">");
+                    lines.AppendLine($"<summary><span class=\"relationships-expand\">Show {ordered.Length - visibleCount} more</span><span class=\"relationships-collapse\">Show less</span></summary>").AppendLine();
+                }
+                var item = ordered[index];
                 lines.Append("- ").Append(FormatTypeLink(directory, item.Type, ContainingTypeDisplayFormat));
                 if (!item.Direct)
                     lines.Append(" (indirect)");
                 lines.AppendLine();
             }
+            if (ordered.Length > visibleCount)
+                lines.AppendLine().AppendLine("</details>");
             yield return lines.ToString();
         }
     }

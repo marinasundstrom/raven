@@ -8,6 +8,56 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void LongTypeRelationshipsKeepFiveVisibleAndAllRemainingLinksExpandable(bool metadata)
+    {
+        var source = "namespace Related\npublic open class Parent { }\npublic interface Contract { }\n" +
+            string.Join("\n", Enumerable.Range(0, 7).Select(index =>
+                $"public class Child{index} : Parent, Contract {{ }}\npublic interface Sub{index} : Contract {{ }}"));
+        var (compilation, _) = CreateCompilation(source, assemblyName: "RelatedFixture");
+        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+        IAssemblySymbol? assembly = null;
+        if (metadata)
+        {
+            var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "RelatedFixture");
+            compilation = Compilation.Create("RelatedHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
+            _ = compilation.GetDiagnostics();
+            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+        }
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            if (assembly is null) DocumentationGenerator.ProcessCompilation(compilation, output);
+            else DocumentationGenerator.ProcessAssembly(compilation, assembly, output);
+            foreach (var (owner, section, prefix) in new[] {
+                ("Parent", "derived-types", "Child"),
+                ("Contract", "implementing-types", "Child"),
+                ("Contract", "derived-interfaces", "Sub") })
+            {
+                var html = File.ReadAllText(Path.Combine(output, "Related", owner, "index.html"));
+                var start = html.IndexOf($"id=\"{section}\"", StringComparison.Ordinal);
+                start.ShouldBeGreaterThan(0);
+                var remaining = html.IndexOf("<details class=\"type-relationships-more\">", start, StringComparison.Ordinal);
+                remaining.ShouldBeGreaterThan(start);
+                var visible = html[start..remaining];
+                visible.ShouldContain($"../{prefix}4/index.html");
+                visible.ShouldNotContain($"../{prefix}5/index.html");
+                var end = html.IndexOf("</details>", remaining, StringComparison.Ordinal);
+                var collapsed = html[remaining..end];
+                collapsed.ShouldContain("Show 2 more");
+                collapsed.ShouldContain("Show less");
+                collapsed.ShouldContain($"../{prefix}5/index.html");
+                collapsed.ShouldContain($"../{prefix}6/index.html");
+                collapsed.ShouldNotContain(" open");
+                collapsed.ShouldContain("<li>");
+            }
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void LargeApiNavigationUsesASharedTreeAndNamespaceFallback(bool sharedNavigation)
     {
         var source = "namespace LargeDocs\n" + string.Join("\n", Enumerable.Range(0, 220)
@@ -558,6 +608,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             member.ShouldContain("Member usage example.");
             var parent = File.ReadAllText(Path.Combine(output, "Relationships/Base/index.html"));
             parent.ShouldContain("id=\"derived-types\"");
+            parent.ShouldNotContain("type-relationships-more");
             var contractPage = File.ReadAllText(Path.Combine(output, "Relationships/IContract/index.html"));
             contractPage.ShouldContain("id=\"derived-interfaces\"");
             contractPage.ShouldContain("id=\"implementing-types\"");
