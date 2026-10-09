@@ -254,6 +254,14 @@ public static partial class DocumentationGenerator
             (member is not IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } ||
              member.ContainingType?.GetExtensionReceiverType() is not null);
 
+    private static bool IsPubliclyVisible(ISymbol symbol)
+    {
+        if (symbol.DeclaredAccessibility != Accessibility.Public) return false;
+        for (var owner = symbol.ContainingType; owner is not null; owner = owner.ContainingType)
+            if (owner.DeclaredAccessibility != Accessibility.Public) return false;
+        return true;
+    }
+
     private static bool IsContributedExtension(ISymbol member, ITypeSymbol? context)
         => context is not null && IsDocumentationExtension(member) &&
             LogicalMemberOwner(member) is { } owner && TypeDefinitionId(owner) != TypeDefinitionId(context);
@@ -274,7 +282,7 @@ public static partial class DocumentationGenerator
             if (receivers.Length == 0) continue;
             var members = GetLogicalMembers(extension)
                 .Where(IsDocumentableSymbol).Where(CanRenderSymbol)
-                .Where(member => IsDocumentationExtension(member) &&
+                .Where(member => IsDocumentationExtension(member) && IsPubliclyVisible(member) &&
                     member is not IMethodSymbol { AssociatedSymbol: not null } &&
                     member.GetExtensionReceiverType() is { } receiver && TypeDefinitionId(receiver) == TypeDefinitionId(type) &&
                     !included.Contains(GetXrefId(member is IMethodSymbol method ? method.OriginalDefinition : member)) &&
@@ -327,7 +335,7 @@ public static partial class DocumentationGenerator
         var result = ExtensionModel.LookupApplicableExtensionMembers(receiver);
         var members = result.InstanceMethods.Cast<ISymbol>().Concat(result.StaticMethods)
             .Concat(result.InstanceProperties).Concat(result.StaticProperties)
-            .Where(member => IsDocumentationExtension(member) && member.DeclaredAccessibility == Accessibility.Public &&
+            .Where(member => IsDocumentationExtension(member) && IsPubliclyVisible(member) &&
                 CurrentSiteOptions.ExtensionNamespaces!.Contains(GetNamespaceFullName(member.ContainingNamespace)) &&
                 (CurrentSiteOptions.ExtensionMembers is not { Count: > 0 } selected || selected.Contains(GetXrefId(member))))
             .Distinct(SymbolEqualityComparer.Default);

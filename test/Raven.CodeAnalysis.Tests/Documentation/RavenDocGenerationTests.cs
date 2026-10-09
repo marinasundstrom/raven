@@ -504,6 +504,13 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             public extension ReferenceOptionExtras<T: class> for Option<T> {
                 func ReferenceValue(value: T) -> T => value
             }
+            internal extension InternalExtras for Derived {
+                func InternalOnly() -> int => 0
+                static func InternalFactory() -> int => 0
+            }
+            internal extension InternalOptionExtras<T> for Option<Option<T>> {
+                func InternalFlatten(value: T) -> T => value
+            }
             public extension Extras for Derived {
                 func Extra() -> int => 4
                 func Repeat(count: int = 2) -> int => count
@@ -550,6 +557,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             extensionGroup.ShouldContain("GenericExtras");
             extensionGroup.ShouldNotContain("Factory");
             var optionPage = File.ReadAllText(Path.Combine(output, "Relationships/Option`1/index.html"));
+            optionPage.ShouldNotContain("InternalFlatten");
             optionPage.ShouldContain("ReadOption(value: T)");
             optionPage.ShouldContain("Flatten");
             optionPage.ShouldContain("ReferenceValue");
@@ -597,6 +605,8 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             page.ShouldContain("id=\"show-inherited-members\"");
             page.ShouldContain("id=\"show-extension-members\"");
             page.ShouldContain("data-member-extension=\"true\"");
+            page.ShouldNotContain("InternalOnly");
+            page.ShouldNotContain("InternalFactory");
             page.ShouldContain("Extras.Extra");
             page.ShouldNotContain("Extension properties");
             page.ShouldContain("Extras.ExtraValue");

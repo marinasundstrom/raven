@@ -8498,3 +8498,21 @@ NeoClrMetadataProbe `--native-array-shape <NativeCore.dll>`; neoCLR's
 production String/Array/unions and executes a separate consumer in the interpreter.
 The native runtime owns primitive-reference resolution and AOT service bindings;
 this compiler slice does not by itself establish full core bootstrap readiness.
+
+## Native documentation extension visibility (2026-10-09)
+
+NativeNamedTypeSymbol currently recognizes a container ExtensionAttribute, and
+NativeMethodSymbol treats its parameterized static ordinary methods as instance
+extensions. The metadata needs an explicit static/instance distinction and
+receiver identity: the first ordinary parameter of a static extension is not an
+instance receiver. ConsoleRuntimeServices.ConsoleFlush(error: bool) exposed this
+limitation through native API documentation. Do not derive a future contract from
+parameter names. Emitter and reader changes with native semantic tests remain
+required; no Runtime Contract option or runtime binary changes in this slice.
+
+RavenDoc now requires public enclosing types as well as a public member for
+receiver contributions. Source/.NET metadata regressions cover instance/static
+internal extensions and specialized generic extensions; the neoCLR production
+audit verifies that internal console functions are absent from Boolean. This
+shared presentation fix prevents the visibility leak but does not resolve the
+native reader's broader extension classification limitation.

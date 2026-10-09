@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   Option and Result operations, with their receiver and constraints visible. These entries participate in the
   same member list, grouping controls, compact signature style and extension toggle
   as ordinary members; receiver constraints appear in the applicability note.
+  Exclude extension members whose containing types are not public from receiver
+  listings, including specialized generic entries.
 
 - **2026-10-09:** Show the first five derived/implementing type or derived-interface
   relationships, with a keyboard-accessible Show more/Show less disclosure for
