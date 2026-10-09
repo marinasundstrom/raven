@@ -1252,7 +1252,8 @@ public static partial class DocumentationGenerator
         string title,
         string currentDir,
         IEnumerable<ISymbol> members,
-        ITypeSymbol? context = null)
+        ITypeSymbol? context = null,
+        bool declarationLabels = false)
     {
         var rows = BuildMemberRows(currentDir, members);
         return SiteTemplate.RenderMemberSection(
@@ -1262,12 +1263,13 @@ public static partial class DocumentationGenerator
                 row.Signature,
                 row.Href,
                 row.Summary,
+                declarationLabels ? FormatSignature(row.Symbol) :
                 row.Symbol is ITypeSymbol extensionType && IsExtensionContainer(extensionType)
                     ? GetTypeName(extensionType) + " for " + string.Join(", ", GetExtensionReceivers(extensionType).Select(NavigationType))
                     : GetNavigationName(BindNavigationReceiver(row.Symbol, context), IsContributedExtension(row.Symbol, context)),
                 row.Symbol switch
                 {
-                    IMethodSymbol method => method.IsStatic && !method.IsInstanceExtensionMember,
+                    IMethodSymbol method => method.IsStatic && !method.IsExtensionMethod,
                     IPropertySymbol property => property.IsStatic && !property.IsInstanceExtensionMember,
                     IFieldSymbol field => field.IsStatic,
                     _ => false
@@ -1888,9 +1890,11 @@ public static partial class DocumentationGenerator
             foreach (var unionCase in unionSymbol.DeclaredCaseTypes.Where(IsDocumentableSymbol))
                 GenerateTypePage(compilation, unionCase);
         }
+        var applicableExtensions = ApplicableExtensionMembers(typeSymbol).ToArray();
+        memberSections.AddRange(RenderSpecializedExtensionMembers(currentDir, typeSymbol, applicableExtensions));
         memberSections.AddRange(RenderGroupedMemberSections(
             currentDir,
-            VisibleTypeMembers(typeSymbol, members).Concat(ApplicableExtensionMembers(typeSymbol)),
+            VisibleTypeMembers(typeSymbol, members).Concat(applicableExtensions),
             isNamespacePage: false, context: typeSymbol));
 
 
@@ -2153,6 +2157,8 @@ public static partial class DocumentationGenerator
             ? $"extension {GetTypeName(extensionType)} for {NavigationType(extensionReceivers[0])}"
             : extensionReceivers.Count > 1
             ? "" // A container with several receivers has no single extension declaration.
+            : symbol is IMethodSymbol { IsExtensionMethod: true } extensionMethod
+            ? FormatInstanceExtensionSignature(extensionMethod)
             : symbol is IPropertySymbol property
             ? FormatPropertySignature(property)
             : OmitRedundantPublicModifier(symbol.ToDisplayString(MemberDisplayFormat));
@@ -2257,6 +2263,23 @@ public static partial class DocumentationGenerator
                 StringComparison.Ordinal));
     }
 
+    private static string FormatInstanceExtensionSignature(IMethodSymbol method)
+    {
+        // CLR extension receivers are parameters of static carrier methods. The
+        // documentation declaration describes the Raven instance member instead.
+        var nameFormat = MemberDisplayFormat
+            .WithMemberOptions(MemberDisplayFormat.MemberOptions &
+                ~SymbolDisplayMemberOptions.IncludeParameters &
+                ~SymbolDisplayMemberOptions.IncludeType &
+                ~SymbolDisplayMemberOptions.IncludeModifiers)
+            .WithDelegateStyle(SymbolDisplayDelegateStyle.NameOnly);
+        var name = OmitRedundantPublicModifier(method.ToDisplayString(nameFormat));
+        if (method.IsAsync)
+            name = "async " + name;
+        var parameters = method.IsExtensionMethod ? method.Parameters.Skip(1) : method.Parameters;
+        return $"{name}({string.Join(", ", parameters.Select(parameter => parameter.ToDisplayString(MemberDisplayFormat)))}) -> {NavigationType(method.ReturnType)}";
+    }
+
     private static string FormatPropertySignature(IPropertySymbol property)
     {
         var propertyFormat = MemberDisplayFormat
@@ -2278,7 +2301,7 @@ public static partial class DocumentationGenerator
             setter is { MethodKind: MethodKind.PropertySet, DeclaredAccessibility: Accessibility.Public }
                 ? "var"
                 : "val";
-        var prefix = property.IsStatic ? $"static {propertyKeyword}" : propertyKeyword;
+        var prefix = property.IsStatic && !property.IsInstanceExtensionMember ? $"static {propertyKeyword}" : propertyKeyword;
         var visibleAccessors = new List<string>();
 
         AppendVisibleAccessor(visibleAccessors, property.GetMethod, "get");

@@ -1,5 +1,13 @@
 {
   "search": true,
+  "extensionNamespaces": [
+    "System",
+    "System.Collections.Generic",
+    "System.Linq",
+    "Raven.CodeAnalysis",
+    "Raven.CodeAnalysis.Syntax",
+    "Raven.CodeAnalysis.Text"
+  ],
   "copyCode": true,
   "name": "Raven",
   "subtitle": "Programming language for .NET",

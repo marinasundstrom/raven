@@ -666,3 +666,5 @@ body.with-api-navigation.without-outline .documentation-shell {
 .type-relationships-more .relationships-collapse { display: none; }
 .type-relationships-more[open] .relationships-expand { display: none; }
 .type-relationships-more[open] .relationships-collapse { display: inline; }
+
+.symbol-static-extension-marker { width: 1.5rem; border-radius: .4rem; font-size: .6rem; }

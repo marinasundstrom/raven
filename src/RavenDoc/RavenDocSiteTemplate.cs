@@ -305,8 +305,8 @@ internal sealed class RavenDocSiteTemplate
 
         return $"""
                <span class="symbol-icon symbol-icon--{kind.ToString().ToLowerInvariant()}" title="{(isExtension ? (isStatic ? "Static extension member" : "Extension member") : isStatic ? "Static member" : label)}" aria-hidden="true">
-                 <svg viewBox="0 0 24 24" focusable="false">{paths}</svg>{(isExtension ? "<span class=\"symbol-extension-marker\">E</span>" : isStatic ? "<span class=\"symbol-static-marker\">S</span>" : "")}
-               </span>{(isStatic ? "<span class=\"visually-hidden\">Static member: </span>" : "")}{(isExtension ? "<span class=\"visually-hidden\">Extension member: </span>" : "")}
+                 <svg viewBox="0 0 24 24" focusable="false">{paths}</svg>{(isExtension && isStatic ? "<span class=\"symbol-extension-marker symbol-static-extension-marker\">SE</span>" : isExtension ? "<span class=\"symbol-extension-marker\">E</span>" : isStatic ? "<span class=\"symbol-static-marker\">S</span>" : "")}
+               </span>{(isStatic && isExtension ? "<span class=\"visually-hidden\">Static extension member: </span>" : isStatic ? "<span class=\"visually-hidden\">Static member: </span>" : isExtension ? "<span class=\"visually-hidden\">Extension member: </span>" : "")}
                """;
     }
 
