@@ -8445,3 +8445,27 @@ markers. Catalog controls include a same-named non-core type, which remains ordi
 The checked copied-struct consumer runs without CLI semantic references; unchanged
 production Option/Result reaches the missing String.Concat diagnostic. The minimal
 core fixture adds Byte for union tags but is still not a production runtime library.
+
+
+### Constructed value receivers (2026-10-09)
+
+Portable emission now routes BoundObjectCreationExpression receivers through the
+same single-evaluation temporary storage used by value-returning calls/getters.
+For example, Number(40).TryGet(out output) no longer rejects as unaddressable.
+Construction precedes method arguments; mutation applies only to the temporary.
+The existing constructor/type/capability checks still apply; initializers and
+unsupported construction shapes are not newly admitted.
+
+No Runtime Contract configuration, native format or temporary CLI representation
+changes. This is compiler lowering toward ordinary CLI value-receiver behavior,
+not a neoCLR semantic divergence. The portable emitter is absent from Raven main;
+there is no corresponding main-line file to patch independently. The fix belongs
+to the shared integration line, codex/source-object-metadata-resolution.
+
+Validation: --value-constructor-runtime and --nested-constructor-runtime check
+immediate mutating/out calls on ordinary and generic values, with interpreter
+result 42 and missing-dependency output preservation. The neoCLR native-core
+escaping audit also executes an immediate union-case ToString call in project,
+interpreter and ARM64 native modes. It intentionally records a separate shared
+escaping defect: without String.Replace(string,string), synthesized quoting does
+not escape quotes/backslashes. That library gap remains unresolved.

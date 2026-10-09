@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-09
 
+- Admit freshly constructed value receivers in portable emission. Constructor
+  results are evaluated once into temporary storage before method arguments;
+  mutations affect that temporary. Ordinary/generic/nested imported value checks
+  and a native-only union display consumer cover the correction.
+
 - Recognize System.ValueType in the explicitly selected native semantic core.
   This allows ordinary structs and union carriers through native type planning;
   same-named declarations in other assemblies remain ordinary types. Primitive

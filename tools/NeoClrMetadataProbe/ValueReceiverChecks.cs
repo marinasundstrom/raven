@@ -83,6 +83,15 @@ internal static class ValueReceiverChecks
             }
             """;
         if (constructors) source = source.Replace("Operations.Create()", "Number(40)").Replace("Operations.MakeBox()", "Box<int>(0)");
+        if (constructors) source = source.Replace("var value = Number(40)", """
+            if !Number(40).TryGet(out var temporary) || temporary != 42 {
+                return 6
+            }
+            if !Box<int>(42).TryGet(out var genericTemporary) || genericTemporary != 42 {
+                return 7
+            }
+            var value = Number(40)
+            """);
         if (nested) source = source.Replace("import Example.*", "import Example.*\nimport Example.Container.*");
         var compilation = Compilation.Create("ValueReceiverApp", [SyntaxTree.ParseText(source)],
             [MetadataReference.CreateFromFile(corePath), reference], CompilationOptions.NeoCLR);
@@ -104,10 +113,12 @@ internal static class ValueReceiverChecks
         }
         File.WriteAllText(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
         {
-            verified = true, result = 42,
+            verified = true,
+            result = 42,
             coreSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(corePath))),
             runtimeSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(runtime))),
-            constructors, nested,
+            constructors,
+            nested,
             scope = "Raven imported value-receiver mutation and generic value-owner out calls; no union lowering or native System mapping"
         }, new JsonSerializerOptions { WriteIndented = true }) + "\n");
     }
