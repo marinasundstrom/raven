@@ -11,6 +11,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-09
 
+- Recognize the native module `Function` navigation label with the existing function glyph.
+
 - Add file/block `module` declarations using existing namespace syntax nodes,
   qualified-name/import binding and target-aware IsModule symbol information. Native
   metadata preserves logical module ownership and empty declarations; CLI emission

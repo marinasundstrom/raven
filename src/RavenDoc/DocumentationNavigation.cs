@@ -135,7 +135,7 @@ internal static class DocumentationNavigation
                     "Union case" => RavenDocSymbolKind.Case,
                     "Delegate" => RavenDocSymbolKind.Delegate,
                     "Struct" => RavenDocSymbolKind.Struct,
-                    "Namespace function" or "Method" or "Constructor" => RavenDocSymbolKind.Function,
+                    "Namespace function" or "Function" or "Method" or "Constructor" => RavenDocSymbolKind.Function,
                     "Constant" or "Field" => RavenDocSymbolKind.Field,
                     "Property" or "Indexer" => RavenDocSymbolKind.Property,
                     "Event" => RavenDocSymbolKind.Event,

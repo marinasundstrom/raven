@@ -222,6 +222,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
     }
 
     [Theory]
+    [InlineData("Function", "function")]
     [InlineData("Method", "function")]
     [InlineData("Constant", "field")]
     [InlineData("Static class", "class")]
