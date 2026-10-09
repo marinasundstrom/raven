@@ -16,6 +16,8 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args is ["--native-array-shape", var arrayCore]) { NativeArrayShapeChecks.Run(arrayCore); return; }
+
 if (args.Length == 3 && args[0] == "--native-doc-fixture")
 {
     NativeDocFixture.Write(args[1], args[2]); return;

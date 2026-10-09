@@ -77,6 +77,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         var captures = functionBody?.CapturedVariables.ToArray() ?? [];
         var isStaticBody = functionBody is not null ? captures.Length == 0 : source.IsStatic;
         bool ReturnsValue(IMethodSymbol method) =>
+            method.ContainingType is { TypeKind: TypeKind.Delegate } callable && capabilities is not null &&
+                CallableSignature.TryFunction(callable, out var callableShape, capabilities) ? callableShape.ReturnsValue :
             (method.ContainingType?.TypeKind != TypeKind.Delegate || method.ContainingType.Name == "Func") && (method.OriginalDefinition ?? method).ReturnType is ITypeParameterSymbol ||
             TryType(method.ReturnType, true, out var result) && result.Primitive != EmissionPrimitiveType.NoResult;
         bool TryType(ITypeSymbol type, bool result, out EmissionType value) => CallableSignature.TryType(type, result, out value, capabilities);

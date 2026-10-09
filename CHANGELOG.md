@@ -6,6 +6,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-09
 
+- Resolve native core Array/Enum contracts and project configured vector members
+  and collection interfaces. Native synthesized function callbacks validate their
+  component accessibility and preserve inhabited unit results. Source primitive
+  providers now supply compiler-generated String concatenation and union escaping;
+  .NET defaults and explicitly named delegate identity remain unchanged.
+
 - Admit freshly constructed value receivers in portable emission. Constructor
   results are evaluated once into temporary storage before method arguments;
   mutations affect that temporary. Ordinary/generic/nested imported value checks

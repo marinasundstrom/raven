@@ -27,6 +27,7 @@ internal sealed class SynthesizedDelegateTypeSymbol : SourceNamedTypeSymbol
             s_emptySyntax,
             isSealed: true)
     {
+        IsNativeTransport = compilation.Options.TargetPlatform == TargetPlatform.NeoCLR;
         ReturnType = returnType;
         ParameterTypes = parameterTypes;
         ParameterRefKinds = refKinds;
@@ -34,6 +35,8 @@ internal sealed class SynthesizedDelegateTypeSymbol : SourceNamedTypeSymbol
         Constructor = CreateConstructor(compilation, containingNamespace);
         InvokeMethod = CreateInvokeMethod(returnType, containingNamespace, parameterTypes, refKinds);
     }
+
+    internal bool IsNativeTransport { get; }
 
     public SourceMethodSymbol Constructor { get; }
 

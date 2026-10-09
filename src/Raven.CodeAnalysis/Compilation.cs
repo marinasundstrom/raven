@@ -2785,6 +2785,18 @@ public partial class Compilation
         return _specialTypeCache.GetOrAdd(specialType, ResolveSpecialType);
     }
 
+    internal INamedTypeSymbol GetPrimitiveMemberProvider(SpecialType specialType)
+    {
+        var storage = GetSpecialType(specialType);
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            Options.MetadataImportOptions?.SourcePrimitiveTypes.Contains(specialType) == true)
+        {
+            EnsureSourceTypeDeclarationsDeclared();
+            return Assembly.GetTypeByMetadataName(storage.ToFullyQualifiedMetadataName()) ?? (INamedTypeSymbol)ErrorTypeSymbol;
+        }
+        return storage;
+    }
+
     private INamedTypeSymbol ResolveSpecialType(SpecialType specialType)
     {
         var metadataName = _target.RuntimeContract.GetSpecialTypeMetadataName(specialType);

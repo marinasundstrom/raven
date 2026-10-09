@@ -184,7 +184,7 @@ internal static partial class SynthesizedMethodBodyFactory
     {
         var stringType = compilation.GetSpecialType(SpecialType.System_String)
             ?? throw new InvalidOperationException("Failed to resolve System.String.");
-        var replace = stringType.GetMembers(nameof(string.Replace))
+        var replace = compilation.GetPrimitiveMemberProvider(SpecialType.System_String).GetMembers(nameof(string.Replace))
             .OfType<IMethodSymbol>()
             .FirstOrDefault(method => method.Parameters.Length == 2 &&
                                       method.Parameters.All(parameter => parameter.Type.GetNonNullableType().SpecialType == SpecialType.System_String));
@@ -368,7 +368,7 @@ internal static partial class SynthesizedMethodBodyFactory
     private static BoundExpression CreateStringConcat(Compilation compilation, BoundExpression left, BoundExpression right)
     {
         var stringType = compilation.GetSpecialType(SpecialType.System_String)!;
-        var candidates = stringType.GetMembers(nameof(string.Concat)).OfType<IMethodSymbol>().ToArray();
+        var candidates = compilation.GetPrimitiveMemberProvider(SpecialType.System_String).GetMembers(nameof(string.Concat)).OfType<IMethodSymbol>().ToArray();
         var resolution = OverloadResolver.ResolveOverload(
             candidates,
             [

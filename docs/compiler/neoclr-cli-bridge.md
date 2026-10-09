@@ -8469,3 +8469,32 @@ escaping audit also executes an immediate union-case ToString call in project,
 interpreter and ARM64 native modes. It intentionally records a separate shared
 escaping defect: without String.Replace(string,string), synthesized quoting does
 not escape quotes/backslashes. That library gap remains unresolved.
+
+## Source String bootstrap dependency contracts (2026-10-09)
+
+The explicitly selected native core classifies nominal `System.Array` and
+`System.Enum` alongside ValueType. `RuntimeIterationContract.ArrayShapeTypeName`
+and its exact assembly select rank-one array members/interfaces; rank-two arrays
+are not projected. These native symbols now provide the same vector member lookup
+contract as the temporary CLI provider. No System-name inference applies to an
+unselected assembly, and ordinary .NET behavior remains unchanged.
+
+Native function syntax uses the existing Function signature transport. Its internal
+synthesized delegate symbol does not itself constrain public API accessibility;
+parameter/result types still do. Explicit named delegates retain nominal identity.
+Portable invocation lowering uses the Function result policy, including popping an
+inhabited unit result in an expression statement. No new structural Function
+language semantics are enabled.
+
+When MetadataImportOptions.SourcePrimitiveTypes selects String, implicit `+` and
+synthesized union display/escaping use that source member provider, while expression
+storage remains the selected core primitive. This removes the need to put fake
+Concat/Replace implementations on a bootstrap metadata declaration. The temporary
+CLI bridge remains available, but this validation uses only native references.
+
+Validation: ArrayTypeProviderTests plus NativeCallbackAccessibilityTests (7 tests);
+NeoClrMetadataProbe `--native-array-shape <NativeCore.dll>`; neoCLR's
+`docs/experiments/native-core-bootstrap` source String fixture compiles unchanged
+production String/Array/unions and executes a separate consumer in the interpreter.
+The native runtime owns primitive-reference resolution and AOT service bindings;
+this compiler slice does not by itself establish full core bootstrap readiness.

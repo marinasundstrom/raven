@@ -59,11 +59,13 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
     {
         signature = null!;
         if (depth >= 16) return false;
-        // The first transport profile admits core Func/Action shapes only. Named
-        // delegates retain nominal semantics and must not silently lose identity.
-        if (type.TypeKind != TypeKind.Delegate || type.ContainingNamespace?.ToDisplayString() != "System" ||
-            type.Name is not ("Func" or "Action") ||
-            !SymbolEqualityComparer.Default.Equals(type.ContainingAssembly, type.BaseType?.ContainingAssembly) || type.GetDelegateInvokeMethod() is not { } invoke ||
+        // Native transport admits core Func/Action and synthesized function signatures.
+        // Explicitly named delegates retain nominal identity and remain excluded.
+        var nativeTransport = type is SynthesizedDelegateTypeSymbol { IsNativeTransport: true };
+        if (type.TypeKind != TypeKind.Delegate ||
+            !nativeTransport && (type.ContainingNamespace?.ToDisplayString() != "System" || type.Name is not ("Func" or "Action") ||
+                !SymbolEqualityComparer.Default.Equals(type.ContainingAssembly, type.BaseType?.ContainingAssembly)) ||
+            type.GetDelegateInvokeMethod() is not { } invoke ||
             invoke.Parameters.Any(p => p.RefKind != RefKind.None || p.Type is IPointerTypeSymbol) || invoke.ReturnType is IPointerTypeSymbol || invoke.Parameters.Length > 16 ||
             !TryType(invoke.ReturnType, type.Name == "Action", out var result, capabilities, depth + 1)) return false;
         var parameters = ImmutableArray.CreateBuilder<EmissionType>();

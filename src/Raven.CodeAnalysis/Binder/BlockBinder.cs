@@ -9858,7 +9858,8 @@ partial class BlockBinder : Binder
     private IMethodSymbol? ResolveStringConcatMethod(BoundExpression left, BoundExpression right)
     {
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
-        var candidates = stringType.GetMembers("Concat").OfType<IMethodSymbol>();
+        var provider = EnsureSourceMemberSignatureDeclaredForExactLookup(stringType, "Concat");
+        var candidates = provider.GetMembers("Concat").OfType<IMethodSymbol>();
 
         var resolution = OverloadResolver.ResolveOverload(
             candidates.ToArray(),

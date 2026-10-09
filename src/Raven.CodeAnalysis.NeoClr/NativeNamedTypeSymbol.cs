@@ -4,12 +4,13 @@ using NeoCLR.Metadata.Experimental.Introspection;
 using NeoCLR.Metadata.Experimental.Model;
 
 using Raven.CodeAnalysis.Symbols;
+using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
 // Native declarations retain their own generic parameter scopes.
 // Keep unsupported categories at the reader boundary rather than manufacturing members.
-internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
+internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayTypeProvider
 {
     public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
     private readonly Compilation compilation;
@@ -40,13 +41,17 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
             SpecialType = SpecialType.System_Object;
         }
         // The native primitive marker covers storage types, not their nominal base.
-        // Classify ValueType only in the explicitly selected native core.
+        // Classify nominal ValueType, Enum and Array only in the selected native core.
         if (SpecialType == SpecialType.None &&
             compilation.Options.MetadataImportOptions is { UseNativeMetadata: true } imports &&
             imports.CoreAssemblyName == ContainingAssembly.Name &&
             declaringType is null && view.GenericArity == 0 && !view.IsValueType && !view.IsInterface &&
-            view.FullName == "System.ValueType")
-            SpecialType = SpecialType.System_ValueType;
+            view.FullName is "System.ValueType" or "System.Enum" or "System.Array")
+            SpecialType = view.FullName switch {
+                "System.Enum" => SpecialType.System_Enum,
+                "System.Array" => SpecialType.System_Array,
+                _ => SpecialType.System_ValueType
+            };
         if (SpecialType == SpecialType.None && compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
             compilation.Options.MetadataImportOptions?.AsyncAssemblyName == ContainingAssembly.Name)
             SpecialType = view.FullName switch
