@@ -3914,3 +3914,13 @@ including the CLI emitter's method-context wrappers; unrelated failures still su
 This applies to ordinary .NET and native targets and introduces no Runtime Contract
 switch or bridge encoding. The target core must supply real string operations;
 diagnosing a missing member does not provide an implementation.
+
+## Native core value-type base identity (2026-10-09)
+
+Native storage markers identify scalar types; System.ValueType is instead a nominal
+base class. In native-only metadata mode, the selected core's top-level nongeneric
+class System.ValueType now has SpecialType.System_ValueType, matching the existing
+CLI core classification. Same-named types in other assemblies retain SpecialType.None.
+No type-name fallback to a host core or new Runtime Contract setting is introduced.
+Native structs and union carriers can therefore pass portable type planning. This
+does not supply missing native core primitives or String methods.

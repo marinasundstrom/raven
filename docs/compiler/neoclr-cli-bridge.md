@@ -8438,3 +8438,10 @@ divergence. The integration branch's emission boundary additionally dispatches a
 external backend. Port the diagnostic wrapper to main's emitter boundary and run the
 same .NET checks there independently; the current evidence is on the integration
 branch only.
+
+Native ValueType prerequisite: native-only core classification now recognizes the
+selected core's nominal System.ValueType base independently of primitive storage
+markers. Catalog controls include a same-named non-core type, which remains ordinary.
+The checked copied-struct consumer runs without CLI semantic references; unchanged
+production Option/Result reaches the missing String.Concat diagnostic. The minimal
+core fixture adds Byte for union tags but is still not a production runtime library.

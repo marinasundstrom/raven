@@ -39,6 +39,14 @@ internal class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol
                 throw new InvalidDataException("imported Object ownership requires a public abstract fieldless nongeneric root without a base");
             SpecialType = SpecialType.System_Object;
         }
+        // The native primitive marker covers storage types, not their nominal base.
+        // Classify ValueType only in the explicitly selected native core.
+        if (SpecialType == SpecialType.None &&
+            compilation.Options.MetadataImportOptions is { UseNativeMetadata: true } imports &&
+            imports.CoreAssemblyName == ContainingAssembly.Name &&
+            declaringType is null && view.GenericArity == 0 && !view.IsValueType && !view.IsInterface &&
+            view.FullName == "System.ValueType")
+            SpecialType = SpecialType.System_ValueType;
         if (SpecialType == SpecialType.None && compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
             compilation.Options.MetadataImportOptions?.AsyncAssemblyName == ContainingAssembly.Name)
             SpecialType = view.FullName switch

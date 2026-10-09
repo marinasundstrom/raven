@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-09
 
+- Recognize System.ValueType in the explicitly selected native semantic core.
+  This allows ordinary structs and union carriers through native type planning;
+  same-named declarations in other assemblies remain ordinary types. Primitive
+  storage markers and CLI target behavior are unchanged.
+
 - Report missing synthesized String.Concat support as RAV1501 during emission,
   including union formatting on ordinary .NET and native targets, instead of
   crashing or selecting an arbitrary two-argument overload. Other compiler

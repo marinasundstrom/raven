@@ -34,6 +34,7 @@ internal static class NativeCoreCatalogChecks
         void WriteLibrary(string name)
         {
             var graph = new AssemblyBuilder(new("Input", new(1, 0, 0, 0)), empty.CoreIdentity);
+            graph.AddClass("System", "ValueType");
             var method = graph.AddType("Example", "Input").AddMethod(name, new(PrimitiveType.Int32, []));
             method.GetILGenerator().LoadConstant(40);
             method.GetILGenerator().Return();
@@ -56,6 +57,12 @@ internal static class NativeCoreCatalogChecks
         }
         var earlier = Create(first, "Value");
         Valid(earlier);
+        var valueBase = earlier.GetSpecialType(SpecialType.System_ValueType);
+        if (valueBase.SpecialType != SpecialType.System_ValueType || valueBase.ContainingAssembly.Name != first.CoreIdentity.Name)
+            throw new Exception("Native core ValueType was not classified.");
+        var otherAssembly = (IAssemblySymbol)earlier.GetAssemblyOrModuleSymbol(first.References[1])!;
+        if (otherAssembly.GetTypeByMetadataName("System.ValueType")!.SpecialType != SpecialType.None)
+            throw new Exception("Non-core ValueType acquired special identity.");
         if (earlier.GetSpecialType(SpecialType.System_Object).GetDocumentationComment()?.Content.Contains("Native core root.") != true)
             throw new Exception("Native core documentation was not captured.");
         WriteLibrary("Updated");
