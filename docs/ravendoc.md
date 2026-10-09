@@ -951,3 +951,12 @@ visible. The same authored links serve both layouts.
 With `copyCode` enabled, copy controls float at the visible top-right edge of each
 sample or signature. Only the code scrolls horizontally; the control stays in
 place without reserving extra space above the code.
+
+## Namespace and module member presentation
+
+API navigation uses the same function and field icons as member lists, including
+metadata-loaded assembly-level functions and constants. Static classes retain their
+class icon. Namespace/module overview pages separate Types, Constants, Fields and
+Functions when present; constants do not fall into a generic Members section.
+This is shared documentation rendering, with no Runtime Contract, semantic or
+emitted-metadata change. Reference paths remain unchanged.
