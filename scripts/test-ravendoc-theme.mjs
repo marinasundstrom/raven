@@ -4,18 +4,24 @@ import vm from 'node:vm'
 
 const source = await fs.readFile(new URL('../src/RavenDoc/Assets/theme.js', import.meta.url), 'utf8')
 function page(saved, systemDark = false, storageBlocked = false) {
-  const events = {}, windowEvents = {}, root = { dataset: {} }, control = { dataset: { themeChoice: 'system' }, setAttribute(key, value) { this[key] = value } }
+  const classes = new Set(), timers = [];
+  const events = {}, windowEvents = {}, root = { dataset: {}, classList: { add: value => classes.add(value), remove: value => classes.delete(value) } }, control = { dataset: { themeChoice: 'system' }, setAttribute(key, value) { this[key] = value } }
   const media = { matches: systemDark, addEventListener(name, fn) { this.changed = fn } }
   const storage = { value: saved, getItem() { if (storageBlocked) throw Error(); return this.value }, setItem(key, value) { if (storageBlocked) throw Error(); this.value = value } }
   vm.runInNewContext(source, {
+    setTimeout: (callback, delay) => timers.push({ callback, delay }),
     document: { documentElement: root, querySelectorAll: selector => selector === '[data-theme-choice]' ? [control] : [], addEventListener(name, fn) { events[name] = fn } },
     window: { matchMedia: () => media, addEventListener(name, fn) { windowEvents[name] = fn } },
     localStorage: storage
   })
   const choose = value => events.click({ target: { closest: () => ({ dataset: { themeChoice: value }, closest: () => ({ open: true, querySelector: () => ({ focus() {} }) }) }) } })
-  return { root, control, storage, media, choose, windowEvents }
+  return { root, control, storage, media, choose, windowEvents, classes, timers }
 }
 const first = page(null, true)
+assert.equal(first.classes.has('ravendoc-navigation-loading'), true)
+assert.equal(first.timers[0].delay, 4000)
+first.timers[0].callback()
+assert.equal(first.classes.has('ravendoc-navigation-loading'), false)
 assert.equal(first.root.dataset.theme, 'dark')
 assert.equal(first.control['aria-checked'], 'true')
 first.choose('light')

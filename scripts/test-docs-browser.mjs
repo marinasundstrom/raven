@@ -134,6 +134,41 @@ try {
       assert.equal(layout.before, layout.after, 'Copy control does not push code downward');
     }
   }
+  // Raven's .NET library uses the same extension presentation as other targets.
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`${base}/libraries/raven-core/System/Linq/index.html`);
+    assert.ok(await page.getByRole('heading', { name: 'Type extensions', exact: true }).count());
+    const extension = page.locator('article a').filter({ hasText: /^EnumerableOption/ }).first();
+    const extensionUrl = await extension.evaluate(anchor => anchor.href);
+    await page.goto(extensionUrl);
+    const article = page.locator('article');
+    assert.match(await article.innerText(), /Type extension/i);
+    assert.match(await article.innerText(), /Assembly:\s*Raven.Core/);
+    assert.match(await article.innerText(), /Namespace:\s*System.Linq/);
+    assert.match(await article.innerText(), /extension EnumerableOption<T> for IEnumerable<T>/);
+    const copyOverlap = await article.locator('pre.api-signature').first().evaluate(pre => {
+      const button = pre.parentElement.querySelector('.copy-code').getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(pre.querySelector('code'));
+      return [...range.getClientRects()].some(rect => rect.width > 0 && rect.height > 0 &&
+        rect.left < button.right && rect.right > button.left && rect.top < button.bottom && rect.bottom > button.top);
+    });
+    assert.equal(copyOverlap, false, `Copy does not obscure the declaration at ${width}px`);
+    assert.ok(await article.locator('#receiver').count());
+    assert.ok(await article.locator('a[href="#type-parameters"]').count());
+    const headings = await article.locator('h2').allTextContents();
+    assert.ok(headings.indexOf('Receiver') < headings.indexOf('Type parameters'));
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false,
+        `${theme}: .NET generic extension fits ${width}px`);
+    }
+    // A non-generic primitive extension must also retain its receiver and methods.
+    await page.goto(`${base}/libraries/raven-core/System/Int32Extensions/index.html`);
+    assert.equal(await page.getByRole('heading', { name: 'Receiver', exact: true }).count(), 1);
+    assert.ok(await page.locator('article a[href*="method_Parse"]').count());
+  }
   // Copy controls stay at the visible edge while the code itself scrolls.
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto(`${base}/raven-for-csharp-developers.html`);
@@ -177,11 +212,11 @@ try {
   assert.ok(await macroNavigation.locator('summary[title="Raven.Macros"]').count() > 0, 'Macro namespace is listed');
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${base}/libraries/raven-core/System/Linq/EnumerableOption%601/index.html?inherited=false`);
-  assert.ok((await page.locator('article pre code').first().textContent()).includes('static class EnumerableOption'));
-  assert.equal(await page.locator('#show-inherited-members').count(), 0, 'Static containers have no inherited-member toggle');
+  assert.ok((await page.locator('article pre code').first().textContent()).includes('extension EnumerableOption<T> for IEnumerable<T>'));
+  assert.equal(await page.locator('#show-inherited-members').count(), 0, 'Type extensions have no inherited-member toggle');
   assert.ok(!(await page.locator('article').textContent()).includes('Inheritance:'));
   await page.locator('#member-grouping').selectOption('declaringType');
-  assert.ok(await page.locator('.member-card:visible').count() > 0, 'Static member grouping works without inheritance controls');
+  assert.ok(await page.locator('.member-card:visible').count() > 0, 'Extension member grouping works without inheritance controls');
   await page.goto(`${base}/raven-for-csharp-developers.html`);
   const currentSection = page.locator('.documentation-nav-section').filter({ has: page.locator('a[aria-current="page"]') }).first();
   assert.equal(await currentSection.evaluate(e => e.open), true, 'Current reading section opens automatically');

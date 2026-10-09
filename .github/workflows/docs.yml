@@ -17,6 +17,7 @@ on:
       - "scripts/test-docs-browser.mjs"
       - "scripts/add-production-analytics.sh"
       - "scripts/test-raven-highlighting-sync.mjs"
+      - "scripts/test-ravendoc-theme.mjs"
       - "scripts/codex-build.sh"
       - "src/Raven.CodeAnalysis/**"
       - "src/Raven.Compiler/**"
@@ -70,8 +71,10 @@ jobs:
           cache: npm
           cache-dependency-path: src/Raven.Playground/package-lock.json
 
-      - name: Check Raven highlighting parity
-        run: node scripts/test-raven-highlighting-sync.mjs
+      - name: Check shared theme and highlighting
+        run: |
+          node scripts/test-raven-highlighting-sync.mjs
+          node scripts/test-ravendoc-theme.mjs
 
       - name: Build documentation
         run: scripts/build-docs.sh

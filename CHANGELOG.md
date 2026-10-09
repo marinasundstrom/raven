@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-09:** Guard Raven’s .NET type-extension API presentation in website
+  browser checks, including receiver/type-parameter order, namespace/assembly
+  labels, and light/dark mobile layouts. Refresh the theme-test DOM mock and run
+  its navigation-fallback check in the website workflow. Keep long API declarations
+  clear of the Copy button at mobile widths.
+
 - **2026-10-09:** Place type-extension receiver information before type parameters
   and remarks, following the introduction.
 
