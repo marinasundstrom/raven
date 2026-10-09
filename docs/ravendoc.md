@@ -590,7 +590,8 @@ invalid keys fail the build. HTML inputs are fragments; the publisher owns the
 HTML document shell. Full `html`, `head`, `body` and doctype wrappers are rejected.
 Site-wide `showToc` defaults to true. `apiNavigationRoot`, when supplied, limits the
 root side menu on authored pages to that output directory; generated API pages
-always receive navigation. Explicit section TOCs are used within that scope.
+always receive navigation. Explicit `navigationSections` retain their own article
+sidebars outside that API scope, so guides and API references can have separate menus.
 
 Additional site configuration includes `subtitle`, `notice`, `releaseUrl`, and
 `releaseLabel` for a project-owned availability notice. `apiPath` defaults to `api`.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-09:** Keep explicitly configured guide/reference section sidebars visible
+  outside `apiNavigationRoot`, with their own article menu and current-page state.
+  The API browser remains scoped to its reference pages.
+
 - **2026-10-09:** Fix SDK packaging under Git Bash on Windows by passing the
   macro build's compiler-host property as a Windows path. Ordinary .NET and
   neoCLR SDK packaging share this correction; Unix paths are unchanged. Preserve
