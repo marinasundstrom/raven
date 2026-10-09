@@ -1044,3 +1044,15 @@ class icon. Namespace/module overview pages separate Types, Constants, Fields an
 Functions when present; constants do not fall into a generic Members section.
 This is shared documentation rendering, with no Runtime Contract, semantic or
 emitted-metadata change. Reference paths remain unchanged.
+
+### Extension containers
+
+Extension containers have a dedicated puzzle-piece icon in navigation, listings and
+page headers. Their pages show linked receiver types. A single receiver produces an
+`extension Name for Receiver` declaration; source container type parameters are retained
+when present. Imported metadata may lift those parameters onto members, so receiver
+parameters do not imply that the container itself is generic. Multiple receivers are
+listed without inventing one declaration. Classification uses semantic extension
+receivers on the container or its public members, never a naming convention. Ordinary
+static classes retain their existing presentation. This changes documentation only,
+with no Runtime Contract, binding, emission or runtime changes.

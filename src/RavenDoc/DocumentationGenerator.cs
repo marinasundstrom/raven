@@ -1283,6 +1283,7 @@ public static partial class DocumentationGenerator
             ITypeSymbol { TypeKind: TypeKind.Delegate } => RavenDocSymbolKind.Delegate,
             ITypeSymbol { TypeKind: TypeKind.Struct } => RavenDocSymbolKind.Struct,
             ITypeSymbol { TypeKind: TypeKind.Interface } => RavenDocSymbolKind.Interface,
+            ITypeSymbol type when IsExtensionContainer(type) => RavenDocSymbolKind.Extension,
             ITypeSymbol { TypeKind: TypeKind.Class } => RavenDocSymbolKind.Class,
             ITypeSymbol => RavenDocSymbolKind.Type,
             IMacroDeclarationSymbol => RavenDocSymbolKind.Macro,
@@ -1312,6 +1313,7 @@ public static partial class DocumentationGenerator
             IEventSymbol => "Event",
             IUnionCaseTypeSymbol { IsUnionCase: true } => "Union case",
             IUnionSymbol { IsUnion: true } => "Union",
+            ITypeSymbol type when IsExtensionContainer(type) => "Extension container",
             ITypeSymbol type when IsStaticType(type) => "Static class",
             ITypeSymbol type => type.TypeKind.ToString(),
             _ => "Member"
@@ -1754,6 +1756,28 @@ public static partial class DocumentationGenerator
     // Page generators
     // ----------------------------
 
+    private static bool IsExtensionContainer(ITypeSymbol type)
+        => type.GetExtensionReceiverType() is not null ||
+           (type.IsStatic && type.GetMembers().Any(member =>
+               IsDocumentableSymbol(member) && IsDocumentationExtension(member)));
+
+    private static IReadOnlyList<ITypeSymbol> GetExtensionReceivers(ITypeSymbol type)
+    {
+        if (!IsExtensionContainer(type))
+            return [];
+        var receivers = type.GetMembers()
+            .Where(member => IsDocumentableSymbol(member) && IsDocumentationExtension(member))
+            .Select(member => member.GetExtensionReceiverType()!)
+            // Imported containers can lift the same receiver parameter onto each method.
+            .DistinctBy(receiver => receiver.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))
+            .OrderBy(NavigationType, StringComparer.Ordinal)
+            .ToArray();
+        // A metadata container's receiver can be a representative first receiver.
+        // Member receivers preserve distinct targets and substituted parameter names.
+        return receivers.Length > 0 ? receivers
+            : type.GetExtensionReceiverType() is { } receiver ? [receiver] : [];
+    }
+
     private static bool IsStaticType(ITypeSymbol type)
         => type.IsStatic || type.GetExtensionReceiverType() is not null;
 
@@ -1813,6 +1837,10 @@ public static partial class DocumentationGenerator
             metadataLines.Add(
                 $"**{(CurrentSiteOptions.ModuleTerminology || containingNamespace.IsModule ? "Module" : "Namespace")}**: [{memberName}]({RelLink(currentDir, target)})<br />");
         }
+
+        var receivers = GetExtensionReceivers(typeSymbol);
+        if (receivers.Count > 0)
+            metadataLines.Add($"**Receiver type{(receivers.Count == 1 ? "" : "s")}**: {string.Join(", ", receivers.Select(receiver => FormatTypeLink(currentDir, receiver, BaseTypeDisplayFormat)))}<br />");
 
         metadataLines.AddRange(GetSourceAndAssemblyLines(compilation, typeSymbol));
 
@@ -2117,10 +2145,15 @@ public static partial class DocumentationGenerator
             delegateType.GetDelegateInvokeMethod() is { } invoke)
             return $"delegate {GetTypeName(delegateType)}({NavigationParameters(invoke.Parameters)}) -> {NavigationType(invoke.ReturnType)}";
 
-        var signature = symbol is IPropertySymbol property
+        var extensionReceivers = symbol is ITypeSymbol typeSymbol ? GetExtensionReceivers(typeSymbol) : [];
+        var signature = extensionReceivers.Count == 1 && symbol is ITypeSymbol extensionType
+            ? $"extension {GetTypeName(extensionType)} for {NavigationType(extensionReceivers[0])}"
+            : extensionReceivers.Count > 1
+            ? "" // A container with several receivers has no single extension declaration.
+            : symbol is IPropertySymbol property
             ? FormatPropertySignature(property)
             : OmitRedundantPublicModifier(symbol.ToDisplayString(MemberDisplayFormat));
-        if (symbol is ITypeSymbol staticType && IsStaticType(staticType) && !signature.StartsWith("static ", StringComparison.Ordinal))
+        if (symbol is ITypeSymbol staticType && !IsExtensionContainer(staticType) && IsStaticType(staticType) && !signature.StartsWith("static ", StringComparison.Ordinal))
             signature = "static " + signature;
         var typeParameters = symbol switch
         {
