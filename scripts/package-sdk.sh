@@ -54,10 +54,8 @@ dotnet publish ${METADATA_ARGS[@]+"${METADATA_ARGS[@]}"} "$ROOT_DIR/src/Raven.Co
   /property:IncludeSourceRevisionInInformationalVersion=false
 dotnet build ${METADATA_ARGS[@]+"${METADATA_ARGS[@]}"} "$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj" -c Release -f "$TFM" \
   /property:WarningLevel=0 \
-  /property:RavenCompilerHost="$ROOT_DIR/src/Raven.Compiler/bin/Release/$TFM/rvnc.dll"
-dotnet publish ${METADATA_ARGS[@]+"${METADATA_ARGS[@]}"} "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" -c Release -f "$TFM" -r "$RID" \
   /property:RavenCompilerHost="$COMPILER_HOST"
-dotnet publish "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" -c Release -f "$TFM" -r "$RID" \
+dotnet publish ${METADATA_ARGS[@]+"${METADATA_ARGS[@]}"} "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" -c Release -f "$TFM" -r "$RID" \
   --self-contained false -o "$PUBLISH_DIR/language-server" /property:WarningLevel=0 \
   /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
   /property:IncludeSourceRevisionInInformationalVersion=false
