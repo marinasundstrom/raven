@@ -996,3 +996,11 @@ Reverse relationship lists (derived types, derived interfaces and implementing t
 show their first five entries. Longer lists keep the remainder in a native HTML
 disclosure, collapsed initially, with Show more/Show less controls. Alphabetical
 ordering, indirect relationship labels and all navigation links are preserved.
+
+### Extension visibility
+
+Receiver member lists include only extensions with public members and public
+containing types throughout their enclosing chain. Public methods on internal
+extension containers are implementation details and are excluded, including from
+specialized generic receiver lists. This applies equally to source, .NET metadata
+and native metadata input.
