@@ -8,7 +8,6 @@ internal sealed class RavenDocContentTemplate
             RenderLines(page.MetadataLines),
             RenderLines(page.RelationshipLines),
             page.DocumentationMarkdown,
-            page.ReceiverMarkdown,
             string.Join("\n\n", page.MemberSections));
 
     public string RenderNamespacePage(RavenDocNamespaceContentTemplateModel page)
@@ -75,8 +74,7 @@ internal sealed record RavenDocTypeContentTemplateModel(
     IReadOnlyList<string> MetadataLines,
     IReadOnlyList<string> RelationshipLines,
     string? DocumentationMarkdown,
-    IReadOnlyList<string> MemberSections,
-    string? ReceiverMarkdown = null);
+    IReadOnlyList<string> MemberSections);
 
 internal sealed record RavenDocNamespaceContentTemplateModel(
     string HeroHtml,

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-09:** Place type-extension receiver information before type parameters
+  and remarks, following the introduction.
+
 - **2026-10-09:** Give extension receivers a dedicated section, linking named type
   components independently and documented parameters to the type-parameter section.
   Module/namespace pages group Type extensions separately and show their receivers.
