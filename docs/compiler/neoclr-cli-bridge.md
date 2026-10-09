@@ -8516,3 +8516,40 @@ internal extensions and specialized generic extensions; the neoCLR production
 audit verifies that internal console functions are absent from Boolean. This
 shared presentation fix prevents the visibility leak but does not resolve the
 native reader's broader extension classification limitation.
+
+## Positional record storage for native map pairs (2026-10-10)
+
+The native adapter explicitly enables `PositionalRecordStorage`: top-level positional
+`record struct` declarations with `val` components and no additional members or
+attributes. It emits ordinary native value storage, a primary/copy constructor,
+getters and `Deconstruct(out ...)`. Portable lowering supports simple positional
+bindings and discards through the selected instance deconstruction method; receiver
+expressions are evaluated once. This is native metadata emission, not a new CLI
+encoding. No runtime-contract configuration or ordinary .NET record behavior changes.
+
+This capability is intentionally **not full record support**. The native surface
+omits synthesized equality, hashing, formatting and init-only accessors. Calls to
+unsupported generated helpers fail target admission; imported components are
+getter-only. Native metadata does not yet carry a record marker or init-only accessor
+semantics. Mutable positional components, record classes, extra members, attributes,
+extension/nested/refutable deconstruction patterns are outside this bounded slice.
+Use explicit key comparers for maps; the pair is a transport value, not an implicitly
+hashable key contract. Full records require shared generated value equality/hashing
+and formatting against native runtime contracts plus metadata support for initialization.
+Those restrictions belong to the adapter, not permanent Raven language rules.
+
+Ownership: Raven owns declaration admission, synthesized body lowering and diagnostics;
+neoCLR owns value verification, copying, generic storage and metadata. The matching
+neoCLR collection consumer checks imported generic pairs, getters, copying,
+deconstruction, map/interface iteration and snapshots on interpreter and macOS AOT.
+Focused portable-plan tests guard capability opt-in and deconstruction. The earlier
+`71cafd353` compiler rejects the record declaration; development libraries require
+the compiler revision containing this capability. Windows pair qualification is
+tracked by neoCLR separately from its already-passing Queue/Stack/Set action.
+
+Branch scope: this implementation depends on the existing native adapter on
+`codex/source-object-metadata-resolution`; it is not on Raven main. The portable
+instance-deconstruction lowering is a general integration candidate, validated with
+an ordinary source struct independently of the native positional-record consumer.
+Move it with its portable-emission dependencies when reconciling that line; its
+classification as general behavior is not changed by this native consumer.

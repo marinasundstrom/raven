@@ -95,7 +95,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         // Arrow clauses expose their bound statement block in the original view, as
         // consumed by the general generator. Reuse compiler lowering for conversions
         // and Unit expression statements instead of synthesizing backend returns.
-        var body = preparedBody ?? (functionBody is not null ? FunctionBlock(functionBody) : source.MethodKind == MethodKind.Constructor && bodySyntax is ClassDeclarationSyntax or StructDeclarationSyntax
+        var body = preparedBody ?? (functionBody is not null ? FunctionBlock(functionBody) : source.MethodKind == MethodKind.Constructor && (bodySyntax is ClassDeclarationSyntax or StructDeclarationSyntax || bodySyntax is RecordDeclarationSyntax && !source.DeclaringSyntaxReferences.IsEmpty)
             ? new BoundBlockStatement([]) : model.Compilation.TryGetSynthesizedMethodBody(source, BoundTreeView.Lowered, out var synthesized) && synthesized is not null
             ? synthesized : bodySyntax is ArrowExpressionClauseSyntax
             ? model.GetBoundNode(bodySyntax, BoundTreeView.Original) is BoundBlockStatement arrowBody
@@ -106,7 +106,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             var initializers = FieldInitializationPlan.Create(model.Compilation, source);
             // A synthesized struct default constructor zero-initializes storage. Keep this
             // semantic initialization in the shared body plan, before declared initializers.
-            if (bodySyntax is StructDeclarationSyntax)
+            if (bodySyntax is StructDeclarationSyntax || bodySyntax is RecordDeclarationSyntax && source.Parameters.IsEmpty)
                 initializers = source.ContainingType!.GetMembers().OfType<IFieldSymbol>().Where(f => !f.IsStatic)
                     .Select(field => new BoundAssignmentStatement(new BoundFieldAssignmentExpression(
                         new BoundSelfExpression(source.ContainingType), field, new BoundDefaultValueExpression(field.Type),
@@ -609,6 +609,44 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     else if (TryType(discard.Right.Type, false, out _))
                         Add(LinearInstructionKind.Pop, Syntax(statement));
                     else return Reject("unsupported discarded result", Syntax(statement));
+                    continue;
+                }
+                if (memberAssignment is BoundPatternAssignmentExpression { Pattern: BoundDeconstructPattern deconstruction } deconstructAssignment)
+                {
+                    var method = deconstruction.DeconstructMethod;
+                    var syntax = Syntax(statement);
+                    if (method.IsStatic || method.IsExtensionMethod || !SupportedInstanceCall(method) ||
+                        !CallableSignature.SameStorageType(deconstructAssignment.Right.Type, deconstruction.ReceiverType) ||
+                        method.Parameters.Length != deconstruction.Arguments.Length ||
+                        !TryType(deconstruction.ReceiverType, false, out var receiverType) || capabilities?.Allows(receiverType) != true ||
+                        !capabilities.Allows(LinearInstructionKind.LocalAddress))
+                        return Reject("unsupported deconstruction assignment", syntax);
+                    if (!LowerValue(deconstructAssignment.Right)) return false;
+                    var receiver = localTypes.Count;
+                    localTypes.Add(receiverType);
+                    Add(LinearInstructionKind.StoreLocal, syntax, receiver);
+                    Add(deconstruction.ReceiverType.IsValueType ? LinearInstructionKind.LocalAddress : LinearInstructionKind.LoadLocal, syntax, receiver);
+                    var outputs = new int[method.Parameters.Length];
+                    for (var index = 0; index < outputs.Length; index++)
+                    {
+                        var parameter = method.Parameters[index];
+                        if (parameter.RefKind != RefKind.Out || !TryType(parameter.Type, false, out var outputType) || !capabilities.Allows(outputType))
+                            return Reject("unsupported deconstruction output", syntax);
+                        outputs[index] = localTypes.Count;
+                        localTypes.Add(outputType);
+                        Add(LinearInstructionKind.LocalAddress, syntax, outputs[index]);
+                    }
+                    Add(InstanceCallKind(method), syntax, method: method);
+                    if (ReturnsValue(method)) Add(LinearInstructionKind.Pop, syntax);
+                    for (var index = 0; index < outputs.Length; index++)
+                    {
+                        if (deconstruction.Arguments[index] is BoundDiscardPattern) continue;
+                        if (deconstruction.Arguments[index] is not BoundDeclarationPattern binding ||
+                            !CallableSignature.SameStorageType(method.Parameters[index].Type, binding.DeclaredType))
+                            return Reject("only simple bindings in deconstruction assignments", syntax);
+                        Add(LinearInstructionKind.LoadLocal, syntax, outputs[index]);
+                        if (!PatternDesignator(binding.Designator, binding.DeclaredType, syntax)) return false;
+                    }
                     continue;
                 }
                 if (memberAssignment is BoundIndexerAssignmentExpression indexerAssignment)

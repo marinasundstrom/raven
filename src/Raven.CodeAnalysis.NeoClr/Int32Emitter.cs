@@ -147,6 +147,38 @@ internal static class Int32Emitter
                     // The full declaration graph, including uncalled synthesized members,
                     // is emitted with the union attributes below.
                 }
+                else if (member is RecordDeclarationSyntax recordSyntax)
+                {
+                    if (model.GetDeclaredSymbol(recordSyntax) is not SourceNamedTypeSymbol { IsValueType: true } recordSymbol ||
+                        recordSyntax.AttributeLists.Count != 0 || recordSyntax.Members.Count != 0 ||
+                        !SourceTypePlan.TryCreate(recordSymbol, out var recordPlan, NeoClrCapabilities.Shared))
+                        throw Unsupported("positional record structs without additional members");
+                    declaredTypes.TryAdd(recordSymbol, recordPlan!);
+                    foreach (var field in recordSymbol.GetMembers().OfType<IFieldSymbol>())
+                    {
+                        if (field.IsStatic || !CallableSignature.TryType(field.Type, false, out _, NeoClrCapabilities.Shared))
+                            throw Unsupported("record field contract: " + field.ToDisplayString());
+                        storageFields.Add(field);
+                    }
+                    foreach (var property in recordSymbol.GetMembers().OfType<SourcePropertySymbol>())
+                    {
+                        if (property.GetMethod is null || property.SetMethod?.MethodKind != MethodKind.InitOnly || property.EmitAsFieldOnly)
+                            throw Unsupported("constructor-initialized positional val components");
+                        properties.Add(property);
+                    }
+                    foreach (var method in recordSymbol.GetMembers().OfType<IMethodSymbol>())
+                    {
+                        // Native positional val components are constructor-only. Until native
+                        // init-accessor metadata is available, project them as getter-only;
+                        // attempts to call the synthesized initializer fail normal admission.
+                        // The positional-storage capability does not export record equality,
+                        // hashing or formatting. Calls to those source helpers are rejected.
+                        if (method.MethodKind is not (MethodKind.Constructor or MethodKind.PropertyGet) && method.Name != "Deconstruct") continue;
+                        if (!SourceCallablePlan.TryCreate(method, out var recordCallable, NeoClrCapabilities.Shared, recordSyntax))
+                            throw Unsupported("record callable contract: " + method.ToDisplayString());
+                        plans.Add(recordCallable!);
+                    }
+                }
                 else if (member is InterfaceDeclarationSyntax interfaceSyntax)
                 {
                     if (model.GetDeclaredSymbol(interfaceSyntax) is not INamedTypeSymbol interfaceSymbol ||
@@ -698,7 +730,7 @@ internal static class Int32Emitter
             CallableSignature.TryType(property.Type, false, out var propertyType, NeoClrCapabilities.Shared);
             var valueType = NeoClrTypeMapper.Map(propertyType, type => nativeTypes[type], ImportExternalType);
             nativeTypes[property.ContainingType!].AddProperty(property.MetadataName, valueType,
-                property.GetMethod is null ? null : definedMethods[property.GetMethod], property.SetMethod is null ? null : definedMethods[property.SetMethod]);
+                property.GetMethod is null ? null : definedMethods[property.GetMethod], property.SetMethod is null || property.SetMethod.MethodKind == MethodKind.InitOnly && property.ContainingType is SourceNamedTypeSymbol { IsRecord: true, IsValueType: true } ? null : definedMethods[property.SetMethod]);
         }
         var references = new CallableReferenceTable<NeoClrCallableReference>(target =>
         {

@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Add an explicit neoCLR positional-record storage capability for
+  read-only native key/value transport: primary/copy construction, getters and
+  simple deconstruction assignments. Ordinary .NET records retain their existing
+  behavior. Native metadata omits record equality/hash/display helpers and init
+  accessors; this is a bounded development contract, not full native record support.
+  Add focused portable admission/lowering regression tests. This native adapter
+  slice is on codex/source-object-metadata-resolution, not main.
+
 - **2026-10-09:** Present instance extension declarations without CLR carrier
   static modifiers or receiver parameters. Distinguish static extensions with an
   SE badge in both receiver and extension member lists, while keeping ordinary

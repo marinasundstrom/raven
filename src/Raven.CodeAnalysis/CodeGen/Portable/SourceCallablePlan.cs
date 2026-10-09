@@ -92,7 +92,9 @@ internal sealed record SourceCallablePlan(
             symbol.ContainingType is not { } receiver || !SourceTypePlan.TryCreate(receiver, out _, capabilities))) return false;
         if (symbol.ContainingSymbol is SourcePropertySymbol { IsAutoProperty: true, IsStatic: false, BackingField: { } } property &&
             (symbol.DeclaringSyntaxReferences.IsEmpty || symbol.DeclaringSyntaxReferences is [{ } accessorReference] &&
-                accessorReference.GetSyntax() is AccessorDeclarationSyntax { Body: null, ExpressionBody: null }) && property.DeclaringSyntaxReferences.Length == 1)
+                accessorReference.GetSyntax() is AccessorDeclarationSyntax { Body: null, ExpressionBody: null } ||
+                capabilities?.Allows(EmissionDeclarationKind.PositionalRecordStorage) == true && symbol.DeclaringSyntaxReferences is [{ } parameterReference] &&
+                parameterReference.GetSyntax() is ParameterSyntax && symbol.ContainingType is SourceNamedTypeSymbol { IsRecord: true, IsValueType: true }) && property.DeclaringSyntaxReferences.Length == 1)
         {
             var propertySyntax = property.DeclaringSyntaxReferences[0].GetSyntax();
             plan = new(symbol, propertySyntax, propertySyntax, symbol.ContainingType, symbol.MetadataName, signature);
@@ -113,6 +115,18 @@ internal sealed record SourceCallablePlan(
             // comes from Compilation.TryGetSynthesizedMethodBody during lowering.
             plan = new(symbol, synthesizedAnchor, synthesizedAnchor, symbol.ContainingType, symbol.MetadataName, signature);
             if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
+            plan = null; return false;
+        }
+        if (synthesizedAnchor is RecordDeclarationSyntax recordAnchor &&
+            (symbol.MethodKind == MethodKind.Constructor || symbol.Name == "Deconstruct") &&
+            symbol.ContainingType is SourceNamedTypeSymbol { IsRecord: true, IsValueType: true } recordOwner &&
+            capabilities?.Allows(EmissionDeclarationKind.PositionalRecordStorage) == true &&
+            recordOwner.DeclaringSyntaxReferences.Any(reference => reference.SyntaxTree == recordAnchor.SyntaxTree && reference.Span == recordAnchor.Span) &&
+            (symbol.DeclaringSyntaxReferences.IsEmpty || symbol.MethodKind == MethodKind.Constructor &&
+                symbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is RecordDeclarationSyntax))
+        {
+            plan = new(symbol, recordAnchor, recordAnchor, symbol.ContainingType, symbol.MetadataName, signature);
+            if (plan.IsSupportedBy(capabilities)) return true;
             plan = null; return false;
         }
         if (symbol.DeclaringSyntaxReferences.Length != 1) return false;
