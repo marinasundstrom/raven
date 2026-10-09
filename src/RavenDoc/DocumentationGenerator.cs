@@ -757,7 +757,8 @@ public static partial class DocumentationGenerator
         string currentDir,
         IEnumerable<ISymbol> members,
         bool isNamespacePage,
-        ITypeSymbol? context = null)
+        ITypeSymbol? context = null,
+        IReadOnlySet<ISymbol>? specializedExtensions = null)
     {
         // Partition
         var grouped = members
@@ -779,7 +780,7 @@ public static partial class DocumentationGenerator
                 .ToArray();
 
             renderedSections.Add(
-                RenderMemberTable(!isNamespacePage && section == MemberSectionKind.Types ? "Nested types" : GetSectionTitle(section), currentDir, ordered, context));
+                RenderMemberTable(!isNamespacePage && section == MemberSectionKind.Types ? "Nested types" : GetSectionTitle(section), currentDir, ordered, context, specializedExtensions));
         }
 
         if (!isNamespacePage && renderedSections.Count > 0)
@@ -1253,7 +1254,7 @@ public static partial class DocumentationGenerator
         string currentDir,
         IEnumerable<ISymbol> members,
         ITypeSymbol? context = null,
-        bool declarationLabels = false)
+        IReadOnlySet<ISymbol>? specializedExtensions = null)
     {
         var rows = BuildMemberRows(currentDir, members);
         return SiteTemplate.RenderMemberSection(
@@ -1263,7 +1264,7 @@ public static partial class DocumentationGenerator
                 row.Signature,
                 row.Href,
                 row.Summary,
-                declarationLabels ? FormatSignature(row.Symbol) :
+                specializedExtensions?.Contains(row.Symbol) == true ? FormatSignature(row.Symbol) :
                 row.Symbol is ITypeSymbol extensionType && IsExtensionContainer(extensionType)
                     ? GetTypeName(extensionType) + " for " + string.Join(", ", GetExtensionReceivers(extensionType).Select(NavigationType))
                     : GetNavigationName(BindNavigationReceiver(row.Symbol, context), IsContributedExtension(row.Symbol, context)),
@@ -1274,7 +1275,8 @@ public static partial class DocumentationGenerator
                     IFieldSymbol field => field.IsStatic,
                     _ => false
                 },
-                RenderMemberOrigins(currentDir, row.Symbol, context),
+                RenderMemberOrigins(currentDir, row.Symbol, context) +
+                    (specializedExtensions?.Contains(row.Symbol) == true ? RenderExtensionApplicability(row.Symbol) : ""),
                 LogicalMemberOwner(row.Symbol) is { } owner ? GetNamespaceFullName(owner.ContainingNamespace) + "." + GetTypeName(owner) : "",
                 context is not null && !IsDocumentationExtension(row.Symbol) && LogicalMemberOwner(row.Symbol) is { } declaringType && !SymbolEqualityComparer.Default.Equals(context, declaringType),
                 IsDocumentationExtension(row.Symbol),
@@ -1891,11 +1893,11 @@ public static partial class DocumentationGenerator
                 GenerateTypePage(compilation, unionCase);
         }
         var applicableExtensions = ApplicableExtensionMembers(typeSymbol).ToArray();
-        memberSections.AddRange(RenderSpecializedExtensionMembers(currentDir, typeSymbol, applicableExtensions));
+        var specializedExtensions = SpecializedExtensionMembers(typeSymbol, applicableExtensions).ToHashSet(SymbolEqualityComparer.Default);
         memberSections.AddRange(RenderGroupedMemberSections(
             currentDir,
-            VisibleTypeMembers(typeSymbol, members).Concat(applicableExtensions),
-            isNamespacePage: false, context: typeSymbol));
+            VisibleTypeMembers(typeSymbol, members).Concat(applicableExtensions).Concat(specializedExtensions),
+            isNamespacePage: false, context: typeSymbol, specializedExtensions: specializedExtensions));
 
 
         foreach (var nestedType in members.OfType<ITypeSymbol>())
