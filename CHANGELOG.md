@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-09:** Give extension receivers a dedicated section, linking named type
+  components independently and documented parameters to the type-parameter section.
+  Module/namespace pages group Type extensions separately and show their receivers.
+  Page labels and icon tooltips use Type extension.
+
 - **2026-10-09:** Distinguish RavenDoc extension containers from static classes with a
   dedicated icon, receiver-aware declarations and linked receiver types. Preserve
   ordinary static classes and list all receivers for containers extending several types.

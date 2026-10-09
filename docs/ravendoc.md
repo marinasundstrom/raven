@@ -1045,7 +1045,7 @@ Functions when present; constants do not fall into a generic Members section.
 This is shared documentation rendering, with no Runtime Contract, semantic or
 emitted-metadata change. Reference paths remain unchanged.
 
-### Extension containers
+### Type extensions
 
 Extension containers have a dedicated puzzle-piece icon in navigation, listings and
 page headers. Their pages show linked receiver types. A single receiver produces an
@@ -1056,3 +1056,14 @@ listed without inventing one declaration. Classification uses semantic extension
 receivers on the container or its public members, never a naming convention. Ordinary
 static classes retain their existing presentation. This changes documentation only,
 with no Runtime Contract, binding, emission or runtime changes.
+
+Receiver expressions appear in a dedicated Receiver/Receivers section. Shared
+contract-type rendering links each named component to its definition and documented
+type parameters to the page's Type parameters section. Extension type-parameter
+XML/Markdown descriptions use the same table as ordinary generic types. Missing
+parameter descriptions do not produce broken fragment links or invented constraints.
+
+Module/namespace pages list Type extensions separately from Types, including receiver
+names in each extension entry. Ordinary type grouping remains unchanged.
+
+The user-facing singular label and icon tooltip are Type extension.

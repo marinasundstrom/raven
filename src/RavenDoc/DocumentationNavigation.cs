@@ -128,7 +128,7 @@ internal static class DocumentationNavigation
         string Icon(DocumentationNavigationItem item) => item.Kind is null or "Namespace" ? "" : RavenDocSiteTemplate.RenderIcon(
                 item.Kind switch
                 {
-                    "Extension container" => RavenDocSymbolKind.Extension,
+                    "Type extension" or "Extension container" => RavenDocSymbolKind.Extension,
                     "Class" or "Static class" => RavenDocSymbolKind.Class,
                     "Interface" => RavenDocSymbolKind.Interface,
                     "Enum" => RavenDocSymbolKind.Enum,
