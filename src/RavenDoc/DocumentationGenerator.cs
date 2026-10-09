@@ -589,6 +589,8 @@ public static partial class DocumentationGenerator
     {
     MemberSectionKind.Namespaces,
     MemberSectionKind.Types,
+    MemberSectionKind.Constants,
+    MemberSectionKind.Fields,
     MemberSectionKind.Functions,
     MemberSectionKind.Macros,
     MemberSectionKind.Other
@@ -741,6 +743,8 @@ public static partial class DocumentationGenerator
         {
             INamespaceSymbol => MemberSectionKind.Namespaces,
             ITypeSymbol => MemberSectionKind.Types,
+            IFieldSymbol { IsConst: true } => MemberSectionKind.Constants,
+            IFieldSymbol => MemberSectionKind.Fields,
             IMethodSymbol => MemberSectionKind.Functions,
             IMacroDeclarationSymbol => MemberSectionKind.Macros,
             _ => MemberSectionKind.Other

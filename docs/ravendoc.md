@@ -1035,3 +1035,12 @@ overloads and the reduced native Score fixture retain both signatures and commen
 sidebar entries identify overload groups rather than showing only the last signature.
 Validation: 43 focused compiler/renderer tests and the native documentation fixture
 pass, alongside neoCLR's integrated HTML/link and browser checks.
+
+## Namespace and module member presentation
+
+API navigation uses the same function and field icons as member lists, including
+metadata-loaded assembly-level functions and constants. Static classes retain their
+class icon. Namespace/module overview pages separate Types, Constants, Fields and
+Functions when present; constants do not fall into a generic Members section.
+This is shared documentation rendering, with no Runtime Contract, semantic or
+emitted-metadata change. Reference paths remain unchanged.

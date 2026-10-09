@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-09:** Use the existing member icons for API sidebar functions and constants,
+  including metadata-loaded members, and group namespace/module constants under
+  Constants instead of Members. Ordinary fields retain a separate Fields group;
+  reference URLs and compiler/runtime semantics are unchanged.
+
 ### 2026-10-09
 
 - Add file/block `module` declarations using existing namespace syntax nodes,

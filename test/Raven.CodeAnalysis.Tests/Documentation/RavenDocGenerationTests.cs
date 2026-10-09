@@ -185,6 +185,65 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
         finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NamespaceConstantsHaveTheirOwnGroupAndMemberIcons(bool sharedNavigation)
+    {
+        var (compilation, _) = CreateCompilation("""
+            namespace Examples
+            public const Scale: int = 2
+            public func Twice(value: int) -> int => value * Scale
+            public class Item {}
+            """, assemblyName: "ModuleMemberDocs");
+        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessCompilation(compilation, output,
+                new DocumentationSiteOptions([], SharedApiNavigation: sharedNavigation));
+            var page = File.ReadAllText(Path.Combine(output, "Examples/index.html"));
+            page.ShouldContain(">Constants</h2>");
+            page.ShouldContain(">Functions</h2>");
+            page.ShouldNotContain(">Members</h2>");
+            var navigation = sharedNavigation ? File.ReadAllText(Path.Combine(output, "api-navigation.html")) : page;
+            var constantLink = System.Text.RegularExpressions.Regex.Match(navigation,
+                "<a[^>]*href=\"[^\"]*field_Scale.html\"[^>]*>(.*?)</a>",
+                System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+            constantLink.ShouldContain("symbol-icon--field");
+            var functionLink = System.Text.RegularExpressions.Regex.Match(navigation,
+                "<a[^>]*href=\"[^\"]*method_Twice.html\"[^>]*>(.*?)</a>",
+                System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+            functionLink.ShouldContain("symbol-icon--function");
+            var constantPage = File.ReadAllText(Path.Combine(output, "Examples/field_Scale.html"));
+            constantPage.ShouldContain("symbol-icon--field");
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
+    [Theory]
+    [InlineData("Method", "function")]
+    [InlineData("Constant", "field")]
+    [InlineData("Static class", "class")]
+    public void NavigationUsesTheExistingMemberIconForMetadataLabels(string kind, string icon)
+    {
+        var (compilation, _) = CreateCompilation("public class Item {}", assemblyName: "IconDocs");
+        var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            DocumentationGenerator.ProcessCompilation(compilation, output,
+                new DocumentationSiteOptions([], Navigation:
+                    [new DocumentationNavigationItem("Metadata entry", "index.html", Kind: kind)]));
+            var html = File.ReadAllText(Path.Combine(output, "index.html"));
+            var link = System.Text.RegularExpressions.Regex.Match(html,
+                "<a title=\"Metadata entry\"[^>]*>(.*?)</a>",
+                System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+            link.ShouldContain("symbol-icon--" + icon);
+            link.ShouldNotContain("symbol-icon--type");
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
     [Fact]
     public void NamespaceNavigationDoesNotSelectEveryFunctionInTheCurrentDirectory()
     {
