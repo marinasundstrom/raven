@@ -286,9 +286,21 @@ public static partial class DocumentationGenerator
     }
 
     private static string RenderExtensionApplicability(ISymbol member)
-        => "<span class=\"member-origin\">Applies to <code>" +
-            System.Net.WebUtility.HtmlEncode(NavigationType(member.GetExtensionReceiverType()!)) +
-            "</code>, subject to the extension’s generic constraints.</span>";
+    {
+        var parameters = member switch
+        {
+            IMethodSymbol method => method.TypeParameters,
+            IPropertySymbol { GetMethod: { } getter } => getter.TypeParameters,
+            _ => []
+        };
+        var constraints = parameters.Concat((LogicalMemberOwner(member) as INamedTypeSymbol)?.TypeParameters ?? [])
+            .DistinctBy(parameter => parameter.Name)
+            .Select(FormatTypeParameterConstraint).OfType<string>();
+        var applicability = NavigationType(member.GetExtensionReceiverType()!) +
+            string.Concat(constraints.Select(constraint => " " + constraint));
+        return "<span class=\"member-origin\">Applies to <code>" +
+            System.Net.WebUtility.HtmlEncode(applicability) + "</code>.</span>";
+    }
 
     private static SemanticModel? ExtensionModel;
 
