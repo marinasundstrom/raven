@@ -268,14 +268,16 @@ public static class DocumentationSiteBuilder
                     configuration.ApiNavigationRoot is null ? libraryNavigation : apiNavigation,
                     appendApi: pageMenu.Count == 0 || configuration.ApiNavigationRoot is not null && ReferenceEquals(pageMenu, menu));
                 var navigationRoot = configuration.ApiNavigationRoot?.TrimEnd('/');
-                var showNavigation = metadata.Layout != "landing" && (navigationRoot is null ||
+                var sectionTitle = navigationSections.FirstOrDefault(section => IsWithin(section.Directory, page.Source)).Title;
+                var explicitSection = navigationSections.Any(section => IsWithin(section.Directory, page.Source));
+                var showNavigation = metadata.Layout != "landing" && (explicitSection || navigationRoot is null ||
                     page.Destination.StartsWith(navigationRoot + "/", StringComparison.Ordinal));
                 File.WriteAllText(destination, template.RenderPage(new RavenDocPageTemplateModel(
                     metadata.Title ?? page.Page.Title ?? ArticleTitle(html) ?? Path.GetFileNameWithoutExtension(page.Source), "Documentation", configuration.Name,
                     Link("index.html"), Link("raven-theme.css"), Link("style.css"), Link("site.js"), html,
-                    DocumentationNavigation.ResolveLinks(configuration.Links, staging, currentDirectory), showNavigation ? (navigationRoot is null
+                    DocumentationNavigation.ResolveLinks(configuration.Links, staging, currentDirectory), showNavigation ? (explicitSection || navigationRoot is null
                         ? DocumentationNavigation.RenderArticles(navigation, staging, currentDirectory, destination,
-                            navigationSections.FirstOrDefault(section => IsWithin(section.Directory, page.Source)).Title ?? configuration.NavigationTitle)
+                            sectionTitle ?? configuration.NavigationTitle)
                         : DocumentationNavigation.Render(navigation, staging, currentDirectory, destination)) : "", configuration.Name,
                     DocumentationNavigation.Resolve(configuration.Logo, staging, currentDirectory),
                     DocumentationNavigation.Resolve(configuration.Stylesheet, staging, currentDirectory),

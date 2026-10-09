@@ -35,6 +35,34 @@ public sealed class DocumentationSiteBuilderTests
         });
     }
 
+    [Fact]
+    public void ExplicitGuideSectionRemainsVisibleOutsideApiNavigationRoot()
+    {
+        WithDirectory(root =>
+        {
+            Directory.CreateDirectory(Path.Combine(root, "guides"));
+            File.WriteAllText(Path.Combine(root, "index.md"), "# Home");
+            File.WriteAllText(Path.Combine(root, "guides/topic.md"), "# Topic");
+            File.WriteAllText(Path.Combine(root, "toc.yml"), "- name: Root menu\n  href: index.md");
+            File.WriteAllText(Path.Combine(root, "guides/toc.yml"), "- name: Guide topic\n  href: topic.md");
+            var config = Path.Combine(root, "site.json");
+            File.WriteAllText(config, JsonSerializer.Serialize(new
+            {
+                apiNavigationRoot = "docs",
+                toc = "toc.yml",
+                navigationSections = new[] { new { path = "guides", title = "Guides" } }
+            }));
+            DocumentationSiteBuilder.Build(config);
+            var home = File.ReadAllText(Path.Combine(root, "_site/index.html"));
+            home.ShouldNotContain("id=\"api-browser\"");
+            var guide = File.ReadAllText(Path.Combine(root, "_site/guides/topic.html"));
+            guide.ShouldContain("<h2 id=\"api-browser-heading\">Guides</h2>");
+            guide.ShouldContain("documentation-navigation");
+            guide.ShouldContain("aria-current=\"page\"");
+            guide.ShouldNotContain(">Root menu</span>");
+        });
+    }
+
     [Theory]
     [InlineData("site")]
     [InlineData("section")]
