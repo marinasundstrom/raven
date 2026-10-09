@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-09:** Show the first five derived/implementing type or derived-interface
+  relationships, with a keyboard-accessible Show more/Show less disclosure for
+  longer lists. Short lists remain fully visible and every link remains in the page.
+
 - **2026-10-09:** Keep explicitly configured guide/reference section sidebars visible
   outside `apiNavigationRoot`, with their own article menu and current-page state.
   The API browser remains scoped to its reference pages.

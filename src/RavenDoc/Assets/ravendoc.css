@@ -656,3 +656,10 @@ body.with-api-navigation.without-outline .documentation-shell {
 .ravendoc-navigation-loading [data-navigation-src]:not([data-navigation-loaded]) {
   visibility: hidden;
 }
+
+/* Keep large reverse-relationship lists readable without hiding any links. */
+.type-relationships-more > summary { cursor: pointer; color: var(--link); width: fit-content; }
+.type-relationships-more > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.type-relationships-more .relationships-collapse { display: none; }
+.type-relationships-more[open] .relationships-expand { display: none; }
+.type-relationships-more[open] .relationships-collapse { display: inline; }
