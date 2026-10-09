@@ -3903,3 +3903,14 @@ command. It excludes the CLI bootstrap selection and bridge-specific ownership
 settings; ordinary .NET project defaults are unchanged. Runtime seeds remain
 execution inputs. See the [project contract](neoclr-cli-bridge.md#native-only-project-core-selection-2026-10-09)
 for properties, failures, adapter ownership and validation limits.
+
+## Missing synthesized string support (2026-10-09)
+
+Generated union/record formatting requires a usable String.Concat overload.
+If overload resolution fails during synthesized body construction, emission now
+reports RAV1501 instead of choosing an arbitrary two-argument member or crashing.
+The shared emission boundary recognizes only this explicit missing-member failure,
+including the CLI emitter's method-context wrappers; unrelated failures still surface.
+This applies to ordinary .NET and native targets and introduces no Runtime Contract
+switch or bridge encoding. The target core must supply real string operations;
+diagnosing a missing member does not provide an implementation.

@@ -378,7 +378,7 @@ internal static partial class SynthesizedMethodBodyFactory
             compilation);
 
         var concat = resolution.Method
-            ?? candidates.First(m => m.Parameters.Length == 2);
+            ?? throw new MissingSynthesizedRuntimeMemberException("String.Concat", 2);
 
         return new BoundInvocationExpression(concat, [left, right]);
     }

@@ -8421,3 +8421,20 @@ watching, emission, execution paths and nine rejected configurations, including
 preservation of the last successful configuration on failed reload. The checked
 neoCLR project verifier covers driver publication and interpreted/native execution.
 Full source-runtime bootstrap and release package qualification remain open.
+
+## Native bootstrap synthesized-string frontier (2026-10-09)
+
+Unchanged Option/Result source reaches generated formatting after the native value
+base and Byte tag prerequisites. An incomplete native String must now produce RAV1501
+for missing String.Concat without output publication, rather than terminate the host
+with a Sequence/InvalidOperationException. The body factory and emission boundary
+own this shared diagnostic behavior; no temporary CLI encoding or substitute
+formatting body is introduced. Ordinary .NET missing-Concat tests exercise the same
+failure. Production native String/core completeness remains the next bootstrap task.
+
+Shared-line follow-up: the synthesized concat helper and test file match Raven main
+before this fix, so this is a general compiler repair, not a permanent neoCLR
+divergence. The integration branch's emission boundary additionally dispatches an
+external backend. Port the diagnostic wrapper to main's emitter boundary and run the
+same .NET checks there independently; the current evidence is on the integration
+branch only.

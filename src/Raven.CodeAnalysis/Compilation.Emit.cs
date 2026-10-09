@@ -72,10 +72,19 @@ public partial class Compilation
         if (GetTargetCoreConfigurationDiagnostic() is { } diagnostic)
             return new EmitResult(false, diagnostics.Add(diagnostic));
 
-        var result = options?.Backend is { } backend
-            ? backend.Emit(this, output, debugOutput, options)
-            : _target.Emitter.Emit(output, debugOutput, options);
-        return new EmitResult(result.Success, diagnostics.AddRange(result.Diagnostics));
+        try
+        {
+            var result = options?.Backend is { } backend
+                ? backend.Emit(this, output, debugOutput, options)
+                : _target.Emitter.Emit(output, debugOutput, options);
+            return new EmitResult(result.Success, diagnostics.AddRange(result.Diagnostics));
+        }
+        catch (InvalidOperationException error) when (error.GetBaseException() is MissingSynthesizedRuntimeMemberException)
+        {
+            // The CLI code generator adds method context around body-construction errors.
+            var missing = (MissingSynthesizedRuntimeMemberException)error.GetBaseException();
+            return new EmitResult(false, diagnostics.Add(missing.Diagnostic));
+        }
     }
 
     private Compilation CreateMacroPluginCompilation()

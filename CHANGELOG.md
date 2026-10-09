@@ -6,6 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ### 2026-10-09
 
+- Report missing synthesized String.Concat support as RAV1501 during emission,
+  including union formatting on ordinary .NET and native targets, instead of
+  crashing or selecting an arbitrary two-argument overload. Other compiler
+  implementation failures remain visible.
+
 - Add explicit RavenNeoClrNativeCoreReference project selection: native-only
   semantic references, emission and runtime core paths, watched core inputs and
   rejection of mixed CLI/bootstrap settings. Retain the legacy core selection and
