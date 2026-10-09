@@ -535,6 +535,8 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             containerPage.ShouldContain("id=\"receiver\"");
             containerPage.ShouldContain("<a href=\"../IGeneric%601/index.html\">IGeneric</a>&lt;<a href=\"#type-parameters\">T</a>&gt;");
             containerPage.ShouldContain("id=\"type-parameters\"");
+            containerPage.IndexOf("id=\"receiver\"", StringComparison.Ordinal)
+                .ShouldBeLessThan(containerPage.IndexOf("id=\"type-parameters\"", StringComparison.Ordinal));
             containerPage.ShouldContain("The element type.");
             containerPage.ShouldNotContain("<strong>Receiver type</strong>");
             containerPage.ShouldNotContain("<strong>Inheritance</strong>");

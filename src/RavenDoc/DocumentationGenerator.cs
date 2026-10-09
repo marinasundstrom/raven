@@ -848,7 +848,7 @@ public static partial class DocumentationGenerator
             ? System.Net.WebUtility.HtmlEncode(text)
             : text;
 
-    private static string BuildDocumentationMarkdown(RavenDocumentation documentation, ISymbol? member = null, string? currentDir = null)
+    private static string BuildDocumentationMarkdown(RavenDocumentation documentation, ISymbol? member = null, string? currentDir = null, string? receiverMarkdown = null)
     {
         string? Section(DocumentationSectionKind kind) => DocumentationText(documentation, documentation.GetSection(kind));
         DocumentationAssociation[] Associations(DocumentationAssociationKind kind) => documentation.GetAssociations(kind)
@@ -861,6 +861,7 @@ public static partial class DocumentationGenerator
             builder,
             Section(DocumentationSectionKind.Summary));
         AppendDocumentationSection(builder, details);
+        AppendDocumentationSection(builder, receiverMarkdown);
         AppendDocumentationAssociations(
             builder,
             "Type parameters",
@@ -1912,9 +1913,9 @@ public static partial class DocumentationGenerator
                 heroHtml,
                 metadataLines,
                 relationshipLines,
-                ApiContent.Merge(GetXrefId(typeSymbol), commentInfo.RawMarkdown),
-                memberSections,
-                receiverMarkdown));
+                ApiContent.Merge(GetXrefId(typeSymbol), receiverMarkdown is null ? commentInfo.RawMarkdown
+                    : MarkdownTemplate.Apply(BuildDocumentationMarkdown(commentInfo.Documentation, receiverMarkdown: receiverMarkdown), TemplateValues)),
+                memberSections));
         var contentHtml = RenderMarkdownWithXrefs(contentMarkdown, currentDir);
         var pageHtml = WrapHtml(currentDir, name, documentedAssemblyName, contentHtml);
         File.WriteAllText(indexPath, pageHtml);
