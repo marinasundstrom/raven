@@ -5,6 +5,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RID="${1:-}"
 VERSION="${2:-0.1.0-dev}"
 TFM="net11.0"
+# MSBuild property values do not receive Git Bash's automatic path conversion.
+COMPILER_HOST="$ROOT_DIR/src/Raven.Compiler/bin/Release/$TFM/rvnc.dll"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) COMPILER_HOST="$(cygpath -m "$COMPILER_HOST")" ;;
+esac
 OUTPUT_DIR="${RAVEN_PACKAGE_OUTPUT:-$ROOT_DIR/artifacts/distribution}"
 
 if [[ -z "$RID" ]]; then
@@ -40,7 +45,7 @@ dotnet publish "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c Release -
   /property:IncludeSourceRevisionInInformationalVersion=false
 dotnet build "$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj" -c Release -f "$TFM" \
   /property:WarningLevel=0 \
-  /property:RavenCompilerHost="$ROOT_DIR/src/Raven.Compiler/bin/Release/$TFM/rvnc.dll"
+  /property:RavenCompilerHost="$COMPILER_HOST"
 dotnet publish "$ROOT_DIR/src/Raven.LanguageServer/Raven.LanguageServer.csproj" -c Release -f "$TFM" -r "$RID" \
   --self-contained false -o "$PUBLISH_DIR/language-server" /property:WarningLevel=0 \
   /property:Version="$VERSION" /property:InformationalVersion="$VERSION" \
