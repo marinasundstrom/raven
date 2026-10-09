@@ -554,12 +554,18 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             optionPage.ShouldContain("Flatten");
             optionPage.ShouldContain("ReferenceValue");
             optionPage.ShouldContain("Option&lt;Option&lt;T&gt;&gt;");
-            optionPage.ShouldContain("subject to their generic constraints");
+            optionPage.ShouldContain("subject to the extension’s generic constraints");
             optionPage.ShouldContain("where T: class");
             var resultPage = File.ReadAllText(Path.Combine(output, "Relationships/Result`2/index.html"));
             resultPage.ShouldContain("WithContext");
+            resultPage.ShouldNotContain("Extensions for");
+            resultPage.ShouldNotContain("Members from");
+            var resultMethods = System.Text.RegularExpressions.Regex.Match(resultPage,
+                "<section[^>]*aria-labelledby=\"methods\".*?</section>",
+                System.Text.RegularExpressions.RegexOptions.Singleline).Value;
+            resultMethods.ShouldContain("WithContext");
             resultPage.ShouldContain("where E: IContract");
-            resultPage.ShouldContain("subject to their generic constraints");
+            resultPage.ShouldContain("subject to the extension’s generic constraints");
             var factory = File.ReadAllText(Path.Combine(output, "Relationships/Factory/index.html"));
             factory.ShouldContain("Create()");
             factory.ShouldContain("static class Factory");

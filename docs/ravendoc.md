@@ -733,10 +733,10 @@ parameters already bound by receiver lookup: `Any()` rather than `Any<T>()`,
 while a caller-selected result parameter remains, such as `Map<U>(...)`. The
 extension container and declaration signature preserve the full generic contract.
 Generic definition pages also list extensions for specialized or constrained
-constructions in explicitly labeled groups. For example, `Flatten` for
+constructions in the same member lists and grouping controls. Each specialized
+entry identifies its receiver and generic constraints. For example, `Flatten` for
 `Option<Option<T>>` is discoverable from `Option<T>` without claiming that it is
-callable on every option. These groups show the receiver declaration, member
-constraints and links to the defining extension.
+callable on every option. The entries retain links to the defining extension.
 
 Set `"apiContent": "api-content"` in the site configuration to merge a separate
 Markdown tree into type and member pages. Directory structure and filenames are

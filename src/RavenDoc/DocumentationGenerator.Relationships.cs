@@ -258,8 +258,8 @@ public static partial class DocumentationGenerator
         => context is not null && IsDocumentationExtension(member) &&
             LogicalMemberOwner(member) is { } owner && TypeDefinitionId(owner) != TypeDefinitionId(context);
 
-    private static IEnumerable<string> RenderSpecializedExtensionMembers(
-        string directory, ITypeSymbol type, IReadOnlyList<ISymbol> applicable)
+    private static IEnumerable<ISymbol> SpecializedExtensionMembers(
+        ITypeSymbol type, IReadOnlyList<ISymbol> applicable)
     {
         if (type is not INamedTypeSymbol { Arity: > 0 } || IsStaticType(type) ||
             CurrentSiteOptions.ExtensionNamespaces is not { Count: > 0 } namespaces)
@@ -280,14 +280,15 @@ public static partial class DocumentationGenerator
                     !included.Contains(GetXrefId(member is IMethodSymbol method ? method.OriginalDefinition : member)) &&
                     (CurrentSiteOptions.ExtensionMembers is not { Count: > 0 } selected || selected.Contains(GetXrefId(member))))
                 .ToArray();
-            if (members.Length == 0) continue;
-            yield return $"## Extensions for `{string.Join(", ", receivers.Select(NavigationType))}`\n\n" +
-                "These declarations apply to matching constructed types, subject to their generic constraints. " +
-                "See " + FormatTypeLink(directory, extension, ContainingTypeDisplayFormat) + ".\n\n" +
-                "```raven\n" + FormatSignature(extension) + "\n```\n\n" +
-                RenderMemberTable("Members from " + GetTypeName(extension), directory, members, type, declarationLabels: true);
+            foreach (var member in members)
+                yield return member;
         }
     }
+
+    private static string RenderExtensionApplicability(ISymbol member)
+        => "<span class=\"member-origin\">Applies to <code>" +
+            System.Net.WebUtility.HtmlEncode(NavigationType(member.GetExtensionReceiverType()!)) +
+            "</code>, subject to the extension’s generic constraints.</span>";
 
     private static SemanticModel? ExtensionModel;
 
