@@ -15,6 +15,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   importing physical String attribute payloads, including null; reimport emitted
   annotations without invoking constructors. No Runtime Contract switch changes.
 
+- **2026-10-10:** Preserve the original instance receiver for base calls in async
+  methods, including after suspension. Keep direct base dispatch rather than
+  invoking an override on the state machine receiver. Fix applies to ordinary .NET
+  and shared lowering; no Runtime Contract configuration changes.
+
 - **2026-10-10:** Unqualified member lookup now suppresses overridden base method
   declarations while preserving distinct inherited overloads. Generic-base calls
   select the same override as explicit self calls. No Runtime Contract setting or

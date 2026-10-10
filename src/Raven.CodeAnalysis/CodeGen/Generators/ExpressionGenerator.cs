@@ -768,6 +768,12 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitBaseExpression(BoundBaseExpression baseExpression, EmitContext context)
     {
+        if (baseExpression.Receiver is { } receiver)
+        {
+            EmitExpression(receiver);
+            return;
+        }
+
         if (TryEmitCapturedVariableLoad(baseExpression.Symbol ?? baseExpression.Type))
             return;
 
