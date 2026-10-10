@@ -421,8 +421,36 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 return true;
             }
+            if (pattern is BoundConstantPattern textPattern && textPattern.Expression is { } textExpression &&
+                input.GetNonNullableType().SpecialType == SpecialType.System_String &&
+                textExpression.Type.GetNonNullableType().SpecialType == SpecialType.System_String &&
+                textPattern.Designator is null or BoundDiscardDesignator)
+            {
+                var textOwner = model.Compilation.GetSpecialType(SpecialType.System_String);
+                var equals = textOwner.GetMembers().OfType<IMethodSymbol>().SingleOrDefault(m =>
+                    m.IsStatic && m.MetadataName == "op_Equality" && m.Arity == 0 && m.Parameters.Length == 2 &&
+                    m.Parameters.All(p => p.RefKind == RefKind.None && p.Type.GetNonNullableType().SpecialType == SpecialType.System_String) &&
+                    m.ReturnType.SpecialType == SpecialType.System_Boolean);
+                if (equals is null || !TrySignature(equals, out var textEquality) ||
+                    capabilities?.Allows(textEquality) != true || !capabilities.Allows(LinearInstructionKind.ReferenceIsNull) ||
+                    !capabilities.Allows(LinearInstructionKind.Call) || !TryType(textOwner, false, out var textStorage))
+                    return Reject("string constant pattern requires text equality", syntax);
+                // Pattern matching a null reference fails without calling the
+                // target's non-null text service. Equality must compare contents.
+                var textSlot = localTypes.Count;
+                localTypes.Add(textStorage);
+                Add(LinearInstructionKind.StoreLocal, syntax, textSlot);
+                Add(LinearInstructionKind.LoadLocal, syntax, textSlot);
+                Add(LinearInstructionKind.ReferenceIsNull, syntax);
+                Add(LinearInstructionKind.BranchTrue, syntax, fail);
+                Add(LinearInstructionKind.LoadLocal, syntax, textSlot);
+                if (!LowerValue(textExpression)) return false;
+                Add(LinearInstructionKind.Call, syntax, method: equals);
+                Add(LinearInstructionKind.BranchFalse, syntax, fail);
+                return true;
+            }
             if (pattern is BoundConstantPattern scalar && scalar.Expression is { } scalarExpression &&
-                (input.SpecialType is SpecialType.System_Int32 or SpecialType.System_Boolean || input.TypeKind == TypeKind.Enum) &&
+                (input.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Boolean || input.TypeKind == TypeKind.Enum) &&
                 CallableSignature.SameStorageType(input, scalarExpression.Type) && scalar.Designator is null or BoundDiscardDesignator)
             {
                 if (input.TypeKind == TypeKind.Enum) instructions.Add(new(LinearInstructionKind.EnumToInt32, syntax, Type: input));

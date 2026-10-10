@@ -8951,3 +8951,22 @@ checks pass, and Windows x64 object emission succeeds; Windows link/execution is
 not claimed. These neoCLR-owned private projections need no Raven compiler or
 Runtime Contract changes; native intrinsic construction is their eventual replacement.
 General chained String constructors remain a native gap.
+
+### Long and String constant patterns — 2026-10-10
+
+The shared portable body planner now lowers `long` constant patterns at full width
+and String constant patterns through the target String equality operator, with a
+null guard. This removes native emission gaps exposed by neoCLR MemoryStream and
+JSON tests. Binding and semantic-model results remain unchanged; ordinary .NET
+pattern semantics remain the baseline. Runtime Contract configuration is unchanged.
+String equality requires the target's ordinary two-String Boolean `op_Equality`,
+call and reference-null-test capabilities; unsupported contracts produce a diagnostic.
+
+The native adapter emits its existing comparison/call/branch operations. CLI
+projection keeps the ordinary long/String signatures; no new encoding or information
+loss is introduced. The shared planner owns this fix, which also remains appropriate
+when temporary CLI reference transport is replaced by native metadata/codegen.
+Broader constant-pattern type coverage remains separate work. The focused portable
+pattern suite passes six cases, including values above Int32, mismatches, null and
+dynamically concatenated String contents. Native runtime consumers are qualified in
+neoCLR's matching integration slice; Windows execution is not established here.

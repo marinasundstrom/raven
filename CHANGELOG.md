@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Fix portable/native emission of long and String constant patterns.
+  Long matching preserves all 64 bits; String matching checks contents and rejects
+  null without invoking the target text service. Binding and Runtime Contract
+  configuration are unchanged. Six focused pattern cases pass; broader literal
+  types and Windows runtime qualification remain separate.
+
 - **2026-10-10:** Document neoCLR’s missing native Int64 parser binding fix and
   passing local parser tests. Also document native Char wrapper/String factory fixes,
   passing local construction tests and Windows object emission. Compiler emission,
