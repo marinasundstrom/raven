@@ -8,6 +8,30 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public class EmissionCapabilityTests
 {
     [Fact]
+    public void ExternalFieldlessBaseAdmissionRequiresExplicitCapability()
+    {
+        var library = Create("public abstract class FieldlessBase { protected init() {} }");
+        using var image = new MemoryStream();
+        var emitted = library.Emit(image);
+        Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));
+        var compilation = Compilation.Create("ExternalBaseConsumer",
+            [SyntaxTree.ParseText("public class Marker : FieldlessBase { public init() {} }")],
+            TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(image.ToArray())).ToArray(),
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var marker = compilation.GetTypeByMetadataName("Marker")!;
+        Assert.True(SourceTypePlan.IsFieldlessExternalBase(marker.BaseType!));
+        Assert.False(SourceTypePlan.IsFieldlessExternalBase(compilation.GetTypeByMetadataName("System.Exception")!));
+        EmissionCapabilities Profile(bool external) => new(Enum.GetValues<EmissionPrimitiveType>(), [],
+            [EmissionDeclarationKind.RootClass, EmissionDeclarationKind.Constructor],
+            [Accessibility.Public], [Accessibility.Public], [],
+            allowsRootClassSignatures: true, allowsLocalClassInheritance: true,
+            allowsProtectedConstructors: true, allowsExternalFieldlessClassInheritance: external);
+        Assert.False(SourceTypePlan.TryCreate(marker, out _, Profile(false)));
+        Assert.True(SourceTypePlan.TryCreate(marker, out _, Profile(true)));
+    }
+
+    [Fact]
     public void ClosedFamilyAdmissionIsExplicitAndOrdinaryDotNetStillExecutes()
     {
         var compilation = Create("""

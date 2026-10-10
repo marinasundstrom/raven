@@ -405,8 +405,8 @@ internal static class Int32Emitter
                 assembly.BindNativeLibrary(binding.Definition, implementation, binding.CoreLibrary);
         var owners = new Dictionary<INamedTypeSymbol, NeoClrCallableDefinitionBuilder>(SymbolEqualityComparer.Default);
         var nativeTypes = new Dictionary<INamedTypeSymbol, TypeBuilder>(SymbolEqualityComparer.Default);
-        var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly, type => nativeTypes[type]);
         var importedTypes = new Dictionary<INamedTypeSymbol, ImportedTypeReference>(SymbolEqualityComparer.Default);
+        var typeDefinitions = new NeoClrTypeDefinitionBuilder(assembly, type => nativeTypes[type], ImportExternalType);
         SignatureType ImportExternalType(INamedTypeSymbol type)
         {
             // The configured semantic marker is transport only; native metadata keeps Self.
@@ -528,7 +528,7 @@ internal static class Int32Emitter
         void DefineClass(SourceTypePlan type)
         {
             if (nativeTypes.ContainsKey(type.Symbol)) return;
-            if (type.ClassBase is { } parent) DefineClass(declaredTypes[parent]);
+            if (type.ClassBase is { } parent && declaredTypes.TryGetValue(parent, out var basePlan)) DefineClass(basePlan);
             if (type.MetadataOwner is { } container) DefineClass(declaredTypes[container]);
             var definition = type.Define(typeDefinitions);
             if (primitiveOwners.TryGetValue(type.Symbol, out var primitive)) definition.SetNativePrimitive(primitive);
@@ -855,7 +855,11 @@ internal static class Int32Emitter
             {
                 diagnosticSyntax = instruction.Syntax;
                 if (instruction.Kind is LinearInstructionKind.BaseConstructorCall or LinearInstructionKind.DirectInstanceCall)
-                    output.Call(definedMethods[instruction.Method!.OriginalDefinition]);
+                {
+                    if (definedMethods.TryGetValue(instruction.Method!.OriginalDefinition, out var directTarget)) output.Call(directTarget);
+                    else if (instruction.Kind == LinearInstructionKind.BaseConstructorCall) output.Emit(OpCode.Call, Import(instruction.Method));
+                    else throw Unsupported("external direct instance dispatch");
+                }
                 else if (instruction.Kind == LinearInstructionKind.FunctionBind)
                 {
                     var symbol = instruction.Method!;
@@ -1122,7 +1126,7 @@ internal static class Int32Emitter
             }
             if (symbol.ContainingType is { } owner && IsSymbolOnlyOwnerDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
                 (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : !symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object)) &&
-                symbol.DeclaredAccessibility == Accessibility.Public && (symbol.IsStatic || symbol.Arity == 0) &&
+                (symbol.DeclaredAccessibility == Accessibility.Public || symbol.MethodKind == MethodKind.Constructor && symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected && SourceTypePlan.IsFieldlessExternalBase(owner)) && (symbol.IsStatic || symbol.Arity == 0) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, NeoClrCapabilities.Shared) &&
                 IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind is RefKind.None or RefKind.Ref or RefKind.Out && IsSymbolOnlyType(p.Type, false)))
             {
@@ -1135,7 +1139,7 @@ internal static class Int32Emitter
                     owner.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null })
                     return assembly.CreateObjectSlotReference(symbol.MetadataName, contract);
                 return assembly.CreateMethodReference(declaration, symbol.MetadataName, contract, symbol.IsStatic, isOverride: symbol.IsOverride, nativePrimitive: HasNativePrimitiveStorage(owner.SpecialType) && owner.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null }
-                    ? NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(owner.SpecialType.ToString()[7..])) : null);
+                    ? NeoClrTypeMapper.Instance.Map(Enum.Parse<EmissionPrimitiveType>(owner.SpecialType.ToString()[7..])) : null, visibility: symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected ? MethodVisibility.Protected : MethodVisibility.Public);
             }
             // A native callable must carry a complete supported semantic contract.
             // Do not recover missing emission facts by reopening its reader definition.

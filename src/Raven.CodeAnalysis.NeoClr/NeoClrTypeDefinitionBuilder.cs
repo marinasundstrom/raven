@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.CodeGen.Portable;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func<INamedTypeSymbol, TypeBuilder> resolveOwner) : ITypeDefinitionBuilder<TypeBuilder>
+internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func<INamedTypeSymbol, TypeBuilder> resolveOwner, Func<INamedTypeSymbol, SignatureType> resolveExternal) : ITypeDefinitionBuilder<TypeBuilder>
 {
     public TypeBuilder DefineType(SourceTypePlan plan)
     {
@@ -44,7 +44,15 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
             : plan.ClassBase is { } genericBase
                 ? assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), resolveOwner(genericBase), visibility)
                 : assembly.AddGenericClass(plan.Namespace, plan.Symbol.Name, plan.Symbol.TypeParameters.Select(p => p.Name), visibility);
-        var result = plan.ClassBase is { } baseType ? assembly.AddClass(plan.Namespace, plan.Name, resolveOwner(baseType), visibility)
+        TypeBuilder DefineDerived(INamedTypeSymbol baseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, plan.Symbol.ContainingAssembly))
+                return assembly.AddClass(plan.Namespace, plan.Name, resolveOwner(baseType), visibility);
+            var external = resolveExternal(baseType).ImportedType!;
+            assembly.DeclareFieldlessClassBase(external);
+            return assembly.AddClass(plan.Namespace, plan.Name, external, visibility);
+        }
+        var result = plan.ClassBase is { } baseType ? DefineDerived(baseType)
             : plan.IsStatic ? assembly.AddType(plan.Namespace, plan.Name, visibility) : assembly.AddClass(plan.Namespace, plan.Name, visibility);
         if (plan.Symbol.IsAbstract && !plan.IsStatic) result.SetAbstractClass();
         return result;

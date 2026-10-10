@@ -8768,3 +8768,26 @@ AttributeUsage, with 24 focused .NET tests. The neoCLR usage consumer checks fla
 defaults and imported RAV0502 rejection with macOS native/interpreter execution;
 Windows qualification is pending. External Attribute bases, inherited guest queries
 and discovery remain open. See neoCLR docs/experiments/attribute-usage/README.md.
+
+### Fieldless external base integration (2026-10-10)
+
+The neoCLR native capability now admits explicitly scoped, public, nongeneric,
+top-level external class hierarchies with no instance fields, interfaces or extra
+virtual slots. This enables user attributes to derive from source-built
+`System.Attribute` in System.Runtime. The compiler validates imported symbol facts,
+declares the metadata writer's fieldless-base contract and emits a direct imported
+base-constructor call. Protected constructors are admitted only for this contract;
+normal .NET emission remains unchanged and no Runtime Contract setting is added.
+
+The temporary CLI projection records a normal scoped extends reference and base
+`.ctor` call; native metadata records scoped base bindings. There is no synthetic
+attribute carrier or name-based base fallback. General external storage/virtual
+inheritance remains unsupported, owned by the native metadata/backend workstream.
+Replace the bounded host layout declaration with general native hierarchy/layout
+validation as that backend matures. A matched metadata library is required.
+
+Validation: host metadata authoring checks actual CLR execution, native snapshots,
+and rejected missing/double base initialization or protected allocation. A source
+Raven attribute derived from the runtime library returns 42 in interpreter and
+macOS ARM64 AOT. Compiler capability tests check explicit opt-in and reject a
+non-fieldless external base. Windows qualification is separate.

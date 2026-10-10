@@ -86,7 +86,7 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
                 parent.Arity != 0 || isStatic || !isValue && type.Arity != 0 || !TryCreate(parent, out _, capabilities)) ||
             !isStatic && (type.IsAbstract && !closedFamily && !(capabilities?.AllowsClassVirtualSlots == true && !isValue && type.Arity == 0 && type.ContainingType is null) || type.IsSealedHierarchy && !closedFamily || (type.OriginalDefinition is not SourceNamedTypeSymbol sourceType || sourceType.IsRecord && !(isValue && capabilities?.Allows(EmissionDeclarationKind.PositionalRecordStorage) == true)) || type.BaseType?.SpecialType != (isValue ? SpecialType.System_ValueType : SpecialType.System_Object) &&
                 !(capabilities?.AllowsLocalClassInheritance == true && !isValue && type.Arity == 0 && type.ContainingType is null &&
-                  type.BaseType is { Arity: 0, ContainingType: null } baseType && SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, type.ContainingAssembly) && TryCreate(baseType, out _, capabilities))))
+                  type.BaseType is { Arity: 0, ContainingType: null } baseType && (SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, type.ContainingAssembly) ? TryCreate(baseType, out _, capabilities) : capabilities.AllowsExternalFieldlessClassInheritance && IsFieldlessExternalBase(baseType)))))
             return false;
         // Check relationship identity here. Arguments are mapped by the adapter; recursively
         // admitting their source owners would loop for shapes such as C<T> : I<C<T>>.
@@ -103,6 +103,22 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         // normalized full name instead of subtracting a potentially qualified name.
         var separator = fullName.LastIndexOf('.');
         plan = new(type, separator < 0 ? "" : fullName[..separator], fullName[(separator + 1)..]);
+        return true;
+    }
+
+    internal static bool IsFieldlessExternalBase(INamedTypeSymbol type)
+    {
+        var visited = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        for (var current = type; current.SpecialType != SpecialType.System_Object; current = current.BaseType!)
+        {
+            if (!visited.Add(current) || visited.Count > 64 || current.TypeKind != TypeKind.Class ||
+                current.IsClosed || current.IsSealedHierarchy || current.IsStatic || current.Arity != 0 ||
+                current.ContainingType is not null || current.DeclaredAccessibility != Accessibility.Public ||
+                current.BaseType is null || !current.Interfaces.IsEmpty ||
+                current.GetMembers().OfType<IFieldSymbol>().Any(f => !f.IsStatic) ||
+                current.GetMembers().OfType<IMethodSymbol>().Any(m => !m.IsStatic && (m.IsVirtual || m.IsAbstract || m.IsOverride)))
+                return false;
+        }
         return true;
     }
 

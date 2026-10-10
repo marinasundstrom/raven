@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Admit fieldless public external class bases through an explicit
+  neoCLR emission capability and emit imported protected base-constructor calls.
+  User attributes can derive from source-owned System.Attribute in System.Runtime;
+  interpreter and macOS ARM64 native execution pass. Other external layouts remain
+  unsupported. Ordinary .NET behavior and Runtime Contract configuration are unchanged.
+
 - **2026-10-10:** Document source-owned neoCLR AttributeUsage/AttributeTargets and
   explicit removal of duplicate temporary CLI bootstrap declarations. No Runtime
   Contract or ordinary .NET lookup change; macOS interpreter/AOT consumer checks
