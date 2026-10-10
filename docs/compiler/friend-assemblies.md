@@ -43,6 +43,18 @@ binder. This change adds no syntax, keyword, bound node or operations kind; exis
 attribute syntax and semantic symbols apply. No TextMate grammar change or separate
 language-server permission policy is needed.
 
+## Resolution cost
+
+Public access and same-assembly internal access keep their existing fast paths.
+Cross-assembly internal checks cache both grants and denials by the two immutable
+assembly-symbol snapshots. Weak keys avoid retaining compilations; thread-safe lazy
+publication computes a pair's decision once. Subsequent checks perform cache lookups
+without reading attributes, parsing identity strings or allocating. Different snapshots
+with the same assembly name do not share cached access rights. A focused regression
+checks concurrent access and 100,000 warmed lookups for each outcome with zero measured
+thread allocations. This is a hot-path allocation check, not an end-to-end compiler
+throughput comparison. Initial cross-assembly checks necessarily inspect grant metadata.
+
 ## Runtime and target boundary
 
 Runtime Contract configuration is unchanged. Ordinary .NET emission retains the

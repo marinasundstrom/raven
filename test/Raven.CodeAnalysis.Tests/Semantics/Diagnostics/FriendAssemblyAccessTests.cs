@@ -12,6 +12,34 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class FriendAssemblyAccessTests
 {
+    [Theory]
+    [InlineData("FriendConsumer", true)]
+    [InlineData("UnrelatedConsumer", false)]
+    public void RepeatedFriendDecisionsDoNotAllocateOrChangeAcrossThreads(string name, bool expected)
+    {
+        var provider = Create("CachedProvider", Library);
+        var consumer = Create(name, "public class Consumer {}");
+        Assert.Empty(provider.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(consumer.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var declaring = provider.Assembly;
+        var requesting = consumer.Assembly;
+        System.Threading.Tasks.Parallel.For(0, 100, _ =>
+            Assert.Equal(expected, FriendAssemblyAccess.IsGranted(declaring, requesting)));
+        for (var i = 0; i < 1000; i++)
+            FriendAssemblyAccess.IsGranted(declaring, requesting);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var granted = 0;
+        for (var i = 0; i < 100000; i++)
+            if (FriendAssemblyAccess.IsGranted(declaring, requesting)) granted++;
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.Equal(expected ? 100000 : 0, granted);
+        Assert.Equal(0, allocated);
+        // The same assembly name in a different snapshot must not reuse a grant.
+        var otherProvider = Create("CachedProvider", "public class Provider {}");
+        Assert.Empty(otherProvider.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.False(FriendAssemblyAccess.IsGranted(otherProvider.Assembly, requesting));
+    }
+
     private const string Library = """
 import System.Runtime.CompilerServices.*
 [assembly: InternalsVisibleTo("FriendConsumer")]
