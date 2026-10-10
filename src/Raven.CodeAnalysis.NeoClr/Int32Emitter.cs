@@ -920,7 +920,7 @@ internal static class Int32Emitter
                     return new NeoClrFieldReference(definition, definition.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], ImportExternalType)).ToArray()));
                 var originalField = field is SubstitutedFieldSymbol importedSubstitution ? importedSubstitution.OriginalField : field;
                 if (originalField is IInstanceFieldLayoutSymbol layout && originalField.ContainingType is { } declaring &&
-                    IsSymbolOnlyReferenceDefinition(declaring) && originalField.DeclaredAccessibility == Accessibility.Public &&
+                    IsSymbolOnlyReferenceDefinition(declaring) && CanImportVisibility(originalField) &&
                     !originalField.IsStatic && IsSymbolOnlyType(originalField.Type, false))
                 {
                     if (importedFields.TryGetValue(field, out var cached)) return cached;
@@ -1126,7 +1126,7 @@ internal static class Int32Emitter
             }
             if (symbol.ContainingType is { } owner && IsSymbolOnlyOwnerDefinition((INamedTypeSymbol)owner.OriginalDefinition) &&
                 (owner.TypeKind == TypeKind.Interface ? symbol.IsAbstract && symbol.IsVirtual : !symbol.IsAbstract && (!symbol.IsVirtual || owner.IsValueType || symbol.IsOverride || owner.SpecialType == SpecialType.System_Object)) &&
-                (symbol.DeclaredAccessibility == Accessibility.Public || symbol.MethodKind == MethodKind.Constructor && symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected && SourceTypePlan.IsFieldlessExternalBase(owner)) && (symbol.IsStatic || symbol.Arity == 0) &&
+                (CanImportVisibility(symbol) || symbol.MethodKind == MethodKind.Constructor && symbol.DeclaredAccessibility == Accessibility.ProtectedAndProtected && SourceTypePlan.IsFieldlessExternalBase(owner)) && (symbol.IsStatic || symbol.Arity == 0) &&
                 CallableSignature.TryCreate(symbol, out var memberSignature, NeoClrCapabilities.Shared) &&
                 IsSymbolOnlyType(symbol.ReturnType, true) && symbol.Parameters.All(p => p.RefKind is RefKind.None or RefKind.Ref or RefKind.Out && IsSymbolOnlyType(p.Type, false)))
             {
@@ -1176,19 +1176,23 @@ internal static class Int32Emitter
             SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_UInt32 or
             SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_IntPtr or SpecialType.System_UIntPtr or SpecialType.System_Single or SpecialType.System_Double or
             SpecialType.System_String or SpecialType.System_Boolean;
-        static bool IsSymbolOnlyOwnerDefinition(INamedTypeSymbol original) =>
+        bool CanImportVisibility(ISymbol symbol) => symbol.DeclaredAccessibility == Accessibility.Public
+            || symbol.DeclaredAccessibility == Accessibility.Internal && symbol.ContainingAssembly is { } declaring
+                && FriendAssemblyAccess.IsGranted(declaring, compilation.Assembly);
+
+        bool IsSymbolOnlyOwnerDefinition(INamedTypeSymbol original) =>
             IsSymbolOnlyReferenceDefinition(original) ||
             original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
             original.TypeKind == TypeKind.Class && original.IsStatic && original.ContainingType is null &&
-            original.DeclaredAccessibility == Accessibility.Public && original.Interfaces.IsEmpty &&
+            CanImportVisibility(original) && original.Interfaces.IsEmpty &&
             original.TypeParameters.All(p => p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty && p.Variance == VarianceKind.None);
 
-        static bool IsSymbolOnlyReferenceDefinition(INamedTypeSymbol original, int depth = 0) =>
+        bool IsSymbolOnlyReferenceDefinition(INamedTypeSymbol original, int depth = 0) =>
             depth < 32 &&
             original.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
             (original.TypeKind is TypeKind.Class or TypeKind.Interface or TypeKind.Struct or TypeKind.Enum) &&
             !original.IsStatic && (original.ContainingType is null ||
-                (original is IUnionCaseTypeSymbol unionCase ? unionCase.MetadataContainingType : original.ContainingType) is { Arity: 0 } parent && IsSymbolOnlyOwnerDefinition(parent)) && original.DeclaredAccessibility == Accessibility.Public &&
+                (original is IUnionCaseTypeSymbol unionCase ? unionCase.MetadataContainingType : original.ContainingType) is { Arity: 0 } parent && IsSymbolOnlyOwnerDefinition(parent)) && CanImportVisibility(original) &&
             original.Interfaces.All(contract => IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)contract.OriginalDefinition, depth + 1)) &&
             (original.BaseType is null || original.BaseType.SpecialType == (original.TypeKind == TypeKind.Enum ? SpecialType.System_Enum : original.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) ||
                 original.TypeKind == TypeKind.Class && original.Arity == 0 && original.BaseType is { Arity: 0, ContainingType: null } parentClass &&

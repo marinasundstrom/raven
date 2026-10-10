@@ -707,3 +707,19 @@ Post-nullability regression run (2026-10-06): all seven native semantic consumer
 execute successfully. The Calculator fixture is an ordinary class and its imported
 symbol must be closed, matching Raven's sealed-by-default specification; the old open
 expectation was stale. This test correction does not introduce inheritance behavior.
+
+
+### Native friend-assembly consumer
+
+`--native-friends <unstripped-Core.dll> <output>` writes `Provider.neo.json` and
+`Consumer.neo.json`. The provider grants `FriendConsumer` access to an internal class,
+constructor, field and method. Raven emits the friend and rejects `Unrelated` with
+RAV0500 and no output. Run the emitted consumer with:
+
+```sh
+neoclr run <output>/Consumer.neo.json --module <output>/Provider.neo.json --show-result
+```
+
+Expected result: `Int32(42)` (process exit 42). This qualifies interpreted execution
+under the current unsigned, simple-ASCII runtime identity profile; it does not qualify
+AOT or signed assemblies. The bootstrap Core must retain AttributeUsage metadata.

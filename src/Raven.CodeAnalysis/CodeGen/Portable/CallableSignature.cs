@@ -36,10 +36,10 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         { value = new(OwnerParameter: ownerParameter); return true; }
         if (capabilities?.Allows(EmissionDeclarationKind.Enum) == true && type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 } enumType)
         { value = new(Nominal: enumType); return true; }
-        if (capabilities?.AllowsExternalValueSignatures == true && type is INamedTypeSymbol externalValue && IsExternalValue(externalValue, capabilities?.AllowsNestedExternalTypes == true) &&
+        if (capabilities?.AllowsExternalValueSignatures == true && type is INamedTypeSymbol externalValue && IsExternalValue(externalValue, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true) &&
             externalValue.TypeArguments.All(t => t is not IPointerTypeSymbol && TryType(t, false, out _, capabilities, depth + 1)))
         { value = new(Nominal: externalValue); return true; }
-        if (capabilities?.AllowsExternalReferenceSignatures == true && type is INamedTypeSymbol external && IsExternalReference(external, capabilities?.AllowsNestedExternalTypes == true) &&
+        if (capabilities?.AllowsExternalReferenceSignatures == true && type is INamedTypeSymbol external && IsExternalReference(external, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true) &&
             external.TypeArguments.All(t => t is not IPointerTypeSymbol && TryType(t, false, out _, capabilities, depth + 1)))
         { value = new(Nominal: external); return true; }
         if (type is INamedTypeSymbol { TypeKind: TypeKind.Interface } contract && SourceInterfacePlan.HasSupportedIdentity(contract))
@@ -86,13 +86,15 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         a.ToFullyQualifiedMetadataName() == b.ToFullyQualifiedMetadataName() &&
         Enumerable.SequenceEqual<ITypeSymbol>(a.TypeArguments, b.TypeArguments, SymbolEqualityComparer.Default);
 
-    internal static bool IsExternalValue(INamedTypeSymbol type, bool allowNested = false) =>
+    internal static bool IsExternalValue(INamedTypeSymbol type, bool allowNested = false, bool allowInternal = false) =>
         type.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty && type.TypeKind == TypeKind.Struct &&
-        type.IsValueType && (type.ContainingType is null || allowNested) && type.DeclaredAccessibility == Accessibility.Public;
+        type.IsValueType && (type.ContainingType is null || allowNested) &&
+        (type.DeclaredAccessibility == Accessibility.Public || allowInternal && type.DeclaredAccessibility == Accessibility.Internal);
 
-    internal static bool IsExternalReference(INamedTypeSymbol type, bool allowNested = false) =>
+    internal static bool IsExternalReference(INamedTypeSymbol type, bool allowNested = false, bool allowInternal = false) =>
         type.OriginalDefinition.DeclaringSyntaxReferences.IsEmpty && type.TypeKind is TypeKind.Class or TypeKind.Interface &&
-        type.IsReferenceType && !type.IsStatic && (type.ContainingType is null || allowNested) && type.DeclaredAccessibility == Accessibility.Public;
+        type.IsReferenceType && !type.IsStatic && (type.ContainingType is null || allowNested) &&
+        (type.DeclaredAccessibility == Accessibility.Public || allowInternal && type.DeclaredAccessibility == Accessibility.Internal);
 
     internal static bool AllowsParameterArray(IMethodSymbol method, IParameterSymbol parameter, EmissionCapabilities? capabilities) =>
         !parameter.IsVarParams || capabilities?.AllowsParameterArrays == true && parameter.RefKind == RefKind.None &&
@@ -110,7 +112,7 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         if (method.IsGenericMethod && method.TypeParameters.Any(UnsupportedConstraint) ||
             method.IsExtensionMethod && (capabilities?.AllowsLoweredExtensionCalls != true || !method.IsStatic) ||
             method.IsAsync && capabilities?.Allows(EmissionDeclarationKind.AsyncMethod) != true || !TryType(method.ReturnType, true, out var result, capabilities)) return false;
-        if (method.ContainingType is { Arity: > 0 } owner && ((!SourceTypePlan.TryCreate(owner, out _, capabilities) && !(capabilities?.AllowsConstructedInterfaceInheritance == true && SourceInterfacePlan.HasSupportedIdentity(owner)) && !(capabilities?.AllowsExternalReferenceSignatures == true && IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true)) && !(capabilities?.AllowsExternalValueSignatures == true && IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true))) || owner.TypeArguments.Any(t => !TryType(t, false, out _, capabilities)))) return false;
+        if (method.ContainingType is { Arity: > 0 } owner && ((!SourceTypePlan.TryCreate(owner, out _, capabilities) && !(capabilities?.AllowsConstructedInterfaceInheritance == true && SourceInterfacePlan.HasSupportedIdentity(owner)) && !(capabilities?.AllowsExternalReferenceSignatures == true && IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true)) && !(capabilities?.AllowsExternalValueSignatures == true && IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true))) || owner.TypeArguments.Any(t => !TryType(t, false, out _, capabilities)))) return false;
         if (method.IsGenericMethod && method.TypeArguments.Any(t => t is IPointerTypeSymbol || !TryType(t, false, out _, capabilities))) return false;
         var parameters = ImmutableArray.CreateBuilder<EmissionType>(method.Parameters.Length);
         foreach (var parameter in method.Parameters)

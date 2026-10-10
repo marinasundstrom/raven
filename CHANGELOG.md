@@ -17,7 +17,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   adapter/identity/access-check gaps. Native emission now forwards assembly attributes
   and native symbols expose cached annotations after early validation. The focused
   probe covers named-friend/non-friend binding, source grant round trips and malformed
-  assembly data diagnostics; native import/runtime authorization remains pending.
+  assembly data diagnostics. Native symbol imports now admit cached friend-approved
+  internal types, constructors, fields and methods. A default-off portable capability
+  admits their shapes; semantic/import authorization remains separate. The executable
+  native consumer returns 42 and unrelated consumers emit no image. neoCLR runtime
+  enforcement currently supports unsigned simple-ASCII identities; full native identity
+  support and AOT/platform qualification remain pending.
 
 - **2026-10-10:** Admit single unfiltered constant-Int32-range array comprehensions
   in the portable/native array profile, preserving selector order and inclusive

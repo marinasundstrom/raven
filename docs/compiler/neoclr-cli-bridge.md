@@ -9206,3 +9206,37 @@ access: import admission and neoCLR interpreter/AOT enforcement remain pending. 
 signed identities remain unsupported. CLI projection is temporary transport; retained
 native manifest annotations are authoritative. No new runtime contract switch, syntax,
 operations kind or separate language-service permission policy is introduced.
+
+
+### Executable native friend imports (2026-10-10)
+
+The native importer now uses the shared cached assembly-pair decision for internal
+nominal types, constructors, methods and fields. The portable shape profile explicitly
+opts into `AllowsInternalExternalSymbols`; its default remains false. This capability
+admits signatures, local storage and calls, not access rights: semantic binding and the
+native importer enforce the grant, and neoCLR verifies resolved definition visibility.
+This portable layer currently exists only on the native integration branch; there is
+no corresponding main-line portable layer to patch. The general source/CLI checker
+and pair cache already landed independently on main.
+
+`NeoClrMetadataProbe --native-friends <unstripped-Core.dll> <output>` authors a provider
+with an assembly grant and emits a Raven consumer that constructs an internal class,
+writes/reads an internal field and calls an internal method. neoCLR interpreted execution
+returns 42; an unrelated consumer reports RAV0500 and produces no image. The grant's
+constructor deliberately faults if executed; metadata discovery does not execute it.
+Portable class/struct checks cover default rejection and explicit shape admission,
+alongside ordinary .NET execution. Existing native assembly-attribute checks remain.
+
+Runtime Contract configuration, syntax and ordinary .NET emission are unchanged.
+Temporary CLI reference projection is transport only: a reference's visibility does not
+override resolved native definitions. Native replacement must preserve assembly identity
+and access checking. Runtime enforcement is initially unsigned/simple-ASCII only;
+full-key, quoted/escaped and Unicode identity support and AOT/platform qualification
+remain gaps. No runtime bundle pin is updated and Utf8 is not yet internal. Adapter
+changes are Raven-owned; linked-snapshot authorization is neoCLR-owned.
+
+Validation: 31 focused `FriendAssemblyAccessTests`/`PortableFriendAdmissionTests` pass,
+including the existing zero-allocation warmed compiler-pair checks. Both native friend
+and native attribute probes pass; the emitted friend consumer returns `Int32(42)` on
+macOS ARM64 under the interpreter. This provides no measured whole-program throughput
+claim and does not repeat the platform matrix.
