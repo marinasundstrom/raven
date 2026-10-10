@@ -414,10 +414,25 @@ internal abstract partial class Binder
 
     protected static IEnumerable<ISymbol> EnumerateTypeAndBaseMembers(INamedTypeSymbol containingType, string name)
     {
+        HashSet<ISymbol>? overridden = null;
         for (var current = containingType; current is not null; current = current.BaseType)
         {
             foreach (var member in current.GetMembers(name))
+            {
+                // Unqualified calls see the most-derived override, just like self.M().
+                // Preserve unrelated inherited overloads and generic substitutions.
+                if (member is IMethodSymbol method)
+                {
+                    if (overridden?.Contains(method.OriginalDefinition) == true)
+                        continue;
+                    for (var replaced = (method.OriginalDefinition as SourceMethodSymbol)?.OverriddenMethod; replaced is not null; replaced = (replaced.OriginalDefinition as SourceMethodSymbol)?.OverriddenMethod)
+                    {
+                        overridden ??= new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+                        overridden.Add(replaced.OriginalDefinition);
+                    }
+                }
                 yield return member;
+            }
         }
     }
 

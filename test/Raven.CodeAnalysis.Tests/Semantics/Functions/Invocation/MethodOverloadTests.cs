@@ -13,6 +13,31 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class MethodOverloadTests : CompilationTestBase
 {
     [Theory]
+    [InlineData("Read(1)")]
+    [InlineData("self.Read(1)")]
+    public void OverrideAndBaseDeclaration_AreOneUnqualifiedCandidate(string call)
+    {
+        var source = $$"""
+abstract class Base<T> {
+    abstract func Read(value: T) -> int
+    func Read(value: string) -> int => 20
+}
+class Derived : Base<int> {
+    override func Read(value: int) -> int => value
+    func Run() -> int => {{call}} + Read("other")
+}
+""";
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        var calls = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
+        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(calls[0]).Symbol);
+        Assert.Equal("Derived", selected.ContainingType.Name);
+        var inherited = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(calls[1]).Symbol);
+        Assert.Equal("Base", inherited.ContainingType.Name);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void GenericArity_DistinguishesMemberDeclarations(bool reverse)
