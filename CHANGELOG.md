@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Admit single unfiltered constant-Int32-range array comprehensions
+  in the portable/native array profile, preserving selector order and inclusive
+  endpoint behavior without overflow. Dynamic ranges, filters and spreads remain
+  explicit gaps; Runtime Contract settings are unchanged. Fix ordinary .NET
+  collection/dictionary comprehensions incrementing past inclusive maximum endpoints,
+  which could wrap and grow the result until allocation failed.
+
 - **2026-10-10:** Document neoCLR civil Parse overloads and their ordinary Result/error
   union projection, plus native host-culture prerequisites. These are library/backend
   changes; Raven Runtime Contract configuration and compiler emission are unchanged.

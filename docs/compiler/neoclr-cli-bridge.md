@@ -9119,3 +9119,30 @@ neoCLR owns rule semantics and ABI replacement; a future native host-service con
 replaces the private C/text-arena transport. Ordinary .NET compiler behavior is
 unchanged. Focused contract/CLI and rule-kernel checks accompany framework DST,
 historical-second, alias and range cases; Windows execution remains separately gated.
+
+### Constant-range array comprehensions (2026-10-10)
+
+The bounded portable/native emitter now admits one unfiltered array comprehension
+over explicit constant Int32 range endpoints, with the default ascending step.
+Inclusive and exclusive bounds preserve Raven/.NET iteration semantics. It computes
+cardinality in Int64, rejects lengths beyond Int32, allocates once, and evaluates the
+selector once per element in ascending order. A position-based loop avoids incrementing
+an inclusive Int32.MaxValue endpoint. Arrays and range-enumeration capabilities
+must both be enabled. No Runtime Contract configuration changes are introduced.
+The same boundary check exposed ordinary .NET collection/dictionary comprehension
+loops incrementing after their inclusive maximum endpoint. They now stop before
+that increment, including when a filter excludes the final element. This restores
+the intended range semantics; it is a general compiler fix, not a native divergence.
+
+Dynamic bounds, steps, filters, mixed elements and spreads remain explicitly
+unsupported by this native profile. These are admission gaps, not different language
+semantics. The shared portable layer owns the lowering; neoCLR's existing native
+array allocation/store operations enforce storage and bounds. No CLI carrier or new
+runtime intrinsic is added. Native metadata/codegen directly represents the existing
+array operations; eventual broader collection lowering replaces the bounded
+admission rule rather than introducing a permanent target-specific syntax.
+
+Focused Raven tests compare admitted range results with ordinary .NET emission and
+reject unsupported shapes. neoCLR's encoding-buffer fixtures exercise large byte
+arrays, retryable codec quotas and selector/end-point behavior in native/interpreted
+execution; consult the matching neoCLR report for completed platform qualification.

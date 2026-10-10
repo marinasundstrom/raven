@@ -3609,6 +3609,10 @@ internal partial class ExpressionGenerator : Generator
         emitBody(scope);
 
         ILGenerator.MarkLabel(loopNext);
+        // Comprehensions use the default positive unit step. An inclusive
+        // endpoint must terminate before incrementing (including MaxValue).
+        if (!upperExclusive)
+            EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, loopEnd, positiveStep: true, upperExclusive: true);
         EmitRangeLoopIncrement(elementType, startLocal, stepLocal);
         ILGenerator.Emit(OpCodes.Br, loopStart);
         ILGenerator.MarkLabel(loopEnd);
@@ -4152,6 +4156,10 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Callvirt, addMethodInfo);
 
         ILGenerator.MarkLabel(loopNext);
+        // Comprehensions use the default positive unit step. An inclusive
+        // endpoint must terminate before incrementing (including MaxValue).
+        if (!upperExclusive)
+            EmitRangeLoopBreakCondition(elementType, startLocal, endLocal, loopEnd, positiveStep: true, upperExclusive: true);
         EmitRangeLoopIncrement(elementType, startLocal, stepLocal);
         ILGenerator.Emit(OpCodes.Br, loopStart);
         ILGenerator.MarkLabel(loopEnd);

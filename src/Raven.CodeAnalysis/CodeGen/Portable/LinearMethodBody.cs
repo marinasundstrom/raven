@@ -981,8 +981,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool ArrayLiteral(IArrayTypeSymbol type, IEnumerable<BoundExpression> values, SyntaxNode syntax)
         {
             var elements = values.ToArray();
+            if (elements is [BoundCollectionComprehensionExpression comprehension])
+                return ConstantRangeArray(type, comprehension, syntax);
+            if (elements is [BoundSpreadElement { Expression: BoundCollectionComprehensionExpression spreadComprehension }])
+                return ConstantRangeArray(type, spreadComprehension, syntax);
             if (elements.Any(e => e is BoundSpreadElement or BoundCollectionComprehensionExpression))
-                return Reject("array spreads/comprehensions", syntax);
+                return Reject("array spreads/mixed comprehensions", syntax);
             Add(LinearInstructionKind.Constant, syntax, elements.Length);
             instructions.Add(new(LinearInstructionKind.NewArray, syntax, Type: type.ElementType));
             for (int i = 0; i < elements.Length; i++)
@@ -992,6 +996,60 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (!LowerValue(elements[i], type.ElementType)) return false;
                 instructions.Add(new(LinearInstructionKind.StoreElement, syntax, Type: type.ElementType));
             }
+            return true;
+        }
+        bool ConstantRangeArray(IArrayTypeSymbol type, BoundCollectionComprehensionExpression comprehension, SyntaxNode syntax)
+        {
+            // A known cardinality needs no collection builder or target-specific
+            // helper. Keep other shapes rejected until their ownership is lowered.
+            if (capabilities?.AllowsArrays != true || capabilities.AllowsRangeEnumeration != true ||
+                comprehension.Condition is not null ||
+                comprehension.IterationLocal.Type.SpecialType != SpecialType.System_Int32 ||
+                comprehension.Source is not BoundRangeExpression {
+                    Left: { IsFromEnd: false, Value: BoundLiteralExpression { Value: int start } },
+                    Right: { IsFromEnd: false, Value: BoundLiteralExpression { Value: int end } }
+                } range || !TryType(type, false, out var arrayType))
+                return Reject("array comprehension requires an unfiltered constant Int32 range", syntax);
+            long length = Math.Max(0L, (long)end - start + (range.IsUpperExclusive ? 0 : 1));
+            if (length > int.MaxValue)
+                return Reject("array comprehension cardinality exceeds Int32", syntax);
+            var array = localTypes.Count;
+            localTypes.Add(arrayType);
+            var position = localTypes.Count;
+            localTypes.Add(new(Primitive: EmissionPrimitiveType.Int32));
+            var iteration = localTypes.Count;
+            localTypes.Add(new(Primitive: EmissionPrimitiveType.Int32));
+            locals.Add(comprehension.IterationLocal, iteration);
+            var begin = nextLabel++;
+            var done = nextLabel++;
+            Add(LinearInstructionKind.Constant, syntax, (int)length);
+            instructions.Add(new(LinearInstructionKind.NewArray, syntax, Type: type.ElementType));
+            Add(LinearInstructionKind.StoreLocal, syntax, array);
+            Add(LinearInstructionKind.Constant, syntax, 0);
+            Add(LinearInstructionKind.StoreLocal, syntax, position);
+            Add(LinearInstructionKind.Label, syntax, begin);
+            Add(LinearInstructionKind.LoadLocal, syntax, position);
+            Add(LinearInstructionKind.Constant, syntax, (int)length);
+            Add(LinearInstructionKind.Less, syntax);
+            Add(LinearInstructionKind.BranchFalse, syntax, done);
+            // Derive the value from the bounded output position. In particular,
+            // an inclusive Int32.MaxValue endpoint is never incremented.
+            Add(LinearInstructionKind.Constant, syntax, start);
+            Add(LinearInstructionKind.LoadLocal, syntax, position);
+            Add(LinearInstructionKind.Add, syntax);
+            Add(LinearInstructionKind.StoreLocal, syntax, iteration);
+            Add(LinearInstructionKind.LoadLocal, syntax, array);
+            Add(LinearInstructionKind.LoadLocal, syntax, position);
+            if (!LowerValue(comprehension.Selector, type.ElementType)) return false;
+            instructions.Add(new(LinearInstructionKind.StoreElement, syntax, Type: type.ElementType));
+            Add(LinearInstructionKind.LoadLocal, syntax, position);
+            Add(LinearInstructionKind.Constant, syntax, 1);
+            Add(LinearInstructionKind.Add, syntax);
+            Add(LinearInstructionKind.StoreLocal, syntax, position);
+            Add(LinearInstructionKind.Branch, syntax, begin);
+            Add(LinearInstructionKind.Label, syntax, done);
+            Add(LinearInstructionKind.LoadLocal, syntax, array);
+            locals.Remove(comprehension.IterationLocal);
             return true;
         }
         bool FieldAddress(BoundExpression? receiver, IFieldSymbol field, SyntaxNode syntax)
