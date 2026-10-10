@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Document neoCLR JsonObject map/indexer integration, the aggregate
+  reference's temporary positional Item rename, and native fallback/conformance
+  fixes exposed by JSON-node serialization. Runtime Contract and compiler behavior
+  are unchanged; explicit reflection retention remains required for nominal members.
+
 - **2026-10-10:** Document neoCLR Map indexers using existing Item/get_Item/set_Item
   emission. Matching library/reference updates are required; compiler behavior and
   Runtime Contract configuration remain unchanged.

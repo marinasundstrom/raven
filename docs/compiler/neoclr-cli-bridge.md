@@ -9015,3 +9015,24 @@ and reference libraries are required: third-party implementations must supply th
 accessors. The declaration-only aggregate documentation bridge mirrors signatures;
 native source metadata owns the eventual replacement. Missing-key getters terminate
 with neoCLR Fault; Find remains the recoverable lookup API.
+
+### JsonObject map/indexer integration (2026-10-10)
+
+neoCLR JsonObject now implements Map<string, JsonValue>. Raven's existing indexer
+emission supports its string Item property alongside positional Item(int). The
+C#-authored aggregate documentation reference temporarily calls the latter
+PositionalItem and restores Item with Cecil before emission because C# declaration
+rules reject that combination. The bridge is declaration-only; Raven/native source
+metadata preserve both real members. neoCLR owns removal of this workaround with
+the aggregate bridge. No Runtime Contract configuration, binding or emission change
+is needed; compiler code pin remains b2f3ba0f8b8e92f0c516155f563b332b0a6fad54.
+
+The JSON-node path of Serialize(Object) exposed two native backend gaps: unretained
+property services now lower to their existing fault under an internal empty plan,
+and private selection keeps reached interface implementations for signature/storage
+classes even without construction. Original source verification and explicit nominal
+reflection rights remain unchanged; runtime dispatch still uses constructed receivers.
+Extra accessor retention is a code-size cost until more precise native trimming is
+available. These temporary private projections belong to neoCLR, with native
+metadata/codegen as their replacement. Focused backend checks, JSON framework cases,
+fault probes and API snapshots record validation in neoCLR; Windows remains separate.
