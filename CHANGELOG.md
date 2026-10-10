@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-10:** Honor source and CLI InternalsVisibleTo assembly grants in the
+  shared accessibility checker. Named friends may use internal types and members;
+  private, protected-combination and public-signature restrictions remain. Grants
+  are one-way and non-transitive, with full-public-key matching and no token/name
+  fallback for malformed or qualified identities. Existing .NET attribute emission
+  and Runtime Contract settings are unchanged. Native assembly grant retention and
+  neoCLR runtime enforcement remain explicit integration gaps.
+
 - **2026-10-09:** Present instance extension declarations without CLR carrier
   static modifiers or receiver parameters. Distinguish static extensions with an
   SE badge in both receiver and extension member lists, while keeping ordinary

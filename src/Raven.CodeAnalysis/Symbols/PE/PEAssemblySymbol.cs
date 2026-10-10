@@ -40,6 +40,36 @@ internal partial class PEAssemblySymbol : PESymbol, IImportedAssemblySymbol
 
     public string FullName => _assembly.GetName().FullName;
 
+    internal AssemblyName AccessIdentity => _assembly.GetName();
+
+    private ImmutableArray<string>? _friendAssemblyNames;
+
+    internal ImmutableArray<string> FriendAssemblyNames => _friendAssemblyNames ??= ReadFriendAssemblyNames();
+
+    private ImmutableArray<string> ReadFriendAssemblyNames()
+    {
+        var names = ImmutableArray.CreateBuilder<string>();
+        foreach (var attribute in _assembly.GetCustomAttributesData())
+        {
+            try
+            {
+                if (attribute.AttributeType.FullName == FriendAssemblyAccess.AttributeName
+                    && attribute.Constructor.GetParameters() is [var parameter]
+                    && parameter.ParameterType.FullName == "System.String"
+                    && attribute.ConstructorArguments.Count == 1
+                    && attribute.ConstructorArguments[0].ArgumentType.FullName == "System.String"
+                    && attribute.ConstructorArguments[0].Value is string name)
+                    names.Add(name);
+            }
+            catch (Exception error) when (error is TypeLoadException or System.IO.FileNotFoundException
+                or System.IO.FileLoadException or BadImageFormatException or CustomAttributeFormatException)
+            {
+                // Unreadable metadata never grants access. Do not instantiate attributes.
+            }
+        }
+        return names.ToImmutable();
+    }
+
     public INamespaceSymbol GlobalNamespace => _globalNamespace ??= (
         _modules.Length == 1
             ? _modules[0].GlobalNamespace

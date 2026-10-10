@@ -348,3 +348,24 @@ internal extensions and specialized generic extensions; the neoCLR production
 audit verifies that internal console functions are absent from Boolean. This
 shared presentation fix prevents the visibility leak but does not resolve the
 native reader's broader extension classification limitation.
+
+
+### Shared friend-assembly checker; native integration pending (2026-10-10)
+
+Raven recognizes source and CLI InternalsVisibleTo declarations in the shared
+accessibility checker. This general compiler fix belongs on main. The existing
+CLI assembly attribute is retained without rewriting types or members as public.
+Runtime Contract configuration, attribute syntax and emitted call shapes are
+unchanged. Separate-library .NET tests cover allowed and denied access, protected
+combinations, one-way/non-transitive grants, public-signature restrictions and
+full-key identity policy. See [the contract](friend-assemblies.md).
+
+Native intent is the same assembly-scoped grant. The native provider still lacks
+assembly attribute retention; metadata import admission and neoCLR runtime access
+checks also need matching enforcement. AOT must validate the grant before lowering
+static calls without running attribute constructors. Do not treat successful shared
+compiler tests as native support, or hide the gap by making helpers public. Raven
+owns binding and native emission; neoCLR owns metadata preservation/import and
+resolved access checks. Native assembly-level metadata replaces the temporary CLI
+attribute transport once those layers are qualified together. No information is
+silently dropped and then treated as permission: absent grants deny friend access.

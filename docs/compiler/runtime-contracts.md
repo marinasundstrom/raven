@@ -2191,3 +2191,12 @@ queries and namespace imports must select a matching source declaration. This is
 a general compiler correction with no Runtime Contract option or target-specific
 policy. It fixes the neoCLR library bootstrap's same-assembly internal property
 lookup without relaxing member accessibility or changing metadata-only queries.
+
+
+## Friend-assembly access (development)
+
+[InternalsVisibleTo](friend-assemblies.md) is a shared source/CLI accessibility
+rule, with no Runtime Contract setting. It retains .NET attribute emission and
+private/protected/public-signature restrictions. Native metadata retention and
+neoCLR import/runtime enforcement remain separate integration work; selecting a
+native target does not implicitly grant access to internals.
