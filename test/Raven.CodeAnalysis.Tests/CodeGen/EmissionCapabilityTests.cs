@@ -7,6 +7,35 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class EmissionCapabilityTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void QualifiedBaseLookupUsesCanonicalMetadataSelection(bool reverse, bool qualified)
+    {
+        MetadataReference Reference(string name)
+        {
+            var library = Create("module Example\npublic abstract class Base { protected init() {} }").WithAssemblyName(name);
+            using var image = new MemoryStream();
+            var result = library.Emit(image);
+            Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+            return MetadataReference.CreateFromImage(image.ToArray());
+        }
+        var references = new[] { Reference("Bootstrap"), Reference("Example.Library") };
+        if (reverse) Array.Reverse(references);
+        var compilation = Compilation.Create("CanonicalBase",
+            [SyntaxTree.ParseText("module Consumer\nimport Example.*\npublic class Marker : " + (qualified ? "Example.Base" : "Base") + " { public init() {} }")],
+            TestMetadataReferences.Default.Concat(references).ToArray(),
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var expected = compilation.GetTypeByMetadataName("Example.Base");
+        Assert.Equal("Example.Library", expected!.ContainingAssembly.Name);
+        var actual = compilation.GetTypeByMetadataName("Consumer.Marker")!.BaseType!;
+        Assert.Equal(expected.ContainingAssembly.Name, actual.ContainingAssembly.Name);
+        Assert.True(SymbolEqualityComparer.Default.Equals(expected, actual));
+    }
+
     [Fact]
     public void ExternalFieldlessBaseAdmissionRequiresExplicitCapability()
     {

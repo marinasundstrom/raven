@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Make qualified/early namespace type lookup use the same canonical
+  metadata selection as ordinary imports, while preserving source declarations.
+  This prevents duplicate bootstrap/facade names from selecting a different base
+  during native attribute compilation. Cover both spelling and reference orders;
+  83 focused lookup, namespace, capability and attribute-usage checks pass.
+
 - **2026-10-10:** Admit fieldless public external class bases through an explicit
   neoCLR emission capability and emit imported protected base-constructor calls.
   User attributes can derive from source-owned System.Attribute in System.Runtime;

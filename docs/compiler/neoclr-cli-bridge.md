@@ -8791,3 +8791,18 @@ and rejected missing/double base initialization or protected allocation. A sourc
 Raven attribute derived from the runtime library returns 42 in interpreter and
 macOS ARM64 AOT. Compiler capability tests check explicit opt-in and reject a
 non-fieldless external base. Windows qualification is separate.
+
+### Canonical namespace type lookup (2026-10-10)
+
+Attributed test registration exposed inconsistent base-type selection when the
+bootstrap and native runtime both describe System.Attribute. Qualified/early
+namespace lookup now canonicalizes imported definitions through the same metadata
+lookup used by ordinary imports; source declarations keep precedence. The existing
+assembly-affinity/explicit-contract selection policy is unchanged. This is a shared
+lookup consistency fix, not a new neoCLR-only name mapping or Runtime Contract
+option. The CLI/native base encodings and their bounded layout limits are unchanged.
+
+Both qualified and imported spellings, both reference orders, and 83 focused
+namespace/lookup/capability/AttributeUsage tests pass. The repository test-discovery
+consumer additionally qualifies native source binding with typed registration
+adapters and rejected generic/instance/parameter/result signatures.

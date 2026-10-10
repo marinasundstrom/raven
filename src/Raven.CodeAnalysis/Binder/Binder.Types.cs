@@ -1313,7 +1313,10 @@ internal abstract partial class Binder
                     }
 
                     // Otherwise resolve as a type in this namespace
-                    var named = ns.GetMembers(part).OfType<INamedTypeSymbol>().ToArray();
+                    var named = ns.GetMembers(part).OfType<INamedTypeSymbol>()
+                        .Select(type => type.OriginalDefinition is SourceNamedTypeSymbol ? type :
+                            LookupMetadataType(type.ToFullyQualifiedMetadataName()) ?? type)
+                        .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default).ToArray();
                     if (arity is not null && i == nameParts.Length - 1)
                         named = named.Where(t => t.Arity == arity.Value).ToArray();
                     if (named.Length == 0)
@@ -1409,11 +1412,18 @@ internal abstract partial class Binder
                 : Compilation.GetTypeByMetadataName(metadataName);
 
         ITypeSymbol? LookupTypeInNamespace(INamespaceSymbol namespaceSymbol, string name)
-            => Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
+        {
+            var type = Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
                 ? namespaceSymbol is SourceNamespaceSymbol sourceNamespace
                     ? sourceNamespace.LookupTypeDeclared(name)
                     : namespaceSymbol.GetMembers(name).OfType<ITypeSymbol>().FirstOrDefault()
                 : namespaceSymbol.LookupType(name);
+            // Qualified and early namespace lookup must agree with ordinary imports;
+            // merged namespace enumeration is not a metadata identity selection policy.
+            return type is INamedTypeSymbol named && named.OriginalDefinition is not SourceNamedTypeSymbol
+                ? LookupMetadataType(named.ToFullyQualifiedMetadataName()) ?? type
+                : type;
+        }
     }
 
     internal bool TryResolveNamedTypeFromTypeSyntax(TypeSyntax syntax, out INamedTypeSymbol? namedType)
