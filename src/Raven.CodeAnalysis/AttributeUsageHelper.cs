@@ -431,7 +431,9 @@ internal static class AttributeUsageHelper
             var visited = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
             for (var current = attributeType; current is not null && visited.Add(current); current = current.BaseType)
             {
-                foreach (var attribute in current.GetAttributes())
+                var attributes = current is SourceSymbol source
+                    ? source.GetAttributesForUsageValidation() : current.GetAttributes();
+                foreach (var attribute in attributes)
                 {
                     if (attribute.AttributeClass is not null &&
                         SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeUsageType))

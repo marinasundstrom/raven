@@ -12,6 +12,9 @@ namespace Raven.CodeAnalysis.Symbols;
 internal abstract class SourceSymbol : Symbol
 {
     private ImmutableArray<AttributeData> _lazyCustomAttributes;
+    private ImmutableArray<BoundAttributeEntry> _lazyBoundAttributes;
+
+    private readonly record struct BoundAttributeEntry(AttributeData Data, AttributeSyntax Syntax, AttributeBinder Binder, SemanticModel Model);
     private DocumentationComment? _lazyDocumentationComment;
 
     internal ImmutableArray<DocumentationComment> DocumentationComments { get; private set; }
@@ -55,19 +58,49 @@ internal abstract class SourceSymbol : Symbol
         return _lazyCustomAttributes;
     }
 
+    // Usage policies need bound data before validation: AttributeUsageAttribute may
+    // describe itself, and other attribute classes may refer to each other.
+    internal ImmutableArray<AttributeData> GetAttributesForUsageValidation()
+        => GetBoundAttributes().Select(entry => entry.Data).ToImmutableArray();
+
+    private ImmutableArray<BoundAttributeEntry> GetBoundAttributes()
+    {
+        if (_lazyBoundAttributes.IsDefault)
+            _lazyBoundAttributes = BindAttributes();
+        return _lazyBoundAttributes;
+    }
+
     private ImmutableArray<AttributeData> ComputeAttributes()
     {
-        if (DeclaringSyntaxReferences.IsDefaultOrEmpty)
-            return ImmutableArray<AttributeData>.Empty;
-
         var compilation = GetDeclaringCompilation();
         if (compilation is null)
             return ImmutableArray<AttributeData>.Empty;
-
         var builder = ImmutableArray.CreateBuilder<AttributeData>();
-        var seenAttributes = new Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>>();
-        var processedAttributeLocations = new HashSet<(SyntaxTree SyntaxTree, int SpanStart, int SpanLength)>();
+        var seen = new Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>>();
         var defaultTarget = AttributeUsageHelper.GetDefaultTargetForOwner(this);
+        foreach (var entry in GetBoundAttributes())
+        {
+            var valid = AttributeUsageHelper.TryValidateAttribute(compilation, entry.Binder,
+                this, entry.Syntax, entry.Data, defaultTarget, seen);
+            if (this is SynthesizedNamespaceMembersClassSymbol)
+                entry.Model.AddDeclarationDiagnostics(entry.Binder.Diagnostics.AsEnumerable());
+            if (valid)
+                builder.Add(entry.Data);
+        }
+        return builder.ToImmutable();
+    }
+
+    private ImmutableArray<BoundAttributeEntry> BindAttributes()
+    {
+        if (DeclaringSyntaxReferences.IsDefaultOrEmpty)
+            return ImmutableArray<BoundAttributeEntry>.Empty;
+
+        var compilation = GetDeclaringCompilation();
+        if (compilation is null)
+            return ImmutableArray<BoundAttributeEntry>.Empty;
+
+        var builder = ImmutableArray.CreateBuilder<BoundAttributeEntry>();
+        var processedAttributeLocations = new HashSet<(SyntaxTree SyntaxTree, int SpanStart, int SpanLength)>();
         IEnumerable<SyntaxReference> declaringSyntaxReferences = DeclaringSyntaxReferences;
         if (this is SynthesizedNamespaceMembersClassSymbol)
         {
@@ -115,19 +148,7 @@ internal abstract class SourceSymbol : Symbol
                 if (data is null)
                     continue;
 
-                var isValid = AttributeUsageHelper.TryValidateAttribute(
-                        compilation,
-                        attributeBinder,
-                        this,
-                        attribute,
-                        data,
-                        defaultTarget,
-                        seenAttributes);
-                if (this is SynthesizedNamespaceMembersClassSymbol)
-                    semanticModel.AddDeclarationDiagnostics(attributeBinder.Diagnostics.AsEnumerable());
-
-                if (isValid)
-                    builder.Add(data);
+                builder.Add(new(data, attribute, attributeBinder, semanticModel));
             }
         }
 
@@ -284,6 +305,7 @@ internal abstract class SourceSymbol : Symbol
     private void RefreshSourceDeclarationCaches()
     {
         _lazyCustomAttributes = default;
+        _lazyBoundAttributes = default;
         _lazyDocumentationComment = null;
 
         var parseOptions = GetParseOptions(DeclaringSyntaxReferences);

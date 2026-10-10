@@ -19,7 +19,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   their semantics. Separate-library Attribute inheritance, guest named-data queries
   and test discovery remain open. neoCLR subsequently adds guest named-data
   snapshots through ordinary reference signatures, without a compiler setting
-  change; document the snapshot compatibility and legacy bootstrap limits.
+  change; document the snapshot compatibility and legacy bootstrap limits. Separate
+  source attribute binding from usage validation so self-describing AttributeUsage
+  and mutually attributed classes no longer recurse to stack overflow. Public
+  GetAttributes still returns validated declarations; target/multiplicity checks
+  remain active regardless of query order.
 
 - **2026-10-10:** Dispose configured native reference iterators on normal and structured
   exits from `for`, in lifetime order with nested `use` scopes. Lower these loops

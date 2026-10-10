@@ -3943,3 +3943,14 @@ custom-attribute capability. No Runtime Contract option changes. Ordinary .NET
 binding remains the default, including the correction separating property attributes
 from backing-field targets. See [source annotation emission](neoclr-cli-bridge.md#native-source-annotation-emission-2026-10-10)
 for payload/target bounds, ownership, bootstrap/bundle provenance and validation.
+
+
+### Attribute policy binding cycles (2026-10-10)
+
+Source attribute binding now produces immutable bound entries before usage validation.
+Usage lookup consumes that internal data, avoiding recursive GetAttributes calls for
+self-describing AttributeUsageAttribute and mutually attributed classes. Public
+GetAttributes still filters invalid applications and reports target/multiplicity
+errors. Bound and validated caches are invalidated together with declarations. This
+is a shared .NET compiler correction; no Runtime Contract option, target syntax or
+emission encoding changes. Imported policies retain their existing metadata path.

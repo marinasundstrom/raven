@@ -10,6 +10,64 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class AttributeUsageTests : CompilationTestBase
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SourceUsageAttribute_CanDescribeItself_WithoutSkippingValidation(bool queryFirst)
+    {
+        const string source = """
+            module System
+            [AttributeUsage(AttributeTargets.Class)]
+            class AttributeUsageAttribute : Attribute {
+                init(targets: AttributeTargets) { }
+                var AllowMultiple: bool { get; set; }
+            }
+            [AttributeUsage(AttributeTargets.Method, AllowMultiple: true)]
+            class MethodOnlyAttribute : Attribute { }
+            class Subject {
+                [MethodOnly]
+                [MethodOnly]
+                func Valid() { }
+            }
+            [MethodOnly]
+            class Invalid { }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+            .Single(c => c.Identifier.Text == "AttributeUsageAttribute");
+        var usage = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        if (queryFirst) Assert.Single(usage.GetAttributes());
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        var error = Assert.Single(errors);
+        Assert.Equal("RAV0502", error.Id);
+        Assert.Contains("MethodOnlyAttribute", error.GetMessage());
+        Assert.Single(usage.GetAttributes());
+        Assert.Equal(errors.Select(d => d.ToString()), compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.ToString()));
+    }
+
+    [Fact]
+    public void MutuallyAttributedSourceClasses_BindWithoutRecursiveValidation()
+    {
+        const string source = """
+            import System.*
+            [Second]
+            class FirstAttribute : Attribute { }
+            [First]
+            class SecondAttribute : Attribute { }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(tree);
+        foreach (var declaration in tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>())
+        {
+            var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+            Assert.Single(type.GetAttributes());
+            Assert.Single(type.GetAttributes());
+        }
+    }
+
     [Fact]
     public void PropertyAttributes_DoNotLeakOntoBackingFields()
     {

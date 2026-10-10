@@ -8731,3 +8731,25 @@ values, nulls, field/property kinds and snapshot-copy isolation. Its compiler bu
 remains 494dede84; the reference bridge is built with dfaa76145. This is not validation
 of compiler-produced AOT annotations or expanded Windows named-data execution.
 MemberInfo resolution and broader named constant categories remain .NET parity gaps.
+
+
+## Source-owned AttributeUsage declarations (2026-10-10)
+
+neoCLR's source runtime now defines AttributeTargets and AttributeUsageAttribute
+alongside Attribute. AttributeUsage describes its own Class-only policy. This exposed
+a general binding cycle: validation queried GetAttributes on the same declaration.
+The shared compiler now separates bound data from usage validation; policy lookup
+reads only internal bound entries. Public symbol queries remain validated. This does
+not hard-code an AttributeUsage policy or skip diagnostics on recursive declarations.
+Ordinary .NET and native source share the fix, with query-order, invalid-target,
+repeatable-attribute and mutual-reference regressions.
+
+No Runtime Contract setting or CLI representation changes. Native enum identity,
+constructor references and named values remain native metadata; the temporary CLI
+reference mirrors the .NET flag constants, constructor, ValidOn and Boolean options.
+Raven owns binding/emission, neoCLR owns runtime declarations and metadata decoding.
+Separate-library concrete Attribute inheritance and compiler-produced AOT attribute
+inspection remain independent gates. This slice compiles the complete source-native
+Runtime/Data/Networking/Web libraries; its runtime consumer checks usage defaults
+and imported policy diagnostics. The tested compiler is the matching source build,
+not the older 494dede84 bundle.

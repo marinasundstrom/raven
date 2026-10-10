@@ -27,6 +27,10 @@ Untargeted attributes on a property or event describe that declaration; only exp
 `field:` attributes describe its backing field. Raven declarations emitted as fields
 retain their untargeted field attributes.
 
+Source attribute policies may describe themselves or participate in mutually attributed
+classes. Raven binds attribute data before applying usage validation so those
+relationships do not recurse; invalid targets and multiplicity still diagnose.
+
 ## Extension members
 Raven both declares and consumes extension members using CLR extension metadata,
 but it classifies extension semantics per emitted member rather than treating an
