@@ -14,6 +14,19 @@ internal static class NullableSymbolChecks
         var core = coreDefinition.Identity;
         var source = """
             public interface Box<T> { }
+            public interface Resource { func Close() }
+            public abstract class BaseResource : Resource {
+                virtual func Close() { }
+            }
+            public class DerivedResource : BaseResource { }
+            public class Holder {
+                private var stored: object? = null
+                var Current: object? {
+                    get => stored
+                    set { stored = value }
+                }
+                var Input: object? { set { stored = value } }
+            }
             public static class Api {
                 public static func Echo(value: object?) -> object? => value
                 public static func Nested(value: object?[]) -> object?[] => value
@@ -25,14 +38,22 @@ internal static class NullableSymbolChecks
         var bootstrap = NeoClrPrimitiveBootstrap.ReadAssembly(File.ReadAllBytes(corePath));
         var coreReference = bootstrap.Reference;
         var library = Compilation.Create("NullableLibrary", [SyntaxTree.ParseText(source)], [coreReference],
-            CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+            CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name).WithRuntimeTypeOfContract(null).WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
         using var stream = new MemoryStream();
         var emit = NeoClrCompilationEmitter.EmitMetadataAssembly(library, stream, new(new("NullableLibrary", new(1, 0, 0, 0)), core, [new NeoClrMetadataDependency(coreReference, coreDefinition, core)]));
         Check(emit.Success, string.Join("; ", emit.Diagnostics));
         var reference = NeoClrMetadataReference.ReadAssembly(stream.ToArray(), bootstrap);
-        var consumer = Compilation.Create("NullableConsumer", [SyntaxTree.ParseText("func Main() -> unit { Api.Echo(null) }")],
-            [coreReference, reference], CompilationOptions.NeoCLR);
+        var consumer = Compilation.Create("NullableConsumer", [SyntaxTree.ParseText("func Main() -> unit { Api.Echo(null); let holder = Holder(); holder.Current = null; holder.Input = null; let resource: Resource = DerivedResource(); resource.Close() }")],
+            [coreReference, reference], CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name).WithRuntimeTypeOfContract(null));
         Check(!consumer.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("; ", consumer.GetDiagnostics()));
+        var property = consumer.GetTypeByMetadataName("Holder")!.GetMembers("Current").OfType<IPropertySymbol>().Single();
+        Check(property.Type.IsNullable && property.GetMethod!.ReturnType.IsNullable && property.SetMethod!.Parameters.Single().Type.IsNullable,
+            "property and accessor annotations diverged");
+        var input = consumer.GetTypeByMetadataName("Holder")!.GetMembers("Input").OfType<IPropertySymbol>().Single();
+        Check(input.GetMethod is null && input.Type.IsNullable, "write-only property annotation lost");
+        var resourceType = consumer.GetTypeByMetadataName("DerivedResource")!;
+        Check(resourceType.Interfaces.Length == 0 && resourceType.AllInterfaces.Any(i => i.Name == "Resource"),
+            "class-inherited interface contract lost");
         var api = consumer.GetTypeByMetadataName("Api")!;
         IMethodSymbol Method(string name) => api.GetMembers(name).OfType<IMethodSymbol>().Single();
         var echo = Method("Echo");
@@ -45,7 +66,7 @@ internal static class NullableSymbolChecks
         Check(constructed.ReturnType.IsNullable && constructed.Parameters[0].Type.IsNullable, "constructed method lost annotations");
         Check(!Method("Strict").ReturnType.IsNullable, "unannotated type became nullable");
         var bad = Compilation.Create("InvalidNull", [SyntaxTree.ParseText("func Main() -> unit { Api.Strict(null) }")],
-            [coreReference, reference], CompilationOptions.NeoCLR);
+            [coreReference, reference], CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name).WithRuntimeTypeOfContract(null));
         Check(bad.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "nonnullable parameter accepted null");
         Console.WriteLine("PASS native callable nullable emission, nested signatures, generic scope and null admission");
     }

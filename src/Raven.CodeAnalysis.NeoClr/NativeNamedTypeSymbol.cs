@@ -75,7 +75,11 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
         allInterfaces = new(() =>
         {
             var module = (NativeModuleSymbol)ContainingModule;
-            return [.. view.GetInterfaces().Select(view => (INamedTypeSymbol)module.MapView(view))];
+            // The metadata view expands declared interface edges; class inheritance
+            // contributes additional interfaces to the compiler's AllInterfaces contract.
+            return [.. view.GetInterfaces().Select(view => (INamedTypeSymbol)module.MapView(view))
+                .Concat(BaseType?.AllInterfaces ?? [])
+                .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default)];
         });
         var methods = view.GetMethods().Concat(view.GetConstructors()).OrderBy(method => method.MetadataToken)
             .Select(method => new NativeMethodSymbol(compilation, method, this)).ToArray();

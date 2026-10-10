@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Native type import includes base-class interfaces in AllInterfaces,
+  and native properties retain nullable annotations from their accessor signatures.
+  This restores inherited interface conversions and nullable property assignment for
+  emitted consumers, including HTTP handler pipelines. Runtime Contract selection and
+  physical metadata signatures are unchanged.
+
 - **2026-10-10:** Match native attribute constructors and named members independently
   of nullable reference annotations. Preserve nullable source signatures while
   importing physical String attribute payloads, including null; reimport emitted

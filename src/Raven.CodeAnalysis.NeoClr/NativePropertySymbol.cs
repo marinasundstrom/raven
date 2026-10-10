@@ -22,7 +22,9 @@ internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
         attributes = new(() => ((NativeModuleSymbol)owner.ContainingModule).MapAttributes(view.GetCustomAttributes()));
         IsInitOnly = view.IsInitOnly;
         IsIndexer = view.IndexParameterTypes.Count != 0;
-        type = new(() => module.MapView(view.PropertyType));
+        // Property rows describe physical storage. Nullable annotations live on
+        // accessor signatures; preserve them for ordinary property binding too.
+        type = new(() => GetMethod?.ReturnType ?? SetMethod?.Parameters.Last().Type ?? module.MapView(view.PropertyType));
         GetMethod = view.GetMethod is { } getter ? module.GetMethodSymbol(getter.MetadataToken) : null;
         SetMethod = view.SetMethod is { } setter ? module.GetMethodSymbol(setter.MetadataToken) : null;
         parameters = new(() => !IsIndexer ? [] : GetMethod?.Parameters ?? [.. SetMethod!.Parameters.Take(SetMethod.Parameters.Length - 1)]);

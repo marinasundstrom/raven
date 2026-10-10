@@ -9347,3 +9347,19 @@ with no Runtime Contract configuration change and no native-only encoding. Focus
 semantic and .NET execution tests cover the selection; neoCLR handler pipelines are
 an additional native consumer. Native metadata still retains declarations and override
 relationships; no metadata or code generation replacement is needed for this fix.
+
+### Native inherited interfaces and property nullability (2026-10-10)
+
+NativeNamedTypeSymbol composes declared interface closure with BaseType.AllInterfaces,
+deduplicated and cached per imported symbol. The underlying metadata view currently
+expands interface edges only; compiler semantic AllInterfaces also requires class
+inheritance. This restores .NET-style assignment through an inherited interface without
+new Runtime Contract configuration. The metadata introspection view's broader class-base
+closure remains a separately tracked API gap, not a new language semantic rule.
+
+NativePropertySymbol takes its annotated type from the getter, or the final setter
+parameter for write-only properties. Physical property rows do not carry nullability;
+accessor metadata already retains the annotation. No new bridge payload or native
+metadata version is needed. Nullable property assignment and inherited interface
+conversion are covered by a native emitted/reimported consumer; strict nonnullable
+parameters continue rejecting null. Ordinary .NET imports remain unchanged.
