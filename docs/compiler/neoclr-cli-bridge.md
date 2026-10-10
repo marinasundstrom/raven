@@ -369,3 +369,15 @@ owns binding and native emission; neoCLR owns metadata preservation/import and
 resolved access checks. Native assembly-level metadata replaces the temporary CLI
 attribute transport once those layers are qualified together. No information is
 silently dropped and then treated as permission: absent grants deny friend access.
+
+### Int32 attribute flag constants (2026-10-10)
+
+Shared attribute constant folding preserves declared Int32 storage for bitwise
+compositions, including Int32-backed enum flags. This is a semantic metadata fix
+for all targets; no Runtime Contract option is added or changed. Native attribute
+emission can pass the typed value directly to the strict metadata writer. The
+temporary CLI projection keeps enum identity and the same 32-bit payload; native
+metadata replaces that projection without changing the contract. Other numeric
+widths and richer attribute payloads remain governed by their existing support.
+Focused AttributeUsage semantic tests cover OR, AND and XOR storage and policy.
+neoCLR's ObsoleteAttribute is the integration consumer.
