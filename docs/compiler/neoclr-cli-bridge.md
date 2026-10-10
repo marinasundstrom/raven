@@ -8844,3 +8844,38 @@ ownership and missing-retention failure. Native assembly traversal remains open.
 Source-built native libraries and the reference-only bridge rebuild; the independent
 legacy implementation generator remains blocked by its incompatible Map contract.
 See neoCLR docs/experiments/guest-modules/README.md for commands and exact scope.
+
+
+### Native executing-assembly lowering and shared namespaces (2026-10-10)
+
+neoCLR's AOT backend now preserves the lexical assembly of a verified direct
+RuntimeContext.ExecutingAssembly query. Its private getter lowering adds a caller
+identity argument and constructs a bounded assembly descriptor; source signatures,
+CLI/reference metadata and Runtime Contract configuration are unchanged. Ordinary
+.NET compilation is unaffected. The backend owns this temporary lowering and its
+facade checks; an eventual native caller-context intrinsic should replace it.
+It preserves virtual receiver checks and branch/source-position mappings. Binding
+the getter itself as a function is diagnosed; general reflective invocation remains
+unqualified. A query retains identity/name only, without granting module catalogs,
+type discovery or invocation rights.
+
+neoCLR's guest-modules gate passes interpreter and macOS ARM64 native application,
+separate-library and lambda-callback checks, including a native executable built
+without reflection roots. Windows qualification is pending. The backend test uses
+an explicit library load set, not new arbitrary dependency support in the project
+driver. See neoCLR docs/experiments/guest-modules/validation.json and the .NET
+GetExecutingAssembly comparison stored beside it.
+
+Deferred compiler candidate: at compiler revision 1a0c4e627, assigning the imported
+module function ReadLibraryAssembly directly to a local fails native emission with
+NEOMETA001 (unsupported function reference). A lambda calling that function compiles
+and is the callback tested above. This is an emitter gap, not a permanent native
+language restriction; direct method-group emission still requires a compiler fix
+and independent validation.
+
+The author also clarifies that one module namespace may span referenced assemblies,
+using ordinary .NET-style namespace lookup and ambiguity semantics. Dotted names
+remain a convention, without metadata parent links. Current assembly-scoped module
+descriptors record contributions; they do not make namespace names exclusive.
+Split-module lookup qualification and shared-view introspection API reconciliation
+remain follow-up work. Defining-assembly identity stays on individual declarations.

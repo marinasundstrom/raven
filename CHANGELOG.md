@@ -8,7 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   contract and removal of its physical MetadataToken property. Consumers require
   matching rebuilt libraries/reference/runtime; Runtime Contract configuration and
   compiler emission are unchanged. Record the qualified guest/AOT ownership scope
-  and separate legacy bootstrap Map-contract blocker.
+  and separate legacy bootstrap Map-contract blocker. Document the native backend
+  executing-assembly lowering and passing separate-library/lambda consumer, with no
+  compiler contract change; record the deferred imported function-reference emitter
+  gap and author clarification that module namespaces may span assemblies.
 
 - **2026-10-10:** Migrate the native metadata importer to logical ModuleInfo: scan
   all modules for free functions and use the assembly-wide type view. Assemblies can
