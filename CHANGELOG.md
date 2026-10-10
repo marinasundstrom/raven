@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Document neoCLR’s missing native Int64 parser binding fix and
+  passing local parser tests. Compiler emission, Runtime Contract configuration and
+  reference encoding are unchanged; Windows validation remains pending.
+
 - **2026-10-10:** Document the matching neoCLR guest logical ModuleInfo reference
   contract and removal of its physical MetadataToken property. Consumers require
   matching rebuilt libraries/reference/runtime; Runtime Contract configuration and

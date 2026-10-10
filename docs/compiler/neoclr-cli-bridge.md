@@ -8925,3 +8925,18 @@ libraries; it grants no ownerless-function retention. Runtime Contract configura
 compiler emission and metadata encoding remain unchanged. The native/interpreted
 attribute consumer passes; Windows requalification is pending. Native module-member
 retention remains a separate backend capability replacing this bounded rejection.
+
+### Matching native Int64 parser binding — 2026-10-10
+
+neoCLR's migrated Int64 parser tests exposed a missing AOT implementation of the
+existing `neoCLR.Runtime.ParseInt64(String) -> Value` service. The native backend
+now binds that exact InternalCall through its integer-text profile. Raven's Runtime
+Contract configuration, source semantics, CLI reference encoding and emitted call
+are unchanged; compiler revision 1a0c4e62734b2d4f17dc9f8af1f5d02c566f8cf4 needs no rebuild.
+The public managed wrapper still decodes success or typed parse errors. The temporary
+native adapter uses private erased Int64/Byte lanes, not metadata ordinals or a
+public ABI; neoCLR's backend owns their eventual replacement by native service lowering.
+Five public boundary/grammar/formatting tests pass native macOS ARM64 and interpreted
+execution, with focused native/interpreter parity and null-fault checks. Windows
+qualification remains pending. This closes an implementation gap in the existing
+integer contract; it does not redefine parsing for the native target.
