@@ -15,7 +15,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   imported accessors from named-member lookup, matching PE import and preventing
   direct accessor-name bypasses. Matching neoCLR
   metadata/runtime 84df378d or later is required; no runtime freeze or full native
-  record semantics are implied.
+  record semantics are implied. Native executable/interpreter and separate-library
+  rejection tests also pass on macOS and Windows x64 with neoCLR a2d7eda4; earlier
+  AOT projections discard the init association and are not compatible.
   Add focused portable admission/lowering regression tests. This native adapter
   slice is on codex/source-object-metadata-resolution, not main.
 

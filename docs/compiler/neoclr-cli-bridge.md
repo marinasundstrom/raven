@@ -8580,6 +8580,9 @@ Validation: 62 focused property/object-initializer/record/portable tests pass, i
 capability rejection and automatic/implemented init body lowering. A separate native
 library with an automatic property and generic positional record compiles; its
 initializer consumer runs in neoCLR's interpreter. The neoCLR init-accessor experiment
-records executable and negative consumer qualification. This adapter remains on
+records successful macOS/Windows x64 native/interpreter and negative consumer
+qualification. Native AOT requires neoCLR `a2d7eda4` or later to retain reached init
+associations through specialization/trimming; metadata/runtime support alone does
+not qualify that backend. This adapter remains on
 `codex/source-object-metadata-resolution`, not Raven main; general portable support is
 an integration candidate dependent on the existing shared native emission foundations.
