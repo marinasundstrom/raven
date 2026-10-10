@@ -3010,6 +3010,16 @@ internal static class AsyncLowerer
             return node;
         }
 
+        public override BoundExpression? VisitBaseExpression(BoundBaseExpression node)
+        {
+            if (node.Receiver is not null)
+                return (BoundExpression?)base.VisitBaseExpression(node);
+            if (_stateMachine.ThisField is IFieldSymbol thisField)
+                return new BoundBaseExpression(node.Type, node.Reason,
+                    new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), thisField));
+            return node;
+        }
+
         public override BoundExpression? VisitSelfExpression(BoundSelfExpression node)
         {
             if (node is null)

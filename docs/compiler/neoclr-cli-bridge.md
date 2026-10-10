@@ -393,3 +393,16 @@ with no Runtime Contract configuration change and no native-only encoding. Focus
 semantic and .NET execution tests cover the selection; neoCLR handler pipelines are
 an additional native consumer. Native metadata still retains declarations and override
 relationships; no metadata or code generation replacement is needed for this fix.
+
+## Async base receivers (2026-10-10)
+
+The shared async lowerer now retains a base-dispatch marker around the hoisted
+original instance receiver. Previously an async override could pass its state
+machine to a base method; a normal .NET regression returned 1 instead of 42.
+CLI emission loads the hoisted receiver and retains direct `call` dispatch.
+Runtime Contract configuration is unchanged. This is a shared compiler fix, not
+a temporary native mapping; the native backend must consume the same explicit
+receiver while preserving direct dispatch. No metadata replacement is needed.
+Focused CLR execution tests cover completed and suspending awaits with private
+base storage and an overridden method. NeoCLR pipeline qualification remains
+on its integration branch.
