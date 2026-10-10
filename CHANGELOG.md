@@ -17,7 +17,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   co-owned source attribute constructor identity. Fix ordinary property attributes
   leaking onto backing fields; explicit field targets and field-only storage retain
   their semantics. Separate-library Attribute inheritance, guest named-data queries
-  and test discovery remain open.
+  and test discovery remain open. neoCLR subsequently adds guest named-data
+  snapshots through ordinary reference signatures, without a compiler setting
+  change; document the snapshot compatibility and legacy bootstrap limits.
 
 - **2026-10-10:** Dispose configured native reference iterators on normal and structured
   exits from `for`, in lifetime order with nested `use` scopes. Lower these loops

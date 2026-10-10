@@ -8710,3 +8710,24 @@ and return-target cases verify diagnostics and unchanged output streams. The 21
 ordinary AttributeUsage tests pass. AOT metadata-authored retention is independently
 qualified by neoCLR 6ae823c0 on macOS ARM64 and Windows x64; this source emission
 slice has not replaced that fixture with a compiler-produced AOT consumer.
+
+
+## neoCLR named attribute data (2026-10-10)
+
+The source runtime's CustomAttributeData.GetNamedArguments and
+CustomAttributeNamedArgument (MemberName, IsField, TypedValue) use ordinary class,
+getter and sequence signatures. No compiler behavior or Runtime Contract option is
+added. Native metadata remains authoritative; neoCLR's temporary CLI reference
+bridge declares the same signatures and validates the private snapshot array layout.
+The shared interpreter/AOT recipe creates traced descriptors without calling attribute
+constructors or setters. Raven owns ordinary compilation, neoCLR owns metadata,
+snapshot ABI and compatibility. Source-native library compilation supplies the new
+API; the independent legacy generated CLI snapshot stays fixed-only until its
+ArrayReflection project-input regeneration blocker is resolved. Fixed-only libraries
+continue working; named data requires the matching newer library and otherwise faults.
+
+neoCLR's expanded source-library consumer passes macOS ARM64 native/interpreter
+values, nulls, field/property kinds and snapshot-copy isolation. Its compiler bundle
+remains 494dede84; the reference bridge is built with dfaa76145. This is not validation
+of compiler-produced AOT annotations or expanded Windows named-data execution.
+MemberInfo resolution and broader named constant categories remain .NET parity gaps.
