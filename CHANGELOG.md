@@ -10,7 +10,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   are one-way and non-transitive, with full-public-key matching and no token/name
   fallback for malformed or qualified identities. Existing .NET attribute emission
   and Runtime Contract settings are unchanged. Native assembly grant retention and
-  neoCLR runtime enforcement remain explicit integration gaps.
+  neoCLR runtime enforcement remain explicit integration gaps. Cache both granted
+  and denied access per immutable assembly-symbol pair using weak keys; repeated
+  internal-member checks avoid attribute scans, identity parsing and allocation.
 
 - **2026-10-10:** Admit single unfiltered constant-Int32-range array comprehensions
   in the portable/native array profile, preserving selector order and inclusive

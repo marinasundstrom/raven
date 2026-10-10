@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 using Raven.CodeAnalysis.Symbols;
 
@@ -13,7 +14,24 @@ internal static class FriendAssemblyAccess
 {
     internal const string AttributeName = "System.Runtime.CompilerServices.InternalsVisibleToAttribute";
 
+    // Symbols are immutable compilation snapshots. Weak keys avoid retaining either
+    // compilation through a process-wide cache; Lazy publishes one decision per pair.
+    private static readonly ConditionalWeakTable<IAssemblySymbol, ConditionalWeakTable<IAssemblySymbol, Lazy<bool>>> Decisions = new();
+
     internal static bool IsGranted(IAssemblySymbol declaring, IAssemblySymbol requesting)
+    {
+        var decisions = Decisions.GetValue(declaring, static _ => new());
+        return decisions.TryGetValue(requesting, out var decision)
+            ? decision.Value
+            : GetOrCreateDecision(decisions, declaring, requesting).Value;
+    }
+
+    private static Lazy<bool> GetOrCreateDecision(
+        ConditionalWeakTable<IAssemblySymbol, Lazy<bool>> decisions,
+        IAssemblySymbol declaring, IAssemblySymbol requesting)
+        => decisions.GetValue(requesting, requester => new Lazy<bool>(() => ComputeGrant(declaring, requester)));
+
+    private static bool ComputeGrant(IAssemblySymbol declaring, IAssemblySymbol requesting)
     {
         var declaringIdentity = declaring is PEAssemblySymbol pe ? pe.AccessIdentity : new AssemblyName { Name = declaring.Name };
         var requestingIdentity = requesting is PEAssemblySymbol requester ? requester.AccessIdentity : new AssemblyName { Name = requesting.Name };
