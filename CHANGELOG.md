@@ -8,7 +8,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   read-only native key/value transport: primary/copy construction, getters and
   simple deconstruction assignments. Ordinary .NET records retain their existing
   behavior. Native metadata omits record equality/hash/display helpers and init
-  accessors; this is a bounded development contract, not full native record support.
+  accessors in the first slice; the follow-up now preserves init accessors through
+  native metadata/import and admits initialization via an explicit InitAccessor
+  capability. Ordinary assignment remains restricted by Raven binding. Add automatic
+  and implemented accessor lowering tests (62 focused tests pass). Hide native
+  imported accessors from named-member lookup, matching PE import and preventing
+  direct accessor-name bypasses. Matching neoCLR
+  metadata/runtime 84df378d or later is required; no runtime freeze or full native
+  record semantics are implied.
   Add focused portable admission/lowering regression tests. This native adapter
   slice is on codex/source-object-metadata-resolution, not main.
 

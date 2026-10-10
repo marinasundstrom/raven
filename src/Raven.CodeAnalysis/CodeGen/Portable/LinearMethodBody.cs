@@ -1544,7 +1544,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundInvocationExpression call when call.ExtensionReceiver is null &&
                     (call.Method.IsStatic && call.Receiver is null or BoundTypeExpression ||
-                     call.Method.MethodKind is (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet) && SupportedInstanceCall(call.Method)):
+                     call.Method.MethodKind is (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly) && SupportedInstanceCall(call.Method)):
                     if (!TrySignature(call.Method, out var callSignature)) return Reject("only supported value signatures and unconstrained generics (Unit only as result): " + call.Method.Name, Syntax(expression));
                     if (capabilities is not null && (!capabilities.Allows(callSignature) ||
                         !SupportedTypeArguments(call.Method)))

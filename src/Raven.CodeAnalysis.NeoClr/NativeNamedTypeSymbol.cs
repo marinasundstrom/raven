@@ -47,7 +47,8 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
             imports.CoreAssemblyName == ContainingAssembly.Name &&
             declaringType is null && view.GenericArity == 0 && !view.IsValueType && !view.IsInterface &&
             view.FullName is "System.ValueType" or "System.Enum" or "System.Array")
-            SpecialType = view.FullName switch {
+            SpecialType = view.FullName switch
+            {
                 "System.Enum" => SpecialType.System_Enum,
                 "System.Array" => SpecialType.System_Array,
                 _ => SpecialType.System_ValueType
@@ -76,9 +77,12 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
         });
         var methods = view.GetMethods().Concat(view.GetConstructors()).OrderBy(method => method.MetadataToken)
             .Select(method => new NativeMethodSymbol(compilation, method, this)).ToArray();
-        members = [.. methods,
+        var properties = view.GetProperties().Select(property => new NativePropertySymbol(property, this)).ToArray();
+        // Accessors remain available through their property and the token map,
+        // matching PE import; they are not directly invocable named members.
+        members = [.. methods.Where(method => method.AssociatedSymbol is null),
             .. view.GetFields().Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(field, this, ordinal)),
-            .. view.GetProperties().Select(property => (ISymbol)new NativePropertySymbol(property, this))];
+            .. properties];
     }
     public override ImmutableArray<AttributeData> GetAttributes()
     {

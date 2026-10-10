@@ -70,6 +70,7 @@ internal sealed record SourceCallablePlan(
     internal EmissionDeclarationKind DeclarationKind => IsObjectRootSlot ? EmissionDeclarationKind.ObjectRootSlot : Override != EmissionOverrideKind.None ? Symbol.ContainingType.IsValueType ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride : IsAssemblyFunction
         ? Namespace.Length == 0 ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.NamespacedAssemblyFunction
         : Symbol.MethodKind == MethodKind.Constructor ? EmissionDeclarationKind.Constructor
+        : Symbol.MethodKind == MethodKind.InitOnly ? EmissionDeclarationKind.InitAccessor
         : Symbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
             ? Symbol.ContainingSymbol is IPropertySymbol { IsIndexer: true } ? EmissionDeclarationKind.IndexerAccessor : EmissionDeclarationKind.PropertyAccessor
         : Symbol.IsStatic ? EmissionDeclarationKind.StaticMethod : EmissionDeclarationKind.InstanceMethod;
@@ -86,7 +87,7 @@ internal sealed record SourceCallablePlan(
         plan = null;
         if (symbol.IsExtern || symbol.IsOverride && symbol.ContainingType is { IsReferenceType: true, Arity: > 0 } ||
             !CallableSignature.TryCreate(symbol, out var signature, capabilities)) return false;
-        if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet) || symbol.IsAbstract && !IsClassVirtualSlot(symbol, capabilities) || (symbol.IsVirtual || symbol.IsOverride) && !IsClassVirtualSlot(symbol, capabilities) &&
+        if (!symbol.IsStatic && (symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly) || symbol.IsAbstract && !IsClassVirtualSlot(symbol, capabilities) || (symbol.IsVirtual || symbol.IsOverride) && !IsClassVirtualSlot(symbol, capabilities) &&
             (!(IsRootSlot(symbol) && capabilities?.Allows(EmissionDeclarationKind.ObjectRootSlot) == true) &&
              (ClassifyOverride(symbol) == EmissionOverrideKind.None || capabilities?.Allows(symbol.ContainingType?.IsValueType == true ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride) != true)) ||
             symbol.ContainingType is not { } receiver || !SourceTypePlan.TryCreate(receiver, out _, capabilities))) return false;
@@ -141,7 +142,7 @@ internal sealed record SourceCallablePlan(
                 plan = new(symbol, syntax, expressionBody, symbol.ContainingType, symbol.MetadataName, signature);
                 if (capabilities is null || plan.IsSupportedBy(capabilities)) return true;
                 plan = null; return false;
-            case AccessorDeclarationSyntax accessor when symbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet:
+            case AccessorDeclarationSyntax accessor when symbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly:
                 plan = new(symbol, syntax, (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody, symbol.ContainingType, symbol.MetadataName, signature);
                 if (plan.Body is not null && (capabilities is null || plan.IsSupportedBy(capabilities))) return true;
                 plan = null; return false;

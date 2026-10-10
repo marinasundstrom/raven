@@ -17,6 +17,7 @@ internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
     {
         var module = (NativeModuleSymbol)owner.ContainingModule;
         IsStatic = view.IsStatic;
+        IsInitOnly = view.IsInitOnly;
         IsIndexer = view.IndexParameterTypes.Count != 0;
         type = new(() => module.MapView(view.PropertyType));
         GetMethod = view.GetMethod is { } getter ? module.GetMethodSymbol(getter.MetadataToken) : null;
@@ -38,6 +39,7 @@ internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
     public override bool IsStatic { get; }
     public bool IsIndexer { get; }
     public ImmutableArray<IParameterSymbol> Parameters => parameters.Value;
+    internal bool IsInitOnly { get; }
     public bool IsRequired => false;
     public override IModuleSymbol ContainingModule => ContainingType!.ContainingModule!;
     public override IAssemblySymbol ContainingAssembly => ContainingType!.ContainingAssembly!;

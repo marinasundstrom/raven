@@ -8553,3 +8553,33 @@ instance-deconstruction lowering is a general integration candidate, validated w
 an ordinary source struct independently of the native positional-record consumer.
 Move it with its portable-emission dependencies when reconciling that line; its
 classification as general behavior is not changed by this native consumer.
+
+## Native init properties — 2026-10-10
+
+This follow-up supersedes the previous positional-record getter-only limitation.
+The explicit `InitAccessor` portable capability admits instance automatic and
+implemented init properties, including positional record components. Shared lowering
+uses the existing accessor body/call model. Native emission associates the setter
+with a property carrying `init_only`; native import exposes `MethodKind.InitOnly`,
+so existing Raven initializer/ordinary-assignment diagnostics work across assemblies.
+Native imported accessors remain available through the property/token map and are
+excluded from ordinary named-member lookup, matching PE import and rejecting direct
+`set_Property(...)` bypasses. No syntax, language-service grammar or default .NET
+emitter policy changes.
+
+Requires matching neoCLR metadata/runtime support (neoCLR `84df378d` or later).
+The Runtime Contract continues to select the native adapter explicitly. Native
+semantics do not require a .NET IsExternalInit type: only the CLI transport/reference
+projection emits that standard required return modifier. Native containers retain
+the explicit property fact. Ordinary init calls, including reflection, are permitted
+at runtime; the verifier grants declaring init setters the same own-field readonly
+write privilege as constructors. This is not runtime freezing, full C# construction-
+phase parity, native init indexers, or full record identity/equality/hash/display.
+
+Validation: 62 focused property/object-initializer/record/portable tests pass, including
+capability rejection and automatic/implemented init body lowering. A separate native
+library with an automatic property and generic positional record compiles; its
+initializer consumer runs in neoCLR's interpreter. The neoCLR init-accessor experiment
+records executable and negative consumer qualification. This adapter remains on
+`codex/source-object-metadata-resolution`, not Raven main; general portable support is
+an integration candidate dependent on the existing shared native emission foundations.

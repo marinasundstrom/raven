@@ -168,12 +168,9 @@ internal static class Int32Emitter
                     }
                     foreach (var method in recordSymbol.GetMembers().OfType<IMethodSymbol>())
                     {
-                        // Native positional val components are constructor-only. Until native
-                        // init-accessor metadata is available, project them as getter-only;
-                        // attempts to call the synthesized initializer fail normal admission.
                         // The positional-storage capability does not export record equality,
                         // hashing or formatting. Calls to those source helpers are rejected.
-                        if (method.MethodKind is not (MethodKind.Constructor or MethodKind.PropertyGet) && method.Name != "Deconstruct") continue;
+                        if (method.MethodKind is not (MethodKind.Constructor or MethodKind.PropertyGet or MethodKind.InitOnly) && method.Name != "Deconstruct") continue;
                         if (!SourceCallablePlan.TryCreate(method, out var recordCallable, NeoClrCapabilities.Shared, recordSyntax))
                             throw Unsupported("record callable contract: " + method.ToDisplayString());
                         plans.Add(recordCallable!);
@@ -243,10 +240,10 @@ internal static class Int32Emitter
                                 !CallableSignature.TryType(property.Type, false, out _, NeoClrCapabilities.Shared))
                                 throw Unsupported("only supported instance properties/storage or implemented static properties without storage");
                             if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
-                                a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||
+                                a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration or SyntaxKind.InitAccessorDeclaration) ||
                                 a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null && property.BackingField is null) ||
                                 a.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword))))
-                                throw Unsupported("only implemented get/set accessors without additional contracts");
+                                throw Unsupported("only implemented get/set/init accessors without additional contracts");
                             if (property.BackingField is { } backingField) storageFields.Add(backingField);
                             if (property.EmitAsFieldOnly) continue;
                             properties.Add(property);
@@ -730,7 +727,7 @@ internal static class Int32Emitter
             CallableSignature.TryType(property.Type, false, out var propertyType, NeoClrCapabilities.Shared);
             var valueType = NeoClrTypeMapper.Map(propertyType, type => nativeTypes[type], ImportExternalType);
             nativeTypes[property.ContainingType!].AddProperty(property.MetadataName, valueType,
-                property.GetMethod is null ? null : definedMethods[property.GetMethod], property.SetMethod is null || property.SetMethod.MethodKind == MethodKind.InitOnly && property.ContainingType is SourceNamedTypeSymbol { IsRecord: true, IsValueType: true } ? null : definedMethods[property.SetMethod]);
+                property.GetMethod is null ? null : definedMethods[property.GetMethod], property.SetMethod is null ? null : definedMethods[property.SetMethod], isInitOnly: property.SetMethod?.MethodKind == MethodKind.InitOnly);
         }
         var references = new CallableReferenceTable<NeoClrCallableReference>(target =>
         {
