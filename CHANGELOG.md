@@ -14,7 +14,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   passing local parser tests. Also document native Char wrapper/String factory fixes,
   passing local construction tests and Windows object emission. Compiler emission,
   Runtime Contract configuration and reference encoding are unchanged; Windows
-  execution validation remains pending.
+  execution validation remains pending. Document the subsequent native primitive
+  parser/shared-kernel and floating transport fixes, with twelve passing local
+  parser cases and unchanged Raven contracts.
 
 - **2026-10-10:** Document the matching neoCLR guest logical ModuleInfo reference
   contract and removal of its physical MetadataToken property. Consumers require

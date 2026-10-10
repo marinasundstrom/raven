@@ -8970,3 +8970,20 @@ Broader constant-pattern type coverage remains separate work. The focused portab
 pattern suite passes six cases, including values above Int32, mismatches, null and
 dynamically concatenated String contents. Native runtime consumers are qualified in
 neoCLR's matching integration slice; Windows execution is not established here.
+
+### Matching native primitive parser transport — 2026-10-10
+
+neoCLR now admits Single scalar storage and Single/Double closed generic values
+needed by primitive Parse results, with distinct erased tags for narrow/wide and
+floating primitives. Its parser bindings share an allocation-free kernel with the
+interpreter; private native floating lanes preserve IEEE bits and narrow signed
+results normalize on unpack. These are native backend/service changes: no Raven
+Runtime Contract configuration, semantic binding, emitted CLI signature or API
+change is required. The current compiler code pin remains
+`b2f3ba0f8b8e92f0c516155f563b332b0a6fad54`.
+
+Private tags are not native metadata ordinals or a public ABI; neoCLR owns their
+eventual replacement by native service lowering. Twelve parser tests pass native
+macOS ARM64 and interpreted execution. Focused adapter/erased/conversion checks and
+Windows x64 object emission pass; Windows execution, general Single arrays and
+complete floating operation coverage are not claimed.
