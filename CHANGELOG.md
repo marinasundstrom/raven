@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Document source-owned neoCLR AttributeUsage/AttributeTargets and
+  explicit removal of duplicate temporary CLI bootstrap declarations. No Runtime
+  Contract or ordinary .NET lookup change; macOS interpreter/AOT consumer checks
+  defaults and imported target rejection. Windows qualification remains pending.
+
 - **2026-10-10:** Import native custom attributes into Raven's ordinary AttributeData
   model for types, constructors, methods/module functions, fields, properties and
   parameters. Preserve nominal enum constants and named values; the existing binder

@@ -3954,3 +3954,18 @@ GetAttributes still filters invalid applications and reports target/multiplicity
 errors. Bound and validated caches are invalidated together with declarations. This
 is a shared .NET compiler correction; no Runtime Contract option, target syntax or
 emission encoding changes. Imported policies retain their existing metadata path.
+
+
+### neoCLR source usage bootstrap (2026-10-10)
+
+The neoCLR development source library now owns System.AttributeTargets and
+System.AttributeUsageAttribute. Its bootstrap preparation removes the duplicate
+CLI scaffolds and their type-level usage annotations; its ownership manifest checks
+single ownership. No Runtime Contract option or ordinary .NET lookup changes.
+This is a temporary metadata-only preparation step owned by neoCLR, replaced when
+the primitive CLI core is removed. Full API reference declarations remain intact.
+Raven 0f09c350a provides bound-data-before-policy validation, including self-described
+AttributeUsage, with 24 focused .NET tests. The neoCLR usage consumer checks flags,
+defaults and imported RAV0502 rejection with macOS native/interpreter execution;
+Windows qualification is pending. External Attribute bases, inherited guest queries
+and discovery remain open. See neoCLR docs/experiments/attribute-usage/README.md.
