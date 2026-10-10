@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using NeoCLR.Metadata.Experimental.Introspection;
 
 using Raven.CodeAnalysis.Symbols;
@@ -10,6 +12,8 @@ internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLa
     public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
 
     private readonly Lazy<ITypeSymbol> type;
+    private readonly Lazy<ImmutableArray<AttributeData>> attributes;
+    public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
     internal NativeFieldSymbol(FieldInfo view, NativeNamedTypeSymbol owner, int instanceStorageOrdinal)
         : base(SymbolKind.Field, view.Name, owner, owner, owner.ContainingNamespace, [], [], NativeMetadataAccess.Map(view.Accessibility))
     {
@@ -17,6 +21,7 @@ internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLa
         IsConst = view.IsLiteral; constant = view.Constant;
         IsReadOnly = view.IsReadOnly;
         IsStatic = view.IsStatic;
+        attributes = new(() => ((NativeModuleSymbol)owner.ContainingModule).MapAttributes(view.GetCustomAttributes()));
         type = new(() => ((NativeModuleSymbol)owner.ContainingModule).MapView(view.FieldType));
     }
     public ITypeSymbol Type => type.Value;

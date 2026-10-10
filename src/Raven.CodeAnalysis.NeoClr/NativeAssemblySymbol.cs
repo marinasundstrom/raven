@@ -123,6 +123,8 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         }
         return module.methodSymbols[view.MetadataToken].TypeParameters[parameter.Position];
     }
+    internal ImmutableArray<AttributeData> MapAttributes(IReadOnlyList<CustomAttributeInfo> attributes)
+        => NativeAttributeData.Read(compilation, this, attributes);
     internal ITypeSymbol MapView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => viewSymbols.GetOrAdd(view, MapViewCore);
     internal ITypeSymbol MapAnnotatedView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view, NullableAnnotation? annotation)
     {
@@ -243,6 +245,8 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     private readonly NeoCLR.Metadata.Experimental.Introspection.MethodInfo view;
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
     private readonly Lazy<ITypeSymbol> returnType;
+    private readonly Lazy<ImmutableArray<AttributeData>> attributes;
+    public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
 
     internal NativeMethodSymbol(Compilation compilation, NeoCLR.Metadata.Experimental.Introspection.MethodInfo methodView, ISymbol owner)
         : base(SymbolKind.Method, methodView.Name, owner, owner as INamedTypeSymbol, owner as INamespaceSymbol ?? owner.ContainingNamespace, [], [],
@@ -259,6 +263,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
                 .GetInterfaceConstraints().Select(module.MapView)]))];
         TypeArguments = [.. TypeParameters];
         module.RegisterMethod(view.MetadataToken, this);
+        attributes = new(() => module.MapAttributes(view.GetCustomAttributes()));
         returnType = new(() => MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : module.MapAnnotatedView(view.ReturnType, view.ReturnNullableAnnotation));
         parameters = new(() => [.. view.GetParameters().Select(p => (IParameterSymbol)new NativeParameterSymbol(p.Position, p.Name, module.MapAnnotatedView(p.ParameterType, p.NullableAnnotation), this,
             p.PassingMode switch
@@ -267,7 +272,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
                 NeoCLR.Metadata.Experimental.Introspection.ParameterPassingMode.Ref => RefKind.Ref,
                 NeoCLR.Metadata.Experimental.Introspection.ParameterPassingMode.Out => RefKind.Out,
                 _ => throw new InvalidDataException("unsupported native parameter passing mode")
-            }, p.IsParameterArray))]);
+            }, p.IsParameterArray, () => module.MapAttributes(p.GetCustomAttributes()))) ]);
     }
     private NativePropertySymbol? property;
     internal void Associate(NativePropertySymbol value)
@@ -314,8 +319,10 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
 
 internal sealed class NativeParameterSymbol : Symbol, IParameterSymbol
 {
-    internal NativeParameterSymbol(int ordinal, string? name, ITypeSymbol type, NativeMethodSymbol method, RefKind refKind, bool isParameterArray)
-        : base(SymbolKind.Parameter, name ?? "$arg" + ordinal, method, null, method.ContainingNamespace, [], []) { Type = type; RefKind = refKind; HasImplicitName = name is null; IsVarParams = isParameterArray; }
+    internal NativeParameterSymbol(int ordinal, string? name, ITypeSymbol type, NativeMethodSymbol method, RefKind refKind, bool isParameterArray, Func<ImmutableArray<AttributeData>> readAttributes)
+        : base(SymbolKind.Parameter, name ?? "$arg" + ordinal, method, null, method.ContainingNamespace, [], []) { Type = type; RefKind = refKind; HasImplicitName = name is null; IsVarParams = isParameterArray; attributes = new(readAttributes); }
+    private readonly Lazy<ImmutableArray<AttributeData>> attributes;
+    public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
     public ITypeSymbol Type { get; }
     public bool HasImplicitName { get; }
     public bool IsVarParams { get; }

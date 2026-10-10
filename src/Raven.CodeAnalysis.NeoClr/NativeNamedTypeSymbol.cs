@@ -18,12 +18,14 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> interfaces;
     private readonly Lazy<ImmutableArray<INamedTypeSymbol>> allInterfaces;
     private ImmutableArray<ISymbol> members;
+    private readonly Lazy<ImmutableArray<AttributeData>> attributes;
     internal NativeNamedTypeSymbol(Compilation compilation, NominalTypeInfo view, NativeNamespaceSymbol owner,
         NativeNamedTypeSymbol? declaringType = null)
         : base(SymbolKind.Type, view.GenericArity == 0 ? view.Name : view.Name[..view.Name.LastIndexOf('`')], declaringType ?? (ISymbol)owner, declaringType, owner, [], [],
             NativeMetadataAccess.Map(view.Accessibility))
     {
         this.compilation = compilation;
+        attributes = new(ReadAttributes);
         this.view = view;
         // Erased Value has native storage semantics, but no corresponding CLR special
         // type. Preserve its declared identity; target contracts select its ownership.
@@ -84,9 +86,11 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
             .. view.GetFields().Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(field, this, ordinal)),
             .. properties];
     }
-    public override ImmutableArray<AttributeData> GetAttributes()
+    public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
+    private ImmutableArray<AttributeData> ReadAttributes()
     {
-        if (!view.IsFlagsEnum) return [];
+        var declared = ((NativeModuleSymbol)ContainingModule).MapAttributes(view.GetCustomAttributes());
+        if (!view.IsFlagsEnum) return declared;
         // Flags is a primitive-bootstrap marker, independent of the selected Object owner.
         var coreName = compilation.Options.MetadataImportOptions?.CoreAssemblyName;
         var core = coreName is null
@@ -97,7 +101,7 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
             ?? throw new InvalidDataException("The configured core must declare System.FlagsAttribute for flags enums.");
         var constructor = marker.Constructors.SingleOrDefault(m => !m.IsStatic && m.Parameters.IsEmpty && m.DeclaredAccessibility == Accessibility.Public)
             ?? throw new InvalidDataException("The configured core FlagsAttribute requires a public parameterless constructor.");
-        return [new AttributeData(marker, constructor, [], [], null)];
+        return declared.Add(new AttributeData(marker, constructor, [], [], null));
     }
     internal void AddNestedType(INamedTypeSymbol type) => members = members.Add(type);
     internal bool IsExtensionContainer

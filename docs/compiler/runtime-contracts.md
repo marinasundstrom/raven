@@ -3924,3 +3924,13 @@ CLI core classification. Same-named types in other assemblies retain SpecialType
 No type-name fallback to a host core or new Runtime Contract setting is introduced.
 Native structs and union carriers can therefore pass portable type planning. This
 does not supply missing native core primitives or String methods.
+
+
+### Native attribute metadata import (2026-10-10)
+
+The existing native metadata selection now preserves custom attributes and enum/named
+arguments on supported declaration kinds. Imported AttributeUsage data feeds the
+ordinary binder's target and multiplicity checks; no extra runtime-contract switch
+or .NET policy change is introduced. Malformed metadata is reported as RAVT003.
+See [native attribute import](neoclr-cli-bridge.md#native-attribute-import-and-usage-policies-2026-10-10)
+for the exact scope, bootstrap dependency, validation and remaining emission gaps.

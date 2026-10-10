@@ -66,8 +66,9 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
             var metadata = NativeMetadataContext.For(compilation);
             foreach (var reference in Definition.MainModule.TypeReferences) _ = metadata.Resolve(reference);
             _ = new NativeUnionContracts(Definition.MainModule.Types.Select(type => metadata.Resolve(type.ToReference())));
+            NativeAttributeValidation.Validate(metadata, Definition.Identity);
         }
-        catch (InvalidDataException error) { return "invalid native metadata contract: " + error.Message; }
+        catch (Exception error) when (error is InvalidDataException or NotSupportedException) { return "invalid native metadata contract: " + error.Message; }
         catch (NotSupportedException error) { return "unsupported native metadata contract: " + error.Message; }
         return null;
     }

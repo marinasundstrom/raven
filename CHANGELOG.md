@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Import native custom attributes into Raven's ordinary AttributeData
+  model for types, constructors, methods/module functions, fields, properties and
+  parameters. Preserve nominal enum constants and named values; the existing binder
+  now applies imported AttributeUsage targets, repetition defaults and inherited or
+  replaced usage policies. Reject malformed constructor/named-member contracts with
+  RAVT003 before symbol binding. Preserve the configured-core Flags marker. Requires
+  matching neoCLR metadata with CLI instance/nominal signature inspection; native
+  source attribute emission, guest named-data queries and test discovery remain open.
+
 - **2026-10-10:** Dispose configured native reference iterators on normal and structured
   exits from `for`, in lifetime order with nested `use` scopes. Lower these loops
   before scope-exit cleanup; ordinary .NET enumeration remains unchanged. The

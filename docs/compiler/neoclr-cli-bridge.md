@@ -8622,3 +8622,49 @@ wrapped when the same method contained a scoped loop. Preserve the original retu
 expression when no cleanup is needed (notably `?? return` before JSON mapper loops).
 Ten focused cases now check portable body admission and execution, including
 match-arm returns inside loops. System.Data native emission passes this correction.
+
+
+## Native attribute import and usage policies (2026-10-10)
+
+The explicit native metadata provider now maps stored custom attributes to ordinary
+Raven AttributeData on types, constructors, methods and module-level functions,
+fields, properties and parameters. Enum arguments retain their enum symbol and
+TypedConstantKind.Enum; named data retains its member name and typed value. No
+attribute constructor, getter, setter or annotated body runs during inspection.
+The configured primitive-core Flags fact is still synthesized as before.
+
+There is no new Runtime Contract switch. This remains the existing neoCLR target,
+UseNativeMetadata/CoreAssemblyName configuration and explicitly supplied primitive
+bootstrap when used. Ordinary .NET import/binding is unchanged. The ordinary binder
+uses the imported System.AttributeUsageAttribute identity to enforce valid targets
+and AllowMultiple, including inherited policies and replacement defaults. Inherited
+is retained as data; this change does not add an inherited runtime attribute query.
+A similarly named application annotation is not recognized as the core policy.
+
+The native reference boundary validates constructor signatures and public writable
+named fields or public read/write non-indexed properties against its explicit catalog.
+Invalid or unsupported metadata becomes RAVT003 instead of silently losing policy or
+throwing late in binding. The matching host metadata reader now inspects bounded CLI
+instance and nominal method signatures, needed to validate bootstrap attribute
+constructors without runtime loading.
+
+Native data remains authoritative. PE/#Neo keeps a temporary CLI reference projection
+with equivalent constructor signatures and positional/named blobs. No CLI bodies are
+used for native execution. The metadata library owns decoding/identity; Raven owns
+symbol mapping and source diagnostics; neoCLR owns linked validation and execution.
+Direct native emission/import must ultimately replace the bootstrap dependency.
+
+Limitations: this qualifies import and source binding against metadata-authored
+libraries, not native source attribute emission. The emitter still rejects ordinary
+source annotations. Named inherited members, wider payload categories, strict native
+System.Attribute base enforcement, assembly/module/return/generic-parameter targets,
+events, guest named-data inspection and AOT discovery retention are not completed.
+These are support gaps relative to .NET, not alternative semantics. The installed
+runtime bundle is not automatically upgraded by a compiler source change.
+
+Validation: `NeoClrMetadataProbe --native-attributes <Core.dll>` covers all supported
+member kinds, typed enum/named data, nine valid/invalid usage consumers, lookalike
+policy identity and three malformed-data diagnostics. The 20 ordinary AttributeUsage
+regressions pass; native flags and the existing System.Runtime async-symbol consumer
+also pass. The matching neoCLR host suite passes 168 groups. No Windows/AOT execution
+claim is made by these metadata/binding checks.

@@ -11,12 +11,15 @@ internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
     public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
 
     private readonly Lazy<ITypeSymbol> type;
+    private readonly Lazy<ImmutableArray<AttributeData>> attributes;
+    public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
     private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
     internal NativePropertySymbol(PropertyInfo view, NativeNamedTypeSymbol owner)
         : base(SymbolKind.Property, view.Name, owner, owner, owner.ContainingNamespace, [], [], AccessibilityFor(view))
     {
         var module = (NativeModuleSymbol)owner.ContainingModule;
         IsStatic = view.IsStatic;
+        attributes = new(() => ((NativeModuleSymbol)owner.ContainingModule).MapAttributes(view.GetCustomAttributes()));
         IsInitOnly = view.IsInitOnly;
         IsIndexer = view.IndexParameterTypes.Count != 0;
         type = new(() => module.MapView(view.PropertyType));
