@@ -9282,3 +9282,32 @@ API declaration; native metadata remains authoritative. Both API snapshots were 
 No compiler behavior, Runtime Contract option, bridge encoding or runtime bundle pin is
 changed. Full native identities, Windows execution and Utf8 internalization remain open.
 The reproducible harness and evidence are in neoCLR's `docs/experiments/friend-runtime/`.
+
+
+### Encoding visibility integration and callback host ABI (2026-10-10)
+
+neoCLR is migrating public conversion to Encoding.Encode/Decode and internalizing
+Utf8 after moving System.Data/System.Web onto public codecs. The temporary aggregate
+CLI reference adds the interface method and retains Utf8 as an internal declaration;
+native library metadata owns the actual visibility. No Runtime Contract settings,
+semantic-model rules, native metadata format or compiler emission change. The owner
+of these APIs is the runtime library, and native metadata replaces the declaration
+bridge without changing their contracts. Local consumers use this integration line
+at 5b72e3dd9, not Raven main or a published runtime bundle.
+
+The public UTF-8 sample executes, while an unrelated consumer of Utf8 is rejected
+with RAV0500 and no image. The author clarified that friend grants should be sparse,
+mainly for internal tooling/tests; the library migration introduces no grants.
+
+A buffered HTTP consumer also exposed a neoCLR AOT host-ABI gap: no callback-dispatch
+export when pruning leaves no reachable guest callbacks. neoCLR 579105ba emits the
+rejecting empty dispatcher. Two macOS ARM64 regressions pass, including existing
+rooted callback dispatch. This does not change Raven semantics or bridge encoding.
+
+A separate remaining portable-lowering candidate was observed in a boundary fixture:
+StreamReader(ShortInput(EncodedBytes(...)?, ...)) reports `value block cannot exit its
+enclosing expression`. A statement-level checked byte binding compiles. This is a
+compiler gap rather than a language restriction. Reduce and validate it independently
+against general argument-evaluation/propagation rules before changing shared lowering;
+the current runtime API migration does not claim that compiler fix. Windows execution
+and full native friend-identity semantics remain pending.

@@ -27,6 +27,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   original-scope access rejection before executable metadata pruning. Record the
   neoCLR source-runtime attribute and real source-grant consumer qualification in
   `bce27905`; Runtime Contract configuration and compiler behavior are unchanged.
+  Document the public encoding/internal Utf8 migration with no production friend
+  grants, its reference projection, native visibility check and remaining nested
+  constructor-propagation gap. Record neoCLR 579105ba's empty-target host callback
+  dispatcher fix; no Raven semantic/emission change is made.
 
 - **2026-10-10:** Admit single unfiltered constant-Int32-range array comprehensions
   in the portable/native array profile, preserving selector order and inclusive
