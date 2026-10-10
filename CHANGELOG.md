@@ -22,7 +22,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   admits their shapes; semantic/import authorization remains separate. The executable
   native consumer returns 42 and unrelated consumers emit no image. neoCLR runtime
   enforcement currently supports unsigned simple-ASCII identities; full native identity
-  support and AOT/platform qualification remain pending.
+  support and Windows qualification remain pending. Record macOS ARM64 AOT
+  execution of the native friend consumer against neoCLR `35fa5232`, including
+  original-scope access rejection before executable metadata pruning.
 
 - **2026-10-10:** Admit single unfiltered constant-Int32-range array comprehensions
   in the portable/native array profile, preserving selector order and inclusive

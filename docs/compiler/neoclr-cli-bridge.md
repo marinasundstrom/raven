@@ -9240,3 +9240,24 @@ including the existing zero-allocation warmed compiler-pair checks. Both native 
 and native attribute probes pass; the emitted friend consumer returns `Int32(42)` on
 macOS ARM64 under the interpreter. This provides no measured whole-program throughput
 claim and does not repeat the platform matrix.
+
+
+### Friend consumer AOT qualification (2026-10-10)
+
+neoCLR `35fa5232` qualifies the Raven `a3be45460` friend consumer as native macOS
+ARM64 code: compilation, C-host linking and execution return 42. Three friend tests
+cover successful internal type/constructor/field/method access, absent/wrong/qualified
+grants and private-member denial; 18 existing AOT linking tests also pass. Denials
+produce no object file. The runtime repository retains the manifests and regeneration
+instructions in `tools/aot-poc/tests/fixtures/friend-assemblies/`.
+
+This exposed and fixed an AOT projection gap: assembly annotations retained references
+to attribute types removed during executable selection. neoCLR now clears assembly
+annotations in the private verification projection, matching type/member annotations.
+Original-scope access validation occurs first; original metadata remains separate and
+attribute constructors are neither invoked nor added as executable roots by the grant.
+The fix belongs to the neoCLR native backend. Raven emission, Runtime Contract options,
+CLI bridge encoding and native metadata representation are unchanged. Future native
+metadata/backend replacement must retain original-scope authorization before pruning.
+Windows execution, full native identity semantics and the runtime attribute/Utf8
+visibility migration remain open; no runtime bundle revision is advanced here.
