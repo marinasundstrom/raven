@@ -8987,3 +8987,21 @@ eventual replacement by native service lowering. Twelve parser tests pass native
 macOS ARM64 and interpreted execution. Focused adapter/erased/conversion checks and
 Windows x64 object emission pass; Windows execution, general Single arrays and
 complete floating operation coverage are not claimed.
+
+### Native Object slot follow-up (2026-10-10)
+
+neoCLR's Path/IPAddress test migration exposed native dispatch gaps for Object.Equals
+and GetHashCode, inherited overrides, default ToString and integer shifts used by
+HashCode. The backend now selects verified Object-slot overrides from class ancestry,
+retains callvirt null faults, uses reference identity for ordinary class defaults,
+and obtains default display names from source metadata. Int32/Int64 shifts use the
+interpreter's width-masked count rules. General virtual dispatch, explicit base-slot
+calls and intrinsic boxed/String equality/hash adapters remain separate native gaps.
+
+These are backend fixes, with no change to Raven Runtime Contract configuration,
+semantic binding, CLI signatures or public APIs. Compiler code pin remains
+`b2f3ba0f8b8e92f0c516155f563b332b0a6fad54`. Temporary native slot tables and nominal
+projections belong to neoCLR and will be replaced by native metadata/backend lowering;
+private names and pointer-derived identity hashes are not serialized contracts.
+Local qualification is recorded in neoCLR's runtime-test reports. Windows execution
+of the newly migrated cases remains pending.

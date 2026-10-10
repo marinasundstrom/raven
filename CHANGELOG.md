@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Document neoCLR native Object equality/hash and default-display
+  lowering, inherited override admission and integer shifts exposed by runtime test
+  migration. Runtime Contract configuration and compiler emission are unchanged;
+  general virtual dispatch and native intrinsic receiver adapters remain gaps.
+
 - **2026-10-10:** Fix portable/native emission of long and String constant patterns.
   Long matching preserves all 64 bits; String matching checks contents and rejects
   null without invoking the target text service. Binding and Runtime Contract
