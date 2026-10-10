@@ -16,7 +16,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   passing interpreter consumer and native/generic limits; no compiler behavior or
   Runtime Contract configuration changes. Document the matching native Main(string[])
   process-host path and its UTF-8/ownership limits; the existing emitted signature
-  needs no compiler or Runtime Contract change.
+  needs no compiler or Runtime Contract change. Record the native shared attribute
+  provider binding fix and its explicit ownerless-retention gap; nominal inspection
+  passes without a compiler change.
 
 - **2026-10-10:** Migrate the native metadata importer to logical ModuleInfo: scan
   all modules for free functions and use the assembly-wide type view. Assemblies can

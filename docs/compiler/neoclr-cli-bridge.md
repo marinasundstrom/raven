@@ -8917,3 +8917,11 @@ adapter; no new metadata carrier is introduced. Compiler revision
 1a0c4e62734b2d4f17dc9f8af1f5d02c566f8cf4 needs no rebuild. Qualification is recorded in
 neoCLR's docs/native-entry-arguments.md and runtime/raven/tests/filtering-validation.json;
 Windows object emission alone does not qualify Windows execution.
+
+The matching neoCLR native snapshot projection now binds the shared descriptor's
+otherwise unsupported ModuleMemberCustomAttributes branch to an explicit missing
+retention fault. This restores nominal-member AOT attribute inspection with rebuilt
+libraries; it grants no ownerless-function retention. Runtime Contract configuration,
+compiler emission and metadata encoding remain unchanged. The native/interpreted
+attribute consumer passes; Windows requalification is pending. Native module-member
+retention remains a separate backend capability replacing this bounded rejection.
