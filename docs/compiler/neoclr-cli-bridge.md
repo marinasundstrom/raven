@@ -9335,3 +9335,15 @@ CLI projection and native metadata preserve the same values; neither constructs
 attributes during discovery. The native attribute probe reimports an emitted
 consumer with null/non-null arguments; neoCLR ObsoleteAttribute supplies the
 source-runtime integration case.
+
+## Shared override lookup for handler pipelines (2026-10-10)
+
+An unqualified forwarding overload such as `Send(request, token)` previously saw
+both a derived override and its abstract base declaration, reporting ambiguity.
+Shared binder enumeration now suppresses the overridden chain by semantic identity,
+retaining unrelated inherited overloads including substituted generic bases. Explicit
+self lookup already selected the override. This is general .NET-compatible lookup,
+with no Runtime Contract configuration change and no native-only encoding. Focused
+semantic and .NET execution tests cover the selection; neoCLR handler pipelines are
+an additional native consumer. Native metadata still retains declarations and override
+relationships; no metadata or code generation replacement is needed for this fix.

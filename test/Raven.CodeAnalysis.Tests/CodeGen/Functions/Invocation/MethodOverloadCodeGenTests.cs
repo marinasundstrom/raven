@@ -10,6 +10,30 @@ namespace Raven.CodeAnalysis.Tests;
 public class MethodOverloadCodeGenTests
 {
     [Fact]
+    public void UnqualifiedOverrideCall_EmitsDerivedDispatchAndInheritedOverload()
+    {
+        const string code = """
+abstract class Base<T> {
+    abstract func Read(value: T) -> int
+    func Read(value: string) -> int => 20
+}
+class Derived : Base<int> {
+    override func Read(value: int) -> int => value
+    func Run() -> int => Read(22) + Read("other")
+}
+""";
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("override_lookup_codegen", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText(code)).AddReferences(references);
+        using var peStream = new MemoryStream();
+        var result = compilation.Emit(peStream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(peStream, references);
+        var type = loaded.Assembly.GetType("Derived", throwOnError: true)!;
+        Assert.Equal(42, type.GetMethod("Run")!.Invoke(Activator.CreateInstance(type), null));
+    }
+
+    [Fact]
     public void DifferentGenericArities_EmitDistinctCallableMethods()
     {
         const string code = """

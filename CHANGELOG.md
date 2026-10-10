@@ -9,6 +9,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   importing physical String attribute payloads, including null; reimport emitted
   annotations without invoking constructors. No Runtime Contract switch changes.
 
+- **2026-10-10:** Unqualified member lookup now suppresses overridden base method
+  declarations while preserving distinct inherited overloads. Generic-base calls
+  select the same override as explicit self calls. No Runtime Contract setting or
+  target-specific mapping changes; ordinary .NET and native targets share the fix.
+
 - **2026-10-10:** Preserve Int32 storage in bitwise attribute constants, including
   combined enum flags. The shared semantic API now returns an Int32 value instead
   of an Int64 accumulator, allowing strict native metadata writers to encode
