@@ -9322,3 +9322,16 @@ metadata replaces that projection without changing the contract. Other numeric
 widths and richer attribute payloads remain governed by their existing support.
 Focused AttributeUsage semantic tests cover OR, AND and XOR storage and policy.
 neoCLR's ObsoleteAttribute is the integration consumer.
+
+### Nullable native attribute signatures (2026-10-10)
+
+Native attribute import compares constructor and named member signatures without
+nullable reference annotations. Metadata payloads encode physical String values,
+including null, while source signatures retain `string?`; nullability cannot
+distinguish overloads. NativeAttributeValidation still checks physical types and
+rejects malformed or ambiguous constructors. This target adapter fix leaves
+ordinary .NET resolution and Runtime Contract defaults unchanged. The temporary
+CLI projection and native metadata preserve the same values; neither constructs
+attributes during discovery. The native attribute probe reimports an emitted
+consumer with null/non-null arguments; neoCLR ObsoleteAttribute supplies the
+source-runtime integration case.

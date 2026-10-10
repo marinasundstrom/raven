@@ -179,6 +179,14 @@ internal static class NativeAttributeChecks
         var emittedResult = NeoClrCompilationEmitter.EmitMetadataAssembly(annotated, emitted,
             new(new("Consumer", new(1, 0, 0, 0)), core, [new NeoClrMetadataDependency(native, core)], bootstrapReference: bootstrap.Reference));
         Check(emittedResult.Success, string.Join("\n", emittedResult.Diagnostics.Select(d => d + " at " + d.Location.GetLineSpan().StartLinePosition.Line)));
+        var importedConsumer = NeoClrMetadataReference.ReadAssembly(emitted.ToArray(), bootstrap);
+        var reader = Compilation.Create("AttributeReader", [], [bootstrap.Reference, native, importedConsumer], compilation.Options);
+        Check(!reader.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "emitted attributes must reimport");
+        var importedNotes = reader.GetTypeByMetadataName("Subject")!.GetAttributes()
+            .Where(a => a.AttributeClass.Name == "NoteAttribute").ToArray();
+        Check(importedNotes.Length == 2 && importedNotes[0].ConstructorArguments[0].Value is "text ☃" &&
+            importedNotes[1].ConstructorArguments[0].Value is null,
+            "nullable string constructor must match physical String attribute values");
         var roundtrip = AssemblyDefinition.ReadNativeAssembly(emitted.ToArray());
         Check(roundtrip.CustomAttributes.Single().GetArguments().Single().Value is "FutureConsumer", "source assembly annotation lost");
         var emittedType = roundtrip.MainModule.Types.Single(t => t.Name == "Subject");
