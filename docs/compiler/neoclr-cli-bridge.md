@@ -9261,3 +9261,24 @@ CLI bridge encoding and native metadata representation are unchanged. Future nat
 metadata/backend replacement must retain original-scope authorization before pruning.
 Windows execution, full native identity semantics and the runtime attribute/Utf8
 visibility migration remain open; no runtime bundle revision is advanced here.
+
+
+### Source-runtime attribute contract (2026-10-10)
+
+neoCLR `bce27905` supplies InternalsVisibleToAttribute in System.Runtime with a String
+constructor, read-only AssemblyName and assembly-only/repeatable/non-inherited usage.
+Raven `215435573` rebuilt Runtime/Data/Networking/Web. A provider with two source grants
+and a consumer using the real runtime attribute now compile and return 42 in interpreted
+and macOS ARM64 AOT execution. The consumer separately constructs an attribute to check
+AssemblyName; metadata authorization does not execute constructors. Unrelated access
+(RAV0500) and class application (RAV0502) produce no assembly.
+
+Assembly annotations precede the logical module declaration. The runtime declaration
+uses qualified System.Attribute, matching UnionAttribute, to select the source-owned
+base during bootstrap; an unqualified import selected the primitive-bootstrap copy in
+this build. This remains a bootstrap resolution limitation to investigate, not a general
+language naming requirement. The aggregate CLI reference adds a matching non-executable
+API declaration; native metadata remains authoritative. Both API snapshots were refreshed.
+No compiler behavior, Runtime Contract option, bridge encoding or runtime bundle pin is
+changed. Full native identities, Windows execution and Utf8 internalization remain open.
+The reproducible harness and evidence are in neoCLR's `docs/experiments/friend-runtime/`.
