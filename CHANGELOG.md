@@ -4,6 +4,14 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Honor source and CLI InternalsVisibleTo assembly grants in the
+  shared accessibility checker. Named friends may use internal types and members;
+  private, protected-combination and public-signature restrictions remain. Grants
+  are one-way and non-transitive, with full-public-key matching and no token/name
+  fallback for malformed or qualified identities. Existing .NET attribute emission
+  and Runtime Contract settings are unchanged. Native assembly grant retention and
+  neoCLR runtime enforcement remain explicit integration gaps.
+
 - **2026-10-10:** Admit single unfiltered constant-Int32-range array comprehensions
   in the portable/native array profile, preserving selector order and inclusive
   endpoint behavior without overflow. Dynamic ranges, filters and spreads remain

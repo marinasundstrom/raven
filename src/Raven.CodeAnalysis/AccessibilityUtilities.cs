@@ -147,7 +147,8 @@ internal static class AccessibilityUtilities
         if (withinAssembly is null)
             return true;
 
-        return SymbolEqualityComparer.Default.Equals(symbolAssembly, withinAssembly);
+        return SymbolEqualityComparer.Default.Equals(symbolAssembly, withinAssembly)
+            || withinAssembly is not null && FriendAssemblyAccess.IsGranted(symbolAssembly, withinAssembly);
     }
 
     private static IAssemblySymbol? GetContainingAssembly(ISymbol? symbol)

@@ -3969,3 +3969,12 @@ AttributeUsage, with 24 focused .NET tests. The neoCLR usage consumer checks fla
 defaults and imported RAV0502 rejection with macOS native/interpreter execution;
 Windows qualification is pending. External Attribute bases, inherited guest queries
 and discovery remain open. See neoCLR docs/experiments/attribute-usage/README.md.
+
+
+## Friend-assembly access (development)
+
+[InternalsVisibleTo](friend-assemblies.md) is a shared source/CLI accessibility
+rule, with no Runtime Contract setting. It retains .NET attribute emission and
+private/protected/public-signature restrictions. Native metadata retention and
+neoCLR import/runtime enforcement remain separate integration work; selecting a
+native target does not implicitly grant access to internals.
