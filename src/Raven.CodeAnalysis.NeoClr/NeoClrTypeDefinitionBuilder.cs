@@ -49,7 +49,6 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
             if (SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, plan.Symbol.ContainingAssembly))
                 return assembly.AddClass(plan.Namespace, plan.Name, resolveOwner(baseType), visibility);
             var external = resolveExternal(baseType).ImportedType!;
-            assembly.DeclareFieldlessClassBase(external);
             return assembly.AddClass(plan.Namespace, plan.Name, external, visibility);
         }
         var result = plan.ClassBase is { } baseType ? DefineDerived(baseType)

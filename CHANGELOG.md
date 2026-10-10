@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Admit explicit native external class inheritance contracts with
+  dependency-owned storage, inherited interfaces and virtual/abstract slots. Preserve
+  direct base calls through async hoisted receivers. Generic/nested bases and protected
+  ordinary members remain unsupported. Requires matching experimental metadata APIs;
+  ordinary .NET capability defaults and Runtime Contract settings are unchanged.
+
 - **2026-10-10:** Native type import includes base-class interfaces in AllInterfaces,
   and native properties retain nullable annotations from their accessor signatures.
   This restores inherited interface conversions and nullable property assignment for

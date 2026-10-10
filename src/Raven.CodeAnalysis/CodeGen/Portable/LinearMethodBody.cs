@@ -1255,6 +1255,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundSelfExpression capturedSelf when Array.FindIndex(captures, capture => capture is INamedTypeSymbol type && SymbolEqualityComparer.Default.Equals(type, capturedSelf.Type)) is var selfIndex && selfIndex >= 0:
                     Add(LinearInstructionKind.LoadCapture, Syntax(expression), selfIndex);
                     return true;
+                case BoundBaseExpression { Receiver: { } receiver } when capabilities?.AllowsClassVirtualSlots == true:
+                    return LowerValue(receiver);
                 case BoundBaseExpression baseReceiver when !isStaticBody && capabilities?.AllowsClassVirtualSlots == true &&
                     SymbolEqualityComparer.Default.Equals(baseReceiver.Type, source.ContainingType?.BaseType):
                     Add(LinearInstructionKind.Receiver, Syntax(expression)); return true;

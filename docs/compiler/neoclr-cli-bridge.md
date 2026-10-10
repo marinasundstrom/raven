@@ -9376,3 +9376,28 @@ receiver while preserving direct dispatch. No metadata replacement is needed.
 Focused CLR execution tests cover completed and suspending awaits with private
 base storage and an overridden method. NeoCLR pipeline qualification remains
 on its integration branch.
+
+### Native external class contracts (2026-10-10)
+
+The integration branch adds explicit `AllowsExternalClassInheritance` admission to
+portable planning. It is off by default; ordinary .NET emission keeps its existing
+capabilities. The native adapter admits public nongeneric top-level class bases,
+including dependency-owned fields, interfaces, abstract/virtual members and overrides.
+It imports the complete public instance member contract and preserves direct base
+calls, including the explicit receiver produced by shared async lowering. Generic
+bases, nested owners and protected ordinary method contracts remain unsupported.
+
+Runtime Contract selection is unchanged. Native metadata retains exact assembly
+base identity and external method signatures; fields stay in their defining artifact
+and are laid out after linking. This requires the matching experimental metadata
+API `CompleteClassBaseReference`, including the declared instance storage count,
+and virtual/abstract method-reference flags (neoCLR `52cd8e8c`). Derived field
+ordinals include private external ancestor storage without copying its fields.
+The temporary CLI projection retains the same extends/member-reference identities;
+no storage is copied into the derived class. Native linking checks actual slot and
+receiver compatibility. Native capability support lives on
+`codex/source-object-metadata-resolution`, not Raven main. Portable capability tests
+and ordinary .NET async receiver tests pass. The ten HTTP lifetime/pipeline cases
+pass in the neoCLR interpreter with the matching development bundle. Native AOT
+class dispatch remains separate backend work; compiler emission alone does not
+claim a completed AOT HTTP pipeline.

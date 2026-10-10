@@ -57,7 +57,7 @@ internal sealed record SourceCallablePlan(
             IsStatic: false, MethodKind: MethodKind.Ordinary, Arity: 0, DeclaredAccessibility: Accessibility.Public,
             ContainingType: { IsReferenceType: true, Arity: 0, ContainingType: null } owner
         } &&
-        owner.OriginalDefinition is SourceNamedTypeSymbol && (method.IsAbstract || method.IsVirtual || method.IsOverride);
+        (owner.OriginalDefinition is SourceNamedTypeSymbol || capabilities.AllowsExternalClassInheritance && owner.TypeKind == TypeKind.Class && CallableSignature.IsExternalReference(owner, allowInternal: capabilities.AllowsInternalExternalSymbols)) && (method.IsAbstract || method.IsVirtual || method.IsOverride);
 
     internal bool IsObjectRootSlot => IsRootSlot(Symbol);
     private static bool IsRootSlot(IMethodSymbol method) => method.ContainingType is { } owner && SourceTypePlan.IsSourceObjectRoot(owner) &&
