@@ -8826,3 +8826,21 @@ facade. Guest RuntimeContext and AOT module discovery remain separate implementa
 work. Validation: native importer/compiler builds and a real multi-module Raven
 consumer with host ownership inspection; runtime test adapters exercise native library
 imports across modules.
+
+
+### Guest logical module reference contract (2026-10-10)
+
+The matching neoCLR guest ModuleInfo now denotes a logical namespace within an
+assembly. Its physical MetadataToken property is removed from Raven source and the
+reference-only CLI bridge. Rebuild guest consumers and use the matching reference
+assembly/runtime. The flat native declaration table is unchanged; CLI projection
+still loses explicit empty declarations and carries names through namespaces.
+No Runtime Contract option, compiler emission rule or ordinary .NET behavior changes.
+The VM owns logical scope resolution; native snapshot factories retain bounded
+TypeModule data explicitly, without enabling user constructor invocation.
+
+The neoCLR guest-modules consumer qualifies interpreter traversal, native retained
+ownership and missing-retention failure. Native assembly traversal remains open.
+Source-built native libraries and the reference-only bridge rebuild; the independent
+legacy implementation generator remains blocked by its incompatible Map contract.
+See neoCLR docs/experiments/guest-modules/README.md for commands and exact scope.

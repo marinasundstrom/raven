@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Document the matching neoCLR guest logical ModuleInfo reference
+  contract and removal of its physical MetadataToken property. Consumers require
+  matching rebuilt libraries/reference/runtime; Runtime Contract configuration and
+  compiler emission are unchanged. Record the qualified guest/AOT ownership scope
+  and separate legacy bootstrap Map-contract blocker.
+
 - **2026-10-10:** Migrate the native metadata importer to logical ModuleInfo: scan
   all modules for free functions and use the assembly-wide type view. Assemblies can
   package several flat named modules; dotted names add no hierarchy metadata. Rebuild
