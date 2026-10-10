@@ -9075,3 +9075,22 @@ rule. neoCLR owns native lowering; Raven's CLI neg remains the temporary transpo
 until the native compiler emits the equivalent instruction directly. The primitive
 Int32/Int64/Double execution probe compares native results with the interpreter;
 framework tests exercise dynamic signed offsets and full Duration tick bounds.
+
+
+### Explicit-offset Instant Parse (2026-10-10)
+
+Instant.Parse(String) composes neoCLR's invariant civil and fixed-offset parsers,
+returning Result<Instant, DateTimeParseError>. The aggregate reference supplies an
+ordinary declaration-only static member; real native metadata retains the Raven
+implementation. Runtime Contract configuration, semantic binding and compiler
+emission do not change; the tested compiler code pin remains b2f3ba0f8b8e92f0c516155f563b332b0a6fad54.
+Matching runtime/reference libraries are required. No extra host binding is added:
+UTF-8 slicing and existing offset arithmetic are used, without reading host timezone
+or culture. neoCLR owns parser semantics; native compiler transport eventually
+replaces the CLI declaration projection, not the Raven parsing algorithm.
+
+The bounded grammar requires Z or an explicit whole-second offset and four-digit
+civil years; it preserves Instant's wider tick domain when UTC crosses a civil
+boundary. General pattern parsing and named-zone resolution remain gaps. The
+instant-parsing framework project covers offset equivalence, fractions, boundaries,
+invalid syntax/ranges and fixed-offset projection on both execution paths.

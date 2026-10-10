@@ -9,6 +9,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   changes; Raven Runtime Contract configuration and compiler emission are unchanged.
   Extend the reference contract to Duration/TimeOffset Parse and document native
   unary negation lowering, with interpreter/native primitive boundary qualification.
+  Include Instant.Parse's explicit-offset reference contract; no ambient zone or
+  culture binding and no compiler or Runtime Contract behavior change is introduced.
 
 - **2026-10-10:** Document neoCLR JsonObject map/indexer integration, the aggregate
   reference's temporary positional Item rename, and native fallback/conformance
