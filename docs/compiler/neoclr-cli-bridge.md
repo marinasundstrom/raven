@@ -8899,3 +8899,21 @@ reference signatures are a temporary surface; no declaring-type carrier is expos
 to guest introspection. Native metadata-member retention/materialization remains the
 replacement path. Legacy CLI implementation generation retains the existing Map
 blocker; only the reference bridge and source-native libraries are freshly rebuilt.
+
+### Matching native process-entry host — 2026-10-10
+
+The neoCLR AOT backend now admits existing Main(string[]) metadata with native GC
+and a matching process-arguments-v1 host adapter. No Raven Runtime Contract option,
+semantic rule, source rewrite or emission change is needed. Native metadata retains
+arrayref<String>; the CLI reference bridge already exposes String[]. Ordinary .NET
+entry behavior is unchanged. Guest arguments exclude the executable name; the Windows
+host uses wide CRT arguments and strict UTF-8 conversion. Parameterless native roots
+retain their ABI. Native Environment.GetCommandLineArgs binding remains a separate
+gap; the test runner now accepts explicit entry arguments.
+
+The neoCLR backend/host owns argument copying, startup faults, managed lifetime and
+this temporary private ABI. A future stable native startup/hosting ABI replaces that
+adapter; no new metadata carrier is introduced. Compiler revision
+1a0c4e62734b2d4f17dc9f8af1f5d02c566f8cf4 needs no rebuild. Qualification is recorded in
+neoCLR's docs/native-entry-arguments.md and runtime/raven/tests/filtering-validation.json;
+Windows object emission alone does not qualify Windows execution.

@@ -14,7 +14,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   gap and author clarification that module namespaces may span assemblies. Document
   the matching guest GetFunctions/ownerless attribute inspection reference surface,
   passing interpreter consumer and native/generic limits; no compiler behavior or
-  Runtime Contract configuration changes.
+  Runtime Contract configuration changes. Document the matching native Main(string[])
+  process-host path and its UTF-8/ownership limits; the existing emitted signature
+  needs no compiler or Runtime Contract change.
 
 - **2026-10-10:** Migrate the native metadata importer to logical ModuleInfo: scan
   all modules for free functions and use the assembly-wide type view. Assemblies can
