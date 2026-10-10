@@ -69,8 +69,17 @@ internal static class NativeAttributeChecks
         note.AddProperty("Label", PrimitiveType.String, labelGet, labelSet);
         var wide = graph.AddClass("Tests", "WideAttribute");
         wide.AddConstructor(new MethodSignature(PrimitiveType.Void, [PrimitiveType.Int64])).GetILGenerator().Fail("unsupported argument");
+        var friendMarker = graph.AddClass("System.Runtime.CompilerServices", "InternalsVisibleToAttribute");
+        friendMarker.AddCustomAttribute(Policy(1, true));
+        var friendConstructor = friendMarker.AddConstructor(new MethodSignature(PrimitiveType.Void, [PrimitiveType.String]));
+        friendConstructor.GetILGenerator().Fail("Friend metadata must not execute constructors");
+        graph.AddCustomAttribute(new(friendConstructor.Definition, [new(PrimitiveType.String, "Consumer")]));
+        graph.AddCustomAttribute(new(friendConstructor.Definition, [new(PrimitiveType.String, "SecondConsumer")]));
+        var hidden = graph.AddClass("Tests", "Hidden", visibility: TypeVisibility.Internal);
+        var hiddenRead = hidden.AddMethod("Read", new(PrimitiveType.Int32, []));
+        hiddenRead.LoadConstant(42); hiddenRead.Return();
         var native = NeoClrMetadataReference.ReadAssembly(RuntimeAssemblyContainer.WriteLibraryBinary(graph), bootstrap);
-        Compilation Create(string source) => Compilation.Create("Consumer", [SyntaxTree.ParseText(source)],
+        Compilation Create(string source, string name = "Consumer") => Compilation.Create(name, [SyntaxTree.ParseText(source)],
             [bootstrap.Reference, native], CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name)
                 .WithOutputKind(OutputKind.DynamicallyLinkedLibrary).WithRuntimeTypeOfContract(null));
         var compilation = Create("");
@@ -89,6 +98,13 @@ internal static class NativeAttributeChecks
             imported.Constructors.Single(), imported.GetMembers("Read").OfType<IMethodSymbol>().Single().Parameters.Single() })
             Check(SymbolEqualityComparer.Default.Equals(symbol.GetAttributes().Single().AttributeClass, marker), "member attribute identity lost");
         var nativeAssembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(native)!;
+        Check(nativeAssembly.GetAttributes().Select(a => (string)a.ConstructorArguments.Single().Value!).SequenceEqual(new[] { "Consumer", "SecondConsumer" }), "assembly attribute data lost");
+        foreach (var name in new[] { "Consumer", "SecondConsumer", "Unrelated" })
+        {
+            var errors = Create("func Use() -> int { return Tests.Hidden.Read() }", name).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            Check(name == "Unrelated" ? errors.Any(d => d.Id == "RAV0500") : errors.Length == 0,
+                "native friend semantic access: " + name + ": " + string.Join("; ", errors.Select(d => d.ToString())));
+        }
         var module = nativeAssembly.GlobalNamespace.GetMembers().OfType<INamespaceSymbol>().Single(n => n.Name == "Tests");
         Check(module.GetMembers("Read").Single().GetAttributes().Single().AttributeClass.Name == "MethodOnlyAttribute", "free function attribute lost");
         foreach (var (source, expected) in new (string, string?)[]
@@ -124,8 +140,16 @@ internal static class NativeAttributeChecks
             var invalid = Compilation.Create("InvalidMetadata", [], [bootstrap.Reference, malformed], compilation.Options);
             Check(invalid.GetDiagnostics().Any(d => d.Id == "RAVT003"), "malformed attribute metadata did not produce a target diagnostic: " + corruption);
         }
+        var badAssemblyJson = JsonNode.Parse(graph.WriteNativeAssembly())!;
+        var badGrant = badAssemblyJson["assemblies"]![0]!["custom_attributes"]![0]!;
+        badGrant["constructor"]!["parameters"]![0] = "Boolean";
+        badGrant["arguments"]![0] = new JsonObject { ["Boolean"] = true };
+        var badAssembly = NeoClrMetadataReference.ReadAssembly(NativeModuleContainer.WriteLibraryBinary(Encoding.UTF8.GetBytes(badAssemblyJson.ToJsonString())), bootstrap);
+        var badCompilation = Compilation.Create("BadGrant", [], [bootstrap.Reference, badAssembly], compilation.Options);
+        Check(badCompilation.GetDiagnostics().Any(d => d.Id == "RAVT003"), "malformed assembly constructor must diagnose before binding");
         var annotated = Create("""
             import Tests.*
+            [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("FutureConsumer")]
             [Default]
             [Note("text ☃", 42, true, Color.Red, Label: "named", Active: true)]
             [Note(null, -7, false, Color.Red)]
@@ -156,6 +180,7 @@ internal static class NativeAttributeChecks
             new(new("Consumer", new(1, 0, 0, 0)), core, [new NeoClrMetadataDependency(native, core)], bootstrapReference: bootstrap.Reference));
         Check(emittedResult.Success, string.Join("\n", emittedResult.Diagnostics.Select(d => d + " at " + d.Location.GetLineSpan().StartLinePosition.Line)));
         var roundtrip = AssemblyDefinition.ReadNativeAssembly(emitted.ToArray());
+        Check(roundtrip.CustomAttributes.Single().GetArguments().Single().Value is "FutureConsumer", "source assembly annotation lost");
         var emittedType = roundtrip.MainModule.Types.Single(t => t.Name == "Subject");
         Check(emittedType.CustomAttributes.Count == 3 && emittedType.CustomAttributes[0].AttributeType.Name == "DefaultAttribute", "source type annotation missing");
         Check(emittedType.Fields.Single(f => f.Name == "Number").CustomAttributes.Count == 1, "source field annotation missing");

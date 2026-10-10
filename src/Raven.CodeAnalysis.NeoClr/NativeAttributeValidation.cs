@@ -9,7 +9,9 @@ internal static class NativeAttributeValidation
 {
     internal static void Validate(MetadataLoadContext context, AssemblyIdentity identity)
     {
-        foreach (var module in context.Resolve(identity).GetModules())
+        var assembly = context.Resolve(identity);
+        Check(assembly.GetCustomAttributes());
+        foreach (var module in assembly.GetModules())
         {
             foreach (var type in module.GetTypes())
             {

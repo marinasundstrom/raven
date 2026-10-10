@@ -34,7 +34,6 @@ internal static class Int32Emitter
             var model = compilation.GetSemanticModel(tree);
             var root = (CompilationUnitSyntax)tree.GetRoot();
             diagnosticSyntax = root;
-            if (root.AttributeLists.Count != 0) throw Unsupported("assembly attributes");
             foreach (var member in Flatten(root.Members))
             {
                 diagnosticSyntax = member;
@@ -942,6 +941,7 @@ internal static class Int32Emitter
         }
         // Bind first, then publish user annotations against complete output declarations.
         // Synthesized markers (flags, unions, nullable and params) retain their own encoders.
+        EmitAttributes(compilation.Assembly, assembly.Definition.CustomAttributes);
         foreach (var (symbol, definition) in nativeTypes)
             EmitAttributes(symbol, definition.Definition.CustomAttributes);
         foreach (var (symbol, definition) in fields)

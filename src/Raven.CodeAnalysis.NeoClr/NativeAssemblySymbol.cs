@@ -11,11 +11,14 @@ namespace Raven.CodeAnalysis.NeoClr;
 
 internal sealed class NativeAssemblySymbol : Symbol, IImportedAssemblySymbol
 {
+    private readonly Lazy<ImmutableArray<AttributeData>> attributes;
+    public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
     internal NativeAssemblySymbol(Compilation compilation, NeoClrMetadataReference reference)
         : base(SymbolKind.Assembly, reference.Definition.Name, null, null, null, [], [])
     {
         Reference = reference;
         Module = new NativeModuleSymbol(compilation, this);
+        attributes = new(() => Module.MapAttributes(NativeMetadataContext.For(compilation).Resolve(reference.Definition.Identity).GetCustomAttributes()));
     }
     internal NeoClrMetadataReference Reference { get; }
     internal NativeModuleSymbol Module { get; }

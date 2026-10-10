@@ -9185,3 +9185,24 @@ does not grant native internal access. Import/runtime friend checking and full-p
 native identities remain pending, with cached pair decisions required for resolution
 performance. The CLI reference projection is temporary transport; native manifest data
 is authoritative. No guest assembly reflection API or AOT attribute roots are implied.
+
+
+### Native source assembly annotations and friend binding (2026-10-10)
+
+With neoCLR metadata revision `f36099fd`, the native emitter forwards assembly
+annotations via the existing bounded attribute encoder. NativeAssemblySymbol lazily maps a cached metadata-only assembly annotation view;
+NativeAttributeValidation checks assembly constructors/named members before publishing
+symbols. Malformed assembly annotations report RAVT003. Existing syntax, operations and
+Runtime Contract options remain unchanged; unsupported module/return targets still diagnose.
+
+The native attribute probe now covers two named friends and an unrelated consumer,
+source assembly grant emission/readback and malformed assembly constructor data. Semantic
+friend checks reuse the shared weak-key pair cache. The probe uses a fresh unstripped
+primitive Core; the host metadata reader now decodes nominal non-indexed CLI properties
+so AttributeUsage.ValidOn retains enum identity. Existing member/type tests still pass.
+
+This is native semantic binding plus metadata emission, not executable native friend
+access: import admission and neoCLR interpreter/AOT enforcement remain pending. Native
+signed identities remain unsupported. CLI projection is temporary transport; retained
+native manifest annotations are authoritative. No new runtime contract switch, syntax,
+operations kind or separate language-service permission policy is introduced.
