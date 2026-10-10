@@ -8,7 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   exits from `for`, in lifetime order with nested `use` scopes. Lower these loops
   before scope-exit cleanup; ordinary .NET enumeration remains unchanged. The
   no-exception-handling target contract does not unwind terminal Faults. Eight
-  execution regressions and 50 existing focused cleanup/loop tests pass.
+  execution regressions and 50 existing focused cleanup/loop tests pass. A native
+  library follow-up preserves return-expression shape outside active resources;
+  ten execution cases also pass portable-body admission, including nullable
+  early return before a loop and match-arm return inside it.
 
 - **2026-10-10:** Add an explicit neoCLR positional-record storage capability for
   read-only native key/value transport: primary/copy construction, getters and

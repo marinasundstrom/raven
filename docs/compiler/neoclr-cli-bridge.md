@@ -8616,3 +8616,9 @@ regressions failed before this fix and pass after it; the 50 existing focused
 cleanup/loop tests also pass. Native executable integration is qualified in
 neoCLR's integration evidence. This adapter revision remains on
 `codex/source-object-metadata-resolution`; it does not imply availability on main.
+
+Follow-up qualification caught no-resource return expressions being needlessly
+wrapped when the same method contained a scoped loop. Preserve the original return
+expression when no cleanup is needed (notably `?? return` before JSON mapper loops).
+Ten focused cases now check portable body admission and execution, including
+match-arm returns inside loops. System.Data native emission passes this correction.

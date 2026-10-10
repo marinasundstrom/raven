@@ -155,7 +155,12 @@ internal sealed partial class Lowerer
         }
 
         public override BoundNode? VisitReturnExpression(BoundReturnExpression node)
-            => new BoundBlockExpression([(BoundStatement)VisitReturnStatement(new BoundReturnStatement(node.Expression))!], node.Type);
+        {
+            var returned = (BoundStatement)VisitReturnStatement(new BoundReturnStatement(node.Expression))!;
+            return returned is BoundReturnStatement simple
+                ? node.Update(simple.Expression, node.Type)
+                : new BoundBlockExpression([returned], node.Type);
+        }
 
         // For-loops may remain structured until a backend selects its iteration plan.
         public override BoundNode? VisitForStatement(BoundForStatement node)

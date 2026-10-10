@@ -1,5 +1,6 @@
 using System.Reflection;
 
+using Raven.CodeAnalysis.CodeGen.Portable;
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Testing;
 
@@ -16,6 +17,8 @@ public sealed class PortableEnumerationCleanupTests
     [InlineData("outer: for x in Items() { for y in Items() { break outer } }", 22)]
     [InlineData("outer: for x in Items() { for y in Items() { continue outer } }", 222)]
     [InlineData("for x in Items() { goto done }\ndone: return 7", 2)]
+    [InlineData("let missing: Items? = null\nlet items = missing ?? return 7\nfor x in items { break }", 0)]
+    [InlineData("for x in Items() { match x { _ => return 7 } }", 2)]
     public void ScopedProtocolDisposesInLifetimeOrder(string body, int expectedLog)
     {
         var source = $$"""
@@ -54,6 +57,16 @@ public sealed class PortableEnumerationCleanupTests
             .WithRuntimeDisposalContract(new("ForCleanup", "ResourceProtocol", UseExceptionHandling: false));
         var compilation = Compilation.Create("ForCleanup", [SyntaxTree.ParseText(source)],
             TestMetadataReferences.DefaultWithRavenCore, options);
+        var tree = compilation.SyntaxTrees.Single();
+        var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(method => method.Identifier.ValueText == "Run");
+        var symbol = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
+            Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
+            allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsInterfaceSignatures: true, allowsInterfaceDispatch: true,
+            allowsGenericInstanceMethods: true, allowsGenericClassOwners: true, allowsReferenceEnumeration: true, allowsGenericInterfaceDeclarations: true,
+            allowsConstructedInterfaceInheritance: true, allowsConstructedInterfaceImplementations: true);
+        Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, capabilities));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities), failure?.Detail);
         using var pe = new MemoryStream();
         var result = compilation.Emit(pe);
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
