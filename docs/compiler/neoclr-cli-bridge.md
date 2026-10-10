@@ -8940,3 +8940,14 @@ Five public boundary/grammar/formatting tests pass native macOS ARM64 and interp
 execution, with focused native/interpreter parity and null-fault checks. Windows
 qualification remains pending. This closes an implementation gap in the existing
 integer contract; it does not redefine parsing for the native target.
+
+The next migrated String suite exposed missing native Char receiver projection and
+a retained Object initializer in the private String factory. neoCLR now preserves
+borrowed Char storage and elides only a verified empty leading Object initializer,
+relocating branches. Nonempty initializer effects remain rejected. Project profiles
+bind existing grapheme services and link their pinned Unicode adapter when needed.
+Five String tests pass both local modes, five character regressions and two factory
+checks pass, and Windows x64 object emission succeeds; Windows link/execution is
+not claimed. These neoCLR-owned private projections need no Raven compiler or
+Runtime Contract changes; native intrinsic construction is their eventual replacement.
+General chained String constructors remain a native gap.
