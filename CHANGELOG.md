@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Document neoCLR Map indexers using existing Item/get_Item/set_Item
+  emission. Matching library/reference updates are required; compiler behavior and
+  Runtime Contract configuration remain unchanged.
+
 - **2026-10-10:** Document neoCLR native Object equality/hash and default-display
   lowering, inherited override admission and integer shifts exposed by runtime test
   migration. Runtime Contract configuration and compiler emission are unchanged;

@@ -9005,3 +9005,13 @@ projections belong to neoCLR and will be replaced by native metadata/backend low
 private names and pointer-derived identity hashes are not serialized contracts.
 Local qualification is recorded in neoCLR's runtime-test reports. Windows execution
 of the newly migrated cases remains pending.
+
+### Map indexer library contract (2026-10-10)
+
+neoCLR now authors Map's getter and MutableMap/HashMap's getter/setter as ordinary
+Raven indexers. Existing Item/get_Item/set_Item emission and property import provide
+the bridge, with no Runtime Contract, binding or compiler change. Matching runtime
+and reference libraries are required: third-party implementations must supply the
+accessors. The declaration-only aggregate documentation bridge mirrors signatures;
+native source metadata owns the eventual replacement. Missing-key getters terminate
+with neoCLR Fault; Find remains the recoverable lookup API.
