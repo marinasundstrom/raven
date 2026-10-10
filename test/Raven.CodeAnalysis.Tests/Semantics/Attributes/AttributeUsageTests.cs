@@ -286,6 +286,27 @@ delegate Callback()
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
+    [Theory]
+    [InlineData("|", 4100)]
+    [InlineData("&", 0)]
+    [InlineData("^", 4100)]
+    public void EnumFlagAttributeConstant_PreservesInt32Storage(string op, int expected)
+    {
+        var source = $$"""
+            import System.*
+            [AttributeUsage(AttributeTargets.Class {{op}} AttributeTargets.Delegate)]
+            class MarkerAttribute : Attribute { }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        var model = compilation.GetSemanticModel(tree);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+        var symbol = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        var argument = Assert.Single(Assert.Single(symbol.GetAttributes()).ConstructorArguments);
+        Assert.Equal(TypedConstantKind.Enum, argument.Kind);
+        Assert.Equal(expected, Assert.IsType<int>(argument.Value));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
     [Fact]
     public void TypeTargetedAttribute_OnUnion_IsNotAppliedToSynthesizedMethods()
     {

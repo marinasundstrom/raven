@@ -175,7 +175,15 @@ internal static class AttributeDataFactory
             return false;
         }
 
-        constant = CreateConstant(binary.Type, value);
+        // Folding uses Int64 as an accumulator, but a typed constant must retain
+        // its declared storage width. Metadata backends must not have to guess it.
+        var storage = binary.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+            ? enumType.EnumUnderlyingType
+            : binary.Type;
+        object storedValue = storage?.SpecialType == SpecialType.System_Int32
+            ? (object)checked((int)value)
+            : value;
+        constant = CreateConstant(binary.Type, storedValue);
         return true;
     }
 

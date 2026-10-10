@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Preserve Int32 storage in bitwise attribute constants, including
+  combined enum flags. The shared semantic API now returns an Int32 value instead
+  of an Int64 accumulator, allowing strict native metadata writers to encode
+  combined AttributeUsage targets. Ordinary .NET target selection is unchanged.
+
 - **2026-10-10:** Honor source and CLI InternalsVisibleTo assembly grants in the
   shared accessibility checker. Named friends may use internal types and members;
   private, protected-combination and public-signature restrictions remain. Grants

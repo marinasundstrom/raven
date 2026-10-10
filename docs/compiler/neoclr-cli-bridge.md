@@ -9311,3 +9311,14 @@ compiler gap rather than a language restriction. Reduce and validate it independ
 against general argument-evaluation/propagation rules before changing shared lowering;
 the current runtime API migration does not claim that compiler fix. Windows execution
 and full native friend-identity semantics remain pending.
+### Int32 attribute flag constants (2026-10-10)
+
+Shared attribute constant folding preserves declared Int32 storage for bitwise
+compositions, including Int32-backed enum flags. This is a semantic metadata fix
+for all targets; no Runtime Contract option is added or changed. Native attribute
+emission can pass the typed value directly to the strict metadata writer. The
+temporary CLI projection keeps enum identity and the same 32-bit payload; native
+metadata replaces that projection without changing the contract. Other numeric
+widths and richer attribute payloads remain governed by their existing support.
+Focused AttributeUsage semantic tests cover OR, AND and XOR storage and policy.
+neoCLR's ObsoleteAttribute is the integration consumer.
