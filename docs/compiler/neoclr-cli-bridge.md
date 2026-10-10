@@ -8879,3 +8879,23 @@ remain a convention, without metadata parent links. Current assembly-scoped modu
 descriptors record contributions; they do not make namespace names exclusive.
 Split-module lookup qualification and shared-view introspection API reconciliation
 remain follow-up work. Defining-assembly identity stays on individual declarations.
+
+
+### Guest module-function inspection bridge (2026-10-10)
+
+neoCLR's updated reference bridge adds ModuleInfo.GetFunctions returning
+Sequence<MethodInfo>. Source-native Runtime uses ModuleFunctions(String,String) and
+ModuleMemberCustomAttributes(String,String,Int32) InternalCalls to enumerate exact
+assembly-local namespace functions and read method-level attributes. The VM chooses
+source-library snapshot recipes from the scoped return type. Runtime/bridge layers
+own this change; there is no Runtime Contract option, Raven binding/emission change
+or ordinary .NET behavior change. Rebuild consumers with matching references/runtime.
+
+The guest-functions Raven consumer passes interpreted enumeration, absent declaring
+types, ownership/parameters and real TestAttribute constructor/named descriptions
+without test execution. Native enumeration/retention, open generic signature snapshots,
+ownerless parameter attributes and callable registration remain unsupported. CLI
+reference signatures are a temporary surface; no declaring-type carrier is exposed
+to guest introspection. Native metadata-member retention/materialization remains the
+replacement path. Legacy CLI implementation generation retains the existing Map
+blocker; only the reference bridge and source-native libraries are freshly rebuilt.

@@ -11,7 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   and separate legacy bootstrap Map-contract blocker. Document the native backend
   executing-assembly lowering and passing separate-library/lambda consumer, with no
   compiler contract change; record the deferred imported function-reference emitter
-  gap and author clarification that module namespaces may span assemblies.
+  gap and author clarification that module namespaces may span assemblies. Document
+  the matching guest GetFunctions/ownerless attribute inspection reference surface,
+  passing interpreter consumer and native/generic limits; no compiler behavior or
+  Runtime Contract configuration changes.
 
 - **2026-10-10:** Migrate the native metadata importer to logical ModuleInfo: scan
   all modules for free functions and use the assembly-wide type view. Assemblies can
