@@ -8806,3 +8806,23 @@ Both qualified and imported spellings, both reference orders, and 83 focused
 namespace/lookup/capability/AttributeUsage tests pass. The repository test-discovery
 consumer additionally qualifies native source binding with typed registration
 adapters and rejected generic/instance/parameter/result signatures.
+
+
+### Logical module introspection migration (2026-10-10)
+
+neoCLR host ModuleInfo now denotes a named unit/namespace of declarations within an
+assembly. Its flat module table and qualified names are unchanged; dotted names are
+conventional, without metadata parent links. The native importer traverses all logical
+modules for functions and the assembly-wide type view for types, including nested
+types. It no longer assumes GetModules().Single() describes the physical image.
+
+No Runtime Contract configuration, emission capability or ordinary .NET behavior
+changes. CLI namespaces/free-function carriers remain the temporary projection and
+still cannot preserve explicit empty module declarations; native metadata retains
+them. Physical reader ModuleDefinition and token scopes remain distinct from logical
+ownership. Rebuild Raven.CodeAnalysis.NeoClr and NeoCLR.Metadata.Experimental together.
+Compiler ownership is the native importer; runtime ownership is the host metadata
+facade. Guest RuntimeContext and AOT module discovery remain separate implementation
+work. Validation: native importer/compiler builds and a real multi-module Raven
+consumer with host ownership inspection; runtime test adapters exercise native library
+imports across modules.

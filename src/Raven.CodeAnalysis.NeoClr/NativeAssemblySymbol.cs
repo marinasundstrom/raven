@@ -41,11 +41,11 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     {
         this.compilation = compilation; this.assembly = assembly;
         var metadata = NativeMetadataContext.For(compilation);
-        var moduleView = metadata.Resolve(assembly.Reference.Definition.Identity).GetModules().Single();
+        var assemblyView = metadata.Resolve(assembly.Reference.Definition.Identity);
         var root = new NativeNamespaceSymbol("", this, null);
         GlobalNamespace = root;
         typeSymbols = [];
-        var definitions = moduleView.GetTypes().ToDictionary(type => type.MetadataToken);
+        var definitions = assemblyView.GetTypes().ToDictionary(type => type.MetadataToken);
         var unionContracts = new NativeUnionContracts(definitions.Values);
         var resolving = new HashSet<uint>();
         foreach (var type in definitions.Values) AddType(type);
@@ -89,7 +89,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             var ns = Namespace(constant.Namespace);
             ns.Add(new NativeAssemblyConstantSymbol(constant, ns, () => compilation.GetSpecialType(SpecialType.System_Double)));
         }
-        foreach (var method in moduleView.GetFunctions())
+        foreach (var method in assemblyView.GetModules().SelectMany(module => module.GetFunctions()))
         {
             var ns = root;
             foreach (var part in method.Namespace.Split('.', StringSplitOptions.RemoveEmptyEntries))

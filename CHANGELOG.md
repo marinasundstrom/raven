@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Migrate the native metadata importer to logical ModuleInfo: scan
+  all modules for free functions and use the assembly-wide type view. Assemblies can
+  package several flat named modules; dotted names add no hierarchy metadata. Rebuild
+  with the matching neoCLR host metadata library. Compiler/native importer builds and
+  the multi-module consumer pass; Runtime Contract configuration, emitted format and
+  ordinary .NET behavior are unchanged.
+
 - **2026-10-10:** Make qualified/early namespace type lookup use the same canonical
   metadata selection as ordinary imports, while preserving source declarations.
   This prevents duplicate bootstrap/facade names from selecting a different base
