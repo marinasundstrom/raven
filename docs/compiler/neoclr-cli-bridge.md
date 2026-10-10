@@ -8586,3 +8586,33 @@ associations through specialization/trimming; metadata/runtime support alone doe
 not qualify that backend. This adapter remains on
 `codex/source-object-metadata-resolution`, not Raven main; general portable support is
 an integration candidate dependent on the existing shared native emission foundations.
+
+
+## Scoped native enumeration cleanup (2026-10-10)
+
+With explicit RuntimeIterationContract and RuntimeDisposalContract configured,
+`UseExceptionHandling=false` now lowers disposable reference-iterator `for` loops
+before the method-wide scope-exit pass. Iterator acquisition occurs once; successful
+acquisition owns a scoped resource. Exhaustion, break, return and outward transfers
+dispose it, in reverse lifetime order with surrounding and nested `use` resources.
+Continue within the same loop retains its iterator. Ordinary .NET enumeration
+keeps its existing default path and exception-handling behavior.
+
+neoCLR source System.Runtime must override the bootstrap disposal owner in its
+ownership configuration: assemblyName `System.Runtime`, interfaceTypeName
+`System.Disposable`, useExceptionHandling `false`. Its source Iterator<T> implements
+that source-owned protocol; the bootstrap interface is a different identity.
+
+This is scope-exit cleanup, not exception unwinding: provider/callback terminal
+Faults do not guarantee disposal. Only the supported reference iterator shape is
+covered; arrays/ranges retain existing lowering. Temporary CLI transport uses
+ordinary calls, locals and branches and carries no exception region. Native
+metadata/codegen consumes those same semantic calls; future runtime unwinding
+requires an explicit contract change, owned jointly by Raven lowering and neoCLR.
+
+Validation: PortableEnumerationCleanupTests exercises exhaustion, break, continue,
+return, nested use ordering, labeled break/continue and outward goto. All eight
+regressions failed before this fix and pass after it; the 50 existing focused
+cleanup/loop tests also pass. Native executable integration is qualified in
+neoCLR's integration evidence. This adapter revision remains on
+`codex/source-object-metadata-resolution`; it does not imply availability on main.

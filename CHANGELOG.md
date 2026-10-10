@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Dispose configured native reference iterators on normal and structured
+  exits from `for`, in lifetime order with nested `use` scopes. Lower these loops
+  before scope-exit cleanup; ordinary .NET enumeration remains unchanged. The
+  no-exception-handling target contract does not unwind terminal Faults. Eight
+  execution regressions and 50 existing focused cleanup/loop tests pass.
+
 - **2026-10-10:** Add an explicit neoCLR positional-record storage capability for
   read-only native key/value transport: primary/copy construction, getters and
   simple deconstruction assignments. Ordinary .NET records retain their existing

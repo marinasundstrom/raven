@@ -36,7 +36,7 @@ internal sealed partial class Lowerer
         public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node) => node;
     }
 
-    private bool CanLowerPortableFor(BoundForStatement node) => CanLowerArrayFor(node) || CanLowerRangeFor(node);
+    private bool CanLowerPortableFor(BoundForStatement node) => CanLowerArrayFor(node) || CanLowerRangeFor(node) || CanLowerScopedEnumeration(node);
 
     private bool CanLowerArrayFor(BoundForStatement node) =>
         _lowerPortableArrays && _containingSymbol.ContainingAssembly is SourceAssemblySymbol &&
@@ -53,6 +53,8 @@ internal sealed partial class Lowerer
             try { return base.VisitForStatement(node); }
             finally { _loopStack.Pop(); }
         }
+        if (CanLowerScopedEnumeration(node))
+            return LowerPortableEnumeration(node, CreateLabel("iterator_end"), CreateLabel("iterator_continue"), dispose: true);
         return CanLowerRangeFor(node)
             ? LowerRangeForStatement(node, CreateLabel("range_break"), CreateLabel("range_continue"))
             : LowerArrayForStatement(node, CreateLabel("for_break"), CreateLabel("for_continue"));
@@ -164,6 +166,8 @@ internal sealed partial class Lowerer
 
         BoundStatement? loweredLoop = current switch
         {
+            BoundForStatement iteratorStatement when CanLowerScopedEnumeration(iteratorStatement) => LowerLabeledLoop(labels, "iterator", iteratorStatement, static (lowerer, statement, breakLabel, continueLabel) =>
+                lowerer.LowerPortableEnumeration(statement, breakLabel, continueLabel, dispose: true)),
             BoundForStatement rangeStatement when CanLowerRangeFor(rangeStatement) => LowerLabeledLoop(labels, "range", rangeStatement, static (lowerer, statement, breakLabel, continueLabel) =>
                 lowerer.LowerRangeForStatement(statement, breakLabel, continueLabel)),
             BoundForStatement forStatement when CanLowerArrayFor(forStatement) => LowerLabeledLoop(labels, "for", forStatement, static (lowerer, statement, breakLabel, continueLabel) =>
