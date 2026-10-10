@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-10:** Document neoCLR civil Parse overloads and their ordinary Result/error
+  union projection, plus native host-culture prerequisites. These are library/backend
+  changes; Raven Runtime Contract configuration and compiler emission are unchanged.
+
 - **2026-10-10:** Document neoCLR JsonObject map/indexer integration, the aggregate
   reference's temporary positional Item rename, and native fallback/conformance
   fixes exposed by JSON-node serialization. Runtime Contract and compiler behavior

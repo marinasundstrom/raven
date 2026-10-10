@@ -9036,3 +9036,22 @@ Extra accessor retention is a code-size cost until more precise native trimming 
 available. These temporary private projections belong to neoCLR, with native
 metadata/codegen as their replacement. Focused backend checks, JSON framework cases,
 fault probes and API snapshots record validation in neoCLR; Windows remains separate.
+
+### Civil Parse library contract and host culture (2026-10-10)
+
+neoCLR adds Date/TimeOfDay/LocalDateTime Parse(value) and Parse(value, Culture),
+returning standard Result<T, DateTimeParseError> values. The new error is an ordinary
+Raven union; the aggregate reference compiles its source through the existing union
+projection and supplies declaration-only overloads. Native metadata retains the real
+members and parser bodies. Runtime Contract configuration, compiler semantic binding
+and emission are unchanged; the compiler code pin remains
+b2f3ba0f8b8e92f0c516155f563b332b0a6fad54. Matching runtime/reference libraries are required.
+
+neoCLR also supplies an explicit native SystemCultureName adapter for current-culture
+parsing: --bind-system-culture requires compiled System and a reference arena. It
+uses the interpreter's host preference sources on macOS/Windows and existing Raven
+fallback rules, not host date parsers. The private text-arena ABI belongs to neoCLR
+and will be replaced by its native host-service contract. Culture consumers on macOS
+now link CoreFoundation; Windows uses KERNEL32. Eight library cases and host-preference
+parity pass locally; Windows validation is configured and remains pending. General
+format patterns, non-Gregorian parsing and instant/offset/zone formats remain gaps.
