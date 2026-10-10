@@ -9167,3 +9167,21 @@ owns binding and native emission; neoCLR owns metadata preservation/import and
 resolved access checks. Native assembly-level metadata replaces the temporary CLI
 attribute transport once those layers are qualified together. No information is
 silently dropped and then treated as permission: absent grants deny friend access.
+
+
+### Native assembly annotation transport (2026-10-10)
+
+neoCLR's host metadata writer/model now retains assembly annotations in optional
+`assemblies[].custom_attributes`, through JSON, PE/#Neo and NEOX snapshots and CLI
+reference projection. The bounded existing constructor/fixed/named data schema applies;
+member target tokens are rejected. Runtime loading checks scopes, constructors and
+explicit dependencies without executing attribute constructors. An emitted NEOX fixture
+with a deliberately faulting attribute constructor executes Main and returns 42; 12
+focused neoCLR attribute checks and host metadata round trips pass.
+
+Runtime Contract configuration is unchanged. Raven source assembly forwarding and
+native assembly-symbol attribute exposure remain adapter work; retained metadata alone
+does not grant native internal access. Import/runtime friend checking and full-public-key
+native identities remain pending, with cached pair decisions required for resolution
+performance. The CLI reference projection is temporary transport; native manifest data
+is authoritative. No guest assembly reflection API or AOT attribute roots are implied.

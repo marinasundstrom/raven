@@ -13,6 +13,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   neoCLR runtime enforcement remain explicit integration gaps. Cache both granted
   and denied access per immutable assembly-symbol pair using weak keys; repeated
   internal-member checks avoid attribute scans, identity parsing and allocation.
+  Document neoCLR native assembly-annotation retention and its remaining native
+  adapter/identity/access-check gaps; no native friend authorization is claimed.
 
 - **2026-10-10:** Admit single unfiltered constant-Int32-range array comprehensions
   in the portable/native array profile, preserving selector order and inclusive
