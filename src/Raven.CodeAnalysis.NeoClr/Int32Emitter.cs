@@ -18,11 +18,13 @@ internal static class Int32Emitter
     {
         SyntaxNode diagnosticSyntax = compilation.SyntaxTrees[0].GetRoot();
         var plans = new List<SourceCallablePlan>();
+        var emittedAttributes = new HashSet<(SyntaxTree Tree, Raven.CodeAnalysis.Text.TextSpan Span)>();
         var runtimeServices = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         var interfaces = new List<SourceInterfacePlan>();
         var flagsEnums = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
         var unions = new List<SourceUnionDeclarationPlan>();
         var properties = new List<SourcePropertySymbol>();
+        var attributeProperties = new List<(IPropertySymbol Symbol, PropertyDefinition Definition)>();
         var storageFields = new List<IFieldSymbol>();
         var assemblyConstants = new List<IFieldSymbol>();
         var declaredTypes = new Dictionary<INamedTypeSymbol, SourceTypePlan>(SymbolEqualityComparer.Default);
@@ -49,7 +51,7 @@ internal static class Int32Emitter
                         plans.Add(service!);
                         continue;
                     }
-                    if ((declaration.Body is null && declaration.ExpressionBody is null) || declaration.AttributeLists.Count != 0 ||
+                    if ((declaration.Body is null && declaration.ExpressionBody is null) ||
                         declaration.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.AsyncKeyword or SyntaxKind.UnsafeKeyword)))
                         throw Unsupported("only top-level functions with block or expression bodies");
                     var plan = GetPlan(symbol);
@@ -88,7 +90,7 @@ internal static class Int32Emitter
                             model.GetDeclaredSymbol(asyncExtension) is IMethodSymbol { IsAsync: true })
                             throw Unsupported("native async state-machine emission");
                         if (extensionMember is not MethodDeclarationSyntax method ||
-                            (method.Body is null && method.ExpressionBody is null) || method.AttributeLists.Count != 0 ||
+                            (method.Body is null && method.ExpressionBody is null) ||
                             method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)) ||
                             model.GetDeclaredSymbol(method) is not IMethodSymbol { IsStatic: true } symbol ||
                             !method.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword) && (!symbol.IsExtensionMethod || symbol.Parameters.IsEmpty))
@@ -101,14 +103,7 @@ internal static class Int32Emitter
                     if (model.GetDeclaredSymbol(enumeration) is not INamedTypeSymbol enumSymbol ||
                         !SourceTypePlan.TryCreate(enumSymbol, out var enumPlan, NeoClrCapabilities.Shared))
                         throw Unsupported("top-level public/internal Int32 enum");
-                    var attributes = enumSymbol.GetAttributes();
-                    if (!attributes.IsEmpty)
-                    {
-                        if (attributes.Length != 1 || attributes[0] is not { AttributeClass: { } attributeType, ConstructorArguments.IsEmpty: true, NamedArguments.IsEmpty: true } ||
-                            attributeType.ToFullyQualifiedMetadataName() != "System.FlagsAttribute" || !NeoClrBindingContract.MatchesCore(attributeType.ContainingAssembly, options.CoreLibrary))
-                            throw Unsupported("only the configured core FlagsAttribute on native enums");
-                        flagsEnums.Add(enumSymbol);
-                    }
+                    if (enumSymbol.GetAttributes().Any(IsFlagsAttribute)) flagsEnums.Add(enumSymbol);
                     declaredTypes.TryAdd(enumSymbol, enumPlan!);
                 }
                 else if (member is UnionDeclarationSyntax unionSyntax)
@@ -150,7 +145,7 @@ internal static class Int32Emitter
                 else if (member is RecordDeclarationSyntax recordSyntax)
                 {
                     if (model.GetDeclaredSymbol(recordSyntax) is not SourceNamedTypeSymbol { IsValueType: true } recordSymbol ||
-                        recordSyntax.AttributeLists.Count != 0 || recordSyntax.Members.Count != 0 ||
+                        recordSyntax.Members.Count != 0 ||
                         !SourceTypePlan.TryCreate(recordSymbol, out var recordPlan, NeoClrCapabilities.Shared))
                         throw Unsupported("positional record structs without additional members");
                     declaredTypes.TryAdd(recordSymbol, recordPlan!);
@@ -186,7 +181,7 @@ internal static class Int32Emitter
                 else if (member is TypeDeclarationSyntax type && type is ClassDeclarationSyntax or StructDeclarationSyntax)
                 {
                     var typeSymbol = model.GetDeclaredSymbol(type) as INamedTypeSymbol ?? throw Unsupported("type symbol unavailable");
-                    if (type.AttributeLists.Count != 0 || type.ParameterList is not null ||
+                    if (type.ParameterList is not null ||
                         type.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.StaticKeyword or SyntaxKind.PartialKeyword or SyntaxKind.OpenKeyword or SyntaxKind.SealedKeyword or SyntaxKind.AbstractKeyword)))
                         throw Unsupported("only public or internal static/root classes or value types without additional contracts");
                     if (!SourceTypePlan.TryCreate(typeSymbol, out var typePlan, NeoClrCapabilities.Shared))
@@ -200,8 +195,7 @@ internal static class Int32Emitter
                         if (typeMember is ClassDeclarationSyntax or StructDeclarationSyntax) continue;
                         if (!typeSymbol.IsStatic && typeMember is FieldDeclarationSyntax fieldSyntax)
                         {
-                            if (fieldSyntax.AttributeLists.Count != 0 ||
-                                fieldSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)))
+                            if (fieldSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)))
                                 throw Unsupported("only public/internal/private mutable instance fields with target-supported storage types");
                             foreach (var variable in fieldSyntax.Declaration.Declarators)
                             {
@@ -216,14 +210,14 @@ internal static class Int32Emitter
                         }
                         if (!typeSymbol.IsStatic && typeMember is IndexerDeclarationSyntax indexerSyntax)
                         {
-                            if (indexerSyntax.AttributeLists.Count != 0 || indexerSyntax.ExplicitInterfaceSpecifier is not null || indexerSyntax.Initializer is not null ||
+                            if (indexerSyntax.ExplicitInterfaceSpecifier is not null || indexerSyntax.Initializer is not null ||
                                 indexerSyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword)) ||
                                 model.GetDeclaredSymbol(indexerSyntax) is not SourcePropertySymbol { IsStatic: false, IsIndexer: true } indexer ||
                                 !CallableSignature.TryType(indexer.Type, false, out _, NeoClrCapabilities.Shared))
                                 throw Unsupported("only implemented root-class indexers with supported value types");
                             if (indexerSyntax.AccessorList is { } indexerAccessors && indexerAccessors.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration) ||
-                                a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null) ||
+                                (a.Body is null && a.ExpressionBody is null) ||
                                 a.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword))))
                                 throw Unsupported("only implemented indexer get/set accessors");
                             properties.Add(indexer);
@@ -233,15 +227,14 @@ internal static class Int32Emitter
                         }
                         if (typeMember is PropertyDeclarationSyntax propertySyntax)
                         {
-                            if (propertySyntax.AttributeLists.Count != 0 ||
-                                propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)) ||
+                            if (propertySyntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword)) ||
                                 model.GetDeclaredSymbol(propertySyntax) is not SourcePropertySymbol property ||
                                 property.IsStatic && (property.BackingField is not null || propertySyntax.Initializer is not null) ||
                                 !CallableSignature.TryType(property.Type, false, out _, NeoClrCapabilities.Shared))
                                 throw Unsupported("only supported instance properties/storage or implemented static properties without storage");
                             if (propertySyntax.AccessorList is { } accessorList && accessorList.Accessors.Any(a =>
                                 a.Kind is not (SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration or SyntaxKind.InitAccessorDeclaration) ||
-                                a.AttributeLists.Count != 0 || (a.Body is null && a.ExpressionBody is null && property.BackingField is null) ||
+                                (a.Body is null && a.ExpressionBody is null && property.BackingField is null) ||
                                 a.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword))))
                                 throw Unsupported("only implemented get/set/init accessors without additional contracts");
                             if (property.BackingField is { } backingField) storageFields.Add(backingField);
@@ -253,14 +246,14 @@ internal static class Int32Emitter
                         }
                         if (!typeSymbol.IsStatic && typeMember is ConstructorDeclarationSyntax constructor)
                         {
-                            if ((constructor.Body is null && constructor.ExpressionBody is null) || constructor.AttributeLists.Count != 0 ||
+                            if ((constructor.Body is null && constructor.ExpressionBody is null) ||
                                 constructor.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.ProtectedKeyword)))
                                 throw Unsupported("only explicit root constructors with a block or expression body");
                             plans.Add(GetPlan((IMethodSymbol)model.GetDeclaredSymbol(constructor)!));
                             continue;
                         }
                         if (typeMember is OperatorDeclarationSyntax op && (op.Body is not null || op.ExpressionBody is not null) &&
-                            op.AttributeLists.Count == 0 && op.Modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword))
+                            op.Modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.StaticKeyword))
                         {
                             plans.Add(GetPlan((IMethodSymbol)model.GetDeclaredSymbol(op)!));
                             continue;
@@ -269,7 +262,7 @@ internal static class Int32Emitter
                             model.GetDeclaredSymbol(asyncMember) is IMethodSymbol { IsAsync: true } &&
                             compilation.Options.MetadataImportOptions?.AsyncAssemblyName is null)
                             throw Unsupported("explicit native async provider required");
-                        if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null && !method.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword)) || method.AttributeLists.Count != 0 ||
+                        if (typeMember is not MethodDeclarationSyntax method || (method.Body is null && method.ExpressionBody is null && !method.Modifiers.Any(m => m.Kind == SyntaxKind.AbstractKeyword)) ||
                             method.ExplicitInterfaceSpecifier is not null || method.ConstraintClauses.Count != 0 ||
                             method.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.PrivateKeyword or SyntaxKind.StaticKeyword or SyntaxKind.OverrideKeyword or SyntaxKind.AsyncKeyword or SyntaxKind.VirtualKeyword or SyntaxKind.AbstractKeyword or SyntaxKind.UnsafeKeyword)))
                             throw Unsupported("only ordinary primitive methods, explicit constructors and auto-properties");
@@ -599,9 +592,12 @@ internal static class Int32Emitter
                 interfaceMethods.Add(pair.Key, pair.Value);
             }
             foreach (var property in contract.Properties)
-                definition.AddProperty(property.Symbol.MetadataName, NeoClrTypeMapper.Map(property.Type, type => nativeTypes[type], ImportExternalType),
+            {
+                var emitted = definition.AddProperty(property.Symbol.MetadataName, NeoClrTypeMapper.Map(property.Type, type => nativeTypes[type], ImportExternalType),
                     property.Symbol.GetMethod is { } get ? contractMethods[get] : null,
                     property.Symbol.SetMethod is { } set ? contractMethods[set] : null);
+                attributeProperties.Add((property.Symbol, emitted.Definition));
+            }
         }
         foreach (var type in declaredTypes.Values)
             foreach (var contract in type.Symbol.Interfaces)
@@ -726,8 +722,9 @@ internal static class Int32Emitter
         {
             CallableSignature.TryType(property.Type, false, out var propertyType, NeoClrCapabilities.Shared);
             var valueType = NeoClrTypeMapper.Map(propertyType, type => nativeTypes[type], ImportExternalType);
-            nativeTypes[property.ContainingType!].AddProperty(property.MetadataName, valueType,
+            var emitted = nativeTypes[property.ContainingType!].AddProperty(property.MetadataName, valueType,
                 property.GetMethod is null ? null : definedMethods[property.GetMethod], property.SetMethod is null ? null : definedMethods[property.SetMethod], isInitOnly: property.SetMethod?.MethodKind == MethodKind.InitOnly);
+            attributeProperties.Add((property, emitted.Definition));
         }
         var references = new CallableReferenceTable<NeoClrCallableReference>(target =>
         {
@@ -939,11 +936,87 @@ internal static class Int32Emitter
             },
                 type => nativeTypes.TryGetValue(type, out var definition) ? definition : throw Unsupported("undeclared class local: " + type.ToDisplayString() + " (" + type.GetType().Name + ")"), ImportExternalType));
         }
+        // Bind first, then publish user annotations against complete output declarations.
+        // Synthesized markers (flags, unions, nullable and params) retain their own encoders.
+        foreach (var (symbol, definition) in nativeTypes)
+            EmitAttributes(symbol, definition.Definition.CustomAttributes);
+        foreach (var (symbol, definition) in fields)
+            EmitAttributes(symbol, definition.Definition.CustomAttributes);
+        foreach (var (symbol, definition) in attributeProperties)
+            EmitAttributes(symbol, definition.CustomAttributes);
+        foreach (var (symbol, definition) in definedMethods.Concat(interfaceMethods))
+        {
+            if (symbol.GetReturnTypeAttributes().Select(a => a.ApplicationSyntaxReference?.GetSyntax()).OfType<AttributeSyntax>().FirstOrDefault() is { } returnAttribute)
+                throw new UnsupportedInputException("native return-value attributes are not yet supported", returnAttribute.GetLocation());
+            EmitAttributes(symbol, definition.Definition.CustomAttributes);
+            for (var i = 0; i < symbol.Parameters.Length; i++)
+                EmitAttributes(symbol.Parameters[i], definition.Definition.GetParameterCustomAttributes(i));
+        }
+        foreach (var tree in compilation.SyntaxTrees)
+            foreach (var attribute in tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>())
+                if (!emittedAttributes.Contains((tree, attribute.Span)))
+                    throw new UnsupportedInputException("native attribute target is not yet supported", attribute.GetLocation());
         return metadataAssembly
             ? compilation.Options.OutputKind == OutputKind.DynamicallyLinkedLibrary
                 ? NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteLibraryBinary(assembly)
                 : NeoCLR.Metadata.Experimental.RuntimeAssemblyContainer.WriteBinary(assembly)
             : assembly.WriteNativeAssembly();
+
+        bool IsFlagsAttribute(AttributeData attribute) => attribute is
+        { AttributeClass: { } owner, ConstructorArguments.IsEmpty: true, NamedArguments.IsEmpty: true } &&
+            owner.ToFullyQualifiedMetadataName() == "System.FlagsAttribute" &&
+            NeoClrBindingContract.MatchesCore(owner.ContainingAssembly, options.CoreLibrary);
+
+        void EmitAttributes(ISymbol symbol, IList<CustomAttributeDefinition> destination)
+        {
+            foreach (var attribute in symbol.GetAttributes())
+            {
+                if (attribute.ApplicationSyntaxReference?.GetSyntax() is not AttributeSyntax syntax) continue;
+                diagnosticSyntax = syntax;
+                emittedAttributes.Add((diagnosticSyntax.SyntaxTree, diagnosticSyntax.Span));
+                if (symbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } && IsFlagsAttribute(attribute)) continue;
+                if (symbol is IMethodSymbol method && runtimeServices.Contains(method) &&
+                    attribute.AttributeClass.ToFullyQualifiedMetadataName() == "System.Runtime.CompilerServices.MethodImplAttribute") continue;
+                var constructor = attribute.AttributeConstructor;
+                var arguments = attribute.ConstructorArguments.Select(Constant).ToArray();
+                var named = attribute.NamedArguments.Select(argument =>
+                {
+                    var candidates = attribute.AttributeClass.GetMembers(argument.Key).Where(member =>
+                        member is IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false }).ToArray();
+                    if (candidates.Length != 1) throw Unsupported("native named attributes require an unambiguous declared instance member");
+                    var value = Constant(argument.Value);
+                    if (value.Type.Primitive is null) throw Unsupported("native named enum attribute arguments are not yet supported");
+                    return new CustomAttributeNamedArgument(argument.Key, candidates[0] is IFieldSymbol, value);
+                }).ToArray();
+                destination.Add(definedMethods.TryGetValue(constructor, out var local)
+                    ? new CustomAttributeDefinition(local.Definition, arguments, named)
+                    : new CustomAttributeDefinition(Import(constructor), arguments, named));
+            }
+        }
+
+        CustomAttributeArgument Constant(TypedConstant constant)
+        {
+            if (constant.Type is not { } type || constant.Kind is not
+                (TypedConstantKind.Primitive or TypedConstantKind.Null or TypedConstantKind.Enum))
+                throw Unsupported("native custom attributes support String, Int32, Boolean and Int32-backed enum constants");
+            if (type.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType)
+                type = type.GetNonNullableType();
+            SignatureType signature;
+            if (type.TypeKind == TypeKind.Enum && type is INamedTypeSymbol { EnumUnderlyingType.SpecialType: SpecialType.System_Int32 } enumType)
+            {
+                if (!CallableSignature.TryType(enumType, false, out var enumStorage, NeoClrCapabilities.Shared))
+                    throw Unsupported("unsupported attribute enum signature");
+                signature = NeoClrTypeMapper.Map(enumStorage, t => nativeTypes[t], ImportExternalType);
+            }
+            else signature = type.SpecialType switch
+            {
+                SpecialType.System_String => PrimitiveType.String,
+                SpecialType.System_Int32 => PrimitiveType.Int32,
+                SpecialType.System_Boolean => PrimitiveType.Boolean,
+                _ => throw Unsupported("native custom attributes support String, Int32, Boolean and Int32-backed enum constants")
+            };
+            return new CustomAttributeArgument(signature, constant.Value);
+        }
 
         bool IsTypeHandleIntrinsic(IMethodSymbol method)
         {

@@ -11,6 +11,31 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public class AttributeUsageTests : CompilationTestBase
 {
     [Fact]
+    public void PropertyAttributes_DoNotLeakOntoBackingFields()
+    {
+        const string source = """
+            import System.*
+            [AttributeUsage(AttributeTargets.Property)]
+            class PropertyOnlyAttribute : Attribute { }
+            [AttributeUsage(AttributeTargets.Field)]
+            class FieldOnlyAttribute : Attribute { }
+            class C {
+                [PropertyOnly]
+                [field: FieldOnly]
+                var Number: int { get; set; }
+            }
+            """;
+        var (compilation, tree) = CreateCompilation(source);
+        var declaration = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var property = (SourcePropertySymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
+        var annotations = property.GetAttributes().Where(a => a.ApplicationSyntaxReference?.GetSyntax() is AttributeSyntax);
+        Assert.Equal("PropertyOnlyAttribute", Assert.Single(annotations).AttributeClass.Name);
+        var fieldAnnotations = property.BackingField!.GetAttributes().Where(a => a.ApplicationSyntaxReference?.GetSyntax() is AttributeSyntax);
+        Assert.Equal("FieldOnlyAttribute", Assert.Single(fieldAnnotations).AttributeClass.Name);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void AttributeAppliedToInvalidTarget_ReportsDiagnostic()
     {
         const string source = """

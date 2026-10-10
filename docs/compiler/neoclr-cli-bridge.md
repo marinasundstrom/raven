@@ -8668,3 +8668,45 @@ policy identity and three malformed-data diagnostics. The 20 ordinary AttributeU
 regressions pass; native flags and the existing System.Runtime async-symbol consumer
 also pass. The matching neoCLR host suite passes 168 groups. No Windows/AOT execution
 claim is made by these metadata/binding checks.
+
+
+## Native source annotation emission (2026-10-10)
+
+Follow-up to native import: the native adapter now writes bound source annotations
+on supported types (including interfaces/enums), functions, constructors, methods,
+fields, properties/accessors and parameters. The payload preserves String (including
+null), Int32, Boolean and nominal Int32 enum fixed arguments, plus primitive named
+field/property arguments. Co-owned source attribute constructors retain local identity;
+imported constructors retain dependency identity. Binding applies ordinary usage rules
+before native emission. Inspection does not execute attribute code.
+
+No Runtime Contract configuration changes: use the existing native target, matching
+metadata dependency and explicit primitive bootstrap. The portable interface planner
+has an explicit native custom-attribute capability; other adapters retain their
+admission defaults. Native metadata owns declarations and typed values. Temporary CLI
+projection uses ordinary constructor references and attribute blobs; it does not
+supply missing target or payload support. Raven owns binding/emission, neoCLR owns
+metadata validation and runtime inspection. Native core metadata will replace the
+bootstrap dependency; no new permanent CLI encoding is introduced.
+
+Assembly/module/return/generic-parameter and other unhandled targets, wider primitive,
+type/array and named-enum payloads reject with NEOMETA001 before output publication.
+Named members must be declared unambiguously on the attribute type. Existing flags,
+InternalCall, nullable, params and union marker encoders remain in place. Synthesized
+attributes are not mistaken for source annotations. Separate-library concrete
+Attribute inheritance remains a native type-planning gap; co-owned inheritance is
+covered, not a substitute for that missing contract. The packaged compiler remains
+494dede84; source support here does not imply bundle or end-to-end AOT qualification.
+
+A general binder correction also prevents untargeted property/event annotations from
+being copied to backing fields. Explicit field targets still bind to those fields;
+Raven field-only storage retains ordinary untargeted field annotations. This is a
+shared .NET behavior correction, independently covered by AttributeUsageTests.
+
+Validation: the native attribute probe round-trips source types, interfaces, enums,
+fields, properties/accessors, constructors/functions and parameters, repeated/fixed/
+null/enum/named values and a co-owned Attribute hierarchy. Negative wider-constant
+and return-target cases verify diagnostics and unchanged output streams. The 21
+ordinary AttributeUsage tests pass. AOT metadata-authored retention is independently
+qualified by neoCLR 6ae823c0 on macOS ARM64 and Windows x64; this source emission
+slice has not replaced that fixture with a compiler-produced AOT consumer.

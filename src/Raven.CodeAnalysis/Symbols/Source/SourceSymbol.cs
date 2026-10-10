@@ -339,6 +339,15 @@ internal abstract class SourceSymbol : Symbol
         if (this is SynthesizedNamespaceMembersClassSymbol)
             return AttributeUsageHelper.IsNamespaceContainerAttributeDeclaration(list);
 
+        // A property's default target is the property, not its synthesized field.
+        // Field-only Raven storage declarations still own their unqualified annotations.
+        if (this is IFieldSymbol { AssociatedSymbol: IPropertySymbol or IEventSymbol } field &&
+            list.Parent is PropertyDeclarationSyntax or EventDeclarationSyntax)
+        {
+            return HasExplicitTarget(list, "field") || list.Target is null &&
+                field.AssociatedSymbol is SourcePropertySymbol { EmitAsFieldOnly: true };
+        }
+
         if (list.Target is null)
             return true;
 
@@ -356,12 +365,6 @@ internal abstract class SourceSymbol : Symbol
             HasExplicitTarget(list, "method"))
         {
             return false;
-        }
-
-        if (this is IFieldSymbol { AssociatedSymbol: IPropertySymbol or IEventSymbol } &&
-            list.Parent is PropertyDeclarationSyntax or EventDeclarationSyntax)
-        {
-            return HasExplicitTarget(list, "field");
         }
 
         if (this is SourcePropertySymbol &&

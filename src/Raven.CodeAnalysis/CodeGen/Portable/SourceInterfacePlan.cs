@@ -39,7 +39,7 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
             type.Arity > 0 && !capabilities.AllowsGenericInterfaceDeclarations ||
             type.TypeParameters.Any(p => p.Variance != VarianceKind.None || p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty) ||
             type.DeclaringSyntaxReferences.Length != 1 || type.DeclaringSyntaxReferences[0].GetSyntax() is not InterfaceDeclarationSyntax syntax ||
-            syntax.AttributeLists.Count != 0 || syntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword) &&
+            (!capabilities.AllowsCustomAttributes && syntax.AttributeLists.Count != 0) || syntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword) &&
                 !(m.Kind == SyntaxKind.SealedKeyword && capabilities.AllowsClosedInterfaceFamilies && type.Arity == 0)))
             return false;
         if (!type.Interfaces.IsEmpty && (!capabilities.Allows(EmissionDeclarationKind.InterfaceInheritance) ||
@@ -49,20 +49,20 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
             modifier.Kind == SyntaxKind.StaticKeyword && capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod);
         foreach (var member in syntax.Members)
         {
-            if (member is MethodDeclarationSyntax { Body: null, ExpressionBody: null } method && method.AttributeLists.Count == 0 &&
+            if (member is MethodDeclarationSyntax { Body: null, ExpressionBody: null } method && (capabilities.AllowsCustomAttributes || method.AttributeLists.Count == 0) &&
                 method.ExplicitInterfaceSpecifier is null && method.Modifiers.All(AllowsModifier)) continue;
             if (member is PropertyDeclarationSyntax { ExpressionBody: null, Initializer: null, AccessorList: { } accessors } property &&
-                property.AttributeLists.Count == 0 && property.ExplicitInterfaceSpecifier is null &&
+                (capabilities.AllowsCustomAttributes || property.AttributeLists.Count == 0) && property.ExplicitInterfaceSpecifier is null &&
                 property.Modifiers.All(AllowsModifier) &&
                 accessors.Accessors.All(a => a.Kind is SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration &&
-                    a.Body is null && a.ExpressionBody is null && a.AttributeLists.Count == 0 && a.Modifiers.Count == 0)) continue;
+                    a.Body is null && a.ExpressionBody is null && (capabilities.AllowsCustomAttributes || a.AttributeLists.Count == 0) && a.Modifiers.Count == 0)) continue;
             if (member is IndexerDeclarationSyntax { ExpressionBody: null, AccessorList: { } indexAccessors } indexer &&
-                capabilities.Allows(EmissionDeclarationKind.InterfaceIndexer) && indexer.AttributeLists.Count == 0 && indexer.ExplicitInterfaceSpecifier is null &&
+                capabilities.Allows(EmissionDeclarationKind.InterfaceIndexer) && (capabilities.AllowsCustomAttributes || indexer.AttributeLists.Count == 0) && indexer.ExplicitInterfaceSpecifier is null &&
                 indexer.Modifiers.All(m => m.Kind is SyntaxKind.PublicKeyword or SyntaxKind.AbstractKeyword) &&
                 indexAccessors.Accessors.All(a => a.Kind is SyntaxKind.GetAccessorDeclaration or SyntaxKind.SetAccessorDeclaration &&
-                    a.Body is null && a.ExpressionBody is null && a.AttributeLists.Count == 0 && a.Modifiers.Count == 0)) continue;
+                    a.Body is null && a.ExpressionBody is null && (capabilities.AllowsCustomAttributes || a.AttributeLists.Count == 0) && a.Modifiers.Count == 0)) continue;
             if (member is OperatorDeclarationSyntax { Body: null, ExpressionBody: null } op &&
-                capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod) && op.AttributeLists.Count == 0 &&
+                capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod) && (capabilities.AllowsCustomAttributes || op.AttributeLists.Count == 0) &&
                 op.Modifiers.All(AllowsModifier)) continue;
             return false;
         }

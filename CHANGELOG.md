@@ -11,7 +11,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   replaced usage policies. Reject malformed constructor/named-member contracts with
   RAVT003 before symbol binding. Preserve the configured-core Flags marker. Requires
   matching neoCLR metadata with CLI instance/nominal signature inspection; native
-  source attribute emission, guest named-data queries and test discovery remain open.
+  source annotations now emit on supported types, interfaces, functions, members and
+  parameters, with String/Int32/Boolean, Int32 enum fixed values and primitive named
+  values. Unsupported targets/payloads diagnose before writing output. Preserve
+  co-owned source attribute constructor identity. Fix ordinary property attributes
+  leaking onto backing fields; explicit field targets and field-only storage retain
+  their semantics. Separate-library Attribute inheritance, guest named-data queries
+  and test discovery remain open.
 
 - **2026-10-10:** Dispose configured native reference iterators on normal and structured
   exits from `for`, in lifetime order with nested `use` scopes. Lower these loops

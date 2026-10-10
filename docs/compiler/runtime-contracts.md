@@ -3934,3 +3934,12 @@ ordinary binder's target and multiplicity checks; no extra runtime-contract swit
 or .NET policy change is introduced. Malformed metadata is reported as RAVT003.
 See [native attribute import](neoclr-cli-bridge.md#native-attribute-import-and-usage-policies-2026-10-10)
 for the exact scope, bootstrap dependency, validation and remaining emission gaps.
+
+
+### Native source attributes (2026-10-10)
+
+Bound source annotations now emit through the native metadata adapter's explicit
+custom-attribute capability. No Runtime Contract option changes. Ordinary .NET
+binding remains the default, including the correction separating property attributes
+from backing-field targets. See [source annotation emission](neoclr-cli-bridge.md#native-source-annotation-emission-2026-10-10)
+for payload/target bounds, ownership, bootstrap/bundle provenance and validation.

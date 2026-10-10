@@ -23,6 +23,10 @@ against declaration position:
 * Target prefixes used in an invalid declaration context are rejected with an
   attribute-target diagnostic.
 
+Untargeted attributes on a property or event describe that declaration; only explicit
+`field:` attributes describe its backing field. Raven declarations emitted as fields
+retain their untargeted field attributes.
+
 ## Extension members
 Raven both declares and consumes extension members using CLR extension metadata,
 but it classifies extension semantics per emitted member rather than treating an
