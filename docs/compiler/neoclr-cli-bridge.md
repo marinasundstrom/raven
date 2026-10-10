@@ -9094,3 +9094,28 @@ civil years; it preserves Instant's wider tick domain when UTC crosses a civil
 boundary. General pattern parsing and named-zone resolution remain gaps. The
 instant-parsing framework project covers offset equivalence, fractions, boundaries,
 invalid syntax/ranges and fixed-offset projection on both execution paths.
+
+
+### Zoned Parse and pure native rule queries (2026-10-10)
+
+ZonedDateTime.Parse(String, TimeZone) returns Result<ZonedDateTime, DateTimeParseError>;
+OffsetMismatch is a new ordinary error-union case. Aggregate references provide the
+static declaration and source-project the error union. Native metadata retains the
+Raven implementation and case identities. Matching artifacts are required; exhaustive
+error consumers need to handle the new case. No Raven binding/emission or Runtime
+Contract configuration change is made. Compiler code pin: b2f3ba0f8b8e92f0c516155f563b332b0a6fad54.
+
+neoCLR explicitly enables --bind-time-zone-rules, requiring --compile-system and
+--reference-arena. Only exact TimeZoneExists(String)->Boolean,
+TimeZoneOffset(String,Int64)->Int32 and TimeZoneDatabaseVersion()->String InternalCall
+contracts are admitted. The private C ABI borrows UTF-8 names, returns numeric results,
+and allocates version text in the existing arena; it cannot reenter or collect guest
+objects. The no_std kernel shares src/time_zone_rules.rs and interpreter dependency
+pins. The historical aot-native-text archive now includes these pure rule kernels;
+only reached rule bindings select the optional feature/archive and C adapter. Build
+kits carry separate text-only and rule-enabled archives; source hashes cover the new kernel. Native MapLocal and host-system-zone services remain unsupported.
+
+neoCLR owns rule semantics and ABI replacement; a future native host-service contract
+replaces the private C/text-arena transport. Ordinary .NET compiler behavior is
+unchanged. Focused contract/CLI and rule-kernel checks accompany framework DST,
+historical-second, alias and range cases; Windows execution remains separately gated.
