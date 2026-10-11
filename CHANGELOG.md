@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Document neoCLR's runtime-backed Scheduler projection experiment:
+  existing InternalCall/delegate emission and generated async state machines remain
+  valid, with no new Runtime Contract option or shared compiler behavior. Record the
+  temporary admission acknowledgment, owning layers and reported cross-mode evidence;
+  public Scheduler and runtime suspension are not claimed as implemented Raven features.
+
 - **2026-10-11:** Preserve pattern bindings declared by `let … else` across `await` in the shared async lowering. A focused .NET regression covers both successful extraction and the failure branch. The fix conservatively hoists these bindings into private state-machine fields; no public contract changes.
 
 - **2026-10-11:** Support instance extension indexers with generic receivers,

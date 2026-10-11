@@ -406,3 +406,28 @@ receiver while preserving direct dispatch. No metadata replacement is needed.
 Focused CLR execution tests cover completed and suspending awaits with private
 base storage and an overridden method. NeoCLR pipeline qualification remains
 on its integration branch.
+
+
+## Runtime scheduler projection experiment (2026-10-11)
+
+neoCLR's source-included internal Scheduler prototype uses an authored InternalCall
+`neoCLR.Runtime.SchedulerSubmit(fn<Void>) -> Int32` to acknowledge deferred runtime
+admission. Its managed facade discards the zero acknowledgment; Task/Promise remain
+managed. This uses existing Raven declaration/delegate emission and generated async
+state machines. Runtime Contract configuration, semantic-model rules and lowering
+are unchanged; ordinary .NET behavior remains the default. No compiler feature is
+added on this shared line by this documentation update.
+
+The Int32 acknowledgment and unit-callback shape are temporary bridge restrictions,
+not the eventual native async ABI. neoCLR owns the exact binding, bounded rooted
+admission, dispatch and teardown. AOT/JIT explicitly opt in with `--bind-scheduler`
+plus `--compile-system` and `--native-gc`. A later native metadata/backend contract
+must support runnable/resumption capabilities independently of managed Task layout
+or a callback-only representation. Runtime suspension is not implemented here.
+
+neoCLR reports nested submission, pending/completed awaits and terminal callback
+faults passing in interpreter/AOT/JIT on macOS ARM64 using its matching integration
+bundle. See `docs/experiments/scheduler-projection/validation.json` in neoCLR for
+compiler/bundle hashes and executions. This is reported integration evidence, not
+validation of arbitrary Raven-main binaries or Windows support; the compiler bundle
+was not rebuilt from this docs-only shared-main change.
