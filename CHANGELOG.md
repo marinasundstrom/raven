@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-12:** Document the neoCLR current-stack capture integration, unchanged
+  Runtime Contract/lowering, temporary diagnostic name projection and native service
+  ownership. This native-line documentation does not change ordinary .NET behavior
+  or add compiler-main support; structured/causal stack diagnostics remain incomplete.
+
 - **2026-10-11:** Document the native runtime-async provider's managed ownership
   services, completion-to-dispatch lifetime transfer and automatic body/signal
   reclamation. The returned Task now directly owns its producer registration,

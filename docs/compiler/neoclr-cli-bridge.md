@@ -7,6 +7,30 @@ CLI encodings below are migration mechanisms, not the specification of that targ
 New platform features must not be restricted merely because CLI metadata cannot
 express them. Until a supported path exists, diagnose unsupported use explicitly.
 
+## Current-stack diagnostics (2026-10-12)
+
+The native compiler line consumes `System.Diagnostics.StackTrace` from the rebuilt
+System.Runtime library. Its constructor calls the private exact-signature
+`neoCLR.Runtime.StackTraceCapture(Int32) -> String` InternalCall. No new Raven
+Runtime Contract setting or await lowering is required; ordinary .NET behavior is
+unchanged. The neoCLR interpreter provides active VM frames; native backend
+`--bind-stack-trace` admission requires compiled System and native GC frame publication.
+The generated native wrapper hides its extra frame to preserve managed skip semantics.
+
+The temporary CLI projection carries the class and InternalCall signature; a
+reserved transport-name decoder affects diagnostic display only. It cannot recover
+source lines or suspended causal parents. Production metadata/codegen should provide
+direct logical names and source mappings, replacing display decoding. Raven owns
+metadata projection, neoCLR owns binding/capture and owned UTF-8 storage. This is a
+private service, not a stable native hosting ABI. The first public surface is the
+constructor and ToString; structured frames remain incomplete.
+
+Validation uses Raven native branch `codex/source-object-metadata-resolution`,
+compiler code revision `e349f4783` (documentation HEAD `7622d09e4`), a rebuilt coherent
+four-library bundle and focused interpreter/JIT/AOT consumers on macOS ARM64.
+See neoCLR `docs/experiments/stack-trace/README.md` for pinned evidence and limits.
+This does not imply compiler-main integration or Windows qualification.
+
 ## Current pipeline
 
 The runtime's bridge generates `NeoCLR.CoreProbe.dll` as a CLI reference surface.
