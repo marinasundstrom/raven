@@ -9962,6 +9962,11 @@ early disposal, cancellation and GC during live yields in interpreter and macOS 
 JIT/AOT. Generic source methods and generic owners are still rejected by the retained
 backend; closed generic element types are supported. Abandoned suspended producers
 are not proven collectible, concurrent advancement/disposal is rejected, and acquisition
-cancellation is not yet parameterized. Awaitless generator bodies can still emit the
-existing RAV2706 warning despite suspension at yield; that diagnostic is follow-up work.
+cancellation is not yet parameterized. Selected generator bodies no longer emit RAV2706 merely for lacking an explicit
+await, because yield suspends through the provider. Ordinary Task diagnostics and
+metadata encoding are unchanged.
 No Windows or performance readiness is claimed.
+
+Diagnostic fix `f5abf1dd0` is deliberately carried from Raven main. Its 37 focused
+contract tests pass; neoCLR's refreshed generator evidence qualifies interpreter,
+macOS ARM64 JIT and AOT with no RAV2706 on yield-only producers.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Avoid the awaitless/synchronous warning for generator bodies
+  using the explicit runtime generator capability: yield is a suspension boundary.
+  Preserve the warning for ordinary awaitless Task methods and default .NET behavior.
+
 - **2026-10-11:** Lower native async generators through the opt-in retained-body
   provider: lazy iterable/iterator factories, demand-driven yield, delegated yields,
   lexical disposal and cancellation. Carry shared generator binding capability from
