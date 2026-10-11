@@ -9621,3 +9621,41 @@ Author clarification: runtime async is canonical; generated state machines are a
 migration/testing mechanism with eventual retirement intended. They remain useful
 for finding compiler/runtime integration bugs. Defaults remain unchanged until the
 runtime path is qualified; no performance improvement is claimed here.
+
+
+## Retained managed Task boundary and condition emission (2026-10-11)
+
+neoCLR's source-local ManagedTask.rvn experiment now produces ordinary managed
+Task<T> values from a retained runtime unit body. Its managed Promise<T> owns
+reference/int/unit outcomes; temporary operation handles own body completion and
+unit notifications. The wrapper and cancellation-return control flow are manually
+written candidate lowering, not compiler-generated native async. Main still uses
+a generated state machine. Fault remains invocation-terminal, not a task outcome.
+Native/JIT suspension, automatic lifetime and default switching remain open.
+
+An inline `await` in `!task.IsCompleted || await task != 42` exposed a portable
+emission restriction: conditions discarded their known empty-stack boundary,
+rejecting the async-lowered suspension exit. Propagate that boundary through branch
+conditions, short-circuit operands (whose left value is consumed before the right),
+and the first built-in numeric operand. The right numeric operand retains the
+restriction because the left operand remains on the stack. Existing enclosing-value
+block rejection tests still pass; no arbitrary control transfer is admitted there.
+Binding, Task signatures and ordinary .NET runtime-async defaults are unchanged.
+
+This portable emitter is absent from Raven main. Keep the fix on the native line;
+its general .NET/shared-emitter behavior is tested here and should accompany future
+promotion of the portable infrastructure, rather than copying isolated files to main.
+Validation: pre-change SharedLinearBodyTests baseline 63 passed; post-change 65
+passed, including actual .NET execution of condition-return and short-circuit cases.
+The native compiler build and the compiled neoCLR interpreter consumer also pass.
+Both debug/release optimization settings are covered by the added regression.
+
+Runtime Contract configuration is unchanged: explicit native async provider via
+`--async-library System.Runtime`, matched native references and compiler override.
+Temporary native transport remains structural functions and exact InternalCall
+services. The managed layer owns Task/Promise outcomes, the runtime owns retained
+frames/dispatch, and the compiler owns eventual automatic wrapper and await lowering.
+Native await metadata/backend support must replace source-local handle/wrapper code;
+its current restrictions are not permanent language semantics. See neoCLR's
+`docs/experiments/runtime-async/README.md` and `managed-task-validation.json` for the
+consumer, allocation/lifetime tradeoffs and exact artifact hashes.

@@ -287,21 +287,21 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
-        bool LowerBranch(BoundExpression condition, int target, bool jumpIfTrue, SyntaxNode syntax)
+        bool LowerBranch(BoundExpression condition, int target, bool jumpIfTrue, SyntaxNode syntax, bool atStatementBoundary = false)
         {
             if (condition is BoundParenthesizedExpression parenthesized)
-                return LowerBranch(parenthesized.Expression, target, jumpIfTrue, syntax);
+                return LowerBranch(parenthesized.Expression, target, jumpIfTrue, syntax, atStatementBoundary);
             if (condition is BoundUnaryExpression { Operator.OperatorKind: BoundUnaryOperatorKind.LogicalNot } negated)
-                return LowerBranch(negated.Operand, target, !jumpIfTrue, syntax);
+                return LowerBranch(negated.Operand, target, !jumpIfTrue, syntax, atStatementBoundary);
             if (condition is BoundBinaryExpression { Operator.MethodSymbol: null } logical &&
                 logical.Operator.OperatorKind is OperatorKind.LogicalAnd or OperatorKind.LogicalOr)
             {
                 bool shortCircuitOnTrue = logical.Operator.OperatorKind == OperatorKind.LogicalOr;
                 if (shortCircuitOnTrue == jumpIfTrue)
-                    return LowerBranch(logical.Left, target, jumpIfTrue, syntax) && LowerBranch(logical.Right, target, jumpIfTrue, syntax);
+                    return LowerBranch(logical.Left, target, jumpIfTrue, syntax, atStatementBoundary) && LowerBranch(logical.Right, target, jumpIfTrue, syntax, atStatementBoundary);
                 var skipped = nextLabel++;
-                if (!LowerBranch(logical.Left, skipped, shortCircuitOnTrue, syntax) ||
-                    !LowerBranch(logical.Right, target, jumpIfTrue, syntax)) return false;
+                if (!LowerBranch(logical.Left, skipped, shortCircuitOnTrue, syntax, atStatementBoundary) ||
+                    !LowerBranch(logical.Right, target, jumpIfTrue, syntax, atStatementBoundary)) return false;
                 Add(LinearInstructionKind.Label, syntax, skipped);
                 return true;
             }
@@ -314,7 +314,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 Add(LinearInstructionKind.Label, syntax, failed);
                 return true;
             }
-            if (!LowerValue(condition)) return false;
+            if (!LowerValue(condition, atStatementBoundary: atStatementBoundary)) return false;
             Add(jumpIfTrue ? LinearInstructionKind.BranchTrue : LinearInstructionKind.BranchFalse, syntax, target);
             return true;
         }
@@ -565,7 +565,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (statement is BoundIfStatement conditionalIf)
                 {
                     var otherwise = nextLabel++; var end = nextLabel++;
-                    if (!LowerBranch(conditionalIf.Condition, otherwise, false, Syntax(statement))) return false;
+                    if (!LowerBranch(conditionalIf.Condition, otherwise, false, Syntax(statement), atStatementBoundary)) return false;
                     if (!LowerStatements(conditionalIf.ThenNode, atStatementBoundary)) return false;
                     if (instructions.LastOrDefault().Kind is not (LinearInstructionKind.Return or LinearInstructionKind.Branch or LinearInstructionKind.CompilerFailure))
                         Add(LinearInstructionKind.Branch, Syntax(statement), end);
@@ -586,7 +586,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 if (statement is BoundConditionalGotoStatement conditional)
                 {
-                    if (!LowerBranch(conditional.Condition, Label(conditional.Target), conditional.JumpIfTrue, Syntax(statement))) return false;
+                    if (!LowerBranch(conditional.Condition, Label(conditional.Target), conditional.JumpIfTrue, Syntax(statement), atStatementBoundary)) return false;
                     continue;
                 }
                 if (statement is BoundLocalDeclarationStatement declaration)
@@ -1185,9 +1185,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             }, syntax);
         }
 
-        bool LowerBinaryOperand(BoundExpression operand, ITypeSymbol expectedType)
+        bool LowerBinaryOperand(BoundExpression operand, ITypeSymbol expectedType, bool atStatementBoundary = false)
         {
-            if (!LowerValue(operand)) return false;
+            if (!LowerValue(operand, atStatementBoundary: atStatementBoundary)) return false;
             // Built-in operators retain their promoted operand types even when the
             // bound operand has no explicit conversion node.
             if (expectedType.SpecialType != operand.Type.SpecialType && IsNumeric(expectedType.SpecialType) && IsNumeric(operand.Type.SpecialType))
@@ -1298,7 +1298,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     SymbolEqualityComparer.Default.Equals(conditional.ElseBranch.Type, conditional.Type):
                     var alternative = nextLabel++;
                     var joined = nextLabel++;
-                    if (!LowerBranch(conditional.Condition, alternative, false, Syntax(expression))) return false;
+                    if (!LowerBranch(conditional.Condition, alternative, false, Syntax(expression), atStatementBoundary)) return false;
                     if (!LowerValue(conditional.ThenBranch, conditional.Type, atStatementBoundary)) return false;
                     Add(LinearInstructionKind.Branch, Syntax(expression), joined);
                     Add(LinearInstructionKind.Label, Syntax(expression), alternative);
@@ -1555,9 +1555,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     var shortCircuit = nextLabel++;
                     var completed = nextLabel++;
                     var isOr = logical.Operator.OperatorKind == OperatorKind.LogicalOr;
-                    if (!LowerValue(logical.Left)) return false;
+                    if (!LowerValue(logical.Left, atStatementBoundary: atStatementBoundary)) return false;
                     Add(isOr ? LinearInstructionKind.BranchTrue : LinearInstructionKind.BranchFalse, Syntax(expression), shortCircuit);
-                    if (!LowerValue(logical.Right)) return false;
+                    if (!LowerValue(logical.Right, atStatementBoundary: atStatementBoundary)) return false;
                     Add(LinearInstructionKind.Branch, Syntax(expression), completed);
                     Add(LinearInstructionKind.Label, Syntax(expression), shortCircuit);
                     Add(LinearInstructionKind.Boolean, Syntax(expression), isOr ? 1 : 0);
@@ -1615,7 +1615,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         OperatorKind.Equality or OperatorKind.LessThan or OperatorKind.GreaterThan or
                         OperatorKind.Inequality or OperatorKind.LessThanOrEqual or OperatorKind.GreaterThanOrEqual))
                         return Reject("binary operator " + binary.Operator.OperatorKind, Syntax(expression));
-                    if (!LowerBinaryOperand(binary.Left, binary.Operator.LeftType) || !LowerBinaryOperand(binary.Right, binary.Operator.RightType)) return false;
+                    if (!LowerBinaryOperand(binary.Left, binary.Operator.LeftType, atStatementBoundary) || !LowerBinaryOperand(binary.Right, binary.Operator.RightType)) return false;
                     Add(binary.Operator.OperatorKind switch
                     {
                         OperatorKind.Addition => LinearInstructionKind.Add,

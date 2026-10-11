@@ -1035,6 +1035,32 @@ public class SharedLinearBodyTests
         Assert.Equal("value block cannot exit its enclosing expression", failure!.Detail);
     }
 
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
+    public void ShortCircuitStatementConditionsAllowReturningValueBlocks(OptimizationLevel optimization)
+    {
+        var compilation = Create("""
+            public static class Conditions {
+                public static func Value(skip: bool, exit: bool) -> int {
+                    if skip || (if exit { return 42; 0 } else { 1 }) == 1 {
+                        return 7
+                    }
+                    return 21
+                }
+            }
+            """, optimization);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(declaration)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
+        var method = Emit(compilation).GetType("Conditions")!.GetMethod("Value")!;
+        Assert.Equal(42, method.Invoke(null, [false, true]));
+        Assert.Equal(7, method.Invoke(null, [true, true]));
+        Assert.Equal(7, method.Invoke(null, [false, false]));
+    }
+
     private static Compilation Create(string source, OptimizationLevel optimization)
         => Compilation.Create("SharedBody" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText(source)], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));

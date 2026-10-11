@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Preserve empty evaluation-stack boundaries through portable
+  short-circuit conditions and first numeric operands. Native async consumers can
+  now use inline await in those conditions without a false control-flow rejection.
+  Keep rejection when earlier operands remain on the stack. Qualified by 65 focused
+  shared-body tests and neoCLR's managed Task retained-body consumer; compiler-native
+  async lowering and default changes remain unimplemented.
+
 - **2026-10-11:** Document neoCLR's private unit-result async bridge and Task<()>
   adapter consumer. The runtime distinguishes unit outcomes and CLI no-result stack
   effects; compiler lowering and Runtime Contract settings are unchanged. Record
