@@ -1884,6 +1884,8 @@ internal static class AsyncLowerer
         private int _nextAwaitResultId;
         private int _nextAwaiterLocalId;
         private readonly Stack<BoundBlockStatement> _tryBlocks = new();
+        private readonly List<ILocalSymbol> _activeDisposables = new();
+        private readonly DisposalScopeIndex _disposalScopes = new();
         private readonly Dictionary<BoundBlockStatement, BoundBlockStatement> _blockMap = new(ReferenceEqualityComparer.Instance);
 
         public AwaitLoweringRewriter(
@@ -1934,6 +1936,7 @@ internal static class AsyncLowerer
             if (body is null)
                 throw new ArgumentNullException(nameof(body));
 
+            _disposalScopes.VisitBlockStatement(body);
             _hoistableLocals = AwaitCaptureWalker.Analyze(body, out var declarationOrder);
 
             foreach (var local in declarationOrder)
@@ -1975,6 +1978,8 @@ internal static class AsyncLowerer
         {
             var statements = new List<BoundStatement>();
             var hoistedDisposables = CollectHoistedDisposables(node.LocalsToDispose);
+            var disposalDepth = _activeDisposables.Count;
+            _activeDisposables.AddRange(node.LocalsToDispose);
 
             foreach (var statement in node.Statements)
             {
@@ -1999,10 +2004,68 @@ internal static class AsyncLowerer
                 statements.AddRange(disposeStatements);
             }
 
+            _activeDisposables.RemoveRange(disposalDepth, _activeDisposables.Count - disposalDepth);
             var localsToDispose = FilterLocalsToDispose(node.LocalsToDispose);
             var rewrittenBlock = new BoundBlockStatement(statements, localsToDispose);
             _blockMap[node] = rewrittenBlock;
             return rewrittenBlock;
+        }
+
+        // Hoisted resources no longer have an IL local scope. Dispose those whose
+        // source scope is left by a jump, and clear their fields so completion or
+        // cancellation cleanup cannot dispose them a second time.
+        private List<BoundStatement> LeavingDisposalScope(ILabelSymbol target)
+        {
+            if (!_disposalScopes.Labels.TryGetValue(target, out var retained))
+                return [];
+            var leaving = _activeDisposables.Where(local => !retained.Contains(local)).ToImmutableArray();
+            return CreateDisposeStatements(_stateMachine,
+                EnumerateReverse(CollectHoistedDisposables(leaving))).ToList();
+        }
+
+        public override BoundNode? VisitGotoStatement(BoundGotoStatement node)
+        {
+            var cleanup = LeavingDisposalScope(node.Target);
+            if (cleanup.Count == 0)
+                return node;
+            cleanup.Add(node);
+            return new BoundBlockStatement(cleanup);
+        }
+
+        public override BoundNode? VisitConditionalGotoStatement(BoundConditionalGotoStatement node)
+        {
+            var condition = VisitExpression(node.Condition)!;
+            var cleanup = LeavingDisposalScope(node.Target);
+            if (cleanup.Count == 0)
+                return new BoundConditionalGotoStatement(node.Target, condition, node.JumpIfTrue);
+            cleanup.Add(new BoundGotoStatement(node.Target));
+            var transfer = new BoundBlockStatement(cleanup);
+            return node.JumpIfTrue
+                ? new BoundIfStatement(condition, transfer)
+                : new BoundIfStatement(condition, new BoundBlockStatement([]), transfer);
+        }
+
+        private sealed class DisposalScopeIndex : BoundTreeWalker
+        {
+            private readonly List<ILocalSymbol> _active = new();
+            internal readonly Dictionary<ILabelSymbol, ImmutableArray<ILocalSymbol>> Labels = new(SymbolEqualityComparer.Default);
+
+            public override void VisitFunctionExpression(BoundFunctionExpression node) { }
+            public override void VisitFunctionStatement(BoundFunctionStatement node) { }
+
+            public override void VisitBlockStatement(BoundBlockStatement node)
+            {
+                var depth = _active.Count;
+                _active.AddRange(node.LocalsToDispose);
+                base.VisitBlockStatement(node);
+                _active.RemoveRange(depth, _active.Count - depth);
+            }
+
+            public override void VisitLabeledStatement(BoundLabeledStatement node)
+            {
+                Labels[node.Label] = _active.ToImmutableArray();
+                base.VisitLabeledStatement(node);
+            }
         }
 
         private void RemapGuardBlocks()

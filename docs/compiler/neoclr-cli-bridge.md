@@ -661,3 +661,9 @@ Validation on shared main covers pending awaits in reference/value-type iterator
 arrays and ranges, cancellation/faults, early and labeled outer-loop exits, and
 cleanup before a subsequent await. Native bundle revisions and runtime evidence
 are recorded separately in neoCLR's integration documentation.
+
+Hoisted `use` resources also retain source-scope ownership across branches. Leaving
+such a scope disposes and clears its saved field before transferring control;
+terminal completion/cancellation cleanup then observes an empty field. Focused
+.NET regressions cover labeled `break`/`continue` with an additional scoped resource
+inside the loop, as well as the loop iterator itself.

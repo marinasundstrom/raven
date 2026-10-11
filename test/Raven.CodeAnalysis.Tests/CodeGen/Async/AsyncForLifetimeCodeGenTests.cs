@@ -123,18 +123,21 @@ class Program {
     }
 
     [Theory]
-    [InlineData("continue", 80, 2)]
-    [InlineData("break", 40, 1)]
-    public async Task OutwardLoopTransferDisposesInnerIterator(string transfer, int expected, int acquisitions)
+    [InlineData("continue", 80, 2, false)]
+    [InlineData("continue", 80, 2, true)]
+    [InlineData("break", 40, 1, false)]
+    [InlineData("break", 40, 1, true)]
+    public async Task OutwardLoopTransferDisposesInnerIterator(string transfer, int expected, int acquisitions, bool useResource)
     {
         var source = $$"""
 import System.Collections.Generic.*
 import System.Threading.Tasks.*
 class Program {
-    static async func Run(values: IEnumerable<int>, gate: Task<int>) -> Task<int> {
+    static async func Run(values: IEnumerable<int>, gate: Task<int>, cleanup: System.IDisposable) -> Task<int> {
         var sum = 0
         outer: for index in 1..2 {
             for item in values {
+                {{(useResource ? "use resource = cleanup" : "")}}
                 let value = await gate
                 sum = sum + value
                 {{transfer}} outer
@@ -153,14 +156,17 @@ class Program {
         using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
         var gate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         var values = new Probe();
+        var cleanup = new Probe();
         var task = Assert.IsAssignableFrom<Task<int>>(loaded.Assembly.GetType("Program")!.GetMethod("Run")!
-            .Invoke(null, [values, gate.Task]));
+            .Invoke(null, [values, gate.Task, cleanup]));
         Assert.False(task.IsCompleted, task.Exception?.ToString());
         Assert.Equal(0, values.Disposals);
+        Assert.Equal(0, cleanup.Disposals);
         gate.SetResult(40);
         Assert.Equal(expected, await task.WaitAsync(TimeSpan.FromSeconds(10)));
         Assert.Equal(acquisitions, values.Acquisitions);
         Assert.Equal(acquisitions, values.Disposals);
+        Assert.Equal(useResource ? acquisitions : 0, cleanup.Disposals);
     }
 
     [Fact]
