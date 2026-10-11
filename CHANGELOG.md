@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Document neoCLR's private unit-result async bridge and Task<()>
+  adapter consumer. The runtime distinguishes unit outcomes and CLI no-result stack
+  effects; compiler lowering and Runtime Contract settings are unchanged. Record
+  the runtime's frame-owned entry-drain correction and canonical runtime-async
+  direction, with generated state machines retained for migration/testing.
+
 - **2026-10-11:** Document neoCLR's terminal pending-self-await diagnostic and the
   author's reaffirmed non-recoverable Fault contract. No compiler lowering, Runtime
   Contract option, metadata representation or native/JIT support changes.

@@ -9573,3 +9573,51 @@ helper attribution, terminal cancellation and independent callback waits. Existi
 eager/nested body, repeated/shared result, GC, release and host cancellation checks
 pass in that same suite. Compiler-native await/default switching and comparative
 performance qualification remain open.
+
+
+### Unit-result runtime async POC (2026-10-11)
+
+The interpreter's private TaskDispatch bridge now accepts
+`RuntimeAsyncStart(fn<Void>) -> Int64` alongside the existing integer body form.
+`RuntimeAsyncCompleteUnit(Int64) -> Boolean` completes a pending manual operation
+once with unit; runtime-started bodies retain completion authority.
+`RuntimeAsyncAwaitUnit(Int64) -> Void` suspends until a unit outcome is ready and
+retains it for repeated/shared observation. Unknown/released handles, result-kind
+mismatches and cancelled-result reads fault. Existing cancellation notification,
+release guards and pending-self-await rejection apply. Fault remains non-recoverable.
+Timers still produce Int32 zero; they are not implicitly converted to unit.
+
+This supplies the private operation foundation needed for Raven's `Task<()>`,
+comparable to .NET Task's non-value completion. It does not introduce another public
+Task type or select a generic-result ABI. The runtime stores a distinct unit outcome
+rather than an integer placeholder. No managed-reference result/rooting contract is
+added. General typed results and managed lifetime remain open.
+
+Native intent is an inhabited unit result. The temporary compiler transport may
+encode the intrinsic return as CLI no-result; that form resumes without pushing a
+value. An inhabited Void result resumes with a unit value. The function-object start
+contract remains `fn<Void>`, and the runtime owns completion and frame retention.
+Compiler lowering and Runtime Contract configuration are unchanged; public Task
+integration/default switching and JIT/AOT suspension are still not implemented.
+Future native await metadata/backend integration must preserve both outcome kind
+and stack effects rather than standardize these source-local integer handles.
+
+The compiled Raven consumer starts a unit body, observes its first suspension,
+awaits it through an ordinary `Task<()>` adapter, checks resumption/GC, repeats the
+unit await and releases the terminal operation. Generated state machines remain in
+the adapter; the ordinary unit body itself uses retained runtime frames. Evidence:
+neoCLR `docs/experiments/runtime-async/unit-validation.json`.
+
+The consumer exposed an entry-drain ownership bug: a saved frame depth could match
+an unrelated helper returning within a restored activation, incorrectly injecting
+unit into that helper's caller. Entry-drain resumption now marks the actual owning
+frame, preserving identity through parking/restoration. The focused regression
+reproduces the mixed entry-drain/runtime-body scenario. Validation: 30 operation tests,
+six operation-state tests, eight yield tests, five entry-result tests, two scheduler
+submission tests and three timer tests pass, plus the compiled consumer (54 checks).
+No public API reference or website capability claims change in this private slice.
+
+Author clarification: runtime async is canonical; generated state machines are a
+migration/testing mechanism with eventual retirement intended. They remain useful
+for finding compiler/runtime integration bugs. Defaults remain unchanged until the
+runtime path is qualified; no performance improvement is claimed here.
