@@ -573,3 +573,21 @@ and await outcome projection; skipping generated state machines alone is insuffi
 Keep ordinary CLR AsyncHelpers/async metadata behavior separate. Evidence is neoCLR
 `docs/experiments/runtime-async/start-validation.json`; ordinary Raven functions use
 these private calls, not newly supported compiler-lowered async methods.
+
+### Retained outcome and release bridge (2026-10-11)
+
+Existing RuntimeAsyncAwait(Int64) now observes a retained result; it no longer
+consumes the handle. Multiple parked activations may await the same operation.
+New exact InternalCall `neoCLR.Runtime.RuntimeAsyncRelease(Int64) -> Boolean`
+requires TaskDispatch and releases only terminal operations not used by any active
+or parked waiter/body. Unknown/pending/in-use handles return false; reads after a
+successful release fault. Runtime Contract options and Raven emission are unchanged.
+
+This corrects a temporary single-consumption limitation toward .NET Task observation
+semantics. Explicit release is private bridge ownership, not a public Task.Dispose
+requirement: GC-linked managed ownership must replace it before production projection.
+The 64-handle budget includes retained outcomes until release/teardown. Int32 results,
+invocation-terminal cancellation/faults, interpreter-only execution and missing
+compiler await integration remain limitations. neoCLR owns storage and release guards;
+future Raven target mapping must project Task lifetimes/outcomes explicitly. Evidence:
+neoCLR `docs/experiments/runtime-async/shared-results-validation.json`.

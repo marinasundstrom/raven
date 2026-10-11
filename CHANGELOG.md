@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-07**.
 
 ## Unreleased
 
+- **2026-10-11:** Document retained/shared outcomes and guarded terminal-handle release
+  in neoCLR's private runtime-async bridge. Explicit handle cleanup is temporary,
+  not a public Task disposal contract; compiler lowering/defaults remain unchanged.
+
 - **2026-10-11:** Document neoCLR's private eager async-body invocation bridge and
   the separate body/Task outcome contract needed before target await lowering.
   No compiler capability, Runtime Contract option or default is changed.
