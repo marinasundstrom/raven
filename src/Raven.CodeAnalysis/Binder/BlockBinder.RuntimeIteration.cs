@@ -11,19 +11,26 @@ partial class BlockBinder
         "Runtime iteration contract '{0}' cannot be used: {1}.", "compiler", DiagnosticSeverity.Error, true);
 
     private bool TryClassifyTargetIteration(ITypeSymbol collection, RuntimeIterationContract contract,
-        out ForIterationInfo iteration, out string reason)
+        out ForIterationInfo iteration, out string reason, bool async = false)
     {
+        var selected = async ? contract.Async : null;
+        var iterableName = selected?.IterableTypeName ?? contract.IterableTypeName;
+        var iteratorName = selected?.IteratorTypeName ?? contract.IteratorTypeName;
+        var acquisition = selected?.AcquisitionMethod ?? contract.AcquisitionMethod;
+        var advancement = selected?.AdvanceMethod ?? contract.AdvanceMethod;
+        var currentName = selected?.CurrentProperty ?? contract.CurrentProperty;
         iteration = ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
         reason = "missing or incompatible iterable/iterator declarations";
         if (string.IsNullOrWhiteSpace(contract.AssemblyName)
-            || string.IsNullOrWhiteSpace(contract.IterableTypeName)
-            || string.IsNullOrWhiteSpace(contract.IteratorTypeName)
-            || string.IsNullOrWhiteSpace(contract.AcquisitionMethod)
-            || string.IsNullOrWhiteSpace(contract.AdvanceMethod)
-            || string.IsNullOrWhiteSpace(contract.CurrentProperty))
+            || string.IsNullOrWhiteSpace(iterableName)
+            || string.IsNullOrWhiteSpace(iteratorName)
+            || string.IsNullOrWhiteSpace(acquisition)
+            || string.IsNullOrWhiteSpace(advancement)
+            || string.IsNullOrWhiteSpace(currentName)
+            || (async && string.IsNullOrWhiteSpace(selected?.DisposalMethod)))
             return false;
-        var iterable = Compilation.GetTypeByMetadataName(contract.IterableTypeName);
-        var iterator = Compilation.GetTypeByMetadataName(contract.IteratorTypeName);
+        var iterable = Compilation.GetTypeByMetadataName(iterableName);
+        var iterator = Compilation.GetTypeByMetadataName(iteratorName);
         bool Valid(INamedTypeSymbol? type) => type is { TypeKind: TypeKind.Interface, Arity: 1 }
             && type.ContainingAssembly?.Name == contract.AssemblyName && IsSymbolAccessible(type);
         if (!Valid(iterable) || !Valid(iterator)) return false;
@@ -40,11 +47,11 @@ partial class BlockBinder
         if (expectedCursor is null) return false;
         bool Callable(IMethodSymbol method) => !method.IsStatic && method.Parameters.Length == 0
             && method.TypeParameters.Length == 0 && IsSymbolAccessible(method);
-        var acquire = source.GetMembers(contract.AcquisitionMethod).OfType<IMethodSymbol>()
+        var acquire = source.GetMembers(acquisition).OfType<IMethodSymbol>()
             .Where(m => Callable(m) && SymbolEqualityComparer.Default.Equals(m.ReturnType, expectedCursor)).ToArray();
-        var advance = expectedCursor.GetMembers(contract.AdvanceMethod).OfType<IMethodSymbol>()
-            .Where(m => Callable(m) && m.ReturnType.SpecialType == SpecialType.System_Boolean).ToArray();
-        var current = expectedCursor.GetMembers(contract.CurrentProperty).OfType<IPropertySymbol>()
+        var advance = expectedCursor.GetMembers(advancement).OfType<IMethodSymbol>()
+            .Where(m => Callable(m) && (async ? IsAsyncMoveNextReturnType(m.ReturnType) : m.ReturnType.SpecialType == SpecialType.System_Boolean)).ToArray();
+        var current = expectedCursor.GetMembers(currentName).OfType<IPropertySymbol>()
             .Where(p => !p.IsStatic && p.Parameters.Length == 0 && p.GetMethod is { } getter && Callable(getter)
                 && SymbolEqualityComparer.Default.Equals(p.Type, source.TypeArguments[0]))
             .Select(p => p.GetMethod!).ToArray();
@@ -53,7 +60,22 @@ partial class BlockBinder
             reason = "required acquisition, Boolean advance or element getter has an incompatible or ambiguous signature";
             return false;
         }
-        iteration = ForIterationInfo.ForGeneric(source, expectedCursor, acquire[0], advance[0], current[0]);
+        if (async)
+        {
+            var dispose = expectedCursor.AllInterfaces.Prepend(expectedCursor)
+                .SelectMany(t => t.GetMembers(selected!.DisposalMethod)).OfType<IMethodSymbol>()
+                .Where(m => Callable(m) && AwaitablePattern.TryFind(m.ReturnType, IsSymbolAccessible,
+                    out var pattern, out _, out _) && pattern.GetResultMethod.ReturnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
+                .Distinct(SymbolEqualityComparer.Default).ToArray();
+            if (dispose.Length != 1)
+            {
+                reason = "asynchronous disposal must have one accessible parameterless method awaiting to void or unit";
+                return false;
+            }
+            iteration = ForIterationInfo.ForAsync(source.TypeArguments[0], acquire[0], advance[0], current[0], (IMethodSymbol)dispose[0]);
+        }
+        else
+            iteration = ForIterationInfo.ForGeneric(source, expectedCursor, acquire[0], advance[0], current[0]);
         reason = "";
         return true;
     }

@@ -1144,6 +1144,16 @@ partial class BlockBinder
         if (collectionType?.ContainsErrorType() == true)
             return ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
 
+        if (Compilation.Options.RuntimeIterationContract is { Async: { } selected } contract)
+        {
+            var reason = "missing collection type";
+            if (collectionType is not null && TryClassifyTargetIteration(collectionType, contract, out var targetIteration, out reason, async: true))
+                return targetIteration;
+            _diagnostics.Report(Diagnostic.Create(s_invalidRuntimeIterationContract, iterationSyntax.GetLocation(),
+                selected.IterableTypeName, reason));
+            return ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
+        }
+
         if (collectionType is not null &&
             TryClassifyAwaitForEnumerator(collectionType, out var iteration))
         {

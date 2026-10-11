@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Add explicit asynchronous iteration selection to RuntimeIterationContract.
+  Alternative nominal async iterable/iterator interfaces now bind in `await for`,
+  with Boolean awaited advancement and required void/unit asynchronous disposal.
+  Preserve default .NET binding and diagnose invalid selected contracts without
+  fallback. This consumption contract does not enable alternative generator synthesis.
+
 - **2026-10-11:** Fix synchronous `for` loops containing `await`: preserve iteration
   state, mutate saved value-type enumerators by address, and dispose iterators on
   completion, cancellation, faults and outward loop exits, without disposing on
