@@ -2471,5 +2471,6 @@ internal abstract partial class Binder
     }
 
     protected bool IsValidAsyncReturnType(ITypeSymbol? type)
-        => AsyncReturnTypeUtilities.IsValidAsyncReturnType(type);
+        => AsyncReturnTypeUtilities.IsValidAsyncReturnType(type) ||
+            AsyncReturnTypeUtilities.TryGetRuntimeIterator(Compilation, type, out _, out _);
 }

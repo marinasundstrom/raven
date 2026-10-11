@@ -86,6 +86,9 @@ public sealed class NeoClrProjectMetadataProvider : IProjectMetadataProvider
         {
             if (string.IsNullOrWhiteSpace(asyncLibrary))
                 throw new InvalidDataException("RavenNeoClrRuntimeAsyncHelper requires RavenNeoClrAsyncLibrary.");
+            if (options.RuntimeIterationContract is { Async: { } asyncIteration } iteration)
+                options = options.WithRuntimeIterationContract(iteration with
+                { Async = asyncIteration with { AllowGeneratorBodies = true } });
             if (options.RuntimeDisposalContract is { } disposal)
                 options = options.WithRuntimeDisposalContract(disposal with { AllowAsyncScopeExitCleanup = true });
         }

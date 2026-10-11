@@ -329,6 +329,53 @@ public class RuntimeIterationContractTests
         });
     }
 
+    [Theory]
+    [InlineData("AsyncIterable", true)]
+    [InlineData("AsyncIterator", true)]
+    [InlineData("AsyncIterable", false)]
+    [InlineData("AsyncIterator", false)]
+    public void AlternativeGeneratorBindingRequiresBackendCapability(string shape, bool enabled)
+    {
+        WithContracts("bool", (references, _) =>
+        {
+            var contract = Contract with { Async = new("Contracts.AsyncIterable`1", "Contracts.AsyncIterator`1", AllowGeneratorBodies: enabled) };
+            var compilation = Compilation.Create("GeneratorBinding", [SyntaxTree.ParseText($$"""
+                import Contracts.*
+                class Program {
+                    static async func Values<T>(value: T) -> {{shape}}<T> {
+                        yield value
+                    }
+                }
+                """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary, runtimeIterationContract: contract));
+            var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            if (enabled)
+            {
+                Assert.Empty(errors);
+                var method = Assert.Single(compilation.GetTypeByMetadataName("Program")!.GetMembers("Values").OfType<IMethodSymbol>());
+                Assert.True(method.IsIterator);
+            }
+            else Assert.NotEmpty(errors);
+        });
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ModuleGeneratorUsesTheSameCapability(bool enabled)
+    {
+        WithContracts("bool", (references, _) =>
+        {
+            var contract = Contract with { Async = new("Contracts.AsyncIterable`1", "Contracts.AsyncIterator`1", AllowGeneratorBodies: enabled) };
+            var compilation = Compilation.Create("ModuleGenerator", [SyntaxTree.ParseText("""
+                namespace Example
+                import Contracts.*
+                async func Values<T>(value: T) -> AsyncIterable<T> { yield value }
+                """)], references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary, runtimeIterationContract: contract));
+            var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
+            if (enabled) Assert.Empty(errors); else Assert.NotEmpty(errors);
+        });
+    }
+
     private static Compilation Create(MetadataReference[] references, RuntimeIterationContract? contract) =>
         Compilation.Create("Consumer", [SyntaxTree.ParseText("""
             import Contracts.*

@@ -27,4 +27,5 @@ public sealed record RuntimeAsyncIterationContract(
     string AcquisitionMethod = "GetAsyncIterator",
     string AdvanceMethod = "MoveNextAsync",
     string CurrentProperty = "Current",
-    string DisposalMethod = "DisposeAsync");
+    string DisposalMethod = "DisposeAsync",
+    bool AllowGeneratorBodies = false);

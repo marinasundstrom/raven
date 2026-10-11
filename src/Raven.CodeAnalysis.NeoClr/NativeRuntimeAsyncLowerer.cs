@@ -12,10 +12,13 @@ internal static class NativeRuntimeAsyncLowerer
     internal static SourceCallablePlan Rewrite(Compilation compilation, SourceCallablePlan plan, string helperName)
     {
         UnsupportedInputException Unsupported(string reason) => new("runtime async POC: " + reason, plan.Syntax.GetLocation());
-        if (plan.Symbol is not SourceMethodSymbol method || method.IsGenericMethod ||
-            method.ContainingType?.Arity is > 0 || method.IsIterator ||
-            method.ReturnType is not INamedTypeSymbol { SpecialType: SpecialType.System_Threading_Tasks_Task_T, TypeArguments.Length: 1 } task)
-            throw Unsupported("requires a nongeneric Task<T> method on a nongeneric owner");
+        if (plan.Symbol is not SourceMethodSymbol method || method.IsGenericMethod || method.ContainingType?.Arity is > 0)
+            throw Unsupported("requires a nongeneric method on a nongeneric owner");
+        var generator = AsyncReturnTypeUtilities.TryGetRuntimeIterator(compilation, method.ReturnType, out var iteratorKind, out var elementType);
+        var task = method.ReturnType as INamedTypeSymbol;
+        if (!generator && (method.IsIterator || task is not { SpecialType: SpecialType.System_Threading_Tasks_Task_T, TypeArguments.Length: 1 }))
+            throw Unsupported("requires Task<T> or a selected async iterator return type");
+        var unit = compilation.GetSpecialType(SpecialType.System_Unit);
         if (!method.IsStatic && method.ContainingType?.IsReferenceType != true)
             throw Unsupported("value-type receivers are not supported");
         var helper = compilation.GetTypeByMetadataName(helperName)
@@ -29,27 +32,56 @@ internal static class NativeRuntimeAsyncLowerer
             return matches.Length == 1 ? matches[0]
                 : throw Unsupported("helper requires an unambiguous static " + name + "<T> contract");
         }
-        var resultType = task.TypeArguments[0];
+        var resultType = generator ? unit : task!.TypeArguments[0];
         var start = Resolve("Start", 1).Construct(resultType);
         var complete = Resolve("Complete", 1).Construct(resultType);
         var cancel = Resolve("Cancel", 0).Construct(resultType);
         var waits = helper.GetMembers("Wait").OfType<IMethodSymbol>()
             .Where(m => m.IsStatic && m.Arity <= 1 && m.Parameters.Length == 1).ToImmutableArray();
         var outcome = complete.ReturnType;
+        IMethodSymbol? yieldMethod = null;
+        if (generator)
+        {
+            var producerHelper = compilation.GetTypeByMetadataName(helperName + "Generator")
+                ?? throw Unsupported("generator helper is unavailable: " + helperName + "Generator");
+            if (!SymbolEqualityComparer.Default.Equals(producerHelper.ContainingAssembly, method.ContainingAssembly))
+                throw Unsupported("the generator helper must be source-included in this assembly");
+            IMethodSymbol ProducerMethod(string name, int count)
+            {
+                var matches = producerHelper.GetMembers(name).OfType<IMethodSymbol>()
+                    .Where(m => m.IsStatic && m.Arity == 1 && m.Parameters.Length == count).Take(2).ToArray();
+                return matches.Length == 1 ? matches[0].Construct(elementType)
+                    : throw Unsupported("generator helper requires one " + name + "<T> mapping");
+            }
+            start = ProducerMethod(iteratorKind == IteratorMethodKind.AsyncEnumerable ? "CreateIterable" : "CreateIterator", 1);
+            yieldMethod = ProducerMethod("Yield", 2);
+        }
         var delegateType = start.Parameters[0].Type;
-        if (!SymbolEqualityComparer.Default.Equals(start.ReturnType, task) ||
+        if (!SymbolEqualityComparer.Default.Equals(start.ReturnType, method.ReturnType) ||
             !SymbolEqualityComparer.Default.Equals(complete.Parameters[0].Type, resultType) ||
             !SymbolEqualityComparer.Default.Equals(cancel.ReturnType, outcome) ||
             delegateType is not INamedTypeSymbol { TypeKind: TypeKind.Delegate } function ||
-            function.GetDelegateInvokeMethod() is not { Parameters.Length: 0 } invoke ||
+            function.GetDelegateInvokeMethod() is not { } invoke ||
+            invoke.Parameters.Length != (generator ? 1 : 0) ||
             !SymbolEqualityComparer.Default.Equals(invoke.ReturnType, outcome) || waits.IsEmpty)
             throw Unsupported("helper Start/Complete/Cancel/Wait signatures do not match");
         var model = compilation.GetSemanticModel(plan.Syntax.SyntaxTree);
         if (plan.Body is null || model.GetBoundNode(plan.Body, BoundTreeView.Original) is not BoundBlockStatement body)
             throw Unsupported("requires a bound block body");
-        var unit = compilation.GetSpecialType(SpecialType.System_Unit);
         var lambda = new SourceLambdaSymbol([], outcome, method, method.ContainingType, method.ContainingNamespace,
             [plan.Syntax.GetLocation()]);
+        IParameterSymbol? producer = null;
+        if (generator)
+        {
+            producer = new SourceParameterSymbol("__ravenGenerator", invoke.Parameters[0].Type, lambda,
+                method.ContainingType, method.ContainingNamespace, [Location.None], []);
+            lambda.SetParameters([producer]);
+            if (!SymbolEqualityComparer.Default.Equals(yieldMethod!.Parameters[0].Type, producer.Type) ||
+                !SymbolEqualityComparer.Default.Equals(yieldMethod.Parameters[1].Type, elementType) ||
+                !AwaitablePattern.TryFind(yieldMethod.ReturnType, null, out var yieldAwaitable, out _, out _) ||
+                yieldAwaitable.GetResultMethod.ReturnType.SpecialType != SpecialType.System_Boolean)
+                throw Unsupported("generator Yield must take its cursor and element and await to Boolean");
+        }
         var captures = method.Parameters.Cast<ISymbol>().ToList();
         if (!method.IsStatic) captures.Insert(0, method.ContainingType!);
         lambda.SetDelegateType(delegateType);
@@ -57,10 +89,11 @@ internal static class NativeRuntimeAsyncLowerer
         body = ImplicitReturnRewriter.RewriteIfNeeded(resultType, unit, body);
         // Expose implicit awaits and loop transfers before replacing waits with
         // runtime suspension. Cleanup scopes then remain explicit on every exit.
+        if (generator) body = YieldFromLowerer.Rewrite(method, compilation, body);
         body = AwaitForLowerer.Rewrite(method, body);
         body = AsyncForLowerer.Rewrite(method, body, useExceptionHandling: false);
         body = (BoundBlockStatement)new CleanupScopes(compilation, lambda, Unsupported).VisitStatement(body)!;
-        var rewriter = new Rewriter(lambda, unit, resultType, complete, cancel, waits, Unsupported);
+        var rewriter = new Rewriter(lambda, unit, resultType, complete, cancel, waits, Unsupported, yieldMethod, producer);
         rewriter.IndexLabels(body);
         body = (BoundBlockStatement)rewriter.VisitStatement(body)!;
         if (resultType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
@@ -69,7 +102,7 @@ internal static class NativeRuntimeAsyncLowerer
             body = new BoundBlockStatement([.. body.Statements, new BoundThrowStatement(new BoundUnitExpression(unit),
                 compilerFailure: "Runtime async body reached an invalid fallthrough")], body.LocalsToDispose);
         body = Lowerer.LowerBlock(lambda, body);
-        var expression = new BoundFunctionExpression([], outcome,
+        var expression = new BoundFunctionExpression(lambda.Parameters, outcome,
             new BoundBlockExpression(body.Statements, unit, body.LocalsToDispose), lambda, delegateType, captures, []);
         var wrapper = new BoundBlockStatement([new BoundReturnStatement(new BoundInvocationExpression(start, [expression]))]);
         return plan with { PreparedBody = wrapper };
@@ -154,7 +187,7 @@ internal static class NativeRuntimeAsyncLowerer
     private sealed class Rewriter(
         SourceLambdaSymbol owner, ITypeSymbol unit, ITypeSymbol resultType,
         IMethodSymbol complete, IMethodSymbol cancel, ImmutableArray<IMethodSymbol> waits,
-        Func<string, UnsupportedInputException> unsupported) : BoundTreeRewriter
+        Func<string, UnsupportedInputException> unsupported, IMethodSymbol? yieldMethod, IParameterSymbol? producer) : BoundTreeRewriter
     {
         private int ordinal;
         private readonly List<BoundBlockStatement> cleanups = [];
@@ -259,6 +292,23 @@ internal static class NativeRuntimeAsyncLowerer
                 new BoundExpressionStatement(new BoundInvocationExpression(node.GetResultMethod, [], receiver: new BoundLocalAccess(temporary)))
             ], unit);
         }
+        public override BoundNode? VisitYieldStatement(BoundYieldStatement node)
+        {
+            if (yieldMethod is null || producer is null || node.Iteration is not null)
+                throw unsupported("yield requires the selected generator protocol");
+            var invocation = new BoundInvocationExpression(yieldMethod, [new BoundParameterAccess(producer), node.Expression]);
+            if (!AwaitablePattern.TryFind(yieldMethod.ReturnType, null, out var pattern, out _, out _))
+                throw unsupported("Yield result is not awaitable");
+            var awaited = new BoundAwaitExpression(invocation, pattern.GetResultMethod.ReturnType, pattern.AwaiterType,
+                pattern.GetAwaiterMethod, pattern.GetResultMethod, pattern.IsCompletedProperty);
+            var resume = VisitExpression(awaited)!;
+            var stop = new BoundBlockStatement([.. CleanupTo(0), Completion(new BoundUnitExpression(unit))]);
+            return new BoundIfStatement(resume, new BoundBlockStatement([]), stop);
+        }
+        public override BoundNode? VisitYieldExpression(BoundYieldExpression node)
+            => new BoundBlockExpression([(BoundStatement)VisitYieldStatement(new BoundYieldStatement(
+                node.Expression, node.ElementType, node.IteratorKind, node.Iteration))!,
+                new BoundExpressionStatement(new BoundUnitExpression(unit))], unit);
         public override BoundNode? VisitReturnExpression(BoundReturnExpression node) =>
             throw unsupported("return expressions inside value expressions are not supported");
         public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node)

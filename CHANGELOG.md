@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 ## Unreleased
 
+- **2026-10-11:** Lower native async generators through the opt-in retained-body
+  provider: lazy iterable/iterator factories, demand-driven yield, delegated yields,
+  lexical disposal and cancellation. Carry shared generator binding capability from
+  main deliberately. Interpreter/JIT/AOT consumer validation passes on macOS ARM64;
+  generic source methods, abandoned producer collection and performance remain open.
+
 - **2026-10-11:** Lower selected `await for` in the explicit native retained-body
   async POC. Await advancement and cleanup; preserve lexical cleanup order across
   return, loop transfers and cancellation, including mixed synchronous `use` scopes.

@@ -1288,9 +1288,11 @@ partial class BlockBinder : Binder
     private bool UseRequiresSuspensionCleanup(SyntaxNode declaration)
     {
         var allowAsync = Compilation.Options.RuntimeDisposalContract?.AllowAsyncScopeExitCleanup == true;
+        var allowIterator = allowAsync && _containingSymbol is IMethodSymbol { IsAsync: true } owner &&
+            AsyncReturnTypeUtilities.TryGetRuntimeIterator(Compilation, owner.ReturnType, out _, out _);
         var function = declaration.Ancestors().FirstOrDefault(node => node is
             MethodDeclarationSyntax or FunctionStatementSyntax or FunctionExpressionSyntax or AccessorDeclarationSyntax);
-        if (function is not null && function.ChildNodes().Any(Compilation.ContainsYieldOutsideNestedFunctions))
+        if (!allowIterator && function is not null && function.ChildNodes().Any(Compilation.ContainsYieldOutsideNestedFunctions))
             return true;
 
         for (Binder? current = this; current is not null; current = current.ParentBinder)
@@ -1298,9 +1300,9 @@ partial class BlockBinder : Binder
             switch (current.ContainingSymbol)
             {
                 case SourceLambdaSymbol lambda:
-                    return (lambda.IsAsync && !allowAsync) || lambda.IsIterator;
+                    return (lambda.IsAsync && !allowAsync) || (lambda.IsIterator && !allowIterator);
                 case SourceMethodSymbol method:
-                    return (method.IsAsync && !allowAsync) || method.IsIterator;
+                    return (method.IsAsync && !allowAsync) || (method.IsIterator && !allowIterator);
                 case ILambdaSymbol lambda:
                     return lambda.IsAsync && !allowAsync;
                 case IMethodSymbol method:

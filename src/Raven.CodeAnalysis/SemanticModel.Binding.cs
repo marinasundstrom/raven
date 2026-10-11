@@ -899,7 +899,8 @@ public partial class SemanticModel
                 methodSymbol.TypeParameters);
             methodSymbol.SetReturnType(returnType);
 
-            if (isAsync && !AsyncReturnTypeUtilities.IsValidAsyncReturnType(returnType, allowErrorType: false))
+            if (isAsync && !AsyncReturnTypeUtilities.IsValidAsyncReturnType(returnType, allowErrorType: false) &&
+                !AsyncReturnTypeUtilities.TryGetRuntimeIterator(Compilation, returnType, out _, out _))
             {
                 var display = returnType.TypeKind == TypeKind.Error
                     ? returnTypeSyntax.Type.ToString()

@@ -9934,3 +9934,34 @@ integration and is not qualified for `await for`. Alternative generator synthesi
 parameterized acquisition/token forwarding, and a production retained-stack carrier
 remain open. The retained runtime is still platform-limited; this is not a default
 switch. neoCLR's runtime-async experiment owns cross-mode executable evidence.
+
+### Native retained-body generator production (2026-10-11)
+
+The explicit runtime-async POC selection now enables
+`RuntimeIterationContract.Async.AllowGeneratorBodies`. Shared main commit `8d787feca` is deliberately carried; the binder recognizes
+selected async iterable/iterator returns, including module functions and delegation.
+Ordinary .NET defaults and native execution defaults are unchanged.
+
+Native lowering expands `yield from` before async loop cleanup and maps each `yield`
+to an awaited Boolean demand/stop handshake. A false resume leaves all active cleanup
+scopes and completes the producer. Cancellation uses the existing cancellation path;
+terminal Fault remains nonrecoverable without guaranteed unwinding.
+
+The source-local helper named `<RuntimeAsyncHelper>Generator` must expose generic
+CreateIterable/CreateIterator factories and Yield(cursor, element), using the same
+outcome type as the existing runtime helper. Signature checks reject mismatches.
+The cursor callback owns a retained runtime body; no iterator state machine is emitted.
+This is a temporary bound-tree/CLI bridge, not native generator metadata or a public
+runtime ABI. Raven owns binding/lowering; neoCLR owns the experimental helper and
+cross-mode lifecycle qualification. A native suspension/lifetime representation and
+production carrier remain the replacement.
+
+The neoCLR `async-generator-language-validation.json` report qualifies integer and
+string elements, direct iterator returns, lazy/repeated acquisition, demand, delegation,
+early disposal, cancellation and GC during live yields in interpreter and macOS ARM64
+JIT/AOT. Generic source methods and generic owners are still rejected by the retained
+backend; closed generic element types are supported. Abandoned suspended producers
+are not proven collectible, concurrent advancement/disposal is rejected, and acquisition
+cancellation is not yet parameterized. Awaitless generator bodies can still emit the
+existing RAV2706 warning despite suspension at yield; that diagnostic is follow-up work.
+No Windows or performance readiness is claimed.

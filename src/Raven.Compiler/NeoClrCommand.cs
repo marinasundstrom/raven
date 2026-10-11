@@ -301,6 +301,9 @@ internal static class NeoClrCommand
             if (runtimeAsyncHelper is not null && compilationOptions.RuntimeDisposalContract is { } disposal)
                 compilationOptions = compilationOptions.WithRuntimeDisposalContract(
                     disposal with { AllowAsyncScopeExitCleanup = true });
+            if (runtimeAsyncHelper is not null && compilationOptions.RuntimeIterationContract is { Async: { } asyncIteration } iteration)
+                compilationOptions = compilationOptions.WithRuntimeIterationContract(iteration with
+                { Async = asyncIteration with { AllowGeneratorBodies = true } });
             if (nativeCore)
                 compilationOptions = compilationOptions.WithTargetCoreAssemblyName(core.Name)
                     .WithRuntimeTypeOfContract(null)
