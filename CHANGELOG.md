@@ -6,8 +6,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 - **2026-10-11:** Synthesize typed generic native closure frames, remapping source
   method parameters into callback owner scope and isolating constructed-reference
-  caches. Enable generic retained-body async generators on nongeneric owners;
-  retain generic Task-method and generic-owner restrictions. Ordinary .NET emission
+  caches. Enable generic retained-body async generators on generic reference owners
+  as well as nongeneric owners. Preserve private access through nested generic frames
+  and constructed receiver fields; retain generic Task-method restrictions. Preserve
+  use cleanup when cancellation occurs inside a call argument by traversing native
+  runtime-async argument lists within their active cleanup scope. Ordinary .NET emission
   is unchanged; this portable/native emitter work remains on the native compiler line.
 
 - **2026-10-11:** Avoid the awaitless/synchronous warning for generator bodies

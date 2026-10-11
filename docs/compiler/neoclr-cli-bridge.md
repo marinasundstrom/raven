@@ -10013,3 +10013,41 @@ Validation: 45 focused portable-capture/runtime-iteration tests pass on .NET 11.
 The generator and existing await-for lifecycle consumers each pass interpreter,
 macOS ARM64 JIT and AOT using the final compiler. This is functional and live-GC
 qualification, not a new performance measurement or abandoned-body collection proof.
+
+
+### Generic containing types in retained generators (2026-10-11)
+
+The native compiler line now admits generic reference-class owners for generator
+methods and generic function captures. The closure parameter scope concatenates
+containing-type and method parameters, then maps those symbols into the nested frame's
+type-parameter scope. Frame parameter names are synthesized to avoid shadow-name
+collisions. Captured receiver field operands use constructed declaring references.
+
+Frames retain their source lexical owner through native nested generic class metadata.
+No assembly-visible field accessor bridge is emitted. The native metadata API is the
+owner of lexical identity, and neoCLR verification enforces private access using that
+identity. This follows the CLI model of NestedClass plus an explicit full generic
+parameter list. Native encoding details do not change source accessibility.
+
+Configuration is unchanged: explicit runtime-contract generator capability,
+`--runtime-async-poc`, source-local Bridge/BridgeGenerator providers and matching
+experimental library artifacts. Ordinary .NET behavior stays the default. Generic
+Task-returning retained methods, value receivers and mutable local captures remain
+unsupported. This is native-line portable/emission work; Raven main has no matching
+portable emitter subsystem and is not merged with this branch.
+
+Validation: 47 focused generic-capture and RuntimeIterationContract tests pass on
+.NET 11. The neoCLR `RuntimeGeneratorLanguage.rvn` consumer exercises private generic
+receiver state, owner/method parameter scopes, pending waits, delegation, cancellation,
+disposal and GC. Its three-mode report records the exact tested compiler and libraries.
+Native operation metadata and a production suspension carrier remain the eventual
+replacement for the source-local async bridge; nested ownership needs no bridge.
+
+
+The new cancellation case also exposed deferred traversal of invocation argument
+lists by the base bound-tree visitor. The stateful runtime-async rewriter now
+materializes each list inside its active cleanup scope; `Identity(await gate)`
+under `use` therefore disposes before returning cancellation. Fault behavior is
+unchanged. This is a local fix to the native retained-body transform. A general audit
+of stateful visitors using the shared lazy VisitList remains a separate main-line
+candidate; changing all visitors eagerly is not required by this slice.

@@ -403,7 +403,7 @@ internal static class Int32Emitter
                     _ => throw Unsupported("unsupported closure capture")
                 }).ToArray();
                 var context = prepared[index].Plan.Symbol;
-                var parameters = closureParameters.TryGetValue(context, out var inherited) ? inherited : context.TypeParameters.ToArray();
+                var parameters = closureParameters.TryGetValue(context, out var inherited) ? inherited : (context.ContainingType?.TypeParameters ?? []).Concat(context.TypeParameters).ToArray();
                 if (parameters.Length != 0) closureParameters.Add(symbol, parameters);
                 if (captures.Length != 0 || parameters.Length != 0) closureCaptures.Add(symbol, captures);
                 signature = signature with { IsInstance = captures.Length != 0 || parameters.Length != 0 };
@@ -716,11 +716,14 @@ internal static class Int32Emitter
             {
                 var frameName = "$closure$" + closureFields.Count;
                 var scope = closureParameters.GetValueOrDefault(plan.Symbol) ?? [];
+                var lexicalOwner = plan.Symbol.ContainingType;
+                var nativeOwner = lexicalOwner is not null && nativeTypes.TryGetValue(lexicalOwner, out var ownerDefinition) ? ownerDefinition : null;
+                var parameters = scope.Select((p, index) => "T" + index);
                 var frame = scope.Length != 0
-                    ? assembly.AddGenericClass("Raven.Generated", frameName, scope.Select(p => p.Name), TypeVisibility.Internal)
-                    : plan.Symbol.ContainingType is { } lexicalOwner && nativeTypes.TryGetValue(lexicalOwner, out var nativeOwner)
-                    ? nativeOwner.AddNestedClass(frameName, TypeVisibility.Internal)
-                    : assembly.AddClass("", frameName, TypeVisibility.Internal);
+                    ? nativeOwner is not null ? nativeOwner.AddNestedGenericClass(frameName, parameters, TypeVisibility.Internal)
+                        : assembly.AddGenericClass("Raven.Generated", frameName, parameters, TypeVisibility.Internal)
+                    : nativeOwner is not null ? nativeOwner.AddNestedClass(frameName, TypeVisibility.Internal)
+                        : assembly.AddClass("", frameName, TypeVisibility.Internal);
                 var captureFields = captures.Select((capture, index) => frame.AddField("capture" + index,
                     NeoClrTypeMapper.Map(capture, type => nativeTypes[type], named => ScopedExternal(named, scope), p => ScopedParameter(p, scope)), FieldVisibility.Private)).ToArray();
                 var constructor = frame.AddConstructor(new MethodSignature(PrimitiveType.Void, captureFields.Select(field => field.FieldType)));
@@ -939,8 +942,7 @@ internal static class Int32Emitter
                     if (!definedMethods.TryGetValue(symbol.OriginalDefinition, out var target) && !interfaceMethods.TryGetValue(symbol.OriginalDefinition, out target))
                         throw Unsupported("Function binding requires an owned target");
                     var genericClosure = closureParameters.GetValueOrDefault(symbol) ?? [];
-                    var closureArguments = genericClosure.Select(p => emissionScope.Length == 0
-                        ? SignatureType.MethodParameter(p.Ordinal) : ScopedParameter(p, emissionScope)).ToArray();
+                    var closureArguments = genericClosure.Select(p => ScopedParameter(p, emissionScope)).ToArray();
                     if (closureConstructors.TryGetValue(symbol, out var constructor))
                     {
                         if (closureArguments.Length == 0) output.NewObject(constructor);
@@ -998,7 +1000,13 @@ internal static class Int32Emitter
             {
                 if (SymbolEqualityComparer.Default.Equals(field, graphemeField)) return new NeoClrFieldReference(null, GraphemeStorage: nativeTypes[graphemeOwner!]);
                 if (primitiveFields.TryGetValue(field, out var primitive)) return new NeoClrFieldReference(null, IntrinsicStorage: primitive, StringConstructorStorage: current.Plan.Symbol.MethodKind == MethodKind.Constructor);
-                if (fields.TryGetValue(field, out var definition)) return new NeoClrFieldReference(definition);
+                if (fields.TryGetValue(field, out var definition))
+                {
+                    if (emissionScope.Length != 0 && field.ContainingType is { Arity: > 0 } capturedOwner)
+                        return new NeoClrFieldReference(definition, definition.MakeConstructedReference(capturedOwner.TypeArguments
+                            .Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))).ToArray()));
+                    return new NeoClrFieldReference(definition);
+                }
                 if (field is SubstitutedFieldSymbol substituted && field.ContainingType is { Arity: > 0 } owner && fields.TryGetValue(substituted.OriginalField, out definition))
                     return new NeoClrFieldReference(definition, definition.MakeConstructedReference(owner.TypeArguments.Select(t => NeoClrTypeMapper.Map(t, type => nativeTypes[type], named => ScopedExternal(named, emissionScope), p => ScopedParameter(p, emissionScope))).ToArray()));
                 var originalField = field is SubstitutedFieldSymbol importedSubstitution ? importedSubstitution.OriginalField : field;

@@ -12,11 +12,11 @@ internal static class NativeRuntimeAsyncLowerer
     internal static SourceCallablePlan Rewrite(Compilation compilation, SourceCallablePlan plan, string helperName)
     {
         UnsupportedInputException Unsupported(string reason) => new("runtime async POC: " + reason, plan.Syntax.GetLocation());
-        if (plan.Symbol is not SourceMethodSymbol method || method.ContainingType?.Arity is > 0)
-            throw Unsupported("requires a source method on a nongeneric owner");
+        if (plan.Symbol is not SourceMethodSymbol method)
+            throw Unsupported("requires a source method");
         var generator = AsyncReturnTypeUtilities.TryGetRuntimeIterator(compilation, method.ReturnType, out var iteratorKind, out var elementType);
-        if (!generator && method.IsGenericMethod)
-            throw Unsupported("generic Task methods remain unsupported");
+        if (!generator && (method.IsGenericMethod || method.ContainingType?.Arity is > 0))
+            throw Unsupported("generic Task methods and owners remain unsupported");
         var task = method.ReturnType as INamedTypeSymbol;
         if (!generator && (method.IsIterator || task is not { SpecialType: SpecialType.System_Threading_Tasks_Task_T, TypeArguments.Length: 1 }))
             throw Unsupported("requires Task<T> or a selected async iterator return type");
@@ -191,6 +191,11 @@ internal static class NativeRuntimeAsyncLowerer
         IMethodSymbol complete, IMethodSymbol cancel, ImmutableArray<IMethodSymbol> waits,
         Func<string, UnsupportedInputException> unsupported, IMethodSymbol? yieldMethod, IParameterSymbol? producer) : BoundTreeRewriter
     {
+        // Generated visitors otherwise defer argument-list traversal until after
+        // VisitTryStatement has popped the lexical cleanup scope.
+        public override IEnumerable<T> VisitList<T>(IEnumerable<T> nodes)
+            => base.VisitList(nodes).ToArray();
+
         private int ordinal;
         private readonly List<BoundBlockStatement> cleanups = [];
         private readonly Dictionary<ILabelSymbol, int> labelDepths = new(SymbolEqualityComparer.Default);

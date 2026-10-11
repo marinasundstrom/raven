@@ -787,13 +787,44 @@ public class SharedLinearBodyTests
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
             Enum.GetValues<LinearInstructionKind>(), allowsFunctionValues: true,
             allowsGenericMethods: true, allowsGenericFunctionCaptures: enabled);
-        Assert.Equal(enabled, LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
-            model, method.Body!, _ => false, out _, out _, capabilities));
+        var admitted = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+            model, method.Body!, _ => false, out _, out var failure, capabilities);
+        Assert.True(admitted == enabled, failure?.Detail);
         var factory = Emit(compilation).GetType("Capture")!.GetMethod("Make")!;
         var integer = (Delegate)factory.MakeGenericMethod(typeof(int)).Invoke(null, [42])!;
         var text = (Delegate)factory.MakeGenericMethod(typeof(string)).Invoke(null, ["capture"])!;
         Assert.Equal(42, integer.DynamicInvoke());
         Assert.Equal("capture", text.DynamicInvoke());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GenericOwnerCaptureRequiresBackendCapability(bool enabled)
+    {
+        var compilation = Create("""
+            public class Capture<T> {
+                public func Make<U>(value: T, other: U) -> () -> T {
+                    return () => value
+                }
+            }
+            """, OptimizationLevel.Release);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
+            Enum.GetValues<LinearInstructionKind>(), [EmissionDeclarationKind.RootClass],
+            [Accessibility.Public], allowsFunctionValues: true,
+            allowsGenericMethods: true, allowsGenericInstanceMethods: true, allowsGenericClassOwners: true,
+            allowsGenericFunctionCaptures: enabled);
+        var admitted = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+            model, method.Body!, _ => false, out _, out var failure, capabilities);
+        Assert.True(admitted == enabled, failure?.Detail);
+        var owner = Emit(compilation).GetType("Capture`1")!.MakeGenericType(typeof(int));
+        var callback = (Delegate)owner.GetMethod("Make")!.MakeGenericMethod(typeof(string))
+            .Invoke(Activator.CreateInstance(owner), [42, "different method parameter"])!;
+        Assert.Equal(42, callback.DynamicInvoke());
     }
 
     [Fact]

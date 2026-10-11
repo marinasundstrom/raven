@@ -1641,7 +1641,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundFunctionExpression function when capabilities?.AllowsFunctionValues == true &&
                     function.Symbol is SourceLambdaSymbol { IsAsync: false, IsIterator: false, IsExpressionTreeLambda: false, IsGenericMethod: false } lambda &&
-                    lambda.ContainingType?.Arity is not > 0 &&
+                    (lambda.ContainingType?.Arity is not > 0 || capabilities.AllowsGenericFunctionCaptures) &&
                     TryType(function.DelegateType, false, out var lambdaType) && capabilities.Allows(lambdaType):
                     foreach (var capture in function.CapturedVariables)
                     {
